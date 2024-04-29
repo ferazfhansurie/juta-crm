@@ -47,17 +47,9 @@ function Main() {
   };
   setDarkModeClass();
 
-  const themes: Array<Themes["name"]> = [
-    "rubick",
-    "icewall",
-    "tinker",
-    "enigma",
-  ];
-  const layouts: Array<Themes["layout"]> = [
-    "side-menu",
-    "simple-menu",
-    "top-menu",
-  ];
+
+  const themes: Array<Themes["name"]> = ["tinker"]; // Only include Tinker theme
+  const layouts: Array<Themes["layout"]> = ["simple-menu"]; // Only include Simple Menu layout
   const colorSchemes: Array<ColorSchemes> = [
     "default",
     "theme-1",

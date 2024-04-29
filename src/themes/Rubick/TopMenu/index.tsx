@@ -47,7 +47,7 @@ function Main() {
       <div className="border-b border-white/[0.08] mt-[2.2rem] md:-mt-5 -mx-3 sm:-mx-8 px-3 sm:px-8 pt-3 md:pt-0 mb-10">
         <div className="flex items-center h-[70px] z-[51] relative">
           {/* BEGIN: Logo */}
-          <Link to="/" className="hidden -intro-x md:flex">
+          <Link to="/dashboard" className="hidden -intro-x md:flex">
             <img
               alt="Midone Tailwind HTML Admin Template"
               className="w-6"
@@ -61,8 +61,8 @@ function Main() {
             light
             className="h-full md:ml-10 md:pl-10 md:border-l border-white/[0.08] mr-auto -intro-x"
           >
-            <Breadcrumb.Link to="/">Application</Breadcrumb.Link>
-            <Breadcrumb.Link to="/" active={true}>
+            <Breadcrumb.Link to="/dashboard">Application</Breadcrumb.Link>
+            <Breadcrumb.Link to="/dashboard" active={true}>
               Dashboard
             </Breadcrumb.Link>
           </Breadcrumb>

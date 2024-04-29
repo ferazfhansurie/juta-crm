@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from 'axios';
-
+import "./style.css";
 interface Chat {
   id?: string;
   name?: string | "";
@@ -10,9 +9,9 @@ interface Chat {
 interface Message {
   id: string;
   text?: {
-    body: string|"";
+    body: string | "";
   };
-  from_me: boolean;
+  from_me?: boolean;
   createdAt?: number;
   type?: string;
   image?: {
@@ -26,6 +25,7 @@ function Main() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState<string>("");
+  const [isLoading, setLoading] = useState<boolean>(false); // Loading state
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const WHAPI_BASE_URL = 'https://gate.whapi.cloud';
@@ -34,68 +34,129 @@ function Main() {
   // Update the CSS classes for message bubbles
   const myMessageClass = "flex-end bg-green-500 max-w-30 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md self-end ml-auto text-white text-right";
   const otherMessageClass = "flex-start bg-gray-700 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md text-white self-start";
-
   useEffect(() => {
-    const fetchChats = async () => {
-      const response = await axios.get(`${WHAPI_BASE_URL}/chats`, {
-        headers: {
-          'Authorization': `Bearer ${WHAPI_ACCESS_TOKEN}`
+    const fetchChatsWithRetry = async () => {
+      let retryCount = 0;
+      const maxRetries = 10;
+      const retryDelay = 1000; // 1 second
+  
+      while (retryCount < maxRetries) {
+        try {
+          setLoading(true); // Set loading to true before fetching chats
+          const response = await fetch(`${WHAPI_BASE_URL}/chats`, {
+            headers: {
+              'Authorization': `Bearer ${WHAPI_ACCESS_TOKEN}`
+            }
+          });
+  
+          if (!response.ok) {
+            throw new Error('Failed to fetch chats');
+          }
+  
+          const data = await response.json();
+          setChats(data.chats.map((chat: Chat) => ({
+            ...chat,
+          })));
+          
+          // Exit the loop if chats are fetched successfully
+          return;
+        } catch (error) {
+          console.error('Failed to fetch chats:', error);
+  
+          // Increment the retry count
+          retryCount++;
+  
+          // Wait for retryDelay milliseconds before trying again
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        } finally {
+          setLoading(false); // Set loading to false after fetching chats
         }
-      });
-    console.log(response);
-    setChats(response.data.chats.map((chat: Chat) => ({
-      ...chat,
-    })));
+      }
+  
+      console.error(`Failed to fetch chats after ${maxRetries} retries`);
     };
   
-    fetchChats();
+    fetchChatsWithRetry();
   }, []);
 
   useEffect(() => {
-    const fetchMessages = async () => {
+    const fetchMessagesWithRetry = async () => {
       if (!selectedChatId) return;
-   
-      try {
-        const response = await axios.get(`${WHAPI_BASE_URL}/messages/list/${selectedChatId}`, {
-          headers: {
-            'Authorization': `Bearer ${WHAPI_ACCESS_TOKEN}`
+
+      let retryCount = 0;
+      const maxRetries = 10;
+      const retryDelay = 1000; // 1 second
+
+      while (retryCount < maxRetries) {
+        try {
+          setLoading(true); // Set loading to true before fetching messages
+          const response = await fetch(`${WHAPI_BASE_URL}/messages/list/${selectedChatId}`, {
+            headers: {
+              'Authorization': `Bearer ${WHAPI_ACCESS_TOKEN}`
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to fetch messages');
           }
-        });
-    
-        setMessages(response.data.messages.map((message: any) => ({
-          id: message.id,
-          text: {
-            body: message.text ? message.text.body : ""
-          },
-          from_me: message.from_me,
-          createdAt: message.timestamp,
-          type: message.type,
-          image: message.image ? message.image : undefined // Use undefined instead of empty string
-        })));
-        console.log(response);
-      } catch (error) {
-        console.error('Failed to fetch messages:', error);
+
+          const data = await response.json();
+          console.log('Messages:', data);
+          setMessages(data.messages.map((message: any) => ({
+            id: message.id,
+            text: {
+              body: message.text ? message.text.body : ""
+            },
+            from_me: message.from_me,
+            createdAt: message.timestamp,
+            type: message.type,
+            image: message.image ? message.image : undefined // Use undefined instead of empty string
+          })));
+          
+          // Exit the loop if messages are fetched successfully
+          return;
+        } catch (error) {
+          console.error('Failed to fetch messages:', error);
+
+          // Increment the retry count
+          retryCount++;
+
+          // Wait for retryDelay milliseconds before trying again
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        } finally {
+          setLoading(false); // Set loading to false after fetching messages
+        }
       }
+
+      console.error(`Failed to fetch messages after ${maxRetries} retries`);
     };
 
-    fetchMessages();
+    fetchMessagesWithRetry();
   }, [selectedChatId]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChatId) return;
 
     try {
-      const response = await axios.post(`${WHAPI_BASE_URL}/messages/send`, {
-        chatId: selectedChatId,
-        text: newMessage
-      }, {
+      const response = await fetch(`${WHAPI_BASE_URL}/messages/send`, {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${WHAPI_ACCESS_TOKEN}`
-        }
+        },
+        body: JSON.stringify({
+          chatId: selectedChatId,
+          text: newMessage
+        })
       });
 
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const data = await response.json();
       const newMsg: Message = {
-        id: response.data.messageId,
+        id: data.messageId,
         text: {
           body: newMessage
         },
@@ -136,17 +197,25 @@ function Main() {
             >
               <span className="font-semibold">{chat.name??chat.id}</span>
               {chat.last_message && (
-  <span className="text-gray-500 block" style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-    {chat.last_message.text && chat.last_message.text.body ? chat.last_message.text.body : 'No Messages'}
-  </span>
-)}
+                <span className="text-gray-500 block" style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                  {chat.last_message.text && chat.last_message.text.body ? chat.last_message.text.body : 'No Messages'}
+                </span>
+              )}
             </div>
           ))}
         </div>
       </div>
       <div className="w-3/4 p-4 bg-white overflow-y-auto relative">
         <div className="overflow-y-auto" style={{ paddingBottom: "200px" }}>
-          
+        {isLoading && (
+      <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-gray-700 bg-opacity-50 z-50">
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-4 rounded-md shadow-lg">
+          <div className="w-12 h-12 border-4 border-gray-200 rounded-full animate-spin"></div>
+          <p className="text-center">Loading...</p>
+        </div>
+      </div>
+    )}
+
           {messages.slice().reverse().map((message) => (
             <div
               key={message.id}
@@ -180,29 +249,27 @@ function Main() {
               )}
             </div>
           ))}
-          
-          <div ref={messagesEndRef}></div>
-             <div className="fixed bottom-0  w-full bg-white border-t border-gray-300 py-2 px-10 flex items-center">
-             <input
-  ref={inputRef}
-  type="text"
-  className="w-3/6" // Add w-full to make it fill the width
-  placeholder="Type a message"
-  value={newMessage}
-  onChange={(e) => setNewMessage(e.target.value)}
-  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-/>
-        <button
-          className="bg-green-500 text-white px-4 py-3 rounded"
-          onClick={handleSendMessage}
-        >
-          Send
-        </button>
-      </div>
 
+          <div ref={messagesEndRef}></div>
+          <div className="fixed bottom-0 w-full bg-white border-t border-gray-300 py-2 px-10 flex items-center">
+            <input
+              ref={inputRef}
+              type="text"
+              className="w-3/6" // Add w-full to make it fill the width
+              placeholder="Type a message"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            />
+            <button
+              className="bg-green-500 text-white px-4 py-3 rounded"
+              onClick={handleSendMessage}
+            >
+              Send
+            </button>
+          </div>
         </div>
       </div>
-  
     </div>
   );
 }

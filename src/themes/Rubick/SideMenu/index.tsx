@@ -41,7 +41,7 @@ function Main() {
       <div className="flex mt-[4.7rem] md:mt-0">
         {/* BEGIN: Side Menu */}
         <nav className="side-nav hidden w-[80px] overflow-x-hidden pb-16 pr-5 md:block xl:w-[230px]">
-          <Link to="/" className="flex items-center pt-4 pl-5 intro-x">
+          <Link to="/dashboard" className="flex items-center pt-4 pl-5 intro-x">
             <img
               alt="Midone Tailwind HTML Admin Template"
               className="w-6"

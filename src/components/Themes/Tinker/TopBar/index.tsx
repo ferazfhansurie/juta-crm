@@ -24,8 +24,8 @@ function Main() {
       <div className="relative z-[51] flex h-[67px] items-center border-b border-slate-200">
         {/* BEGIN: Breadcrumb */}
         <Breadcrumb className="hidden mr-auto -intro-x sm:flex">
-          <Breadcrumb.Link to="/">Application</Breadcrumb.Link>
-          <Breadcrumb.Link to="/" active={true}>
+          <Breadcrumb.Link to="/dashboard">Application</Breadcrumb.Link>
+          <Breadcrumb.Link to="/dashboard" active={true}>
             Dashboard
           </Breadcrumb.Link>
         </Breadcrumb>
@@ -186,21 +186,10 @@ function Main() {
               </div>
             </Menu.Header>
             <Menu.Divider className="bg-white/[0.08]" />
-            <Menu.Item className="hover:bg-white/5">
-              <Lucide icon="User" className="w-4 h-4 mr-2" /> Profile
-            </Menu.Item>
-            <Menu.Item className="hover:bg-white/5">
-              <Lucide icon="FilePenLine" className="w-4 h-4 mr-2" /> Add Account
-            </Menu.Item>
-            <Menu.Item className="hover:bg-white/5">
-              <Lucide icon="Lock" className="w-4 h-4 mr-2" /> Reset Password
-            </Menu.Item>
-            <Menu.Item className="hover:bg-white/5">
-              <Lucide icon="HelpCircle" className="w-4 h-4 mr-2" /> Help
-            </Menu.Item>
+           
             <Menu.Divider className="bg-white/[0.08]" />
             <Menu.Item className="hover:bg-white/5">
-             <Link to="/login"> 
+             <Link to="/"> 
               <Lucide icon="ToggleRight" className="w-4 h-4 mr-2" /> Logout
              </Link>
             </Menu.Item>
