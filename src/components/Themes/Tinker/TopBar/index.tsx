@@ -8,7 +8,32 @@ import _ from "lodash";
 import clsx from "clsx";
 import { Transition } from "@headlessui/react";
 import { Link } from "react-router-dom";
+import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
+import { initializeApp } from 'firebase/app';
 
+// Initialize Firebase app
+const firebaseConfig = {
+  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
+  authDomain: "onboarding-a5fcb.firebaseapp.com",
+  databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "onboarding-a5fcb",
+  storageBucket: "onboarding-a5fcb.appspot.com",
+  messagingSenderId: "334607574757",
+  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
+  measurementId: "G-2C9J1RY67L"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const user = auth.currentUser;
+const handleSignOut = () => {
+  signOut(auth)
+    .then(() => {
+      console.log("User signed out successfully");
+    })
+    .catch((error) => {
+      console.error("Error signing out:", error);
+    });
+};
 function Main() {
   const [searchDropdown, setSearchDropdown] = useState(false);
   const showSearchDropdown = () => {
@@ -96,7 +121,7 @@ function Main() {
                           src={faker.photos[0]}
                         />
                       </div>
-                      <div className="ml-3">{faker.users[0].name}</div>
+                      <div className="ml-3">{user?.email}</div>
                       <div className="w-48 ml-auto text-xs text-right truncate text-slate-500">
                         {faker.users[0].email}
                       </div>
@@ -155,7 +180,7 @@ function Main() {
                 <div className="ml-2 overflow-hidden">
                   <div className="flex items-center">
                     <a href="" className="mr-5 font-medium truncate">
-                      {faker.users[0].name}
+                      {user?.email}
                     </a>
                     <div className="ml-auto text-xs text-slate-400 whitespace-nowrap">
                       {faker.times[0]}
@@ -172,26 +197,24 @@ function Main() {
         {/* END: Notifications  */}
         {/* BEGIN: Account Menu */}
         <Menu>
-          <Menu.Button className="block w-8 h-8 overflow-hidden rounded-full shadow-lg image-fit zoom-in intro-x">
-            <img
-              alt="Midone Tailwind HTML Admin Template"
-              src={fakerData[9].photos[0]}
-            />
-          </Menu.Button>
+         <Menu.Button className="block w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white">
+  <span className="text-lg">{""}</span>
+</Menu.Button>
           <Menu.Items className="w-56 mt-px text-white bg-primary">
             <Menu.Header className="font-normal">
-              <div className="font-medium">{fakerData[0].users[0].name}</div>
+              <div className="font-medium">{user?.email}</div>
               <div className="text-xs text-white/70 mt-0.5 dark:text-slate-500">
-                {fakerData[0].jobs[0]}
+                {"Company Name"}
               </div>
             </Menu.Header>
             <Menu.Divider className="bg-white/[0.08]" />
            
             <Menu.Divider className="bg-white/[0.08]" />
             <Menu.Item className="hover:bg-white/5">
-             <Link to="/"> 
-              <Lucide icon="ToggleRight" className="w-4 h-4 mr-2" /> Logout
-             </Link>
+             {/* Logout link with sign out function */}
+             <Link to="/" onClick={handleSignOut}>
+                <Lucide icon="ToggleRight" className="w-4 h-4 mr-2" /> Logout
+              </Link>
             </Menu.Item>
           </Menu.Items>
         </Menu>

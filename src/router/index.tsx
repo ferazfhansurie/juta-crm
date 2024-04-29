@@ -1,4 +1,4 @@
-import { useRoutes } from "react-router-dom";
+import { Navigate, useRoutes } from "react-router-dom";
 import DashboardOverview1 from "../pages/DashboardOverview1";
 import DashboardOverview2 from "../pages/DashboardOverview2";
 import DashboardOverview3 from "../pages/DashboardOverview3";
@@ -70,12 +70,33 @@ import Slider from "../pages/Slider";
 import ImageZoom from "../pages/ImageZoom";
 
 import Layout from "../themes";
+import { getAuth } from "firebase/auth";
+import { useState, useEffect } from "react";
 
 function Router() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const auth = getAuth();
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setIsLoggedIn(true);
+      } else {
+        setIsLoggedIn(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [auth]);
+
   const routes = [
     {
+      path: "/",
+      element: isLoggedIn ? <Navigate to="/dashboard" /> : <Login />,
+    },
+    {
       path: "/dashboard",
-      element: <Layout />,
+      element:  isLoggedIn ?<Layout />: <Login />,
       children: [
         {
           path: "/dashboard",
