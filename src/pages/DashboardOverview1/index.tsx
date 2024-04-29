@@ -72,7 +72,7 @@ function Main() {
                       4.710
                     </div>
                     <div className="mt-1 text-base text-slate-500">
-                      Item Sales
+                    Total Contacts 
                     </div>
                   </div>
                 </div>
@@ -108,7 +108,7 @@ function Main() {
                       3.721
                     </div>
                     <div className="mt-1 text-base text-slate-500">
-                      New Orders
+                      Number Of Replies
                     </div>
                   </div>
                 </div>
@@ -141,7 +141,7 @@ function Main() {
                       2.149
                     </div>
                     <div className="mt-1 text-base text-slate-500">
-                      Total Products
+                      Unclosed
                     </div>
                   </div>
                 </div>
@@ -174,7 +174,7 @@ function Main() {
                       152.040
                     </div>
                     <div className="mt-1 text-base text-slate-500">
-                      Unique Visitor
+                      Closed
                     </div>
                   </div>
                 </div>
@@ -182,7 +182,7 @@ function Main() {
             </div>
           </div>
           {/* END: General Report */}
-          {/* BEGIN: Sales Report */}
+          {/* BEGIN: Sales Report 
           <div className="col-span-12 mt-8 lg:col-span-6">
             <div className="items-center block h-10 intro-y sm:flex">
               <h2 className="mr-5 text-lg font-medium truncate">
@@ -259,8 +259,8 @@ function Main() {
               </div>
             </div>
           </div>
-          {/* END: Sales Report */}
-          {/* BEGIN: Weekly Top Seller */}
+          {/* END: Sales Report 
+          {/* BEGIN: Weekly Top Seller 
           <div className="col-span-12 mt-8 sm:col-span-6 lg:col-span-3">
             <div className="flex items-center h-10 intro-y">
               <h2 className="mr-5 text-lg font-medium truncate">
@@ -293,8 +293,8 @@ function Main() {
               </div>
             </div>
           </div>
-          {/* END: Weekly Top Seller */}
-          {/* BEGIN: Sales Report */}
+          {/* END: Weekly Top Seller 
+          {/* BEGIN: Sales Report 
           <div className="col-span-12 mt-8 sm:col-span-6 lg:col-span-3">
             <div className="flex items-center h-10 intro-y">
               <h2 className="mr-5 text-lg font-medium truncate">
@@ -327,8 +327,8 @@ function Main() {
               </div>
             </div>
           </div>
-          {/* END: Sales Report */}
-          {/* BEGIN: Official Store */}
+          {/* END: Sales Report 
+          {/* BEGIN: Official Store 
           <div className="col-span-12 mt-6 xl:col-span-8">
             <div className="items-center block h-10 intro-y sm:flex">
               <h2 className="mr-5 text-lg font-medium truncate">
@@ -355,7 +355,7 @@ function Main() {
             </div>
           </div>
           {/* END: Official Store */}
-          {/* BEGIN: Weekly Best Sellers */}
+          {/* BEGIN: Weekly Best Sellers 
           <div className="col-span-12 mt-6 xl:col-span-4">
             <div className="flex items-center h-10 intro-y">
               <h2 className="mr-5 text-lg font-medium truncate">
@@ -393,7 +393,7 @@ function Main() {
             </div>
           </div>
           {/* END: Weekly Best Sellers */}
-          {/* BEGIN: General Report */}
+          {/* BEGIN: General Report 
           <div className="grid grid-cols-12 col-span-12 gap-6 mt-8">
             <div className="col-span-12 sm:col-span-6 2xl:col-span-3 intro-y">
               <div className="p-5 box zoom-in">
@@ -463,7 +463,7 @@ function Main() {
             </div>
           </div>
           {/* END: General Report */}
-          {/* BEGIN: Weekly Top Products */}
+          {/* BEGIN: Weekly Top Products 
           <div className="col-span-12 mt-6">
             <div className="items-center block h-10 intro-y sm:flex">
               <h2 className="mr-5 text-lg font-medium truncate">

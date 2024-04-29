@@ -7,6 +7,7 @@ import fakerData from "@/utils/faker";
 import _ from "lodash";
 import clsx from "clsx";
 import { Transition } from "@headlessui/react";
+import { Link } from "react-router-dom";
 
 function Main() {
   const [searchDropdown, setSearchDropdown] = useState(false);
@@ -199,7 +200,9 @@ function Main() {
             </Menu.Item>
             <Menu.Divider className="bg-white/[0.08]" />
             <Menu.Item className="hover:bg-white/5">
+             <Link to="/login"> 
               <Lucide icon="ToggleRight" className="w-4 h-4 mr-2" /> Logout
+             </Link>
             </Menu.Item>
           </Menu.Items>
         </Menu>

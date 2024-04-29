@@ -4,6 +4,9 @@ import illustrationUrl from "@/assets/images/illustration.svg";
 import { FormInput, FormCheck } from "@/components/Base/Form";
 import Button from "@/components/Base/Button";
 import clsx from "clsx";
+import { LayoutDashboard } from "lucide-react";
+import { Link } from "react-router-dom";
+
 
 function Main() {
   return (
@@ -83,12 +86,16 @@ function Main() {
                   <a href="">Forgot Password?</a>
                 </div>
                 <div className="mt-5 text-center intro-x xl:mt-8 xl:text-left">
-                  <Button
+                  <Link to="/dashboard">  
+                   <Button
                     variant="primary"
                     className="w-full px-4 py-3 align-top xl:w-32 xl:mr-3"
                   >
                     Login
-                  </Button>
+                   </Button>
+                  </Link>
+                  
+             
                   <Button
                     variant="outline-secondary"
                     className="w-full px-4 py-3 mt-3 align-top xl:w-32 xl:mt-0"

@@ -74,11 +74,11 @@ import Layout from "../themes";
 function Router() {
   const routes = [
     {
-      path: "/",
+      path: "/dashboard",
       element: <Layout />,
       children: [
         {
-          path: "/",
+          path: "/dashboard",
           element: <DashboardOverview1 />,
         },
         {
@@ -344,7 +344,7 @@ function Router() {
       ],
     },
     {
-      path: "/login",
+      path: "/",
       element: <Login />,
     },
     {
