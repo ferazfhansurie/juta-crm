@@ -370,12 +370,119 @@
         // Handle error
       }
     };
+    const handleRefreshClick = () => {
+      // Add your refresh logic here
+      console.log('Refresh clicked');
+      const fetchChatsWithRetry = async () => {
+        let retryCount = 0;
+        const maxRetries = 10;
+        const retryDelay = 1000; // 1 second
+    
+        while (retryCount < maxRetries) {
+          try {
+            setLoading(true); // Set loading to true before fetching chats
+            const response = await fetch(`${WHAPI_BASE_URL}/chats`, {
+              headers: {
+                'Authorization': `Bearer ${WHAPI_ACCESS_TOKEN}`
+              }
+            });
+    
+            if (!response.ok) {
+              throw new Error('Failed to fetch chats');
+            }
+    
+            const data = await response.json();
+            console.log(data);
+            setChats(data.chats.map((chat: Chat) => ({
+              ...chat,
+            })));
+            fetchMessagesWithRetry();
+            
+            // Exit the loop if chats are fetched successfully
+            return;
+          } catch (error) {
+            console.error('Failed to fetch chats:', error);
+    
+            // Increment the retry count
+            retryCount++;
+    
+            // Wait for retryDelay milliseconds before trying again
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          } finally {
+            setLoading(false); // Set loading to false after fetching chats
+          }
+        }
+    
+        console.error(`Failed to fetch chats after ${maxRetries} retries`);
+      };
+    
+      fetchChatsWithRetry();
+      const fetchMessagesWithRetry = async () => {
+        if (!selectedChatId) return;
+
+        let retryCount = 0;
+        const maxRetries = 10;
+        const retryDelay = 1000; // 1 second
+
+        while (retryCount < maxRetries) {
+          try {
+            setLoading(true); // Set loading to true before fetching messages
+            const response = await fetch(`${WHAPI_BASE_URL}/messages/list/${selectedChatId}`, {
+              headers: {
+                'Authorization': `Bearer ${WHAPI_ACCESS_TOKEN}`
+              }
+            });
+
+            if (!response.ok) {
+              throw new Error('Failed to fetch messages');
+            }
+
+            const data = await response.json();
+            console.log('Messages:', data);
+            setMessages(data.messages.map((message: any) => ({
+              id: message.id,
+              text: {
+                body: message.text ? message.text.body : ""
+              },
+              from_me: message.from_me,
+              createdAt: message.timestamp,
+              type: message.type,
+              image: message.image ? message.image : undefined // Use undefined instead of empty string
+            })));
+            
+            // Exit the loop if messages are fetched successfully
+            return;
+          } catch (error) {
+            console.error('Failed to fetch messages:', error);
+
+            // Increment the retry count
+            retryCount++;
+
+            // Wait for retryDelay milliseconds before trying again
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          } finally {
+            setLoading(false); // Set loading to false after fetching messages
+          }
+        }
+
+        console.error(`Failed to fetch messages after ${maxRetries} retries`);
+      };
+
+    
+    };
     return (
       <div className="flex h-screen overflow-hidden">
         <div className="w-1/4 p-4 bg-gray-200 overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold">Chats</h2>
-          </div>
+        <div className="flex items-center justify-between mb-4">
+      <h2 className="text-lg font-bold">Chats</h2>
+      {/* Refresh icon */}
+      <button className="flex items-center px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring focus:ring-indigo-300 focus:ring-opacity-80">
+    <svg className="w-5 h-5 mx-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" onClick={handleRefreshClick}>
+        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+    </svg>
+
+</button>
+    </div>
           <div>
             {chats.map((chat) => (
               <div
@@ -398,10 +505,16 @@
           
           <div className="overflow-y-auto" style={{ paddingBottom: "200px" }}>
           {isLoading && (
-        <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-gray-700 bg-opacity-50 z-50">
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-4 rounded-md shadow-lg">
-            <div className="w-12 h-12 border-4 border-gray-200 rounded-full animate-spin"></div>
-            <p className="text-center">Loading...</p>
+        <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-gray-700 bg-opacity-50 ">
+          <div className=" items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white p-4 rounded-md shadow-lg">
+          <div role="status">
+        <svg aria-hidden="true" className="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
+            <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
+        </svg>
+       
+    </div>
+  
           </div>
         </div>
       )}
