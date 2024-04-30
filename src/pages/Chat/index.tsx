@@ -115,8 +115,8 @@
     useEffect(() => {
       const fetchChatsWithRetry = async () => {
         let retryCount = 0;
-        const maxRetries = 10;
-        const retryDelay = 1000; // 1 second
+        const maxRetries = 20;
+        const retryDelay = 1; // 1 second
     
         while (retryCount < maxRetries) {
           try {
@@ -171,8 +171,8 @@
       if (!selectedChatId) return;
 
       let retryCount = 0;
-      const maxRetries = 10;
-      const retryDelay = 1000; // 1 second
+      const maxRetries = 20;
+      const retryDelay = 1; // 1 second
 
       while (retryCount < maxRetries) {
         try {
