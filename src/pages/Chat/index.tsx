@@ -4,8 +4,7 @@
   import axios from 'axios';
 
 
-  import * as admin from 'firebase-admin';
-  import * as serviceAccount from '../../sa_firebase.json';
+
   /*
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
