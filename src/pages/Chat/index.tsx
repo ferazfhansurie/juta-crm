@@ -470,6 +470,14 @@
 
     
     };
+    function adjustTextareaHeight() {
+      const textarea = inputRef.current;
+      if (textarea) {
+        console.log("Textarea:", textarea);
+        textarea.style.height = 'auto'; // Reset the height to auto to ensure accurate height calculation
+        textarea.style.height = textarea.scrollHeight + 'px'; // Set the height to match the content height
+      }
+    }
     return (
       <div className="flex h-screen overflow-hidden">
         <div className="w-1/4 p-4 bg-gray-200 overflow-y-auto">
@@ -505,7 +513,7 @@
           
           <div className="overflow-y-auto" style={{ paddingBottom: "200px" }}>
           {isLoading && (
-        <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-gray-700 bg-opacity-50 ">
+        <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50 ">
           <div className=" items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white p-4 rounded-md shadow-lg">
           <div role="status">
         <svg aria-hidden="true" className="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -593,22 +601,36 @@
         alt="Email"
         style={{ width: '30px', height: '30px' }} // Adjust size as needed
       />
+       <div className="border-r border-black-400 h-full"  style={{ width: '25px', height: '30px' }}></div>
     </div>
-              <input
-                ref={inputRef}
-                type="text"
-                className="w-2/6" // Add w-full to make it fill the width
-                placeholder="Type a message"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              />
-              <button
-                className="bg-green-500 text-white px-4 py-3 rounded"
-                onClick={handleSendMessage}
-              >
-                Send
-              </button>
+   
+    <div className="flex items-center justify-between w-2/4"> {/* Adjusted width for the container */}
+    <textarea
+
+  className="flex-1 px-4 py-2 border border-gray-400 rounded-l-lg focus:outline-none focus:border-blue-500 text-lg mr-2 resize-none" // Adjusted width for the textarea and added margin to separate it from the button
+  placeholder="Type a message"
+  value={newMessage}
+  onChange={(e) => {
+    setNewMessage(e.target.value);
+    
+  }}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault(); // Prevents the default behavior of adding a new line in the textarea
+      // handleSendMessage();
+    } else if (e.key === 'Enter' && e.shiftKey) {
+      adjustTextareaHeight();
+    }
+  }}
+/>
+
+  <button
+    className="bg-blue-500 text-white px-4 py-4 rounded-r-lg hover:bg-blue-600 focus:outline-none focus:ring focus:ring-blue-300"
+    onClick={handleSendMessage}
+  >
+    Send
+  </button>
+</div>
             </div>
           </div>
         </div>
