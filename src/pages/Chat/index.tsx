@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./style.css";
+
+import axios from 'axios';
+
+
+import * as admin from 'firebase-admin';
+import * as serviceAccount from '../../sa_firebase.json';
+/*
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+});
+const db = admin.firestore();*/
 interface Chat {
   id?: string;
   name?: string | "";
@@ -29,11 +40,76 @@ function Main() {
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const WHAPI_BASE_URL = 'https://gate.whapi.cloud';
-  const WHAPI_ACCESS_TOKEN = 'rubP6ggd7RZpHwmazHD6mAmJHUMS8pWV'; // Replace with your Whapi access token
+  const WHAPI_ACCESS_TOKEN = 'YIaooL9Osgrtpj7ZlZLaVK5fOjUIvFNx'; // Replace with your Whapi access token
 
   // Update the CSS classes for message bubbles
   const myMessageClass = "flex-end bg-green-500 max-w-30 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md self-end ml-auto text-white text-right";
   const otherMessageClass = "flex-start bg-gray-700 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md text-white self-start";
+
+  
+
+ 
+
+  let ghlConfig ={
+    ghl_id:'',
+    ghl_secret:'',
+    refresh_token:'',
+  };
+/*ghlToken()
+  async function ghlToken() {
+    try {
+        await fetchConfigFromDatabase();
+        const { ghl_id, ghl_secret, refresh_token } = ghlConfig;
+        console.log('ghl_id:', ghl_id);
+        console.log('ghl_secret:', ghl_secret);
+        console.log('refresh_token:', refresh_token);
+
+        // Generate new token using fetched credentials and refresh token
+        const encodedParams = new URLSearchParams();
+        encodedParams.set('client_id', ghl_id);
+        encodedParams.set('client_secret', ghl_secret);
+        encodedParams.set('grant_type', 'refresh_token');
+        encodedParams.set('refresh_token', refresh_token);
+        encodedParams.set('user_type', 'Location');
+
+        const options = {
+            method: 'POST',
+            url: 'https://services.leadconnectorhq.com/oauth/token',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                Accept: 'application/json'
+            },
+            data: encodedParams,
+        };
+
+        const { data: newTokenData } = await axios.request(options);
+
+        await db.collection('companies').doc('014').set({
+            access_token: newTokenData.access_token,
+            refresh_token: newTokenData.refresh_token,
+        }, { merge: true });
+
+        console.log('Token generation and update complete');
+    } catch (error) {
+        console.error('Error generating and updating token:', error);
+        throw error;
+    }
+}
+
+async function fetchConfigFromDatabase() {
+    try {
+        const docRef = db.collection('companies').doc('014');
+        const doc = await docRef.get();
+        if (!doc.exists) {
+            console.log('No such document!');
+            return;
+        }
+       
+    } catch (error) {
+        console.error('Error fetching config:', error);
+        throw error;
+    }
+}*/
   useEffect(() => {
     const fetchChatsWithRetry = async () => {
       let retryCount = 0;
@@ -54,9 +130,8 @@ function Main() {
           }
   
           const data = await response.json();
-          setChats(data.chats.map((chat: Chat) => ({
-            ...chat,
-          })));
+          console.log(data);
+        
           
           // Exit the loop if chats are fetched successfully
           return;
@@ -205,7 +280,9 @@ function Main() {
           ))}
         </div>
       </div>
+      
       <div className="w-3/4 p-4 bg-white overflow-y-auto relative">
+        
         <div className="overflow-y-auto" style={{ paddingBottom: "200px" }}>
         {isLoading && (
       <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-gray-700 bg-opacity-50 z-50">
@@ -252,10 +329,42 @@ function Main() {
 
           <div ref={messagesEndRef}></div>
           <div className="fixed bottom-0 w-full bg-white border-t border-gray-300 py-2 px-10 flex items-center">
+          <div className="message-source-buttons flex items-center">
+    <img
+      className="source-button"
+      src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon4.png?alt=media&token=d4ab65b6-9b90-4aca-9d69-6263300a91ec"
+      alt="WhatsApp"
+      style={{ width: '30px', height: '30px' }} // Adjust size as needed
+    />
+    <img
+      className="source-button"
+      src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/facebook-logo-on-transparent-isolated-background-free-vector-removebg-preview.png?alt=media&token=c312eb23-dfee-40d3-a55c-476ef3041369"
+      alt="Facebook"
+      style={{ width: '30px', height: '30px' }} // Adjust size as needed
+    />
+     <img
+      className="source-button"
+      src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon3.png?alt=media&token=9395326d-ff56-45e7-8ebc-70df4be6971a"
+      alt="Instagram"
+      style={{ width: '30px', height: '30px' }} // Adjust size as needed
+    />
+    <img
+      className="source-button"
+      src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon1.png?alt=media&token=10842399-eca4-40d1-9051-ea70c72ac95b"
+      alt="Google My Business"
+      style={{ width: '20px', height: '20px' }} // Adjust size as needed
+    />
+    <img
+      className="source-button"
+      src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon2.png?alt=media&token=813f94d4-cad1-4944-805a-2454293278c9"
+      alt="Email"
+      style={{ width: '30px', height: '30px' }} // Adjust size as needed
+    />
+  </div>
             <input
               ref={inputRef}
               type="text"
-              className="w-3/6" // Add w-full to make it fill the width
+              className="w-2/6" // Add w-full to make it fill the width
               placeholder="Type a message"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}

@@ -69,7 +69,7 @@ function Main() {
                       </div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                      4.710
+                      0
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                     Total Contacts 
@@ -105,7 +105,7 @@ function Main() {
                       </div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                      3.721
+                      0
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       Number Of Replies
@@ -138,7 +138,7 @@ function Main() {
                       </div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                      2.149
+                      0
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       Unclosed
@@ -171,7 +171,7 @@ function Main() {
                       </div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                      152.040
+                      0
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       Closed
