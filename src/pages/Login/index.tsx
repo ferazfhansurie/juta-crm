@@ -9,7 +9,6 @@ import { getAuth, signInWithEmailAndPassword } from "firebase/auth"; // Import F
 import { initializeApp } from 'firebase/app';
 import { useState } from "react";
 import { co } from "@fullcalendar/core/internal-common";
-
 const firebaseConfig = {
     apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
     authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -28,22 +27,23 @@ const firebaseConfig = {
     const [email, setEmail] = useState(""); // State for email input
     const [password, setPassword] = useState(""); // State for password input
     const [signInResult, setSignInResult] = useState(null);
-  
+    const [signedIn, setSignedIn] = useState(false);
+
     const handleSignIn = () => {
       const auth = getAuth(app);
       signInWithEmailAndPassword(auth, email, password)
         .then((userCredential) => {
           const user = userCredential.user;
           console.log(user);
-         
-          window.location.href = "/dashboard";
+          // Instead of directly navigating here, set a state indicating successful sign-in
+          <Link to="/dashboard">Dashboard</Link>
         })
         .catch((error) => {
           const errorCode = error.code;
           const errorMessage = error.message;
           setSignInResult(errorMessage);
         });
-    };
+    }
   
     return (
       <>

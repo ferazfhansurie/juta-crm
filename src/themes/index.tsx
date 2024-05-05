@@ -27,7 +27,11 @@ function Main() {
 
   return (
     <div>
+<<<<<<< Updated upstream
       <ThemeSwitcher />
+=======
+  
+>>>>>>> Stashed changes
       <Component />
     </div>
   );
