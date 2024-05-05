@@ -174,7 +174,7 @@ console.log(data)
       try {
         setLoading(true);
         
-        const response = await fetch(`http://localhost:3000/api/chats/${whapiToken}`); // Pass whapitoken as a request parameter
+        const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`); // Pass whapitoken as a request parameter
         console.log(response);
         if (!response.ok) {
           throw new Error('Failed to fetch chats');
@@ -383,7 +383,7 @@ const extractPhoneNumber = (chatId: string): string => {
       // Check if conversation ID is in WhatsApp format
       if (selectedChatId.includes('@s.whatsapp.net')) {
         // Fetch messages from the WhatsApp API
-        const response = await axios.get(`http://localhost:3000/api/messages/${selectedChatId}/${data2.whapiToken}`);
+        const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
   
         const data = response.data; // AxiosResponse data is accessed directly
   
@@ -460,7 +460,7 @@ const handleSendMessage = async () => {
       };
       setToken(data2.whapiToken);
   try {
-    const response = await fetch(`http://localhost:3000/api/messages/text/${selectedChatId!}/${data2.whapiToken}/${newMessage!}`, {
+    const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${selectedChatId!}/${data2.whapiToken}/${newMessage!}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -559,7 +559,7 @@ const handleSendMessage = async () => {
               
               // Proceed with toggling the label association
               const associationId = chat.id;
-              const response = await fetch(`http://localhost:3000/api/delete-label-association/${labelId}/${associationId}`, {
+              const response = await fetch(`https://buds-359313.et.r.appspot.com/api/delete-label-association/${labelId}/${associationId}`, {
                   method: method,
                   headers: {
                       'Content-Type': 'application/json'
@@ -574,7 +574,7 @@ const handleSendMessage = async () => {
               }
           } else {
               const associationId = chat.id;
-              const addLabelResponse = await fetch(`http://localhost:3000/api/add-label-association/${associationId}`, {
+              const addLabelResponse = await fetch(`https://buds-359313.et.r.appspot.com/api/add-label-association/${associationId}`, {
                   method: 'POST',
                   headers: {
                       'Content-Type': 'application/json'

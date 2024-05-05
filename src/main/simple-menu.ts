@@ -13,6 +13,11 @@ const menu: Array<Menu | "divider"> = [
   },
   {
     icon: "HardDrive",
+    pathname: "/dashboard/crud-data-list",
+    title: "Contacts",
+  },
+  /*{
+    icon: "HardDrive",
     pathname: "/dashboard/file-manager",
     title: "File Manager",
   },
@@ -20,20 +25,21 @@ const menu: Array<Menu | "divider"> = [
     icon: "Calendar",
     pathname: "/dashboard/calendar",
     title: "Calendar",
-  },
+  },*/
   "divider",
   {
     icon: "Users",
     title: "Users",
-    pathname: "/dashboard/users-layout-1",
+    pathname: "/dashboard/users-layout-2",
   },
-  {
+ /* {
     icon: "Trello",
     title: "Profile",
     pathname: "/dashboard/profile-overview-1",
     
-  },
-
+  }
+  ,
+*/
   "divider",
 
 ];

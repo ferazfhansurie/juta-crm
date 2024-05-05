@@ -178,14 +178,9 @@ function Router() {
           path: "crud-data-list",
           element: <CrudDataList />,
         },
-<<<<<<< Updated upstream
-        {
-          path: "crud-form",
-=======
 
         {
           path: "users-layout-2/crud-form",
->>>>>>> Stashed changes
           element: <CrudForm />,
         },
         {

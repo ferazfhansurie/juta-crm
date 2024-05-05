@@ -24,3 +24,6 @@ package-lock.json
 *.njsproj
 *.sln
 *.sw?
+
+# Ignore the server folder
+server/

@@ -1,4 +1,5 @@
 import { useState, Fragment } from "react";
+import React, { useEffect, useRef } from "react";
 import Lucide from "@/components/Base/Lucide";
 import Breadcrumb from "@/components/Base/Breadcrumb";
 import { FormInput } from "@/components/Base/Form";
@@ -10,7 +11,8 @@ import { Transition } from "@headlessui/react";
 import { Link } from "react-router-dom";
 import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
 import { initializeApp } from 'firebase/app';
-
+import { DocumentReference, getDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 // Initialize Firebase app
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -22,8 +24,18 @@ const firebaseConfig = {
   appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
   measurementId: "G-2C9J1RY67L"
 };
+let companyId='014';
+let companyName='';
+let userName = '';
+let userEmail = '';
+let ghlConfig ={
+  ghl_id:'',
+  ghl_secret:'',
+  refresh_token:'',
+};
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const firestore = getFirestore(app);
 const user = auth.currentUser;
 const handleSignOut = () => {
   signOut(auth)
@@ -36,24 +48,67 @@ const handleSignOut = () => {
 };
 function Main() {
   const [searchDropdown, setSearchDropdown] = useState(false);
+  const [whapiToken, setToken] = useState<string | null>(null);
   const showSearchDropdown = () => {
     setSearchDropdown(true);
   };
   const hideSearchDropdown = () => {
     setSearchDropdown(false);
   };
-
+  useEffect(() => {
+    fetchConfigFromDatabase();
+  }, []);
+  async function fetchConfigFromDatabase() {
+ 
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+    try {
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document!');
+        return;
+      }
+      const dataUser = docUserSnapshot.data();
+      
+      companyId = dataUser.companyId;
+      userName = dataUser.name;
+      companyName= dataUser.company;
+      userEmail = dataUser.email;
+   console.log(dataUser);
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document!');
+        return;
+      }
+      const data = docSnapshot.data();
+      ghlConfig = {
+        ghl_id: data.ghl_id,
+        ghl_secret: data.ghl_secret,
+        refresh_token: data.refresh_token
+      };
+      setToken(data.whapiToken);
+  
+    
+    } catch (error) {
+      console.error('Error fetching config:', error);
+      throw error;
+    } finally {
+  
+    }
+  }
   return (
     <>
       {/* BEGIN: Top Bar */}
       <div className="relative z-[51] flex h-[67px] items-center border-b border-slate-200">
         {/* BEGIN: Breadcrumb */}
-        <Breadcrumb className="hidden mr-auto -intro-x sm:flex">
-          <Breadcrumb.Link to="/dashboard">Application</Breadcrumb.Link>
-          <Breadcrumb.Link to="/dashboard" active={true}>
-            Dashboard
-          </Breadcrumb.Link>
+        <Breadcrumb className="hidden mr-auto -intro-x sm:flex text-slate-600">
+        <h2 className="mr-5 text-lg font-medium truncate">
+               Hello {userName}!
+              </h2>
         </Breadcrumb>
+       
         {/* END: Breadcrumb */}
         {/* BEGIN: Search */}
         <div className="relative mr-3 intro-x sm:mr-6">
@@ -202,9 +257,9 @@ function Main() {
 </Menu.Button>
           <Menu.Items className="w-56 mt-px text-white bg-primary">
             <Menu.Header className="font-normal">
-              <div className="font-medium">{user?.email}</div>
+              <div className="font-medium">{userEmail}</div>
               <div className="text-xs text-white/70 mt-0.5 dark:text-slate-500">
-                {"Company Name"}
+                {companyName}
               </div>
             </Menu.Header>
             <Menu.Divider className="bg-white/[0.08]" />

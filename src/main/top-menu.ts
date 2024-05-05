@@ -161,12 +161,12 @@ const menu: Array<Menu | "divider"> = [
         subMenu: [
           {
             icon: "Zap",
-            pathname: "/crud-data-list",
+            pathname: "/dashboard/crud-data-list",
             title: "Data List",
           },
           {
             icon: "Zap",
-            pathname: "/crud-form",
+            pathname: "/dashboard/crud-form",
             title: "Form",
           },
         ],
