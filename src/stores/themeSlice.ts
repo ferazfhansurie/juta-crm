@@ -14,41 +14,7 @@ import EnigmaSimpleMenu from "@/themes/Enigma/SimpleMenu";
 import EnigmaTopMenu from "@/themes/Enigma/TopMenu";
 
 export const themes = [
-  {
-    name: "rubick",
-    layout: "side-menu",
-    component: RubickSideMenu,
-  },
-  {
-    name: "rubick",
-    layout: "simple-menu",
-    component: RubickSimpleMenu,
-  },
-  {
-    name: "rubick",
-    layout: "top-menu",
-    component: RubickTopMenu,
-  },
-  {
-    name: "icewall",
-    layout: "side-menu",
-    component: IcewallSideMenu,
-  },
-  {
-    name: "icewall",
-    layout: "simple-menu",
-    component: IcewallSimpleMenu,
-  },
-  {
-    name: "icewall",
-    layout: "top-menu",
-    component: IcewallTopMenu,
-  },
-  {
-    name: "tinker",
-    layout: "side-menu",
-    component: TinkerSideMenu,
-  },
+
   {
     name: "tinker",
     layout: "simple-menu",
@@ -140,9 +106,9 @@ export const selectTheme = (state: RootState) => {
     localStorage.setItem("theme", "rubick");
   }
 
-  if (localStorage.getItem("layout") === null) {
+
     localStorage.setItem("layout", "simple-menu");
-  }
+
 
   return state.theme.value;
 };
