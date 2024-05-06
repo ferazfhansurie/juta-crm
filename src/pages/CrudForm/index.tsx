@@ -122,7 +122,7 @@ const [categories, setCategories] = useState(["1"]);
         };
   
         // Make API call to create user
-        const response = await fetch(`/api/create-user/${userData.email}/+60${userData.phoneNumber}/${userData.password}`, {
+        const response = await fetch(`https://buds-359313.et.r.appspot.com/api/create-user/${userData.email}/+60${userData.phoneNumber}/${userData.password}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

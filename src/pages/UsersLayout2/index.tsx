@@ -60,42 +60,49 @@ interface Employee {
 
 function Main() {
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
-
+  const [showAddUserButton, setShowAddUserButton] = useState(false);
  useEffect(() => {
     fetchEmployees();
   }, []);
-  async function fetchEmployees() {
- 
-    const auth = getAuth(app);
-    const user = auth.currentUser;
-    try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-    
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-
-      const employeeRef = collection(firestore, `companies/${companyId}/employee`);
-      const employeeSnapshot = await getDocs(employeeRef);
-
-      const employeeListData: Employee[] = [];
-      employeeSnapshot.forEach((doc) => {
-        employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
-      });
-console.log(employeeListData);
-      setEmployeeList(employeeListData);
-    
-    } catch (error) {
-      console.error('Error fetching config:', error);
-      throw error;
-    } finally {
-  
+async function fetchEmployees() {
+  const auth = getAuth(app);
+  const user = auth.currentUser;
+  try {
+    const docUserRef = doc(firestore, 'user', user?.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.log('No such document!');
+      return;
     }
+  
+    const dataUser = docUserSnapshot.data();
+    const companyId = dataUser.companyId;
+
+    const employeeRef = collection(firestore, `companies/${companyId}/employee`);
+    const employeeSnapshot = await getDocs(employeeRef);
+
+    const employeeListData: Employee[] = [];
+    employeeSnapshot.forEach((doc) => {
+      employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
+    });
+
+    console.log(employeeListData);
+    setEmployeeList(employeeListData);
+    
+    // Check if user's role is 1
+    if (dataUser.role === "1") {
+      // If user's role is 1, set showAddUserButton to true
+      setShowAddUserButton(true);
+    } else {
+      // If user's role is not 1, set showAddUserButton to false
+      setShowAddUserButton(false);
+    }
+  
+  } catch (error) {
+    console.error('Error fetching config:', error);
+    throw error;
   }
+}
 
   return (
     <>
@@ -103,14 +110,14 @@ console.log(employeeListData);
       <div className="grid grid-cols-12 gap-6 mt-5">
         <div className="flex flex-wrap items-center col-span-12 mt-2 intro-y sm:flex-nowrap">
         <Link to="crud-form">
-  <Button variant="primary" className="mr-2 shadow-md">
-    Add New User
-  </Button>
-</Link>
+            {showAddUserButton && ( // Render the button based on showAddUserButton state
+              <Button variant="primary" className="mr-2 shadow-md">
+                Add New User
+              </Button>
+            )}
+          </Link>
        
-          <div className="hidden mx-auto md:block text-slate-500">
-            Showing 1 to 10  entries
-          </div>
+       
           <div className="w-full mt-3 sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
             <div className="relative w-56 text-slate-500">
               <FormInput
@@ -136,7 +143,7 @@ console.log(employeeListData);
                     {faker.name}
                   </a>
                   <div className="text-slate-500 text-xs mt-0.5">
-                    {faker.role}
+                    {faker.role === "2"?'Sales':faker.role === "1"?'Admin':"Others"}
                   </div>
                 </div>
                
@@ -146,33 +153,7 @@ console.log(employeeListData);
         ))}
         {/* BEGIN: Users Layout */}
         {/* END: Pagination */}
-        <div className="flex flex-wrap items-center col-span-12 intro-y sm:flex-row sm:flex-nowrap">
-          <Pagination className="w-full sm:w-auto sm:mr-auto">
-            <Pagination.Link>
-              <Lucide icon="ChevronsLeft" className="w-4 h-4" />
-            </Pagination.Link>
-            <Pagination.Link>
-              <Lucide icon="ChevronLeft" className="w-4 h-4" />
-            </Pagination.Link>
-            <Pagination.Link>...</Pagination.Link>
-            <Pagination.Link>1</Pagination.Link>
-            <Pagination.Link active>2</Pagination.Link>
-            <Pagination.Link>3</Pagination.Link>
-            <Pagination.Link>...</Pagination.Link>
-            <Pagination.Link>
-              <Lucide icon="ChevronRight" className="w-4 h-4" />
-            </Pagination.Link>
-            <Pagination.Link>
-              <Lucide icon="ChevronsRight" className="w-4 h-4" />
-            </Pagination.Link>
-          </Pagination>
-          <FormSelect className="w-20 mt-3 !box sm:mt-0">
-            <option>10</option>
-            <option>25</option>
-            <option>35</option>
-            <option>50</option>
-          </FormSelect>
-        </div>
+    
         {/* END: Pagination */}
       </div>
     </>
