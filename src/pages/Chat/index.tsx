@@ -767,51 +767,32 @@ const handleSendMessage = async () => {
               )}
               {/* Messages content */}
               {messages.slice().reverse().map((message) => (
-      <Popover
-        key={message.id}
-   
-      >
-        <Popover.Button>
-          <div
-            className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
-  
+   <div
+   className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
 
-            style={{
-              maxWidth: '70%',
-              width: `${message.type === 'image' ? '320' : Math.min(message.text!.body?.length * 15 || 0, 350)}px`,
-            }}
-          >
-            {message.type === 'image' && message.image && (
-              <div className="message-content image-message">
-                <img
-                  src={message.image.link}
-                  alt="Image"
-                  className="message-image"
-                  style={{ maxWidth: '300px' }}
-                />
-                <div className="caption">{message.image.caption}</div>
-              </div>
-            )}
-            {message.type === 'text' && (
-              <div className="message-content">
-                {message.text?.body || ''}
-              </div>
-            )}
-          </div>
-        </Popover.Button>
-        <Popover.Panel className="w-[280px] sm:w-[350px] p-5 mt-2">
-          <div
-            className="cursor-pointer relative flex items-center"
-     
-          >
-            <div className="ml-2 overflow-hidden">
-              <div className="w-full truncate text-slate-500 mt-0.5">
-                Forward
-              </div>
-            </div>
-          </div>
-        </Popover.Panel>
-      </Popover>
+
+   style={{
+     maxWidth: '70%',
+     width: `${message.type === 'image' ? '320' : Math.min(message.text!.body?.length * 15 || 0, 350)}px`,
+   }}
+ >
+   {message.type === 'image' && message.image && (
+     <div className="message-content image-message">
+       <img
+         src={message.image.link}
+         alt="Image"
+         className="message-image"
+         style={{ maxWidth: '300px' }}
+       />
+       <div className="caption">{message.image.caption}</div>
+     </div>
+   )}
+   {message.type === 'text' && (
+     <div className="message-content">
+       {message.text?.body || ''}
+     </div>
+   )}
+ </div>
     ))}
               <div ref={messagesEndRef}></div>
             </div>
