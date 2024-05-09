@@ -5,7 +5,8 @@
   import { DocumentReference, getDoc } from 'firebase/firestore';
   import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import axios from "axios";
-
+import Lucide from "@/components/Base/Lucide";
+import { Menu, Popover } from "@/components/Base/Headless";
 interface Label {
   id: string;
   name: string;
@@ -48,6 +49,8 @@ interface Chat {
   name?: string;
   last_message?: Message | null;
   labels?: Label[]; // Array of Label objects
+  contact_id?:string;
+  tags?:string[];
 }
 
   interface Message {
@@ -75,7 +78,7 @@ interface Chat {
   };
   const app = initializeApp(firebaseConfig);
   const firestore = getFirestore(app);
-
+  const auth = getAuth(app);
   function Main() {
     const [chats, setChats] = useState<Chat[]>([]);
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -89,6 +92,7 @@ interface Chat {
     const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
     const [stopBotLabelCheckedState, setStopBotLabelCheckedState] = useState<boolean[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
+    const [selectedMessage2, setSelectedMessage2] = useState(null); 
     const myMessageClass = "flex-end bg-blue-500 max-w-30 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md self-end ml-auto text-white text-right";
     const otherMessageClass = "flex-start bg-gray-700 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md text-white self-start";
     let companyId='014';
@@ -173,7 +177,44 @@ console.log(data)
       console.log(whapiToken);
       try {
         setLoading(true);
-        
+        const user = auth.currentUser;
+ 
+   
+          const docUserRef = doc(firestore, 'user', user?.email!);
+          const docUserSnapshot = await getDoc(docUserRef);
+          if (!docUserSnapshot.exists()) {
+            console.log('No such document for user!');
+            return;
+          }
+         
+          const userData = docUserSnapshot.data();
+          const companyId = userData.companyId;
+      
+          const docRef = doc(firestore, 'companies', companyId);
+          const docSnapshot = await getDoc(docRef);
+          if (!docSnapshot.exists()) {
+            console.log('No such document for company!');
+            return;
+          }
+          const companyData = docSnapshot.data();
+     
+          // Assuming ghlConfig, setToken, and fetchChatsWithRetry are defined elsewhere
+      ghlConfig = {
+            ghl_id: companyData.ghl_id,
+            ghl_secret: companyData.ghl_secret,
+            refresh_token: companyData.refresh_token
+          };
+    
+          // Assuming refreshAccessToken is defined elsewhere
+          const newTokenData = await refreshAccessToken();
+      console.log(newTokenData)
+          // Update Firestore document with new token data
+          await setDoc(doc(firestore, 'companies', companyId), {
+            access_token: newTokenData.access_token,
+            refresh_token: newTokenData.refresh_token,
+          }, { merge: true });
+        const contacts =  await searchContacts(newTokenData.access_token,newTokenData.locationId);
+        console.log(contacts);
         const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`); // Pass whapitoken as a request parameter
         console.log(response);
         if (!response.ok) {
@@ -185,13 +226,27 @@ console.log(data)
         console.log(locationId);
                 
         // Map chats with initialized tags array
-        const mappedChats = data.chats.map((chat: Chat) => ({
-          ...chat,
-          tags: [], // Initialize tags array
-          lastMessageBody: '', // Initialize lastMessageBody
-          id: chat.id!// Use phone number as ID
-        }));
-    
+        
+        // Map chats with initialized tags array and match with contacts
+        const mappedChats = data.chats.map((chat: Chat) => {
+          // Extract the phone number from chat.id
+          const phoneNumber ="+"+ chat.id!.split('@')[0];
+          // Find the corresponding contact for the chat based on phone number
+          const contact = contacts.find((contact: any) => contact.phone === phoneNumber);
+          // Initialize tags array
+          const tags = contact ? contact.tags : [];
+          const id = contact? contact.id:"";
+          // Return the mapped chat
+          return {
+            ...chat,
+            tags: tags,
+            lastMessageBody: '', // Initialize lastMessageBody
+            id: chat.id!, // Use phone number as ID
+            contact_id:id
+          };
+        });
+        
+        console.log("mappedChats Chats:", mappedChats); // Corrected logging statement
         // Fetch contacts
         const conversations = await searchConversations(ghlToken, locationId);
         console.log(conversations);
@@ -203,7 +258,7 @@ console.log(data)
           tags: conversation.tags,
           lastMessageBody: conversation.lastMessageBody
         }));
-    
+     
         // Merge conversations into mappedChats based on phone numbers
         mappedConversations.forEach((conversation: any) => {
           const existingChat = mappedChats.find((chat: any) => chat.id === conversation.id);
@@ -222,19 +277,26 @@ console.log(data)
             });
           }
         });
-      
-        // Check if 'user_name' is in tags before including the chat
-        const filteredChats = mappedChats.filter((chat: { tags: any[] }) => {
-          return chat.tags && chat.tags.includes(user_name); // Add a safeguard to check if chat.tags exists
-        });
-        console.log("Filtered Chats:", mappedChats); // Corrected logging statement
-        setChats(mappedChats);
+      if(companyId === '011'){
+    // Check if 'user_name' is in tags before including the chat
+    const filteredChats = mappedChats.filter((chat: { tags: any[] }) => {
+      return chat.tags && chat.tags.some(tag => typeof tag === 'string' && tag.toLowerCase() === user_name.toLowerCase());
+    });
+    console.log("Filtered Chats:", filteredChats); // Corrected logging statement
+        setChats(filteredChats);
        
         // Log all the chats with tags
         filteredChats.forEach((chat: { id: any; tags: any[]; }) => {
           console.log("Chat ID:", chat.id);
           console.log("Tags:", chat.tags);
         });
+      }else{
+        setChats(mappedChats);
+      }
+    
+        console.log("user_name:", user_name); // Corrected logging statement
+ 
+        
       
         // Exit the loop if chats are fetched successfully
         return;
@@ -244,8 +306,10 @@ console.log(data)
         setLoading(false);
       }
     };
+    
     async function searchConversations(accessToken: any, locationId: any): Promise<any[]> {
       setLoading(true);
+      
       try {
           let allConversation: any[] = [];
           let page = 1;
@@ -488,21 +552,9 @@ const handleSendMessage = async () => {
         document.body.style.overflow = 'visible';
       };
     }, []);
-    const handleContextMenu = (e: React.MouseEvent, message: Message) => {
-      e.preventDefault();
-      showContextMenu(e.clientX, e.clientY, message);
-    };
+ 
   
-    const showContextMenu = (x: number, y: number, message: Message) => {
-      const contextMenu = document.getElementById('contextMenu');
-      if (contextMenu) {
-        contextMenu.style.display = 'block';
-        contextMenu.style.left = `${x}px`;
-        contextMenu.style.top = `${y}px`;
-        setSelectedMessage(message);
-        handleForwardToChat(message.id);
-      }
-    };
+
   
     const handleForwardToChat = (chatId: string) => {
       if (selectedMessage) {
@@ -544,60 +596,120 @@ const handleSendMessage = async () => {
         textarea.style.height = textarea.scrollHeight + 'px'; // Set the height to match the content height
       }
     }
-    const toggleStopBotLabel = async (chat: Chat, index: number) => {
-      try {
-          // Check if the chat already has the "Stop bot" label
-          const hasLabel = stopBotLabelCheckedState[index];
-  
-          // If the chat already has the "Stop bot" label, remove it; otherwise, add it
-          const method = hasLabel ? 'DELETE' : 'POST';
-          let labelId = '';
-  
-          // If label exists, get its ID
-          if (hasLabel&& chat.labels) {
-             labelId = chat.labels?.find(label => label.name === "Stop bot")?.id || '';
-              
-              // Proceed with toggling the label association
-              const associationId = chat.id;
-              const response = await fetch(`https://buds-359313.et.r.appspot.com/api/delete-label-association/${labelId}/${associationId}`, {
-                  method: method,
-                  headers: {
-                      'Content-Type': 'application/json'
-                  }
-              });
-  console.log(response);
-              if (response.ok) {
-                  const message = await response.json();
-                  console.log(message);
-              } else {
-                  console.error('Failed to toggle label');
-              }
-          } else {
-              const associationId = chat.id;
-              const addLabelResponse = await fetch(`https://buds-359313.et.r.appspot.com/api/add-label-association/${associationId}`, {
-                  method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json'
-                  }
-              });
-  
-              if (addLabelResponse.ok) {
-                  const responseData = await addLabelResponse.json();
-                  console.log(responseData);
-                  labelId = responseData.labelId;
-              } else {
-                  console.error('Failed to add label');
-              }
-          }
-  
-          // Update the label state in stopBotLabelCheckedState array
-          const updatedState = [...stopBotLabelCheckedState]; // Create a copy of the stopBotLabelCheckedState array
-          updatedState[index] = !hasLabel; // Toggle the label state for the specified index
-          setStopBotLabelCheckedState(updatedState); // Update the state with the modified stopBotLabelCheckedState array
-      } catch (error) {
-          console.error('Error toggling label:', error);
+
+  const toggleStopBotLabel = async (chat: any, index: number) => {
+    const updatedChats = [...chats]; // Create a copy of the chats array
+        const updatedChat = { ...updatedChats[index] }; // Create a copy of the chat object to be updated
+
+        // Toggle the presence of the "stop bot" tag
+        if (updatedChat.tags!.includes("stop bot")) {
+            // Remove the "stop bot" tag
+            updatedChat.tags = updatedChat.tags!.filter(tag => tag !== "stop bot");
+        } else {
+            // Add the "stop bot" tag
+            updatedChat.tags!.push("stop bot");
+        }
+
+        // Update the chat in the copied chats array
+        updatedChats[index] = updatedChat;
+
+        // Update the state with the modified chats array
+        setChats(updatedChats);
+    try {
+      const user = auth.currentUser;
+ 
+   
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
       }
-  };
+     
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+ 
+      // Assuming ghlConfig, setToken, and fetchChatsWithRetry are defined elsewhere
+  ghlConfig = {
+        ghl_id: companyData.ghl_id,
+        ghl_secret: companyData.ghl_secret,
+        refresh_token: companyData.refresh_token
+      };
+
+      // Assuming refreshAccessToken is defined elsewhere
+      const newTokenData = await refreshAccessToken();
+      const accessToken = newTokenData.access_token;
+        // Check if the chat already has the "Stop bot" label
+        const hasLabel = chat.tags.includes('stop bot');
+
+        // If the chat already has the "Stop bot" label, remove it; otherwise, add it
+        const method = hasLabel ? 'DELETE' : 'POST';
+        let labelId = '';
+
+        // If label exists, get its ID
+        if (hasLabel && chat.tags) {
+            labelId = chat.tags.find((tags: { name: string; }) => tags.name === "stop bot")?.id || '';
+
+            // Proceed with toggling the label association
+            const associationId = chat.contact_id;
+            const response = await fetch(`https://services.leadconnectorhq.com/contacts/${associationId}/tags`, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer '+accessToken,
+                    'Version': '2021-07-28'
+                },
+                body: JSON.stringify({
+                    tags: ["stop bot"]
+                })
+            });
+            console.log(response);
+            if (response.ok) {
+                const message = await response.json();
+                console.log(message);
+            } else {
+                console.error('Failed to toggle label');
+            }
+        } else {
+            const associationId = chat.contact_id;
+            const addLabelResponse = await fetch(`https://services.leadconnectorhq.com/contacts/${associationId}/tags`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer '+accessToken,
+                    'Version': '2021-07-28'
+                },
+                body: JSON.stringify({
+                    tags: ["stop bot"]
+                })
+            });
+
+            if (addLabelResponse.ok) {
+                const responseData = await addLabelResponse.json();
+                console.log(responseData);
+                labelId = responseData.labelId;
+            } else {
+                console.error('Failed to add label');
+            }
+        }
+
+        // Update the label state in stopBotLabelCheckedState array
+        const updatedState = [...stopBotLabelCheckedState]; // Create a copy of the stopBotLabelCheckedState array
+        updatedState[index] = !hasLabel; // Toggle the label state for the specified index
+        setStopBotLabelCheckedState(updatedState); // Update the state with the modified stopBotLabelCheckedState array
+    } catch (error) {
+        console.error('Error toggling label:', error);
+    }
+};
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="flex-1 overflow-hidden">
@@ -627,7 +739,7 @@ const handleSendMessage = async () => {
                       type="checkbox" 
                       value="" 
                       className="sr-only peer" 
-                      checked={stopBotLabelCheckedState[index]} 
+                      checked={chat.tags?.includes("stop bot")} 
                       onChange={() => toggleStopBotLabel(chat, index)} // Pass index to identify the chat
                     />
                     <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 border-2 border-blue-500 p-1">
@@ -655,34 +767,52 @@ const handleSendMessage = async () => {
               )}
               {/* Messages content */}
               {messages.slice().reverse().map((message) => (
-  <div
-    key={message.id}
-    className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
-    onClick={(e) => handleContextMenu(e, message)}
-    onContextMenu={(e) => handleContextMenu(e, message)}
-    style={{
-      maxWidth: '70%', // Set max-width to avoid text clipping
-      width: `${message.type === 'image' ? '320' : Math.min(message.text!.body?.length * 15 || 0, 350)}px`, // Limit width to 300px if there's no image
-    }}
-  >
-    {message.type === 'image' && message.image && (
-      <div className="message-content image-message">
-        <img
-          src={message.image.link}
-          alt="Image"
-          className="message-image"
-          style={{ maxWidth: '300px' }} // Adjust the width as needed
-        />
-        <div className="caption">{message.image.caption}</div>
-      </div>
-    )}
-    {message.type === 'text' && (
-      <div className="message-content" onClick={(e) => handleContextMenu(e, message)} onContextMenu={(e) => handleContextMenu(e, message)}>
-        {message.text?.body || ''} {/* Handle Lead Connector message body */}
-      </div>
-    )}
-  </div>
-))}
+      <Popover
+        key={message.id}
+   
+      >
+        <Popover.Button>
+          <div
+            className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+  
+
+            style={{
+              maxWidth: '70%',
+              width: `${message.type === 'image' ? '320' : Math.min(message.text!.body?.length * 15 || 0, 350)}px`,
+            }}
+          >
+            {message.type === 'image' && message.image && (
+              <div className="message-content image-message">
+                <img
+                  src={message.image.link}
+                  alt="Image"
+                  className="message-image"
+                  style={{ maxWidth: '300px' }}
+                />
+                <div className="caption">{message.image.caption}</div>
+              </div>
+            )}
+            {message.type === 'text' && (
+              <div className="message-content">
+                {message.text?.body || ''}
+              </div>
+            )}
+          </div>
+        </Popover.Button>
+        <Popover.Panel className="w-[280px] sm:w-[350px] p-5 mt-2">
+          <div
+            className="cursor-pointer relative flex items-center"
+     
+          >
+            <div className="ml-2 overflow-hidden">
+              <div className="w-full truncate text-slate-500 mt-0.5">
+                Forward
+              </div>
+            </div>
+          </div>
+        </Popover.Panel>
+      </Popover>
+    ))}
               <div ref={messagesEndRef}></div>
             </div>
             <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-300 py-2 px-4 sm:px-20">

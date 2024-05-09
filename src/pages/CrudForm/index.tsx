@@ -24,8 +24,6 @@ const firebaseConfig = {
   measurementId: "G-2C9J1RY67L"
 };
 
-
-
 function Main() {
   const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -58,10 +56,9 @@ const [categories, setCategories] = useState(["1"]);
         console.log('No such document for user!');
         return;
       }
-     
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-  console.log(companyId);
+      console.log(companyId);
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
@@ -103,21 +100,21 @@ const [categories, setCategories] = useState(["1"]);
       const userOri = auth.currentUser;
       const docUserRef = doc(firestore, 'user', userOri?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
-      
       if (!docUserSnapshot.exists()) {
         console.log('No such document!');
         return;
       } else {
         const dataUser = docUserSnapshot.data();
         const companyId = dataUser.companyId;
-  
+        const company = dataUser.company;
         // Prepare user data to be sent to the server
         const userDataToSend = {
           name: userData.name,
           phoneNumber: userData.phoneNumber,
           email: userData.email,
           role: categories,
-          companyId: companyId
+          companyId: companyId,
+          company:company
           // Add any other required fields here
         };
   
@@ -135,12 +132,11 @@ const [categories, setCategories] = useState(["1"]);
   
         // Parse response data if needed
         const responseData = await response.json();
-  console.log("respon"+responseData);
+        console.log("respon"+responseData);
         // Handle success response
         await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
         await setDoc(doc(firestore,  `companies/${companyId}/employee`, userData.email), userDataToSend);
         console.log("User created successfully");
-   
         setUserData({
           name: "",
           phoneNumber: "",
@@ -150,7 +146,6 @@ const [categories, setCategories] = useState(["1"]);
           companyId: ""
         }); // Clear form fields after successful user creation
       }
-  
       setIsLoading(false); // Set isLoading to false after successful user creation
     } catch (error) {
       console.error("Error creating user:", error);
