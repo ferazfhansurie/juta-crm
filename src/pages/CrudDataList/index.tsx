@@ -283,7 +283,8 @@ const toggleSelectAll = () => {
                 },
                 params: {
                     locationId: locationId,
-                    page: page
+                    page: page,
+                    limit:100
                 }
             };
             const response = await axios.request(options);

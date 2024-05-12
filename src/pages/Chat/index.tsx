@@ -159,11 +159,10 @@ interface Chat {
         setToken(data.whapiToken);
 console.log(data)
        const { ghl_id, ghl_secret, refresh_token } = ghlConfig;
-        const newTokenData = await refreshAccessToken();
-        await fetchChatsWithRetry(data.whapiToken,data.ghl_location,newTokenData.access_token,dataUser.name);
+        await fetchChatsWithRetry(data.whapiToken,data.ghl_location,data.access_token,dataUser.name);
         await setDoc(doc(firestore, 'companies', companyId), {
-          access_token: newTokenData.access_token,
-          refresh_token: newTokenData.refresh_token,
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
         }, { merge: true });
       
       } catch (error) {
@@ -204,16 +203,14 @@ console.log(data)
             ghl_secret: companyData.ghl_secret,
             refresh_token: companyData.refresh_token
           };
-    
-          // Assuming refreshAccessToken is defined elsewhere
-          const newTokenData = await refreshAccessToken();
-      console.log(newTokenData)
+
+
           // Update Firestore document with new token data
           await setDoc(doc(firestore, 'companies', companyId), {
-            access_token: newTokenData.access_token,
-            refresh_token: newTokenData.refresh_token,
+            access_token: companyData.access_token,
+            refresh_token: companyData.refresh_token,
           }, { merge: true });
-        const contacts =  await searchContacts(newTokenData.access_token,newTokenData.locationId);
+        const contacts =  await searchContacts(companyData.access_token,locationId);
         console.log(contacts);
         const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`); // Pass whapitoken as a request parameter
         console.log(response);
@@ -234,6 +231,7 @@ console.log(data)
           // Find the corresponding contact for the chat based on phone number
           const contact = contacts.find((contact: any) => contact.phone === phoneNumber);
           // Initialize tags array
+          console.log(contact);
           const tags = contact ? contact.tags : [];
           const id = contact? contact.id:"";
           // Return the mapped chat
@@ -248,7 +246,7 @@ console.log(data)
         
         console.log("mappedChats Chats:", mappedChats); // Corrected logging statement
         // Fetch contacts
-        const conversations = await searchConversations(ghlToken, locationId);
+        const conversations = await searchConversations(companyData.access_token, locationId);
         console.log(conversations);
     
         // Map conversations to chat list and add their numbers
@@ -361,10 +359,12 @@ console.log(data)
                 params: {
                     locationId: locationId,
                     page: page,
+                    limit:100,
                 }
             };
 
             const response = await axios.request(options);
+           
             console.log('Search Contacts Response (Page ' + page + '):', response.data);
 
             const contacts = response.data.contacts;
@@ -598,23 +598,7 @@ const handleSendMessage = async () => {
     }
 
   const toggleStopBotLabel = async (chat: any, index: number) => {
-    const updatedChats = [...chats]; // Create a copy of the chats array
-        const updatedChat = { ...updatedChats[index] }; // Create a copy of the chat object to be updated
 
-        // Toggle the presence of the "stop bot" tag
-        if (updatedChat.tags!.includes("stop bot")) {
-            // Remove the "stop bot" tag
-            updatedChat.tags = updatedChat.tags!.filter(tag => tag !== "stop bot");
-        } else {
-            // Add the "stop bot" tag
-            updatedChat.tags!.push("stop bot");
-        }
-
-        // Update the chat in the copied chats array
-        updatedChats[index] = updatedChat;
-
-        // Update the state with the modified chats array
-        setChats(updatedChats);
     try {
       const user = auth.currentUser;
  
@@ -644,12 +628,10 @@ const handleSendMessage = async () => {
         refresh_token: companyData.refresh_token
       };
 
-      // Assuming refreshAccessToken is defined elsewhere
-      const newTokenData = await refreshAccessToken();
-      const accessToken = newTokenData.access_token;
+      const accessToken = companyData.access_token;
         // Check if the chat already has the "Stop bot" label
         const hasLabel = chat.tags.includes('stop bot');
-
+console.log("haslabel"+chat.tags)
         // If the chat already has the "Stop bot" label, remove it; otherwise, add it
         const method = hasLabel ? 'DELETE' : 'POST';
         let labelId = '';
@@ -708,6 +690,23 @@ const handleSendMessage = async () => {
     } catch (error) {
         console.error('Error toggling label:', error);
     }
+    const updatedChats = [...chats]; // Create a copy of the chats array
+    const updatedChat = { ...updatedChats[index] }; // Create a copy of the chat object to be updated
+console.log(updatedChat.tags!);
+    // Toggle the presence of the "stop bot" tag
+    if (updatedChat.tags!.includes("stop bot")) {
+        // Remove the "stop bot" tag
+        updatedChat.tags = updatedChat.tags!.filter(tag => tag !== "stop bot");
+    } else {
+        // Add the "stop bot" tag
+        updatedChat.tags!.push("stop bot");
+    }
+
+    // Update the chat in the copied chats array
+    updatedChats[index] = updatedChat;
+
+    // Update the state with the modified chats array
+    setChats(updatedChats);
 };
 
   return (
