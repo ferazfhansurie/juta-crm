@@ -81,26 +81,7 @@ function Main() {
   const [selectAll, setSelectAll] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [showAddUserButton, setShowAddUserButton] = useState(false);
-  async function refreshAccessToken() {
-    const encodedParams = new URLSearchParams();
-    encodedParams.set('client_id', ghlConfig.ghl_id);
-    encodedParams.set('client_secret', ghlConfig.ghl_secret);
-    encodedParams.set('grant_type', 'refresh_token');
-    encodedParams.set('refresh_token', ghlConfig.refresh_token);
-    encodedParams.set('user_type', 'Location');
-    const options = {
-      method: 'POST',
-      url: 'https://services.leadconnectorhq.com/oauth/token',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Accept: 'application/json'
-      },
-      data: encodedParams,
-    };
-    const { data: newTokenData } = await axios.request(options);
 
-    return newTokenData;
-  }
   const toggleContactSelection = (contact: Contact) => {
     const isSelected = selectedContacts.some((c) => c.id === contact.id);
     if (isSelected) {
@@ -153,15 +134,14 @@ function Main() {
         refresh_token: companyData.refresh_token
       };
 
-      // Assuming refreshAccessToken is defined elsewhere
-      const newTokenData = await refreshAccessToken();
-  console.log(newTokenData)
+
+  console.log(companyData);
       // Update Firestore document with new token data
       await setDoc(doc(firestore, 'companies', companyId), {
-        access_token: newTokenData.access_token,
-        refresh_token: newTokenData.refresh_token,
+        access_token: companyData.access_token,
+        refresh_token: companyData.refresh_token,
       }, { merge: true });
-      await searchContacts(newTokenData.access_token,newTokenData.locationId);
+      await searchContacts(companyData.access_token,companyData.locationId);
     
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
@@ -203,13 +183,11 @@ setEmployeeList(employeeListData);
         ghl_secret: companyData.ghl_secret,
         refresh_token: companyData.refresh_token
       };
-      // Assuming refreshAccessToken is defined elsewhere
-      const newTokenData = await refreshAccessToken();
-  console.log(newTokenData)
+
       // Update Firestore document with new token data
       await setDoc(doc(firestore, 'companies', companyId), {
-        access_token: newTokenData.access_token,
-        refresh_token: newTokenData.refresh_token,
+        access_token: companyData.access_token,
+        refresh_token: companyData.refresh_token,
       }, { merge: true });
       console.log(selectedEmployee);
     if (selectedEmployee) {
@@ -220,7 +198,7 @@ setEmployeeList(employeeListData);
       // Loop through each selected contact and add the tag
       for (const contact of selectedContactsCopy) {
         console.log(contact);
-        const success = await updateContactTags(contact.id, newTokenData.access_token, [tagName]);
+        const success = await updateContactTags(contact.id, companyData.access_token, [tagName]);
     
         if (!success) {
           console.error(`Failed to add tag "${tagName}" to contact with ID ${contact.id}`);
@@ -229,7 +207,7 @@ setEmployeeList(employeeListData);
    
         }
       }
-      await searchContacts(newTokenData.access_token,newTokenData.locationId);
+      await searchContacts(companyData.access_token,companyData.locationId);
     }
   };
   async function updateContactTags(contactId: any, accessToken: any, tags: any) {
