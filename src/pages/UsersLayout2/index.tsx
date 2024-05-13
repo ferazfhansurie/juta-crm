@@ -32,25 +32,6 @@ const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
 
 
-async function refreshAccessToken() {
-  const encodedParams = new URLSearchParams();
-  encodedParams.set('client_id', ghlConfig.ghl_id);
-  encodedParams.set('client_secret', ghlConfig.ghl_secret);
-  encodedParams.set('grant_type', 'refresh_token');
-  encodedParams.set('refresh_token', ghlConfig.refresh_token);
-  encodedParams.set('user_type', 'Location');
-  const options = {
-    method: 'POST',
-    url: 'https://services.leadconnectorhq.com/oauth/token',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Accept: 'application/json'
-    },
-    data: encodedParams,
-  };
-  const { data: newTokenData } = await axios.request(options);
-  return newTokenData;
-}
 interface Employee {
   id: string;
   name: string;
