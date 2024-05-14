@@ -282,6 +282,7 @@ user_name = dataUser.name;
           }
         });
       if(companyId === '011' && user_role !== 2){
+        //yo
     // Check if 'user_name' is in tags before including the chat
     const filteredChats = mappedChats.filter((chat: { tags: any[] }) => {
       return chat.tags && chat.tags.some(tag => typeof tag === 'string' && tag.toLowerCase() === user_name.toLowerCase());
