@@ -35,10 +35,10 @@ export const selectMenu = (layout: Themes["layout"]) => (state: RootState) => {
   }
 
   if (layout == "simple-menu") {
-    return simpleMenu;
+    return sideMenu;
   }
 
-  return simpleMenu;
+  return sideMenu;
 };
 
 export default menuSlice.reducer;

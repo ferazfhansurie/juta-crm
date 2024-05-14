@@ -204,12 +204,10 @@ setEmployeeList(employeeListData);
         refresh_token: companyData.refresh_token
       };
       // Assuming refreshAccessToken is defined elsewhere
-      const newTokenData = await refreshAccessToken();
-  console.log(newTokenData)
       // Update Firestore document with new token data
       await setDoc(doc(firestore, 'companies', companyId), {
-        access_token: newTokenData.access_token,
-        refresh_token: newTokenData.refresh_token,
+        access_token: companyData.access_token,
+        refresh_token: companyData.refresh_token,
       }, { merge: true });
       console.log(selectedEmployee);
     if (selectedEmployee) {
@@ -220,7 +218,7 @@ setEmployeeList(employeeListData);
       // Loop through each selected contact and add the tag
       for (const contact of selectedContactsCopy) {
         console.log(contact);
-        const success = await updateContactTags(contact.id, newTokenData.access_token, [tagName]);
+        const success = await updateContactTags(contact.id, companyData.access_token, [tagName]);
     
         if (!success) {
           console.error(`Failed to add tag "${tagName}" to contact with ID ${contact.id}`);
@@ -229,7 +227,7 @@ setEmployeeList(employeeListData);
    
         }
       }
-      await searchContacts(newTokenData.access_token,newTokenData.locationId);
+      await searchContacts(companyData.access_token,companyData.locationId);
     }
   };
   async function updateContactTags(contactId: any, accessToken: any, tags: any) {

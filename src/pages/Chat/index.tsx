@@ -79,6 +79,7 @@ interface Chat {
   const app = initializeApp(firebaseConfig);
   const firestore = getFirestore(app);
   const auth = getAuth(app);
+
   function Main() {
     const [chats, setChats] = useState<Chat[]>([]);
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -96,6 +97,8 @@ interface Chat {
     const myMessageClass = "flex-end bg-blue-500 max-w-30 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md self-end ml-auto text-white text-right";
     const otherMessageClass = "flex-start bg-gray-700 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md text-white self-start";
     let companyId='014';
+    let user_name='';
+    let user_role=2;
     let ghlConfig ={
       ghl_id:'',
       ghl_secret:'',
@@ -143,7 +146,7 @@ interface Chat {
         const dataUser = docUserSnapshot.data();
         
         companyId = dataUser.companyId;
-
+        user_role - dataUser.role;
         const docRef = doc(firestore, 'companies', companyId);
         const docSnapshot = await getDoc(docRef);
         if (!docSnapshot.exists()) {
@@ -158,6 +161,7 @@ interface Chat {
         };
         setToken(data.whapiToken);
 console.log(data)
+user_name = dataUser.name;
        const { ghl_id, ghl_secret, refresh_token } = ghlConfig;
         await fetchChatsWithRetry(data.whapiToken,data.ghl_location,data.access_token,dataUser.name);
         await setDoc(doc(firestore, 'companies', companyId), {
@@ -234,10 +238,12 @@ console.log(data)
           console.log(contact);
           const tags = contact ? contact.tags : [];
           const id = contact? contact.id:"";
+          const name = contact? contact.fullName:"";
           // Return the mapped chat
           return {
             ...chat,
             tags: tags,
+            name:(name != "")?name:phoneNumber,
             lastMessageBody: '', // Initialize lastMessageBody
             id: chat.id!, // Use phone number as ID
             contact_id:id
@@ -252,7 +258,7 @@ console.log(data)
         // Map conversations to chat list and add their numbers
         const mappedConversations = conversations.map((conversation: any) => ({
           id: conversation.id, // Use conversation id as ID
-          name: conversation.fullName,
+          name: conversation.fullName??conversation.phone,
           tags: conversation.tags,
           lastMessageBody: conversation.lastMessageBody
         }));
@@ -275,7 +281,7 @@ console.log(data)
             });
           }
         });
-      if(companyId === '011'){
+      if(companyId === '011' && user_role !== 2){
     // Check if 'user_name' is in tags before including the chat
     const filteredChats = mappedChats.filter((chat: { tags: any[] }) => {
       return chat.tags && chat.tags.some(tag => typeof tag === 'string' && tag.toLowerCase() === user_name.toLowerCase());
