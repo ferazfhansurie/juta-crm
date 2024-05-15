@@ -150,6 +150,7 @@ interface Chat {
                 };
                 user_name = dataUser.name;
                 await fetchChatsWithRetry(data.whapiToken, data.ghl_location, data.access_token, dataUser.name);
+                await fetchMessages(selectedChatId!, whapiToken!);
               }
             });
             // Handle modified document
@@ -163,7 +164,7 @@ interface Chat {
     
       // Return a cleanup function to unsubscribe from the listener when the component unmounts
       return () => unsubscribe();
-    }, [companyId]);
+    }, [companyId,selectedChatId]);
     async function refreshAccessToken() {
       const encodedParams = new URLSearchParams();
       encodedParams.set('client_id', ghlConfig.ghl_id);
