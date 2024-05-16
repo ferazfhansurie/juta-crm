@@ -714,14 +714,14 @@ const handleSendMessage = async () => {
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="flex-1 overflow-hidden">
         <div className="flex h-screen overflow-hidden">
-          <div className="w-full sm:w-1/5 p-4 bg-gray-200 overflow-y-auto">
+          <div className="w-full sm:w-5/12 p-4 bg-gray-200 overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               {/* Refresh icon */}
-              <button className="flex items-center px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring focus:ring-indigo-300 focus:ring-opacity-80" onClick={handleRefreshClick}>
+              <button className="flex items-center px-2 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring focus:ring-indigo-300 focus:ring-opacity-80" onClick={handleRefreshClick}>
                 <svg className="w-5 h-5 mx-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
                 </svg>
-              </button>
+              Refresh</button>
             </div>
             <div>
               {chats.map((chat, index) => (
@@ -742,8 +742,7 @@ const handleSendMessage = async () => {
                       checked={chat.tags?.includes("stop bot")} 
                       onChange={() => toggleStopBotLabel(chat, index)} // Pass index to identify the chat
                     />
-                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 border-2 border-blue-500 p-1">
-                    </div>
+                    <div className="relative w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                   </label>
                   {index !== chats.length - 1 && <hr className="my-2 border-gray-300" />} {/* Add divider except for the last chat */}
                 </div>
@@ -768,7 +767,7 @@ const handleSendMessage = async () => {
               {/* Messages content */}
               {messages.slice().reverse().map((message) => (
    <div
-   className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+   className={`text-sm font-normal py-2.5 text-gray-900 dark:text-white ${message.from_me ? myMessageClass : otherMessageClass}`}
 
 
    style={{
@@ -796,48 +795,43 @@ const handleSendMessage = async () => {
     ))}
               <div ref={messagesEndRef}></div>
             </div>
-            <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-300 py-2 px-4 sm:px-20">
-            <div className="message-source-buttons flex items-center mb-2 md:mb-0">
-            <img
-              className={`source-button ${selectedIcon === 'ws' ? 'border-2 border-blue-500' : ''}`}
-              src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon4.png?alt=media&token=d4ab65b6-9b90-4aca-9d69-6263300a91ec"
-              alt="WhatsApp"
-              onClick={() => handleWhatsappClick('ws')}
-              style={{ width: '30px', height: '30px' }} // Adjust size as needed
-            />
-            <img
-              className={`source-button ${selectedIcon === 'fb' ? 'border-2 border-blue-500' : ''}`}
-              src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/facebook-logo-on-transparent-isolated-background-free-vector-removebg-preview.png?alt=media&token=c312eb23-dfee-40d3-a55c-476ef3041369"
-              alt="Facebook"
-              onClick={() => handleIconClick('fb')}
-              style={{ width: '30px', height: '30px' }} // Adjust size as needed
-            />
+
+            <div className="absolute bottom-2 left-align w-full bg-white border-t border-gray-300 py-2 px-4 sm:px-2">
+            <div className="message-source-buttons flex items-center mb-2 md:mb-1 py-2 px-4">
+            <svg className={`source-button ${selectedIcon === 'ws' ? 'bg-blue-200' : ''}`}
+                xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 432 432" onClick={() => handleWhatsappClick('ws')}>
+                <path fill="currentColor" d="M364.5 65Q427 127 427 214.5T364.5 364T214 426q-54 0-101-26L0 429l30-109Q2 271 2 214q0-87 62-149T214 3t150.5 62zM214 390q73 0 125-51.5T391 214T339 89.5T214 38T89.5 89.5T38 214q0 51 27 94l4 6l-18 65l67-17l6 3q42 25 90 25zm97-132q9 5 10 7q4 6-3 25q-3 8-15 15.5t-21 9.5q-18 2-33-2q-17-6-30-11q-8-4-15.5-8.5t-14.5-9t-13-9.5t-11.5-10t-10.5-10.5t-8.5-9.5t-7-8.5t-5.5-7t-3.5-5L128 222q-22-29-22-55q0-24 19-44q6-7 14-7q6 0 10 1q8 0 12 9q2 3 6 13l7 17.5l3 8.5q3 5 1 9q-3 7-5 9l-3 3l-3 3.5l-2 2.5q-6 6-3 11q13 22 30 37q13 11 43 26q7 3 11-1q12-15 17-21q4-6 12-3q6 3 36 17z"/>
+            </svg>
+            <svg className={`source-button ${selectedIcon === 'fb' ? 'border-2 border-blue-500' : ''}`}
+                xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" onClick={() => handleIconClick('fb')}>
+                <path fill="currentColor" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669c1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
             <img
               className={`source-button ${selectedIcon === 'ig' ? 'border-2 border-blue-500' : ''}`}
               onClick={() => handleIconClick('ig')}
               src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon3.png?alt=media&token=9395326d-ff56-45e7-8ebc-70df4be6971a"
               alt="Instagram"
-              style={{ width: '30px', height: '30px' }} // Adjust size as needed
+              style={{ width: '40px', height: '40px' }} // Adjust size as needed
             />
             <img
               className={`source-button ${selectedIcon === 'gmb' ? 'border-2 border-blue-500' : ''}`}
               onClick={() => handleIconClick('gmb')}
               src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon1.png?alt=media&token=10842399-eca4-40d1-9051-ea70c72ac95b"
               alt="Google My Business"
-              style={{ width: '20px', height: '20px' }} // Adjust size as needed
+              style={{ width: '40px', height: '40px' }} // Adjust size as needed
             />
             <img
               className={`source-button ${selectedIcon === 'mail' ? 'border-2 border-blue-500' : ''}`}
               onClick={() => handleIconClick('mail')}
               src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon2.png?alt=media&token=813f94d4-cad1-4944-805a-2454293278c9"
               alt="Email"
-              style={{ width: '30px', height: '30px' }} // Adjust size as needed
+              style={{ width: '40px', height: '40px' }} // Adjust size as needed
             />
        
           </div>
               <div className="flex items-center">
                 <textarea
-                  className="flex-grow px-4 py-2 border border-gray-400 rounded focus:outline-none focus:border-blue-500 text-lg mr-2 resize-none"
+                  className="flex-grow items-center px-1 py-1 border border-gray-400  rounded-md focus:outline-none focus:border-blue-500 text-md mr-2 resize-none" style={{ borderRadius: '12px'}}
                   placeholder="Type a message"
                   value={newMessage}
                   onChange={(e) => {

@@ -115,6 +115,10 @@ function Router() {
           element: <DashboardOverview4 />,
         },
         {
+          path: "profile",
+          element: <ProfileOverview1 />,
+        },
+        {
           path: "categories",
           element: <Categories />,
         },

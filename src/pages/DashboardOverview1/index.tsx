@@ -1,6 +1,6 @@
 import _ from "lodash";
 import clsx from "clsx";
-import { useRef, useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import fakerData from "@/utils/faker";
 import Button from "@/components/Base/Button";
 import Pagination from "@/components/Base/Pagination";
@@ -17,6 +17,32 @@ import SimpleLineChart1 from "@/components/SimpleLineChart1";
 import LeafletMap from "@/components/LeafletMap";
 import { Menu } from "@/components/Base/Headless";
 import Table from "@/components/Base/Table";
+import axios from "axios";
+import { getAuth } from 'firebase/auth';
+import { getFirestore, collection, doc, getDoc, setDoc, getDocs } from 'firebase/firestore';
+import { initializeApp } from "firebase/app";
+
+// Assuming 'app' is your Firebase app instance
+const firebaseConfig = {
+  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
+  authDomain: "onboarding-a5fcb.firebaseapp.com",
+  databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "onboarding-a5fcb",
+  storageBucket: "onboarding-a5fcb.appspot.com",
+  messagingSenderId: "334607574757",
+  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
+  measurementId: "G-2C9J1RY67L"
+};
+const app = initializeApp(firebaseConfig);
+
+const auth = getAuth(app);
+const firestore = getFirestore(app);
+let companyId='014';
+let ghlConfig ={
+  ghl_id:'',
+  ghl_secret:'',
+  refresh_token:'',
+};
 
 function Main() {
   const [salesReportFilter, setSalesReportFilter] = useState<string>();
@@ -27,6 +53,105 @@ function Main() {
   const nextImportantNotes = () => {
     importantNotesRef.current?.tns.goTo("next");
   };
+
+  const [totalContacts, setTotalContacts] = useState(0);
+
+  async function searchContacts(accessToken: any, locationId: any) {
+   
+    try {
+        let allContacts: any[] = [];
+        let page = 1;
+        const options = {
+          method: 'GET',
+          url: 'https://services.leadconnectorhq.com/contacts/',
+          headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Version: '2021-07-28',
+          },
+          params: {
+              locationId: locationId
+          }
+      };
+      const response = await axios.request(options);
+      console.log('Search Conversation Response:', response.data);
+      const contacts = response.data.contacts;
+      // Concatenate contacts to allContacts array
+      allContacts = [...allContacts, ...contacts];
+        // Filter contacts where phone number is not null
+        const filteredContacts = allContacts.filter(contact => contact.phone !== null);
+        setTotalContacts(filteredContacts.length);
+        console.log('Search Conversation Response:', filteredContacts);
+        console.log(filteredContacts.length);
+    } catch (error) {
+        console.error('Error searching conversation:', error);
+    }
+}
+
+  async function fetchOpportunities(accessToken: any, locationId: any) {
+    try {
+      const options = {
+        method: 'GET',
+        url: `https://services.leadconnectorhq.com/opportunities/${locationId}`,  // Adjust the URL if necessary
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Version: '2021-07-28',
+        }
+      };
+
+      const response = await axios.request(options);
+      console.log('Fetch Opportunities Response:', response.data);
+      return response.data.opportunities;  // Make sure the key matches the API response
+    } catch (error) {
+      console.error('Error fetching opportunities:', error);
+      return [];
+    }
+  }
+
+  useEffect(() => {
+    fetchCompanyData();
+  }, []);
+  //requesting Opportunities (Contacts)
+  async function fetchCompanyData() {
+    const user = auth.currentUser;
+ 
+    try {
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+     
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+    
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+ 
+      // Assuming ghlConfig, setToken, and fetchChatsWithRetry are defined elsewhere
+  ghlConfig = {
+        ghl_id: companyData.ghl_id,
+        ghl_secret: companyData.ghl_secret,
+        refresh_token: companyData.refresh_token
+      };
+
+      // Assuming refreshAccessToken is defined elsewhere
+console.log(companyData);
+
+      await searchContacts(companyData.access_token,companyData.ghl_location);
+
+
+    } catch (error) {
+      console.error('Error fetching company data:', error);
+    }
+
+  }
 
   return (
     <div className="grid grid-cols-12 gap-6">
@@ -69,7 +194,7 @@ function Main() {
                       </div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                      0
+                      {totalContacts}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                     Total Contacts 

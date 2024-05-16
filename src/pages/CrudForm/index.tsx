@@ -94,6 +94,10 @@ const [categories, setCategories] = useState(["1"]);
     }));
   };
 
+  const handleGoBack = () => {
+    window.history.back();
+  };
+
   const saveUser = async () => {
     try {
       setIsLoading(true); // Set isLoading to true before user creation
@@ -223,6 +227,7 @@ const [categories, setCategories] = useState(["1"]);
                 type="button"
                 variant="outline-secondary"
                 className="w-24 mr-1"
+                onClick={handleGoBack}
               >
                 Cancel
               </Button>
