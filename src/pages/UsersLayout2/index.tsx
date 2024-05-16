@@ -151,6 +151,7 @@ async function fetchEmployees() {
     throw error;
   }
 }
+<<<<<<< HEAD
 
 const handleUpdateContact = async (contactId: string, contact: any, companyId:any) => {
   try {
@@ -184,6 +185,9 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
   }
 };
 
+=======
+//
+>>>>>>> main
   return (
     <>
       <h2 className="mt-10 text-lg font-medium intro-y">Users Layout</h2>

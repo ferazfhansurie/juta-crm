@@ -50,6 +50,7 @@
     "react-router-dom": "^6.21.1",
     "react-transition-group": "^4.4.5",
     "simplebar": "^6.2.5",
+    "socket.io-client": "^4.7.5",
     "tabulator-tables": "^5.5.2",
     "tiny-slider": "^2.9.4",
     "tippy.js": "^6.3.7",

@@ -2,11 +2,12 @@
 
   import { getAuth } from "firebase/auth";
   import { initializeApp } from "firebase/app";
-  import { DocumentReference, getDoc } from 'firebase/firestore';
+  import { DocumentReference, getDoc, onSnapshot } from 'firebase/firestore';
   import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import axios from "axios";
 import Lucide from "@/components/Base/Lucide";
 import { Menu, Popover } from "@/components/Base/Headless";
+
 interface Label {
   id: string;
   name: string;
@@ -79,6 +80,7 @@ interface Chat {
   const app = initializeApp(firebaseConfig);
   const firestore = getFirestore(app);
   const auth = getAuth(app);
+
   function Main() {
     const [chats, setChats] = useState<Chat[]>([]);
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -88,14 +90,15 @@ interface Chat {
     const [isLoading, setLoading] = useState<boolean>(false); // Loading state
     const [selectedIcon, setSelectedIcon] = useState<string | null>(null); 
     const inputRef = useRef<HTMLInputElement>(null);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
     const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
     const [stopBotLabelCheckedState, setStopBotLabelCheckedState] = useState<boolean[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
-    const [selectedMessage2, setSelectedMessage2] = useState(null); 
+    const [selectedMessage2, setSelectedMessage2] = useState(null);
     const myMessageClass = "flex-end bg-blue-500 max-w-30 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md self-end ml-auto text-white text-right";
     const otherMessageClass = "flex-start bg-gray-700 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md text-white self-start";
     let companyId='014';
+    let user_name='';
+  
     let ghlConfig ={
       ghl_id:'',
       ghl_secret:'',
@@ -104,7 +107,64 @@ interface Chat {
     useEffect(() => {
       fetchConfigFromDatabase();
     }, []);
+    useEffect(() => {
+      // Define a function to handle changes in the Firestore collection
+      const unsubscribe = onSnapshot(collection(firestore, 'message'), (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          console.log("added document: ", change.doc.data());
+          // Handle each change (added, modified, or removed document)
+          if (change.type === "added") {
+            console.log("added document: ", change.doc.data());
+          }
+          if (change.type === "modified") {
+            console.log("Modified document: ", change.doc.data());
+            const messageData = change.doc.data();
+            messageData.messages.forEach(async (message: any, index: any) => {
+              if(selectedChatId === message.chat_id){
+                fetchMessagesBackground(selectedChatId!, whapiToken!);
+              }else{
+                const auth = getAuth(app);
+                const user = auth.currentUser;
+               
+                const docUserRef = doc(firestore, 'user', user?.email!);
+                const docUserSnapshot = await getDoc(docUserRef);
+                if (!docUserSnapshot.exists()) {
+                  console.log('No such document!');
+                  return;
+                }
+                const dataUser = docUserSnapshot.data();
+                
+                const newCompanyId = dataUser.companyId; // Ensure companyId exists
+                // Fix typo: '-' to '='
+                const docRef = doc(firestore, 'companies', newCompanyId);
+                const docSnapshot = await getDoc(docRef);
+                if (!docSnapshot.exists()) {
+                  console.log('No such document!');
+                  return;
+                }
+                const data = docSnapshot.data();
+                ghlConfig = {
+                  ghl_id: data.ghl_id,
+                  ghl_secret: data.ghl_secret,
+                  refresh_token: data.refresh_token
+                };
+                user_name = dataUser.name;
+                await fetchChatsBackground(data.whapiToken, data.ghl_location, data.access_token, dataUser.name);
+                await fetchMessagesBackground(selectedChatId!, whapiToken!);
+              }
+            });
+            // Handle modified document
+          }
+          if (change.type === "removed") {
+            console.log("Removed document: ", change.doc.data());
+            // Handle removed document
+          }
+        });
+      });
     
+      // Return a cleanup function to unsubscribe from the listener when the component unmounts
+      return () => unsubscribe();
+    }, [companyId,selectedChatId]);
     async function refreshAccessToken() {
       const encodedParams = new URLSearchParams();
       encodedParams.set('client_id', ghlConfig.ghl_id);
@@ -143,7 +203,7 @@ interface Chat {
         const dataUser = docUserSnapshot.data();
         
         companyId = dataUser.companyId;
-
+     
         const docRef = doc(firestore, 'companies', companyId);
         const docSnapshot = await getDoc(docRef);
         if (!docSnapshot.exists()) {
@@ -157,13 +217,12 @@ interface Chat {
           refresh_token: data.refresh_token
         };
         setToken(data.whapiToken);
-console.log(data)
+user_name = dataUser.name;
        const { ghl_id, ghl_secret, refresh_token } = ghlConfig;
-        const newTokenData = await refreshAccessToken();
-        await fetchChatsWithRetry(data.whapiToken,data.ghl_location,newTokenData.access_token,dataUser.name);
+        await fetchChatsWithRetry(data.whapiToken,data.ghl_location,data.access_token,dataUser.name);
         await setDoc(doc(firestore, 'companies', companyId), {
-          access_token: newTokenData.access_token,
-          refresh_token: newTokenData.refresh_token,
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
         }, { merge: true });
       
       } catch (error) {
@@ -174,7 +233,6 @@ console.log(data)
       }
     }
     const fetchChatsWithRetry = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
-      console.log(whapiToken);
       try {
         setLoading(true);
         const user = auth.currentUser;
@@ -204,26 +262,20 @@ console.log(data)
             ghl_secret: companyData.ghl_secret,
             refresh_token: companyData.refresh_token
           };
-    
-          // Assuming refreshAccessToken is defined elsewhere
-          const newTokenData = await refreshAccessToken();
-      console.log(newTokenData)
+
+
           // Update Firestore document with new token data
           await setDoc(doc(firestore, 'companies', companyId), {
-            access_token: newTokenData.access_token,
-            refresh_token: newTokenData.refresh_token,
+            access_token: companyData.access_token,
+            refresh_token: companyData.refresh_token,
           }, { merge: true });
-        const contacts =  await searchContacts(newTokenData.access_token,newTokenData.locationId);
-        console.log(contacts);
+        const contacts =  await searchContacts(companyData.access_token,locationId);
         const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`); // Pass whapitoken as a request parameter
-        console.log(response);
         if (!response.ok) {
           throw new Error('Failed to fetch chats');
         }
         
         const data = await response.json();
-        console.log("data"+data.chats);
-        console.log(locationId);
                 
         // Map chats with initialized tags array
         
@@ -234,27 +286,28 @@ console.log(data)
           // Find the corresponding contact for the chat based on phone number
           const contact = contacts.find((contact: any) => contact.phone === phoneNumber);
           // Initialize tags array
+
           const tags = contact ? contact.tags : [];
           const id = contact? contact.id:"";
+          const name = contact? contact.firstName:"";
           // Return the mapped chat
           return {
             ...chat,
             tags: tags,
+            name:(name != "")?name:chat.name,
             lastMessageBody: '', // Initialize lastMessageBody
             id: chat.id!, // Use phone number as ID
             contact_id:id
           };
         });
-        
-        console.log("mappedChats Chats:", mappedChats); // Corrected logging statement
         // Fetch contacts
-        const conversations = await searchConversations(ghlToken, locationId);
-        console.log(conversations);
+        const conversations = await searchConversations(companyData.access_token, locationId);
+  
     
         // Map conversations to chat list and add their numbers
         const mappedConversations = conversations.map((conversation: any) => ({
           id: conversation.id, // Use conversation id as ID
-          name: conversation.fullName,
+          name: conversation.fullName??conversation.phone,
           tags: conversation.tags,
           lastMessageBody: conversation.lastMessageBody
         }));
@@ -262,7 +315,6 @@ console.log(data)
         // Merge conversations into mappedChats based on phone numbers
         mappedConversations.forEach((conversation: any) => {
           const existingChat = mappedChats.find((chat: any) => chat.id === conversation.id);
-          console.log(conversation.lastMessageBody);
           if (existingChat) {
             existingChat.tags.push(...conversation.tags);
             existingChat.lastMessageBody = conversation.lastMessageBody;
@@ -277,26 +329,25 @@ console.log(data)
             });
           }
         });
-      if(companyId === '011'){
+        console.log(userData.role);
+      if(companyId === '011' && userData.role === 2){
+        //yo
     // Check if 'user_name' is in tags before including the chat
     const filteredChats = mappedChats.filter((chat: { tags: any[] }) => {
       return chat.tags && chat.tags.some(tag => typeof tag === 'string' && tag.toLowerCase() === user_name.toLowerCase());
     });
-    console.log("Filtered Chats:", filteredChats); // Corrected logging statement
+
         setChats(filteredChats);
        
         // Log all the chats with tags
         filteredChats.forEach((chat: { id: any; tags: any[]; }) => {
-          console.log("Chat ID:", chat.id);
-          console.log("Tags:", chat.tags);
+  
         });
       }else{
         setChats(mappedChats);
       }
     
-        console.log("user_name:", user_name); // Corrected logging statement
- 
-        
+  
       
         // Exit the loop if chats are fetched successfully
         return;
@@ -306,9 +357,133 @@ console.log(data)
         setLoading(false);
       }
     };
+    const fetchChatsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
+      try {
+  
+        const user = auth.currentUser;
+ 
+   
+          const docUserRef = doc(firestore, 'user', user?.email!);
+          const docUserSnapshot = await getDoc(docUserRef);
+          if (!docUserSnapshot.exists()) {
+            console.log('No such document for user!');
+            return;
+          }
+         
+          const userData = docUserSnapshot.data();
+          const companyId = userData.companyId;
+      
+          const docRef = doc(firestore, 'companies', companyId);
+          const docSnapshot = await getDoc(docRef);
+          if (!docSnapshot.exists()) {
+            console.log('No such document for company!');
+            return;
+          }
+          const companyData = docSnapshot.data();
+     
+          // Assuming ghlConfig, setToken, and fetchChatsWithRetry are defined elsewhere
+      ghlConfig = {
+            ghl_id: companyData.ghl_id,
+            ghl_secret: companyData.ghl_secret,
+            refresh_token: companyData.refresh_token
+          };
+
+
+          // Update Firestore document with new token data
+          await setDoc(doc(firestore, 'companies', companyId), {
+            access_token: companyData.access_token,
+            refresh_token: companyData.refresh_token,
+          }, { merge: true });
+        const contacts =  await searchContacts(companyData.access_token,locationId);
+        const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`); // Pass whapitoken as a request parameter
+        if (!response.ok) {
+          throw new Error('Failed to fetch chats');
+        }
+        
+        const data = await response.json();
+                
+        // Map chats with initialized tags array
+        
+        // Map chats with initialized tags array and match with contacts
+        const mappedChats = data.chats.map((chat: Chat) => {
+          // Extract the phone number from chat.id
+          const phoneNumber ="+"+ chat.id!.split('@')[0];
+          // Find the corresponding contact for the chat based on phone number
+          const contact = contacts.find((contact: any) => contact.phone === phoneNumber);
+          // Initialize tags array
+
+          const tags = contact ? contact.tags : [];
+          const id = contact? contact.id:"";
+          const name = contact? contact.firstName:"";
+          // Return the mapped chat
+          return {
+            ...chat,
+            tags: tags,
+            name:(name != "")?name:chat.name,
+            lastMessageBody: '', // Initialize lastMessageBody
+            id: chat.id!, // Use phone number as ID
+            contact_id:id
+          };
+        });
+        // Fetch contacts
+        const conversations = await searchConversations(companyData.access_token, locationId);
+  
     
+        // Map conversations to chat list and add their numbers
+        const mappedConversations = conversations.map((conversation: any) => ({
+          id: conversation.id, // Use conversation id as ID
+          name: conversation.fullName??conversation.phone,
+          tags: conversation.tags,
+          lastMessageBody: conversation.lastMessageBody
+        }));
+     
+        // Merge conversations into mappedChats based on phone numbers
+        mappedConversations.forEach((conversation: any) => {
+          const existingChat = mappedChats.find((chat: any) => chat.id === conversation.id);
+          if (existingChat) {
+            existingChat.tags.push(...conversation.tags);
+            existingChat.lastMessageBody = conversation.lastMessageBody;
+            existingChat.name = conversation.name;
+          } else {
+            // If conversation does not exist in mappedChats, add it
+            mappedChats.push({
+              id: conversation.id,
+              name: conversation.name,
+              tags: conversation.tags,
+              lastMessageBody: conversation.lastMessageBody
+            });
+          }
+        });
+        console.log(userData.role);
+      if(companyId === '011' && userData.role === 2){
+        //yo
+    // Check if 'user_name' is in tags before including the chat
+    const filteredChats = mappedChats.filter((chat: { tags: any[] }) => {
+      return chat.tags && chat.tags.some(tag => typeof tag === 'string' && tag.toLowerCase() === user_name.toLowerCase());
+    });
+
+        setChats(filteredChats);
+       
+        // Log all the chats with tags
+        filteredChats.forEach((chat: { id: any; tags: any[]; }) => {
+  
+        });
+      }else{
+        setChats(mappedChats);
+      }
+    
+  
+      
+        // Exit the loop if chats are fetched successfully
+        return;
+      } catch (error) {
+        console.error('Failed to fetch chats:', error);
+      } finally {
+
+      }
+    };
     async function searchConversations(accessToken: any, locationId: any): Promise<any[]> {
-      setLoading(true);
+  
       
       try {
           let allConversation: any[] = [];
@@ -328,24 +503,22 @@ console.log(data)
         };
 
         const response = await axios.request(options);
-        console.log('Search Conversation Response (Page ' + page + '):', response.data);
+  
 
         const conversations = response.data.conversations;
 
         // Concatenate contacts to allContacts array
         allConversation = [...allConversation, ...conversations];
-  
-          setLoading(false);
-          console.log('Search Conversation Response:', allConversation);
+
           return allConversation;
       } catch (error) {
           console.error('Error searching contacts:', error);
-          setLoading(false);
+         
           return [];
       }
   }
   async function searchContacts(accessToken: any, locationId: any): Promise<any[]> {
-    setLoading(true);
+
     try {
         let allContacts: any[] = [];
         let page = 1;
@@ -361,11 +534,13 @@ console.log(data)
                 params: {
                     locationId: locationId,
                     page: page,
+                    limit:100,
                 }
             };
 
             const response = await axios.request(options);
-            console.log('Search Contacts Response (Page ' + page + '):', response.data);
+           
+    
 
             const contacts = response.data.contacts;
 
@@ -381,12 +556,11 @@ console.log(data)
             page++;
         }
 
-        setLoading(false);
-        console.log('Search Contacts Response:', allContacts);
+       
         return allContacts;
     } catch (error) {
         console.error('Error searching contacts:', error);
-        setLoading(false);
+  
         return [];
     }
 }
@@ -413,7 +587,8 @@ const extractPhoneNumber = (chatId: string): string => {
       fetchMessages(selectedChatId,whapiToken!);
     }
   }, [selectedChatId]);
-  async function fetchMessages(selectedChatId: string, whapiToken: string) {
+  async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
+
     if (!selectedChatId) return;
     const auth = getAuth(app);
     const user = auth.currentUser;
@@ -441,7 +616,7 @@ const extractPhoneNumber = (chatId: string): string => {
         refresh_token: data2.refresh_token
       };
       setToken(data2.whapiToken);
-      setLoading(true);
+
       console.log(selectedChatId);
   
       // Check if conversation ID is in WhatsApp format
@@ -475,7 +650,89 @@ const extractPhoneNumber = (chatId: string): string => {
       
         const leadConnectorData = leadConnectorResponse.data;
         // Map lead connector messages and set them to state
-        console.log('Lead Connector Messages:', leadConnectorData.messages.messages);
+
+        setMessages(
+          leadConnectorData.messages.messages.map((message: any) => ({
+            id: message.id,
+            text: { body: message.body },
+            from_me: message.direction === 'outbound'?true:false,
+            createdAt: message.timestamp,
+            type: 'text',
+            image: message.image ? message.image : undefined,
+          }))
+        );
+      }
+  
+    } catch (error) {
+      console.error('Failed to fetch messages:', error);
+    } finally {
+
+    }
+  }
+  async function fetchMessages(selectedChatId: string, whapiToken: string) {
+    setLoading(true);
+    if (!selectedChatId) return;
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+    try {
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document!');
+        return;
+      }
+      const dataUser = docUserSnapshot.data();
+  
+      companyId = dataUser.companyId;
+  
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document!');
+        return;
+      }
+      const data2 = docSnapshot.data();
+      ghlConfig = {
+        ghl_id: data2.ghl_id,
+        ghl_secret: data2.ghl_secret,
+        refresh_token: data2.refresh_token
+      };
+      setToken(data2.whapiToken);
+
+      console.log(selectedChatId);
+  
+      // Check if conversation ID is in WhatsApp format
+      if (selectedChatId.includes('@s.whatsapp.net')) {
+        // Fetch messages from the WhatsApp API
+        const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
+  
+        const data = response.data; // AxiosResponse data is accessed directly
+  
+        // Now you can use the data as needed
+       
+        setMessages(
+          data.messages.map((message: { id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; }) => ({
+            id: message.id,
+            text: { body: message.text ? message.text.body : '' },
+            from_me: message.from_me,
+            createdAt: message.timestamp,
+            type: message.type,
+            image: message.image ? message.image : undefined,
+          }))
+        );
+      }else {
+        // Fetch messages from the Lead Connector API
+        const leadConnectorResponse = await axios.get(`https://services.leadconnectorhq.com/conversations/${selectedChatId}/messages`, {
+          headers: {
+            Authorization: `Bearer ${data2.access_token}`,
+            Version: '2021-04-15',
+            Accept: 'application/json'
+          }
+        });
+      
+        const leadConnectorData = leadConnectorResponse.data;
+        // Map lead connector messages and set them to state
+
         setMessages(
           leadConnectorData.messages.messages.map((message: any) => ({
             id: message.id,
@@ -582,12 +839,7 @@ const handleSendMessage = async () => {
     
     };
    
-    
-  useEffect(() => {
-  if (messagesEndRef.current) {
-    messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
-  }
-}, [selectedChatId, messages]);
+
     function adjustTextareaHeight() {
       const textarea = inputRef.current;
       if (textarea) {
@@ -598,23 +850,7 @@ const handleSendMessage = async () => {
     }
 
   const toggleStopBotLabel = async (chat: any, index: number) => {
-    const updatedChats = [...chats]; // Create a copy of the chats array
-        const updatedChat = { ...updatedChats[index] }; // Create a copy of the chat object to be updated
 
-        // Toggle the presence of the "stop bot" tag
-        if (updatedChat.tags!.includes("stop bot")) {
-            // Remove the "stop bot" tag
-            updatedChat.tags = updatedChat.tags!.filter(tag => tag !== "stop bot");
-        } else {
-            // Add the "stop bot" tag
-            updatedChat.tags!.push("stop bot");
-        }
-
-        // Update the chat in the copied chats array
-        updatedChats[index] = updatedChat;
-
-        // Update the state with the modified chats array
-        setChats(updatedChats);
     try {
       const user = auth.currentUser;
  
@@ -644,12 +880,9 @@ const handleSendMessage = async () => {
         refresh_token: companyData.refresh_token
       };
 
-      // Assuming refreshAccessToken is defined elsewhere
-      const newTokenData = await refreshAccessToken();
-      const accessToken = newTokenData.access_token;
+      const accessToken = companyData.access_token;
         // Check if the chat already has the "Stop bot" label
         const hasLabel = chat.tags.includes('stop bot');
-
         // If the chat already has the "Stop bot" label, remove it; otherwise, add it
         const method = hasLabel ? 'DELETE' : 'POST';
         let labelId = '';
@@ -671,10 +904,10 @@ const handleSendMessage = async () => {
                     tags: ["stop bot"]
                 })
             });
-            console.log(response);
+    
             if (response.ok) {
                 const message = await response.json();
-                console.log(message);
+            
             } else {
                 console.error('Failed to toggle label');
             }
@@ -694,7 +927,7 @@ const handleSendMessage = async () => {
 
             if (addLabelResponse.ok) {
                 const responseData = await addLabelResponse.json();
-                console.log(responseData);
+       
                 labelId = responseData.labelId;
             } else {
                 console.error('Failed to add label');
@@ -708,6 +941,22 @@ const handleSendMessage = async () => {
     } catch (error) {
         console.error('Error toggling label:', error);
     }
+    const updatedChats = [...chats]; // Create a copy of the chats array
+    const updatedChat = { ...updatedChats[index] }; // Create a copy of the chat object to be updated
+    // Toggle the presence of the "stop bot" tag
+    if (updatedChat.tags!.includes("stop bot")) {
+        // Remove the "stop bot" tag
+        updatedChat.tags = updatedChat.tags!.filter(tag => tag !== "stop bot");
+    } else {
+        // Add the "stop bot" tag
+        updatedChat.tags!.push("stop bot");
+    }
+
+    // Update the chat in the copied chats array
+    updatedChats[index] = updatedChat;
+
+    // Update the state with the modified chats array
+    setChats(updatedChats);
 };
 
   return (
@@ -751,7 +1000,7 @@ const handleSendMessage = async () => {
           </div>
           
           <div className="w-full sm:w-4/5 p-4 bg-white overflow-y-auto relative" style={{ maxHeight: 'calc(100vh - 4rem)' }}>
-            <div className="h-full overflow-y-auto" style={{ paddingBottom: "200px" }}>
+            <div className="h-full overflow-y-auto" style={{ paddingBottom: "400px" }}>
               {isLoading && (
                 <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50 ">
                   <div className=" items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white p-4 rounded-md shadow-lg">
@@ -793,7 +1042,7 @@ const handleSendMessage = async () => {
    )}
  </div>
     ))}
-              <div ref={messagesEndRef}></div>
+
             </div>
 
             <div className="absolute bottom-2 left-align w-full bg-white border-t border-gray-300 py-2 px-4 sm:px-2">
