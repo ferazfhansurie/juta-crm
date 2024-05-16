@@ -98,7 +98,7 @@ interface Chat {
     const otherMessageClass = "flex-start bg-gray-700 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md text-white self-start";
     let companyId='014';
     let user_name='';
-    let user_role=2;
+  
     let ghlConfig ={
       ghl_id:'',
       ghl_secret:'',
@@ -135,7 +135,7 @@ interface Chat {
                 const dataUser = docUserSnapshot.data();
                 
                 const newCompanyId = dataUser.companyId; // Ensure companyId exists
-                user_role - dataUser.role; // Fix typo: '-' to '='
+                // Fix typo: '-' to '='
                 const docRef = doc(firestore, 'companies', newCompanyId);
                 const docSnapshot = await getDoc(docRef);
                 if (!docSnapshot.exists()) {
@@ -203,7 +203,7 @@ interface Chat {
         const dataUser = docUserSnapshot.data();
         
         companyId = dataUser.companyId;
-        user_role - dataUser.role;
+     
         const docRef = doc(firestore, 'companies', companyId);
         const docSnapshot = await getDoc(docRef);
         if (!docSnapshot.exists()) {
@@ -329,7 +329,8 @@ user_name = dataUser.name;
             });
           }
         });
-      if(companyId === '011' && user_role !== 2){
+        console.log(userData.role);
+      if(companyId === '011' && userData.role === 2){
         //yo
     // Check if 'user_name' is in tags before including the chat
     const filteredChats = mappedChats.filter((chat: { tags: any[] }) => {
