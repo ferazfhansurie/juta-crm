@@ -121,7 +121,7 @@ interface Chat {
             const messageData = change.doc.data();
             messageData.messages.forEach(async (message: any, index: any) => {
               if(selectedChatId === message.chat_id){
-                fetchMessages(selectedChatId!, whapiToken!);
+                fetchMessagesBackground(selectedChatId!, whapiToken!);
               }else{
                 const auth = getAuth(app);
                 const user = auth.currentUser;
@@ -149,8 +149,8 @@ interface Chat {
                   refresh_token: data.refresh_token
                 };
                 user_name = dataUser.name;
-                await fetchChatsWithRetry(data.whapiToken, data.ghl_location, data.access_token, dataUser.name);
-                await fetchMessages(selectedChatId!, whapiToken!);
+                await fetchChatsBackground(data.whapiToken, data.ghl_location, data.access_token, dataUser.name);
+                await fetchMessagesBackground(selectedChatId!, whapiToken!);
               }
             });
             // Handle modified document
@@ -357,7 +357,131 @@ user_name = dataUser.name;
         setLoading(false);
       }
     };
+    const fetchChatsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
+      try {
+  
+        const user = auth.currentUser;
+ 
+   
+          const docUserRef = doc(firestore, 'user', user?.email!);
+          const docUserSnapshot = await getDoc(docUserRef);
+          if (!docUserSnapshot.exists()) {
+            console.log('No such document for user!');
+            return;
+          }
+         
+          const userData = docUserSnapshot.data();
+          const companyId = userData.companyId;
+      
+          const docRef = doc(firestore, 'companies', companyId);
+          const docSnapshot = await getDoc(docRef);
+          if (!docSnapshot.exists()) {
+            console.log('No such document for company!');
+            return;
+          }
+          const companyData = docSnapshot.data();
+     
+          // Assuming ghlConfig, setToken, and fetchChatsWithRetry are defined elsewhere
+      ghlConfig = {
+            ghl_id: companyData.ghl_id,
+            ghl_secret: companyData.ghl_secret,
+            refresh_token: companyData.refresh_token
+          };
+
+
+          // Update Firestore document with new token data
+          await setDoc(doc(firestore, 'companies', companyId), {
+            access_token: companyData.access_token,
+            refresh_token: companyData.refresh_token,
+          }, { merge: true });
+        const contacts =  await searchContacts(companyData.access_token,locationId);
+        const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`); // Pass whapitoken as a request parameter
+        if (!response.ok) {
+          throw new Error('Failed to fetch chats');
+        }
+        
+        const data = await response.json();
+                
+        // Map chats with initialized tags array
+        
+        // Map chats with initialized tags array and match with contacts
+        const mappedChats = data.chats.map((chat: Chat) => {
+          // Extract the phone number from chat.id
+          const phoneNumber ="+"+ chat.id!.split('@')[0];
+          // Find the corresponding contact for the chat based on phone number
+          const contact = contacts.find((contact: any) => contact.phone === phoneNumber);
+          // Initialize tags array
+
+          const tags = contact ? contact.tags : [];
+          const id = contact? contact.id:"";
+          const name = contact? contact.firstName:"";
+          // Return the mapped chat
+          return {
+            ...chat,
+            tags: tags,
+            name:(name != "")?name:chat.name,
+            lastMessageBody: '', // Initialize lastMessageBody
+            id: chat.id!, // Use phone number as ID
+            contact_id:id
+          };
+        });
+        // Fetch contacts
+        const conversations = await searchConversations(companyData.access_token, locationId);
+  
     
+        // Map conversations to chat list and add their numbers
+        const mappedConversations = conversations.map((conversation: any) => ({
+          id: conversation.id, // Use conversation id as ID
+          name: conversation.fullName??conversation.phone,
+          tags: conversation.tags,
+          lastMessageBody: conversation.lastMessageBody
+        }));
+     
+        // Merge conversations into mappedChats based on phone numbers
+        mappedConversations.forEach((conversation: any) => {
+          const existingChat = mappedChats.find((chat: any) => chat.id === conversation.id);
+          if (existingChat) {
+            existingChat.tags.push(...conversation.tags);
+            existingChat.lastMessageBody = conversation.lastMessageBody;
+            existingChat.name = conversation.name;
+          } else {
+            // If conversation does not exist in mappedChats, add it
+            mappedChats.push({
+              id: conversation.id,
+              name: conversation.name,
+              tags: conversation.tags,
+              lastMessageBody: conversation.lastMessageBody
+            });
+          }
+        });
+        console.log(userData.role);
+      if(companyId === '011' && userData.role === 2){
+        //yo
+    // Check if 'user_name' is in tags before including the chat
+    const filteredChats = mappedChats.filter((chat: { tags: any[] }) => {
+      return chat.tags && chat.tags.some(tag => typeof tag === 'string' && tag.toLowerCase() === user_name.toLowerCase());
+    });
+
+        setChats(filteredChats);
+       
+        // Log all the chats with tags
+        filteredChats.forEach((chat: { id: any; tags: any[]; }) => {
+  
+        });
+      }else{
+        setChats(mappedChats);
+      }
+    
+  
+      
+        // Exit the loop if chats are fetched successfully
+        return;
+      } catch (error) {
+        console.error('Failed to fetch chats:', error);
+      } finally {
+
+      }
+    };
     async function searchConversations(accessToken: any, locationId: any): Promise<any[]> {
   
       
@@ -463,6 +587,88 @@ const extractPhoneNumber = (chatId: string): string => {
       fetchMessages(selectedChatId,whapiToken!);
     }
   }, [selectedChatId]);
+  async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
+
+    if (!selectedChatId) return;
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+    try {
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document!');
+        return;
+      }
+      const dataUser = docUserSnapshot.data();
+  
+      companyId = dataUser.companyId;
+  
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document!');
+        return;
+      }
+      const data2 = docSnapshot.data();
+      ghlConfig = {
+        ghl_id: data2.ghl_id,
+        ghl_secret: data2.ghl_secret,
+        refresh_token: data2.refresh_token
+      };
+      setToken(data2.whapiToken);
+
+      console.log(selectedChatId);
+  
+      // Check if conversation ID is in WhatsApp format
+      if (selectedChatId.includes('@s.whatsapp.net')) {
+        // Fetch messages from the WhatsApp API
+        const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
+  
+        const data = response.data; // AxiosResponse data is accessed directly
+  
+        // Now you can use the data as needed
+       
+        setMessages(
+          data.messages.map((message: { id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; }) => ({
+            id: message.id,
+            text: { body: message.text ? message.text.body : '' },
+            from_me: message.from_me,
+            createdAt: message.timestamp,
+            type: message.type,
+            image: message.image ? message.image : undefined,
+          }))
+        );
+      }else {
+        // Fetch messages from the Lead Connector API
+        const leadConnectorResponse = await axios.get(`https://services.leadconnectorhq.com/conversations/${selectedChatId}/messages`, {
+          headers: {
+            Authorization: `Bearer ${data2.access_token}`,
+            Version: '2021-04-15',
+            Accept: 'application/json'
+          }
+        });
+      
+        const leadConnectorData = leadConnectorResponse.data;
+        // Map lead connector messages and set them to state
+
+        setMessages(
+          leadConnectorData.messages.messages.map((message: any) => ({
+            id: message.id,
+            text: { body: message.body },
+            from_me: message.direction === 'outbound'?true:false,
+            createdAt: message.timestamp,
+            type: 'text',
+            image: message.image ? message.image : undefined,
+          }))
+        );
+      }
+  
+    } catch (error) {
+      console.error('Failed to fetch messages:', error);
+    } finally {
+
+    }
+  }
   async function fetchMessages(selectedChatId: string, whapiToken: string) {
     setLoading(true);
     if (!selectedChatId) return;
