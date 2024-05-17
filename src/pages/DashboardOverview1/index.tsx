@@ -249,7 +249,7 @@ unclosed = unclosed_temp;
                       {unclosed}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
-                      Unclosed
+                      Open
                     </div>
                   </div>
                 </div>

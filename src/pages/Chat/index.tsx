@@ -104,6 +104,7 @@ function Main() {
   const [stopBotLabelCheckedState, setStopBotLabelCheckedState] = useState<boolean[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedMessage2, setSelectedMessage2] = useState(null);
+  
   const myMessageClass = "flex-end bg-blue-500 max-w-30 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md self-end ml-auto text-white text-right";
   const otherMessageClass = "flex-start bg-gray-700 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md text-white self-start";
   let companyId = '014';
@@ -450,164 +451,240 @@ const getTimestamp = (timestamp: number | string | { seconds: number, nanosecond
         throw new Error('Invalid timestamp format');
     }
 };
-  const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
-    try {
-   
+const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
+  try {
+     
+
+      // Fetch user data
       const user = auth.currentUser;
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
-        return;
+          console.log('No such document for user!');
+          return;
       }
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
+      const role = userData.role;
+      // Fetch company data
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
-        return;
+          console.log('No such document for company!');
+          return;
       }
       const companyData = docSnapshot.data();
-      ghlConfig = {
-        ghl_id: companyData.ghl_id,
-        ghl_secret: companyData.ghl_secret,
-        refresh_token: companyData.refresh_token,
-      };
+
+      // Update access token
       await setDoc(doc(firestore, 'companies', companyId), {
-        access_token: companyData.access_token,
-        refresh_token: companyData.refresh_token,
+          access_token: companyData.access_token,
+          refresh_token: companyData.refresh_token,
       }, { merge: true });
-  
+
+      // Fetch chat data
       const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch chats');
+          throw new Error('Failed to fetch chats');
       }
       const chatData = await response.json();
-      const conversations = await searchConversations(companyData.access_token, locationId);
-      const contacts = await searchContacts(companyData.access_token, locationId);
-  
-      // Map chats and find matching contacts
+      const [conversations, contacts] = await Promise.all([
+          searchConversations(companyData.access_token, locationId),
+          searchContacts(companyData.access_token, locationId)
+      ]);
+
+      // Map chats to contacts
       const mappedChats = chatData.chats.map((chat: Chat) => {
-        const phoneNumber = "+" + chat.id!.split('@')[0];
-        const contact = contacts.find((contact: any) => contact.phone === phoneNumber);
-        const tags = contact ? contact.tags : [];
-        const id = contact ? contact.id : "";
-        const name = contact ? contact.contactName : "";
-        if (contact) {
-          contact.chat_id = chat.id!;
-          contact.last_message = chat.last_message?.text?.body || null;
-          contact.chat = chat;
-        }
-        return {
-          ...chat,
-          tags: tags,
-          name: (name != "") ? name : chat.name,
-          lastMessageBody: '',
-          id: chat.id!,
-          contact_id: id,
-        };
+          const phoneNumber = "+" + chat.id!.split('@')[0];
+          const contact = contacts.find((contact: any) => contact.phone === phoneNumber);
+          const tags = contact ? contact.tags : [];
+          const id = contact ? contact.id : "";
+          const name = contact ? contact.contactName : "";
+          if (contact) {
+              contact.chat_id = chat.id!;
+              contact.last_message = chat.last_message;
+              contact.chat = chat;
+          }
+          return {
+              ...chat,
+              tags: tags,
+              name: (name != "") ? name : chat.name,
+              lastMessageBody: '',
+              id: chat.id!,
+              contact_id: id,
+          };
       });
-  
-      // Add WhatsApp contacts if they don't already exist in contacts
+
+      // Merge WhatsApp contacts with existing contacts
       const whatsappContacts = mappedChats.filter((chat: { id: any; }) => !contacts.some(contact => contact.chat_id === chat.id));
       whatsappContacts.forEach((chat: { id: any; contact_id: any; name: any; last_message: { text: { body: any; }; }; tags: any; }) => {
-        const phoneNumber = "+" + chat.id!.split('@')[0];
-        contacts.push({
-          id: chat.contact_id,
-          phone: phoneNumber,
-          contactName: chat.name,
-          chat_id: chat.id,
-          last_message: chat.last_message?.text?.body || null,
-          chat: chat,
-          tags: chat.tags,
-          conversation_id: chat.id,
-          // Add other necessary fields for the contact object
-        });
+          const phoneNumber = "+" + chat.id!.split('@')[0];
+          if (chat.id.includes('@s.whatsapp')) {
+              contacts.push({
+                  id: chat.contact_id,
+                  phone: phoneNumber,
+                  contactName: chat.name,
+                  chat_id: chat.id,
+                  last_message: chat.last_message || null,
+                  chat: chat,
+                  tags: chat.tags,
+                  conversation_id: chat.id,
+              });
+          }
       });
-  
-      // Merge contacts with the same phone number and ensure both chat_id and conversation_id are included
+
+      // Merge and update contacts with conversations
       const mergedContacts = contacts.reduce((acc: any[], contact: any) => {
-        const existingContact = acc.find(c => c.phone === contact.phone);
-        if (existingContact) {
-          // Merge tags
-          existingContact.tags = [...new Set([...existingContact.tags, ...contact.tags])];
-          // Merge last_message if it's more recent
-          if (!existingContact.last_message || (contact.last_message && contact.timestamp > existingContact.timestamp)) {
-            existingContact.last_message = contact.last_message;
+          const existingContact = acc.find(c => c.phone === contact.phone);
+          if (existingContact) {
+              existingContact.tags = [...new Set([...existingContact.tags, ...contact.tags])];
+              if (!existingContact.last_message || (contact.last_message && getTimestamp(contact.last_message.createdAt) > getTimestamp(existingContact.last_message.createdAt))) {
+                  existingContact.last_message = contact.last_message;
+              }
+              existingContact.chat = contact.chat || existingContact.chat;
+              existingContact.chat_id = contact.chat_id || existingContact.chat_id;
+              existingContact.conversation_id = contact.conversation_id || existingContact.conversation_id;
+              if (!existingContact.contactName && contact.contactName) {
+                  existingContact.contactName = contact.contactName;
+              }
+          } else {
+              acc.push(contact);
           }
-          // Merge chats
-          existingContact.chat = contact.chat || existingContact.chat;
-          // Merge chat_id
-          existingContact.chat_id = contact.chat_id || existingContact.chat_id;
-          // Merge conversation_id
-          existingContact.conversation_id = contact.conversation_id || existingContact.conversation_id;
-          // Merge contactName
-          if (!existingContact.contactName && contact.contactName) {
-            existingContact.contactName = contact.contactName;
-          }
-        } else {
-          acc.push(contact);
-        }
-        return acc;
+          return acc;
       }, []);
-  
-      // Add conversations to contacts
+
+      // Update contacts with conversations
       const updatedContacts = mergedContacts.map((contact: any) => {
-        const matchedConversation = conversations.find((conversation: any) => conversation.contactId === contact.id);
-        if (matchedConversation) {
-          contact.conversation_id = matchedConversation.id; // Add conversation_id to contact
-          contact.chat_id = (contact.chat_id === undefined)?matchedConversation.id:contact.chat_id;
-          contact.conversations = contact.conversations || [];
-          contact.conversations.push(matchedConversation);
-        }
-        return contact;
+          const matchedConversation = conversations.find((conversation: any) => conversation.contactId === contact.id);
+          if (matchedConversation) {
+              contact.conversation_id = matchedConversation.id;
+              contact.chat_id = (contact.chat_id === undefined) ? matchedConversation.id : contact.chat_id;
+              contact.conversations = contact.conversations || [];
+              contact.conversations.push(matchedConversation);
+
+              contact.last_message = {
+                  id: matchedConversation.id,
+                  text: { body: matchedConversation.lastMessageBody },
+                  from_me: matchedConversation.lastMessageDirection === 'outbound',
+                  createdAt: matchedConversation.lastMessageDate,
+                  type: matchedConversation.lastMessageType,
+                  image: undefined,
+              };
+          }
+          return contact;
       });
 
-      // Remove duplicates based on phone number
-      const uniqueContacts = Array.from(new Map(updatedContacts.map(contact => [contact.phone, contact])).values());
-  
-      // Update state with merged contacts
+      // Ensure all contacts are unique and filter those with last messages
+      let uniqueContacts = Array.from(new Map(updatedContacts.map(contact => [contact.phone, contact])).values());
+      uniqueContacts = uniqueContacts.filter(contact => contact.last_message);
 
+      // Fetch and update enquiries
       const employeeRef = collection(firestore, `companies/${companyId}/conversations`);
       const employeeSnapshot = await getDocs(employeeRef);
 
       const employeeListData: Enquiry[] = [];
       employeeSnapshot.forEach((doc) => {
-        employeeListData.push({ id: doc.id, ...doc.data() } as Enquiry);
+          employeeListData.push({ id: doc.id, ...doc.data() } as Enquiry);
       });
-//console.log("Enquiry " + JSON.stringify(employeeListData, null, 2));
- // Merge enquiries into contacts
- const finalContacts = uniqueContacts.map((contact: any) => {
-  // Ensure contact.phone is not null or undefined
 
-  
-  const matchingEnquiry = employeeListData.find(enquiry => {
-    // Ensure enquiry.phone is not null or undefined
-    if (enquiry.phone && !enquiry.phone.startsWith("+6")) {
-      enquiry.phone = "+6" + enquiry.phone;
-    }
+      // Merge employee list data into unique contacts
+      employeeListData.forEach((enquiry: Enquiry) => {
+          const existingContact = uniqueContacts.find(contact => contact.email === enquiry.email || contact.phone === enquiry.phone);
+          if (existingContact) {
+              existingContact.enquiries = existingContact.enquiries || [];
+              existingContact.enquiries.push(enquiry);
+
+              let createdAt: number | null = null;
+              try {
+                  if (enquiry.timestamp instanceof Object && enquiry.timestamp.seconds) {
+                      createdAt = enquiry.timestamp.seconds * 1000;
+                  } else if (typeof enquiry.timestamp === 'string') {
+                      const parsedDate = new Date(enquiry.timestamp);
+                      if (isNaN(parsedDate.getTime())) {
+                          throw new Error('Invalid timestamp format');
+                      }
+                      createdAt = parsedDate.getTime();
+                  } else if (typeof enquiry.timestamp === 'number') {
+                      createdAt = (enquiry.timestamp > 10000000000) ? enquiry.timestamp : enquiry.timestamp * 1000;
+                  } else {
+                      throw new Error('Invalid timestamp format');
+                  }
+
+                  if (!existingContact.last_message || createdAt > getTimestamp(existingContact.last_message.createdAt)) {
+                      existingContact.last_message = {
+                          id: enquiry.id,
+                          text: { body: enquiry.message },
+                          from_me: false,
+                          createdAt: createdAt,
+                          type: 'text',
+                          image: undefined,
+                      };
+                  }
+              } catch (error) {
+                  console.error(`Failed to process timestamp for contact ${existingContact.email}:`, error);
+              }
+          } else {
+              let createdAt: number | null = null;
+              try {
+                  if (enquiry.timestamp instanceof Object && enquiry.timestamp.seconds) {
+                      createdAt = enquiry.timestamp.seconds * 1000;
+                  } else if (typeof enquiry.timestamp === 'string') {
+                      const parsedDate = new Date(enquiry.timestamp);
+                      if (isNaN(parsedDate.getTime())) {
+                          throw new Error('Invalid timestamp format');
+                      }
+                      createdAt = parsedDate.getTime();
+                  } else if (typeof enquiry.timestamp === 'number') {
+                      createdAt = (enquiry.timestamp > 10000000000) ? enquiry.timestamp : enquiry.timestamp * 1000;
+                  } else {
+                      throw new Error('Invalid timestamp format');
+                  }
+
+                  uniqueContacts.push({
+                      id: enquiry.id,
+                      email: enquiry.email,
+                      phone: enquiry.phone,
+                      contactName: enquiry.name,
+                      enquiries: [enquiry],
+                      last_message: {
+                          id: enquiry.id,
+                          text: { body: enquiry.message },
+                          from_me: false,
+                          createdAt: createdAt,
+                          type: 'text',
+                          image: undefined,
+                      },
+                  });
+              } catch (error) {
+                  console.error(`Failed to process timestamp for enquiry ${enquiry.email}:`, error);
+              }
+          }
+      });
+      uniqueContacts.sort((a: any, b: any) => {
+        const dateA = a.last_message?.createdAt ? new Date(getTimestamp(a.last_message.createdAt)) : new Date(0);
+        const dateB = b.last_message?.createdAt ? new Date(getTimestamp(b.last_message.createdAt)) : new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
     
-    return enquiry.phone === contact.phone;
-  });
-
-  if (matchingEnquiry) {
   
-    contact.enquiries = contact.enquiries || [];
-    contact.enquiries.push(matchingEnquiry); // Assuming enquiries is an array and you want to push matching enquiries into it
-  }
-  
-  return contact;
-});
-setContacts(finalContacts);
-      console.log("contacts", finalContacts);
-    } catch (error) {
+        // Check if 'user_name' is in tags before including the chat
+ console.log(uniqueContacts);
+      if (role == 2 && companyId == '011') {
+        const filteredContacts = uniqueContacts.filter((contact: { tags: any[] }) => {
+          return contact.tags && contact.tags.some(tag => typeof tag == 'string' && tag.toLowerCase().includes(user_name.toLowerCase()));
+        });
+        setContacts(filteredContacts);
+      } else {
+        // Set contacts to state
+        setContacts(uniqueContacts);
+   
+      }
+    
+  } catch (error) {
       console.error('Failed to fetch contacts:', error);
-    } finally {
-
-    }
-  };
+  } finally {
   
+  }
+};
 
   
 
@@ -1084,7 +1161,7 @@ console.log(leadConnectorData);
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="flex-1 overflow-hidden">
         <div className="flex h-screen overflow-hidden">
-          <div className="w-full sm:w-1/5 p-4 bg-gray-200 overflow-y-auto" style={{ paddingBottom: "150px" }}>
+          <div className="w-full sm:w-1/4 p-4 bg-gray-200 overflow-y-auto" style={{ paddingBottom: "150px" }}>
             <div className="flex items-center justify-between mb-4">
               <button className="flex items-center px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring focus:ring-indigo-300 focus:ring-opacity-80" onClick={handleRefreshClick}>
                 <svg className="w-5 h-5 mx-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -1123,7 +1200,7 @@ console.log(leadConnectorData);
             </div>
           </div>
 
-          <div className="w-full sm:w-4/5 p-4 bg-white overflow-y-auto relative" style={{ maxHeight: 'calc(100vh - 4rem)' }}>
+          <div className="w-full sm:w-3/4 p-4 bg-white overflow-y-auto relative" style={{ maxHeight: 'calc(100vh - 4rem)' }}>
             <div className="h-full overflow-y-auto" style={{ paddingBottom: "400px" }}>
               {isLoading && (
                 <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
