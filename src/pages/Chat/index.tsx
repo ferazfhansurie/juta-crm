@@ -215,7 +215,7 @@ function Main() {
         }
         const userData = docUserSnapshot.data();
         const companyId = userData.companyId;
-
+        const role = userData.role;
         // Fetch company data
         const docRef = doc(firestore, 'companies', companyId);
         const docSnapshot = await getDoc(docRef);
@@ -409,17 +409,26 @@ function Main() {
                 }
             }
         });
-
-        // Sort by date
         uniqueContacts.sort((a: any, b: any) => {
-            const dateA = a.last_message?.createdAt ? new Date(getTimestamp(a.last_message.createdAt)) : new Date(0);
-            const dateB = b.last_message?.createdAt ? new Date(getTimestamp(b.last_message.createdAt)) : new Date(0);
-            return dateB.getTime() - dateA.getTime();
+          const dateA = a.last_message?.createdAt ? new Date(getTimestamp(a.last_message.createdAt)) : new Date(0);
+          const dateB = b.last_message?.createdAt ? new Date(getTimestamp(b.last_message.createdAt)) : new Date(0);
+          return dateB.getTime() - dateA.getTime();
         });
-
-        // Set contacts to state
-        setContacts(uniqueContacts);
-        console.log(uniqueContacts);
+      
+    
+          // Check if 'user_name' is in tags before including the chat
+   console.log(uniqueContacts);
+        if (role == 2 && companyId == '011') {
+          const filteredContacts = uniqueContacts.filter((contact: { tags: any[] }) => {
+            return contact.tags && contact.tags.some(tag => typeof tag == 'string' && tag.toLowerCase().includes(user_name.toLowerCase()));
+          });
+          setContacts(filteredContacts);
+        } else {
+          // Set contacts to state
+          setContacts(uniqueContacts);
+     
+        }
+      
     } catch (error) {
         console.error('Failed to fetch contacts:', error);
     } finally {
