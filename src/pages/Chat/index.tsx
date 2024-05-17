@@ -655,18 +655,15 @@ setContacts(finalContacts);
     }
   }
 
-  const handleIconClick = (iconId: string) => {
+  const handleIconClick = (iconId: string,selectedChatId:string) => {
     setMessages([]);
     setSelectedIcon(iconId);
-    if (selectedChatId) {
-      // Find the selected contact using chat_id
-      const selectedContact = contacts.find(contact => contact.chat_id === selectedChatId);
-      if (selectedContact && selectedContact.conversation_id) {
-        // Fetch conversation messages if conversation_id exists
-        fetchConversationMessages(selectedContact.conversation_id);
-      } else {
-        console.error('No conversation ID found for selected chat');
-      }
+    if(selectedChatId.includes('@s.')){
+      fetchMessages(selectedChatId, whapiToken!);
+    }else if (iconId === 'mail'){
+     fetchEnquiries(selectedChatId);
+    }else{
+      fetchConversationMessages(selectedChatId);
     }
   };
   async function fetchConversationMessages(conversationId: string) {
@@ -979,7 +976,8 @@ console.log(leadConnectorData);
     }
   }
 
-  const toggleStopBotLabel = async (chat: any, index: number) => {
+  const toggleStopBotLabel = async (chat: any, index: number, contact: any) => {
+    console.log(contact);
     try {
       const user = auth.currentUser;
       const docUserRef = doc(firestore, 'user', user?.email!);
@@ -997,65 +995,50 @@ console.log(leadConnectorData);
         return;
       }
       const companyData = docSnapshot.data();
-      ghlConfig = {
+      const ghlConfig = {
         ghl_id: companyData.ghl_id,
         ghl_secret: companyData.ghl_secret,
         refresh_token: companyData.refresh_token
       };
       const accessToken = companyData.access_token;
-      const hasLabel = chat.tags.includes('stop bot');
+      const hasLabel = contact && contact.tags && Array.isArray(contact.tags) ? contact.tags.includes('stop bot') : false;
       const method = hasLabel ? 'DELETE' : 'POST';
-      let labelId = '';
-      if (hasLabel && chat.tags) {
-        labelId = chat.tags.find((tags: { name: string; }) => tags.name === "stop bot")?.id || '';
-        const associationId = chat.contact_id;
-        const response = await fetch(`https://services.leadconnectorhq.com/contacts/${associationId}/tags`, {
-          method: method,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + accessToken,
-            'Version': '2021-07-28'
-          },
-          body: JSON.stringify({ tags: ["stop bot"] })
-        });
-        if (response.ok) {
-          const message = await response.json();
+  
+      const response = await fetch(`https://services.leadconnectorhq.com/contacts/${contact.id}/tags`, {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + accessToken,
+          'Version': '2021-07-28'
+        },
+        body: JSON.stringify({ tags: ["stop bot"] })
+      });
+  
+      if (response.ok) {
+        const message = await response.json();
+        console.log(message);
+  
+        const updatedContacts = [...contacts];
+        const updatedContact = { ...updatedContacts[index] };
+  
+        if (hasLabel) {
+          updatedContact.tags = updatedContact.tags.filter(tag => tag !== "stop bot");
         } else {
-          console.error('Failed to toggle label');
+          updatedContact.tags = updatedContact.tags ? [...updatedContact.tags, "stop bot"] : ["stop bot"];
         }
+  
+        updatedContacts[index] = updatedContact;
+        setContacts(updatedContacts);
+  
+        const updatedState = [...stopBotLabelCheckedState];
+        updatedState[index] = !hasLabel;
+        setStopBotLabelCheckedState(updatedState);
       } else {
-        const associationId = chat.contact_id;
-        const addLabelResponse = await fetch(`https://services.leadconnectorhq.com/contacts/${associationId}/tags`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + accessToken,
-            'Version': '2021-07-28'
-          },
-          body: JSON.stringify({ tags: ["stop bot"] })
-        });
-        if (addLabelResponse.ok) {
-          const responseData = await addLabelResponse.json();
-          labelId = responseData.labelId;
-        } else {
-          console.error('Failed to add label');
-        }
+        console.error('Failed to toggle label');
       }
-      const updatedState = [...stopBotLabelCheckedState];
-      updatedState[index] = !hasLabel;
-      setStopBotLabelCheckedState(updatedState);
     } catch (error) {
       console.error('Error toggling label:', error);
     }
-    const updatedChats = [...chats];
-    const updatedChat = { ...updatedChats[index] };
-    if (updatedChat.tags!.includes("stop bot")) {
-      updatedChat.tags = updatedChat.tags!.filter(tag => tag !== "stop bot");
-    } else {
-      updatedChat.tags!.push("stop bot");
-    }
-    updatedChats[index] = updatedChat;
-    setChats(updatedChats);
   };
 
   const formatDateTime = (timestamp: number) => {
@@ -1120,7 +1103,7 @@ console.log(leadConnectorData);
                       value=""
                       className="sr-only peer"
                       checked={contact.tags?.includes("stop bot")}
-                      onChange={() => toggleStopBotLabel(contact.chat, index)}
+                      onChange={() => toggleStopBotLabel(contact.chat, index,contact)}
                     />
                     <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 border-2 border-blue-500 p-1">
                     </div>
@@ -1189,26 +1172,26 @@ console.log(leadConnectorData);
                   className={`source-button ${selectedIcon === 'fb' ? 'border-2 border-blue-500' : ''}`}
                   src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/facebook-logo-on-transparent-isolated-background-free-vector-removebg-preview.png?alt=media&token=c312eb23-dfee-40d3-a55c-476ef3041369"
                   alt="Facebook"
-                  onClick={() => handleIconClick('fb')}
+                  onClick={() => handleIconClick('fb',selectedChatId!)}
                   style={{ width: '30px', height: '30px' }}
                 />
                 <img
                   className={`source-button ${selectedIcon === 'ig' ? 'border-2 border-blue-500' : ''}`}
-                  onClick={() => handleIconClick('ig')}
+                  onClick={() => handleIconClick('ig',selectedChatId!)}
                   src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon3.png?alt=media&token=9395326d-ff56-45e7-8ebc-70df4be6971a"
                   alt="Instagram"
                   style={{ width: '30px', height: '30px' }}
                 />
                 <img
                   className={`source-button ${selectedIcon === 'gmb' ? 'border-2 border-blue-500' : ''}`}
-                  onClick={() => handleIconClick('gmb')}
+                  onClick={() => handleIconClick('gmb',selectedChatId!)}
                   src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon1.png?alt=media&token=10842399-eca4-40d1-9051-ea70c72ac95b"
                   alt="Google My Business"
                   style={{ width: '20px', height: '20px' }}
                 />
                 <img
                   className={`source-button ${selectedIcon === 'mail' ? 'border-2 border-blue-500' : ''}`}
-                  onClick={() => handleIconClick('mail')}
+                  onClick={() => handleIconClick('mail',selectedChatId!)}
                   src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon2.png?alt=media&token=813f94d4-cad1-4944-805a-2454293278c9"
                   alt="Email"
                   style={{ width: '30px', height: '30px' }}
