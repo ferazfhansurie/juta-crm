@@ -166,7 +166,7 @@ function Main() {
               };
               user_name = dataUser.name;
               await fetchContactsBackground(data.whapiToken, data.ghl_location, data.access_token, dataUser.name);
-              await fetchMessagesBackground(selectedChatId!, whapiToken!);
+             // await fetchMessagesBackground(selectedChatId!, whapiToken!);
             }
           });
         }
@@ -679,18 +679,25 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     // Ensure all contacts are unique and filter those with last messages
     let uniqueContacts = Array.from(new Map(updatedContacts.map(contact => [contact.phone, contact])).values());
     uniqueContacts = uniqueContacts.filter(contact => contact.last_message);
-
-    // Fetch and update enquiries
-    const employeeRef = collection(firestore, `companies/${companyId}/conversations`);
+    const employeeRef = collection(firestore, `companies/${companyId}/employee`);
     const employeeSnapshot = await getDocs(employeeRef);
 
-    const employeeListData: Enquiry[] = [];
+    const employeeListData: Employee[] = [];
     employeeSnapshot.forEach((doc) => {
-        employeeListData.push({ id: doc.id, ...doc.data() } as Enquiry);
+      employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
+    });
+setEmployeeList(employeeListData);
+    // Fetch and update enquiries
+    const enquriryRef = collection(firestore, `companies/${companyId}/conversations`);
+    const enqurirySnapshot = await getDocs(enquriryRef);
+
+    const enquriryListData: Enquiry[] = [];
+    enqurirySnapshot.forEach((doc) => {
+      enquriryListData.push({ id: doc.id, ...doc.data() } as Enquiry);
     });
 
     // Merge employee list data into unique contacts
-    employeeListData.forEach((enquiry: Enquiry) => {
+    enquriryListData.forEach((enquiry: Enquiry) => {
         const existingContact = uniqueContacts.find(contact => contact.email === enquiry.email || contact.phone === enquiry.phone);
         if (existingContact) {
             existingContact.enquiries = existingContact.enquiries || [];
@@ -741,7 +748,6 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
                 } else {
                     throw new Error('Invalid timestamp format');
                 }
-
                 uniqueContacts.push({
                     id: enquiry.id,
                     email: enquiry.email,
@@ -762,7 +768,6 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             }
         }
     });
-
     // Sort contacts by last message date
     uniqueContacts.sort((a: any, b: any) => {
         const dateA = a.last_message?.createdAt 
@@ -777,24 +782,24 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             : new Date(0);
         return dateB.getTime() - dateA.getTime();
     });
-
     console.log(uniqueContacts);
-
     // Filter contacts by user name in tags if necessary
     if (role == 2 && companyId == '011') {
         const filteredContacts = uniqueContacts.filter((contact: { tags: any[] }) => {
             return contact.tags && contact.tags.some(tag => typeof tag == 'string' && tag.toLowerCase().includes(user_name.toLowerCase()));
         });
         setContacts(filteredContacts);
+        setFilteredContacts(filteredContacts);
     } else {
         // Set contacts to state
         setContacts(uniqueContacts);
+        setFilteredContacts(uniqueContacts);
     }
 
 } catch (error) {
     console.error('Failed to fetch contacts:', error);
 } finally {
-   
+  
 }
 };
 
@@ -1399,10 +1404,10 @@ console.log(leadConnectorData);
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm truncate">
-              {contact.last_message?.text?.body ?? "No Messages"}
+              {(contact.last_message?.type == "text")?contact.last_message?.text?.body ?? "No Messages":"Photo"}
             </span>
             {contact.unreadCount > 0 && (
-              <span className="bg-red-600 text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
+              <span className="bg-blue-900 text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
             )}
           </div>
           <label className="inline-flex items-center cursor-pointer">
