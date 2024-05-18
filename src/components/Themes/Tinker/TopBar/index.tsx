@@ -13,6 +13,7 @@ import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
 import { initializeApp } from 'firebase/app';
 import { DocumentReference, getDoc } from 'firebase/firestore';
 import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
+
 // Initialize Firebase app
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -24,19 +25,21 @@ const firebaseConfig = {
   appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
   measurementId: "G-2C9J1RY67L"
 };
-let companyId='014';
-let companyName='';
+
+let companyId = '014';
+let companyName = '';
 let userName = '';
 let userEmail = '';
-let ghlConfig ={
-  ghl_id:'',
-  ghl_secret:'',
-  refresh_token:'',
+let ghlConfig = {
+  ghl_id: '',
+  ghl_secret: '',
+  refresh_token: '',
 };
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const firestore = getFirestore(app);
-const user = auth.currentUser;
+
 const handleSignOut = () => {
   signOut(auth)
     .then(() => {
@@ -46,42 +49,52 @@ const handleSignOut = () => {
       console.error("Error signing out:", error);
     });
 };
+
 function Main() {
   const [searchDropdown, setSearchDropdown] = useState(false);
   const [whapiToken, setToken] = useState<string | null>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+
   const showSearchDropdown = () => {
     setSearchDropdown(true);
   };
+
   const hideSearchDropdown = () => {
     setSearchDropdown(false);
   };
+
   useEffect(() => {
     fetchConfigFromDatabase();
   }, []);
+
+
   async function fetchConfigFromDatabase() {
- 
-    const auth = getAuth(app);
-    const user = auth.currentUser;
     try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
+      const user = auth.currentUser;
+      if (!user || !user.email) return;
+
+      const docUserRef = doc(firestore, 'user', user.email);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
         console.log('No such document!');
         return;
       }
+
       const dataUser = docUserSnapshot.data();
-      
       companyId = dataUser.companyId;
       userName = dataUser.name;
-      companyName= dataUser.company;
+      companyName = dataUser.company;
       userEmail = dataUser.email;
-   console.log(dataUser);
+      console.log(dataUser.notifications);
+   
+      setMessages(dataUser.notifications || []);
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
         console.log('No such document!');
         return;
       }
+
       const data = docSnapshot.data();
       ghlConfig = {
         ghl_id: data.ghl_id,
@@ -89,26 +102,23 @@ function Main() {
         refresh_token: data.refresh_token
       };
       setToken(data.whapiToken);
-  
-    
     } catch (error) {
       console.error('Error fetching config:', error);
       throw error;
-    } finally {
-  
     }
   }
+
+
   return (
     <>
       {/* BEGIN: Top Bar */}
       <div className="relative z-[51] flex h-[67px] items-center border-b border-slate-200">
         {/* BEGIN: Breadcrumb */}
         <Breadcrumb className="hidden mr-auto -intro-x sm:flex text-slate-600">
-        <h2 className="mr-5 text-lg font-medium truncate">
-               Hello {userName}!
-              </h2>
+          <h2 className="mr-5 text-lg font-medium truncate">
+            Hello {userName}!
+          </h2>
         </Breadcrumb>
-       
         {/* END: Breadcrumb */}
         {/* BEGIN: Search */}
         <div className="relative mr-3 intro-x sm:mr-6">
@@ -176,7 +186,7 @@ function Main() {
                           src={faker.photos[0]}
                         />
                       </div>
-                      <div className="ml-3">{user?.email}</div>
+                
                       <div className="w-48 ml-auto text-xs text-right truncate text-slate-500">
                         {faker.users[0].email}
                       </div>
@@ -204,8 +214,7 @@ function Main() {
           </Transition>
         </div>
         {/* END: Search  */}
-        {/* BEGIN: Notifications */}
-        <Popover className="mr-auto intro-x sm:mr-6">
+        {/* BEGIN: Notifications    <Popover className="mr-auto intro-x sm:mr-6">
           <Popover.Button
             className="
               relative text-slate-600 outline-none block
@@ -216,45 +225,42 @@ function Main() {
           </Popover.Button>
           <Popover.Panel className="w-[280px] sm:w-[350px] p-5 mt-2">
             <div className="mb-5 font-medium">Notifications</div>
-            {_.take(fakerData, 5).map((faker, fakerKey) => (
+            {messages.map((message, index) => (
               <div
-                key={fakerKey}
+                key={index}
                 className={clsx([
                   "cursor-pointer relative flex items-center",
-                  { "mt-5": fakerKey },
+                  { "mt-5": index > 0 },
                 ])}
               >
                 <div className="relative flex-none w-12 h-12 mr-1 image-fit">
-                  <img
-                    alt="Midone Tailwind HTML Admin Template"
-                    className="rounded-full"
-                    src={faker.photos[0]}
-                  />
-                  <div className="absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full bg-success dark:border-darkmode-600"></div>
+              
+                  <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full ${message.read ? 'bg-success' : 'bg-danger'} dark:border-darkmode-600`}></div>
                 </div>
                 <div className="ml-2 overflow-hidden">
                   <div className="flex items-center">
                     <a href="" className="mr-5 font-medium truncate">
-                      {user?.email}
+                      {message.from_name}
                     </a>
                     <div className="ml-auto text-xs text-slate-400 whitespace-nowrap">
-                      {faker.times[0]}
+                      {new Date(message.timestamp*1000).toLocaleString()}
                     </div>
                   </div>
                   <div className="w-full truncate text-slate-500 mt-0.5">
-                    {faker.news[0].shortContent}
+                    {message.text.body}
                   </div>
                 </div>
               </div>
             ))}
           </Popover.Panel>
-        </Popover>
+        </Popover>*/}
+     
         {/* END: Notifications  */}
         {/* BEGIN: Account Menu */}
         <Menu>
-         <Menu.Button className="block w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white">
-  <span className="text-lg">{""}</span>
-</Menu.Button>
+          <Menu.Button className="block w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white">
+            <span className="text-lg">{""}</span>
+          </Menu.Button>
           <Menu.Items className="w-56 mt-px text-white bg-primary">
             <Menu.Header className="font-normal">
               <div className="font-medium">{userEmail}</div>
@@ -263,11 +269,10 @@ function Main() {
               </div>
             </Menu.Header>
             <Menu.Divider className="bg-white/[0.08]" />
-           
             <Menu.Divider className="bg-white/[0.08]" />
             <Menu.Item className="hover:bg-white/5">
-             {/* Logout link with sign out function */}
-             <Link to="/" onClick={handleSignOut}>
+              {/* Logout link with sign out function */}
+              <Link to="/" onClick={handleSignOut}>
                 <Lucide icon="ToggleRight" className="w-4 h-4 mr-2" /> Logout
               </Link>
             </Menu.Item>
