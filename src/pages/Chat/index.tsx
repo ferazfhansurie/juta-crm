@@ -3,6 +3,10 @@ import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs } from "firebase/firestore";
 import axios from "axios";
+import Lucide from "@/components/Base/Lucide";
+import Button from "@/components/Base/Button";
+import { Dialog, Menu } from "@/components/Base/Headless";
+import { Link } from "react-router-dom";
 
 interface Label {
   id: string;
@@ -75,6 +79,11 @@ interface Message {
   createdAt: number;
   type?: string;
   image?: { link?: string; caption?: string };
+}interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  // Add other properties as needed
 }
 
 const firebaseConfig = {
@@ -106,6 +115,9 @@ function Main() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedMessage2, setSelectedMessage2] = useState(null);
   const [selectedContact, setSelectedContact] = useState<any>(null);
+  const [employeeList, setEmployeeList] = useState<Employee[]>([]);
+  const [isTabOpen, setIsTabOpen] = useState(false);
+  
   const myMessageClass = "flex-end bg-blue-500 max-w-30 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md self-end ml-auto text-white text-right";
   const otherMessageClass = "flex-start bg-gray-700 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md text-white self-start";
   let companyId = '014';
@@ -389,18 +401,26 @@ function Main() {
         // Ensure all contacts are unique and filter those with last messages
         let uniqueContacts = Array.from(new Map(updatedContacts.map(contact => [contact.phone, contact])).values());
         uniqueContacts = uniqueContacts.filter(contact => contact.last_message);
-
-        // Fetch and update enquiries
-        const employeeRef = collection(firestore, `companies/${companyId}/conversations`);
+        const employeeRef = collection(firestore, `companies/${companyId}/employee`);
         const employeeSnapshot = await getDocs(employeeRef);
-
-        const employeeListData: Enquiry[] = [];
+  
+        const employeeListData: Employee[] = [];
         employeeSnapshot.forEach((doc) => {
-            employeeListData.push({ id: doc.id, ...doc.data() } as Enquiry);
+          employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
+        });
+  console.log(employeeListData);
+  setEmployeeList(employeeListData);
+        // Fetch and update enquiries
+        const enquriryRef = collection(firestore, `companies/${companyId}/conversations`);
+        const enqurirySnapshot = await getDocs(enquriryRef);
+
+        const enquriryListData: Enquiry[] = [];
+        enqurirySnapshot.forEach((doc) => {
+          enquriryListData.push({ id: doc.id, ...doc.data() } as Enquiry);
         });
 
         // Merge employee list data into unique contacts
-        employeeListData.forEach((enquiry: Enquiry) => {
+        enquriryListData.forEach((enquiry: Enquiry) => {
             const existingContact = uniqueContacts.find(contact => contact.email === enquiry.email || contact.phone === enquiry.phone);
             if (existingContact) {
                 existingContact.enquiries = existingContact.enquiries || [];
@@ -1218,32 +1238,78 @@ console.log(leadConnectorData);
     }
   };
 
-  const formatDateTime = (timestamp: number) => {
-    // Check if the timestamp is in seconds or milliseconds
-    const isSeconds = timestamp < 10000000000;
-    const date = new Date(isSeconds ? timestamp * 1000 : timestamp);
-    return date.toLocaleString(); // Format the date and time
+  const handleAddTagToSelectedContacts = async (selectedEmployee:string,contact:any) => {
+    const user = auth.currentUser;
+
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+      // Assuming ghlConfig, setToken, and fetchChatsWithRetry are defined elsewhere
+  ghlConfig = {
+        ghl_id: companyData.ghl_id,
+        ghl_secret: companyData.ghl_secret,
+        refresh_token: companyData.refresh_token
+      };
+
+      // Update Firestore document with new token data
+      await setDoc(doc(firestore, 'companies', companyId), {
+        access_token: companyData.access_token,
+        refresh_token: companyData.refresh_token,
+      }, { merge: true });
+      console.log(selectedEmployee);
+      if (selectedEmployee) {
+        const tagName = selectedEmployee;
+    
+        // Merge existing tags with the new tag
+        const updatedTags = [...new Set([...(contact.tags || []), tagName])];
+    
+        const success = await updateContactTags(contact.id, companyData.access_token, updatedTags);
+        if (success) {
+          await fetchContacts(companyData.whapiToken, companyData.ghl_location, companyData.access_token, userData.name);
+          await fetchMessages(selectedChatId!, companyData.whapiToken);
+        }
+      }
   };
-  const convertAndFormatDate = (timestamp: number | string | undefined): string => {
-    if (!timestamp) {
-      return 'Invalid date';
+  async function updateContactTags(contactId: any, accessToken: any, tags: any) {
+    try {
+        const options = {
+            method: 'PUT',
+            url: `https://services.leadconnectorhq.com/contacts/${contactId}`,
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                Version: '2021-07-28',
+                'Content-Type': 'application/json'
+            },
+            data: {
+                tags: tags
+            }
+        };
+        const response = await axios.request(options);
+        console.log(response);
+        if (response.status === 200) {
+            console.log('Contact tags updated successfully');
+            return true;
+        } else {
+            console.error('Failed to update contact tags:', response.statusText);
+            return false;
+        }
+    } catch (error) {
+        console.error('Error updating contact tags:', error);
+        return false;
     }
-  
-    let date: Date;
-    if (typeof timestamp === 'string') {
-      date = new Date(timestamp);
-    } else if (typeof timestamp === 'number') {
-      date = new Date((timestamp > 10000000000) ? timestamp : timestamp * 1000);
-    } else {
-      return 'Invalid date';
-    }
-  
-    if (isNaN(date.getTime())) {
-      return 'Invalid date';
-    }
-  
-    return date.toLocaleString(); // Customize the date format as needed
-  };
+}
   function formatDate(timestamp: string | number | Date) {
     const date = new Date(timestamp);
     const now = new Date();
@@ -1261,6 +1327,9 @@ console.log(leadConnectorData);
       return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     }
   }
+  const handleEyeClick = () => {
+    setIsTabOpen(!isTabOpen);
+  };
   return (
     <div className="flex overflow-hidden bg-gray-200 text-gray-800"  style={{ height: '85vh' }}>
       <div className="flex flex-col w-full sm:w-1/4 bg-gray-200 border-r border-gray-300">
@@ -1292,12 +1361,26 @@ console.log(leadConnectorData);
                       : 'No Messages'}
                   </span>
                 </div>
+                
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600 truncate">{contact.last_message?.text?.body ?? "No Messages"}</span>
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      value=""
+                      className="sr-only peer"
+                      checked={contact.tags?.includes("stop bot")}
+                      onChange={() => toggleStopBotLabel(contact.chat, index,contact)}
+                    />
+                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-900 border-2 border-blue-500 p-1">
+                    </div>
+                  </label>
                   {contact.unreadCount > 0 && (
                     <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
                   )}
+                  
                 </div>
+               
               </div>
             </div>
           ))}
@@ -1305,15 +1388,45 @@ console.log(leadConnectorData);
       </div>
 
       <div className="flex flex-col w-full sm:w-3/4 bg-white relative">
-        {selectedContact && (
-          <div className="flex items-center p-3 border-b border-gray-300 bg-gray-100">
-            <div className="block w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3">
-              <span className="text-lg">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
+      {selectedContact && (
+          <div className="flex items-center justify-between p-2 border-b border-gray-300 bg-gray-100">
+            <div className="flex items-center">
+              <div className="block w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3">
+                <span className="text-lg">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.phone}</div>
+                <div className="text-sm text-gray-600">{selectedContact.phone}</div>
+              </div>
             </div>
-            <div>
-              <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.phone}</div>
-              <div className="text-sm text-gray-600">{selectedContact.phone}</div>
-            </div>
+            <Menu as="div" className="relative inline-block text-left p-2">
+  <div className="flex items-center space-x-3"> {/* Adjust the space-x value to increase the padding */}
+    <button className="p-2 m-0 !box" onClick={handleEyeClick}>
+      <span className="flex items-center justify-center w-5 h-5">
+        <Lucide icon={isTabOpen ? "X" : "Eye"} className="w-5 h-5" />
+      </span>
+    </button>
+    <Menu.Button as={Button} className="p-2 !box m-0">
+      <span className="flex items-center justify-center w-5 h-5">
+        <Lucide icon="Forward" className="w-5 h-5" />
+      </span>
+    </Menu.Button>
+  </div>
+
+  <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-10">
+    {employeeList.map((employee) => (
+      <Menu.Item key={employee.id}>
+        <button
+          className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md"
+          onClick={() => handleAddTagToSelectedContacts(employee.name,selectedContact)}
+        >
+          <Lucide icon="User" className="w-4 h-4 mr-2" />
+          {employee.name}
+        </button>
+      </Menu.Item>
+    ))}
+  </Menu.Items>
+</Menu>
           </div>
         )}
            
@@ -1415,6 +1528,44 @@ console.log(leadConnectorData);
           </div>
         </div>
       </div>
+      {isTabOpen && (
+  <div className="w-2/4 bg-white border-l border-gray-300 overflow-y-auto">
+    <div className="p-6">
+      <div className="flex items-center p-4 border-b border-gray-300 bg-gray-100">
+        <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+          <span className="text-xl">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.phone}</div>
+          <div className="text-sm text-gray-600">{selectedContact.phone}</div>
+        </div>
+      </div>
+      <div className="mt-6">
+        <p className="font-semibold text-lg mb-4">Contact Info</p>
+        <div className="space-y-2 text-gray-700">
+          <p><span className="font-semibold text-blue-600">Tags:</span>
+            <div className="flex flex-wrap mt-2">
+              {selectedContact.tags.map((tag:any, index:any) => (
+                <span key={index} className="inline-block bg-blue-100 text-blue-800 text-sm font-semibold mr-2 mb-2 px-3 py-1 rounded border border-blue-400">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </p>
+          <p><span className="font-semibold text-blue-600">Phone:</span> {selectedContact.phone}</p>
+          <p><span className="font-semibold text-blue-600">Email:</span> {selectedContact.email || 'N/A'}</p>
+          <p><span className="font-semibold text-blue-600">Company:</span> {selectedContact.companyName || 'N/A'}</p>
+          <p><span className="font-semibold text-blue-600">Address:</span> {selectedContact.address1 || 'N/A'}</p>
+          <p><span className="font-semibold text-blue-600">First Name:</span> {selectedContact.firstName}</p>
+          <p><span className="font-semibold text-blue-600">Last Name:</span> {selectedContact.lastName}</p>
+          <p><span className="font-semibold text-blue-600">Website:</span> {selectedContact.website || 'N/A'}</p>
+          {/* Add more fields as necessary */}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 };
