@@ -7,7 +7,7 @@ import Lucide from "@/components/Base/Lucide";
 import Button from "@/components/Base/Button";
 import { Dialog, Menu } from "@/components/Base/Headless";
 import { Link } from "react-router-dom";
-
+import { FormInput } from "@/components/Base/Form";
 interface Label {
   id: string;
   name: string;
@@ -117,7 +117,8 @@ function Main() {
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [isTabOpen, setIsTabOpen] = useState(false);
-  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredContacts, setFilteredContacts] = useState(contacts);
   const myMessageClass = "flex-end bg-blue-500 max-w-30 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md self-end ml-auto text-white text-right";
   const otherMessageClass = "flex-start bg-gray-700 md:max-w-md lg:max-w-lg xl:max-w-xl mx-1 my-0.5 p-2 rounded-md text-white self-start";
   let companyId = '014';
@@ -520,7 +521,7 @@ function Main() {
             // Set contacts to state
             setContacts(uniqueContacts);
         }
-
+  setFilteredContacts(contacts);
     } catch (error) {
         console.error('Failed to fetch contacts:', error);
     } finally {
@@ -1330,62 +1331,96 @@ console.log(leadConnectorData);
   const handleEyeClick = () => {
     setIsTabOpen(!isTabOpen);
   };
+  useEffect(() => {
+    if (searchQuery === '') {
+      setFilteredContacts(contacts);
+    } else {
+      setFilteredContacts(
+        contacts.filter((contact) =>
+          contact.contactName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          contact.phone!.includes(searchQuery)
+        )
+      );
+    }
+  }, [searchQuery, contacts]);
+
+  const handleSearchChange = (e: { target: { value: React.SetStateAction<string>; }; }) => {
+    setSearchQuery(e.target.value);
+  };
+
+ 
   return (
-    <div className="flex overflow-hidden bg-gray-200 text-gray-800"  style={{ height: '85vh' }}>
-      <div className="flex flex-col w-full sm:w-1/4 bg-gray-200 border-r border-gray-300">
-     
-        <div className="flex-1 overflow-y-auto">
-          {contacts.map((contact, index) => (
-            <div
-              key={contact.id || `${contact.phone}-${index}`}
-              className={`p-2 mb-2 rounded cursor-pointer flex items-center space-x-3 ${
-                contact.chat_id !== undefined
-                  ? selectedChatId === contact.chat_id
-                    ? 'bg-gray-300'
-                    : 'hover:bg-gray-100'
-                  : selectedChatId === contact.phone
-                  ? 'bg-gray-300'
-                  : 'hover:bg-gray-100'
-              }`}
-              onClick={() => selectChat(contact.chat_id!, contact.email!)}
-            >
-              <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
-                {contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold truncate">{contact.contactName ?? contact.phone}</span>
-                  <span className="text-xs text-gray-600">
-                    {contact.last_message?.createdAt || contact.last_message?.timestamp
-                      ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
-                      : 'No Messages'}
-                  </span>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 truncate">{contact.last_message?.text?.body ?? "No Messages"}</span>
-                  <label className="inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      value=""
-                      className="sr-only peer"
-                      checked={contact.tags?.includes("stop bot")}
-                      onChange={() => toggleStopBotLabel(contact.chat, index,contact)}
-                    />
-                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-900 border-2 border-blue-500 p-1">
-                    </div>
-                  </label>
-                  {contact.unreadCount > 0 && (
-                    <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
-                  )}
-                  
-                </div>
-               
-              </div>
+    <div className="flex overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '85vh' }}>
+    <div className="flex flex-col w-full sm:w-1/4 bg-gray-100 border-r border-gray-300">
+    <div className="relative mr-3 intro-x sm:mr-6"></div>
+    <div className="relative hidden sm:block p-4">
+          <div className="relative">
+            <input
+              type="text"
+              className="w-full py-1 pl-10 pr-4 bg-gray-100 text-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+            />
+            <Lucide
+              icon="Search"
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500"
+            />
+          </div>
+          <div className="border-b border-gray-300 mt-4"></div>
+        </div>
+  <div className="flex-1 overflow-y-auto">
+    
+    {filteredContacts.map((contact, index) => (
+      <div
+        key={contact.id || `${contact.phone}-${index}`}
+        className={`p-2 mb-2 rounded cursor-pointer flex items-center space-x-3 ${
+          contact.chat_id !== undefined
+            ? selectedChatId === contact.chat_id
+              ? 'bg-gray-700 text-white'
+              : 'hover:bg-gray-300'
+            : selectedChatId === contact.phone
+            ? 'bg-gray-700 text-white'
+            : 'hover:bg-gray-700'
+        }`}
+        onClick={() => selectChat(contact.chat_id!, contact.email!)}
+      >
+        <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
+          {contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-center">
+            <span className="font-semibold truncate">{contact.contactName ?? contact.phone}</span>
+            <span className="text-xs">
+              {contact.last_message?.createdAt || contact.last_message?.timestamp
+                ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
+                : 'No Messages'}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm truncate">
+              {contact.last_message?.text?.body ?? "No Messages"}
+            </span>
+            {contact.unreadCount > 0 && (
+              <span className="bg-red-600 text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
+            )}
+          </div>
+          <label className="inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              value=""
+              className="sr-only peer"
+              checked={contact.tags?.includes("stop bot")}
+              onChange={() => toggleStopBotLabel(contact.chat, index, contact)}
+            />
+            <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-900 border-2 border-blue-500 p-1">
             </div>
-          ))}
+          </label>
         </div>
       </div>
+    ))}
+  </div>
+</div>
 
       <div className="flex flex-col w-full sm:w-3/4 bg-white relative">
       {selectedContact && (
