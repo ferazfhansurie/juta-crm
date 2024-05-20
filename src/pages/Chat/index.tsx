@@ -100,6 +100,8 @@ interface Tag {
 }
 interface UserData {
   companyId: string;
+  name: string;
+  role: string;
   [key: string]: any; // Add other properties as needed
 }
 const firebaseConfig = {
@@ -138,27 +140,20 @@ function Main() {
   const [filteredContacts, setFilteredContacts] = useState(contacts);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const myMessageClass = "bg-blue-500 text-white rounded-md p-2 self-end ml-auto text-right";
-  const otherMessageClass = "bg-gray-700 text-white rounded-md p-2 self-start";
+  const otherMessageClass = "bg-gray-700 text-white rounded-md p-2 self-start text-left";
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [ghlConfig, setGhlConfig] = useState<GhlConfig | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   let companyId = '014';
   let user_name = '';
-
+  let user_role='2';
 
   useEffect(() => {
     fetchConfigFromDatabase();
   
   }, []);
 
-  useEffect( () => {
-    if (ghlConfig) {
- 
-       fetchContacts(ghlConfig.whapiToken, ghlConfig.location_id, ghlConfig.access_token, userData!.name);
-
-    }
-  }, [ghlConfig]);
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(firestore, 'message'), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
@@ -211,9 +206,11 @@ function Main() {
       if (!docUserSnapshot.exists()) {
         console.log('No such document!');
         return;
-      }
+       }
       const dataUser = docUserSnapshot.data() as UserData;
+    
       setUserData(dataUser);
+      user_role =dataUser.role;
       companyId = dataUser.companyId;
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
@@ -222,7 +219,7 @@ function Main() {
         return;
       }
       const data = docSnapshot.data();
-      await setGhlConfig({
+  setGhlConfig({
         ghl_id: data.ghl_id,
         ghl_secret: data.ghl_secret,
         refresh_token: data.refresh_token,
@@ -231,9 +228,9 @@ function Main() {
         whapiToken: data.whapiToken,
       });
      
-      await setToken(data.whapiToken);
+  setToken(data.whapiToken);
       user_name = dataUser.name;
-   
+      fetchContacts(data.whapiToken, data.location_id, data.access_token, dataUser.name,dataUser.role);
     } catch (error) {
       console.error('Error fetching config:', error);
       throw error;
@@ -299,9 +296,7 @@ function Main() {
     }
   };
   const fetchTags = async (token:string,location:string) => {
- 
     try {
-
       const options = {
         method: 'GET',
         url: `https://services.leadconnectorhq.com/locations/${location}/tags`,
@@ -309,19 +304,16 @@ function Main() {
           Authorization: `Bearer ${token}`,
           Version: '2021-07-28',
         },
-   
       };
       const response = await axios.request(options);
-
       setTagList(response.data.tags);
-
     } catch (error) {
       console.error('Error searching tags:', error);
       return [];
     }
   
   };
-  const fetchContacts = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
+  const fetchContacts = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string,role:string) => {
     try {
         setLoading(true);
         // Parallelize initial fetch operations including fetchTags
@@ -333,26 +325,35 @@ function Main() {
             getDocs(collection(firestore, `companies/${companyId}/employee`)),
             getDocs(collection(firestore, `companies/${companyId}/conversations`))
         ]);
-
+        console.log(contacts);
         if (!chatResponse.ok) throw new Error('Failed to fetch chats');
         const chatData = await chatResponse.json();
+        const user = auth.currentUser;
+
+          const docUserRef = doc(firestore, 'user', user?.email!);
+          const docUserSnapshot = await getDoc(docUserRef);
+          if (!docUserSnapshot.exists()) {
+            console.log('No such document!');
+            return;
+           }
+          const dataUser = docUserSnapshot.data() as UserData;
+  
+          user_role =dataUser.role;
 
         // Process chat data
         const mappedChats = chatData.chats.map((chat: Chat) => {
             if (!chat.id) return null;
             const phoneNumber = `+${chat.id.split('@')[0]}`;
             let contact = contacts.find((contact: any) => contact.phone === phoneNumber);
-            const unreadCount = userData!.notifications.filter((notif: any) => notif.chat_id === chat.id && !notif.read).length;
 
+            const unreadCount = dataUser!.notifications.filter((notif: any) => notif.chat_id === chat.id && !notif.read).length;
             if (contact) {
                 contact.chat_id = chat.id;
                 contact.last_message = chat.last_message;
                 contact.chat = chat;
                 contact.unreadCount = unreadCount;
-            } else if (!contact && chat.name && !/^\+\d+$/.test(phoneNumber)) {
-                contact = getContact(chat.name, phoneNumber, locationId, ghlToken);
-            }
-
+                contact.id = contact.id;
+            } 
             return {
                 ...chat,
                 tags: contact ? contact.tags : [],
@@ -363,26 +364,22 @@ function Main() {
                 unreadCount,
             };
         }).filter(Boolean);
-
         // Merge WhatsApp contacts with existing contacts
         const whatsappContacts = mappedChats.filter((chat: any) => !contacts.some(contact => contact.chat_id === chat.id));
         whatsappContacts.forEach((chat: any) => {
             const phoneNumber = `+${chat.id.split('@')[0]}`;
-            if (chat.id.includes('@s.whatsapp')) {
-                contacts.push({
-                    id: chat.contact_id,
-                    phone: phoneNumber,
-                    contactName: chat.name,
-                    chat_id: chat.id,
-                    last_message: chat.last_message || null,
-                    chat: chat,
-                    tags: chat.tags,
-                    conversation_id: chat.id,
-                    unreadCount: chat.unreadCount,
-                });
-            }
+            contacts.push({
+              id: chat.contact_id,
+              phone: phoneNumber,
+              contactName: chat.name,
+              chat_id: chat.id,
+              last_message: chat.last_message || null,
+              chat: chat,
+              tags: chat.tags,
+              conversation_id: chat.id,
+              unreadCount: chat.unreadCount,
+          });
         });
-
         // Merge and update contacts with conversations
         const mergedContacts = contacts.reduce((acc: any[], contact: any) => {
             const existingContact = acc.find(c => c.phone === contact.phone);
@@ -403,7 +400,6 @@ function Main() {
             }
             return acc;
         }, []);
-
         // Update contacts with conversations
         const updatedContacts = mergedContacts.map((contact: any) => {
             const matchedConversation = conversations.find((conversation: any) => conversation.contactId === contact.id);
@@ -434,12 +430,10 @@ function Main() {
             employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
         });
         setEmployeeList(employeeListData);
-
        /* const enquiryListData: Enquiry[] = [];
         enquirySnapshot.forEach((doc) => {
             enquiryListData.push({ id: doc.id, ...doc.data() } as Enquiry);
         });
-
         // Merge employee list data into unique contacts
         enquiryListData.forEach((enquiry: Enquiry) => {
             const existingContact = uniqueContacts.find(contact => contact.email === enquiry.email || contact.phone === enquiry.phone);
@@ -477,15 +471,23 @@ function Main() {
             }
         });*/
 
-        // Sort contacts by last message date
-        uniqueContacts.sort((a: any, b: any) => {
-            const dateA = a.last_message?.createdAt ? new Date(getTimestamp(a.last_message.createdAt)) : new Date(0);
-            const dateB = b.last_message?.createdAt ? new Date(getTimestamp(b.last_message.createdAt)) : new Date(0);
-            return dateB.getTime() - dateA.getTime();
-        });
-console.log(userData!.role);
+         // Sort contacts by last message date
+    uniqueContacts.sort((a: any, b: any) => {
+      const dateA = a.last_message?.createdAt 
+          ? new Date(getTimestamp(a.last_message.createdAt)) 
+          : a.last_message?.timestamp 
+          ? new Date(getTimestamp(a.last_message.timestamp))
+          : new Date(0);
+      const dateB = b.last_message?.createdAt 
+          ? new Date(getTimestamp(b.last_message.createdAt)) 
+          : b.last_message?.timestamp 
+          ? new Date(getTimestamp(b.last_message.timestamp))
+          : new Date(0);
+      return dateB.getTime() - dateA.getTime();
+  });
+
         // Filter contacts by user name in tags if necessary
-        if (userData!.role == 2 && companyId == '011') {
+        if (user_role == '2') {
             const filteredContacts = uniqueContacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
             setContacts(filteredContacts);
         } else {
@@ -493,7 +495,7 @@ console.log(userData!.role);
             setContacts(uniqueContacts);
         }
         setFilteredContacts(contacts);
-        console.log(contacts);
+  
     } catch (error) {
         console.error('Failed to fetch contacts:', error);
     } finally {
@@ -632,19 +634,17 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     whatsappContacts.forEach((chat: any) => {
         const phoneNumber = "+" + chat.id.split('@')[0];
         const unreadCount = notifications.filter((notif: any) => notif.chat_id === chat.id && !notif.read).length;
-        if (chat.id.includes('@s.whatsapp')) {
-            contacts.push({
-                id: chat.contact_id,
-                phone: phoneNumber,
-                contactName: chat.name,
-                chat_id: chat.id,
-                last_message: chat.last_message || null,
-                chat: chat,
-                tags: chat.tags,
-                conversation_id: chat.id,
-                unreadCount,
-            });
-        }
+        contacts.push({
+          id: chat.contact_id,
+          phone: phoneNumber,
+          contactName: chat.name,
+          chat_id: chat.id,
+          last_message: chat.last_message || null,
+          chat: chat,
+          tags: chat.tags,
+          conversation_id: chat.id,
+          unreadCount,
+      });
     });
 
     // Merge and update contacts with conversations
@@ -796,6 +796,7 @@ setEmployeeList(employeeListData);
         return dateB.getTime() - dateA.getTime();
     });
     // Filter contacts by user name in tags if necessary
+    console.log(role);
     if (role == 2 && companyId == '011') {
         const filteredContacts = uniqueContacts.filter((contact: { tags: any[] }) => {
             return contact.tags && contact.tags.some(tag => typeof tag == 'string' && tag.toLowerCase().includes(user_name.toLowerCase()));
@@ -847,29 +848,40 @@ setEmployeeList(employeeListData);
     try {
       let allContacts: any[] = [];
       let page = 1;
-      const options = {
-        method: 'GET',
-        url: 'https://services.leadconnectorhq.com/contacts/',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Version: '2021-07-28',
-        },
-        params: {
-          locationId: locationId,
-          page: page,
-          limit: 100,
+      let hasMore = true;
+  
+      while (hasMore) {
+        const options = {
+          method: 'GET',
+          url: 'https://services.leadconnectorhq.com/contacts/',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Version: '2021-07-28',
+          },
+          params: {
+            locationId: locationId,
+            page: page,
+            limit: 100,
+          }
+        };
+  
+        const response = await axios.request(options);
+        const contacts = response.data.contacts;
+        allContacts = [...allContacts, ...contacts];
+  
+        if (contacts.length < 100) {
+          hasMore = false;
+        } else {
+          page += 1;
         }
-      };
-      const response = await axios.request(options);
-      const contacts = response.data.contacts;
-      allContacts = [...allContacts, ...contacts];
+      }
+  
       return allContacts;
     } catch (error) {
       console.error('Error searching contacts:', error);
       return [];
     }
   }
-
   const handleIconClick = (iconId: string,selectedChatId:string) => {
     setMessages([]);
     setSelectedIcon(iconId);
@@ -938,7 +950,7 @@ console.log(leadConnectorData);
   useEffect(() => {
     if (selectedChatId) {
  
-      if(selectedChatId.includes('@s.')){
+      if(selectedChatId.includes('@s.') || selectedChatId.includes('@g') ){
         fetchMessages(selectedChatId, whapiToken!);
         console.log(messages);
       }else if (selectedChatId.includes('@')){
@@ -1054,7 +1066,7 @@ console.log(leadConnectorData);
   
       setToken(data2.whapiToken);
 
-      if (selectedChatId.includes('@s.whatsapp.net')) {
+      if (selectedChatId.includes('@')) {
         const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
         const data = response.data;
         console.log(data);
@@ -1271,7 +1283,7 @@ console.log(leadConnectorData);
 
         const success = await updateContactTags(contact.id, companyData.access_token, updatedTags);
         if (success) {
-          await fetchContacts(companyData.whapiToken, companyData.ghl_location, companyData.access_token, userData.name);
+          await fetchContacts(companyData.whapiToken, companyData.ghl_location, companyData.access_token, userData.name,userData.role);
           await fetchMessages(selectedChatId!, companyData.whapiToken);
         }
       }
@@ -1304,6 +1316,16 @@ console.log(leadConnectorData);
         return false;
     }
 }
+const formatText = (text: string) => {
+  const parts = text.split(/(\*[^*]+\*|\*\*[^*]+\*\*)/g);
+  return parts.map((part: string, index: any) => {
+ if (part.startsWith('*') && part.endsWith('*')) {
+      return <strong key={index}>{part.slice(1, -1)}</strong>;
+    } else {
+      return part;
+    }
+  });
+};
   function formatDate(timestamp: string | number | Date) {
     const date = new Date(timestamp);
     const now = new Date();
@@ -1400,7 +1422,7 @@ console.log(leadConnectorData);
         <div className="flex items-right space-x-3">
           <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
             <span className="flex items-center justify-center w-5 h-5">
-              <Lucide icon="Tag" className="w-5 h-5" />
+              <Lucide icon="Filter" className="w-5 h-5" />
             </span>
           </Menu.Button>
        
@@ -1414,7 +1436,7 @@ console.log(leadConnectorData);
                           }`}
                           onClick={() => filterTagContact(tag.name)}
                         >
-                          <Lucide icon="Tag" className="w-4 h-4 mr-2" />
+                          <Lucide icon="Filter" className="w-4 h-4 mr-2" />
                           {tag.name}
                         </button>
                       </Menu.Item>
@@ -1561,11 +1583,11 @@ console.log(leadConnectorData);
                   <div className="caption">{message.image.caption}</div>
                 </div>
               )}
-              {message.type === 'text' && (
-      <div className="text-left break-words">
-        {message.text?.body || ''}
-      </div>
-    )}
+    {message.type === 'text' && (
+  <div className="whitespace-pre-wrap break-words">
+    {formatText(message.text?.body || '')}
+  </div>
+)}
               <div className="message-timestamp text-xs text-gray-100 mt-1">
             {formatTimestamp(message.createdAt)}
           </div>
