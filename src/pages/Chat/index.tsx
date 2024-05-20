@@ -1505,7 +1505,7 @@ const formatText = (text: string) => {
       {selectedContact && (
           <div className="flex items-center justify-between p-2 border-b border-gray-300 bg-gray-100">
             <div className="flex items-center">
-              <div className="block w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3">
+              <div className="w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3">
                 <span className="text-lg">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
               </div>
               <div>
