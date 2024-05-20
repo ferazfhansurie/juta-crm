@@ -177,7 +177,7 @@ function Main() {
                 {companyName}
               </div>
             </Menu.Header>
-            <Menu.Divider className="bg-white/[0.08]" />
+        
             <Menu.Divider className="bg-white/[0.08]" />
             <Menu.Item className="hover:bg-white/5">
               {/* Logout link with sign out function */}

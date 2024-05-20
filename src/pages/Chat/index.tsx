@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs } from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import axios from "axios";
 import Lucide from "@/components/Base/Lucide";
 import Button from "@/components/Base/Button";
@@ -106,6 +106,11 @@ interface UserData {
   role: string;
   [key: string]: any; // Add other properties as needed
 }
+// Define the QuickReply interface
+interface QuickReply {
+  id: string;
+  text: string;
+}
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
   authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -151,15 +156,67 @@ function Main() {
   const [selectedMessageForForwarding, setSelectedMessageForForwarding] = useState<Message | null>(null);
   const [selectedContactsForForwarding, setSelectedContactsForForwarding] = useState<Contact[]>([]);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+  const [isQuickRepliesOpen, setIsQuickRepliesOpen] = useState<boolean>(false);
+  const [editingReply, setEditingReply] = useState<QuickReply | null>(null);
+  const [newQuickReply, setNewQuickReply] = useState<string>('');
   let companyId = '014';
   let user_name = '';
   let user_role='2';
 
   useEffect(() => {
     fetchConfigFromDatabase();
-  
+    fetchQuickReplies();
   }, []);
+  const fetchQuickReplies = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    const quickRepliesCollection = collection(firestore, `user/${user.email}/quickreplies`);
+    const quickRepliesSnapshot = await getDocs(quickRepliesCollection);
+    const quickRepliesList: QuickReply[] = quickRepliesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as QuickReply[];
+    setQuickReplies(quickRepliesList);
+  };
+  const addQuickReply = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
 
+    const quickRepliesCollection = collection(firestore, `user/${user.email}/quickreplies`);
+    await addDoc(quickRepliesCollection, { text: newQuickReply });
+    setNewQuickReply('');
+    fetchQuickReplies(); // Refresh quick replies
+  };
+
+ 
+  const updateQuickReply = async (id: string, text: string) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const quickReplyDoc = doc(firestore, `user/${user.email}/quickreplies`, id);
+    await updateDoc(quickReplyDoc, { text });
+    setEditingReply(null);
+    fetchQuickReplies(); // Refresh quick replies
+  };
+
+  const deleteQuickReply = async (id: string) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const quickReplyDoc = doc(firestore, `user/${user.email}/quickreplies`, id);
+    await deleteDoc(quickReplyDoc);
+    fetchQuickReplies(); // Refresh quick replies
+  };
+  const handleQR = () => {
+    setIsQuickRepliesOpen(!isQuickRepliesOpen);
+    if (!isQuickRepliesOpen) {
+      fetchQuickReplies(); // Fetch quick replies when opening the dropdown
+    }
+  };
+
+  const handleQRClick = (text: string) => {
+    setNewMessage(text);
+    setIsQuickRepliesOpen(false);
+  };
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(firestore, 'message'), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
@@ -1680,10 +1737,16 @@ const formatText = (text: string) => {
               alt="Email"
               style={{ width: '30px', height: '30px' }}
             />
+            
           </div>
           <div className="flex items-center">
+          <button className="p-2 m-0 !box" onClick={handleQR}>
+    <span className="flex items-center justify-center w-5 h-5">
+      <Lucide icon='Zap' className="w-5 h-5" />
+    </span>
+  </button>
             <textarea
-              className="flex-grow px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-lg mr-2 resize-none bg-gray-100 text-gray-800"
+               className="flex-grow px-5 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-lg mr-2 ml-4 resize-none bg-gray-100 text-gray-800"
               placeholder="Type a message"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -1810,6 +1873,55 @@ const formatText = (text: string) => {
        
       )}
       <ToastContainer />
+      {isQuickRepliesOpen && (
+  <div className="bg-gray-100 border border-gray-300 p-6 rounded-lg shadow-lg mt-2">
+    <div className="flex items-center mb-4">
+      <input
+        type="text"
+        className="flex-grow px-4 py-2 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="Add new quick reply"
+        value={newQuickReply}
+        onChange={(e) => setNewQuickReply(e.target.value)}
+      />
+      <button className="p-2 ml-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500" onClick={addQuickReply}>
+        <Lucide icon="Plus" className="w-5 h-5" />
+      </button>
+    </div>
+    <div className="max-h-40 overflow-y-auto">
+      {quickReplies.map(reply => (
+        <div key={reply.id} className="flex items-center justify-between mb-2 p-2 bg-white rounded-md shadow-sm">
+          {editingReply?.id === reply.id ? (
+            <>
+              <input
+                type="text"
+                className="flex-grow px-4 py-2 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={editingReply.text}
+                onChange={(e) => setEditingReply({ ...editingReply, text: e.target.value })}
+              />
+              <button className="p-2 ml-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500" onClick={() => updateQuickReply(reply.id, editingReply.text)}>
+                Save
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="flex-grow text-lg cursor-pointer" onClick={() => handleQRClick(reply.text)}>
+                {reply.text}
+              </span>
+              <div className="flex items-center">
+                <button className="p-2 m-1 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500" onClick={() => setEditingReply(reply)}>
+                  <Lucide icon="Pencil" className="w-5 h-5" />
+                </button>
+                <button className="p-2 m-1 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500" onClick={() => deleteQuickReply(reply.id)}>
+                  <Lucide icon="Trash" className="w-5 h-5" />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+)}
     </div>
   );
 };
