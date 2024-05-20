@@ -1874,46 +1874,57 @@ const formatText = (text: string) => {
       )}
       <ToastContainer />
       {isQuickRepliesOpen && (
-  <div className="bg-gray-100 border border-gray-300 p-6 rounded-lg shadow-lg mt-2">
+  <div className="bg-gray-100 p-4 rounded-md shadow-lg mt-2">
     <div className="flex items-center mb-4">
       <input
         type="text"
-        className="flex-grow px-4 py-2 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         placeholder="Add new quick reply"
         value={newQuickReply}
         onChange={(e) => setNewQuickReply(e.target.value)}
       />
-      <button className="p-2 ml-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500" onClick={addQuickReply}>
-        <Lucide icon="Plus" className="w-5 h-5" />
-      </button>
+
+      <button className="p-2 m-1 !box"  onClick={addQuickReply}>
+                    <span className="flex items-center justify-center w-5 h-5">
+                      <Lucide icon="Plus" className="w-5 h-5" />
+                    </span>
+                  </button>
     </div>
     <div className="max-h-40 overflow-y-auto">
       {quickReplies.map(reply => (
-        <div key={reply.id} className="flex items-center justify-between mb-2 p-2 bg-white rounded-md shadow-sm">
+        <div key={reply.id} className="flex items-center justify-between mb-2 bg-gray-50">
           {editingReply?.id === reply.id ? (
             <>
               <input
                 type="text"
-                className="flex-grow px-4 py-2 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={editingReply.text}
                 onChange={(e) => setEditingReply({ ...editingReply, text: e.target.value })}
               />
-              <button className="p-2 ml-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500" onClick={() => updateQuickReply(reply.id, editingReply.text)}>
-                Save
-              </button>
+             
+              <button className="p-2 m-1 !box"  onClick={addQuickReply}>
+                    <span className="flex items-center justify-center w-5 h-5">
+                      <Lucide icon="Save" className="w-5 h-5" />
+                    </span>
+                  </button>
             </>
           ) : (
             <>
-              <span className="flex-grow text-lg cursor-pointer" onClick={() => handleQRClick(reply.text)}>
+              <span className="px-4 py-2 flex-grow text-lg cursor-pointer" onClick={() => handleQRClick(reply.text)}>
                 {reply.text}
               </span>
-              <div className="flex items-center">
-                <button className="p-2 m-1 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500" onClick={() => setEditingReply(reply)}>
-                  <Lucide icon="Pencil" className="w-5 h-5" />
-                </button>
-                <button className="p-2 m-1 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500" onClick={() => deleteQuickReply(reply.id)}>
-                  <Lucide icon="Trash" className="w-5 h-5" />
-                </button>
+              <div>
+              
+                <button className="p-2 m-1 !box"  onClick={() => setEditingReply(reply)}>
+                    <span className="flex items-center justify-center w-5 h-5">
+                      <Lucide icon="Eye" className="w-5 h-5" />
+                    </span>
+                  </button>
+                <button className="p-2 m-1 !box text-red-500"    onClick={() => deleteQuickReply(reply.id)}>
+                    <span className="flex items-center justify-center w-5 h-5">
+                      <Lucide icon="Trash" className="w-5 h-5" />
+                    </span>
+                  </button>
               </div>
             </>
           )}
