@@ -127,20 +127,22 @@ function Main() {
       }
       const companyData = docSnapshot.data();
  
-      // Assuming ghlConfig, setToken, and fetchChatsWithRetry are defined elsewhere
-  ghlConfig = {
-        ghl_id: companyData.ghl_id,
-        ghl_secret: companyData.ghl_secret,
-        refresh_token: companyData.refresh_token
-      };
 
+<<<<<<< HEAD
       // Assuming refreshAccessToken is defined elsewhere
+=======
+
+>>>>>>> 3896dd45305d92c67fb27fa4051ce6f11c91712b
       // Update Firestore document with new token data
       await setDoc(doc(firestore, 'companies', companyId), {
         access_token: companyData.access_token,
         refresh_token: companyData.refresh_token,
       }, { merge: true });
+<<<<<<< HEAD
       await searchContacts(companyData.access_token,companyData.locationId);
+=======
+      await searchContacts(companyData.access_token,companyData.location_id);
+>>>>>>> 3896dd45305d92c67fb27fa4051ce6f11c91712b
     
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
@@ -182,7 +184,7 @@ setEmployeeList(employeeListData);
         ghl_secret: companyData.ghl_secret,
         refresh_token: companyData.refresh_token
       };
-      // Assuming refreshAccessToken is defined elsewhere
+
       // Update Firestore document with new token data
       await setDoc(doc(firestore, 'companies', companyId), {
         access_token: companyData.access_token,
@@ -206,7 +208,7 @@ setEmployeeList(employeeListData);
    
         }
       }
-      await searchContacts(companyData.access_token,companyData.locationId);
+      await searchContacts(companyData.access_token,companyData.location_id);
     }
   };
   async function updateContactTags(contactId: any, accessToken: any, tags: any) {
@@ -261,7 +263,6 @@ const toggleSelectAll = () => {
                 params: {
                     locationId: locationId,
                     page: page,
-                    limit:100
                 }
             };
             const response = await axios.request(options);
@@ -278,9 +279,9 @@ const toggleSelectAll = () => {
         }
         // Filter contacts where phone number is not null
         const filteredContacts = allContacts.filter(contact => contact.phone !== null);
-        setContacts(filteredContacts);
+        setContacts(allContacts);
         setLoading(false);
-        console.log('Search Conversation Response:', filteredContacts);
+        console.log('Search Conversation Response:', allContacts);
     } catch (error) {
         console.error('Error searching conversation:', error);
     }
@@ -390,7 +391,7 @@ const toggleSelectAll = () => {
                             <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
                                 {contact.firstName ?? 'No Name'}
                             </td>
-                            <td className="px-6 py-4">{contact.phone}</td>
+                            <td className="px-6 py-4">{contact.phone??contact.source}</td>
                             <td className="px-6 py-4">
                                 {contact.tags && contact.tags.length > 0
                                     ? contact.tags.join(', ')

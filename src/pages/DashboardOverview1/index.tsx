@@ -1,6 +1,10 @@
 import _ from "lodash";
 import clsx from "clsx";
+<<<<<<< HEAD
 import React, { useState, useEffect, useRef } from "react";
+=======
+import { useEffect, useRef, useState } from "react";
+>>>>>>> 3896dd45305d92c67fb27fa4051ce6f11c91712b
 import fakerData from "@/utils/faker";
 import Button from "@/components/Base/Button";
 import Pagination from "@/components/Base/Pagination";
@@ -17,6 +21,7 @@ import SimpleLineChart1 from "@/components/SimpleLineChart1";
 import LeafletMap from "@/components/LeafletMap";
 import { Menu } from "@/components/Base/Headless";
 import Table from "@/components/Base/Table";
+<<<<<<< HEAD
 import axios from "axios";
 import { getAuth } from 'firebase/auth';
 import { getFirestore, collection, doc, getDoc, setDoc, getDocs } from 'firebase/firestore';
@@ -43,10 +48,144 @@ let ghlConfig ={
   ghl_secret:'',
   refresh_token:'',
 };
+=======
+import axios from 'axios';
+>>>>>>> 3896dd45305d92c67fb27fa4051ce6f11c91712b
 
+import { getAuth } from "firebase/auth";
+import { initializeApp } from "firebase/app";
+import { DocumentReference, getDoc, onSnapshot } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
+const firebaseConfig = {
+  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
+  authDomain: "onboarding-a5fcb.firebaseapp.com",
+  databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "onboarding-a5fcb",
+  storageBucket: "onboarding-a5fcb.appspot.com",
+  messagingSenderId: "334607574757",
+  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
+  measurementId: "G-2C9J1RY67L"
+};
+const app = initializeApp(firebaseConfig);
+const firestore = getFirestore(app);
+const auth = getAuth(app);
+let companyId ="";
+let total_contacts = 0;
+let closed = 0;
+let unclosed = 0;
+let num_replies = 0;
 function Main() {
   const [salesReportFilter, setSalesReportFilter] = useState<string>();
   const importantNotesRef = useRef<TinySliderElement>();
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+
+
+    fetchConfigFromDatabase();
+  }, []);
+  async function fetchConfigFromDatabase() {
+ 
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+    try {
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document!');
+        return;
+      }
+      const dataUser = docUserSnapshot.data();
+      
+      companyId = dataUser.companyId;
+   
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document!');
+        return;
+      }
+      const data = docSnapshot.data();
+     console.log(data);
+     await searchOpportunities(data.location_id,data.access_token);
+    await searchContacts(data.access_token,data.location_id);
+    } catch (error) {
+      console.error('Error fetching config:', error);
+      throw error;
+    } finally {
+  
+    }
+  }
+  async function searchContacts(accessToken: any, locationId: any) {
+    setLoading(true);
+    try {
+        let allContacts: any[] = [];
+        let page = 1;
+        while (true) {
+            const options = {
+                method: 'GET',
+                url: 'https://services.leadconnectorhq.com/contacts/',
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Version: '2021-07-28',
+                },
+                params: {
+                    locationId: locationId,
+                    page: page,
+                }
+            };
+            const response = await axios.request(options);
+            console.log('Search Conversation Response:', response.data);
+            const contacts = response.data.contacts;
+            // Concatenate contacts to allContacts array
+            allContacts = [...allContacts, ...contacts];
+            if (contacts.length === 0) {
+                // If no contacts received in the current page, we've reached the end
+                break;
+            }
+            // Increment page for the next request
+            page++;
+        }
+        // Filter contacts where phone number is not null
+        const filteredContacts = allContacts.filter(contact => contact.phone !== null);
+        total_contacts = allContacts.length;
+        setLoading(false);
+        console.log('Search Conversation Response:', filteredContacts);
+    } catch (error) {
+        console.error('Error searching conversation:', error);
+    }
+}
+const searchOpportunities = async (locationId: any, ghlToken: any) => {
+  setLoading(true);
+  setError(null);
+
+  try {
+    const response = await axios.get('https://services.leadconnectorhq.com/opportunities/search', {
+      headers: {
+        Authorization: `Bearer ${ghlToken}`,
+        Version: '2021-07-28',
+        Accept: 'application/json'
+      },
+      params: {
+        location_id: locationId
+      }
+    });
+
+const opportunities = response.data.opportunities;
+const closed_temp = opportunities.filter((opportunity: { status: string; }) => opportunity.status === 'won').length;
+
+const unclosed_temp = opportunities.filter((opportunity: { status: string; }) => opportunity.status === 'open').length;
+
+closed = closed_temp;
+unclosed = unclosed_temp;
+
+  } catch (error) {
+    setError('An error occurred while fetching the opportunities.');
+  } finally {
+    setLoading(false);
+  }
+};
   const prevImportantNotes = () => {
     importantNotesRef.current?.tns.goTo("prev");
   };
@@ -183,18 +322,15 @@ console.log(companyData);
                         className="w-[28px] h-[28px] text-primary"
                       />
                       <div className="ml-auto">
-                        <Tippy
-                          as="div"
-                          className="cursor-pointer bg-success py-[3px] flex rounded-full text-white text-xs pl-2 pr-1 items-center font-medium"
-                          content="33% Higher than last month"
-                        >
-                          33%
-                          <Lucide icon="ChevronUp" className="w-4 h-4 ml-0.5" />
-                        </Tippy>
+                       
                       </div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
+<<<<<<< HEAD
                       {totalContacts}
+=======
+                      {total_contacts}
+>>>>>>> 3896dd45305d92c67fb27fa4051ce6f11c91712b
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                     Total Contacts 
@@ -216,17 +352,7 @@ console.log(companyData);
                         className="w-[28px] h-[28px] text-pending"
                       />
                       <div className="ml-auto">
-                        <Tippy
-                          as="div"
-                          className="cursor-pointer bg-danger py-[3px] flex rounded-full text-white text-xs pl-2 pr-1 items-center font-medium"
-                          content="2% Lower than last month"
-                        >
-                          2%
-                          <Lucide
-                            icon="ChevronDown"
-                            className="w-4 h-4 ml-0.5"
-                          />
-                        </Tippy>
+                      
                       </div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
@@ -252,21 +378,14 @@ console.log(companyData);
                         className="w-[28px] h-[28px] text-warning"
                       />
                       <div className="ml-auto">
-                        <Tippy
-                          as="div"
-                          className="cursor-pointer bg-success py-[3px] flex rounded-full text-white text-xs pl-2 pr-1 items-center font-medium"
-                          content="12% Higher than last month"
-                        >
-                          12%{" "}
-                          <Lucide icon="ChevronUp" className="w-4 h-4 ml-0.5" />
-                        </Tippy>
+                      
                       </div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                      0
+                      {unclosed}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
-                      Unclosed
+                      Open
                     </div>
                   </div>
                 </div>
@@ -285,18 +404,11 @@ console.log(companyData);
                         className="w-[28px] h-[28px] text-success"
                       />
                       <div className="ml-auto">
-                        <Tippy
-                          as="div"
-                          className="cursor-pointer bg-success py-[3px] flex rounded-full text-white text-xs pl-2 pr-1 items-center font-medium"
-                          content="22% Higher than last month"
-                        >
-                          22%{" "}
-                          <Lucide icon="ChevronUp" className="w-4 h-4 ml-0.5" />
-                        </Tippy>
+                     
                       </div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                      0
+                      {closed}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       Closed
