@@ -4,8 +4,9 @@ import React, { useState, useEffect, useRef } from "react";
 import Button from "@/components/Base/Button";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { DocumentReference, getDoc } from 'firebase/firestore';
+import { DocumentReference, getDoc, updateDoc } from 'firebase/firestore';
 import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
+import { useLocation } from 'react-router-dom';
 
 import {
   FormInput,
@@ -13,6 +14,7 @@ import {
   FormSwitch,
   InputGroup,
 } from "@/components/Base/Form";
+
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
   authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -26,66 +28,47 @@ const firebaseConfig = {
 
 function Main() {
   const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const firestore = getFirestore(app);
-const [errorMessage, setErrorMessage] = useState('');
-const [categories, setCategories] = useState(["1"]);
+  const auth = getAuth(app);
+  const firestore = getFirestore(app);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [categories, setCategories] = useState(["1"]);
+  const location = useLocation();
+  const { contactId, contact, companyId } = location.state;
+
+  console.log('Contact ID:', contactId);
+  console.log('Contact:', contact);
+  console.log('Company ID:', companyId);
+
   const [userData, setUserData] = useState({
     name: "",
     phoneNumber: "",
     email: "",
     password: "",
-    role:"",
-    companyId:""
+    role: "",
+    companyId: ""
   });
-  let companyId='014';
-  let ghlConfig ={
-    ghl_id:'',
-    ghl_secret:'',
-    refresh_token:'',
-  };
-  useEffect(() => {
-    fetchCompanyData();
-  }, []);
-  async function fetchCompanyData() {
-    const user = auth.currentUser;
-    try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      console.log(companyId);
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
-        return;
-      }
-      const companyData = docSnapshot.data();
 
-      // Assuming ghlConfig, setToken, and fetchChatsWithRetry are defined elsewhere
-  ghlConfig = {
-        ghl_id: companyData.ghl_id,
-        ghl_secret: companyData.ghl_secret,
-        refresh_token: companyData.refresh_token
-      };
-      const docEmployeeRef = doc(firestore,`companies/${companyId}/employee`);
-      const docEmployeeSnapshot = await getDoc(docEmployeeRef);
-      if (!docEmployeeSnapshot.exists()) {
-        console.log('No such document for company!');
-        return;
-      }
-      const employeeData = docEmployeeSnapshot.data();
-    console.log(employeeData);
-   
-    } catch (error) {
-      console.error('Error fetching company data:', error);
+  let ghlConfig = {
+    ghl_id: '',
+    ghl_secret: '',
+    refresh_token: '',
+  };
+
+  useEffect(() => {
+    // Set userData state with the values from contact when component mounts
+    if (contact) {
+      setUserData({
+        name: contact.name || "",
+        phoneNumber: contact.phoneNumber || "",
+        email: contact.id || "",
+        password: "",
+        role: contact.role || "",
+        companyId: companyId || ""
+      });
+      setCategories([contact.role]);
     }
-  }
+  }, [contact, companyId]);
+
   const handleChange = (e: { target: { name: any; value: any; }; }) => {
     const { name, value } = e.target;
     setUserData((prevUserData) => ({
@@ -116,31 +99,39 @@ const [categories, setCategories] = useState(["1"]);
           name: userData.name,
           phoneNumber: userData.phoneNumber,
           email: userData.email,
-          role: categories,
+          role: categories.toString(),
           companyId: companyId,
-          company:company
+          company: company
           // Add any other required fields here
         };
-  
-        // Make API call to create user
-        const response = await fetch(`https://buds-359313.et.r.appspot.com/api/create-user/${userData.email}/+60${userData.phoneNumber}/${userData.password}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-        });
-  
-        if (!response.ok) {
-          throw new Error('Failed to create user');
+
+        if (contactId) {
+          // Update existing contact
+          await updateDoc(doc(firestore, `companies/${companyId}/employee`, contactId), userDataToSend);
+          await updateDoc(doc(firestore, `user`, userData.email), userDataToSend);
+          console.log("Contact updated successfully");
+        } else {
+          // Create new user
+          const response = await fetch(`https://buds-359313.et.r.appspot.com/api/create-user/${userData.email}/+60${userData.phoneNumber}/${userData.password}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+          });
+    
+          if (!response.ok) {
+            throw new Error('Failed to create user');
+          }
+    
+          // Parse response data if needed
+          const responseData = await response.json();
+          console.log("respon" + responseData);
+          // Handle success response
+          await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
+          await setDoc(doc(firestore, `companies/${companyId}/employee`, userData.email), userDataToSend);
+          console.log("User created successfully");
         }
-  
-        // Parse response data if needed
-        const responseData = await response.json();
-        console.log("respon"+responseData);
-        // Handle success response
-        await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
-        await setDoc(doc(firestore,  `companies/${companyId}/employee`, userData.email), userDataToSend);
-        console.log("User created successfully");
+
         setUserData({
           name: "",
           phoneNumber: "",
@@ -157,17 +148,22 @@ const [categories, setCategories] = useState(["1"]);
       setIsLoading(false); // Set isLoading to false if an error occurs
     }
   };
+
   const editorConfig = {
     toolbar: {
       items: ["bold", "italic", "link"],
     },
   };
+
   const [editorData, setEditorData] = useState("<p>Content of the editor.</p>");
   const [isLoading, setIsLoading] = useState(false);
+
   return (
     <>
       <div className="flex items-center mt-8 intro-y">
-        <h2 className="mr-auto text-lg font-medium">Add User</h2>
+        <h2 className="mr-auto text-lg font-medium">
+          {contactId ? "Update User" : "Add User"}
+        </h2>
       </div>
       <div className="grid grid-cols-12 gap-6 mt-5">
         <div className="col-span-12 intro-y lg:col-span-6">
@@ -182,7 +178,7 @@ const [categories, setCategories] = useState(["1"]);
               />
             </div>
             <div className="mt-3">
-            <span className="ml-1">+60</span>
+              <span className="ml-1">+60</span>
               <FormInput
                 name="phoneNumber"
                 type="text"
@@ -198,21 +194,22 @@ const [categories, setCategories] = useState(["1"]);
                 value={userData.email}
                 onChange={handleChange}
                 placeholder="Email"
+                readOnly={!!contactId} // Make email read-only if updating a contact
               />
             </div>
             <div className="mt-3">
-    <FormLabel htmlFor="crud-form-2">Role</FormLabel>
-    <TomSelect
-        id="crud-form-2"
-        value={categories}
-        onChange={setCategories}
-        className="w-full"
-    >
-        <option value="1">Admin</option>
-        <option value="2">Sales</option>
-        <option value="3">Others</option>
-    </TomSelect>
-</div>
+              <FormLabel htmlFor="crud-form-2">Role</FormLabel>
+              <TomSelect
+                id="crud-form-2"
+                value={categories}
+                onChange={setCategories}
+                className="w-full"
+              >
+                <option value="1">Admin</option>
+                <option value="2">Sales</option>
+                <option value="3">Others</option>
+              </TomSelect>
+            </div>
             <div className="mt-3">
               <FormInput
                 name="password"
@@ -240,7 +237,6 @@ const [categories, setCategories] = useState(["1"]);
               >
                 {isLoading ? "Saving..." : "Save"}
               </Button>
-              
             </div>
           </div>
         </div>

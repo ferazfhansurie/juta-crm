@@ -11,7 +11,7 @@ import { DocumentReference, updateDoc, getDoc, getDocs, deleteDoc } from 'fireba
 import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import axios from "axios";
 import React, { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
   authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -32,25 +32,7 @@ const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
 
 
-async function refreshAccessToken() {
-  const encodedParams = new URLSearchParams();
-  encodedParams.set('client_id', ghlConfig.ghl_id);
-  encodedParams.set('client_secret', ghlConfig.ghl_secret);
-  encodedParams.set('grant_type', 'refresh_token');
-  encodedParams.set('refresh_token', ghlConfig.refresh_token);
-  encodedParams.set('user_type', 'Location');
-  const options = {
-    method: 'POST',
-    url: 'https://services.leadconnectorhq.com/oauth/token',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Accept: 'application/json'
-    },
-    data: encodedParams,
-  };
-  const { data: newTokenData } = await axios.request(options);
-  return newTokenData;
-}
+
 interface Employee {
   id: string;
   name: string;
@@ -64,6 +46,7 @@ function Main() {
   const [contactData, setContactData] = useState<ContactData>({});
   const [response, setResponse] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   const toggleModal = () => {
     setIsModalOpen(!isModalOpen);
@@ -113,7 +96,7 @@ async function fetchEmployees() {
     }
   
     const dataUser = docUserSnapshot.data();
-    let companyId = dataUser.companyId;
+companyId = dataUser.companyId;
     const docRef = doc(firestore, 'companies', companyId);
           const docSnapshot = await getDoc(docRef);
           if (!docSnapshot.exists()) {
@@ -151,7 +134,6 @@ async function fetchEmployees() {
     throw error;
   }
 }
-<<<<<<< HEAD
 
 const handleUpdateContact = async (contactId: string, contact: any, companyId:any) => {
   try {
@@ -173,21 +155,28 @@ const handleUpdateContact = async (contactId: string, contact: any, companyId:an
 };
 
 const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
+  console.log("handleDeleteEmployee called with employeeId:", employeeId, "and companyId:", companyId);
+
   try {
     const employeeRef = doc(firestore, `companies/${companyId}/employee/${employeeId}`);
+    console.log("Employee reference created:", employeeRef);
+
     await deleteDoc(employeeRef);
-    setEmployeeList(employeeList.filter(employee => employee.id !== employeeId));
+    console.log("Employee deleted from Firestore");
+
+    console.log("Employee list before update:", employeeList);
+    const updatedEmployeeList = employeeList.filter(employee => employee.id !== employeeId);
+    console.log("Employee list after update:", updatedEmployeeList);
+
+    setEmployeeList(updatedEmployeeList);
     setResponse('Employee deleted successfully');
-    console.log("Deleted employee successfully from Firestore");
+    console.log("Employee list state updated:", updatedEmployeeList);
   } catch (error) {
     setResponse('Failed to delete employee');
     console.error("Error deleting employee:", error);
   }
 };
 
-=======
-//
->>>>>>> main
   return (
     <>
       <h2 className="mt-10 text-lg font-medium intro-y">Users Layout</h2>
@@ -236,8 +225,8 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
 
                 {/* Icon buttons for edit, view, and delete actions */}
                 <div className="flex">
-                  <button 
-                    onClick={() => handleUpdateContact(contacts.id, contacts, companyId || '')}
+                <button
+                    onClick={() => navigate(`crud-form`, { state: { contactId: contacts.id, contact: contacts, companyId: companyId || '' } })}
                     className="p-2 text-blue-500 hover:text-blue-600 relative"
                     aria-label="Edit"
                     type="button"
