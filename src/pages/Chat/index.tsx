@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { access } from "fs";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { time } from "console";
 interface Label {
   id: string;
   name: string;
@@ -482,7 +483,6 @@ function Main() {
             }
             return contact;
         });
-
         // Ensure all contacts are unique and filter those with last messages
         let uniqueContacts = Array.from(new Map(updatedContacts.map(contact => [contact.phone, contact])).values());
         uniqueContacts = uniqueContacts.filter(contact => contact.last_message);
@@ -580,9 +580,6 @@ const parseTimestamp = (timestamp: any): number => {
 };
 
 async function getContact(name: any, number: string, location: any, access_token: any) {
-  console.log(name);
-  console.log(number);
-  console.log(location);
   const options = {
     method: 'POST',
     url: 'https://services.leadconnectorhq.com/contacts/',
@@ -602,7 +599,7 @@ async function getContact(name: any, number: string, location: any, access_token
 
   try {
     const response = await axios.request(options);
-    console.log(response.data);
+
     return response.data.contact;
   } catch (error) {
     console.error(error);
@@ -895,11 +892,13 @@ setEmployeeList(employeeListData);
         params: {
           locationId: locationId,
           page: page,
+          limit:100,
         }
       };
       const response = await axios.request(options);
       const conversations = response.data.conversations;
       allConversation = [...allConversation, ...conversations];
+
       return allConversation;
     } catch (error) {
       console.error('Error searching contacts:', error);
@@ -939,15 +938,18 @@ setEmployeeList(employeeListData);
       return [];
     }
   }
-  const handleIconClick = (iconId: string,selectedChatId:string) => {
+  const handleIconClick = (iconId: string,selectedChatId:string,id:string) => {
     setMessages([]);
+   
     setSelectedIcon(iconId);
-    if(selectedChatId.includes('@s.')){
+  
+    if(iconId == 'ws'){
       fetchMessages(selectedChatId, whapiToken!);
     }else if (iconId === 'mail'){
      fetchEnquiries(selectedChatId);
-    }else{
-      fetchConversationMessages(selectedChatId);
+    }else if(iconId == 'fb'){
+    
+      fetchConversationMessages(id);
     }
   };
   async function fetchConversationMessages(conversationId: string) {
@@ -990,7 +992,7 @@ setEmployeeList(employeeListData);
           id: message.id,
           text: { body: message.body },
           from_me: message.direction === 'outbound' ? true : false,
-          createdAt: message.timestamp,
+          createdAt: message.dateAdded,
           type: 'text',
           image: message.image ? message.image : undefined,
         }))
@@ -1009,10 +1011,11 @@ setEmployeeList(employeeListData);
  
       if(selectedChatId.includes('@s.') || selectedChatId.includes('@g') ){
         fetchMessages(selectedChatId, whapiToken!);
-        console.log(messages);
+      
       }else if (selectedChatId.includes('@')){
        fetchEnquiries(selectedChatId);
       }else{
+
         fetchConversationMessages(selectedChatId);
       }
 
@@ -1126,7 +1129,7 @@ setEmployeeList(employeeListData);
       if (selectedChatId.includes('@')) {
         const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
         const data = response.data;
-        console.log(data);
+     
         setMessages(
           data.messages.map((message: { id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; }) => ({
             id: message.id,
@@ -1194,7 +1197,59 @@ setEmployeeList(employeeListData);
 
     }
   }
-
+  async function sendTextMessage(selectedChatId: string, newMessage: string,contact:any): Promise<void> {
+    if (!newMessage.trim() || !selectedChatId) return;
+  console.log(selectedChatId)
+    const user = auth.currentUser;
+    if (!user) {
+      console.log('User not authenticated');
+      return;
+    }
+  
+    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.log('No such document!');
+      return;
+    }
+  
+    const dataUser = docUserSnapshot.data();
+    const companyId = dataUser.companyId;
+  
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) {
+      console.log('No such document!');
+      return;
+    }
+  
+    const data2 = docSnapshot.data();
+    const accessToken = data2.access_token;
+  
+    try {
+      const options = {
+        method: 'POST',
+        url: 'https://services.leadconnectorhq.com/conversations/messages',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Version: '2021-04-15',
+        },
+        data: {
+          type: 'FB',
+          contactId: selectedChatId,
+          message: newMessage
+        }
+      };
+  
+      const response = await axios.request(options);
+      console.log(response.data);
+  
+      console.log('Message sent successfully:', response.data);
+      fetchConversationMessages(contact.conversation_id,);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  }
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChatId) return;
     const user = auth.currentUser;
@@ -1471,13 +1526,30 @@ const formatText = (text: string) => {
       prevContacts.includes(contact) ? prevContacts.filter(c => c.id !== contact.id) : [...prevContacts, contact]
     );
   };
-
-  const formatTimestamp = (timestamp: number) => {
-    if (!timestamp || isNaN(timestamp)) {
+  const formatTimestamp = (timestamp: number | string | undefined): string => {
+    console.log(timestamp);
+    if (!timestamp) {
       return 'Invalid date';
     }
+    
+    let date: Date;
+  
+    if (typeof timestamp === 'number') {
+      if (isNaN(timestamp)) {
+        return 'Invalid date';
+      }
+      date = new Date(timestamp * 1000);
+    } else if (typeof timestamp === 'string') {
+      date = new Date(timestamp);
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+    } else {
+      return 'Invalid date';
+    }
+  
     try {
-      return format(new Date(timestamp * 1000), 'p');
+      return format(date, 'p');
     } catch (error) {
       console.error('Error formatting timestamp:', error);
       return 'Invalid date';
@@ -1685,7 +1757,7 @@ const formatText = (text: string) => {
   </div>
 )}
               <div className="message-timestamp text-xs text-gray-100 mt-1">
-            {formatTimestamp(message.createdAt)}
+            {formatTimestamp(message.createdAt||message.dateAdded)}
             {hoveredMessageId === message.id && (
                 <button
                   className="text-white p-1 rounded-full"
@@ -1713,26 +1785,26 @@ const formatText = (text: string) => {
               className={`source-button ${selectedIcon === 'fb' ? 'border-2 border-blue-500' : ''}`}
               src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/facebook-logo-on-transparent-isolated-background-free-vector-removebg-preview.png?alt=media&token=c312eb23-dfee-40d3-a55c-476ef3041369"
               alt="Facebook"
-              onClick={() => handleIconClick('fb', selectedChatId!)}
+              onClick={() => handleIconClick('fb', selectedChatId!,selectedContact.conversation_id)}
               style={{ width: '30px', height: '30px' }}
             />
             <img
               className={`source-button ${selectedIcon === 'ig' ? 'border-2 border-blue-500' : ''}`}
-              onClick={() => handleIconClick('ig', selectedChatId!)}
+              onClick={() => handleIconClick('ig', selectedChatId!,selectedContact.id)}
               src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon3.png?alt=media&token=9395326d-ff56-45e7-8ebc-70df4be6971a"
               alt="Instagram"
               style={{ width: '30px', height: '30px' }}
             />
             <img
               className={`source-button ${selectedIcon === 'gmb' ? 'border-2 border-blue-500' : ''}`}
-              onClick={() => handleIconClick('gmb', selectedChatId!)}
+              onClick={() => handleIconClick('gmb', selectedChatId!,selectedContact.id)}
               src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon1.png?alt=media&token=10842399-eca4-40d1-9051-ea70c72ac95b"
               alt="Google My Business"
               style={{ width: '20px', height: '20px' }}
             />
             <img
               className={`source-button ${selectedIcon === 'mail' ? 'border-2 border-blue-500' : ''}`}
-              onClick={() => handleIconClick('mail', selectedChatId!)}
+              onClick={() => handleIconClick('mail', selectedChatId!,selectedContact.id)}
               src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon2.png?alt=media&token=813f94d4-cad1-4944-805a-2454293278c9"
               alt="Email"
               style={{ width: '30px', height: '30px' }}
@@ -1753,7 +1825,12 @@ const formatText = (text: string) => {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  handleSendMessage();
+                  if(selectedIcon == 'ws'){
+                    handleSendMessage();
+                  }else{
+              sendTextMessage(selectedContact.id,newMessage,selectedContact);
+                  }
+              
                   setNewMessage('');
                 }
               }}
