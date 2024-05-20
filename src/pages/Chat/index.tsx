@@ -10,6 +10,8 @@ import { Link } from "react-router-dom";
 import { FormInput } from "@/components/Base/Form";
 import { format } from 'date-fns';
 import { access } from "fs";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 interface Label {
   id: string;
   name: string;
@@ -145,6 +147,10 @@ function Main() {
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [ghlConfig, setGhlConfig] = useState<GhlConfig | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [isForwardDialogOpen, setIsForwardDialogOpen] = useState(false);
+  const [selectedMessageForForwarding, setSelectedMessageForForwarding] = useState<Message | null>(null);
+  const [selectedContactsForForwarding, setSelectedContactsForForwarding] = useState<Contact[]>([]);
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   let companyId = '014';
   let user_name = '';
   let user_role='2';
@@ -325,7 +331,7 @@ function Main() {
             getDocs(collection(firestore, `companies/${companyId}/employee`)),
             getDocs(collection(firestore, `companies/${companyId}/conversations`))
         ]);
-        console.log(contacts);
+     
         if (!chatResponse.ok) throw new Error('Failed to fetch chats');
         const chatData = await chatResponse.json();
         const user = auth.currentUser;
@@ -796,7 +802,7 @@ setEmployeeList(employeeListData);
         return dateB.getTime() - dateA.getTime();
     });
     // Filter contacts by user name in tags if necessary
-    console.log(role);
+   
     if (role == 2 && companyId == '011') {
         const filteredContacts = uniqueContacts.filter((contact: { tags: any[] }) => {
             return contact.tags && contact.tags.some(tag => typeof tag == 'string' && tag.toLowerCase().includes(user_name.toLowerCase()));
@@ -848,9 +854,7 @@ setEmployeeList(employeeListData);
     try {
       let allContacts: any[] = [];
       let page = 1;
-      let hasMore = true;
-  
-      while (hasMore) {
+      while (true) {
         const options = {
           method: 'GET',
           url: 'https://services.leadconnectorhq.com/contacts/',
@@ -861,19 +865,15 @@ setEmployeeList(employeeListData);
           params: {
             locationId: locationId,
             page: page,
-            limit: 100,
           }
         };
-  
         const response = await axios.request(options);
         const contacts = response.data.contacts;
         allContacts = [...allContacts, ...contacts];
-  
-        if (contacts.length < 100) {
-          hasMore = false;
-        } else {
-          page += 1;
+        if (contacts.length === 0) {
+          break;
         }
+        page++;
       }
   
       return allContacts;
@@ -927,7 +927,7 @@ setEmployeeList(employeeListData);
         }
       });
       const leadConnectorData = leadConnectorResponse.data;
-console.log(leadConnectorData);
+
       setMessages(
         leadConnectorData.messages.messages.map((message: any) => ({
           id: message.id,
@@ -1379,6 +1379,42 @@ const formatText = (text: string) => {
     setSearchQuery('');
     setActiveTags([]);  
   };
+  const handleForwardMessage = async () => {
+    if (!selectedMessageForForwarding || selectedContactsForForwarding.length === 0) return;
+    
+    try {
+      for (const contact of selectedContactsForForwarding) {
+        const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${contact.chat_id}/${whapiToken}/${selectedMessageForForwarding.text?.body}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to forward message to ${contact.contactName}`);
+        }
+      }
+
+      setIsForwardDialogOpen(false);
+      setSelectedMessageForForwarding(null);
+      setSelectedContactsForForwarding([]);
+      toast.success('Message forwarded successfully');
+    } catch (error) {
+      console.error('Error forwarding message:', error);
+      alert('Failed to forward message');
+    }
+  };
+
+  const handleOpenForwardDialog = (message: Message) => {
+    setSelectedMessageForForwarding(message);
+    setIsForwardDialogOpen(true);
+  };
+
+  const handleSelectContactForForwarding = (contact: Contact) => {
+    setSelectedContactsForForwarding(prevContacts => 
+      prevContacts.includes(contact) ? prevContacts.filter(c => c.id !== contact.id) : [...prevContacts, contact]
+    );
+  };
+
   const formatTimestamp = (timestamp: number) => {
     if (!timestamp || isNaN(timestamp)) {
       return 'Invalid date';
@@ -1570,7 +1606,10 @@ const formatText = (text: string) => {
                 maxWidth: '70%',
                 width: `${message.type === 'image' ? '320' : Math.min((message.text!.body?.length || 0) * 10, 350)}px`,
                 minWidth: '75px'  // Add a minimum width here
+                
               }}
+              onMouseEnter={() => setHoveredMessageId(message.id)}
+              onMouseLeave={() => setHoveredMessageId(null)}
             >
               {message.type === 'image' && message.image && (
                 <div className="message-content image-message">
@@ -1590,7 +1629,16 @@ const formatText = (text: string) => {
 )}
               <div className="message-timestamp text-xs text-gray-100 mt-1">
             {formatTimestamp(message.createdAt)}
+            {hoveredMessageId === message.id && (
+                <button
+                  className="text-white p-1 rounded-full"
+                  onClick={() => handleOpenForwardDialog(message)}
+                >
+                  <Lucide icon="Forward" className="w-4 h-4" />
+                </button>
+              )}
           </div>
+         
             </div>
           ))}
         </div>
@@ -1687,7 +1735,81 @@ const formatText = (text: string) => {
     </div>
   </div>
 )}
-
+ {isForwardDialogOpen && (
+         <Dialog as="div" className="relative z-10" open={isForwardDialogOpen} onClose={() => setIsForwardDialogOpen(false)}>
+         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+         <div className="fixed inset-0 z-50 overflow-y-auto">
+           <div className="flex items-end justify-center min-h-full p-4 text-center sm:items-center sm:p-0">
+             <Dialog.Panel className="relative bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
+               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                 <div className="sm:flex sm:items-start">
+                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                     <Dialog.Title as="h3" className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                       Forward message to
+                     </Dialog.Title>
+                     <div className="relative mb-4">
+                       <input
+                         type="text"
+                         className="w-full py-2 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                         placeholder="Search..."
+                         value={searchQuery}
+                         onChange={(e) => setSearchQuery(e.target.value)}
+                       />
+                       <Lucide
+                         icon="Search"
+                         className="absolute top-2 right-3 w-5 h-5 text-gray-500"
+                       />
+                     </div>
+                     <div className="max-h-60 overflow-y-auto">
+                       {contacts.map((contact) => (
+                         <div
+                           key={contact.id}
+                           className="flex items-center p-2 border-b border-gray-200 hover:bg-gray-100"
+                         >
+                            <input
+                             type="checkbox"
+                             className="mr-3"
+                             checked={selectedContactsForForwarding.includes(contact)}
+                             onChange={() => handleSelectContactForForwarding(contact)}
+                           />
+                           <div className="flex items-center">
+                             <div className="w-8 h-8 flex items-center justify-center bg-gray-300 rounded-full mr-3 text-white">
+                               {contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"}
+                             </div>
+                             <div className="flex-grow">
+                               <div className="font-semibold">{contact.contactName || contact.phone}</div>
+                            
+                             </div>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 </div>
+               </div>
+               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                 <Button
+                   type="button"
+                   className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                   onClick={handleForwardMessage}
+                 >
+                   Forward
+                 </Button>
+                 <Button
+                   type="button"
+                   className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
+                   onClick={() => setIsForwardDialogOpen(false)}
+                 >
+                   Cancel
+                 </Button>
+               </div>
+             </Dialog.Panel>
+           </div>
+         </div>
+       </Dialog>
+       
+      )}
+      <ToastContainer />
     </div>
   );
 };
