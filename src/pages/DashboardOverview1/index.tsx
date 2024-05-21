@@ -1,10 +1,6 @@
 import _ from "lodash";
 import clsx from "clsx";
-<<<<<<< HEAD
-import React, { useState, useEffect, useRef } from "react";
-=======
 import { useEffect, useRef, useState } from "react";
->>>>>>> 3896dd45305d92c67fb27fa4051ce6f11c91712b
 import fakerData from "@/utils/faker";
 import Button from "@/components/Base/Button";
 import Pagination from "@/components/Base/Pagination";
@@ -21,36 +17,7 @@ import SimpleLineChart1 from "@/components/SimpleLineChart1";
 import LeafletMap from "@/components/LeafletMap";
 import { Menu } from "@/components/Base/Headless";
 import Table from "@/components/Base/Table";
-<<<<<<< HEAD
-import axios from "axios";
-import { getAuth } from 'firebase/auth';
-import { getFirestore, collection, doc, getDoc, setDoc, getDocs } from 'firebase/firestore';
-import { initializeApp } from "firebase/app";
-
-// Assuming 'app' is your Firebase app instance
-const firebaseConfig = {
-  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
-  authDomain: "onboarding-a5fcb.firebaseapp.com",
-  databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "onboarding-a5fcb",
-  storageBucket: "onboarding-a5fcb.appspot.com",
-  messagingSenderId: "334607574757",
-  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
-  measurementId: "G-2C9J1RY67L"
-};
-const app = initializeApp(firebaseConfig);
-
-const auth = getAuth(app);
-const firestore = getFirestore(app);
-let companyId='014';
-let ghlConfig ={
-  ghl_id:'',
-  ghl_secret:'',
-  refresh_token:'',
-};
-=======
 import axios from 'axios';
->>>>>>> 3896dd45305d92c67fb27fa4051ce6f11c91712b
 
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
@@ -195,36 +162,6 @@ unclosed = unclosed_temp;
 
   const [totalContacts, setTotalContacts] = useState(0);
 
-  async function searchContacts(accessToken: any, locationId: any) {
-   
-    try {
-        let allContacts: any[] = [];
-        let page = 1;
-        const options = {
-          method: 'GET',
-          url: 'https://services.leadconnectorhq.com/contacts/',
-          headers: {
-              Authorization: `Bearer ${accessToken}`,
-              Version: '2021-07-28',
-          },
-          params: {
-              locationId: locationId
-          }
-      };
-      const response = await axios.request(options);
-      console.log('Search Conversation Response:', response.data);
-      const contacts = response.data.contacts;
-      // Concatenate contacts to allContacts array
-      allContacts = [...allContacts, ...contacts];
-        // Filter contacts where phone number is not null
-        const filteredContacts = allContacts.filter(contact => contact.phone !== null);
-        setTotalContacts(filteredContacts.length);
-        console.log('Search Conversation Response:', filteredContacts);
-        console.log(filteredContacts.length);
-    } catch (error) {
-        console.error('Error searching conversation:', error);
-    }
-}
 
   async function fetchOpportunities(accessToken: any, locationId: any) {
     try {
@@ -273,12 +210,6 @@ unclosed = unclosed_temp;
       }
       const companyData = docSnapshot.data();
  
-      // Assuming ghlConfig, setToken, and fetchChatsWithRetry are defined elsewhere
-  ghlConfig = {
-        ghl_id: companyData.ghl_id,
-        ghl_secret: companyData.ghl_secret,
-        refresh_token: companyData.refresh_token
-      };
 
       // Assuming refreshAccessToken is defined elsewhere
 console.log(companyData);
@@ -326,11 +257,7 @@ console.log(companyData);
                       </div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-<<<<<<< HEAD
-                      {totalContacts}
-=======
                       {total_contacts}
->>>>>>> 3896dd45305d92c67fb27fa4051ce6f11c91712b
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                     Total Contacts 

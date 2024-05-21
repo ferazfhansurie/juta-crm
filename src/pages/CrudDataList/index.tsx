@@ -128,21 +128,12 @@ function Main() {
       const companyData = docSnapshot.data();
  
 
-<<<<<<< HEAD
-      // Assuming refreshAccessToken is defined elsewhere
-=======
-
->>>>>>> 3896dd45305d92c67fb27fa4051ce6f11c91712b
       // Update Firestore document with new token data
       await setDoc(doc(firestore, 'companies', companyId), {
         access_token: companyData.access_token,
         refresh_token: companyData.refresh_token,
       }, { merge: true });
-<<<<<<< HEAD
-      await searchContacts(companyData.access_token,companyData.locationId);
-=======
       await searchContacts(companyData.access_token,companyData.location_id);
->>>>>>> 3896dd45305d92c67fb27fa4051ce6f11c91712b
     
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
