@@ -19,6 +19,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "server.ts"],
+  "include": ["src", "server.ts", "public/firebase-messaging-sw.js", "firebase-messaging-sw.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

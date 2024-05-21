@@ -233,6 +233,7 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
                   >
                     <Lucide icon="Pencil" className="w-5 h-5 mx-auto" />
                   </button>
+<<<<<<< HEAD
                   <button 
                     className="p-2 text-green-500 hover:text-green-600 relative"
                     aria-label="View"
@@ -240,6 +241,9 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
                   >
                     <Lucide icon="Eye" className="w-5 h-5 mx-auto" />
                   </button>
+=======
+                 
+>>>>>>> c7f53dbeeab5d746ae1717434fb8e4c66f8346b0
                   <button 
                     onClick={toggleModal}
                     className="p-2 text-red-500 hover:text-red-600 relative"
