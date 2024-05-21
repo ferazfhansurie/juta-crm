@@ -1519,24 +1519,52 @@ const formatText = (text: string) => {
     if (!selectedMessageForForwarding || selectedContactsForForwarding.length === 0) return;
     
     try {
-      for (const contact of selectedContactsForForwarding) {
-        const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${contact.chat_id}/${whapiToken}/${selectedMessageForForwarding.text?.body}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
+        for (const contact of selectedContactsForForwarding) {
+            let response;
+            if (selectedMessageForForwarding.type === 'image') {
+                response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/image/${whapiToken}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chatId: contact.chat_id,
+                        imageUrl: selectedMessageForForwarding.image?.link,
+                        caption: selectedMessageForForwarding.image?.caption || '',
+                    }),
+                });
+            } else if (selectedMessageForForwarding.type === 'document') {
+                response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/document/${whapiToken}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chatId: contact.chat_id,
+                        imageUrl: selectedMessageForForwarding.document?.link,
+                        fileName: selectedMessageForForwarding.document?.file_name,
+                        mimeType: selectedMessageForForwarding.document?.mime_type,
+                    }),
+                });
+            } else {
+                response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${contact.chat_id}/${whapiToken}/${selectedMessageForForwarding.text?.body}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            }
+            if (!response.ok) throw new Error('Failed to forward message');
+        }
 
-       
-      }
-
-      setIsForwardDialogOpen(false);
-      setSelectedMessageForForwarding(null);
-      setSelectedContactsForForwarding([]);
-      toast.success('Message forwarded successfully');
+        setIsForwardDialogOpen(false);
+        setSelectedMessageForForwarding(null);
+        setSelectedContactsForForwarding([]);
+        
+        toast.success('Message forwarded successfully');
     } catch (error) {
-      console.error('Error forwarding message:', error);
-      alert('Failed to forward message');
+        console.error('Error forwarding message:', error);
+        alert('Failed to forward message');
     }
-  };
+};
 
   const handleOpenForwardDialog = (message: Message) => {
     setSelectedMessageForForwarding(message);
