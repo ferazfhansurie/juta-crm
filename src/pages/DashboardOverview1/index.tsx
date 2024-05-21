@@ -342,7 +342,7 @@ function Main() {
         </div>
             <div className="ml-4 mr-auto">
               <div className="font-medium">{notification.from_name}</div>
-              <div className="text-base text-slate-500">{notification.text.body}</div>
+              <div className="text-base text-slate-500">{(notification.text != undefined)?notification.text.body:""}</div>
               <div className="text-slate-500 text-xs mt-0.5">{new Date(notification.timestamp * 1000).toLocaleString()}</div>
             </div>
           
