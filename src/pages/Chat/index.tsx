@@ -175,6 +175,7 @@ function Main() {
   const [editingReply, setEditingReply] = useState<QuickReply | null>(null);
   const [newQuickReply, setNewQuickReply] = useState<string>('');
   const [filteredContactsForForwarding, setFilteredContactsForForwarding] = useState<Contact[]>(contacts);
+  const [selectedMessages, setSelectedMessages] = useState<Message[]>([]);
   let companyId = '014';
   let user_name = '';
   let user_role='2';
@@ -1514,56 +1515,79 @@ const formatText = (text: string) => {
       prevTags.includes(tag) ? prevTags.filter((t) => t !== tag) : [...prevTags, tag]
     );
   };
+  const handleSelectMessage = (message: Message) => {
+    setSelectedMessages(prevSelectedMessages =>
+        prevSelectedMessages.includes(message)
+            ? prevSelectedMessages.filter(m => m.id !== message.id)
+            : [...prevSelectedMessages, message]
+    );
+};
+const formatTextForSending = (text: string) => {
+  // Step 1: Ensure proper spacing between items
+  text = text.replace(/- /g, '\n- ');
 
-  const handleForwardMessage = async () => {
-    if (!selectedMessageForForwarding || selectedContactsForForwarding.length === 0) return;
-    
-    try {
-        for (const contact of selectedContactsForForwarding) {
-            let response;
-            if (selectedMessageForForwarding.type === 'image') {
-                response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/image/${whapiToken}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        chatId: contact.chat_id,
-                        imageUrl: selectedMessageForForwarding.image?.link,
-                        caption: selectedMessageForForwarding.image?.caption || '',
-                    }),
-                });
-            } else if (selectedMessageForForwarding.type === 'document') {
-                response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/document/${whapiToken}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        chatId: contact.chat_id,
-                        imageUrl: selectedMessageForForwarding.document?.link,
-                        fileName: selectedMessageForForwarding.document?.file_name,
-                        mimeType: selectedMessageForForwarding.document?.mime_type,
-                    }),
-                });
-            } else {
-                response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${contact.chat_id}/${whapiToken}/${selectedMessageForForwarding.text?.body}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                });
-            }
-            if (!response.ok) throw new Error('Failed to forward message');
-        }
+  // Step 2: Ensure proper new lines between items
+  text = text.replace(/(\w)(?=\w*\()|\b\(/g, '$&\n');
 
-        setIsForwardDialogOpen(false);
-        setSelectedMessageForForwarding(null);
-        setSelectedContactsForForwarding([]);
-        
-        toast.success('Message forwarded successfully');
-    } catch (error) {
-        console.error('Error forwarding message:', error);
-        alert('Failed to forward message');
-    }
+  // Step 3: Add asterisks for emphasis
+  text = text.replace(/(?:^|\n)-\s*([^\n]+)/g, '- *$1*');
+
+  // Step 4: Add a new line after every sentence
+  text = text.replace(/\.(\s)/g, '.\n$1');
+
+  return text.trim();
+};
+const handleForwardMessage = async () => {
+  if (selectedMessages.length === 0 || selectedContactsForForwarding.length === 0) return;
+
+  try {
+      for (const contact of selectedContactsForForwarding) {
+          for (const message of selectedMessages) {
+              let response;
+              if (message.type === 'image') {
+                  response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/image/${whapiToken}`, {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                          chatId: contact.chat_id,
+                          imageUrl: message.image?.link,
+                          caption: message.image?.caption || '',
+                      }),
+                  });
+              } else if (message.type === 'document') {
+                  response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/document/${whapiToken}`, {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                          chatId: contact.chat_id,
+                          imageUrl: message.document?.link,
+                          fileName: message.document?.file_name,
+                          mimeType: message.document?.mime_type,
+                      }),
+                  });
+              } else {
+                const message_string = formatTextForSending(message!.text?.body!);
+                  response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${contact.chat_id}/${whapiToken}/${message_string}`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                  });
+              }
+              if (!response.ok) throw new Error('Failed to forward message');
+          }
+      }
+
+      setIsForwardDialogOpen(false);
+      setSelectedMessages([]);
+      setSelectedContactsForForwarding([]);
+      toast.success('Messages forwarded successfully');
+  } catch (error) {
+      console.error('Error forwarding messages:', error);
+      alert('Failed to forward messages');
+  }
 };
 
   const handleOpenForwardDialog = (message: Message) => {
@@ -1945,14 +1969,14 @@ const formatText = (text: string) => {
 
               <div className="message-timestamp text-xs text-gray-100 mt-1">
             {formatTimestamp(message.createdAt||message.dateAdded)}
-            {hoveredMessageId === message.id && (
-                <button
-                  className="text-white p-1 rounded-full"
-                  onClick={() => handleOpenForwardDialog(message)}
-                >
-                  <Lucide icon="Forward" className="w-4 h-4" />
-                </button>
-              )}
+            {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+                <input
+                    type="checkbox"
+                    className="form-checkbox h-5 w-5 text-blue-900 transition duration-150 ease-in-out rounded-full ml-2"
+                    checked={selectedMessages.includes(message)}
+                    onChange={() => handleSelectMessage(message)}
+                />
+            )}
           </div>
          
             </div>
@@ -2063,6 +2087,14 @@ const formatText = (text: string) => {
           </div>
         </div>
       </div>
+      {selectedMessages.length > 0 && (
+    <button
+        className="fixed bottom-20 right-10 bg-blue-900 text-white px-10 py-5 rounded-full shadow-lg"
+        onClick={() => setIsForwardDialogOpen(true)}
+    >
+        Forward
+    </button>
+)}
       {isTabOpen && (
   <div className="w-2/4 bg-white border-l border-gray-300 overflow-y-auto">
     <div className="p-6">
