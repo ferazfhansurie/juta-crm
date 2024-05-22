@@ -13,6 +13,7 @@ import { access } from "fs";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { time } from "console";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 interface Label {
   id: string;
   name: string;
@@ -91,6 +92,17 @@ interface Message {
   createdAt: number;
   type?: string;
   image?: { link?: string; caption?: string };
+  document?: {
+    file_name: string;
+    file_size: number;
+    filename: string;
+    id: string;
+    link: string;
+    mime_type: string;
+    page_count: number;
+    preview: string;
+    sha256: string;
+  };
 }interface Employee {
   id: string;
   name: string;
@@ -145,6 +157,7 @@ function Main() {
   const [isTabOpen, setIsTabOpen] = useState(false);
   const [isTagged, setIsTagged] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState(contacts);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const myMessageClass = "bg-blue-500 text-white rounded-md p-2 self-end ml-auto text-right";
@@ -161,6 +174,8 @@ function Main() {
   const [isQuickRepliesOpen, setIsQuickRepliesOpen] = useState<boolean>(false);
   const [editingReply, setEditingReply] = useState<QuickReply | null>(null);
   const [newQuickReply, setNewQuickReply] = useState<string>('');
+  const [filteredContactsForForwarding, setFilteredContactsForForwarding] = useState<Contact[]>(contacts);
+  const [selectedMessages, setSelectedMessages] = useState<Message[]>([]);
   let companyId = '014';
   let user_name = '';
   let user_role='2';
@@ -377,79 +392,79 @@ function Main() {
     }
   
   };
-  const fetchContacts = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string,role:string) => {
-    try {
-        setLoading(true);
-        // Parallelize initial fetch operations including fetchTags
-        const [tags, chatResponse, conversations, contacts, employeeSnapshot, enquirySnapshot] = await Promise.all([
-            fetchTags(ghlToken, locationId),
-            fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`),
-            searchConversations(ghlToken, locationId),
-            searchContacts(ghlToken, locationId),
-            getDocs(collection(firestore, `companies/${companyId}/employee`)),
-            getDocs(collection(firestore, `companies/${companyId}/conversations`))
-        ]);
-     
-        if (!chatResponse.ok) throw new Error('Failed to fetch chats');
-        const chatData = await chatResponse.json();
-        const user = auth.currentUser;
+    const fetchContacts = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string,role:string) => {
+      try {
+          setLoading(true);
+          // Parallelize initial fetch operations including fetchTags
+          const [tags, chatResponse, conversations, contacts, employeeSnapshot, enquirySnapshot] = await Promise.all([
+              fetchTags(ghlToken, locationId),
+              fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`),
+              searchConversations(ghlToken, locationId),
+              searchContacts(ghlToken, locationId),
+              getDocs(collection(firestore, `companies/${companyId}/employee`)),
+              getDocs(collection(firestore, `companies/${companyId}/conversations`))
+          ]);
+      
+          if (!chatResponse.ok) throw new Error('Failed to fetch chats');
+          const chatData = await chatResponse.json();
+          const user = auth.currentUser;
 
-          const docUserRef = doc(firestore, 'user', user?.email!);
-          const docUserSnapshot = await getDoc(docUserRef);
-          if (!docUserSnapshot.exists()) {
-            console.log('No such document!');
-            return;
-           }
-          const dataUser = docUserSnapshot.data() as UserData;
-  
-          user_role =dataUser.role;
+            const docUserRef = doc(firestore, 'user', user?.email!);
+            const docUserSnapshot = await getDoc(docUserRef);
+            if (!docUserSnapshot.exists()) {
+              console.log('No such document!');
+              return;
+            }
+            const dataUser = docUserSnapshot.data() as UserData;
+    
+            user_role =dataUser.role;
 
-        // Process chat data
-        const mappedChats = chatData.chats.map((chat: Chat) => {
-            if (!chat.id) return null;
-            const phoneNumber = `+${chat.id.split('@')[0]}`;
-            let contact = contacts.find((contact: any) => contact.phone === phoneNumber);
+          // Process chat data
+          const mappedChats = chatData.chats.map((chat: Chat) => {
+              if (!chat.id) return null;
+              const phoneNumber = `+${chat.id.split('@')[0]}`;
+              let contact = contacts.find((contact: any) => contact.phone === phoneNumber);
 
-            const unreadCount = dataUser!.notifications.filter((notif: any) => notif.chat_id === chat.id && !notif.read).length;
-            if (contact) {
-                contact.chat_id = chat.id;
-                contact.last_message = chat.last_message;
-                contact.chat = chat;
-                contact.unreadCount = unreadCount;
-                contact.id = contact.id;
-            } 
-            return {
-                ...chat,
-                tags: contact ? contact.tags : [],
-                name: contact ? contact.contactName : chat.name,
-                lastMessageBody: '',
-                id: chat.id,
-                contact_id: contact ? contact.id : "",
-                unreadCount,
-            };
-        }).filter(Boolean);
-        // Merge WhatsApp contacts with existing contacts
-        const whatsappContacts = mappedChats.filter((chat: any) => !contacts.some(contact => contact.chat_id === chat.id));
-        whatsappContacts.forEach((chat: any) => {
-            const phoneNumber = `+${chat.id.split('@')[0]}`;
-            contacts.push({
-              id: chat.contact_id,
-              phone: phoneNumber,
-              contactName: chat.name,
-              chat_id: chat.id,
-              last_message: chat.last_message || null,
-              chat: chat,
-              tags: chat.tags,
-              conversation_id: chat.id,
-              unreadCount: chat.unreadCount,
+              const unreadCount = dataUser!.notifications.filter((notif: any) => notif.chat_id === chat.id && !notif.read).length;
+              if (contact) {
+                  contact.chat_id = chat.id;
+                  contact.last_message = chat.last_message;
+                  contact.chat = chat;
+                  contact.unreadCount = unreadCount;
+                  contact.id = contact.id;
+              } 
+              return {
+                  ...chat,
+                  tags: contact ? contact.tags : [],
+                  name: contact ? contact.contactName : chat.name,
+                  lastMessageBody: '',
+                  id: chat.id,
+                  contact_id: contact ? contact.id : "",
+                  unreadCount,
+              };
+          }).filter(Boolean);
+          // Merge WhatsApp contacts with existing contacts
+          const whatsappContacts = mappedChats.filter((chat: any) => !contacts.some(contact => contact.chat_id === chat.id));
+          whatsappContacts.forEach((chat: any) => {
+              const phoneNumber = `+${chat.id.split('@')[0]}`;
+              contacts.push({
+                id: chat.contact_id,
+                phone: phoneNumber,
+                contactName: chat.name,
+                chat_id: chat.id,
+                last_message: chat.last_message || null,
+                chat: chat,
+                tags: chat.tags,
+                conversation_id: chat.id,
+                unreadCount: chat.unreadCount,
+            });
           });
-        });
-        // Merge and update contacts with conversations
-        const mergedContacts = contacts.reduce((acc: any[], contact: any) => {
+          // Merge and update contacts with conversations
+          const mergedContacts = contacts.reduce((acc: any[], contact: any) => {
             const existingContact = acc.find(c => c.phone === contact.phone);
             if (existingContact) {
                 existingContact.tags = [...new Set([...existingContact.tags, ...contact.tags])];
-                if (!existingContact.last_message || (contact.last_message && getTimestamp(contact.last_message.createdAt) > getTimestamp(existingContact.last_message.createdAt))) {
+                if (!existingContact.last_message || (contact.last_message && getTimestamp(contact.last_message.createdAt * 1000) > getTimestamp(existingContact.last_message.createdAt))) {
                     existingContact.last_message = contact.last_message;
                 }
                 existingContact.chat = contact.chat || existingContact.chat;
@@ -464,107 +479,108 @@ function Main() {
             }
             return acc;
         }, []);
-        // Update contacts with conversations
-        const updatedContacts = mergedContacts.map((contact: any) => {
-            const matchedConversation = conversations.find((conversation: any) => conversation.contactId === contact.id);
-            if (matchedConversation) {
-                contact.conversation_id = matchedConversation.id;
-                contact.chat_id = contact.chat_id || matchedConversation.id;
-                contact.conversations = contact.conversations || [];
-                contact.conversations.push(matchedConversation);
-                contact.last_message = {
-                    id: matchedConversation.id,
-                    text: { body: matchedConversation.lastMessageBody },
-                    from_me: matchedConversation.lastMessageDirection === 'outbound',
-                    createdAt: matchedConversation.lastMessageDate,
-                    type: matchedConversation.lastMessageType,
-                    image: undefined,
-                };
-            }
-            return contact;
-        });
-        // Ensure all contacts are unique and filter those with last messages
-        let uniqueContacts = Array.from(new Map(updatedContacts.map(contact => [contact.phone, contact])).values());
-        uniqueContacts = uniqueContacts.filter(contact => contact.last_message);
+          // Update contacts with conversations
+          const updatedContacts = mergedContacts.map((contact: any) => {
+              const matchedConversation = conversations.find((conversation: any) => conversation.contactId === contact.id);
+              if (matchedConversation) {
+                  contact.conversation_id = matchedConversation.id;
+                  contact.chat_id = contact.chat_id || matchedConversation.id;
+                  contact.conversations = contact.conversations || [];
+                  contact.conversations.push(matchedConversation);
+                  contact.last_message = {
+                      id: matchedConversation.id,
+                      text: { body: matchedConversation.lastMessageBody },
+                      from_me: matchedConversation.lastMessageDirection === 'outbound',
+                      createdAt: matchedConversation.lastMessageDate,
+                      type: matchedConversation.lastMessageType,
+                      image: undefined,
+                  };
+              }
+              return contact;
+          });
+          // Ensure all contacts are unique and filter those with last messages
+          let uniqueContacts = Array.from(new Map(updatedContacts.map(contact => [contact.phone, contact])).values());
+          uniqueContacts = uniqueContacts.filter(contact => contact.last_message);
 
-        // Fetch and update enquiries
-        const employeeListData: Employee[] = [];
-        employeeSnapshot.forEach((doc) => {
-            employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
-        });
-        setEmployeeList(employeeListData);
-       /* const enquiryListData: Enquiry[] = [];
-        enquirySnapshot.forEach((doc) => {
-            enquiryListData.push({ id: doc.id, ...doc.data() } as Enquiry);
-        });
-        // Merge employee list data into unique contacts
-        enquiryListData.forEach((enquiry: Enquiry) => {
-            const existingContact = uniqueContacts.find(contact => contact.email === enquiry.email || contact.phone === enquiry.phone);
-            if (existingContact) {
-                existingContact.enquiries = existingContact.enquiries || [];
-                existingContact.enquiries.push(enquiry);
-             
-                if (!existingContact.last_message) {
-                    existingContact.last_message = {
-                        id: enquiry.id,
-                        text: { body: enquiry.message },
-                        from_me: false,
-                        createdAt: enquiry.timestamp,
-                        type: 'text',
-                        image: undefined,
-                    };
-                }
-            } else {
+          // Fetch and update enquiries
+          const employeeListData: Employee[] = [];
+          employeeSnapshot.forEach((doc) => {
+              employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
+          });
+          setEmployeeList(employeeListData);
+        /* const enquiryListData: Enquiry[] = [];
+          enquirySnapshot.forEach((doc) => {
+              enquiryListData.push({ id: doc.id, ...doc.data() } as Enquiry);
+          });
+          // Merge employee list data into unique contacts
+          enquiryListData.forEach((enquiry: Enquiry) => {
+              const existingContact = uniqueContacts.find(contact => contact.email === enquiry.email || contact.phone === enquiry.phone);
+              if (existingContact) {
+                  existingContact.enquiries = existingContact.enquiries || [];
+                  existingContact.enquiries.push(enquiry);
               
-                uniqueContacts.push({
-                    id: enquiry.id,
-                    email: enquiry.email,
-                    phone: enquiry.phone,
-                    contactName: enquiry.name,
-                    enquiries: [enquiry],
-                    last_message: {
-                        id: enquiry.id,
-                        text: { body: enquiry.message },
-                        from_me: false,
-                        createdAt: enquiry.timestamp,
-                        type: 'text',
-                        image: undefined,
-                    },
-                });
-            }
-        });*/
+                  if (!existingContact.last_message) {
+                      existingContact.last_message = {
+                          id: enquiry.id,
+                          text: { body: enquiry.message },
+                          from_me: false,
+                          createdAt: enquiry.timestamp,
+                          type: 'text',
+                          image: undefined,
+                      };
+                  }
+              } else {
+                
+                  uniqueContacts.push({
+                      id: enquiry.id,
+                      email: enquiry.email,
+                      phone: enquiry.phone,
+                      contactName: enquiry.name,
+                      enquiries: [enquiry],
+                      last_message: {
+                          id: enquiry.id,
+                          text: { body: enquiry.message },
+                          from_me: false,
+                          createdAt: enquiry.timestamp,
+                          type: 'text',
+                          image: undefined,
+                      },
+                  });
+              }
+          });*/
 
-         // Sort contacts by last message date
-    uniqueContacts.sort((a: any, b: any) => {
-      const dateA = a.last_message?.createdAt 
-          ? new Date(getTimestamp(a.last_message.createdAt)) 
-          : a.last_message?.timestamp 
-          ? new Date(getTimestamp(a.last_message.timestamp))
-          : new Date(0);
-      const dateB = b.last_message?.createdAt 
-          ? new Date(getTimestamp(b.last_message.createdAt)) 
-          : b.last_message?.timestamp 
-          ? new Date(getTimestamp(b.last_message.timestamp))
-          : new Date(0);
-      return dateB.getTime() - dateA.getTime();
-  });
+          // Sort contacts by last message date
+      uniqueContacts.sort((a: any, b: any) => {
+        const dateA = a.last_message?.createdAt 
+            ? new Date(getTimestamp(a.last_message.createdAt)) 
+            : a.last_message?.timestamp 
+            ? new Date(getTimestamp(a.last_message.timestamp))
+            : new Date(0);
+        const dateB = b.last_message?.createdAt 
+            ? new Date(getTimestamp(b.last_message.createdAt)) 
+            : b.last_message?.timestamp 
+            ? new Date(getTimestamp(b.last_message.timestamp))
+            : new Date(0);
+        return dateB.getTime() - dateA.getTime();
+    });
 
-        // Filter contacts by user name in tags if necessary
-        if (user_role == '2') {
-            const filteredContacts = uniqueContacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
-            setContacts(filteredContacts);
-        } else {
-            // Set contacts to state
-            setContacts(uniqueContacts);
-        }
-        setFilteredContacts(contacts);
-  
-    } catch (error) {
-        console.error('Failed to fetch contacts:', error);
-    } finally {
-        setLoading(false);
-    }
-};// Helper function to parse various timestamp formats
+          // Filter contacts by user name in tags if necessary
+          if (user_role == '2') {
+              const filteredContacts = uniqueContacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
+              setContacts(filteredContacts);
+          } else {
+              // Set contacts to state
+              setContacts(uniqueContacts);
+          }
+          setFilteredContacts(contacts);
+          setFilteredContactsForForwarding(contacts);
+          console.log(contacts)
+      } catch (error) {
+          console.error('Failed to fetch contacts:', error);
+      } finally {
+          setLoading(false);
+      }
+  };// Helper function to parse various timestamp formats
 const parseTimestamp = (timestamp: any): number => {
     if (timestamp instanceof Object && timestamp.seconds) {
         return timestamp.seconds * 1000;
@@ -1131,15 +1147,17 @@ setEmployeeList(employeeListData);
         const data = response.data;
      
         setMessages(
-          data.messages.map((message: { id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; }) => ({
+          data.messages.map((message: { id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; document:any}) => ({
             id: message.id,
             text: { body: message.text ? message.text.body : '' },
             from_me: message.from_me,
             createdAt: message.timestamp,
             type: message.type,
             image: message.image ? message.image : undefined,
+            document:message.document?message.document:undefined,
           }))
         );
+        console.log( data.messages);
       } else {
         setMessages([
         
@@ -1187,6 +1205,7 @@ setEmployeeList(employeeListData);
             image: message.image ? message.image : undefined,
           }))
         );
+        console.log(messages);
       } else {
         setMessages([
         
@@ -1336,7 +1355,7 @@ setEmployeeList(employeeListData);
   
       if (response.ok) {
         const message = await response.json();
-        console.log(message);
+       
   
         const updatedContacts = [...contacts];
         const updatedContact = { ...updatedContacts[index] };
@@ -1480,41 +1499,97 @@ const formatText = (text: string) => {
   const handleSearchChange = (e: { target: { value: React.SetStateAction<string>; }; }) => {
     setSearchQuery(e.target.value);
   };
-
+  const handleSearchChange2 = (e: { target: { value: React.SetStateAction<string>; }; }) => {
+    setSearchQuery2(e.target.value);
+    filterContactsForForwarding(e.target.value.toString());
+  };
+  const filterContactsForForwarding = (query: string) => {
+    const filtered = contacts.filter(contact =>
+      contact.contactName?.toLowerCase().includes(query.toLowerCase()) ||
+      contact.phone?.includes(query)
+    );
+    setFilteredContactsForForwarding(filtered);
+  };
   const filterTagContact = (tag: string) => {
     setIsTagged(!isTagged);
     setActiveTags((prevTags) =>
       prevTags.includes(tag) ? prevTags.filter((t) => t !== tag) : [...prevTags, tag]
     );
   };
-  const clearFilters = () => {
-    setSearchQuery('');
-    setActiveTags([]);  
-  };
-  const handleForwardMessage = async () => {
-    if (!selectedMessageForForwarding || selectedContactsForForwarding.length === 0) return;
-    
-    try {
-      for (const contact of selectedContactsForForwarding) {
-        const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${contact.chat_id}/${whapiToken}/${selectedMessageForForwarding.text?.body}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
+  const handleSelectMessage = (message: Message) => {
+    setSelectedMessages(prevSelectedMessages =>
+        prevSelectedMessages.includes(message)
+            ? prevSelectedMessages.filter(m => m.id !== message.id)
+            : [...prevSelectedMessages, message]
+    );
+};
+const formatTextForSending = (text: string) => {
+  // Step 1: Ensure proper spacing between items
+  text = text.replace(/- /g, '\n- ');
 
-        if (!response.ok) {
-          throw new Error(`Failed to forward message to ${contact.contactName}`);
-        }
+  // Step 2: Ensure proper new lines between items
+  text = text.replace(/(\w)(?=\w*\()|\b\(/g, '$&\n');
+
+  // Step 3: Add asterisks for emphasis
+  text = text.replace(/(?:^|\n)-\s*([^\n]+)/g, '- *$1*');
+
+  // Step 4: Add a new line after every sentence
+  text = text.replace(/\.(\s)/g, '.\n$1');
+
+  return text.trim();
+};
+const handleForwardMessage = async () => {
+  if (selectedMessages.length === 0 || selectedContactsForForwarding.length === 0) return;
+
+  try {
+      for (const contact of selectedContactsForForwarding) {
+          for (const message of selectedMessages) {
+              let response;
+              if (message.type === 'image') {
+                  response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/image/${whapiToken}`, {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                          chatId: contact.chat_id,
+                          imageUrl: message.image?.link,
+                          caption: message.image?.caption || '',
+                      }),
+                  });
+              } else if (message.type === 'document') {
+                  response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/document/${whapiToken}`, {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                          chatId: contact.chat_id,
+                          imageUrl: message.document?.link,
+                          fileName: message.document?.file_name,
+                          mimeType: message.document?.mime_type,
+                      }),
+                  });
+              } else {
+                const message_string = formatTextForSending(message!.text?.body!);
+                  response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${contact.chat_id}/${whapiToken}/${message_string}`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                  });
+              }
+              if (!response.ok) throw new Error('Failed to forward message');
+          }
       }
 
       setIsForwardDialogOpen(false);
-      setSelectedMessageForForwarding(null);
+      setSelectedMessages([]);
       setSelectedContactsForForwarding([]);
-      toast.success('Message forwarded successfully');
-    } catch (error) {
-      console.error('Error forwarding message:', error);
-      alert('Failed to forward message');
-    }
-  };
+      toast.success('Messages forwarded successfully');
+  } catch (error) {
+      console.error('Error forwarding messages:', error);
+      alert('Failed to forward messages');
+  }
+};
 
   const handleOpenForwardDialog = (message: Message) => {
     setSelectedMessageForForwarding(message);
@@ -1527,7 +1602,7 @@ const formatText = (text: string) => {
     );
   };
   const formatTimestamp = (timestamp: number | string | undefined): string => {
-    console.log(timestamp);
+
     if (!timestamp) {
       return 'Invalid date';
     }
@@ -1562,7 +1637,128 @@ const formatText = (text: string) => {
   const handleForwardClick = () => {
     setActiveMenu('forward');
   };
+  const handleImageUpload: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
+    setLoading(true)
+    const file = event.target.files && event.target.files[0];
+    if (file) {
+      const imageUrl = await uploadFile(file); // Implement uploadFile to handle the upload
+      await sendImageMessage(selectedChatId!, imageUrl!,"");
+    }
+    setLoading(false)
+  };
+  
+  const handleDocumentUpload: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
+    setLoading(true)
+    const file = event.target.files && event.target.files[0];
+    console.log(file);
+    if (file) {
+      const imageUrl = await uploadFile(file); // Implement uploadFile to handle the upload
+      await sendDocumentMessage(selectedChatId!, imageUrl!,file.type,file.name,"");
+    }
+    setLoading(false)
+  };
+  
+  
+  const uploadFile = async (file: any): Promise<string> => {
+    const storage = getStorage();
+    const storageRef = ref(storage, `${file.name}`);
+    
+    // Upload the file
+    await uploadBytes(storageRef, file);
+  
+    // Get the file's download URL
+    const downloadURL = await getDownloadURL(storageRef);
+    return downloadURL;
+  };
+  
+  
+  const sendImageMessage = async (chatId: string, imageUrl: string,caption?: string) => {
+    try {
+      const user = auth.currentUser;
 
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+      const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/image/${companyData.whapiToken}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chatId: chatId,
+          imageUrl: imageUrl,
+          caption: caption || '',
+        }),
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Failed to send image message: ${response.statusText}`);
+      }
+  
+      const data = await response.json();
+      fetchMessages(selectedChatId!,companyData.access_token);
+      console.log('Image message sent successfully:', data);
+    } catch (error) {
+      console.error('Error sending image message:', error);
+    }
+  };
+  
+  const sendDocumentMessage = async (chatId: string, imageUrl: string,mime_type:string,fileName:string, caption?: string,) => {
+    try {
+      const user = auth.currentUser;
+
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+      const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/document/${companyData.whapiToken}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chatId: chatId,
+          imageUrl: imageUrl,
+          mimeType:mime_type,
+          fileName:fileName,
+          caption: caption || '',
+        }),
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Failed to send image message: ${response.statusText}`);
+      }
+  
+      const data = await response.json();
+      fetchMessages(selectedChatId!,companyData.access_token);
+      console.log('Image message sent successfully:', data);
+    } catch (error) {
+      console.error('Error sending image message:', error);
+    }
+  };
   return (
     <div className="flex overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '85vh' }}>
     <div className="flex flex-col w-full sm:w-1/4 bg-gray-100 border-r border-gray-300">
@@ -1733,9 +1929,8 @@ const formatText = (text: string) => {
               key={message.id}
               style={{
                 maxWidth: '70%',
-                width: `${message.type === 'image' ? '320' : Math.min((message.text!.body?.length || 0) * 10, 350)}px`,
+                width: `${message.type === 'image' || message.type === 'document' ? '350' : Math.min((message.text?.body?.length || 0) * 10, 350)}px`,
                 minWidth: '75px'  // Add a minimum width here
-                
               }}
               onMouseEnter={() => setHoveredMessageId(message.id)}
               onMouseLeave={() => setHoveredMessageId(null)}
@@ -1756,16 +1951,33 @@ const formatText = (text: string) => {
     {formatText(message.text?.body || '')}
   </div>
 )}
+{message.type === 'document' && message.document && (
+  <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
+    <img
+      src={message.document.preview}
+      alt="Document Preview"
+      className="w-40 h-40 mb-3 border rounded"
+    />
+    <div className="flex-1 text-justify">
+      <div className="font-semibold">{message.document.file_name}</div>
+      <div>{message.document.page_count} page{message.document.page_count > 1 ? 's' : ''} • PDF • {(message.document.file_size / 1024).toFixed(2)} kB</div>
+    </div>
+    <a href={message.document.link} target="_blank" rel="noopener noreferrer" className="mt-3">
+      <Lucide icon="Download" className="w-6 h-6 text-white-700" />
+    </a>
+  </div>
+)}
+
               <div className="message-timestamp text-xs text-gray-100 mt-1">
             {formatTimestamp(message.createdAt||message.dateAdded)}
-            {hoveredMessageId === message.id && (
-                <button
-                  className="text-white p-1 rounded-full"
-                  onClick={() => handleOpenForwardDialog(message)}
-                >
-                  <Lucide icon="Forward" className="w-4 h-4" />
-                </button>
-              )}
+            {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+                <input
+                    type="checkbox"
+                    className="form-checkbox h-5 w-5 text-blue-900 transition duration-150 ease-in-out rounded-full ml-2"
+                    checked={selectedMessages.includes(message)}
+                    onChange={() => handleSelectMessage(message)}
+                />
+            )}
           </div>
          
             </div>
@@ -1812,6 +2024,44 @@ const formatText = (text: string) => {
             
           </div>
           <div className="flex items-center">
+          <Menu as="div" className="relative inline-block text-left p-2">
+            <div className="flex items-center space-x-3">
+            <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
+  <span className="flex items-center justify-center w-5 h-5">
+    <Lucide icon="Paperclip" className="w-5 h-5" />
+  </span>
+</Menu.Button>
+</div>
+<Menu.Items className="absolute left-0 bottom-full mb-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+  <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
+    <label htmlFor="imageUpload" className="flex items-center cursor-pointer">
+      <Lucide icon="Image" className="w-4 h-4 mr-2" />
+      Image
+      <input
+        type="file"
+        id="imageUpload"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageUpload}
+      />
+    </label>
+  </button>
+  <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
+    <label htmlFor="documentUpload" className="flex items-center cursor-pointer">
+      <Lucide icon="File" className="w-4 h-4 mr-2" />
+      Document
+      <input
+        type="file"
+        id="documentUpload"
+        accept="application/pdf"
+        className="hidden"
+        onChange={handleDocumentUpload}
+      />
+    </label>
+  </button>
+</Menu.Items>
+
+</Menu>
           <button className="p-2 m-0 !box" onClick={handleQR}>
     <span className="flex items-center justify-center w-5 h-5">
       <Lucide icon='Zap' className="w-5 h-5" />
@@ -1838,6 +2088,14 @@ const formatText = (text: string) => {
           </div>
         </div>
       </div>
+      {selectedMessages.length > 0 && (
+    <button
+        className="fixed bottom-20 right-10 bg-blue-900 text-white px-10 py-5 rounded-full shadow-lg"
+        onClick={() => setIsForwardDialogOpen(true)}
+    >
+        Forward
+    </button>
+)}
       {isTabOpen && (
   <div className="w-2/4 bg-white border-l border-gray-300 overflow-y-auto">
     <div className="p-6">
@@ -1875,80 +2133,78 @@ const formatText = (text: string) => {
     </div>
   </div>
 )}
- {isForwardDialogOpen && (
-         <Dialog as="div" className="relative z-10" open={isForwardDialogOpen} onClose={() => setIsForwardDialogOpen(false)}>
-         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
-         <div className="fixed inset-0 z-50 overflow-y-auto">
-           <div className="flex items-end justify-center min-h-full p-4 text-center sm:items-center sm:p-0">
-             <Dialog.Panel className="relative bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
-               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                 <div className="sm:flex sm:items-start">
-                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                     <Dialog.Title as="h3" className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                       Forward message to
-                     </Dialog.Title>
-                     <div className="relative mb-4">
-                       <input
-                         type="text"
-                         className="w-full py-2 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                         placeholder="Search..."
-                         value={searchQuery}
-                         onChange={(e) => setSearchQuery(e.target.value)}
-                       />
-                       <Lucide
-                         icon="Search"
-                         className="absolute top-2 right-3 w-5 h-5 text-gray-500"
-                       />
-                     </div>
-                     <div className="max-h-60 overflow-y-auto">
-                       {contacts.map((contact) => (
-                         <div
-                           key={contact.id}
-                           className="flex items-center p-2 border-b border-gray-200 hover:bg-gray-100"
-                         >
-                            <input
-                             type="checkbox"
-                             className="mr-3"
-                             checked={selectedContactsForForwarding.includes(contact)}
-                             onChange={() => handleSelectContactForForwarding(contact)}
-                           />
-                           <div className="flex items-center">
-                             <div className="w-8 h-8 flex items-center justify-center bg-gray-300 rounded-full mr-3 text-white">
-                               {contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"}
-                             </div>
-                             <div className="flex-grow">
-                               <div className="font-semibold">{contact.contactName || contact.phone}</div>
-                            
-                             </div>
-                           </div>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                 </div>
-               </div>
-               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                 <Button
-                   type="button"
-                   className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-                   onClick={handleForwardMessage}
-                 >
-                   Forward
-                 </Button>
-                 <Button
-                   type="button"
-                   className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
-                   onClick={() => setIsForwardDialogOpen(false)}
-                 >
-                   Cancel
-                 </Button>
-               </div>
-             </Dialog.Panel>
-           </div>
-         </div>
-       </Dialog>
-       
-      )}
+{isForwardDialogOpen && (
+  <Dialog as="div" className="relative z-10" open={isForwardDialogOpen} onClose={() => setIsForwardDialogOpen(false)}>
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-end justify-center min-h-full p-4 text-center sm:items-center sm:p-0">
+        <Dialog.Panel className="relative bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
+          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="sm:flex sm:items-start">
+              <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                <Dialog.Title as="h3" className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  Forward message to
+                </Dialog.Title>
+                <div className="relative mb-4">
+                  <input
+                    type="text"
+                    className="w-full py-2 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Search..."
+                    value={searchQuery2}
+                    onChange={handleSearchChange2}
+                  />
+                  <Lucide
+                    icon="Search"
+                    className="absolute top-2 right-3 w-5 h-5 text-gray-500"
+                  />
+                </div>
+                <div className="max-h-60 overflow-y-auto">
+                  {filteredContactsForForwarding.map((contact) => (
+                    <div
+                      key={contact.id}
+                      className="flex items-center p-2 border-b border-gray-200 hover:bg-gray-100"
+                    >
+                      <input
+                        type="checkbox"
+                        className="mr-3"
+                        checked={selectedContactsForForwarding.includes(contact)}
+                        onChange={() => handleSelectContactForForwarding(contact)}
+                      />
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 flex items-center justify-center bg-gray-300 rounded-full mr-3 text-white">
+                          {contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"}
+                        </div>
+                        <div className="flex-grow">
+                          <div className="font-semibold">{contact.contactName || contact.phone}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <Button
+              type="button"
+              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+              onClick={handleForwardMessage}
+            >
+              Forward
+            </Button>
+            <Button
+              type="button"
+              className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
+              onClick={() => setIsForwardDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </Dialog.Panel>
+      </div>
+    </div>
+  </Dialog>
+)}
       <ToastContainer />
       {isQuickRepliesOpen && (
   <div className="bg-gray-100 p-4 rounded-md shadow-lg mt-2">

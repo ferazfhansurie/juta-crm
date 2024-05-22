@@ -1,6 +1,6 @@
 import _ from "lodash";
 import clsx from "clsx";
-import { useEffect, useRef, useState } from "react";
+import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useEffect, useRef, useState } from "react";
 import Button from "@/components/Base/Button";
 import Pagination from "@/components/Base/Pagination";
 import { FormInput, FormSelect } from "@/components/Base/Form";
@@ -120,6 +120,7 @@ function Main() {
       }
       const dataUser = docUserSnapshot.data();
       companyId = dataUser.companyId;
+
       setNotifications(dataUser.notifications);
       console.log(notifications);
       const docRef = doc(firestore, 'companies', companyId);
@@ -286,9 +287,7 @@ console.log(companyData);
               <h2 className="mr-5 text-lg font-medium truncate">
                 General Report
               </h2>
-              <a href="" className="flex items-center ml-auto text-primary">
-                <Lucide icon="RefreshCcw" className="w-4 h-4 mr-3" /> Reload Data
-              </a>
+             
             </div>
             <div className="grid grid-cols-12 gap-6 mt-5">
               <div className="col-span-12 sm:col-span-6 xl:col-span-3 intro-y">
@@ -391,36 +390,41 @@ console.log(companyData);
           </div>
 
           {/* Notifications */}
-<div className="col-span-12 mt-8">
+     <div className="col-span-12 mt-8">
   <div className="flex items-center h-10 intro-y">
-    <h2 className="mr-5 text-lg font-medium truncate">Notifications</h2>
+    <h2 className="mr-5 text-lg font-medium truncate">Recent Messages</h2>
   </div>
   <div className="mt-5">
     {notifications && notifications.length > 0 ? (
-      notifications.map((notification, key) => (
+      notifications.reduce((uniqueNotifications, notification) => {
+        const existingNotificationIndex = uniqueNotifications.findIndex(
+          (n: { chat_id: any; }) => n.chat_id === notification.chat_id
+        );
+        if (existingNotificationIndex !== -1) {
+          // If a notification with the same chat_id exists, replace it with the new one
+          uniqueNotifications[existingNotificationIndex] = notification;
+        } else {
+          // Otherwise, add the new notification
+          uniqueNotifications.push(notification);
+        }
+        return uniqueNotifications;
+      }, []).sort((a: { timestamp: number; }, b: { timestamp: number; }) => b.timestamp - a.timestamp).map((notification: { from_name: string ; text: { body: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | null | undefined; } | undefined; timestamp: number; }, key: Key | null | undefined) => (
         <div key={key} className="w-70">
           <div className="flex items-center px-5 py-3 mb-3 box zoom-in w-70">
-          <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
-          {notification.from_name ? notification.from_name.charAt(0).toUpperCase() : "?"}
-        </div>
+            <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
+              {notification.from_name ? notification.from_name.charAt(0).toUpperCase() : "?"}
+            </div>
             <div className="ml-4 mr-auto">
               <div className="font-medium">{notification.from_name}</div>
-              <div className="text-base text-slate-500">{(notification.text != undefined)?notification.text.body:""}</div>
+              <div className="text-base text-slate-500">{(notification.text != undefined) ? notification.text.body : ""}</div>
               <div className="text-slate-500 text-xs mt-0.5">{new Date(notification.timestamp * 1000).toLocaleString()}</div>
             </div>
-          
           </div>
         </div>
       ))
     ) : (
-      <div className="text-center text-slate-500">No notifications available</div>
+      <div className="text-center text-slate-500">No messages available</div>
     )}
-    <a
-      href=""
-      className="block w-full py-3 text-center border border-dotted rounded-md intro-x border-slate-400 dark:border-darkmode-300 text-slate-500"
-    >
-      View More
-    </a>
   </div>
 </div>
 {/* END: Notifications */}
