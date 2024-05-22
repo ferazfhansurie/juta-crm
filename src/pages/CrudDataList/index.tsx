@@ -133,9 +133,6 @@ function Main() {
         };
       
 
-<<<<<<< HEAD
-      // Update Firestore document with new token data
-=======
         const response = await axios.request(options);
 console.log(response);
         if (response.status === 201) {
@@ -208,7 +205,6 @@ console.log(response);
       }
       const companyData = docSnapshot.data();
 
->>>>>>> c7f53dbeeab5d746ae1717434fb8e4c66f8346b0
       await setDoc(doc(firestore, 'companies', companyId), {
         access_token: companyData.access_token,
         refresh_token: companyData.refresh_token,
