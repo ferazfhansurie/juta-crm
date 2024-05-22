@@ -47,9 +47,10 @@ function Main() {
   const [response, setResponse] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
-
-  const toggleModal = () => {
+  const [employeeIdToDelete, setEmployeeIdToDelete] = useState<string>('');
+  const toggleModal = (id?:string) => {
     setIsModalOpen(!isModalOpen);
+    setEmployeeIdToDelete(id!)
   };
 
   interface ContactData {
@@ -171,12 +172,13 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
     setEmployeeList(updatedEmployeeList);
     setResponse('Employee deleted successfully');
     console.log("Employee list state updated:", updatedEmployeeList);
+
+toggleModal();
   } catch (error) {
     setResponse('Failed to delete employee');
     console.error("Error deleting employee:", error);
   }
 };
-
   return (
     <>
       <h2 className="mt-10 text-lg font-medium intro-y">Users Layout</h2>
@@ -235,7 +237,7 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
                   </button>
                  
                   <button 
-                    onClick={toggleModal}
+                    onClick={() => toggleModal(contacts.id)}
                     className="p-2 text-red-500 hover:text-red-600 relative"
                     aria-label="Delete"
                     type="button"
@@ -252,7 +254,7 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
                     <div className="relative p-4 w-full max-w-md max-h-full">
                     <div className="relative bg-white rounded-lg shadow dark:bg-gray-700">
                         <button 
-                        onClick={toggleModal} // Use toggleModal to close the modal
+                        onClick={() => toggleModal()} // Use toggleModal to close the modal
                         type="button" 
                         className="absolute top-3 end-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
                         >
@@ -263,10 +265,10 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
                         </button>
                         <div className="p-4 md:p-5 text-center">
                         <h3 className="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">Are you sure you want to delete User?</h3>
-                        <button onClick={() => handleDeleteEmployee(contacts.id, companyId)} type="button" className="text-white bg-red-600 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center">
+                        <button onClick={() => handleDeleteEmployee(employeeIdToDelete, companyId)} type="button" className="text-white bg-red-600 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center">
                             Yes, I'm sure
                         </button>
-                        <button onClick={toggleModal} type="button" className="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
+                        <button  onClick={() => toggleModal()}  type="button" className="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
                             No, cancel
                         </button>
                         </div>

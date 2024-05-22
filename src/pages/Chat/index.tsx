@@ -404,7 +404,7 @@ function Main() {
               getDocs(collection(firestore, `companies/${companyId}/employee`)),
               getDocs(collection(firestore, `companies/${companyId}/conversations`))
           ]);
-      
+      console.log(chatResponse);
           if (!chatResponse.ok) throw new Error('Failed to fetch chats');
           const chatData = await chatResponse.json();
           const user = auth.currentUser;
@@ -424,13 +424,16 @@ function Main() {
               if (!chat.id) return null;
               const phoneNumber = `+${chat.id.split('@')[0]}`;
               let contact = contacts.find((contact: any) => contact.phone === phoneNumber);
-
-              const unreadCount = dataUser!.notifications.filter((notif: any) => notif.chat_id === chat.id && !notif.read).length;
+              let unreadCount =0;
+              if(dataUser.notifications != undefined){
+                unreadCount  = dataUser!.notifications.filter((notif: any) => notif.chat_id === chat.id && !notif.read).length;
+              }
+            
               if (contact) {
                   contact.chat_id = chat.id;
                   contact.last_message = chat.last_message;
                   contact.chat = chat;
-                  contact.unreadCount = unreadCount;
+                  contact.unreadCount = unreadCount??0;
                   contact.id = contact.id;
               } 
               return {
@@ -459,6 +462,7 @@ function Main() {
                 unreadCount: chat.unreadCount,
             });
           });
+         
           // Merge and update contacts with conversations
           const mergedContacts = contacts.reduce((acc: any[], contact: any) => {
             const existingContact = acc.find(c => c.phone === contact.phone);
@@ -479,6 +483,7 @@ function Main() {
             }
             return acc;
         }, []);
+    
           // Update contacts with conversations
           const updatedContacts = mergedContacts.map((contact: any) => {
               const matchedConversation = conversations.find((conversation: any) => conversation.contactId === contact.id);
@@ -498,6 +503,7 @@ function Main() {
               }
               return contact;
           });
+       
           // Ensure all contacts are unique and filter those with last messages
           let uniqueContacts = Array.from(new Map(updatedContacts.map(contact => [contact.phone, contact])).values());
           uniqueContacts = uniqueContacts.filter(contact => contact.last_message);
@@ -563,11 +569,12 @@ function Main() {
             : new Date(0);
         return dateB.getTime() - dateA.getTime();
     });
-
+  
           // Filter contacts by user name in tags if necessary
           if (user_role == '2') {
               const filteredContacts = uniqueContacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
               setContacts(filteredContacts);
+            
           } else {
               // Set contacts to state
               setContacts(uniqueContacts);
@@ -965,13 +972,18 @@ setEmployeeList(employeeListData);
      fetchEnquiries(selectedChatId);
     }else if(iconId == 'fb'){
     
-      fetchConversationMessages(id);
+      fetchConversationMessages(id,selectedContact);
     }
   };
-  async function fetchConversationMessages(conversationId: string) {
+  async function fetchConversationMessages(conversationId: string,contact?:any) {
     if (!conversationId) return;
 
-    setSelectedIcon('fb');
+if(contact.last_message.type != 'TYPE_INSTAGRAM'){
+  setSelectedIcon('fb');
+}else{
+  setSelectedIcon('ig');
+}
+   
     const auth = getAuth(app);
     const user = auth.currentUser;
     try {
@@ -1032,7 +1044,7 @@ setEmployeeList(employeeListData);
        fetchEnquiries(selectedChatId);
       }else{
 
-        fetchConversationMessages(selectedChatId);
+        fetchConversationMessages(selectedChatId,selectedContact);
       }
 
     }
@@ -1254,7 +1266,7 @@ setEmployeeList(employeeListData);
           Version: '2021-04-15',
         },
         data: {
-          type: 'FB',
+          type: (selectedIcon =='fb')?'FB':'IG',
           contactId: selectedChatId,
           message: newMessage
         }
@@ -1264,7 +1276,7 @@ setEmployeeList(employeeListData);
       console.log(response.data);
   
       console.log('Message sent successfully:', response.data);
-      fetchConversationMessages(contact.conversation_id,);
+      fetchConversationMessages(contact.conversation_id,selectedContact);
     } catch (error) {
       console.error('Error sending message:', error);
     }
