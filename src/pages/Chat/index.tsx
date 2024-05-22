@@ -968,10 +968,14 @@ setEmployeeList(employeeListData);
       fetchConversationMessages(id);
     }
   };
-  async function fetchConversationMessages(conversationId: string) {
+  async function fetchConversationMessages(conversationId: string,contact?:any) {
     if (!conversationId) return;
-
-    setSelectedIcon('fb');
+if(contact.last_message.type != 'TYPE_INSTAGRAM'){
+  setSelectedIcon('fb');
+}else{
+  setSelectedIcon('ig');
+}
+   
     const auth = getAuth(app);
     const user = auth.currentUser;
     try {
@@ -1032,7 +1036,7 @@ setEmployeeList(employeeListData);
        fetchEnquiries(selectedChatId);
       }else{
 
-        fetchConversationMessages(selectedChatId);
+        fetchConversationMessages(selectedChatId,selectedContact);
       }
 
     }
