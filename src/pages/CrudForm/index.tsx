@@ -33,7 +33,7 @@ function Main() {
   const [errorMessage, setErrorMessage] = useState('');
   const [categories, setCategories] = useState(["1"]);
   const location = useLocation();
-  const { contactId, contact, companyId } = location.state;
+  const { contactId, contact, companyId } = location.state?? [];
 
   console.log('Contact ID:', contactId);
   console.log('Contact:', contact);
