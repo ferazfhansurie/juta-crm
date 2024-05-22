@@ -168,7 +168,7 @@ function Main() {
         {/* BEGIN: Account Menu */}
         <Menu>
           <Menu.Button className="block w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white">
-            <span className="text-lg">{""}</span>
+          <Lucide icon="Settings" className="w-5 h-5" />
           </Menu.Button>
           <Menu.Items className="w-56 mt-px text-white bg-primary">
             <Menu.Header className="font-normal">

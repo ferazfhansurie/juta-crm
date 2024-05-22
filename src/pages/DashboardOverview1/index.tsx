@@ -224,9 +224,7 @@ function Main() {
               <h2 className="mr-5 text-lg font-medium truncate">
                 General Report
               </h2>
-              <a href="" className="flex items-center ml-auto text-primary">
-                <Lucide icon="RefreshCcw" className="w-4 h-4 mr-3" /> Reload Data
-              </a>
+             
             </div>
             <div className="grid grid-cols-12 gap-6 mt-5">
               <div className="col-span-12 sm:col-span-6 xl:col-span-3 intro-y">
