@@ -965,11 +965,12 @@ setEmployeeList(employeeListData);
      fetchEnquiries(selectedChatId);
     }else if(iconId == 'fb'){
     
-      fetchConversationMessages(id);
+      fetchConversationMessages(id,selectedContact);
     }
   };
   async function fetchConversationMessages(conversationId: string,contact?:any) {
     if (!conversationId) return;
+
 if(contact.last_message.type != 'TYPE_INSTAGRAM'){
   setSelectedIcon('fb');
 }else{
@@ -1258,7 +1259,7 @@ if(contact.last_message.type != 'TYPE_INSTAGRAM'){
           Version: '2021-04-15',
         },
         data: {
-          type: 'FB',
+          type: (selectedIcon =='fb')?'FB':'IG',
           contactId: selectedChatId,
           message: newMessage
         }
@@ -1268,7 +1269,7 @@ if(contact.last_message.type != 'TYPE_INSTAGRAM'){
       console.log(response.data);
   
       console.log('Message sent successfully:', response.data);
-      fetchConversationMessages(contact.conversation_id,);
+      fetchConversationMessages(contact.conversation_id,selectedContact);
     } catch (error) {
       console.error('Error sending message:', error);
     }
