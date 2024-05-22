@@ -392,79 +392,79 @@ function Main() {
     }
   
   };
-  const fetchContacts = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string,role:string) => {
-    try {
-        setLoading(true);
-        // Parallelize initial fetch operations including fetchTags
-        const [tags, chatResponse, conversations, contacts, employeeSnapshot, enquirySnapshot] = await Promise.all([
-            fetchTags(ghlToken, locationId),
-            fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`),
-            searchConversations(ghlToken, locationId),
-            searchContacts(ghlToken, locationId),
-            getDocs(collection(firestore, `companies/${companyId}/employee`)),
-            getDocs(collection(firestore, `companies/${companyId}/conversations`))
-        ]);
-     
-        if (!chatResponse.ok) throw new Error('Failed to fetch chats');
-        const chatData = await chatResponse.json();
-        const user = auth.currentUser;
+    const fetchContacts = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string,role:string) => {
+      try {
+          setLoading(true);
+          // Parallelize initial fetch operations including fetchTags
+          const [tags, chatResponse, conversations, contacts, employeeSnapshot, enquirySnapshot] = await Promise.all([
+              fetchTags(ghlToken, locationId),
+              fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`),
+              searchConversations(ghlToken, locationId),
+              searchContacts(ghlToken, locationId),
+              getDocs(collection(firestore, `companies/${companyId}/employee`)),
+              getDocs(collection(firestore, `companies/${companyId}/conversations`))
+          ]);
+      
+          if (!chatResponse.ok) throw new Error('Failed to fetch chats');
+          const chatData = await chatResponse.json();
+          const user = auth.currentUser;
 
-          const docUserRef = doc(firestore, 'user', user?.email!);
-          const docUserSnapshot = await getDoc(docUserRef);
-          if (!docUserSnapshot.exists()) {
-            console.log('No such document!');
-            return;
-           }
-          const dataUser = docUserSnapshot.data() as UserData;
-  
-          user_role =dataUser.role;
+            const docUserRef = doc(firestore, 'user', user?.email!);
+            const docUserSnapshot = await getDoc(docUserRef);
+            if (!docUserSnapshot.exists()) {
+              console.log('No such document!');
+              return;
+            }
+            const dataUser = docUserSnapshot.data() as UserData;
+    
+            user_role =dataUser.role;
 
-        // Process chat data
-        const mappedChats = chatData.chats.map((chat: Chat) => {
-            if (!chat.id) return null;
-            const phoneNumber = `+${chat.id.split('@')[0]}`;
-            let contact = contacts.find((contact: any) => contact.phone === phoneNumber);
+          // Process chat data
+          const mappedChats = chatData.chats.map((chat: Chat) => {
+              if (!chat.id) return null;
+              const phoneNumber = `+${chat.id.split('@')[0]}`;
+              let contact = contacts.find((contact: any) => contact.phone === phoneNumber);
 
-            const unreadCount = dataUser!.notifications.filter((notif: any) => notif.chat_id === chat.id && !notif.read).length;
-            if (contact) {
-                contact.chat_id = chat.id;
-                contact.last_message = chat.last_message;
-                contact.chat = chat;
-                contact.unreadCount = unreadCount;
-                contact.id = contact.id;
-            } 
-            return {
-                ...chat,
-                tags: contact ? contact.tags : [],
-                name: contact ? contact.contactName : chat.name,
-                lastMessageBody: '',
-                id: chat.id,
-                contact_id: contact ? contact.id : "",
-                unreadCount,
-            };
-        }).filter(Boolean);
-        // Merge WhatsApp contacts with existing contacts
-        const whatsappContacts = mappedChats.filter((chat: any) => !contacts.some(contact => contact.chat_id === chat.id));
-        whatsappContacts.forEach((chat: any) => {
-            const phoneNumber = `+${chat.id.split('@')[0]}`;
-            contacts.push({
-              id: chat.contact_id,
-              phone: phoneNumber,
-              contactName: chat.name,
-              chat_id: chat.id,
-              last_message: chat.last_message || null,
-              chat: chat,
-              tags: chat.tags,
-              conversation_id: chat.id,
-              unreadCount: chat.unreadCount,
+              const unreadCount = dataUser!.notifications.filter((notif: any) => notif.chat_id === chat.id && !notif.read).length;
+              if (contact) {
+                  contact.chat_id = chat.id;
+                  contact.last_message = chat.last_message;
+                  contact.chat = chat;
+                  contact.unreadCount = unreadCount;
+                  contact.id = contact.id;
+              } 
+              return {
+                  ...chat,
+                  tags: contact ? contact.tags : [],
+                  name: contact ? contact.contactName : chat.name,
+                  lastMessageBody: '',
+                  id: chat.id,
+                  contact_id: contact ? contact.id : "",
+                  unreadCount,
+              };
+          }).filter(Boolean);
+          // Merge WhatsApp contacts with existing contacts
+          const whatsappContacts = mappedChats.filter((chat: any) => !contacts.some(contact => contact.chat_id === chat.id));
+          whatsappContacts.forEach((chat: any) => {
+              const phoneNumber = `+${chat.id.split('@')[0]}`;
+              contacts.push({
+                id: chat.contact_id,
+                phone: phoneNumber,
+                contactName: chat.name,
+                chat_id: chat.id,
+                last_message: chat.last_message || null,
+                chat: chat,
+                tags: chat.tags,
+                conversation_id: chat.id,
+                unreadCount: chat.unreadCount,
+            });
           });
-        });
-        // Merge and update contacts with conversations
-        const mergedContacts = contacts.reduce((acc: any[], contact: any) => {
+          // Merge and update contacts with conversations
+          const mergedContacts = contacts.reduce((acc: any[], contact: any) => {
             const existingContact = acc.find(c => c.phone === contact.phone);
             if (existingContact) {
                 existingContact.tags = [...new Set([...existingContact.tags, ...contact.tags])];
-                if (!existingContact.last_message || (contact.last_message && getTimestamp(contact.last_message.createdAt) > getTimestamp(existingContact.last_message.createdAt))) {
+                if (!existingContact.last_message || (contact.last_message && getTimestamp(contact.last_message.createdAt * 1000) > getTimestamp(existingContact.last_message.createdAt))) {
                     existingContact.last_message = contact.last_message;
                 }
                 existingContact.chat = contact.chat || existingContact.chat;
@@ -479,107 +479,108 @@ function Main() {
             }
             return acc;
         }, []);
-        // Update contacts with conversations
-        const updatedContacts = mergedContacts.map((contact: any) => {
-            const matchedConversation = conversations.find((conversation: any) => conversation.contactId === contact.id);
-            if (matchedConversation) {
-                contact.conversation_id = matchedConversation.id;
-                contact.chat_id = contact.chat_id || matchedConversation.id;
-                contact.conversations = contact.conversations || [];
-                contact.conversations.push(matchedConversation);
-                contact.last_message = {
-                    id: matchedConversation.id,
-                    text: { body: matchedConversation.lastMessageBody },
-                    from_me: matchedConversation.lastMessageDirection === 'outbound',
-                    createdAt: matchedConversation.lastMessageDate,
-                    type: matchedConversation.lastMessageType,
-                    image: undefined,
-                };
-            }
-            return contact;
-        });
-        // Ensure all contacts are unique and filter those with last messages
-        let uniqueContacts = Array.from(new Map(updatedContacts.map(contact => [contact.phone, contact])).values());
-        uniqueContacts = uniqueContacts.filter(contact => contact.last_message);
+          // Update contacts with conversations
+          const updatedContacts = mergedContacts.map((contact: any) => {
+              const matchedConversation = conversations.find((conversation: any) => conversation.contactId === contact.id);
+              if (matchedConversation) {
+                  contact.conversation_id = matchedConversation.id;
+                  contact.chat_id = contact.chat_id || matchedConversation.id;
+                  contact.conversations = contact.conversations || [];
+                  contact.conversations.push(matchedConversation);
+                  contact.last_message = {
+                      id: matchedConversation.id,
+                      text: { body: matchedConversation.lastMessageBody },
+                      from_me: matchedConversation.lastMessageDirection === 'outbound',
+                      createdAt: matchedConversation.lastMessageDate,
+                      type: matchedConversation.lastMessageType,
+                      image: undefined,
+                  };
+              }
+              return contact;
+          });
+          // Ensure all contacts are unique and filter those with last messages
+          let uniqueContacts = Array.from(new Map(updatedContacts.map(contact => [contact.phone, contact])).values());
+          uniqueContacts = uniqueContacts.filter(contact => contact.last_message);
 
-        // Fetch and update enquiries
-        const employeeListData: Employee[] = [];
-        employeeSnapshot.forEach((doc) => {
-            employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
-        });
-        setEmployeeList(employeeListData);
-       /* const enquiryListData: Enquiry[] = [];
-        enquirySnapshot.forEach((doc) => {
-            enquiryListData.push({ id: doc.id, ...doc.data() } as Enquiry);
-        });
-        // Merge employee list data into unique contacts
-        enquiryListData.forEach((enquiry: Enquiry) => {
-            const existingContact = uniqueContacts.find(contact => contact.email === enquiry.email || contact.phone === enquiry.phone);
-            if (existingContact) {
-                existingContact.enquiries = existingContact.enquiries || [];
-                existingContact.enquiries.push(enquiry);
-             
-                if (!existingContact.last_message) {
-                    existingContact.last_message = {
-                        id: enquiry.id,
-                        text: { body: enquiry.message },
-                        from_me: false,
-                        createdAt: enquiry.timestamp,
-                        type: 'text',
-                        image: undefined,
-                    };
-                }
-            } else {
+          // Fetch and update enquiries
+          const employeeListData: Employee[] = [];
+          employeeSnapshot.forEach((doc) => {
+              employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
+          });
+          setEmployeeList(employeeListData);
+        /* const enquiryListData: Enquiry[] = [];
+          enquirySnapshot.forEach((doc) => {
+              enquiryListData.push({ id: doc.id, ...doc.data() } as Enquiry);
+          });
+          // Merge employee list data into unique contacts
+          enquiryListData.forEach((enquiry: Enquiry) => {
+              const existingContact = uniqueContacts.find(contact => contact.email === enquiry.email || contact.phone === enquiry.phone);
+              if (existingContact) {
+                  existingContact.enquiries = existingContact.enquiries || [];
+                  existingContact.enquiries.push(enquiry);
               
-                uniqueContacts.push({
-                    id: enquiry.id,
-                    email: enquiry.email,
-                    phone: enquiry.phone,
-                    contactName: enquiry.name,
-                    enquiries: [enquiry],
-                    last_message: {
-                        id: enquiry.id,
-                        text: { body: enquiry.message },
-                        from_me: false,
-                        createdAt: enquiry.timestamp,
-                        type: 'text',
-                        image: undefined,
-                    },
-                });
-            }
-        });*/
+                  if (!existingContact.last_message) {
+                      existingContact.last_message = {
+                          id: enquiry.id,
+                          text: { body: enquiry.message },
+                          from_me: false,
+                          createdAt: enquiry.timestamp,
+                          type: 'text',
+                          image: undefined,
+                      };
+                  }
+              } else {
+                
+                  uniqueContacts.push({
+                      id: enquiry.id,
+                      email: enquiry.email,
+                      phone: enquiry.phone,
+                      contactName: enquiry.name,
+                      enquiries: [enquiry],
+                      last_message: {
+                          id: enquiry.id,
+                          text: { body: enquiry.message },
+                          from_me: false,
+                          createdAt: enquiry.timestamp,
+                          type: 'text',
+                          image: undefined,
+                      },
+                  });
+              }
+          });*/
 
-         // Sort contacts by last message date
-    uniqueContacts.sort((a: any, b: any) => {
-      const dateA = a.last_message?.createdAt 
-          ? new Date(getTimestamp(a.last_message.createdAt)) 
-          : a.last_message?.timestamp 
-          ? new Date(getTimestamp(a.last_message.timestamp))
-          : new Date(0);
-      const dateB = b.last_message?.createdAt 
-          ? new Date(getTimestamp(b.last_message.createdAt)) 
-          : b.last_message?.timestamp 
-          ? new Date(getTimestamp(b.last_message.timestamp))
-          : new Date(0);
-      return dateB.getTime() - dateA.getTime();
-  });
+          // Sort contacts by last message date
+      uniqueContacts.sort((a: any, b: any) => {
+        const dateA = a.last_message?.createdAt 
+            ? new Date(getTimestamp(a.last_message.createdAt)) 
+            : a.last_message?.timestamp 
+            ? new Date(getTimestamp(a.last_message.timestamp))
+            : new Date(0);
+        const dateB = b.last_message?.createdAt 
+            ? new Date(getTimestamp(b.last_message.createdAt)) 
+            : b.last_message?.timestamp 
+            ? new Date(getTimestamp(b.last_message.timestamp))
+            : new Date(0);
+        return dateB.getTime() - dateA.getTime();
+    });
 
-        // Filter contacts by user name in tags if necessary
-        if (user_role == '2') {
-            const filteredContacts = uniqueContacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
-            setContacts(filteredContacts);
-        } else {
-            // Set contacts to state
-            setContacts(uniqueContacts);
-        }
-        setFilteredContacts(contacts);
-        setFilteredContactsForForwarding(contacts);
-    } catch (error) {
-        console.error('Failed to fetch contacts:', error);
-    } finally {
-        setLoading(false);
-    }
-};// Helper function to parse various timestamp formats
+          // Filter contacts by user name in tags if necessary
+          if (user_role == '2') {
+              const filteredContacts = uniqueContacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
+              setContacts(filteredContacts);
+          } else {
+              // Set contacts to state
+              setContacts(uniqueContacts);
+          }
+          setFilteredContacts(contacts);
+          setFilteredContactsForForwarding(contacts);
+          console.log(contacts)
+      } catch (error) {
+          console.error('Failed to fetch contacts:', error);
+      } finally {
+          setLoading(false);
+      }
+  };// Helper function to parse various timestamp formats
 const parseTimestamp = (timestamp: any): number => {
     if (timestamp instanceof Object && timestamp.seconds) {
         return timestamp.seconds * 1000;
