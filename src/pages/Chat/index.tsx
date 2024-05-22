@@ -14,6 +14,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { time } from "console";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
 interface Label {
   id: string;
   name: string;
@@ -1310,7 +1311,7 @@ if(contact.last_message.type != 'TYPE_INSTAGRAM'){
         throw new Error('Failed to send message');
       }
       const data = await response.json();
-  
+      toast.success("Message sent successfully!");
       fetchMessagesBackground(selectedChatId!, whapiToken!);
     } catch (error) {
       console.error('Error sending message:', error);
@@ -1428,6 +1429,7 @@ if(contact.last_message.type != 'TYPE_INSTAGRAM'){
         if (success) {
           await fetchContacts(companyData.whapiToken, companyData.ghl_location, companyData.access_token, userData.name,userData.role);
           await fetchMessages(selectedChatId!, companyData.whapiToken);
+          toast.success("Tag added successfully!");
         }
       }
   };
