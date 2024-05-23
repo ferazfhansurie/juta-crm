@@ -160,8 +160,8 @@ function Main() {
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState(contacts);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const myMessageClass = "bg-blue-500 text-white rounded-md p-2 self-end ml-auto text-right";
-  const otherMessageClass = "bg-gray-700 text-white rounded-md p-2 self-start text-left";
+  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-4 bg-blue-500 text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-right";
+  const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-2 self-start text-left";
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [ghlConfig, setGhlConfig] = useState<GhlConfig | null>(null);
@@ -2059,7 +2059,7 @@ const handleForwardMessage = async () => {
                 className={`inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg ${selectedIcon === 'mail' ? 'text-blue-500 border-blue-500' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'}`}
                 onClick={() => handleIconClick('mail', selectedChatId!, selectedContact.id)}
                 aria-selected={selectedIcon === 'mail'}
-                style={{ width: '100px', height: '40px' }}>
+                style={{ width: '120px', height: '40px' }}>
                 <svg className="mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 32 32" fill="currentColor">
                     <path d="M32 6v20c0 1.135-.865 2-2 2h-2V9.849l-12 8.62l-12-8.62V28H2c-1.135 0-2-.865-2-2V6c0-.568.214-1.068.573-1.422A1.973 1.973 0 0 1 2 4h.667L16 13.667L29.333 4H30c.568 0 1.068.214 1.427.578c.359.354.573.854.573 1.422z"/>
                 </svg>
