@@ -472,7 +472,6 @@ function Main() {
                 });
             }
         });
-
         // Merge and update contacts with conversations
              contacts.forEach(contact => {
             const matchedConversation = conversations.find(conversation => conversation.contactId === contact.id);
@@ -493,17 +492,13 @@ function Main() {
                 }
             }
         });
-
         // Ensure all contacts are unique and filter those with last messages
-  
-
         // Fetch and update enquiries
         const employeeListData: Employee[] = [];
         employeeSnapshot.forEach((doc) => {
             employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
         });
         setEmployeeList(employeeListData);
-
         // Sort contacts by last message date
         contacts.sort((a, b) => {
             const dateA = a.last_message?.createdAt
@@ -518,7 +513,6 @@ function Main() {
                     : new Date(0);
             return dateB.getTime() - dateA.getTime();
         });
-
         // Filter contacts by user name in tags if necessary
         if (user_role == '2') {
             const filteredContacts = contacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
@@ -535,20 +529,6 @@ function Main() {
     } finally {
         setLoading(false);
     }
-};
-// Helper function to parse various timestamp formats
-const parseTimestamp = (timestamp: any): number => {
-    if (timestamp instanceof Object && timestamp.seconds) {
-        return timestamp.seconds * 1000;
-    } else if (typeof timestamp === 'string') {
-        const parsedDate = new Date(timestamp);
-        if (!isNaN(parsedDate.getTime())) {
-            return parsedDate.getTime();
-        }
-    } else if (typeof timestamp === 'number') {
-        return (timestamp > 10000000000) ? timestamp : timestamp * 1000;
-    }
-    throw new Error('Invalid timestamp format');
 };
 
 async function getContact(name: any, number: string, location: any, access_token: any) {
@@ -568,10 +548,8 @@ async function getContact(name: any, number: string, location: any, access_token
       'Content-Type': 'application/json',
     }
   };
-
   try {
     const response = await axios.request(options);
-
     return response.data.contact;
   } catch (error) {
     console.error(error);
@@ -591,10 +569,10 @@ const getTimestamp = (timestamp: number | string | { seconds: number, nanosecond
     } else {
         throw new Error('Invalid timestamp format');
     }
-};
+}; 
 const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
   try {
-  
+  console.log('running in background');
     // Parallelize initial fetch operations including fetchTags
     const [tags, chatResponse, conversations, contacts, employeeSnapshot, enquirySnapshot] = await Promise.all([
         fetchTags(ghlToken, locationId),
@@ -608,7 +586,6 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     if (!chatResponse.ok) throw new Error('Failed to fetch chats');
     const chatData = await chatResponse.json();
     const user = auth.currentUser;
-
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
@@ -616,9 +593,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         return;
     }
     const dataUser = docUserSnapshot.data() as UserData;
-
     user_role = dataUser.role;
-
     // Process chat data
     const mappedChats = chatData.chats.map((chat: { id: string; last_message: any; name: any; }) => {
         if (!chat.id) return null;
@@ -628,7 +603,6 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         if (dataUser.notifications !== undefined) {
             unreadCount = dataUser.notifications.filter((notif: { chat_id: string; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
         }
-
         if (contact) {
             contact.chat_id = chat.id;
             contact.last_message = chat.last_message;
@@ -646,7 +620,6 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             unreadCount,
         };
     }).filter(Boolean);
-
     // Merge WhatsApp contacts with existing contacts
     mappedChats.forEach((chat: { id: string; last_message: any; unreadCount: any; tags: any; contact_id: any; name: any; }) => {
         const phoneNumber = `+${chat.id.split('@')[0]}`;
@@ -671,7 +644,6 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             });
         }
     });
-
     // Merge and update contacts with conversations
          contacts.forEach(contact => {
         const matchedConversation = conversations.find(conversation => conversation.contactId === contact.id);
@@ -692,17 +664,13 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             }
         }
     });
-
     // Ensure all contacts are unique and filter those with last messages
-
-
     // Fetch and update enquiries
     const employeeListData: Employee[] = [];
     employeeSnapshot.forEach((doc) => {
         employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
     });
     setEmployeeList(employeeListData);
-
     // Sort contacts by last message date
     contacts.sort((a, b) => {
         const dateA = a.last_message?.createdAt
@@ -717,7 +685,6 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
                 : new Date(0);
         return dateB.getTime() - dateA.getTime();
     });
-
     // Filter contacts by user name in tags if necessary
     if (user_role == '2') {
         const filteredContacts = contacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
@@ -735,10 +702,6 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
   
 }
 };
-
-
-  
-
   async function searchConversations(accessToken: any, locationId: any): Promise<any[]> {
     try {
       let allConversation: any[] = [];
@@ -759,14 +722,12 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       const response = await axios.request(options);
       const conversations = response.data.conversations;
       allConversation = [...allConversation, ...conversations];
-
       return allConversation;
     } catch (error) {
       console.error('Error searching contacts:', error);
       return [];
     }
   }
-
   async function searchContacts(accessToken: any, locationId: any): Promise<any[]> {
     try {
       let allContacts: any[] = [];
@@ -792,7 +753,6 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         }
         page++;
       }
-  
       return allContacts;
     } catch (error) {
       console.error('Error searching contacts:', error);
@@ -801,27 +761,22 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
   }
   const handleIconClick = (iconId: string,selectedChatId:string,id:string) => {
     setMessages([]);
-   
     setSelectedIcon(iconId);
-  
     if(iconId == 'ws'){
       fetchMessages(selectedChatId, whapiToken!);
     }else if (iconId === 'mail'){
      fetchEnquiries(selectedChatId);
     }else if(iconId == 'fb'){
-    
       fetchConversationMessages(id,selectedContact);
     }
   };
   async function fetchConversationMessages(conversationId: string,contact?:any) {
     if (!conversationId) return;
-
 if(contact.last_message.type != 'TYPE_INSTAGRAM'){
   setSelectedIcon('fb');
 }else{
   setSelectedIcon('ig');
 }
-   
     const auth = getAuth(app);
     const user = auth.currentUser;
     try {
@@ -840,10 +795,7 @@ if(contact.last_message.type != 'TYPE_INSTAGRAM'){
         return;
       }
       const data2 = docSnapshot.data();
-   
       setToken(data2.whapiToken);
-
-  
       const leadConnectorResponse = await axios.get(`https://services.leadconnectorhq.com/conversations/${conversationId}/messages`, {
         headers: {
           Authorization: `Bearer ${data2.access_token}`,
@@ -852,7 +804,6 @@ if(contact.last_message.type != 'TYPE_INSTAGRAM'){
         }
       });
       const leadConnectorData = leadConnectorResponse.data;
-
       setMessages(
         leadConnectorData.messages.messages.map((message: any) => ({
           id: message.id,
@@ -871,20 +822,15 @@ if(contact.last_message.type != 'TYPE_INSTAGRAM'){
     setSelectedIcon(iconId);
     fetchMessages(selectedChatId!, whapiToken!);
   };
-
   useEffect(() => {
     if (selectedChatId) {
- 
       if(selectedChatId.includes('@s.') || selectedChatId.includes('@g') ){
         fetchMessages(selectedChatId, whapiToken!);
-      
       }else if (selectedChatId.includes('@')){
        fetchEnquiries(selectedChatId);
       }else{
-
         fetchConversationMessages(selectedChatId,selectedContact);
       }
-
     }
   }, [selectedChatId]);
   async function fetchEnquiries(email: string) {
@@ -1154,20 +1100,6 @@ if(contact.last_message.type != 'TYPE_INSTAGRAM'){
       console.error('Error sending message:', error);
     }
   };
-
-  const handleRefreshClick = async () => {
-    console.log('Refresh clicked');
-    await fetchMessages(selectedChatId!, whapiToken!);
-  };
-
-  function adjustTextareaHeight() {
-    const textarea = inputRef.current;
-    if (textarea) {
-      console.log("Textarea:", textarea);
-      textarea.style.height = 'auto';
-      textarea.style.height = textarea.scrollHeight + 'px';
-    }
-  }
 
   const toggleStopBotLabel = async (chat: any, index: number, contact: any) => {
     console.log(contact);

@@ -70,6 +70,9 @@ interface Tag {
   id: string;
   name: string;
 }
+interface TagsState {
+  [key: string]: string[];
+}
 function Main() {
   const [deleteConfirmationModal, setDeleteConfirmationModal] = useState(false);
   const [editContactModal, setEditContactModal] = useState(false);
@@ -90,7 +93,7 @@ function Main() {
   const [showAddTagModal, setShowAddTagModal] = useState(false);
   const [showDeleteTagModal, setShowDeleteTagModal] = useState(false);
 const [tagToDelete, setTagToDelete] = useState<Tag | null>(null);
-const [tags, setTags] = useState({});
+const [tags, setTags] = useState<TagsState>({}); 
   const [newContact, setNewContact] = useState({
       firstName: '',
       lastName: '',
@@ -355,7 +358,6 @@ const handleConfirmDeleteTag = async () => {
       console.error('Error fetching company data:', error);
     }
   }
-
   const handleAddTagToSelectedContacts = async (selectedEmployee: string) => {
     setSelectedContacts([]);
     const user = auth.currentUser;
@@ -376,8 +378,6 @@ const handleConfirmDeleteTag = async () => {
     }
     const companyData = docSnapshot.data();
 
-
-
     if (selectedEmployee) {
       const tagName = selectedEmployee;
       const selectedContactsCopy = [...selectedContacts];
@@ -393,54 +393,68 @@ const handleConfirmDeleteTag = async () => {
       await searchContacts(companyData.access_token, companyData.location_id);
     }
   };
-  const handleRemoveTag = async (contactId: string, tagName: string) => {
-    const user = auth.currentUser;
 
-    const docUserRef = doc(firestore, 'user', user?.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.log('No such document for user!');
-      return;
-    }
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      console.log('No such document for company!');
-      return;
-    }
-    const companyData = docSnapshot.data();
-    console.log( companyData.access_token);
-    const url = `https://services.leadconnectorhq.com/contacts/${contactId}/tags`;
-    const options = {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${companyData.access_token}`,
-        Version: '2021-07-28',
-        Accept: 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        tags: [tagName]
-      })
-    };
+const handleRemoveTag = async (contactId: string, tagName: string) => {
+  const user = auth.currentUser;
 
-    try {
-      const response = await fetch(url, options);
-      console.log(response.body);
-      if (response.ok) {
-        setTags((prevTags: { [x: string]: any; }) => ({
-          ...prevTags,
-          [contactId]: (prevTags[contactId] || []).filter((tag: any) => tag !== tagName)
-        }));
-      } else {
-        console.error('Failed to remove tag', await response.json());
-      }
-    } catch (error) {
-      console.error('Error removing tag', error);
-    }
+  const docUserRef = doc(firestore, 'user', user?.email!);
+  const docUserSnapshot = await getDoc(docUserRef);
+  if (!docUserSnapshot.exists()) {
+    console.log('No such document for user!');
+    return;
+  }
+  const userData = docUserSnapshot.data();
+  const companyId = userData.companyId;
+  const docRef = doc(firestore, 'companies', companyId);
+  const docSnapshot = await getDoc(docRef);
+  if (!docSnapshot.exists()) {
+    console.log('No such document for company!');
+    return;
+  }
+  const companyData = docSnapshot.data();
+  console.log(companyData.access_token);
+  const url = `https://services.leadconnectorhq.com/contacts/${contactId}/tags`;
+  const options = {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${companyData.access_token}`,
+      Version: '2021-07-28',
+      Accept: 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      tags: [tagName]
+    })
   };
+
+  try {
+    const response = await fetch(url, options);
+    console.log(response.body);
+    if (response.ok) {
+      setTags((prevTags) => ({
+        ...prevTags,
+        [contactId]: (prevTags[contactId] || []).filter((tag) => tag !== tagName)
+      }));
+
+      // Update the contacts state
+      setContacts((prevContacts) =>
+        prevContacts.map((contact) =>
+          contact.id === contactId
+            ? { ...contact, tags: contact.tags.filter((tag) => tag !== tagName) }
+            : contact
+        )
+      );
+
+      toast.success("Tag removed successfully!");
+    } else {
+      console.error('Failed to remove tag', await response.json());
+      toast.error("Failed to remove tag.");
+    }
+  } catch (error) {
+    console.error('Error removing tag', error);
+    toast.error("An error occurred while removing the tag.");
+  }
+};
   async function updateContactTags(contactId: any, accessToken: any, tags: any) {
     try {
       const options = {
