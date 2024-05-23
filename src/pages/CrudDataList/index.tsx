@@ -51,7 +51,7 @@ interface Contact {
   id: string;
   lastName: string;
   locationId: string;
-  phone: string | null;
+  phone: string ;
   postalCode: string | null;
   source: string | null;
   state: string | null;
@@ -82,6 +82,8 @@ function Main() {
   const [currentContact, setCurrentContact] = useState<Contact | null>(null);
   const [isTabOpen, setIsTabOpen] = useState(false);
   const [addContactModal, setAddContactModal] = useState(false);
+  const [blastMessageModal, setBlastMessageModal] = useState(false);
+  const [blastMessage, setBlastMessage] = useState("");
   const [newContact, setNewContact] = useState({
       firstName: '',
       lastName: '',
@@ -465,29 +467,108 @@ console.log(response);
     contact.phone?.includes(searchQuery)
   );
 
+  const sendBlastMessage = async () => {
+    if (selectedContacts.length === 0) {
+      toast.error("No contacts selected!");
+      return;
+    }
+    try {
+      for (const contact of selectedContacts) {
+        await sendTextMessage(contact.phone, blastMessage, contact);
+      }
+      toast.success("Messages sent successfully!");
+      setBlastMessageModal(false);
+      setBlastMessage("");
+    } catch (error) {
+      console.error('Error sending blast message:', error);
+      toast.error("Failed to send messages.");
+    }
+  };
+
+  async function sendTextMessage(id: string, blastMessage: string, contact: Contact): Promise<void> {
+    if (!blastMessage.trim()) {
+      console.error('Blast message is empty');
+      return;
+    }
+  
+    try {
+      const user = auth.currentUser;
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('User document not found!');
+        return;
+      }
+  
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.error('Company document not found!');
+        return;
+      }
+  
+      const companyData = docSnapshot.data();
+      const accessToken = companyData.access_token; // Assuming you store access token in company data
+      const phoneNumber = id.split('+')[1];
+      const chat_id = phoneNumber+"@s.whatsapp.net"
+      console.log(chat_id);
+      const response = await axios.post(
+        `https://buds-359313.et.r.appspot.com/api/messages/text/${chat_id!}/${companyData.whapiToken}/${blastMessage!}`, // This URL should be your API endpoint for sending messages
+        {
+          
+          contactId: id,
+          message: blastMessage,
+          additionalInfo: { ...contact },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' } // You can pass additional data if needed
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      console.log(response.data);
+      
+  
+      if (response.status === 200) {
+        console.log('Message sent successfully');
+      } else {
+        console.error('Failed to send message:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  }
+  
+  
+
   return (
     <>
 <div className="grid grid-cols-12 gap-6 mt-5">
   <div className="flex flex-wrap items-center col-span-12 mt-2 intro-y sm:flex-nowrap">
-  <button className="p-2 m-0 !box"  onClick={() => setAddContactModal(true)}>
+    <button className="p-2 m-0 !box"  onClick={() => setAddContactModal(true)}>
       <span className="flex items-center justify-center w-5 h-5">
         <Lucide icon= "Plus"className="w-5 h-5" />
       </span>
     </button>
     <div className="w-full mt-3 sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
       
-      <div className="relative w-[500px] text-slate-500 p-4">
+      <div className="relative w-[500px] text-slate-500 p-4 m-2">
         
         <FormInput
           type="text"
-          className="w-[500px] h-[40px] pr-10 !box text-lg"
+          className="w-[500px] h-[40px] pr-0 !box text-md"
           placeholder="Search..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <Lucide
           icon="Search"
-          className="absolute inset-y-0 right-0 w-5 h-5 my-auto mr-3"
+          className="absolute inset-y-0 right-0 w-5 h-5 my-auto mr-0"
         />
       </div>
     </div>
@@ -516,6 +597,36 @@ console.log(response);
         </Menu.Items>
       </Menu>
     </div>
+    <div ml-4>
+    <button 
+      type="button"
+      className="flex flex-wrap items-center justify-center col-span-12 !box focus:outline-none text-blue-600 bg-gray-800 hover:bg-gray-600 font-medium rounded-lg text-md px-2 py-2 mt-2 mx-2 mb-2 intro-y sm:flex-nowrap" 
+      onClick={() => setBlastMessageModal(true)}>
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 mr-2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+      </svg>
+        Send a Blast Message
+    </button>
+    </div>
+    <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
+      <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md">
+          <div className="mb-4 text-lg font-semibold">Send Blast Message</div>
+          <textarea
+            className="w-full p-2 border rounded"
+            placeholder="Type your message here..."
+            value={blastMessage}
+            onChange={(e) => setBlastMessage(e.target.value)}
+          ></textarea>
+          <div className="flex justify-end mt-4">
+            <button
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              onClick={sendBlastMessage}>Send Message
+            </button>
+          </div>
+        </Dialog.Panel>
+      </div>
+    </Dialog>
   </div>
 </div>
       <div className="max-w-full overflow-x-auto shadow-md sm:rounded-lg">
@@ -679,6 +790,7 @@ console.log(response);
             </Dialog>
             <ToastContainer />
       <Dialog open={editContactModal} onClose={() => setEditContactModal(false)}>
+
     <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
         <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md">
             <div className="flex items-center p-4 border-b  ">
