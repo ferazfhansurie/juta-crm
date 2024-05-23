@@ -602,10 +602,10 @@ console.log(response);
       type="button"
       className="flex flex-wrap items-center justify-center col-span-12 !box focus:outline-none text-blue-600 bg-gray-800 hover:bg-gray-600 font-medium rounded-lg text-md px-2 py-2 mt-2 mx-2 mb-2 intro-y sm:flex-nowrap" 
       onClick={() => setBlastMessageModal(true)}>
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 mr-2">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 mr-0">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
       </svg>
-        Send a Blast Message
+      <span className="hidden md:inline ml-1 font-medium">Send a Blast Message</span>
     </button>
     </div>
     <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
