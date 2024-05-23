@@ -94,6 +94,8 @@ function Main() {
   const [showDeleteTagModal, setShowDeleteTagModal] = useState(false);
 const [tagToDelete, setTagToDelete] = useState<Tag | null>(null);
 const [tags, setTags] = useState<TagsState>({}); 
+const [blastMessageModal, setBlastMessageModal] = useState(false);
+const [blastMessage, setBlastMessage] = useState("");
   const [newContact, setNewContact] = useState({
       firstName: '',
       lastName: '',
@@ -653,7 +655,83 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
     contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     contact.phone?.includes(searchQuery)
   );
+  const sendBlastMessage = async () => {
+    if (selectedContacts.length === 0) {
+      toast.error("No contacts selected!");
+      return;
+    }
+    try {
+      for (const contact of selectedContacts) {
+        await sendTextMessage(contact.phone!, blastMessage, contact);
+      }
+      toast.success("Messages sent successfully!");
+      setBlastMessageModal(false);
+      setBlastMessage("");
+    } catch (error) {
+      console.error('Error sending blast message:', error);
+      toast.error("Failed to send messages.");
+    }
+  };
 
+  async function sendTextMessage(id: string, blastMessage: string, contact: Contact): Promise<void> {
+    if (!blastMessage.trim()) {
+      console.error('Blast message is empty');
+      return;
+    }
+  
+    try {
+      const user = auth.currentUser;
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('User document not found!');
+        return;
+      }
+  
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.error('Company document not found!');
+        return;
+      }
+  
+      const companyData = docSnapshot.data();
+      const accessToken = companyData.access_token; // Assuming you store access token in company data
+      const phoneNumber = id.split('+')[1];
+      const chat_id = phoneNumber+"@s.whatsapp.net"
+      console.log(chat_id);
+      const response = await axios.post(
+        `https://buds-359313.et.r.appspot.com/api/messages/text/${chat_id!}/${companyData.whapiToken}/${blastMessage!}`, // This URL should be your API endpoint for sending messages
+        {
+          
+          contactId: id,
+          message: blastMessage,
+          additionalInfo: { ...contact },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' } // You can pass additional data if needed
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      console.log(response.data);
+      
+  
+      if (response.status === 200) {
+        console.log('Message sent successfully');
+      } else {
+        console.error('Failed to send message:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  }
+  
   return (
     <>
 <div className="grid grid-cols-12 gap-6 mt-5">
@@ -686,68 +764,77 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
   </div>
 
 
+  <div className="flex space-x-2">
   <button className="p-2 m-2 !box" onClick={() => setAddContactModal(true)}>
     <span className="flex items-center justify-center w-5 h-5">
       <Lucide icon="Plus" className="w-5 h-5" />
     </span>
   </button>
   <Menu>
-  {showAddUserButton && (
-    <Menu.Button as={Button} className="p-2 m-2 !box">
-      <span className="flex items-center justify-center w-5 h-5">
-        <Lucide icon="User" className="w-5 h-5" />
-      </span>
-    </Menu.Button>
-  )}
-  <Menu.Items className="w-40">
-    {employeeList.map((employee) => (
-      <Menu.Item key={employee.id}>
-        <span
-          className="flex items-center p-2 m-2"
-          onClick={() => handleAddTagToSelectedContacts(employee.name)}
-        >
-          <Lucide icon="User" className="w-4 h-4 mr-2" />
-          {employee.name}
+    {showAddUserButton && (
+      <Menu.Button as={Button} className="p-2 m-2 !box">
+        <span className="flex items-center justify-center w-5 h-5">
+          <Lucide icon="User" className="w-5 h-5" />
         </span>
-      </Menu.Item>
-    ))}
-  </Menu.Items>
-</Menu>
-<Menu>
-  {showAddUserButton && (
-    <Menu.Button as={Button} className="p-2 m-2 !box">
-      <span className="flex items-center justify-center w-5 h-5">
-        <Lucide icon="Tag" className="w-5 h-5" />
-      </span>
-    </Menu.Button>
-  )}
-  <Menu.Items className="w-200">
-    <div>
-      <button className="flex items-center p-2 m-2 text-sm" onClick={() => setShowAddTagModal(true)}>
-        <Lucide icon="Plus" className="w-4 h-4 mr-1" />
-        Add
-      </button>
-    </div>
-    {tagList.map((tag) => (
-  <div key={tag.id} className="flex flex-col items-start p-2 m-2">
-    <span className="flex items-center w-full mb-1">
-      <button
-        className="flex items-center p-2 m-2 text-sm  rounded hover:bg-gray-300"
-        onClick={() => handleAddTagToSelectedContacts(tag.name)}
-      >
-        {tag.name}
-      </button>
-      <button className="flex items-center p-2 m-2 text-sm" onClick={() => {
-        setTagToDelete(tag);
-        setShowDeleteTagModal(true);
-      }}>
-        <Lucide icon="Trash" className="w-4 h-4 mr-1 text-red-500" />
-      </button>
+      </Menu.Button>
+    )}
+    <Menu.Items className="w-40">
+      {employeeList.map((employee) => (
+        <Menu.Item key={employee.id}>
+          <span
+            className="flex items-center p-2 m-2"
+            onClick={() => handleAddTagToSelectedContacts(employee.name)}
+          >
+            <Lucide icon="User" className="w-4 h-4 mr-2" />
+            {employee.name}
+          </span>
+        </Menu.Item>
+      ))}
+    </Menu.Items>
+  </Menu>
+  <Menu>
+    {showAddUserButton && (
+      <Menu.Button as={Button} className="p-2 m-2 !box">
+        <span className="flex items-center justify-center w-5 h-5">
+          <Lucide icon="Tag" className="w-5 h-5" />
+        </span>
+      </Menu.Button>
+    )}
+    <Menu.Items className="w-200">
+      <div>
+        <button className="flex items-center p-2 m-2 text-sm" onClick={() => setShowAddTagModal(true)}>
+          <Lucide icon="Plus" className="w-4 h-4 mr-1" />
+          Add
+        </button>
+      </div>
+      {tagList.map((tag) => (
+        <div key={tag.id} className="flex flex-col items-start p-2 m-2">
+          <span className="flex items-center w-full mb-1">
+            <button
+              className="flex items-center p-2 m-2 text-sm rounded hover:bg-gray-300"
+              onClick={() => handleAddTagToSelectedContacts(tag.name)}
+            >
+              {tag.name}
+            </button>
+            <button className="flex items-center p-2 m-2 text-sm" onClick={() => {
+              setTagToDelete(tag);
+              setShowDeleteTagModal(true);
+            }}>
+              <Lucide icon="Trash" className="w-4 h-4 mr-1 text-red-500" />
+            </button>
+          </span>
+        </div>
+      ))}
+    </Menu.Items>
+  </Menu>
+  <button className="p-2 m-2 !box" onClick={() => setBlastMessageModal(true)}>
+    <span className="flex items-center justify-center w-5 h-5">
+      <Lucide icon="Send" className="w-5 h-5" />
     </span>
-  </div>
-))}
-  </Menu.Items>
-</Menu>
+  </button>
+ 
+</div>
+
 </div>
       <div className="max-w-full overflow-x-auto shadow-md sm:rounded-lg">
         <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
@@ -1011,6 +1098,25 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
     </div>
 </Dialog>
 <ToastContainer />
+<Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
+      <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md">
+          <div className="mb-4 text-lg font-semibold">Send Blast Message</div>
+          <textarea
+            className="w-full p-2 border rounded"
+            placeholder="Type your message here..."
+            value={blastMessage}
+            onChange={(e) => setBlastMessage(e.target.value)}
+          ></textarea>
+          <div className="flex justify-end mt-4">
+            <button
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              onClick={sendBlastMessage}>Send Message
+            </button>
+          </div>
+        </Dialog.Panel>
+      </div>
+    </Dialog>
 {showAddTagModal && (
   <Dialog open={showAddTagModal} onClose={() => setShowAddTagModal(false)}>
     <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
