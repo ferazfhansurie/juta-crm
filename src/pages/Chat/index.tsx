@@ -268,7 +268,7 @@ function Main() {
                 whapiToken: data.whapiToken,
               });
               user_name = dataUser.name;
-           
+              fetchContactsBackground(data.whapiToken,data.location_id,data.access_token,user_name)
              // await fetchMessagesBackground(selectedChatId!, whapiToken!);
             }
           });
@@ -594,259 +594,148 @@ const getTimestamp = (timestamp: number | string | { seconds: number, nanosecond
 };
 const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
   try {
+  
+    // Parallelize initial fetch operations including fetchTags
+    const [tags, chatResponse, conversations, contacts, employeeSnapshot, enquirySnapshot] = await Promise.all([
+        fetchTags(ghlToken, locationId),
+        fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`),
+        searchConversations(ghlToken, locationId),
+        searchContacts(ghlToken, locationId),
+        getDocs(collection(firestore, `companies/${companyId}/employee`)),
+        getDocs(collection(firestore, `companies/${companyId}/conversations`))
+    ]);
 
-
-    // Fetch user data
+    if (!chatResponse.ok) throw new Error('Failed to fetch chats');
+    const chatData = await chatResponse.json();
     const user = auth.currentUser;
+
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
+        console.log('No such document!');
         return;
     }
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-    const role = userData.role;
-    const notifications = userData.notifications || [];
+    const dataUser = docUserSnapshot.data() as UserData;
 
-    // Fetch company data
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
-        return;
-    }
-    const companyData = docSnapshot.data();
+    user_role = dataUser.role;
 
-    // Update access token
-    await setDoc(doc(firestore, 'companies', companyId), {
-        access_token: companyData.access_token,
-        refresh_token: companyData.refresh_token,
-    }, { merge: true });
-
-    // Fetch chat data
-    const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`);
-    if (!response.ok) {
-        throw new Error('Failed to fetch chats');
-    }
-    const chatData = await response.json();
-    const [conversations, contacts] = await Promise.all([
-        searchConversations(companyData.access_token, locationId),
-        searchContacts(companyData.access_token, locationId)
-    ]);
-
-    // Map chats to contacts
-    const mappedChats = chatData.chats.map((chat: Chat) => {
+    // Process chat data
+    const mappedChats = chatData.chats.map((chat: { id: string; last_message: any; name: any; }) => {
         if (!chat.id) return null;
-        const phoneNumber = "+" + chat.id.split('@')[0];
-        const contact = contacts.find((contact: any) => contact.phone === phoneNumber);
-        const tags = contact ? contact.tags : [];
-        const id = contact ? contact.id : "";
-        const name = contact ? contact.contactName : "";
-        const unreadCount = notifications.filter((notif: any) => notif.chat_id === chat.id && !notif.read).length;
+        const phoneNumber = `+${chat.id.split('@')[0]}`;
+        let contact = contacts.find(contact => contact.phone === phoneNumber);
+        let unreadCount = 0;
+        if (dataUser.notifications !== undefined) {
+            unreadCount = dataUser.notifications.filter((notif: { chat_id: string; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
+        }
+
         if (contact) {
             contact.chat_id = chat.id;
             contact.last_message = chat.last_message;
             contact.chat = chat;
-            contact.unreadCount = unreadCount;
+            contact.unreadCount = unreadCount ?? 0;
+            contact.id = contact.id;
         }
         return {
             ...chat,
-            tags: tags,
-            name: name !== "" ? name : chat.name,
+            tags: contact ? contact.tags : [],
+            name: contact ? contact.contactName : chat.name,
             lastMessageBody: '',
             id: chat.id,
-            contact_id: id,
+            contact_id: contact ? contact.id : "",
             unreadCount,
         };
     }).filter(Boolean);
 
     // Merge WhatsApp contacts with existing contacts
-    const whatsappContacts = mappedChats.filter((chat: any) => !contacts.some(contact => contact.chat_id === chat.id));
-    whatsappContacts.forEach((chat: any) => {
-        const phoneNumber = "+" + chat.id.split('@')[0];
-        const unreadCount = notifications.filter((notif: any) => notif.chat_id === chat.id && !notif.read).length;
-        contacts.push({
-          id: chat.contact_id,
-          phone: phoneNumber,
-          contactName: chat.name,
-          chat_id: chat.id,
-          last_message: chat.last_message || null,
-          chat: chat,
-          tags: chat.tags,
-          conversation_id: chat.id,
-          unreadCount,
-      });
+    mappedChats.forEach((chat: { id: string; last_message: any; unreadCount: any; tags: any; contact_id: any; name: any; }) => {
+        const phoneNumber = `+${chat.id.split('@')[0]}`;
+        const existingContact = contacts.find(contact => contact.phone === phoneNumber);
+        if (existingContact) {
+            existingContact.chat_id = chat.id;
+            existingContact.last_message = chat.last_message || existingContact.last_message;
+            existingContact.chat = chat;
+            existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
+            existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
+        } else {
+            contacts.push({
+                id: chat.contact_id,
+                phone: phoneNumber,
+                contactName: chat.name,
+                chat_id: chat.id,
+                last_message: chat.last_message || null,
+                chat: chat,
+                tags: chat.tags,
+                conversation_id: chat.id,
+                unreadCount: chat.unreadCount,
+            });
+        }
     });
 
     // Merge and update contacts with conversations
-    const mergedContacts = contacts.reduce((acc: any[], contact: any) => {
-        const existingContact = acc.find(c => c.phone === contact.phone);
-        if (existingContact) {
-            existingContact.tags = [...new Set([...existingContact.tags, ...contact.tags])];
-            if (!existingContact.last_message || (contact.last_message && getTimestamp(contact.last_message.createdAt) > getTimestamp(existingContact.last_message.createdAt))) {
-                existingContact.last_message = contact.last_message;
-            }
-            existingContact.chat = contact.chat || existingContact.chat;
-            existingContact.chat_id = contact.chat_id || existingContact.chat_id;
-            existingContact.conversation_id = contact.conversation_id || existingContact.conversation_id;
-            existingContact.unreadCount = (existingContact.unreadCount || 0) + contact.unreadCount;
-            if (!existingContact.contactName && contact.contactName) {
-                existingContact.contactName = contact.contactName;
-            }
-        } else {
-            acc.push(contact);
-        }
-        return acc;
-    }, []);
-
-    // Update contacts with conversations
-    const updatedContacts = mergedContacts.map((contact: any) => {
-        const matchedConversation = conversations.find((conversation: any) => conversation.contactId === contact.id);
+         contacts.forEach(contact => {
+        const matchedConversation = conversations.find(conversation => conversation.contactId === contact.id);
         if (matchedConversation) {
             contact.conversation_id = matchedConversation.id;
-            contact.chat_id = (contact.chat_id === undefined) ? matchedConversation.id : contact.chat_id;
+            contact.chat_id = contact.chat_id || matchedConversation.id;
             contact.conversations = contact.conversations || [];
             contact.conversations.push(matchedConversation);
-
-            contact.last_message = {
-                id: matchedConversation.id,
-                text: { body: matchedConversation.lastMessageBody },
-                from_me: matchedConversation.lastMessageDirection === 'outbound',
-                createdAt: matchedConversation.lastMessageDate,
-                type: matchedConversation.lastMessageType,
-                image: undefined,
-            };
+            if (!contact.last_message) {
+                contact.last_message = {
+                    id: matchedConversation.id,
+                    text: { body: matchedConversation.lastMessageBody },
+                    from_me: matchedConversation.lastMessageDirection === 'outbound',
+                    createdAt: matchedConversation.lastMessageDate,
+                    type: matchedConversation.lastMessageType,
+                    image: undefined,
+                };
+            }
         }
-        return contact;
     });
 
     // Ensure all contacts are unique and filter those with last messages
-    let uniqueContacts = Array.from(new Map(updatedContacts.map(contact => [contact.phone, contact])).values());
-    uniqueContacts = uniqueContacts.filter(contact => contact.last_message);
-    const employeeRef = collection(firestore, `companies/${companyId}/employee`);
-    const employeeSnapshot = await getDocs(employeeRef);
 
+
+    // Fetch and update enquiries
     const employeeListData: Employee[] = [];
     employeeSnapshot.forEach((doc) => {
-      employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
+        employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
     });
-setEmployeeList(employeeListData);
-    // Fetch and update enquiries
-    const enquriryRef = collection(firestore, `companies/${companyId}/conversations`);
-    const enqurirySnapshot = await getDocs(enquriryRef);
+    setEmployeeList(employeeListData);
 
-    const enquriryListData: Enquiry[] = [];
-    enqurirySnapshot.forEach((doc) => {
-      enquriryListData.push({ id: doc.id, ...doc.data() } as Enquiry);
-    });
-
-    // Merge employee list data into unique contacts
-    enquriryListData.forEach((enquiry: Enquiry) => {
-        const existingContact = uniqueContacts.find(contact => contact.email === enquiry.email || contact.phone === enquiry.phone);
-        if (existingContact) {
-            existingContact.enquiries = existingContact.enquiries || [];
-            existingContact.enquiries.push(enquiry);
-
-            let createdAt: number | null = null;
-            try {
-                if (enquiry.timestamp instanceof Object && enquiry.timestamp.seconds) {
-                    createdAt = enquiry.timestamp.seconds * 1000;
-                } else if (typeof enquiry.timestamp === 'string') {
-                    const parsedDate = new Date(enquiry.timestamp);
-                    if (isNaN(parsedDate.getTime())) {
-                        throw new Error('Invalid timestamp format');
-                    }
-                    createdAt = parsedDate.getTime();
-                } else if (typeof enquiry.timestamp === 'number') {
-                    createdAt = (enquiry.timestamp > 10000000000) ? enquiry.timestamp : enquiry.timestamp * 1000;
-                } else {
-                    throw new Error('Invalid timestamp format');
-                }
-
-                if (!existingContact.last_message || createdAt > getTimestamp(existingContact.last_message.createdAt)) {
-                    existingContact.last_message = {
-                        id: enquiry.id,
-                        text: { body: enquiry.message },
-                        from_me: false,
-                        createdAt: createdAt,
-                        type: 'text',
-                        image: undefined,
-                    };
-                }
-            } catch (error) {
-                console.error(`Failed to process timestamp for contact ${existingContact.email}:`, error);
-            }
-        } else {
-            let createdAt: number | null = null;
-            try {
-                if (enquiry.timestamp instanceof Object && enquiry.timestamp.seconds) {
-                    createdAt = enquiry.timestamp.seconds * 1000;
-                } else if (typeof enquiry.timestamp === 'string') {
-                    const parsedDate = new Date(enquiry.timestamp);
-                    if (isNaN(parsedDate.getTime())) {
-                        throw new Error('Invalid timestamp format');
-                    }
-                    createdAt = parsedDate.getTime();
-                } else if (typeof enquiry.timestamp === 'number') {
-                    createdAt = (enquiry.timestamp > 10000000000) ? enquiry.timestamp : enquiry.timestamp * 1000;
-                } else {
-                    throw new Error('Invalid timestamp format');
-                }
-                uniqueContacts.push({
-                    id: enquiry.id,
-                    email: enquiry.email,
-                    phone: enquiry.phone,
-                    contactName: enquiry.name,
-                    enquiries: [enquiry],
-                    last_message: {
-                        id: enquiry.id,
-                        text: { body: enquiry.message },
-                        from_me: false,
-                        createdAt: createdAt,
-                        type: 'text',
-                        image: undefined,
-                    },
-                });
-            } catch (error) {
-                console.error(`Failed to process timestamp for enquiry ${enquiry.email}:`, error);
-            }
-        }
-    });
     // Sort contacts by last message date
-    uniqueContacts.sort((a: any, b: any) => {
-        const dateA = a.last_message?.createdAt 
-            ? new Date(getTimestamp(a.last_message.createdAt)) 
-            : a.last_message?.timestamp 
-            ? new Date(getTimestamp(a.last_message.timestamp))
-            : new Date(0);
-        const dateB = b.last_message?.createdAt 
-            ? new Date(getTimestamp(b.last_message.createdAt)) 
-            : b.last_message?.timestamp 
-            ? new Date(getTimestamp(b.last_message.timestamp))
-            : new Date(0);
+    contacts.sort((a, b) => {
+        const dateA = a.last_message?.createdAt
+            ? new Date(getTimestamp(a.last_message.createdAt))
+            : a.last_message?.timestamp
+                ? new Date(getTimestamp(a.last_message.timestamp))
+                : new Date(0);
+        const dateB = b.last_message?.createdAt
+            ? new Date(getTimestamp(b.last_message.createdAt))
+            : b.last_message?.timestamp
+                ? new Date(getTimestamp(b.last_message.timestamp))
+                : new Date(0);
         return dateB.getTime() - dateA.getTime();
     });
+
     // Filter contacts by user name in tags if necessary
-   
-    if (role == 2 && companyId == '011') {
-        const filteredContacts = uniqueContacts.filter((contact: { tags: any[] }) => {
-            return contact.tags && contact.tags.some(tag => typeof tag == 'string' && tag.toLowerCase().includes(user_name.toLowerCase()));
-        });
+    if (user_role == '2') {
+        const filteredContacts = contacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
         setContacts(filteredContacts);
-        setFilteredContacts(filteredContacts);
     } else {
         // Set contacts to state
-        setContacts(uniqueContacts);
-        setFilteredContacts(uniqueContacts);
+        setContacts(contacts);
     }
-
+    setFilteredContacts(contacts);
+    setFilteredContactsForForwarding(contacts);
+    console.log(contacts);
 } catch (error) {
     console.error('Failed to fetch contacts:', error);
 } finally {
   
 }
 };
+
 
   
 
