@@ -474,32 +474,25 @@ function Main() {
         });
 
         // Merge and update contacts with conversations
-          // Merge and update contacts with conversations
-        contacts.forEach(contact => {
-          const matchedConversation = conversations.find(conversation => conversation.contactId === contact.id);
-          if (matchedConversation) {
-              contact.conversation_id = matchedConversation.id;
-              contact.chat_id = contact.chat_id || matchedConversation.id;
-              contact.conversations = contact.conversations || [];
-              contact.conversations.push(matchedConversation);
-              
-              // Compare existing last_message with the conversation's last message and use the latest
-              const existingMessageDate = contact.last_message?.createdAt ? new Date(getTimestamp(contact.last_message.createdAt)) : new Date(0);
-              const conversationMessageDate = new Date(getTimestamp(matchedConversation.lastMessageDate));
-              
-              if (!existingMessageDate) {
-                  contact.last_message = {
-                      id: matchedConversation.id,
-                      text: { body: matchedConversation.lastMessageBody },
-                      from_me: matchedConversation.lastMessageDirection === 'outbound',
-                      createdAt: matchedConversation.lastMessageDate,
-                      type: matchedConversation.lastMessageType,
-                      image: undefined,
-                  };
-              }
-          }
-      });
-
+             contacts.forEach(contact => {
+            const matchedConversation = conversations.find(conversation => conversation.contactId === contact.id);
+            if (matchedConversation) {
+                contact.conversation_id = matchedConversation.id;
+                contact.chat_id = contact.chat_id || matchedConversation.id;
+                contact.conversations = contact.conversations || [];
+                contact.conversations.push(matchedConversation);
+                if (!contact.last_message) {
+                    contact.last_message = {
+                        id: matchedConversation.id,
+                        text: { body: matchedConversation.lastMessageBody },
+                        from_me: matchedConversation.lastMessageDirection === 'outbound',
+                        createdAt: matchedConversation.lastMessageDate,
+                        type: matchedConversation.lastMessageType,
+                        image: undefined,
+                    };
+                }
+            }
+        });
 
         // Ensure all contacts are unique and filter those with last messages
   
