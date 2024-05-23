@@ -1621,13 +1621,30 @@ const handleForwardMessage = async () => {
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm truncate">
+            <span className="text-sm truncate" style={{ width: '200px' }}>
               {(contact.last_message?.type == "text")?contact.last_message?.text?.body ?? "No Messages":"Photo"}
             </span>
             {contact.unreadCount > 0 && (
               <span className="bg-blue-900 text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
             )}
+             {contact.chat != undefined && (
+              <span>   <img
+              className={`source-button}`}
+              src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon4.png?alt=media&token=d4ab65b6-9b90-4aca-9d69-6263300a91ec"
+              alt="WhatsApp"
+              style={{ width: '30px', height: '30px' }}
+            /> </span>
+            )}
+             {contact.conversation_id != undefined  && !contact.conversation_id.includes('@') && (
+              <span>   <img
+              className={`source-button}`}
+              src={(contact.last_message!.type == 'TYPE_INSTAGRAM')?"https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon3.png?alt=media&token=9395326d-ff56-45e7-8ebc-70df4be6971a":"https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/facebook-logo-on-transparent-isolated-background-free-vector-removebg-preview.png?alt=media&token=c312eb23-dfee-40d3-a55c-476ef3041369"}
+              alt="WhatsApp"
+              style={{ width: '30px', height: '30px' }}
+            /> </span>
+            )}
           </div>
+     
           <label className="inline-flex items-center cursor-pointer">
             <input
               type="checkbox"
