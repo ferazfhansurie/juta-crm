@@ -207,30 +207,45 @@ function Main() {
   async function searchOpportunities(ghlToken: any, locationId: any) {
     setLoading(true);
     setError(null);
-
+  
     try {
       let allOpportunities: any[] = [];
       let page = 1;
-
-      const response = await axios.get('https://services.leadconnectorhq.com/opportunities/search', {
-        headers: {
-          Authorization: `Bearer ${ghlToken}`,
-          Version: '2021-07-28',
-          Accept: 'application/json'
-        },
-        params: {
-          location_id: locationId,
-          limit:100
+      let totalFetched = 0;
+      let hasMore = true;
+  
+      while (hasMore) {
+        const response = await axios.get('https://services.leadconnectorhq.com/opportunities/search', {
+          headers: {
+            Authorization: `Bearer ${ghlToken}`,
+            Version: '2021-07-28',
+            Accept: 'application/json'
+          },
+          params: {
+            location_id: locationId,
+            limit: 100,
+            page: page
+          }
+        });
+  
+        const opportunities = response.data.opportunities;
+        totalFetched = opportunities.length;
+        allOpportunities = [...allOpportunities, ...opportunities];
+  
+        // Check if there are more opportunities to fetch
+        if (totalFetched < 100) {
+          hasMore = false;
+        } else {
+          page++;
         }
-      });
-console.log(response.data);
-      const opportunities = response.data.opportunities;
-      allOpportunities = [...allOpportunities, ...opportunities];
-total_contacts = allOpportunities.length;
+      }
+  
+      console.log(allOpportunities);
+  
+      total_contacts = allOpportunities.length;
       const closedCount = allOpportunities.filter(opportunity => opportunity.status === 'won').length;
       const unclosedCount = allOpportunities.filter(opportunity => opportunity.status === 'open').length;
-
-
+      
       setClosed(closedCount);
       setUnclosed(unclosedCount);
     } catch (error) {
@@ -238,7 +253,7 @@ total_contacts = allOpportunities.length;
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const prevImportantNotes = () => {
     importantNotesRef.current?.tns.goTo("prev");

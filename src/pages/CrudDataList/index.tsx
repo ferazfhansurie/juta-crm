@@ -31,6 +31,7 @@ const auth = getAuth(app);
 const firestore = getFirestore(app);
 
 interface Contact {
+  conversation_id: string;
   additionalEmails: string[];
   address1: string | null;
   assignedTo: string | null;
@@ -58,9 +59,47 @@ interface Contact {
   tags: string[];
   type: string;
   website: string | null;
+  chat: Chat[];
+  last_message?: Message | null;
+  chat_id: string;
+  unreadCount:number;
 
 }
-
+interface Chat {
+  id?: string;
+  name?: string;
+  last_message?: Message | null;
+  labels?: Label[];
+  contact_id?: string;
+  tags?: string[];
+}
+interface Label {
+  id: string;
+  name: string;
+  color: string;
+  count: number;
+}
+interface Message {
+  dateAdded: number;
+  timestamp: number;
+  id: string;
+  text?: { body: string | "" };
+  from_me?: boolean;
+  createdAt: number;
+  type?: string;
+  image?: { link?: string; caption?: string };
+  document?: {
+    file_name: string;
+    file_size: number;
+    filename: string;
+    id: string;
+    link: string;
+    mime_type: string;
+    page_count: number;
+    preview: string;
+    sha256: string;
+  };
+}
 interface Employee {
   id: string;
   name: string;
@@ -326,11 +365,11 @@ const handleConfirmDeleteTag = async () => {
         console.log('No such document for user!');
         return;
       }
-
+  
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
       setShowAddUserButton(userData.role === "1");
-
+  
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
@@ -338,25 +377,111 @@ const handleConfirmDeleteTag = async () => {
         return;
       }
       const companyData = docSnapshot.data();
-     
+  
       await setDoc(doc(firestore, 'companies', companyId), {
         access_token: companyData.access_token,
         refresh_token: companyData.refresh_token,
       }, { merge: true });
-
+  
       await searchContacts(companyData.access_token, companyData.location_id);
-
+  
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
-
+  
       const employeeListData: Employee[] = [];
       employeeSnapshot.forEach((doc) => {
         employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
       });
-     
+  
       setEmployeeList(employeeListData);
       const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
-      await fetchTags(companyData.access_token,companyData.location_id,employeeNames);
+      await fetchTags(companyData.access_token, companyData.location_id, employeeNames);
+  
+      const chatResponse = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${companyData.whapiToken}`);
+      if (!chatResponse.ok) throw new Error('Failed to fetch chats');
+      const chatData = await chatResponse.json();
+      console.log(chatData);
+  
+      const mappedChats = await Promise.all(
+        chatData.chats.map(async (chat: { id: string; last_message: any; name: any; }) => {
+          if (!chat.id) return null;
+          const phoneNumber = `+${chat.id.split('@')[0]}`;
+          let contact = contacts.find(contact => contact.phone === phoneNumber);
+          let unreadCount = 0;
+          if (userData.notifications !== undefined) {
+            unreadCount = userData.notifications.filter((notif: { chat_id: string; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
+          }
+  
+          if (contact) {
+            contact.chat_id = chat.id;
+            contact.last_message = chat.last_message;
+            contact.unreadCount = unreadCount ?? 0;
+            contact.id = contact.id;
+          } else {
+            await getContact(chat.name, phoneNumber, companyData.location_id, companyData.access_token);
+          }
+  
+          return {
+            ...chat,
+            tags: contact ? contact.tags : [],
+            name: contact ? contact.contactName : chat.name,
+            lastMessageBody: '',
+            id: chat.id,
+            contact_id: contact ? contact.id : "",
+            unreadCount,
+          };
+        }).filter(Boolean)
+      );
+  
+      // Merge WhatsApp contacts with existing contacts
+      mappedChats.forEach((chat: { id: string; last_message: any; unreadCount: any; tags: any; contact_id: any; name: any; }) => {
+        if (chat.id) {
+          const phoneNumber = `+${chat.id.split('@')[0]}`;
+          const existingContact = contacts.find(contact => contact.phone === phoneNumber);
+          if (existingContact) {
+            existingContact.chat_id = chat.id;
+            existingContact.last_message = chat.last_message || existingContact.last_message;
+            existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
+            existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
+          } else {
+            contacts.push({
+              id: chat.contact_id,
+              phone: phoneNumber,
+              contactName: chat.name,
+              last_message: chat.last_message || null,
+              tags: chat.tags,
+              conversation_id: chat.id,
+              unreadCount: chat.unreadCount,
+              additionalEmails: [],
+              address1: null,
+              assignedTo: null,
+              businessId: null,
+              city: null,
+              companyName: null,
+              country: "",
+              customFields: [],
+              dateAdded: "",
+              dateOfBirth: null,
+              dateUpdated: "",
+              dnd: false,
+              dndSettings: undefined,
+              email: null,
+              firstName: "",
+              followers: [],
+              lastName: "",
+              locationId: "",
+              postalCode: null,
+              source: null,
+              state: null,
+              type: "",
+              website: null,
+              chat: [],
+              chat_id: ""
+            });
+          }
+        }
+      });
+  
     } catch (error) {
       console.error('Error fetching company data:', error);
     }
@@ -396,7 +521,31 @@ const handleConfirmDeleteTag = async () => {
       await searchContacts(companyData.access_token, companyData.location_id);
     }
   };
-
+  async function getContact(name: any, number: string, location: any, access_token: any) {
+    const options = {
+      method: 'POST',
+      url: 'https://services.leadconnectorhq.com/contacts/',
+      data: {
+        firstName: name,
+        name: name,
+        locationId: location,
+        phone: number,
+      },
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+        Version: '2021-07-28',
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      }
+    };
+    try {
+      const response = await axios.request(options);
+      return response.data.contact;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
 const handleRemoveTag = async (contactId: string, tagName: string) => {
   const user = auth.currentUser;
 
@@ -732,14 +881,16 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       console.error('Error sending message:', error);
     }
   }
-  
+  const totalContacts = contacts.length;
   return (
     <>
 <div className="grid grid-cols-12 gap-6 mt-5">
   <div className="flex flex-wrap items-center col-span-12 mt-2 intro-y sm:flex-nowrap">
  
     <div className="w-full mt-3 sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
-      
+    <div className="ml-4">
+            <span className="text-lg font-semibold">Total Contacts: {totalContacts}</span>
+          </div> 
       <div className="relative w-[500px] text-slate-500 p-4">
         
         <FormInput
@@ -756,12 +907,12 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       </div>
     </div>
     <div className="ml-4">
-    
+  
     
         
    
     </div>
-
+   
   </div>
 
 

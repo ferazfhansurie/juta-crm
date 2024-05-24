@@ -236,60 +236,19 @@ function Main() {
     setNewMessage(text);
     setIsQuickRepliesOpen(false);
   };
-  useEffect(() => {
-    let inProgress = false;
-  
-    const unsubscribe = onSnapshot(
-      doc(firestore, 'companies', '014'),
-      async (snapshot) => {
-        if (snapshot.exists() && !inProgress) {
-          inProgress = true;
-          const dataUser = snapshot.data();
-          for (const notification of dataUser.notifications) {
-            if (selectedChatId === notification.chat_id) {
-              await fetchMessagesBackground(selectedChatId!, whapiToken!);
-            } else {
-              const newCompanyId = dataUser.companyId;
-              const docRef = doc(firestore, 'companies', newCompanyId);
-              const docSnapshot = await getDoc(docRef);
-              if (!docSnapshot.exists()) {
-                console.log('No such document!');
-                continue;
-              }
-              const data = docSnapshot.data();
-              setGhlConfig({
-                ghl_id: data.ghl_id,
-                ghl_secret: data.ghl_secret,
-                refresh_token: data.refresh_token,
-                access_token: data.access_token,
-                location_id: data.location_id,
-                whapiToken: data.whapiToken,
-              });
-              const user_name = dataUser.name;
-              await fetchContactsBackground(
-                data.whapiToken,
-                data.location_id,
-                data.access_token,
-                user_name
-              );
-            }
-          }
-          inProgress = false;
-        }
-      }
-    );
-  
-    return () => unsubscribe();
-  }, [companyId, selectedChatId]);
+
+
   
   useEffect(() => {
     const unsubscribe = onSnapshot(
       doc(firestore, 'user', auth.currentUser?.email!),
-      (snapshot) => {
+      async (snapshot) => {
         if (snapshot.exists()) {
           const dataUser = snapshot.data();
-          dataUser.notifications.forEach(async (notification: any) => {
-            if (selectedChatId === notification.chat_id) {
+          if (dataUser.notifications && dataUser.notifications.length > 0) {
+            const latestNotification = dataUser.notifications[dataUser.notifications.length - 1];
+            
+            if (selectedChatId === latestNotification.chat_id) {
               fetchMessagesBackground(selectedChatId!, whapiToken!);
             } else {
               const newCompanyId = dataUser.companyId;
@@ -316,13 +275,13 @@ function Main() {
                 user_name
               );
             }
-          });
+          }
         }
       }
     );
   
     return () => unsubscribe();
-  }, [companyId, selectedChatId]);
+  }, [companyId, selectedChatId, whapiToken]);
 
   async function fetchConfigFromDatabase() {
     const user = auth.currentUser;
@@ -491,7 +450,7 @@ function Main() {
         user_role = dataUser.role;
 
         // Process chat data
-        const mappedChats = chatData.chats.map((chat: { id: string; last_message: any; name: any; }) => {
+        const mappedChats = chatData.chats.map(async (chat: { id: string; last_message: any; name: any; }) => {
             if (!chat.id) return null;
             const phoneNumber = `+${chat.id.split('@')[0]}`;
             let contact = contacts.find(contact => contact.phone === phoneNumber);
@@ -506,6 +465,8 @@ function Main() {
                 contact.chat = chat;
                 contact.unreadCount = unreadCount ?? 0;
                 contact.id = contact.id;
+            }else{
+              //await getContact(chat.name,phoneNumber,locationId,ghlToken);
             }
             return {
                 ...chat,
@@ -520,27 +481,30 @@ function Main() {
 
             // Merge WhatsApp contacts with existing contacts
             mappedChats.forEach((chat: { id: string; last_message: any; unreadCount: any; tags: any; contact_id: any; name: any; }) => {
-              const phoneNumber = `+${chat.id.split('@')[0]}`;
-              const existingContact = contacts.find(contact => contact.phone === phoneNumber);
-              if (existingContact) {
-                  existingContact.chat_id = chat.id;
-                  existingContact.last_message = chat.last_message || existingContact.last_message;
-                  existingContact.chat = chat;
-                  existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
-                  existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
-              } else {
-                  contacts.push({
-                      id: chat.contact_id,
-                      phone: phoneNumber,
-                      contactName: chat.name,
-                      chat_id: chat.id,
-                      last_message: chat.last_message || null,
-                      chat: chat,
-                      tags: chat.tags,
-                      conversation_id: chat.id,
-                      unreadCount: chat.unreadCount,
-                  });
+              if(chat.id){
+                const phoneNumber = `+${chat.id.split('@')[0]}`;
+                const existingContact = contacts.find(contact => contact.phone === phoneNumber);
+                if (existingContact) {
+                    existingContact.chat_id = chat.id;
+                    existingContact.last_message = chat.last_message || existingContact.last_message;
+                    existingContact.chat = chat;
+                    existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
+                    existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
+                } else {
+                    contacts.push({
+                        id: chat.contact_id,
+                        phone: phoneNumber,
+                        contactName: chat.name,
+                        chat_id: chat.id,
+                        last_message: chat.last_message || null,
+                        chat: chat,
+                        tags: chat.tags,
+                        conversation_id: chat.id,
+                        unreadCount: chat.unreadCount,
+                    });
+                }
               }
+ 
           });
      
         // Merge and update contacts with conversations
@@ -689,7 +653,7 @@ const getTimestamp = (timestamp: any): number => {
 
 const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
   try {
-
+  
     // Parallelize initial fetch operations including fetchTags
     const [tags, chatResponse, conversations, contacts, employeeSnapshot, enquirySnapshot] = await Promise.all([
         fetchTags(ghlToken, locationId),
@@ -715,7 +679,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     user_role = dataUser.role;
 
     // Process chat data
-    const mappedChats = chatData.chats.map((chat: { id: string; last_message: any; name: any; }) => {
+    const mappedChats = chatData.chats.map(async (chat: { id: string; last_message: any; name: any; }) => {
         if (!chat.id) return null;
         const phoneNumber = `+${chat.id.split('@')[0]}`;
         let contact = contacts.find(contact => contact.phone === phoneNumber);
@@ -730,6 +694,8 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             contact.chat = chat;
             contact.unreadCount = unreadCount ?? 0;
             contact.id = contact.id;
+        }else{
+       await getContact(chat.name,phoneNumber,locationId,ghlToken);
         }
         return {
             ...chat,
@@ -744,27 +710,30 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
 
         // Merge WhatsApp contacts with existing contacts
         mappedChats.forEach((chat: { id: string; last_message: any; unreadCount: any; tags: any; contact_id: any; name: any; }) => {
-          const phoneNumber = `+${chat.id.split('@')[0]}`;
-          const existingContact = contacts.find(contact => contact.phone === phoneNumber);
-          if (existingContact) {
-              existingContact.chat_id = chat.id;
-              existingContact.last_message = chat.last_message || existingContact.last_message;
-              existingContact.chat = chat;
-              existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
-              existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
-          } else {
-              contacts.push({
-                  id: chat.contact_id,
-                  phone: phoneNumber,
-                  contactName: chat.name,
-                  chat_id: chat.id,
-                  last_message: chat.last_message || null,
-                  chat: chat,
-                  tags: chat.tags,
-                  conversation_id: chat.id,
-                  unreadCount: chat.unreadCount,
-              });
+          if(chat.id){
+            const phoneNumber = `+${chat.id.split('@')[0]}`;
+            const existingContact = contacts.find(contact => contact.phone === phoneNumber);
+            if (existingContact) {
+                existingContact.chat_id = chat.id;
+                existingContact.last_message = chat.last_message || existingContact.last_message;
+                existingContact.chat = chat;
+                existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
+                existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
+            } else {
+                contacts.push({
+                    id: chat.contact_id,
+                    phone: phoneNumber,
+                    contactName: chat.name,
+                    chat_id: chat.id,
+                    last_message: chat.last_message || null,
+                    chat: chat,
+                    tags: chat.tags,
+                    conversation_id: chat.id,
+                    unreadCount: chat.unreadCount,
+                });
+            }
           }
+
       });
  
     // Merge and update contacts with conversations
@@ -867,7 +836,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
 } catch (error) {
     console.error('Failed to fetch contacts:', error);
 } finally {
-  
+
 }
 };
   async function searchConversations(accessToken: any, locationId: any): Promise<any[]> {
