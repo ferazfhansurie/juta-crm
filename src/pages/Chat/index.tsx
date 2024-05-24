@@ -163,8 +163,8 @@ function Main() {
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState(contacts);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const myMessageClass = "bg-blue-500 text-white rounded-md p-2 self-end ml-auto text-right";
-  const otherMessageClass = "bg-gray-700 text-white rounded-md p-2 self-start text-left";
+  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-4 bg-blue-500 text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-right";
+  const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-2 self-start text-left";
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [ghlConfig, setGhlConfig] = useState<GhlConfig | null>(null);
@@ -1805,7 +1805,7 @@ const handleForwardMessage = async () => {
   <div className="relative flex-grow">
     <input
       type="text"
-      className="w-full py-1 pl-10 pr-4 bg-gray-100 text-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
+      className="!box w-full py-1 pl-10 pr-4 bg-gray-100 text-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
       placeholder="Search..."
       value={searchQuery}
       onChange={handleSearchChange}
@@ -1908,14 +1908,14 @@ const handleForwardMessage = async () => {
           </div>
      
           <label className="inline-flex items-center cursor-pointer">
-            <input
+          <input
               type="checkbox"
               value=""
               className="sr-only peer"
               checked={contact.tags?.includes("stop bot")}
               onChange={() => toggleStopBotLabel(contact.chat, index, contact)}
             />
-            <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-900 border-2 border-blue-500 p-1">
+            <div className="relative w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600">
             </div>
           </label>
         </div>
