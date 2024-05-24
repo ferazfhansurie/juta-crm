@@ -153,6 +153,7 @@ console.log(response);
         if (response.status === 201) {
             toast.success("Contact added successfully!");
             setAddContactModal(false);
+            setContacts(prevContacts => [...prevContacts, response.data.contact]); // Update the contacts state
             setNewContact({
                 firstName: '',
                 lastName: '',
@@ -564,10 +565,10 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
 
             const response = await axios.request(options);
             if (response.status === 200) {
-                setContacts(contacts.filter(contact => contact.id !== currentContact.id));
-                setDeleteConfirmationModal(false);
-                setCurrentContact(null);
-                toast.success("Contact deleted successfully!");
+              setContacts(prevContacts => prevContacts.filter(contact => contact.id !== currentContact.id));
+              setDeleteConfirmationModal(false);
+              setCurrentContact(null);
+              toast.success("Contact deleted successfully!");
             } else {
                 console.error('Failed to delete contact:', response.statusText);
                 toast.error("Failed to delete contact.");
@@ -1016,7 +1017,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
         <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md">
             <div className="flex items-center p-4 border-b  ">
                 <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-                    <span className="text-xl">{currentContact?.firstName.charAt(0).toUpperCase()}</span>
+                    <span className="text-xl">{(currentContact?.firstName)?currentContact?.firstName.charAt(0).toUpperCase():""}</span>
                 </div>
                 <div>
                
@@ -1107,6 +1108,8 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
             placeholder="Type your message here..."
             value={blastMessage}
             onChange={(e) => setBlastMessage(e.target.value)}
+            rows={3}  // Adjust the rows attribute as needed
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
           ></textarea>
           <div className="flex justify-end mt-4">
             <button
