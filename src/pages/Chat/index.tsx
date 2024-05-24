@@ -935,18 +935,15 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     if(iconId == 'ws'){
       fetchMessages(selectedChatId, whapiToken!);
     }else if (iconId === 'mail'){
-     fetchEnquiries(selectedChatId);
+     fetchEnquiries(selectedContact.email);
     }else if(iconId == 'fb'||iconId =='ig'){
       fetchConversationMessages(id,selectedContact);
     }
   };
-  async function fetchConversationMessages(conversationId: string,contact?:any) {
+  async function fetchConversationMessages(conversationId: string,contact:any) {
     if (!conversationId) return;
-if(contact.last_message.type != 'TYPE_INSTAGRAM'){
-  setSelectedIcon('fb');
-}else{
-  setSelectedIcon('ig');
-}
+    console.log(contact);
+    console.log(selectedIcon);
     const auth = getAuth(app);
     const user = auth.currentUser;
     try {
@@ -1001,6 +998,12 @@ if(contact.last_message.type != 'TYPE_INSTAGRAM'){
       }else if (selectedContact.enquiries != undefined){
        fetchEnquiries(selectedContact.email);
       }else{
+        console.log(selectedContact.last_message.type);
+        if(selectedContact.last_message.type != 'TYPE_INSTAGRAM'){
+          setSelectedIcon('fb');
+        }else{
+          setSelectedIcon('ig');
+        }
         fetchConversationMessages(selectedChatId,selectedContact);
       }
     }
@@ -1227,6 +1230,7 @@ if(contact.last_message.type != 'TYPE_INSTAGRAM'){
       console.log(response.data);
   
       console.log('Message sent successfully:', response.data);
+      toast.success("Message sent successfully!");
       fetchConversationMessages(contact.conversation_id,selectedContact);
     } catch (error) {
       console.error('Error sending message:', error);
