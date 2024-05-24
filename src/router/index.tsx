@@ -374,6 +374,10 @@ function Router() {
       element: <Register />,
     },
     {
+      path: "/gl",
+      element: <Register />,
+    },
+    {
       path: "/error-page",
       element: <ErrorPage />,
     },
