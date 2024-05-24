@@ -140,7 +140,7 @@ console.log("User updated successfully");
     company: company
     // Add any other required fields here
   };
-  const response = await fetch(`http://buds-359313.et.r.appspot.com//api/create-user/${userData.email}/${formatPhoneNumber(userData.phoneNumber)}/${userData.password}`, {
+  const response = await fetch(`http://buds-359313.et.r.appspot.com/api/create-user/${userData.email}/${formatPhoneNumber(userData.phoneNumber)}/${userData.password}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
