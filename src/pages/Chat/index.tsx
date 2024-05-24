@@ -639,7 +639,7 @@ function Main() {
         }
         setFilteredContacts(contacts);
         setFilteredContactsForForwarding(contacts);
- 
+        console.log(contacts);
     } catch (error) {
         console.error('Failed to fetch contacts:', error);
     } finally {
@@ -703,7 +703,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     if (!chatResponse.ok) throw new Error('Failed to fetch chats');
     const chatData = await chatResponse.json();
     const user = auth.currentUser;
-    console.log(conversations);
+
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
@@ -742,52 +742,53 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         };
     }).filter(Boolean);
 
-    // Merge WhatsApp contacts with existing contacts
-    mappedChats.forEach((chat: { id: string; last_message: any; unreadCount: any; tags: any; contact_id: any; name: any; }) => {
-        const phoneNumber = `+${chat.id.split('@')[0]}`;
-        const existingContact = contacts.find(contact => contact.phone === phoneNumber);
-        if (existingContact) {
-            existingContact.chat_id = chat.id;
-            existingContact.last_message = chat.last_message || existingContact.last_message;
-            existingContact.chat = chat;
-            existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
-            existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
-        } else {
-            contacts.push({
-                id: chat.contact_id,
-                phone: phoneNumber,
-                contactName: chat.name,
-                chat_id: chat.id,
-                last_message: chat.last_message || null,
-                chat: chat,
-                tags: chat.tags,
-                conversation_id: chat.id,
-                unreadCount: chat.unreadCount,
-            });
+        // Merge WhatsApp contacts with existing contacts
+        mappedChats.forEach((chat: { id: string; last_message: any; unreadCount: any; tags: any; contact_id: any; name: any; }) => {
+          const phoneNumber = `+${chat.id.split('@')[0]}`;
+          const existingContact = contacts.find(contact => contact.phone === phoneNumber);
+          if (existingContact) {
+              existingContact.chat_id = chat.id;
+              existingContact.last_message = chat.last_message || existingContact.last_message;
+              existingContact.chat = chat;
+              existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
+              existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
+          } else {
+              contacts.push({
+                  id: chat.contact_id,
+                  phone: phoneNumber,
+                  contactName: chat.name,
+                  chat_id: chat.id,
+                  last_message: chat.last_message || null,
+                  chat: chat,
+                  tags: chat.tags,
+                  conversation_id: chat.id,
+                  unreadCount: chat.unreadCount,
+              });
+          }
+      });
+ 
+    // Merge and update contacts with conversations
+         contacts.forEach(contact => {
+        const matchedConversation = conversations.find(conversation => conversation.contactId === contact.id);
+        if (matchedConversation) {
+          const currentcount =  (contact.unreadCount != undefined)?contact.unreadCount:0;
+            contact.conversation_id = matchedConversation.id;
+            contact.chat_id = contact.chat_id || matchedConversation.id;
+            contact.unreadCount = currentcount+ matchedConversation.unreadCount;
+            contact.conversations = contact.conversations || [];
+            contact.conversations.push(matchedConversation);
+            if (!contact.last_message) {
+                contact.last_message = {
+                    id: matchedConversation.id,
+                    text: { body: matchedConversation.lastMessageBody },
+                    from_me: matchedConversation.lastMessageDirection === 'outbound',
+                    createdAt: matchedConversation.lastMessageDate,
+                    type: matchedConversation.lastMessageType,
+                    image: undefined,
+                };
+            }
         }
     });
-    // Merge and update contacts with conversations
-    contacts.forEach(contact => {
-      const matchedConversation = conversations.find(conversation => conversation.contactId === contact.id);
-      if (matchedConversation) {
-        const currentcount =  (contact.unreadCount != undefined)?contact.unreadCount:0;
-          contact.conversation_id = matchedConversation.id;
-          contact.chat_id = contact.chat_id || matchedConversation.id;
-          contact.unreadCount = currentcount+ matchedConversation.unreadCount;
-          contact.conversations = contact.conversations || [];
-          contact.conversations.push(matchedConversation);
-          if (!contact.last_message) {
-              contact.last_message = {
-                  id: matchedConversation.id,
-                  text: { body: matchedConversation.lastMessageBody },
-                  from_me: matchedConversation.lastMessageDirection === 'outbound',
-                  createdAt: matchedConversation.lastMessageDate,
-                  type: matchedConversation.lastMessageType,
-                  image: undefined,
-              };
-          }
-      }
-  });
     // Ensure all contacts are unique and filter those with last messages
     // Fetch and update enquiries
     const employeeListData: Employee[] = [];
@@ -862,11 +863,11 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     }
     setFilteredContacts(contacts);
     setFilteredContactsForForwarding(contacts);
-
+    console.log(contacts);
 } catch (error) {
     console.error('Failed to fetch contacts:', error);
 } finally {
-   
+  
 }
 };
   async function searchConversations(accessToken: any, locationId: any): Promise<any[]> {
@@ -1044,44 +1045,38 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         employeeListData.push({ id: doc.id, ...doc.data() } as Enquiry);
       });
   
-      // Ensure the phone number has "+" and "6" prefix if missing
-
-  
-      const matchingEnquiry = employeeListData.find(enquiry => {
- 
-        return enquiry.email === email;
-      });
+      const matchingEnquiry = employeeListData.find(enquiry => enquiry.email === email);
   
       if (matchingEnquiry) {
         console.log('Matching enquiry found:', matchingEnquiry);
-        // Perform any additional operations with the matching enquiry
-    
-  
+
+        // Update the 'unread' status to true
+        const enquiryRef = doc(firestore, `companies/${companyId}/conversations`, matchingEnquiry.id);
+        await updateDoc(enquiryRef, { read: true });
+
         // Set messages using the data from the matching enquiry
         setMessages([
           {
             id: matchingEnquiry.id,
             text: { body: matchingEnquiry.message },
+            
             from_me: false, // Assuming the enquiry is inbound
             createdAt: getTimestamp(matchingEnquiry.timestamp), // Use the processed timestamp
-            timestamp:getTimestamp(matchingEnquiry.timestamp),
-            dateAdded:getTimestamp(matchingEnquiry.timestamp),
+            timestamp: getTimestamp(matchingEnquiry.timestamp),
+            dateAdded: getTimestamp(matchingEnquiry.timestamp),
             type: 'text',
             image: undefined, // Assuming there is no image field in the enquiry
           }
         ]);
       
-      }else{
+      } else {
         console.log('No matching enquiry found.');
-        setMessages([
-        
-        ]);
-      
+        setMessages([]);
       }
     } catch (error) {
       console.error('Failed to fetch enquiries:', error);
     }
-  }
+}
 
 
   async function fetchMessages(selectedChatId: string, whapiToken: string) {
@@ -1886,7 +1881,7 @@ const handleForwardMessage = async () => {
             {contact.unreadCount > 0 && (
               <span className="bg-blue-900 text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
             )}
-             {contact.chat != undefined && (
+             {contact.chat_id != undefined && (
               <span>   <img
               className={`source-button}`}
               src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon4.png?alt=media&token=d4ab65b6-9b90-4aca-9d69-6263300a91ec"
