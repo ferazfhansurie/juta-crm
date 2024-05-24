@@ -573,16 +573,15 @@ console.log(response);
       </div>
     </div>
     <div className="ml-4">
-    
       <Menu>
         {showAddUserButton && (
-          <Menu.Button as={Button} className="px-2 !box">
+          <Menu.Button as={Button} className="flex flex-wrap items-center justify-center col-span-12 px-2 py-2 mt-2 mx-2 mb-2 intro-y sm:flex-nowrap !box">
             <span className="flex items-center justify-center w-5 h-5">
               <Lucide icon="Tag" className="w-5 h-5" />
             </span>
           </Menu.Button>
         )}
-        <Menu.Items className="w-40">
+        <Menu.Items className="w-60 mt-4">
           {employeeList.map((employee) => (
             <Menu.Item key={employee.id}>
               <span
@@ -597,7 +596,7 @@ console.log(response);
         </Menu.Items>
       </Menu>
     </div>
-    <div ml-4>
+    <div className="ml-0">
     <button 
       type="button"
       className="flex flex-wrap items-center justify-center col-span-12 !box focus:outline-none text-blue-600 bg-gray-800 hover:bg-gray-600 font-medium rounded-lg text-md px-2 py-2 mt-2 mx-2 mb-2 intro-y sm:flex-nowrap" 
@@ -610,8 +609,8 @@ console.log(response);
     </div>
     <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
       <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-        <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md">
-          <div className="mb-4 text-lg font-semibold">Send Blast Message</div>
+        <Dialog.Panel className="w-full max-w-md mt-40 p-6 bg-white rounded-md">
+          <div className="mt-4 mb-4 text-lg font-semibold">Send Blast Message</div>
           <textarea
             className="w-full p-2 border rounded"
             placeholder="Type your message here..."
@@ -706,7 +705,7 @@ console.log(response);
       </div>
       <Dialog open={addContactModal} onClose={() => setAddContactModal(false)}>
                 <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-                    <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md">
+                    <Dialog.Panel className="w-full max-w-md mt-24 p-6 bg-white rounded-md">
                         <div className="flex items-center p-4 border-b">
                             <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
                                 <Lucide icon="User" className="w-6 h-6" />
@@ -792,7 +791,7 @@ console.log(response);
       <Dialog open={editContactModal} onClose={() => setEditContactModal(false)}>
 
     <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-        <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md">
+        <Dialog.Panel className="w-full max-w-md mt-24 p-6 bg-white rounded-md">
             <div className="flex items-center p-4 border-b  ">
                 <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
                     <span className="text-xl">{currentContact?.firstName.charAt(0).toUpperCase()}</span>

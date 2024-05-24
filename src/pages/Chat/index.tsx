@@ -1777,10 +1777,10 @@ const handleForwardMessage = async () => {
     <div className="relative mr-3 intro-x sm:mr-6"></div>
     <div className="relative hidden sm:block p-4">
     <div className="flex items-center space-x-2">
-  <div className="relative flex-grow">
+  <div className="relative flex-start">
     <input
       type="text"
-      className="w-[350px] h-[40px] !box pr-2 text-md py-2 pl-9 bg-gray-200 text-gray-700 rounded-md focus:bg-gray-200"
+      className="w-[320px] h-[40px] !box pr-2 text-md py-2 pl-9 bg-gray-200 text-gray-700 rounded-md focus:bg-gray-200"
       placeholder="Search..."
       value={searchQuery}
       onChange={handleSearchChange}
