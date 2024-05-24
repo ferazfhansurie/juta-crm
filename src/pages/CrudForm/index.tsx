@@ -7,6 +7,8 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { useLocation } from 'react-router-dom';
 import { FormInput, FormLabel } from "@/components/Base/Form";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -120,6 +122,7 @@ console.log("User updated successfully");
   await updateDoc(doc(firestore, `companies/${companyId}/employee`, contactId), userDataToSend);
   await updateDoc(doc(firestore, 'user', userData.email), userDataToSend);
   console.log("Contact updated successfully");
+  toast.success("User updated successfully");
   setUserData({
     name: userData.name,
     phoneNumber: userData.phoneNumber,
@@ -151,6 +154,7 @@ console.log("User updated successfully");
   await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
   await setDoc(doc(firestore, `companies/${companyId}/employee`, userData.email), userDataToSend);
   console.log("User created successfully");
+  toast.success("User created successfully");
   setErrorMessage('');
   setUserData({
     name: "",
