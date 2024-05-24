@@ -695,7 +695,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             contact.unreadCount = unreadCount ?? 0;
             contact.id = contact.id;
         }else{
-       await getContact(chat.name,phoneNumber,locationId,ghlToken);
+       //await getContact(chat.name,phoneNumber,locationId,ghlToken);
         }
         return {
             ...chat,

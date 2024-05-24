@@ -383,8 +383,8 @@ const handleConfirmDeleteTag = async () => {
         refresh_token: companyData.refresh_token,
       }, { merge: true });
   
-      await searchContacts(companyData.access_token, companyData.location_id);
-  
+await searchContacts(companyData.access_token, companyData.location_id, companyData.whapiToken);
+
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
   
@@ -397,91 +397,7 @@ const handleConfirmDeleteTag = async () => {
       const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
       await fetchTags(companyData.access_token, companyData.location_id, employeeNames);
   
-      const chatResponse = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${companyData.whapiToken}`);
-      if (!chatResponse.ok) throw new Error('Failed to fetch chats');
-      const chatData = await chatResponse.json();
-      console.log(chatData);
-  
-      const mappedChats = await Promise.all(
-        chatData.chats.map(async (chat: { id: string; last_message: any; name: any; }) => {
-          if (!chat.id) return null;
-          const phoneNumber = `+${chat.id.split('@')[0]}`;
-          let contact = contacts.find(contact => contact.phone === phoneNumber);
-          let unreadCount = 0;
-          if (userData.notifications !== undefined) {
-            unreadCount = userData.notifications.filter((notif: { chat_id: string; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
-          }
-  
-          if (contact) {
-            contact.chat_id = chat.id;
-            contact.last_message = chat.last_message;
-            contact.unreadCount = unreadCount ?? 0;
-            contact.id = contact.id;
-          } else {
-            await getContact(chat.name, phoneNumber, companyData.location_id, companyData.access_token);
-          }
-  
-          return {
-            ...chat,
-            tags: contact ? contact.tags : [],
-            name: contact ? contact.contactName : chat.name,
-            lastMessageBody: '',
-            id: chat.id,
-            contact_id: contact ? contact.id : "",
-            unreadCount,
-          };
-        }).filter(Boolean)
-      );
-  
-      // Merge WhatsApp contacts with existing contacts
-      mappedChats.forEach((chat: { id: string; last_message: any; unreadCount: any; tags: any; contact_id: any; name: any; }) => {
-        if (chat.id) {
-          const phoneNumber = `+${chat.id.split('@')[0]}`;
-          const existingContact = contacts.find(contact => contact.phone === phoneNumber);
-          if (existingContact) {
-            existingContact.chat_id = chat.id;
-            existingContact.last_message = chat.last_message || existingContact.last_message;
-            existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
-            existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
-          } else {
-            contacts.push({
-              id: chat.contact_id,
-              phone: phoneNumber,
-              contactName: chat.name,
-              last_message: chat.last_message || null,
-              tags: chat.tags,
-              conversation_id: chat.id,
-              unreadCount: chat.unreadCount,
-              additionalEmails: [],
-              address1: null,
-              assignedTo: null,
-              businessId: null,
-              city: null,
-              companyName: null,
-              country: "",
-              customFields: [],
-              dateAdded: "",
-              dateOfBirth: null,
-              dateUpdated: "",
-              dnd: false,
-              dndSettings: undefined,
-              email: null,
-              firstName: "",
-              followers: [],
-              lastName: "",
-              locationId: "",
-              postalCode: null,
-              source: null,
-              state: null,
-              type: "",
-              website: null,
-              chat: [],
-              chat_id: ""
-            });
-          }
-        }
-      });
-  
+
     } catch (error) {
       console.error('Error fetching company data:', error);
     }
@@ -518,7 +434,7 @@ const handleConfirmDeleteTag = async () => {
           console.log(`Tag "${tagName}" added to contact with ID ${contact.id}`);
         }
       }
-      await searchContacts(companyData.access_token, companyData.location_id);
+      await searchContacts(companyData.access_token, companyData.location_id, companyData.whapiToken);
     }
   };
   async function getContact(name: any, number: string, location: any, access_token: any) {
@@ -634,7 +550,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
     }
   }
 
-  async function searchContacts(accessToken: any, locationId: any) {
+  async function searchContacts(accessToken: any, locationId: any,whapiToken:string) {
     setLoading(true);
     try {
       let allContacts: any[] = [];
@@ -663,6 +579,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       const filteredContacts = allContacts.filter(contact => contact.phone !== null);
       setContacts(filteredContacts);
       setLoading(false);
+      
     } catch (error) {
       console.error('Error searching contacts:', error);
       setLoading(false);
