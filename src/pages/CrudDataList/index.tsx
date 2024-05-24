@@ -66,7 +66,13 @@ interface Employee {
   name: string;
   role: string;
 }
-
+interface Tag {
+  id: string;
+  name: string;
+}
+interface TagsState {
+  [key: string]: string[];
+}
 function Main() {
   const [deleteConfirmationModal, setDeleteConfirmationModal] = useState(false);
   const [editContactModal, setEditContactModal] = useState(false);
@@ -82,8 +88,19 @@ function Main() {
   const [currentContact, setCurrentContact] = useState<Contact | null>(null);
   const [isTabOpen, setIsTabOpen] = useState(false);
   const [addContactModal, setAddContactModal] = useState(false);
+<<<<<<< HEAD
   const [blastMessageModal, setBlastMessageModal] = useState(false);
   const [blastMessage, setBlastMessage] = useState("");
+=======
+  const [tagList, setTagList] = useState<Tag[]>([]);
+    const [newTag, setNewTag] = useState("");
+  const [showAddTagModal, setShowAddTagModal] = useState(false);
+  const [showDeleteTagModal, setShowDeleteTagModal] = useState(false);
+const [tagToDelete, setTagToDelete] = useState<Tag | null>(null);
+const [tags, setTags] = useState<TagsState>({}); 
+const [blastMessageModal, setBlastMessageModal] = useState(false);
+const [blastMessage, setBlastMessage] = useState("");
+>>>>>>> 839fa4944a3b87c957addabce6f253add8457b16
   const [newContact, setNewContact] = useState({
       firstName: '',
       lastName: '',
@@ -115,6 +132,7 @@ function Main() {
       }
       const companyData = docSnapshot.data();
         const accessToken = companyData.access_token; // Replace with your actual access token
+      
         newContact.locationId =companyData.location_id;
         const apiUrl = 'https://services.leadconnectorhq.com/contacts';
         const options = {
@@ -140,6 +158,7 @@ console.log(response);
         if (response.status === 201) {
             toast.success("Contact added successfully!");
             setAddContactModal(false);
+            setContacts(prevContacts => [...prevContacts, response.data.contact]); // Update the contacts state
             setNewContact({
                 firstName: '',
                 lastName: '',
@@ -158,7 +177,101 @@ console.log(response);
         toast.error("An error occurred while adding the contact." + error);
     }
 };
+const handleSaveNewTag = async () => {
+  try {
+    const user = auth.currentUser;
+    const docUserRef = doc(firestore, 'user', user?.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.log('No such document for user!');
+      return;
+    }
+    const userData = docUserSnapshot.data();
+    const companyId = userData.companyId;
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) {
+      console.log('No such document for company!');
+      return;
+    }
+    const companyData = docSnapshot.data();
+    const accessToken = companyData.access_token;
+    const locationId = companyData.location_id;
 
+    const apiUrl = `https://services.leadconnectorhq.com/locations/${locationId}/tags`;
+    const options = {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Version: '2021-07-28',
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      data: {
+        name: newTag
+      }
+    };
+
+    const response = await axios(apiUrl, options);
+    console.log(response.data);
+    setTagList([...tagList, response.data.tag]);
+    setShowAddTagModal(false);
+    setNewTag("");
+    toast.success("Tag added successfully!");
+  } catch (error) {
+    console.error('Error adding tag:', error);
+    toast.error("An error occurred while adding the tag.");
+  }
+};
+
+const handleConfirmDeleteTag = async () => {
+  if (!tagToDelete) return;
+
+  try {
+    const user = auth.currentUser;
+    const docUserRef = doc(firestore, 'user', user?.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.log('No such document for user!');
+      return;
+    }
+    const userData = docUserSnapshot.data();
+    const companyId = userData.companyId;
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) {
+      console.log('No such document for company!');
+      return;
+    }
+    const companyData = docSnapshot.data();
+    const accessToken = companyData.access_token;
+    const locationId = companyData.location_id;
+
+    const apiUrl = `https://services.leadconnectorhq.com/locations/${locationId}/tags/${tagToDelete.id}`;
+    const options = {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Version: '2021-07-28',
+        Accept: 'application/json'
+      }
+    };
+
+    const response = await axios(apiUrl, options);
+    if (response.status === 200) {
+      setTagList(tagList.filter(tag => tag.id !== tagToDelete.id));
+      setShowDeleteTagModal(false);
+      setTagToDelete(null);
+      toast.success("Tag deleted successfully!");
+    } else {
+      console.error('Failed to delete tag:', response.statusText);
+      toast.error("Failed to delete tag.");
+    }
+  } catch (error) {
+    console.error('Error deleting tag:', error);
+    toast.error("An error occurred while deleting the tag.");
+  }
+};
   const handleEyeClick = () => {
     setIsTabOpen(!isTabOpen);
   };
@@ -184,7 +297,31 @@ console.log(response);
       setSelectedContacts([]);
     }
   };
+  const fetchTags = async (token:string, location:string, employeeList: string[]) => {
+    try {
+      const options = {
+        method: 'GET',
+        url: `https://services.leadconnectorhq.com/locations/${location}/tags`,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Version: '2021-07-28',
+        },
+      };
+      const response = await axios.request(options);
+      console.log('tags', response.data.tags);
+      
+      // Extract employee names to filter tags
 
+  console.log(employeeList);
+      // Filter out tags that match with employeeList
+      const filteredTags = response.data.tags.filter((tag: Tag) => !employeeList.includes(tag.name));
+      
+      setTagList(filteredTags);
+    } catch (error) {
+      console.error('Error searching tags:', error);
+      return [];
+    }
+  };
   async function fetchCompanyData() {
     const user = auth.currentUser;
     try {
@@ -206,7 +343,7 @@ console.log(response);
         return;
       }
       const companyData = docSnapshot.data();
-
+     
       await setDoc(doc(firestore, 'companies', companyId), {
         access_token: companyData.access_token,
         refresh_token: companyData.refresh_token,
@@ -221,12 +358,14 @@ console.log(response);
       employeeSnapshot.forEach((doc) => {
         employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
       });
+     
       setEmployeeList(employeeListData);
+      const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
+      await fetchTags(companyData.access_token,companyData.location_id,employeeNames);
     } catch (error) {
       console.error('Error fetching company data:', error);
     }
   }
-
   const handleAddTagToSelectedContacts = async (selectedEmployee: string) => {
     setSelectedContacts([]);
     const user = auth.currentUser;
@@ -247,11 +386,6 @@ console.log(response);
     }
     const companyData = docSnapshot.data();
 
-    await setDoc(doc(firestore, 'companies', companyId), {
-      access_token: companyData.access_token,
-      refresh_token: companyData.refresh_token,
-    }, { merge: true });
-
     if (selectedEmployee) {
       const tagName = selectedEmployee;
       const selectedContactsCopy = [...selectedContacts];
@@ -268,6 +402,67 @@ console.log(response);
     }
   };
 
+const handleRemoveTag = async (contactId: string, tagName: string) => {
+  const user = auth.currentUser;
+
+  const docUserRef = doc(firestore, 'user', user?.email!);
+  const docUserSnapshot = await getDoc(docUserRef);
+  if (!docUserSnapshot.exists()) {
+    console.log('No such document for user!');
+    return;
+  }
+  const userData = docUserSnapshot.data();
+  const companyId = userData.companyId;
+  const docRef = doc(firestore, 'companies', companyId);
+  const docSnapshot = await getDoc(docRef);
+  if (!docSnapshot.exists()) {
+    console.log('No such document for company!');
+    return;
+  }
+  const companyData = docSnapshot.data();
+  console.log(companyData.access_token);
+  const url = `https://services.leadconnectorhq.com/contacts/${contactId}/tags`;
+  const options = {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${companyData.access_token}`,
+      Version: '2021-07-28',
+      Accept: 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      tags: [tagName]
+    })
+  };
+
+  try {
+    const response = await fetch(url, options);
+    console.log(response.body);
+    if (response.ok) {
+      setTags((prevTags) => ({
+        ...prevTags,
+        [contactId]: (prevTags[contactId] || []).filter((tag) => tag !== tagName)
+      }));
+
+      // Update the contacts state
+      setContacts((prevContacts) =>
+        prevContacts.map((contact) =>
+          contact.id === contactId
+            ? { ...contact, tags: contact.tags.filter((tag) => tag !== tagName) }
+            : contact
+        )
+      );
+
+      toast.success("Tag removed successfully!");
+    } else {
+      console.error('Failed to remove tag', await response.json());
+      toast.error("Failed to remove tag.");
+    }
+  } catch (error) {
+    console.error('Error removing tag', error);
+    toast.error("An error occurred while removing the tag.");
+  }
+};
   async function updateContactTags(contactId: any, accessToken: any, tags: any) {
     try {
       const options = {
@@ -375,10 +570,10 @@ console.log(response);
 
             const response = await axios.request(options);
             if (response.status === 200) {
-                setContacts(contacts.filter(contact => contact.id !== currentContact.id));
-                setDeleteConfirmationModal(false);
-                setCurrentContact(null);
-                toast.success("Contact deleted successfully!");
+              setContacts(prevContacts => prevContacts.filter(contact => contact.id !== currentContact.id));
+              setDeleteConfirmationModal(false);
+              setCurrentContact(null);
+              toast.success("Contact deleted successfully!");
             } else {
                 console.error('Failed to delete contact:', response.statusText);
                 toast.error("Failed to delete contact.");
@@ -466,7 +661,25 @@ console.log(response);
     contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     contact.phone?.includes(searchQuery)
   );
+  const sendBlastMessage = async () => {
+    if (selectedContacts.length === 0) {
+      toast.error("No contacts selected!");
+      return;
+    }
+    try {
+      for (const contact of selectedContacts) {
+        await sendTextMessage(contact.phone!, blastMessage, contact);
+      }
+      toast.success("Messages sent successfully!");
+      setBlastMessageModal(false);
+      setBlastMessage("");
+    } catch (error) {
+      console.error('Error sending blast message:', error);
+      toast.error("Failed to send messages.");
+    }
+  };
 
+<<<<<<< HEAD
   const sendBlastMessage = async () => {
     if (selectedContacts.length === 0) {
       toast.error("No contacts selected!");
@@ -485,6 +698,8 @@ console.log(response);
     }
   };
 
+=======
+>>>>>>> 839fa4944a3b87c957addabce6f253add8457b16
   async function sendTextMessage(id: string, blastMessage: string, contact: Contact): Promise<void> {
     if (!blastMessage.trim()) {
       console.error('Blast message is empty');
@@ -544,17 +759,24 @@ console.log(response);
     }
   }
   
+<<<<<<< HEAD
   
 
+=======
+>>>>>>> 839fa4944a3b87c957addabce6f253add8457b16
   return (
     <>
 <div className="grid grid-cols-12 gap-6 mt-5">
   <div className="flex flex-wrap items-center col-span-12 mt-2 intro-y sm:flex-nowrap">
+<<<<<<< HEAD
     <button className="p-2 m-0 !box"  onClick={() => setAddContactModal(true)}>
       <span className="flex items-center justify-center w-5 h-5">
         <Lucide icon= "Plus"className="w-5 h-5" />
       </span>
     </button>
+=======
+ 
+>>>>>>> 839fa4944a3b87c957addabce6f253add8457b16
     <div className="w-full mt-3 sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
       
       <div className="relative w-[500px] text-slate-500 p-4 m-2">
@@ -573,6 +795,7 @@ console.log(response);
       </div>
     </div>
     <div className="ml-4">
+<<<<<<< HEAD
       <Menu>
         {showAddUserButton && (
           <Menu.Button as={Button} className="flex flex-wrap items-center justify-center col-span-12 px-2 py-2 mt-2 mx-2 mb-2 intro-y sm:flex-nowrap !box">
@@ -626,7 +849,88 @@ console.log(response);
         </Dialog.Panel>
       </div>
     </Dialog>
+=======
+    
+    
+        
+   
+    </div>
+
+>>>>>>> 839fa4944a3b87c957addabce6f253add8457b16
   </div>
+
+
+  <div className="flex space-x-2">
+  <button className="p-2 m-2 !box" onClick={() => setAddContactModal(true)}>
+    <span className="flex items-center justify-center w-5 h-5">
+      <Lucide icon="Plus" className="w-5 h-5" />
+    </span>
+  </button>
+  <Menu>
+    {showAddUserButton && (
+      <Menu.Button as={Button} className="p-2 m-2 !box">
+        <span className="flex items-center justify-center w-5 h-5">
+          <Lucide icon="User" className="w-5 h-5" />
+        </span>
+      </Menu.Button>
+    )}
+    <Menu.Items className="w-40">
+      {employeeList.map((employee) => (
+        <Menu.Item key={employee.id}>
+          <span
+            className="flex items-center p-2 m-2"
+            onClick={() => handleAddTagToSelectedContacts(employee.name)}
+          >
+            <Lucide icon="User" className="w-4 h-4 mr-2" />
+            {employee.name}
+          </span>
+        </Menu.Item>
+      ))}
+    </Menu.Items>
+  </Menu>
+  <Menu>
+    {showAddUserButton && (
+      <Menu.Button as={Button} className="p-2 m-2 !box">
+        <span className="flex items-center justify-center w-5 h-5">
+          <Lucide icon="Tag" className="w-5 h-5" />
+        </span>
+      </Menu.Button>
+    )}
+    <Menu.Items className="w-200">
+      <div>
+        <button className="flex items-center p-2 m-2 text-sm" onClick={() => setShowAddTagModal(true)}>
+          <Lucide icon="Plus" className="w-4 h-4 mr-1" />
+          Add
+        </button>
+      </div>
+      {tagList.map((tag) => (
+        <div key={tag.id} className="flex flex-col items-start p-2 m-2">
+          <span className="flex items-center w-full mb-1">
+            <button
+              className="flex items-center p-2 m-2 text-sm rounded hover:bg-gray-300"
+              onClick={() => handleAddTagToSelectedContacts(tag.name)}
+            >
+              {tag.name}
+            </button>
+            <button className="flex items-center p-2 m-2 text-sm" onClick={() => {
+              setTagToDelete(tag);
+              setShowDeleteTagModal(true);
+            }}>
+              <Lucide icon="Trash" className="w-4 h-4 mr-1 text-red-500" />
+            </button>
+          </span>
+        </div>
+      ))}
+    </Menu.Items>
+  </Menu>
+  <button className="p-2 m-2 !box" onClick={() => setBlastMessageModal(true)}>
+    <span className="flex items-center justify-center w-5 h-5">
+      <Lucide icon="Send" className="w-5 h-5" />
+    </span>
+  </button>
+ 
+</div>
+
 </div>
       <div className="max-w-full overflow-x-auto shadow-md sm:rounded-lg">
         <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
@@ -676,9 +980,24 @@ console.log(response);
                   {contact.firstName ?? 'No Name'}
                 </td>
                 <td className="px-6 py-4">{contact.phone ?? contact.source}</td>
-                <td className="px-6 py-4">
-                  {contact.tags && contact.tags.length > 0 ? contact.tags.join(', ') : 'Unassigned'}
-                </td>
+             
+                <td className="px-6 py-4 flex items-center">
+    {contact.tags && contact.tags.length > 0 ? (
+      contact.tags.map((tag, index) => (
+        <div key={index} className="flex items-center mr-2">
+          <span className="mr-1">{tag}</span>
+          <button
+            className="p-1"
+            onClick={() => handleRemoveTag(contact.id, tag)}
+          >
+            <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700" />
+          </button>
+        </div>
+      ))
+    ) : (
+      'Unassigned'
+    )}
+  </td>
                 <td className="px-6 py-4">
                   <button className="p-2 m-1 !box"onClick={() => {
                     setCurrentContact(contact);
@@ -794,7 +1113,7 @@ console.log(response);
         <Dialog.Panel className="w-full max-w-md mt-24 p-6 bg-white rounded-md">
             <div className="flex items-center p-4 border-b  ">
                 <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-                    <span className="text-xl">{currentContact?.firstName.charAt(0).toUpperCase()}</span>
+                    <span className="text-xl">{(currentContact?.firstName)?currentContact?.firstName.charAt(0).toUpperCase():""}</span>
                 </div>
                 <div>
                
@@ -876,6 +1195,102 @@ console.log(response);
     </div>
 </Dialog>
 <ToastContainer />
+<Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
+      <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md">
+          <div className="mb-4 text-lg font-semibold">Send Blast Message</div>
+          <textarea
+            className="w-full p-2 border rounded"
+            placeholder="Type your message here..."
+            value={blastMessage}
+            onChange={(e) => setBlastMessage(e.target.value)}
+            rows={3}  // Adjust the rows attribute as needed
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+          ></textarea>
+          <div className="flex justify-end mt-4">
+            <button
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              onClick={sendBlastMessage}>Send Message
+            </button>
+          </div>
+        </Dialog.Panel>
+      </div>
+    </Dialog>
+{showAddTagModal && (
+  <Dialog open={showAddTagModal} onClose={() => setShowAddTagModal(false)}>
+    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+      <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md">
+        <div className="flex items-center p-4 border-b">
+          <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+            <Lucide icon="Plus" className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-xl">Add New Tag</span>
+          </div>
+        </div>
+        <div className="mt-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Tag Name</label>
+            <input
+              type="text"
+              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              value={newTag}
+              onChange={(e) => setNewTag(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end mt-6">
+          <button
+            className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            onClick={() => setShowAddTagModal(false)}
+          >
+            Cancel
+          </button>
+          <button
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            onClick={handleSaveNewTag}
+          >
+            Save
+          </button>
+        </div>
+      </Dialog.Panel>
+    </div>
+  </Dialog>
+)}
+{showDeleteTagModal && (
+  <Dialog open={showDeleteTagModal} onClose={() => setShowDeleteTagModal(false)}>
+    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+      <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md">
+        <div className="p-5 text-center">
+          <Lucide icon="XCircle" className="w-16 h-16 mx-auto mt-3 text-danger" />
+          <div className="mt-5 text-3xl">Are you sure?</div>
+          <div className="mt-2 text-slate-500">
+            Do you really want to delete this tag? <br />
+            This process cannot be undone.
+          </div>
+        </div>
+        <div className="px-5 pb-8 text-center">
+          <Button
+            variant="outline-secondary"
+            type="button"
+            onClick={() => setShowDeleteTagModal(false)}
+            className="w-24 mr-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            type="button"
+            onClick={handleConfirmDeleteTag}
+            className="w-24"
+          >
+            Delete
+          </Button>
+        </div>
+      </Dialog.Panel>
+    </div>
+  </Dialog>
+)}
       {/* Delete Confirmation Modal */}
       <Dialog
         open={deleteConfirmationModal}

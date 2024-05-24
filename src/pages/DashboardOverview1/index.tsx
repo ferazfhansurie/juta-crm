@@ -43,7 +43,7 @@ let companyId = "";
 let total_contacts = 0;
 let closed = 0;
 let unclosed = 0;
-let num_replies = 0;
+let num_replies =0;
 
 function Main() {
   const [salesReportFilter, setSalesReportFilter] = useState<string>();
@@ -52,7 +52,9 @@ function Main() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
-
+  const [closed, setClosed] = useState(0);
+  const [unclosed, setUnclosed] = useState(0);
+  const [num_replies, setReplies] = useState(0);
   const saveTokenToFirestore = async (userId: string, token: string) => {
     try {
       await setDoc(doc(firestore, "user", userId), {
@@ -108,21 +110,44 @@ function Main() {
   }, []);
 
   async function fetchConfigFromDatabase() {
-    const auth = getAuth(app);
     const user = auth.currentUser;
+  
+    if (!user) {
+      console.error("No user is currently authenticated.");
+      return;
+    }
+  
+    const userEmail = user.email;
+  
+    if (!userEmail) {
+      console.error("Authenticated user has no email.");
+      return;
+    }
+  
     try {
-      await requestPermission(user?.email!);
-      const docUserRef = doc(firestore, 'user', user?.email!);
+      
+      const docUserRef = doc(firestore, 'user', userEmail);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
         console.log('No such document!');
         return;
       }
       const dataUser = docUserSnapshot.data();
+      if (!dataUser) {
+        console.log('User document has no data!');
+        return;
+      }
+  
       companyId = dataUser.companyId;
-
-      setNotifications(dataUser.notifications);
-      console.log(notifications);
+      setNotifications(dataUser.notifications || []);
+   
+      setReplies(dataUser.notifications.length);
+      console.log(dataUser.notifications);
+      if (!companyId) {
+        console.log('User document has no companyId!');
+        return;
+      }
+  
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
@@ -130,17 +155,19 @@ function Main() {
         return;
       }
       const data = docSnapshot.data();
+      if (!data) {
+        console.log('Company document has no data!');
+        return;
+      }
       console.log(data);
-      await searchOpportunities(data.location_id, data.access_token);
-      await searchContacts(data.access_token, data.location_id);
+      await requestPermission(userEmail);
+      await searchOpportunities( data.access_token,data.location_id,);
+      //await searchContacts(data.access_token, data.location_id);
     } catch (error) {
       console.error('Error fetching config:', error);
       throw error;
-    } finally {
-
     }
   }
-
   async function searchContacts(accessToken: any, locationId: any) {
     setLoading(true);
     try {
@@ -177,11 +204,14 @@ function Main() {
     }
   }
 
-  const searchOpportunities = async (locationId: any, ghlToken: any) => {
+  async function searchOpportunities(ghlToken: any, locationId: any) {
     setLoading(true);
     setError(null);
 
     try {
+      let allOpportunities: any[] = [];
+      let page = 1;
+
       const response = await axios.get('https://services.leadconnectorhq.com/opportunities/search', {
         headers: {
           Authorization: `Bearer ${ghlToken}`,
@@ -189,16 +219,20 @@ function Main() {
           Accept: 'application/json'
         },
         params: {
-          location_id: locationId
+          location_id: locationId,
+          limit:100
         }
       });
-
+console.log(response.data);
       const opportunities = response.data.opportunities;
-      const closed_temp = opportunities.filter((opportunity: { status: string; }) => opportunity.status === 'won').length;
-      const unclosed_temp = opportunities.filter((opportunity: { status: string; }) => opportunity.status === 'open').length;
+      allOpportunities = [...allOpportunities, ...opportunities];
+total_contacts = allOpportunities.length;
+      const closedCount = allOpportunities.filter(opportunity => opportunity.status === 'won').length;
+      const unclosedCount = allOpportunities.filter(opportunity => opportunity.status === 'open').length;
 
-      closed = closed_temp;
-      unclosed = unclosed_temp;
+
+      setClosed(closedCount);
+      setUnclosed(unclosedCount);
     } catch (error) {
       setError('An error occurred while fetching the opportunities.');
     } finally {
@@ -330,7 +364,7 @@ console.log(companyData);
                       <div className="ml-auto"></div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                      0
+                    {num_replies}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       Number Of Replies
