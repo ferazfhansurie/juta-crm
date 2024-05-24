@@ -370,12 +370,8 @@ function Router() {
       element: <Login />,
     },
     {
-      path: "/register",
-      element: <Register />,
-    },
-    {
       path: "/gl",
-      element: <Register />,
+      element: isLoggedIn ?  <Register /> : <Login />,
     },
     {
       path: "/error-page",
