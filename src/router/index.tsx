@@ -355,10 +355,10 @@ function Router() {
         },
       ],
     },
-    {
-      path: "dashboard-overview-2",
-      element: <DashboardOverview2 />,
-    },
+      {
+          path: "dashboard-overview-2",
+          element: <DashboardOverview2 />,
+        },
     {
       path: "product-list",
       element: <ProductList />,
