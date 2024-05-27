@@ -32,7 +32,7 @@ try {
 if (messaging) {
   try {
     onBackgroundMessage(messaging, (payload) => {
-      console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  
       // Customize notification here
       const notificationTitle = payload.data.title;
       const notificationOptions = {
@@ -45,6 +45,6 @@ if (messaging) {
         notificationOptions);
     });
   } catch (err) {
-    console.log(err);
+
   }
 }

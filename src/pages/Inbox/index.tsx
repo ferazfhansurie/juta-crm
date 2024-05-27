@@ -41,7 +41,7 @@ function Main() {
         throw new Error('Failed to fetch chats');
       }
       const data = response.body;
-      console.log(data);
+      
   
     } catch (error) {
       console.error(error);

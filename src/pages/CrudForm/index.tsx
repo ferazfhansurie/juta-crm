@@ -30,9 +30,6 @@ function Main() {
   const location = useLocation();
   const { contactId, contact, companyId } = location.state ?? [];
 
-  console.log('Contact ID:', contactId);
-  console.log('Contact:', contact);
-  console.log('Company ID:', companyId);
 
   const [userData, setUserData] = useState({
     name: "",
@@ -80,7 +77,7 @@ function Main() {
     const companyId = dataUser!.companyId;
     const company = dataUser!.company;
         if (!userOri || !userOri.email) {
-            console.log('No authenticated user or user email is null!');
+            
             return;
         }
 
@@ -118,10 +115,10 @@ if (!response.ok) {
     throw new Error('Failed to update user');
 }
 
-console.log("User updated successfully");
+
   await updateDoc(doc(firestore, `companies/${companyId}/employee`, contactId), userDataToSend);
   await updateDoc(doc(firestore, 'user', userData.email), userDataToSend);
-  console.log("Contact updated successfully");
+  
   toast.success("User updated successfully");
   setUserData({
     name: userData.name,
@@ -150,10 +147,10 @@ console.log("User updated successfully");
     },
   });
   const responseData = await response.json();
-  console.log("Response" + responseData);
+  
   await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
   await setDoc(doc(firestore, `companies/${companyId}/employee`, userData.email), userDataToSend);
-  console.log("User created successfully");
+  
   toast.success("User created successfully");
   setErrorMessage('');
   setUserData({

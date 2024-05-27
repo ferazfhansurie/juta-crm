@@ -102,10 +102,7 @@ function Router() {
           path: "/dashboard",
           element: <DashboardOverview1 />,
         },
-        {
-          path: "dashboard-overview-2",
-          element: <DashboardOverview2 />,
-        },
+      
         {
           path: "dashboard-overview-3",
           element: <DashboardOverview3 />,
@@ -122,14 +119,7 @@ function Router() {
           path: "add-product",
           element: <AddProduct />,
         },
-        {
-          path: "product-list",
-          element: <ProductList />,
-        },
-        {
-          path: "product-grid",
-          element: <ProductGrid />,
-        },
+      
         {
           path: "transaction-list",
           element: <TransactionList />,
@@ -364,6 +354,18 @@ function Router() {
           element: <ImageZoom />,
         },
       ],
+    },
+    {
+      path: "dashboard-overview-2",
+      element: <DashboardOverview2 />,
+    },
+    {
+      path: "product-list",
+      element: <ProductList />,
+    },
+    {
+      path: "product-grid",
+      element: <ProductGrid />,
     },
     {
       path: "/",

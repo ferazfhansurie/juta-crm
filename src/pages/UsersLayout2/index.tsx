@@ -92,7 +92,7 @@ async function fetchEmployees() {
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-      console.log('No such document!');
+      
       return;
     }
   
@@ -101,14 +101,14 @@ companyId = dataUser.companyId;
     const docRef = doc(firestore, 'companies', companyId);
           const docSnapshot = await getDoc(docRef);
           if (!docSnapshot.exists()) {
-            console.log('No such document for company!');
+            
             return;
           }
           const companyData = docSnapshot.data();
 
           accessToken = companyData.access_token;
 
-          console.log(accessToken);
+          
 
     const employeeRef = collection(firestore, `companies/${companyId}/employee`);
     const employeeSnapshot = await getDocs(employeeRef);
@@ -118,7 +118,7 @@ companyId = dataUser.companyId;
       employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
     });
 
-    console.log(employeeListData);
+    
     setEmployeeList(employeeListData);
     
     // Check if user's role is 1
@@ -144,10 +144,10 @@ const handleUpdateContact = async (contactId: string, contact: any, companyId:an
     if (docSnap.exists()){
     await updateDoc(contactRef, contact);
     setResponse('Contact updated successfully');
-    console.log("Updated contact successfully in Firestore");
+    
     } else {
     setResponse('No document to update');
-    console.log("No such document exists:", contactRef.path);
+    
     } 
   } catch (error) {
     setResponse('Failed to update contact');
@@ -156,22 +156,22 @@ const handleUpdateContact = async (contactId: string, contact: any, companyId:an
 };
 
 const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
-  console.log("handleDeleteEmployee called with employeeId:", employeeId, "and companyId:", companyId);
+  
 
   try {
     const employeeRef = doc(firestore, `companies/${companyId}/employee/${employeeId}`);
-    console.log("Employee reference created:", employeeRef);
+    
 
     await deleteDoc(employeeRef);
-    console.log("Employee deleted from Firestore");
+    
 
-    console.log("Employee list before update:", employeeList);
+    
     const updatedEmployeeList = employeeList.filter(employee => employee.id !== employeeId);
-    console.log("Employee list after update:", updatedEmployeeList);
+    
 
     setEmployeeList(updatedEmployeeList);
     setResponse('Employee deleted successfully');
-    console.log("Employee list state updated:", updatedEmployeeList);
+    
 
 toggleModal();
   } catch (error) {

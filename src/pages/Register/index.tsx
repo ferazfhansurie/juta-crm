@@ -253,7 +253,7 @@ function Main() {
               const docRef = doc(firestore, 'companies', newCompanyId);
               const docSnapshot = await getDoc(docRef);
               if (!docSnapshot.exists()) {
-                console.log('No such document!');
+                
                 continue;
               }
               const data = docSnapshot.data();
@@ -296,7 +296,7 @@ function Main() {
               const docRef = doc(firestore, 'companies', newCompanyId);
               const docSnapshot = await getDoc(docRef);
               if (!docSnapshot.exists()) {
-                console.log('No such document!');
+                
                 return;
               }
               const data = docSnapshot.data();
@@ -330,7 +330,7 @@ function Main() {
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
        }
       const dataUser = docUserSnapshot.data() as UserData;
@@ -341,7 +341,7 @@ function Main() {
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
       const data = docSnapshot.data();
@@ -380,9 +380,9 @@ function Main() {
   
     try {
       const response = await axios(url, options);
-      console.log(response.data);
+      
       const data = response.data;
-      console.log(data);
+      
     } catch (error) {
       console.error(error);
     }
@@ -409,7 +409,7 @@ function Main() {
             const docRef = doc(firestore, 'companies', companyId);
             const docSnapshot = await getDoc(docRef);
             if (!docSnapshot.exists()) {
-              console.log('No such document!');
+              
               return;
             }
             const data = docSnapshot.data();
@@ -483,7 +483,7 @@ function Main() {
         const docUserRef = doc(firestore, 'user', user?.email!);
         const docUserSnapshot = await getDoc(docUserRef);
         if (!docUserSnapshot.exists()) {
-            console.log('No such document!');
+            
             return;
         }
         const dataUser = docUserSnapshot.data() as UserData;
@@ -703,11 +703,11 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     if (!chatResponse.ok) throw new Error('Failed to fetch chats');
     const chatData = await chatResponse.json();
     const user = auth.currentUser;
-    console.log(conversations);
+    
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
     }
     const dataUser = docUserSnapshot.data() as UserData;
@@ -889,7 +889,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       const response = await axios.request(options);
    
       const conversations = response.data.conversations;
-      console.log(conversations);
+      
       allConversation = [...allConversation, ...conversations];
       return allConversation;
     } catch (error) {
@@ -931,7 +931,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
   const handleIconClick = (iconId: string,selectedChatId:string,id:string) => {
     setMessages([]);
     setSelectedIcon(iconId);
-    console.log(selectedChatId);
+    
     if(iconId == 'ws'){
       fetchMessages(selectedChatId, whapiToken!);
     }else if (iconId === 'mail'){
@@ -942,15 +942,15 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
   };
   async function fetchConversationMessages(conversationId: string,contact:any) {
     if (!conversationId) return;
-    console.log(contact);
-    console.log(selectedIcon);
+    
+    
     const auth = getAuth(app);
     const user = auth.currentUser;
     try {
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
       const dataUser = docUserSnapshot.data();
@@ -958,7 +958,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
       const data2 = docSnapshot.data();
@@ -992,13 +992,13 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
   };
   useEffect(() => {
     if (selectedChatId) {
-      console.log(selectedContact);
+      
       if(selectedChatId.includes('@s.')  ){
         fetchMessages(selectedChatId, whapiToken!);
       }else if (selectedContact.enquiries != undefined){
        fetchEnquiries(selectedContact.email);
       }else{
-        console.log(selectedContact.last_message.type);
+        
         if(selectedContact.last_message.type != 'TYPE_INSTAGRAM'){
           setSelectedIcon('fb');
         }else{
@@ -1019,7 +1019,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
   
@@ -1028,7 +1028,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
   
@@ -1053,7 +1053,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       });
   
       if (matchingEnquiry) {
-        console.log('Matching enquiry found:', matchingEnquiry);
+        
         // Perform any additional operations with the matching enquiry
     
   
@@ -1072,7 +1072,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         ]);
       
       }else{
-        console.log('No matching enquiry found.');
+        
         setMessages([
         
         ]);
@@ -1093,7 +1093,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
       const dataUser = docUserSnapshot.data();
@@ -1101,7 +1101,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
       const data2 = docSnapshot.data();
@@ -1123,7 +1123,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             document:message.document?message.document:undefined,
           }))
         );
-        console.log( data.messages);
+        
       } else {
         setMessages([
         
@@ -1143,7 +1143,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
       const dataUser = docUserSnapshot.data();
@@ -1151,7 +1151,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
       const data2 = docSnapshot.data();
@@ -1171,7 +1171,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             image: message.image ? message.image : undefined,
           }))
         );
-        console.log(messages);
+        
       } else {
         setMessages([
         
@@ -1184,17 +1184,17 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
   }
   async function sendTextMessage(selectedChatId: string, newMessage: string,contact:any): Promise<void> {
     if (!newMessage.trim() || !selectedChatId) return;
-  console.log(selectedChatId)
+  
     const user = auth.currentUser;
     if (!user) {
-      console.log('User not authenticated');
+      
       return;
     }
   
     const docUserRef = doc(firestore, 'user', user.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-      console.log('No such document!');
+      
       return;
     }
   
@@ -1204,7 +1204,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
     if (!docSnapshot.exists()) {
-      console.log('No such document!');
+      
       return;
     }
   
@@ -1227,9 +1227,9 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       };
   
       const response = await axios.request(options);
-      console.log(response.data);
+      
   
-      console.log('Message sent successfully:', response.data);
+      
       toast.success("Message sent successfully!");
       fetchConversationMessages(contact.conversation_id,selectedContact);
     } catch (error) {
@@ -1242,7 +1242,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-      console.log('No such document!');
+      
       return;
     }
     const dataUser = docUserSnapshot.data();
@@ -1250,7 +1250,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
     if (!docSnapshot.exists()) {
-      console.log('No such document!');
+      
       return;
     }
     const data2 = docSnapshot.data();
@@ -1273,13 +1273,13 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
   };
 
   const toggleStopBotLabel = async (chat: any, index: number, contact: any) => {
-    console.log(contact);
+    
     try {
       const user = auth.currentUser;
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
+        
         return;
       }
       const userData = docUserSnapshot.data();
@@ -1287,7 +1287,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
+        
         return;
       }
       const companyData = docSnapshot.data();
@@ -1337,14 +1337,14 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     const user = auth.currentUser;
   
     if (!user) {
-      console.log('No authenticated user');
+      
       return;
     }
   
     const docUserRef = doc(firestore, 'user', user.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-      console.log('No such document for user!');
+      
       return;
     }
     const userData = docUserSnapshot.data();
@@ -1352,7 +1352,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
     if (!docSnapshot.exists()) {
-      console.log('No such document for company!');
+      
       return;
     }
     const companyData = docSnapshot.data();
@@ -1409,7 +1409,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         const response = await axios.request(options);
       
         if (response.status === 200) {
-            console.log('Contact tags updated successfully');
+            
             return true;
         } else {
             console.error('Failed to update contact tags:', response.statusText);
@@ -1623,7 +1623,7 @@ const handleForwardMessage = async () => {
   const handleDocumentUpload: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
     setLoading(true)
     const file = event.target.files && event.target.files[0];
-    console.log(file);
+    
     if (file) {
       const imageUrl = await uploadFile(file); // Implement uploadFile to handle the upload
       await sendDocumentMessage(selectedChatId!, imageUrl!,file.type,file.name,"");
@@ -1652,7 +1652,7 @@ const handleForwardMessage = async () => {
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
+        
         return;
       }
       const userData = docUserSnapshot.data();
@@ -1660,7 +1660,7 @@ const handleForwardMessage = async () => {
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
+        
         return;
       }
       const companyData = docSnapshot.data();
@@ -1682,7 +1682,7 @@ const handleForwardMessage = async () => {
   
       const data = await response.json();
       fetchMessages(selectedChatId!,companyData.access_token);
-      console.log('Image message sent successfully:', data);
+      
     } catch (error) {
       console.error('Error sending image message:', error);
     }
@@ -1695,7 +1695,7 @@ const handleForwardMessage = async () => {
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
+        
         return;
       }
       const userData = docUserSnapshot.data();
@@ -1703,7 +1703,7 @@ const handleForwardMessage = async () => {
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
+        
         return;
       }
       const companyData = docSnapshot.data();
@@ -1727,7 +1727,7 @@ const handleForwardMessage = async () => {
   
       const data = await response.json();
       fetchMessages(selectedChatId!,companyData.access_token);
-      console.log('Image message sent successfully:', data);
+      
     } catch (error) {
       console.error('Error sending image message:', error);
     }

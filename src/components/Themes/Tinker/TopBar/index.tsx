@@ -43,7 +43,7 @@ const firestore = getFirestore(app);
 const handleSignOut = () => {
   signOut(auth)
     .then(() => {
-      console.log("User signed out successfully");
+      
     })
     .catch((error) => {
       console.error("Error signing out:", error);
@@ -76,7 +76,7 @@ function Main() {
       const docUserRef = doc(firestore, 'user', user.email);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
 
@@ -85,13 +85,13 @@ function Main() {
       userName = dataUser.name;
       companyName = dataUser.company;
       userEmail = dataUser.email;
-      console.log(dataUser.notifications);
+      
    
       setMessages(dataUser.notifications || []);
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
 

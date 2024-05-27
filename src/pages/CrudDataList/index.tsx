@@ -146,14 +146,14 @@ const [blastMessage, setBlastMessage] = useState("");
   });
   const handleSaveNewContact = async () => {
     try {
-      console.log(newContact);
+      
       
       const user = auth.currentUser;
 
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
+        
         return;
       }
       const userData = docUserSnapshot.data();
@@ -161,7 +161,7 @@ const [blastMessage, setBlastMessage] = useState("");
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
+        
         return;
       }
       const companyData = docSnapshot.data();
@@ -188,7 +188,7 @@ const [blastMessage, setBlastMessage] = useState("");
       
 
         const response = await axios.request(options);
-console.log(response);
+
         if (response.status === 201) {
             toast.success("Contact added successfully!");
             setAddContactModal(false);
@@ -217,7 +217,7 @@ const handleSaveNewTag = async () => {
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-      console.log('No such document for user!');
+      
       return;
     }
     const userData = docUserSnapshot.data();
@@ -225,7 +225,7 @@ const handleSaveNewTag = async () => {
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
     if (!docSnapshot.exists()) {
-      console.log('No such document for company!');
+      
       return;
     }
     const companyData = docSnapshot.data();
@@ -247,7 +247,7 @@ const handleSaveNewTag = async () => {
     };
 
     const response = await axios(apiUrl, options);
-    console.log(response.data);
+    
     setTagList([...tagList, response.data.tag]);
     setShowAddTagModal(false);
     setNewTag("");
@@ -266,7 +266,7 @@ const handleConfirmDeleteTag = async () => {
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-      console.log('No such document for user!');
+      
       return;
     }
     const userData = docUserSnapshot.data();
@@ -274,7 +274,7 @@ const handleConfirmDeleteTag = async () => {
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
     if (!docSnapshot.exists()) {
-      console.log('No such document for company!');
+      
       return;
     }
     const companyData = docSnapshot.data();
@@ -342,11 +342,11 @@ const handleConfirmDeleteTag = async () => {
         },
       };
       const response = await axios.request(options);
-      console.log('tags', response.data.tags);
+      
       
       // Extract employee names to filter tags
 
-  console.log(employeeList);
+  
       // Filter out tags that match with employeeList
       const filteredTags = response.data.tags.filter((tag: Tag) => !employeeList.includes(tag.name));
       
@@ -362,7 +362,7 @@ const handleConfirmDeleteTag = async () => {
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
+        
         return;
       }
   
@@ -373,7 +373,7 @@ const handleConfirmDeleteTag = async () => {
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
+        
         return;
       }
       const companyData = docSnapshot.data();
@@ -409,7 +409,7 @@ await searchContacts(companyData.access_token, companyData.location_id, companyD
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-      console.log('No such document for user!');
+      
       return;
     }
     const userData = docUserSnapshot.data();
@@ -417,7 +417,7 @@ await searchContacts(companyData.access_token, companyData.location_id, companyD
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
     if (!docSnapshot.exists()) {
-      console.log('No such document for company!');
+      
       return;
     }
     const companyData = docSnapshot.data();
@@ -431,7 +431,7 @@ await searchContacts(companyData.access_token, companyData.location_id, companyD
         if (!success) {
           console.error(`Failed to add tag "${tagName}" to contact with ID ${contact.id}`);
         } else {
-          console.log(`Tag "${tagName}" added to contact with ID ${contact.id}`);
+          
         }
       }
       await searchContacts(companyData.access_token, companyData.location_id, companyData.whapiToken);
@@ -468,7 +468,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
   const docUserRef = doc(firestore, 'user', user?.email!);
   const docUserSnapshot = await getDoc(docUserRef);
   if (!docUserSnapshot.exists()) {
-    console.log('No such document for user!');
+    
     return;
   }
   const userData = docUserSnapshot.data();
@@ -476,11 +476,11 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
   const docRef = doc(firestore, 'companies', companyId);
   const docSnapshot = await getDoc(docRef);
   if (!docSnapshot.exists()) {
-    console.log('No such document for company!');
+    
     return;
   }
   const companyData = docSnapshot.data();
-  console.log(companyData.access_token);
+  
   const url = `https://services.leadconnectorhq.com/contacts/${contactId}/tags`;
   const options = {
     method: 'DELETE',
@@ -497,7 +497,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
 
   try {
     const response = await fetch(url, options);
-    console.log(response.body);
+    
     if (response.ok) {
       setTags((prevTags) => ({
         ...prevTags,
@@ -604,7 +604,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
           const docUserRef = doc(firestore, 'user', user?.email!);
           const docUserSnapshot = await getDoc(docUserRef);
           if (!docUserSnapshot.exists()) {
-            console.log('No such document for user!');
+            
             return;
           }
           const userData = docUserSnapshot.data();
@@ -612,7 +612,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
           const docRef = doc(firestore, 'companies', companyId);
           const docSnapshot = await getDoc(docRef);
           if (!docSnapshot.exists()) {
-            console.log('No such document for company!');
+            
             return;
           }
           const companyData = docSnapshot.data();
@@ -655,7 +655,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
           const docUserRef = doc(firestore, 'user', user?.email!);
           const docUserSnapshot = await getDoc(docUserRef);
           if (!docUserSnapshot.exists()) {
-            console.log('No such document for user!');
+            
             return;
           }
           const userData = docUserSnapshot.data();
@@ -663,7 +663,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
           const docRef = doc(firestore, 'companies', companyId);
           const docSnapshot = await getDoc(docRef);
           if (!docSnapshot.exists()) {
-            console.log('No such document for company!');
+            
             return;
           }
           const companyData = docSnapshot.data();
@@ -768,7 +768,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       const accessToken = companyData.access_token; // Assuming you store access token in company data
       const phoneNumber = id.split('+')[1];
       const chat_id = phoneNumber+"@s.whatsapp.net"
-      console.log(chat_id);
+      
       const response = await axios.post(
         `https://buds-359313.et.r.appspot.com/api/messages/text/${chat_id!}/${companyData.whapiToken}/${blastMessage!}`, // This URL should be your API endpoint for sending messages
         {
@@ -786,11 +786,11 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
           }
         }
       );
-      console.log(response.data);
+      
       
   
       if (response.status === 200) {
-        console.log('Message sent successfully');
+        
       } else {
         console.error('Failed to send message:', response.statusText);
       }

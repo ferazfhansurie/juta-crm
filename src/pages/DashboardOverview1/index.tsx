@@ -60,7 +60,7 @@ function Main() {
       await setDoc(doc(firestore, "user", userId), {
         fcmToken: token
       }, { merge: true });
-      console.log('Token saved to Firestore successfully');
+      
     } catch (error) {
       console.error('Error saving token to Firestore:', error);
     }
@@ -69,7 +69,7 @@ function Main() {
   const handleGetFirebaseToken = (userId: string) => {
     getFirebaseToken().then(async (firebaseToken: string | undefined) => {
       if (firebaseToken) {
-        console.log(firebaseToken);
+        
         await saveTokenToFirestore(userId, firebaseToken);
       }
     });
@@ -78,7 +78,7 @@ function Main() {
   const requestPermission = async (id: string) => {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      console.log('Notification permission granted.');
+      
       handleGetFirebaseToken(id);
     } else {
       console.error('Notification permission denied.');
@@ -96,7 +96,7 @@ function Main() {
     });
 
     const unsubscribeMessage = onMessage(messaging, (payload) => {
-      console.log('Message received. ', payload);
+      
       setNotifications((prevNotifications) => [
         ...prevNotifications,
         payload.notification,
@@ -129,12 +129,12 @@ function Main() {
       const docUserRef = doc(firestore, 'user', userEmail);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
       const dataUser = docUserSnapshot.data();
       if (!dataUser) {
-        console.log('User document has no data!');
+        
         return;
       }
   
@@ -142,24 +142,24 @@ function Main() {
       setNotifications(dataUser.notifications || []);
    
       setReplies(dataUser.notifications.length);
-      console.log(dataUser.notifications);
+      
       if (!companyId) {
-        console.log('User document has no companyId!');
+        
         return;
       }
   
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
       const data = docSnapshot.data();
       if (!data) {
-        console.log('Company document has no data!');
+        
         return;
       }
-      console.log(data);
+      
       await requestPermission(userEmail);
       await searchOpportunities( data.access_token,data.location_id,);
       //await searchContacts(data.access_token, data.location_id);
@@ -187,7 +187,7 @@ function Main() {
           }
         };
         const response = await axios.request(options);
-        console.log('Search Conversation Response:', response.data);
+        
         const contacts = response.data.contacts;
         allContacts = [...allContacts, ...contacts];
         if (contacts.length === 0) {
@@ -198,7 +198,7 @@ function Main() {
       const filteredContacts = allContacts.filter(contact => contact.phone !== null);
       total_contacts = allContacts.length;
       setLoading(false);
-      console.log('Search Conversation Response:', filteredContacts);
+      
     } catch (error) {
       console.error('Error searching conversation:', error);
     }
@@ -240,7 +240,7 @@ function Main() {
         }
       }
   
-      console.log(allOpportunities);
+      
   
       total_contacts = allOpportunities.length;
       const closedCount = allOpportunities.filter(opportunity => opportunity.status === 'won').length;
