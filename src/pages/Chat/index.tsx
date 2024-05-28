@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
 import Button from "@/components/Base/Button";
 import { Dialog, Menu } from "@/components/Base/Headless";
@@ -68,6 +68,7 @@ interface Contact {
   last_message?: Message | null;
   chat_id: string;
   unreadCount:number;
+  pic:string;
 }
 interface GhlConfig {
   ghl_id: string;
@@ -179,7 +180,6 @@ function Main() {
   const [newQuickReply, setNewQuickReply] = useState<string>('');
   const [filteredContactsForForwarding, setFilteredContactsForForwarding] = useState<Contact[]>(contacts);
   const [selectedMessages, setSelectedMessages] = useState<Message[]>([]);
-
   let companyId = '014';
   let user_name = '';
   let user_role='2';
@@ -256,7 +256,7 @@ function Main() {
               const docRef = doc(firestore, 'companies', newCompanyId);
               const docSnapshot = await getDoc(docRef);
               if (!docSnapshot.exists()) {
-                
+                console.log('No such document!');
                 return;
               }
               const data = docSnapshot.data();
@@ -269,12 +269,12 @@ function Main() {
                 whapiToken: data.whapiToken,
               });
               const user_name = dataUser.name;
-              fetchContactsBackground(
+            /*  fetchContactsBackground(
                 data.whapiToken,
                 data.location_id,
                 data.access_token,
                 user_name
-              );
+              );*/
             }
           }
         }
@@ -290,7 +290,7 @@ function Main() {
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        
+        console.log('No such document!');
         return;
        }
       const dataUser = docUserSnapshot.data() as UserData;
@@ -301,7 +301,7 @@ function Main() {
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        
+        console.log('No such document!');
         return;
       }
       const data = docSnapshot.data();
@@ -340,9 +340,9 @@ function Main() {
   
     try {
       const response = await axios(url, options);
-      
+      console.log(response.data);
       const data = response.data;
-      
+      console.log(data);
     } catch (error) {
       console.error(error);
     }
@@ -369,7 +369,7 @@ function Main() {
             const docRef = doc(firestore, 'companies', companyId);
             const docSnapshot = await getDoc(docRef);
             if (!docSnapshot.exists()) {
-              
+              console.log('No such document!');
               return;
             }
             const data = docSnapshot.data();
@@ -423,305 +423,178 @@ function Main() {
     }
   
   };
+  const fetchDuplicateContact = async (phone: string, locationId: string, accessToken: string, retries = 3) => {
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const url = `https://services.leadconnectorhq.com/contacts/search/duplicate?locationId=${locationId}${phone ? `&number=${phone}` : ''}`;
+  
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await axios.get(url, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Version: '2021-07-28',
+            Accept: 'application/json',
+          },
+        });
+        return response.data.contact;
+      } catch (err) {
+        const error = err as AxiosError;
+        if (error.response && error.response.status === 429) {
+          const retryAfter = error.response.headers['retry-after']
+            ? parseInt(error.response.headers['retry-after'], 10) * 1000
+            : Math.min(Math.pow(2, attempt) * 1000, 30000) + Math.floor(Math.random() * 1000);
+          console.warn(`Rate limit exceeded, retrying after ${retryAfter}ms...`);
+          await wait(retryAfter);
+        } else {
+          console.error('Error fetching duplicate contact:', error);
+          throw error;
+        }
+      }
+    }
+    throw new Error('Failed to fetch duplicate contact after multiple retries');
+  };
   const fetchContacts = async (whapiToken: any, locationId: string, ghlToken: string, user_name: string, role: string) => {
     try {
-        setLoading(true);
-
-        // Fetch all chats
-        const allChats = await fetchAllChats(whapiToken);
-
-        // Fetch initial data
-        const [tags, initialConversations, initialContacts, employeeSnapshot, enquirySnapshot] = await Promise.all([
-            fetchTags(ghlToken, locationId),
-            searchConversations(ghlToken, locationId, 100, 0), // Fetch first 100 conversations
-            searchContacts(ghlToken, locationId, 100, 0), // Fetch first 100 contacts
-            getDocs(collection(firestore, `companies/${companyId}/employee`)),
-            getDocs(collection(firestore, `companies/${companyId}/conversations`))
-        ]);
-
-        const user = auth.currentUser;
-
-        const docUserRef = doc(firestore, 'user', user?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-            return;
-        }
-        const dataUser = docUserSnapshot.data() as UserData;
-
-        user_role = dataUser.role;
-
-        // Process chat data
-        const mappedChats = await Promise.all(allChats.map(async (chat: { id: string; last_message: any; name: any; }) => {
-            if (!chat.id) return null;
+      setLoading(true);
+      const [tags, employeeSnapshot] = await Promise.all([
+        fetchTags(ghlToken, locationId),
+        getDocs(collection(firestore, `companies/${companyId}/employee`)),
+      ]);
+  
+      const user = auth.currentUser;
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document!');
+        return;
+      }
+      const dataUser = docUserSnapshot.data() as UserData;
+      user_role = dataUser.role;
+  
+      let contacts: any = [];
+      const count = 50; // Fetch 50 chats at a time
+      let offset = 0;
+  
+      const fetchChats = async (offset: number) => {
+        const response = await fetch(`https://gate.whapi.cloud/chats?count=${count}&offset=${offset}`, {
+          headers: { 'Authorization': `Bearer ${whapiToken}` }
+        });
+        if (!response.ok) throw new Error('Failed to fetch chats');
+        const data = await response.json();
+        return data.chats;
+      };
+  
+      // Process chats
+      const processChats = async (chats: any[]) => {
+        const mappedChats = await Promise.all(chats.map(async (chat: { id: string; last_message: any; name: any; }) => {
+          if (!chat?.id) return null;
+          const phoneNumber = `+${chat.id.split('@')[0]}`;
+          const duplicateContacts = await fetchDuplicateContact(phoneNumber, locationId, ghlToken);
+          let contact: any;
+          if (duplicateContacts) {
+            contact = duplicateContacts;
+          } else {
+           // contact = await getContact(chat.name, phoneNumber, locationId, ghlToken);
+          }
+          let unreadCount = 0;
+          if (dataUser.notifications !== undefined) {
+            unreadCount = dataUser.notifications.filter((notif: { chat_id: string; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
+          }
+  
+          if (contact) {
+            contact.chat_id = chat.id;
+            contact.last_message = chat.last_message;
+            contact.chat = chat;
+            contact.unreadCount = unreadCount ?? 0;
+          }
+  
+          return {
+            ...chat,
+            tags: contact ? contact.tags : [],
+            name: contact ? contact.firstName : chat.name,
+            lastMessageBody: '',
+            id: chat.id,
+            contact_id: contact ? contact.id : "",
+            unreadCount,
+          };
+        }).filter(Boolean));
+  
+        mappedChats.forEach((chat) => {
+          if (chat?.id) {
             const phoneNumber = `+${chat.id.split('@')[0]}`;
-            let contact = initialContacts.find(contact => contact.phone === phoneNumber);
-            let unreadCount = 0;
-            if (dataUser.notifications !== undefined) {
-                unreadCount = dataUser.notifications.filter((notif: { chat_id: string; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
-            }
-
-            if (contact) {
-                contact.chat_id = chat.id;
-                contact.last_message = chat.last_message;
-                contact.chat = chat;
-                contact.unreadCount = unreadCount ?? 0;
-                contact.id = contact.id;
-            }
-
-            return {
-                ...chat,
-                tags: contact ? contact.tags : [],
-                name: contact ? contact.contactName : chat.name,
-                lastMessageBody: '',
-                id: chat.id,
-                contact_id: contact ? contact.id : "",
-                unreadCount,
-            };
-        }));
-
-        const filteredMappedChats = mappedChats.filter((chat): chat is NonNullable<typeof chat> => chat !== null);
-
-        // Merge WhatsApp contacts with existing contacts
-        filteredMappedChats.forEach((chat) => {
-            const phoneNumber = `+${chat.id.split('@')[0]}`;
-            const existingContact = initialContacts.find(contact => contact.phone === phoneNumber);
+            const existingContact = contacts.find((contact: { phone: string; }) => contact.phone === phoneNumber);
             if (existingContact) {
-                existingContact.chat_id = chat.id;
-                existingContact.last_message = chat.last_message || existingContact.last_message;
-                existingContact.chat = chat;
-                existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
-                existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
+              existingContact.chat_id = chat.id;
+              existingContact.last_message = chat.last_message || existingContact.last_message;
+              existingContact.chat = chat;
+              existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
+              existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
             } else {
-                initialContacts.push({
-                    id: chat.contact_id,
-                    phone: phoneNumber,
-                    contactName: chat.name,
-                    chat_id: chat.id,
-                    last_message: chat.last_message || null,
-                    chat: chat,
-                    tags: chat.tags,
-                    conversation_id: chat.id,
-                    unreadCount: chat.unreadCount,
-                });
+              contacts.push({
+                id: chat.contact_id,
+                phone: phoneNumber,
+                contactName: chat.name,
+                chat_id: chat.id,
+                last_message: chat.last_message || null,
+                chat: chat,
+                tags: chat.tags,
+                conversation_id: chat.id,
+                unreadCount: chat.unreadCount,
+              });
             }
+          }
         });
-
-        // Merge and update contacts with conversations
-        initialContacts.forEach(contact => {
-            const matchedConversation = initialConversations.find(conversation => conversation.contactId === contact.id);
-            if (matchedConversation) {
-                const currentcount = (contact.unreadCount != undefined) ? contact.unreadCount : 0;
-                contact.conversation_id = matchedConversation.id;
-                contact.chat_id = contact.chat_id || matchedConversation.id;
-                contact.unreadCount = currentcount + matchedConversation.unreadCount;
-                contact.conversations = contact.conversations || [];
-                contact.conversations.push(matchedConversation);
-                if (!contact.last_message) {
-                    contact.last_message = {
-                        id: matchedConversation.id,
-                        text: { body: matchedConversation.lastMessageBody },
-                        from_me: matchedConversation.lastMessageDirection === 'outbound',
-                        createdAt: matchedConversation.lastMessageDate,
-                        type: matchedConversation.lastMessageType,
-                        image: undefined,
-                    };
-                }
-            }
+  
+        contacts.sort((a: { last_message: { createdAt: any; timestamp: any; }; }, b: { last_message: { createdAt: any; timestamp: any; }; }) => {
+          const dateA = a.last_message?.createdAt
+            ? new Date(getTimestamp(a.last_message.createdAt))
+            : a.last_message?.timestamp
+              ? new Date(getTimestamp(a.last_message.timestamp))
+              : new Date(0);
+          const dateB = b.last_message?.createdAt
+            ? new Date(getTimestamp(b.last_message.createdAt))
+            : b.last_message?.timestamp
+              ? new Date(getTimestamp(b.last_message.timestamp))
+              : new Date(0);
+          return dateB.getTime() - dateA.getTime();
         });
-
-        // Filter contacts without conversations or chats
-        let contactsWithChatsOrConversations = initialContacts.filter(contact => 
-            contact.conversations && contact.conversations.length > 0 || 
-            contact.chat_id
-        );
-
-        // Fetch more contacts until there are at least 20 with chats
-        while (contactsWithChatsOrConversations.length < 20) {
-            const additionalContacts = await searchContacts(ghlToken, locationId, 100, contactsWithChatsOrConversations.length);
-            if (additionalContacts.length === 0) break; // No more contacts to fetch
-
-            // Process additional contacts
-            const mappedAdditionalChats = await Promise.all(additionalContacts.map(async (contact) => {
-                const phoneNumber = `+${contact.phone.split('@')[0]}`;
-                let existingContact = contactsWithChatsOrConversations.find(c => c.phone === phoneNumber);
-                if (existingContact) {
-                    existingContact.chat_id = contact.chat_id || existingContact.chat_id;
-                    existingContact.last_message = contact.last_message || existingContact.last_message;
-                    existingContact.unreadCount = (existingContact.unreadCount || 0) + (contact.unreadCount || 0);
-                    existingContact.tags = [...new Set([...existingContact.tags, ...contact.tags])];
-                } else {
-                    contactsWithChatsOrConversations.push({
-                        ...contact,
-                        phone: phoneNumber,
-                    });
-                }
-                return contact;
-            }));
-
-            const filteredMappedAdditionalChats = mappedAdditionalChats.filter((contact): contact is NonNullable<typeof contact> => contact !== null);
-
-            contactsWithChatsOrConversations = contactsWithChatsOrConversations.filter(contact => 
-                contact.conversations && contact.conversations.length > 0 || 
-                contact.chat_id
-            );
+  
+        setContacts([...contacts]);
+        setFilteredContacts([...contacts]);
+      };
+  
+      // Fetch initial 50 chats
+      let chats = await fetchChats(offset);
+      await processChats(chats);
+  
+      // Fetch remaining chats in the background
+      const fetchRemainingChats = async () => {
+        offset += count;
+        while (true) {
+          chats = await fetchChats(offset);
+          if (chats.length === 0) break;
+          await processChats(chats);
+          offset += count;
         }
-
-        // Fetch and update enquiries
-        const employeeListData: Employee[] = [];
-        employeeSnapshot.forEach((doc) => {
-            employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
-        });
-        setEmployeeList(employeeListData);
-        const enquriryListData: Enquiry[] = [];
-        enquirySnapshot.forEach((doc) => {
-            enquriryListData.push({ id: doc.id, ...doc.data() } as Enquiry);
-        });
-        enquriryListData.forEach((enquiry) => {
-            const existingContact = contactsWithChatsOrConversations.find(contact => contact.id === enquiry.contact_id);
-            if (existingContact) {
-                existingContact.enquiries = existingContact.enquiries || [];
-                existingContact.enquiries.push(enquiry);
-                if (!existingContact.last_message || getTimestamp(existingContact.last_message.createdAt) < getTimestamp(enquiry.timestamp)) {
-                    existingContact.last_message = {
-                        id: enquiry.id,
-                        text: { body: enquiry.message },
-                        from_me: false,
-                        createdAt: getTimestamp(enquiry.timestamp),
-                        type: 'text',
-                        image: undefined,
-                        read: enquiry.read ?? true,
-                    };
-                }
-                existingContact.unreadCount = (existingContact.unreadCount || 0) + (enquiry.read ? 0 : 1);
-            } else {
-                contactsWithChatsOrConversations.push({
-                    id: enquiry.contact_id,
-                    phone: enquiry.phone || '',
-                    contactName: enquiry.name || '',
-                    enquiries: [enquiry],
-                    tags: [],
-                    last_message: {
-                        id: enquiry.id,
-                        text: { body: enquiry.message },
-                        from_me: false,
-                        createdAt: getTimestamp(enquiry.timestamp),
-                        type: 'text',
-                        image: undefined,
-                        read: enquiry.read ?? true,
-                    },
-                    unreadCount: enquiry.read ? 0 : 1,
-                });
-            }
-        });
-
-        // Sort contacts by last message date
-        contactsWithChatsOrConversations.sort((a, b) => {
-            const dateA = a.last_message?.createdAt
-                ? new Date(getTimestamp(a.last_message.createdAt))
-                : a.last_message?.timestamp
-                    ? new Date(getTimestamp(a.last_message.timestamp))
-                    : new Date(0);
-            const dateB = b.last_message?.createdAt
-                ? new Date(getTimestamp(b.last_message.createdAt))
-                : b.last_message?.timestamp
-                    ? new Date(getTimestamp(b.last_message.timestamp))
-                    : new Date(0);
-            return dateB.getTime() - dateA.getTime();
-        });
-
-        // Filter contacts by user name in tags if necessary
-        if (user_role == '2') {
-            const filteredContacts = contactsWithChatsOrConversations.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
-            setContacts(filteredContacts);
-        } else {
-            setContacts(contactsWithChatsOrConversations);
-        }
-        setFilteredContacts(contactsWithChatsOrConversations);
-        setFilteredContactsForForwarding(contactsWithChatsOrConversations);
-
-        // Fetch remaining contacts in the background
-        fetchRemainingContacts(ghlToken, locationId, contactsWithChatsOrConversations);
-
+      };
+  
+      fetchRemainingChats();
+  
+      if (user_role == '2') {
+        const filteredContacts = contacts.filter((contact: { tags: any[]; }) => contact.tags.some((tag) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
+        setContacts(filteredContacts);
+      } else {
+        setContacts(contacts);
+      }
+      setFilteredContacts(contacts);
+  
     } catch (error) {
-        console.error('Failed to fetch contacts:', error);
+      console.error('Failed to fetch contacts:', error);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-};
+  };
 
-
-const fetchRemainingContacts = async (ghlToken: string, locationId: string, initialContacts: any[]) => {
-    try {
-        let allRemainingContacts: any[] = [];
-        let page = initialContacts.length / 100;
-        while (true) {
-            const remainingContacts = await searchContacts(ghlToken, locationId, 100, page * 100);
-            if (remainingContacts.length === 0) break; // No more contacts to fetch
-
-            allRemainingContacts = [...allRemainingContacts, ...remainingContacts];
-
-            // Process additional contacts
-            const mappedAdditionalChats = await (await Promise.all(remainingContacts.map(async (contact) => {
-              const phoneNumber = `+${contact.phone.split('@')[0]}`;
-              let existingContact = initialContacts.find(c => c.phone === phoneNumber);
-              if (existingContact) {
-                existingContact.chat_id = contact.chat_id || existingContact.chat_id;
-                existingContact.last_message = contact.last_message || existingContact.last_message;
-                existingContact.unreadCount = (existingContact.unreadCount || 0) + (contact.unreadCount || 0);
-                existingContact.tags = [...new Set([...existingContact.tags, ...contact.tags])];
-              } else {
-                initialContacts.push({
-                  ...contact,
-                  phone: phoneNumber,
-                });
-              }
-              return contact;
-            }))).filter(Boolean);
-
-            page++;
-        }
-
-        const mergedContacts = [...initialContacts, ...allRemainingContacts];
-        const contactsWithChatsOrConversations = mergedContacts.filter(contact => 
-            contact.conversations && contact.conversations.length > 0 || 
-            contact.chat_id
-        );
-
-        setContacts(contactsWithChatsOrConversations);
-        setFilteredContacts(contactsWithChatsOrConversations);
-        setFilteredContactsForForwarding(contactsWithChatsOrConversations);
-
-    } catch (error) {
-        console.error('Failed to fetch remaining contacts:', error);
-    }
-};
-
-const fetchAllChats = async (whapiToken: string) => {
-    try {
-        let allChats: any[] = [];
-        let count = 100;
-        let offset = 0;
-        while (true) {
-            const response = await fetch(`https://gate.whapi.cloud/chats?count=${count}&offset=${offset}`, {
-                headers: {
-                    Authorization: `Bearer ${whapiToken}`,
-                },
-            });
-
-            if (!response.ok) throw new Error('Failed to fetch chats');
-            const data = await response.json();
-            const chats = data.chats;
-            allChats = [...allChats, ...chats];
-
-            if (chats.length < count) break; // No more chats to fetch
-            offset += count;
-        }
-        return allChats;
-    } catch (error) {
-        console.error('Failed to fetch all chats:', error);
-        return [];
-    }
-};
 async function getContact(name: any, number: string, location: any, access_token: any) {
   const options = {
     method: 'POST',
@@ -782,7 +655,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-        
+        console.log('No such document!');
         return;
     }
     const dataUser = docUserSnapshot.data() as UserData;
@@ -943,132 +816,76 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     }
     setFilteredContacts(contacts);
     setFilteredContactsForForwarding(contacts);
-    
+    console.log(contacts);
 } catch (error) {
     console.error('Failed to fetch contacts:', error);
 } finally {
 
 }
 };
-async function searchConversations(accessToken: any, locationId: any, limit: number = 100, offset: number = 0): Promise<any[]> {
-  try {
-      let allConversations: any[] = [];
-      let page = 1;
-      let conversationsFetched = 0;
-
-      while (true) {
-          const options = {
-              method: 'GET',
-              url: 'https://services.leadconnectorhq.com/conversations/search/',
-              headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                  Version: '2021-07-28',
-              },
-              params: {
-                  locationId: locationId,
-                  page: page,
-                  limit: 100,
-              }
-          };
-          const response = await axios.request(options);
-          const conversations = response.data.conversations;
-
-          if (offset > 0) {
-              if (conversationsFetched + conversations.length <= offset) {
-                  conversationsFetched += conversations.length;
-                  page++;
-                  continue;
-              }
-
-              if (conversationsFetched < offset) {
-                  const remainingOffset = offset - conversationsFetched;
-                  conversations.splice(0, remainingOffset);
-                  conversationsFetched += remainingOffset;
-              }
-          }
-
-          if (limit > 0 && allConversations.length + conversations.length > limit) {
-              const remainingLimit = limit - allConversations.length;
-              allConversations = [...allConversations, ...conversations.slice(0, remainingLimit)];
-              break;
-          }
-
-          allConversations = [...allConversations, ...conversations];
-          conversationsFetched += conversations.length;
-
-          if (conversations.length === 0 || (limit > 0 && allConversations.length >= limit)) {
-              break;
-          }
-
-          page++;
-      }
-      return allConversations;
-  } catch (error) {
-      console.error('Error searching conversations:', error);
-      return [];
-  }
-}
-  async function searchContacts(accessToken: any, locationId: any, limit: number = 100, offset: number = 0): Promise<any[]> {
+  async function searchConversations(accessToken: any, locationId: any): Promise<any[]> {
     try {
-        let allContacts: any[] = [];
-        let page = 1;
-        let contactsFetched = 0;
-
-        while (true) {
-            const options = {
-                method: 'GET',
-                url: 'https://services.leadconnectorhq.com/contacts/',
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    Version: '2021-07-28',
-                },
-                params: {
-                    locationId: locationId,
-                    page: page,
-                }
-            };
-            const response = await axios.request(options);
-            const contacts = response.data.contacts;
-
-            if (offset > 0) {
-                if (contactsFetched + contacts.length <= offset) {
-                    contactsFetched += contacts.length;
-                    page++;
-                    continue;
-                }
-
-                if (contactsFetched < offset) {
-                    const remainingOffset = offset - contactsFetched;
-                    contacts.splice(0, remainingOffset);
-                    contactsFetched += remainingOffset;
-                }
-            }
-
-            if (limit > 0 && allContacts.length + contacts.length > limit) {
-                const remainingLimit = limit - allContacts.length;
-                allContacts = [...allContacts, ...contacts.slice(0, remainingLimit)];
-                break;
-            }
-
-            allContacts = [...allContacts, ...contacts];
-            contactsFetched += contacts.length;
-
-            if (contacts.length === 0 || (limit > 0 && allContacts.length >= limit)) {
-                break;
-            }
-
-            page++;
+      let allConversation: any[] = [];
+      let page = 1;
+      const options = {
+        method: 'GET',
+        url: 'https://services.leadconnectorhq.com/conversations/search/',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Version: '2021-07-28',
+        },
+        params: {
+          locationId: locationId,
+          page: page,
+          limit:100,
         }
-        return allContacts;
+      };
+      const response = await axios.request(options);
+   
+      const conversations = response.data.conversations;
+      console.log(conversations);
+      allConversation = [...allConversation, ...conversations];
+      return allConversation;
     } catch (error) {
-        console.error('Error searching contacts:', error);
-        return [];
+      console.error('Error searching contacts:', error);
+      return [];
     }
-}
+  }
+  async function searchContacts(accessToken: any, locationId: any): Promise<any[]> {
+    try {
+      let allContacts: any[] = [];
+      let page = 1;
+      while (true) {
+        const options = {
+          method: 'GET',
+          url: 'https://services.leadconnectorhq.com/contacts/',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Version: '2021-07-28',
+          },
+          params: {
+            locationId: locationId,
+            page: page,
+          }
+        };
+        const response = await axios.request(options);
+        const contacts = response.data.contacts;
+        allContacts = [...allContacts, ...contacts];
+        if (contacts.length === 0) {
+          break;
+        }
+        page++;
+      }
+      return allContacts;
+    } catch (error) {
+      console.error('Error searching contacts:', error);
+      return [];
+    }
+  }
   const handleIconClick = (iconId: string,selectedChatId:string,id:string) => {
     setMessages([]);
     setSelectedIcon(iconId);
-    
+    console.log(selectedChatId);
     if(iconId == 'ws'){
       fetchMessages(selectedChatId, whapiToken!);
     }else if (iconId === 'mail'){
@@ -1079,15 +896,15 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
   };
   async function fetchConversationMessages(conversationId: string,contact:any) {
     if (!conversationId) return;
-    
-    
+    console.log(contact);
+    console.log(selectedIcon);
     const auth = getAuth(app);
     const user = auth.currentUser;
     try {
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        
+        console.log('No such document!');
         return;
       }
       const dataUser = docUserSnapshot.data();
@@ -1095,7 +912,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        
+        console.log('No such document!');
         return;
       }
       const data2 = docSnapshot.data();
@@ -1129,13 +946,13 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
   };
   useEffect(() => {
     if (selectedChatId) {
-      
+      console.log(selectedContact);
       if(selectedChatId.includes('@s.')  ){
         fetchMessages(selectedChatId, whapiToken!);
       }else if (selectedContact.enquiries != undefined){
        fetchEnquiries(selectedContact.email);
       }else{
-        
+        console.log(selectedContact.last_message.type);
         if(selectedContact.last_message.type != 'TYPE_INSTAGRAM'){
           setSelectedIcon('fb');
         }else{
@@ -1156,7 +973,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        
+        console.log('No such document!');
         return;
       }
   
@@ -1165,7 +982,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        
+        console.log('No such document!');
         return;
       }
   
@@ -1184,7 +1001,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
       const matchingEnquiry = employeeListData.find(enquiry => enquiry.email === email);
   
       if (matchingEnquiry) {
-        
+        console.log('Matching enquiry found:', matchingEnquiry);
 
         // Update the 'unread' status to true
         const enquiryRef = doc(firestore, `companies/${companyId}/conversations`, matchingEnquiry.id);
@@ -1206,7 +1023,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
         ]);
       
       } else {
-        
+        console.log('No matching enquiry found.');
         setMessages([]);
       }
     } catch (error) {
@@ -1224,7 +1041,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        
+        console.log('No such document!');
         return;
       }
       const dataUser = docUserSnapshot.data();
@@ -1232,7 +1049,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        
+        console.log('No such document!');
         return;
       }
       const data2 = docSnapshot.data();
@@ -1254,7 +1071,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
             document:message.document?message.document:undefined,
           }))
         );
-        
+        console.log( data.messages);
       } else {
         setMessages([
         
@@ -1274,7 +1091,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        
+        console.log('No such document!');
         return;
       }
       const dataUser = docUserSnapshot.data();
@@ -1282,7 +1099,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        
+        console.log('No such document!');
         return;
       }
       const data2 = docSnapshot.data();
@@ -1302,7 +1119,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
             image: message.image ? message.image : undefined,
           }))
         );
-        
+        console.log(messages);
       } else {
         setMessages([
         
@@ -1315,17 +1132,17 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
   }
   async function sendTextMessage(selectedChatId: string, newMessage: string,contact:any): Promise<void> {
     if (!newMessage.trim() || !selectedChatId) return;
-  
+  console.log(selectedChatId)
     const user = auth.currentUser;
     if (!user) {
-      
+      console.log('User not authenticated');
       return;
     }
   
     const docUserRef = doc(firestore, 'user', user.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-      
+      console.log('No such document!');
       return;
     }
   
@@ -1335,7 +1152,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
     if (!docSnapshot.exists()) {
-      
+      console.log('No such document!');
       return;
     }
   
@@ -1358,9 +1175,9 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
       };
   
       const response = await axios.request(options);
-      
+      console.log(response.data);
   
-      
+      console.log('Message sent successfully:', response.data);
       toast.success("Message sent successfully!");
       fetchConversationMessages(contact.conversation_id,selectedContact);
     } catch (error) {
@@ -1373,7 +1190,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-      
+      console.log('No such document!');
       return;
     }
     const dataUser = docUserSnapshot.data();
@@ -1381,7 +1198,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
     if (!docSnapshot.exists()) {
-      
+      console.log('No such document!');
       return;
     }
     const data2 = docSnapshot.data();
@@ -1404,13 +1221,13 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
   };
 
   const toggleStopBotLabel = async (chat: any, index: number, contact: any) => {
-    
+    console.log(contact);
     try {
       const user = auth.currentUser;
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        
+        console.log('No such document for user!');
         return;
       }
       const userData = docUserSnapshot.data();
@@ -1418,7 +1235,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        
+        console.log('No such document for company!');
         return;
       }
       const companyData = docSnapshot.data();
@@ -1468,14 +1285,14 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
     const user = auth.currentUser;
   
     if (!user) {
-      
+      console.log('No authenticated user');
       return;
     }
   
     const docUserRef = doc(firestore, 'user', user.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-      
+      console.log('No such document for user!');
       return;
     }
     const userData = docUserSnapshot.data();
@@ -1483,7 +1300,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
     if (!docSnapshot.exists()) {
-      
+      console.log('No such document for company!');
       return;
     }
     const companyData = docSnapshot.data();
@@ -1540,7 +1357,7 @@ async function searchConversations(accessToken: any, locationId: any, limit: num
         const response = await axios.request(options);
       
         if (response.status === 200) {
-            
+            console.log('Contact tags updated successfully');
             return true;
         } else {
             console.error('Failed to update contact tags:', response.statusText);
@@ -1754,7 +1571,7 @@ const handleForwardMessage = async () => {
   const handleDocumentUpload: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
     setLoading(true)
     const file = event.target.files && event.target.files[0];
-    
+    console.log(file);
     if (file) {
       const imageUrl = await uploadFile(file); // Implement uploadFile to handle the upload
       await sendDocumentMessage(selectedChatId!, imageUrl!,file.type,file.name,"");
@@ -1783,7 +1600,7 @@ const handleForwardMessage = async () => {
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        
+        console.log('No such document for user!');
         return;
       }
       const userData = docUserSnapshot.data();
@@ -1791,7 +1608,7 @@ const handleForwardMessage = async () => {
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        
+        console.log('No such document for company!');
         return;
       }
       const companyData = docSnapshot.data();
@@ -1813,7 +1630,7 @@ const handleForwardMessage = async () => {
   
       const data = await response.json();
       fetchMessages(selectedChatId!,companyData.access_token);
-      
+      console.log('Image message sent successfully:', data);
     } catch (error) {
       console.error('Error sending image message:', error);
     }
@@ -1826,7 +1643,7 @@ const handleForwardMessage = async () => {
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        
+        console.log('No such document for user!');
         return;
       }
       const userData = docUserSnapshot.data();
@@ -1834,7 +1651,7 @@ const handleForwardMessage = async () => {
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        
+        console.log('No such document for company!');
         return;
       }
       const companyData = docSnapshot.data();
@@ -1858,7 +1675,7 @@ const handleForwardMessage = async () => {
   
       const data = await response.json();
       fetchMessages(selectedChatId!,companyData.access_token);
-      
+      console.log('Image message sent successfully:', data);
     } catch (error) {
       console.error('Error sending image message:', error);
     }
@@ -1868,8 +1685,8 @@ const handleForwardMessage = async () => {
     setSearchQuery2(''); // Clear the search query
   };
   return (
-    <div className="flex item-center overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '90vh' }}>
-    <div className="flex flex-col w-full sm:w-4/12 bg-gray-100 border-r border-gray-300">
+    <div className="flex overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '85vh' }}>
+    <div className="flex flex-col w-full sm:w-1/4 bg-gray-100 border-r border-gray-300">
     <div className="relative mr-3 intro-x sm:mr-6"></div>
     <div className="relative hidden sm:block p-4">
     <div className="flex items-center space-x-2">
@@ -1941,7 +1758,7 @@ const handleForwardMessage = async () => {
   <div className="relative flex-grow">
     <input
       type="text"
-      className="w-[320px] h-[40px] !box pr-2 text-md py-2 pl-9 bg-gray-200 text-gray-700 rounded-md focus:bg-gray-200"
+      className="!box w-full py-1 pl-10 pr-4 bg-gray-100 text-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
       placeholder="Search..."
       value={searchQuery}
       onChange={handleSearchChange}
@@ -1987,7 +1804,7 @@ const handleForwardMessage = async () => {
     {filteredContacts.map((contact, index) => (
       <div
         key={contact.id || `${contact.phone}-${index}`}
-        className={`p-2 mb-2 rounded cursor-pointer flex items-center space-x-4 ${
+        className={`p-2 mb-2 rounded cursor-pointer flex items-center space-x-3 ${
           contact.chat_id !== undefined
             ? selectedChatId === contact.chat_id
               ? 'bg-gray-700 text-white'
@@ -2107,7 +1924,7 @@ const handleForwardMessage = async () => {
           </div>
         )}
            
-        <div className="flex-1 overflow-y-auto p-5" style={{ paddingBottom: "150px" }}>
+        <div className="flex-1 overflow-y-auto p-4" style={{ paddingBottom: "150px" }}>
            
         {isLoading && (
                 <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
@@ -2300,7 +2117,7 @@ const handleForwardMessage = async () => {
     </span>
   </button>
             <textarea
-               className="flex-grow item-center w-50 h-10 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-md mr-2 ml-4 resize-none bg-gray-100 text-gray-800"
+               className="flex-grow px-5 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-lg mr-2 ml-4 resize-none bg-gray-100 text-gray-800"
               placeholder="Type a message"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
