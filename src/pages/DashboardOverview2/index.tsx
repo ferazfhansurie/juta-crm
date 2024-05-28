@@ -54,7 +54,6 @@ interface Material {
   spice?: MaterialSize;
   sauce?: number;
 }
-
 interface MaterialSize {
   small: number;
   regular: number;
@@ -80,6 +79,8 @@ const Main = () => {
   const [materialsData, setMaterialsData] = useState<Material[]>([]);
   const [materialsNeeded, setMaterialsNeeded] = useState<MaterialsNeeded>({});
   const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [openEditMaterialsDialog, setOpenEditMaterialsDialog] = useState(false);
+  const [editMaterial, setEditMaterial] = useState<Material | null>(null);
   const [newOrder, setNewOrder] = useState<Order>({
     id: '',
     date: '',
@@ -122,14 +123,14 @@ const Main = () => {
       if (ordersData.length === 0 || materialsData.length === 0) {
         return;
       }
-  
+
       const updatedMaterialsNeeded: MaterialsNeeded = {};
-  
+
       ordersData.forEach(order => {
         const { pies } = order;
         pies.forEach(pieSelection => {
           const { pie, size, quantity } = pieSelection;
-  
+
           materialsData.forEach(material => {
             if (material.name === pie) {
               switch (pie) {
@@ -158,14 +159,14 @@ const Main = () => {
           });
         });
       });
-  
+
       setMaterialsNeeded(updatedMaterialsNeeded);
     };
-  
+
     const handleMaterial = (material: Material, size: string, quantity: number, ingredient: string, updatedMaterialsNeeded: MaterialsNeeded) => {
       const { name } = material;
       const materialIngredient = material[ingredient as keyof Material];
-  
+
       if (materialIngredient && typeof materialIngredient === 'object') {
         let quantityForIngredient;
         switch (size) {
@@ -182,7 +183,7 @@ const Main = () => {
             console.error(`Unhandled size for ${name}: ${size}`);
             return;
         }
-  
+
         if (!updatedMaterialsNeeded[name]) {
           updatedMaterialsNeeded[name] = {};
         }
@@ -192,11 +193,11 @@ const Main = () => {
         updatedMaterialsNeeded[name][ingredient] += quantityForIngredient;
       }
     };
-  
+
     const handleSauce = (material: Material, quantity: number, updatedMaterialsNeeded: MaterialsNeeded) => {
       const { name } = material;
       const sauceIngredient = material.sauce;
-  
+
       if (sauceIngredient) {
         const quantityForSauce = sauceIngredient * quantity;
         if (!updatedMaterialsNeeded[name]) {
@@ -208,7 +209,7 @@ const Main = () => {
         updatedMaterialsNeeded[name]['sauce'] += quantityForSauce;
       }
     };
-  
+
     calculateMaterialsNeeded();
   }, [ordersData, materialsData]);
 
@@ -227,6 +228,26 @@ const Main = () => {
       remarks: '',
       status: 'Pending'
     });
+  };
+
+  const handleOpenEditMaterialsDialog = (material: Material) => {
+    setEditMaterial({ ...material });
+    setOpenEditMaterialsDialog(true);
+  };
+
+  const handleCloseEditMaterialsDialog = () => {
+    setEditMaterial(null);
+    setOpenEditMaterialsDialog(false);
+  };
+
+  const handleMaterialChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof Material, size: keyof MaterialSize) => {
+    if (editMaterial) {
+      const updatedMaterial = { ...editMaterial };
+      if (updatedMaterial[field] && typeof updatedMaterial[field] === 'object') {
+        (updatedMaterial[field] as MaterialSize)[size] = parseFloat(e.target.value);
+        setEditMaterial(updatedMaterial);
+      }
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -270,6 +291,18 @@ const Main = () => {
       handleCloseAddDialog();
     } catch (error) {
       console.error('Error submitting new order:', error);
+    }
+  };
+
+  const saveEditedMaterial = async () => {
+    if (editMaterial) {
+      try {
+       // await updateDoc(doc(db, `companies/010/materials/${editMaterial.id}`), editMaterial);
+        fetchData();
+        handleCloseEditMaterialsDialog();
+      } catch (error) {
+        console.error('Error saving edited material:', error);
+      }
     }
   };
 
@@ -330,6 +363,7 @@ const Main = () => {
               <th className="w-1/3 px-4 py-2">Pie</th>
               <th className="w-1/3 px-4 py-2">Material</th>
               <th className="w-1/3 px-4 py-2">Quantity</th>
+              <th className="w-1/6 px-4 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -341,6 +375,11 @@ const Main = () => {
                   )}
                   <td className="border px-4 py-2">{material}</td>
                   <td className="border px-4 py-2">{materialsNeeded[pie][material]}</td>
+                  <td className="border px-4 py-2">
+                    <button onClick={() => handleOpenEditMaterialsDialog(materialsData.find(mat => mat.name === pie) as Material)} className="p-2 bg-blue-500 text-white rounded">
+                      Edit
+                    </button>
+                  </td>
                 </tr>
               ))
             ))}
@@ -539,6 +578,83 @@ const Main = () => {
                     className="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
                   >
                     Submit
+                  </button>
+                </div>
+              </div>
+            </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition>
+
+      <Transition show={openEditMaterialsDialog} as={React.Fragment}>
+        <Dialog onClose={handleCloseEditMaterialsDialog} className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="min-h-screen px-4 text-center">
+            <Transition.Child
+              as={React.Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
+            </Transition.Child>
+            <span className="inline-block h-screen align-middle" aria-hidden="true">
+              &#8203;
+            </span>
+            <Transition.Child
+              as={React.Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
+                  Edit Material Costs
+                </Dialog.Title>
+                <div className="mt-2">
+                  {editMaterial && (
+                    <>
+                      <h4 className="text-md font-medium leading-6 text-gray-900">{editMaterial.name}</h4>
+                      {['apple', 'cinnamon', 'pineapple', 'blueberry', 'pecan', 'caramel', 'spice'].map(ingredient => (
+                        editMaterial[ingredient as keyof Material] && (
+                          <div key={ingredient}>
+                            <label className="block text-sm font-medium text-gray-700">{ingredient}</label>
+                            {['small', 'regular', 'large'].map(size => (
+                              <input
+                                key={size}
+                                type="number"
+                                step="0.01"
+                                value={(editMaterial[ingredient as keyof Material] as MaterialSize)[size as keyof MaterialSize]}
+                                onChange={(e) => handleMaterialChange(e, ingredient as keyof Material, size as keyof MaterialSize)}
+                                className="w-full border p-2 rounded mt-1"
+                                placeholder={`${size} size cost`}
+                              />
+                            ))}
+                          </div>
+                        )
+                      ))}
+                    </>
+                  )}
+                </div>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={handleCloseEditMaterialsDialog}
+                    className="inline-flex justify-center px-4 py-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveEditedMaterial}
+                    className="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+                  >
+                    Save
                   </button>
                 </div>
               </div>
