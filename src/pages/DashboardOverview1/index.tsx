@@ -263,6 +263,69 @@ function Main() {
     importantNotesRef.current?.tns.goTo("next");
   };
 
+  const [totalContacts, setTotalContacts] = useState(0);
+
+
+  async function fetchOpportunities(accessToken: any, locationId: any) {
+    try {
+      const options = {
+        method: 'GET',
+        url: `https://services.leadconnectorhq.com/opportunities/${locationId}`,  // Adjust the URL if necessary
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Version: '2021-07-28',
+        }
+      };
+
+      const response = await axios.request(options);
+      console.log('Fetch Opportunities Response:', response.data);
+      return response.data.opportunities;  // Make sure the key matches the API response
+    } catch (error) {
+      console.error('Error fetching opportunities:', error);
+      return [];
+    }
+  }
+
+  useEffect(() => {
+    fetchCompanyData();
+  }, []);
+  //requesting Opportunities (Contacts)
+  async function fetchCompanyData() {
+    const user = auth.currentUser;
+ 
+    try {
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+     
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+    
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+ 
+
+      // Assuming refreshAccessToken is defined elsewhere
+console.log(companyData);
+
+      await searchContacts(companyData.access_token,companyData.ghl_location);
+
+
+    } catch (error) {
+      console.error('Error fetching company data:', error);
+    }
+
+  }
+
   return (
     <div className="grid grid-cols-12 gap-6">
       <div className="col-span-12 2xl:col-span-9">

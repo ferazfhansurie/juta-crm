@@ -1701,11 +1701,14 @@ const handleForwardMessage = async () => {
     setSearchQuery2(''); // Clear the search query
   };
   return (
-    <div className="flex overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '85vh' }}>
-    <div className="flex flex-col w-full sm:w-1/4 bg-gray-100 border-r border-gray-300">
+    <div className="flex item-center overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '90vh' }}>
+    <div className="flex flex-col w-full sm:w-4/12 bg-gray-100 border-r border-gray-300">
     <div className="relative mr-3 intro-x sm:mr-6"></div>
     <div className="relative hidden sm:block p-4">
     <div className="flex items-center space-x-2">
+<<<<<<< HEAD
+  <div className="relative flex-start">
+=======
     {isForwardDialogOpen && (
   <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
     <div className="bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
@@ -1772,9 +1775,14 @@ const handleForwardMessage = async () => {
   </div>
 )}
   <div className="relative flex-grow">
+>>>>>>> 839fa4944a3b87c957addabce6f253add8457b16
     <input
       type="text"
+<<<<<<< HEAD
       className="!box w-full py-1 pl-10 pr-4 bg-gray-100 text-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
+=======
+      className="w-[320px] h-[40px] !box pr-2 text-md py-2 pl-9 bg-gray-200 text-gray-700 rounded-md focus:bg-gray-200"
+>>>>>>> lano
       placeholder="Search..."
       value={searchQuery}
       onChange={handleSearchChange}
@@ -1820,7 +1828,7 @@ const handleForwardMessage = async () => {
     {filteredContacts.map((contact, index) => (
       <div
         key={contact.id || `${contact.phone}-${index}`}
-        className={`p-2 mb-2 rounded cursor-pointer flex items-center space-x-3 ${
+        className={`p-2 mb-2 rounded cursor-pointer flex items-center space-x-4 ${
           contact.chat_id !== undefined
             ? selectedChatId === contact.chat_id
               ? 'bg-gray-700 text-white'
@@ -1940,7 +1948,7 @@ const handleForwardMessage = async () => {
           </div>
         )}
            
-        <div className="flex-1 overflow-y-auto p-4" style={{ paddingBottom: "150px" }}>
+        <div className="flex-1 overflow-y-auto p-5" style={{ paddingBottom: "150px" }}>
            
         {isLoading && (
                 <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
@@ -2088,6 +2096,10 @@ const handleForwardMessage = async () => {
             </li>
         </ul>
     </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 839fa4944a3b87c957addabce6f253add8457b16
           <div className="flex items-center">
           <Menu as="div" className="relative inline-block text-left p-2">
             <div className="flex items-center space-x-3">
@@ -2133,7 +2145,7 @@ const handleForwardMessage = async () => {
     </span>
   </button>
             <textarea
-               className="flex-grow px-5 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-lg mr-2 ml-4 resize-none bg-gray-100 text-gray-800"
+               className="flex-grow item-center w-50 h-10 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-md mr-2 ml-4 resize-none bg-gray-100 text-gray-800"
               placeholder="Type a message"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
