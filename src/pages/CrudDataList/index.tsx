@@ -51,7 +51,7 @@ interface Contact {
   id: string;
   lastName: string;
   locationId: string;
-  phone: string ;
+  phone: string | null;
   postalCode: string | null;
   source: string | null;
   state: string | null;
@@ -88,26 +88,14 @@ function Main() {
   const [currentContact, setCurrentContact] = useState<Contact | null>(null);
   const [isTabOpen, setIsTabOpen] = useState(false);
   const [addContactModal, setAddContactModal] = useState(false);
-<<<<<<< HEAD
-  const [blastMessageModal, setBlastMessageModal] = useState(false);
-  const [blastMessage, setBlastMessage] = useState("");
-=======
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [newTag, setNewTag] = useState("");
   const [showAddTagModal, setShowAddTagModal] = useState(false);
   const [showDeleteTagModal, setShowDeleteTagModal] = useState(false);
-<<<<<<< Updated upstream
-const [tagToDelete, setTagToDelete] = useState<Tag | null>(null);
-const [tags, setTags] = useState<TagsState>({}); 
-const [blastMessageModal, setBlastMessageModal] = useState(false);
-const [blastMessage, setBlastMessage] = useState("");
->>>>>>> 839fa4944a3b87c957addabce6f253add8457b16
-=======
   const [tagToDelete, setTagToDelete] = useState<Tag | null>(null);
   const [tags, setTags] = useState<TagsState>({}); 
   const [blastMessageModal, setBlastMessageModal] = useState(false);
   const [blastMessage, setBlastMessage] = useState("");
->>>>>>> Stashed changes
   const [newContact, setNewContact] = useState({
       firstName: '',
       lastName: '',
@@ -697,27 +685,6 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
     }
   };
 
-<<<<<<< HEAD
-  const sendBlastMessage = async () => {
-    if (selectedContacts.length === 0) {
-      toast.error("No contacts selected!");
-      return;
-    }
-    try {
-      for (const contact of selectedContacts) {
-        await sendTextMessage(contact.phone, blastMessage, contact);
-      }
-      toast.success("Messages sent successfully!");
-      setBlastMessageModal(false);
-      setBlastMessage("");
-    } catch (error) {
-      console.error('Error sending blast message:', error);
-      toast.error("Failed to send messages.");
-    }
-  };
-
-=======
->>>>>>> 839fa4944a3b87c957addabce6f253add8457b16
   async function sendTextMessage(id: string, blastMessage: string, contact: Contact): Promise<void> {
     if (!blastMessage.trim()) {
       console.error('Blast message is empty');
@@ -779,33 +746,8 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
   
-<<<<<<< HEAD
-  
-
-=======
->>>>>>> 839fa4944a3b87c957addabce6f253add8457b16
   return (
     <>
-<<<<<<< Updated upstream
-<div className="grid grid-cols-12 gap-6 mt-5">
-  <div className="flex flex-wrap items-center col-span-12 mt-2 intro-y sm:flex-nowrap">
-<<<<<<< HEAD
-    <button className="p-2 m-0 !box"  onClick={() => setAddContactModal(true)}>
-      <span className="flex items-center justify-center w-5 h-5">
-        <Lucide icon= "Plus"className="w-5 h-5" />
-      </span>
-    </button>
-=======
- 
->>>>>>> 839fa4944a3b87c957addabce6f253add8457b16
-    <div className="w-full mt-3 sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
-      
-      <div className="relative w-[500px] text-slate-500 p-4 m-2">
-        
-        <FormInput
-          type="text"
-          className="w-[500px] h-[40px] pr-0 !box text-md"
-=======
 <div className="grid grid-cols-12 mt-5">
   <div className="flex items-center col-span-12 intro-y sm:flex-nowrap">
     <div className="w-full sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
@@ -887,89 +829,18 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
         <FormInput
           type="text"
           className="relative w-full h-[40px] pr-10 !box text-lg"
->>>>>>> Stashed changes
           placeholder="Search..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <Lucide
           icon="Search"
-<<<<<<< Updated upstream
-          className="absolute inset-y-0 right-0 w-5 h-5 my-auto mr-0"
-=======
           className="absolute inset-y-0 right-5 w-5 h-5 my-auto"
->>>>>>> Stashed changes
         />
       </div>
       <span className="item-end">
       </span>
     </div>
-<<<<<<< Updated upstream
-    <div className="ml-4">
-<<<<<<< HEAD
-      <Menu>
-        {showAddUserButton && (
-          <Menu.Button as={Button} className="flex flex-wrap items-center justify-center col-span-12 px-2 py-2 mt-2 mx-2 mb-2 intro-y sm:flex-nowrap !box">
-            <span className="flex items-center justify-center w-5 h-5">
-              <Lucide icon="Tag" className="w-5 h-5" />
-            </span>
-          </Menu.Button>
-        )}
-        <Menu.Items className="w-60 mt-4">
-          {employeeList.map((employee) => (
-            <Menu.Item key={employee.id}>
-              <span
-                className="flex items-center"
-                onClick={() => handleAddTagToSelectedContacts(employee.name)}
-              >
-                <Lucide icon="User" className="w-4 h-4 mr-2" />
-                {employee.name}
-              </span>
-            </Menu.Item>
-          ))}
-        </Menu.Items>
-      </Menu>
-    </div>
-    <div className="ml-0">
-    <button 
-      type="button"
-      className="flex flex-wrap items-center justify-center col-span-12 !box focus:outline-none text-blue-600 bg-gray-800 hover:bg-gray-600 font-medium rounded-lg text-md px-2 py-2 mt-2 mx-2 mb-2 intro-y sm:flex-nowrap" 
-      onClick={() => setBlastMessageModal(true)}>
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 mr-0">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-      </svg>
-      <span className="hidden md:inline ml-1 font-medium">Send a Blast Message</span>
-    </button>
-    </div>
-    <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
-      <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-        <Dialog.Panel className="w-full max-w-md mt-40 p-6 bg-white rounded-md">
-          <div className="mt-4 mb-4 text-lg font-semibold">Send Blast Message</div>
-          <textarea
-            className="w-full p-2 border rounded"
-            placeholder="Type your message here..."
-            value={blastMessage}
-            onChange={(e) => setBlastMessage(e.target.value)}
-          ></textarea>
-          <div className="flex justify-end mt-4">
-            <button
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-              onClick={sendBlastMessage}>Send Message
-            </button>
-          </div>
-        </Dialog.Panel>
-      </div>
-    </Dialog>
-=======
-    
-    
-        
-   
-    </div>
-
->>>>>>> 839fa4944a3b87c957addabce6f253add8457b16
-=======
->>>>>>> Stashed changes
   </div>
 
 </div>
@@ -1065,11 +936,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       </div>
       <Dialog open={addContactModal} onClose={() => setAddContactModal(false)}>
                 <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-<<<<<<< Updated upstream
-                    <Dialog.Panel className="w-full max-w-md mt-24 p-6 bg-white rounded-md">
-=======
                     <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
->>>>>>> Stashed changes
                         <div className="flex items-center p-4 border-b">
                             <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
                                 <Lucide icon="User" className="w-6 h-6" />
@@ -1153,13 +1020,8 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
             </Dialog>
             <ToastContainer />
       <Dialog open={editContactModal} onClose={() => setEditContactModal(false)}>
-
     <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-<<<<<<< Updated upstream
-        <Dialog.Panel className="w-full max-w-md mt-24 p-6 bg-white rounded-md">
-=======
         <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
->>>>>>> Stashed changes
             <div className="flex items-center p-4 border-b  ">
                 <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
                     <span className="text-xl">{(currentContact?.firstName)?currentContact?.firstName.charAt(0).toUpperCase():""}</span>
