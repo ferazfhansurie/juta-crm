@@ -15,7 +15,7 @@ import { initializeApp } from "firebase/app";
 import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
+import { rateLimiter } from '../../utils/rate';
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
   authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -307,6 +307,7 @@ const handleConfirmDeleteTag = async () => {
           Version: '2021-07-28',
         },
       };
+      await rateLimiter(); // Ensure rate limit is respected before making the request
       const response = await axios.request(options);
       console.log('tags', response.data.tags);
       
@@ -489,46 +490,66 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       return false;
     }
   }
+
   async function searchContacts(accessToken: string, locationId: string) {
     setLoading(true);
     try {
-      let allContacts: any[] = [];
-      let fetchMore = true;
-      let nextPageUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&limit=100`;
-  
-      // Fetch contacts in batches of 100
-      while (fetchMore) {
-        const options = {
-          method: 'GET',
-          url: nextPageUrl,
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Version: '2021-07-28',
-          },
-        };
-        const response = await axios.request(options);
-        const contacts = response.data.contacts;
-  
-        if (contacts.length > 0) {
-          allContacts = [...allContacts, ...contacts];
-          setContacts([...allContacts]); // Update state with the new batch of contacts
+        let allContacts: any[] = [];
+        let fetchMore = true;
+        let nextPageUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&limit=100`;
 
-      setLoading(false);
+        const maxRetries = 5; // Maximum number of retries
+        const baseDelay = 1000; // Initial delay in milliseconds
+
+        const fetchData = async (url: string, retries: number = 0): Promise<any> => {
+            const options = {
+                method: 'GET',
+                url: url,
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Version: '2021-07-28',
+                },
+            };
+            await rateLimiter(); // Ensure rate limit is respected before making the request
+            try {
+                const response = await axios.request(options);
+                return response;
+            } catch (error: any) {
+                if (error.response && error.response.status === 429 && retries < maxRetries) {
+                    const delay = baseDelay * Math.pow(2, retries);
+                    console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchData(url, retries + 1);
+                } else {
+                    throw error;
+                }
+            }
+        };
+
+        // Fetch contacts in batches of 100
+        while (fetchMore) {
+            const response = await fetchData(nextPageUrl);
+            const contacts = response.data.contacts;
+
+            if (contacts.length > 0) {
+                allContacts = [...allContacts, ...contacts];
+                setContacts([...allContacts]); // Update state with the new batch of contacts
+                setLoading(false);
+            }
+
+            // Check if there's a next page
+            if (response.data.meta.nextPageUrl) {
+                nextPageUrl = response.data.meta.nextPageUrl;
+            } else {
+                fetchMore = false;
+            }
         }
-  
-        // Check if there's a next page
-        if (response.data.meta.nextPageUrl) {
-          nextPageUrl = response.data.meta.nextPageUrl;
-        } else {
-          fetchMore = false;
-        }
-      }
-  
     } catch (error) {
-      console.error('Error searching contacts:', error);
-      setLoading(false);
+        console.error('Error searching contacts:', error);
+    } finally {
+       
     }
-  }
+}
   const handleEditContact = (contact: Contact) => {
     setCurrentContact(contact);
     setEditContactModal(true);

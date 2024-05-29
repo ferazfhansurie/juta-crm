@@ -16,6 +16,7 @@ import { time } from "console";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { onMessage } from "firebase/messaging";
 import { getFirebaseToken, messaging } from "../../firebaseconfig";
+import { rateLimiter } from '../../utils/rate';
 interface Label {
   id: string;
   name: string;
@@ -405,55 +406,77 @@ console.log(filteredContacts);
       }
     }
   };
-  const fetchTags = async (token:string,location:string) => {
+  const fetchTags = async (token: string, location: string) => {
+    const maxRetries = 5; // Maximum number of retries
+    const baseDelay = 1000; // Initial delay in milliseconds
+
+    const fetchData = async (url: string, retries: number = 0): Promise<any> => {
+        const options = {
+            method: 'GET',
+            url: url,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                Version: '2021-07-28',
+            },
+        };
+        await rateLimiter(); // Ensure rate limit is respected before making the request
+        try {
+            const response = await axios.request(options);
+            return response;
+        } catch (error: any) {
+            if (error.response && error.response.status === 429 && retries < maxRetries) {
+                const delay = baseDelay * Math.pow(2, retries);
+                console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return fetchData(url, retries + 1);
+            } else {
+                throw error;
+            }
+        }
+    };
+
     try {
-      const options = {
-        method: 'GET',
-        url: `https://services.leadconnectorhq.com/locations/${location}/tags`,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Version: '2021-07-28',
-        },
-      };
-      const response = await axios.request(options);
-      setTagList(response.data.tags);
+        const url = `https://services.leadconnectorhq.com/locations/${location}/tags`;
+        const response = await fetchData(url);
+        setTagList(response.data.tags);
     } catch (error) {
-      console.error('Error searching tags:', error);
-      return [];
+        console.error('Error fetching tags:', error);
+        return [];
     }
-  
-  };
-  const fetchDuplicateContact = async (phone: string, locationId: string, accessToken: string, retries = 3) => {
-    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-    const url = `https://services.leadconnectorhq.com/contacts/search/duplicate?locationId=${locationId}${phone ? `&number=${phone}` : ''}`;
-  
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const response = await axios.get(url, {
+};
+
+const fetchDuplicateContact = async (phone: string, locationId: string, accessToken: string, signal: AbortSignal) => {
+  const url = `https://services.leadconnectorhq.com/contacts/search/duplicate?locationId=${locationId}${phone ? `&number=${phone}` : ''}`;
+
+  await rateLimiter(); // Ensure rate limit is respected before making the request
+
+  try {
+      const response = await axios.get(url, {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Version: '2021-07-28',
-            Accept: 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+              Version: '2021-07-28',
+              Accept: 'application/json',
           },
-        });
-        return response.data.contact;
-      } catch (err) {
-        const error = err as AxiosError;
-        if (error.response && error.response.status === 429) {
-          const retryAfter = error.response.headers['retry-after']
-            ? parseInt(error.response.headers['retry-after'], 10) * 1000
-            : Math.min(Math.pow(2, attempt) * 1000, 30000) + Math.floor(Math.random() * 1000);
-          console.warn(`Rate limit exceeded, retrying after ${retryAfter}ms...`);
-          await wait(retryAfter);
-        } else {
+          signal, // Pass the abort signal to axios
+      });
+      return response.data.contact;
+  } catch (err) {
+      const error = err as AxiosError;
+      if (error.response && error.response.status === 429) {
+        
+          // Handle rate limit error gracefully
+          return null;
+      } else if (axios.isCancel(error)) {
+          console.warn('Fetch cancelled:', error.message);
+      } else {
           console.error('Error fetching duplicate contact:', error);
           throw error;
-        }
       }
-    }
-    throw new Error('Failed to fetch duplicate contact after multiple retries');
-  };
+  }
+};
   const fetchContacts = async (whapiToken: any, locationId: string, ghlToken: string, user_name: string, role: string) => {
+     const abortController = new AbortController();
+    const { signal } = abortController;
     try {
         setLoading(true);
         const [tags, employeeSnapshot] = await Promise.all([
@@ -476,6 +499,7 @@ console.log(filteredContacts);
         let offset = 0;
 
         const fetchChats = async (offset: number) => {
+
             const response = await fetch(`https://gate.whapi.cloud/chats?count=${count}&offset=${offset}`, {
                 headers: { 'Authorization': `Bearer ${whapiToken}` }
             });
@@ -488,7 +512,7 @@ console.log(filteredContacts);
             const mappedChats = await Promise.all(chats.map(async (chat: { id: string; last_message: any; name: any; }) => {
                 if (!chat?.id) return null;
                 const phoneNumber = `+${chat.id.split('@')[0]}`;
-                const duplicateContacts = await fetchDuplicateContact(phoneNumber, locationId, ghlToken);
+                const duplicateContacts = await fetchDuplicateContact(phoneNumber, locationId, ghlToken,signal);
                 let contact: any;
                 if (duplicateContacts) {
                     contact = duplicateContacts;
@@ -628,6 +652,8 @@ const getTimestamp = (timestamp: any): number => {
 };
 
 const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
+  const abortController = new AbortController();
+  const { signal } = abortController;
   try {
 
     const [tags, employeeSnapshot] = await Promise.all([
@@ -662,7 +688,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         const mappedChats = await Promise.all(chats.map(async (chat: { id: string; last_message: any; name: any; }) => {
             if (!chat?.id) return null;
             const phoneNumber = `+${chat.id.split('@')[0]}`;
-            const duplicateContacts = await fetchDuplicateContact(phoneNumber, locationId, ghlToken);
+            const duplicateContacts = await fetchDuplicateContact(phoneNumber, locationId, ghlToken,signal);
             let contact: any;
             if (duplicateContacts) {
                 contact = duplicateContacts;
