@@ -300,7 +300,7 @@ const handleConfirmDeleteTag = async () => {
   const fetchTags = async (token:string, location:string, employeeList: string[]) => {
     const maxRetries = 5; // Maximum number of retries
     const baseDelay = 1000; // Initial delay in milliseconds
-
+setLoading(true);
     const fetchData = async (url: string, retries: number = 0): Promise<any> => {
         const options = {
             method: 'GET',
@@ -333,8 +333,10 @@ const handleConfirmDeleteTag = async () => {
       const filteredTags = response.data.tags.filter((tag: Tag) => !employeeList.includes(tag.name));
       
       setTagList(filteredTags);
+      setLoading(true);
     } catch (error) {
         console.error('Error fetching tags:', error);
+        setLoading(true);
         return [];
     }
 };
