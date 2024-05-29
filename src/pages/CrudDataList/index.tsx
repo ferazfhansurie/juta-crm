@@ -489,42 +489,46 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       return false;
     }
   }
-
-  async function searchContacts(accessToken: any, locationId: any) {
+  async function searchContacts(accessToken: string, locationId: string) {
     setLoading(true);
     try {
       let allContacts: any[] = [];
-      let page = 1;
-      while (true) {
+      let fetchMore = true;
+      let nextPageUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&limit=100`;
+  
+      // Fetch contacts in batches of 100
+      while (fetchMore) {
         const options = {
           method: 'GET',
-          url: 'https://services.leadconnectorhq.com/contacts/',
+          url: nextPageUrl,
           headers: {
             Authorization: `Bearer ${accessToken}`,
             Version: '2021-07-28',
           },
-          params: {
-            locationId: locationId,
-            page: page,
-          }
         };
         const response = await axios.request(options);
         const contacts = response.data.contacts;
-        allContacts = [...allContacts, ...contacts];
-        if (contacts.length === 0) {
-          break;
-        }
-        page++;
-      }
-      const filteredContacts = allContacts.filter(contact => contact.phone !== null);
-      setContacts(filteredContacts);
+  
+        if (contacts.length > 0) {
+          allContacts = [...allContacts, ...contacts];
+          setContacts([...allContacts]); // Update state with the new batch of contacts
+
       setLoading(false);
+        }
+  
+        // Check if there's a next page
+        if (response.data.meta.nextPageUrl) {
+          nextPageUrl = response.data.meta.nextPageUrl;
+        } else {
+          fetchMore = false;
+        }
+      }
+  
     } catch (error) {
       console.error('Error searching contacts:', error);
       setLoading(false);
     }
   }
-
   const handleEditContact = (contact: Contact) => {
     setCurrentContact(contact);
     setEditContactModal(true);
