@@ -238,7 +238,7 @@ function Main() {
     setIsQuickRepliesOpen(false);
   };
 
-
+console.log(filteredContacts);
   
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -269,12 +269,12 @@ function Main() {
                 whapiToken: data.whapiToken,
               });
               const user_name = dataUser.name;
-            /*  fetchContactsBackground(
+         fetchContactsBackground(
                 data.whapiToken,
                 data.location_id,
                 data.access_token,
                 user_name
-              );*/
+              );
             }
           }
         }
@@ -455,146 +455,138 @@ function Main() {
   };
   const fetchContacts = async (whapiToken: any, locationId: string, ghlToken: string, user_name: string, role: string) => {
     try {
-      setLoading(true);
-      const [tags, employeeSnapshot] = await Promise.all([
-        fetchTags(ghlToken, locationId),
-        getDocs(collection(firestore, `companies/${companyId}/employee`)),
-      ]);
-  
-      const user = auth.currentUser;
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-      const dataUser = docUserSnapshot.data() as UserData;
-      user_role = dataUser.role;
-  
-      let contacts: any = [];
-      const count = 50; // Fetch 50 chats at a time
-      let offset = 0;
-  
-      const fetchChats = async (offset: number) => {
-        const response = await fetch(`https://gate.whapi.cloud/chats?count=${count}&offset=${offset}`, {
-          headers: { 'Authorization': `Bearer ${whapiToken}` }
-        });
-        if (!response.ok) throw new Error('Failed to fetch chats');
-        const data = await response.json();
-        return data.chats;
-      };
-  
-      // Process chats
-      const processChats = async (chats: any[]) => {
-        const mappedChats = await Promise.all(chats.map(async (chat: { id: string; last_message: any; name: any; }) => {
-          if (!chat?.id) return null;
-          const phoneNumber = `+${chat.id.split('@')[0]}`;
-          const duplicateContacts = await fetchDuplicateContact(phoneNumber, locationId, ghlToken);
-          let contact: any;
-          if (duplicateContacts) {
-            contact = duplicateContacts;
-          } else {
-           // contact = await getContact(chat.name, phoneNumber, locationId, ghlToken);
-          }
-          let unreadCount = 0;
-          if (dataUser.notifications !== undefined) {
-            unreadCount = dataUser.notifications.filter((notif: { chat_id: string; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
-          }
-  
-          if (contact) {
-            contact.chat_id = chat.id;
-            contact.last_message = chat.last_message;
-            contact.chat = chat;
-            contact.unreadCount = unreadCount ?? 0;
-          }
-  
-          return {
-            ...chat,
-            tags: contact ? contact.tags : [],
-            name: contact ? contact.firstName : chat.name,
-            lastMessageBody: '',
-            id: chat.id,
-            contact_id: contact ? contact.id : "",
-            unreadCount,
-          };
-        }).filter(Boolean));
-  
-        mappedChats.forEach((chat) => {
-          if (chat?.id) {
-            const phoneNumber = `+${chat.id.split('@')[0]}`;
-            const existingContact = contacts.find((contact: { phone: string; }) => contact.phone === phoneNumber);
-            if (existingContact) {
-              existingContact.chat_id = chat.id;
-              existingContact.last_message = chat.last_message || existingContact.last_message;
-              existingContact.chat = chat;
-              existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
-              existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
-            } else {
-              contacts.push({
-                id: chat.contact_id,
-                phone: phoneNumber,
-                contactName: chat.name,
-                chat_id: chat.id,
-                last_message: chat.last_message || null,
-                chat: chat,
-                tags: chat.tags,
-                conversation_id: chat.id,
-                unreadCount: chat.unreadCount,
-              });
-            }
-          }
-        });
-  
-        contacts.sort((a: { last_message: { createdAt: any; timestamp: any; }; }, b: { last_message: { createdAt: any; timestamp: any; }; }) => {
-          const dateA = a.last_message?.createdAt
-            ? new Date(getTimestamp(a.last_message.createdAt))
-            : a.last_message?.timestamp
-              ? new Date(getTimestamp(a.last_message.timestamp))
-              : new Date(0);
-          const dateB = b.last_message?.createdAt
-            ? new Date(getTimestamp(b.last_message.createdAt))
-            : b.last_message?.timestamp
-              ? new Date(getTimestamp(b.last_message.timestamp))
-              : new Date(0);
-          return dateB.getTime() - dateA.getTime();
-        });
-  
-        setContacts([...contacts]);
-        setFilteredContacts([...contacts]);
-      };
-  
-      // Fetch initial 50 chats
-      let chats = await fetchChats(offset);
-      await processChats(chats);
-  
-      // Fetch remaining chats in the background
-      const fetchRemainingChats = async () => {
-        offset += count;
-        while (true) {
-          chats = await fetchChats(offset);
-          if (chats.length === 0) break;
-          await processChats(chats);
-          offset += count;
-        }
-      };
-  
-      fetchRemainingChats();
-  
-      if (user_role == '2') {
-        const filteredContacts = contacts.filter((contact: { tags: any[]; }) => contact.tags.some((tag) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
-        setContacts(filteredContacts);
-      } else {
-        setContacts(contacts);
-      }
-      setFilteredContacts(contacts);
-  
-    } catch (error) {
-      console.error('Failed to fetch contacts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        setLoading(true);
+        const [tags, employeeSnapshot] = await Promise.all([
+            fetchTags(ghlToken, locationId),
+            getDocs(collection(firestore, `companies/${companyId}/employee`)),
+        ]);
 
+        const user = auth.currentUser;
+        const docUserRef = doc(firestore, 'user', user?.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (!docUserSnapshot.exists()) {
+            console.log('No such document!');
+            return;
+        }
+        const dataUser = docUserSnapshot.data() as UserData;
+        const user_role = dataUser.role;
+
+        let contacts: any = [];
+        const count = 20; // Fetch 50 chats at a time
+        let offset = 0;
+
+        const fetchChats = async (offset: number) => {
+            const response = await fetch(`https://gate.whapi.cloud/chats?count=${count}&offset=${offset}`, {
+                headers: { 'Authorization': `Bearer ${whapiToken}` }
+            });
+            if (!response.ok) throw new Error('Failed to fetch chats');
+            const data = await response.json();
+            return data.chats;
+        };
+
+        const processChats = async (chats: any[]) => {
+            const mappedChats = await Promise.all(chats.map(async (chat: { id: string; last_message: any; name: any; }) => {
+                if (!chat?.id) return null;
+                const phoneNumber = `+${chat.id.split('@')[0]}`;
+                const duplicateContacts = await fetchDuplicateContact(phoneNumber, locationId, ghlToken);
+                let contact: any;
+                if (duplicateContacts) {
+                    contact = duplicateContacts;
+                }
+                let unreadCount = 0;
+                if (dataUser.notifications !== undefined) {
+                    unreadCount = dataUser.notifications.filter((notif: { chat_id: string; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
+                }
+
+                if (contact) {
+                    contact.chat_id = chat.id;
+                    contact.last_message = chat.last_message;
+                    contact.chat = chat;
+                    contact.unreadCount = unreadCount ?? 0;
+                }
+
+                return {
+                    ...chat,
+                    tags: contact ? contact.tags : [],
+                    name: contact ? contact.firstName : chat.name,
+                    lastMessageBody: '',
+                    id: chat.id,
+                    contact_id: contact ? contact.id : "",
+                    unreadCount,
+                };
+            }).filter(Boolean));
+
+            mappedChats.forEach((chat) => {
+                if (chat?.id) {
+                    const phoneNumber = `+${chat.id.split('@')[0]}`;
+                    const existingContact = contacts.find((contact: { phone: string; }) => contact.phone === phoneNumber);
+                    if (existingContact) {
+                        existingContact.chat_id = chat.id;
+                        existingContact.last_message = chat.last_message || existingContact.last_message;
+                        existingContact.chat = chat;
+                        existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
+                        existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
+                    } else {
+                        contacts.push({
+                            id: chat.contact_id,
+                            phone: phoneNumber,
+                            contactName: chat.name,
+                            chat_id: chat.id,
+                            last_message: chat.last_message || null,
+                            chat: chat,
+                            tags: chat.tags,
+                            conversation_id: chat.id,
+                            unreadCount: chat.unreadCount,
+                        });
+                    }
+                }
+            });
+
+            contacts.sort((a: { last_message: { createdAt: any; timestamp: any; }; }, b: { last_message: { createdAt: any; timestamp: any; }; }) => {
+                const dateA = a.last_message?.createdAt
+                    ? new Date(getTimestamp(a.last_message.createdAt))
+                    : a.last_message?.timestamp
+                        ? new Date(getTimestamp(a.last_message.timestamp))
+                        : new Date(0);
+                const dateB = b.last_message?.createdAt
+                    ? new Date(getTimestamp(b.last_message.createdAt))
+                    : b.last_message?.timestamp
+                        ? new Date(getTimestamp(b.last_message.timestamp))
+                        : new Date(0);
+                return dateB.getTime() - dateA.getTime();
+            });
+
+            if (user_role == '2') {
+                const filteredContacts = contacts.filter((contact: { tags: any[]; }) => contact.tags.some((tag) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
+                setContacts([...filteredContacts]);
+                setFilteredContacts([...filteredContacts]);
+            } else {
+                setContacts([...contacts]);
+                setFilteredContacts([...contacts]);
+            }
+        };
+
+        let chats = await fetchChats(offset);
+        await processChats(chats);
+
+        const fetchRemainingChats = async () => {
+            offset += count;
+            while (true) {
+                chats = await fetchChats(offset);
+                if (chats.length === 0) break;
+                await processChats(chats);
+                offset += count;
+            }
+        };
+
+        fetchRemainingChats();
+
+    } catch (error) {
+        console.error('Failed to fetch contacts:', error);
+    } finally {
+        setLoading(false);
+    }
+};
 async function getContact(name: any, number: string, location: any, access_token: any) {
   const options = {
     method: 'POST',
@@ -637,21 +629,13 @@ const getTimestamp = (timestamp: any): number => {
 
 const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
   try {
-  
-    // Parallelize initial fetch operations including fetchTags
-    const [tags, chatResponse, conversations, contacts, employeeSnapshot, enquirySnapshot] = await Promise.all([
+
+    const [tags, employeeSnapshot] = await Promise.all([
         fetchTags(ghlToken, locationId),
-        fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`),
-        searchConversations(ghlToken, locationId),
-        searchContacts(ghlToken, locationId),
         getDocs(collection(firestore, `companies/${companyId}/employee`)),
-        getDocs(collection(firestore, `companies/${companyId}/conversations`))
     ]);
 
-    if (!chatResponse.ok) throw new Error('Failed to fetch chats');
-    const chatData = await chatResponse.json();
     const user = auth.currentUser;
-
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
@@ -659,168 +643,122 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         return;
     }
     const dataUser = docUserSnapshot.data() as UserData;
+    const user_role = dataUser.role;
 
-    user_role = dataUser.role;
+    let contacts: any = [];
+    const count = 20; // Fetch 50 chats at a time
+    let offset = 0;
 
-    // Process chat data
-    const mappedChats = chatData.chats.map(async (chat: { id: string; last_message: any; name: any; }) => {
-        if (!chat.id) return null;
-        const phoneNumber = `+${chat.id.split('@')[0]}`;
-        let contact = contacts.find(contact => contact.phone === phoneNumber);
-        let unreadCount = 0;
-        if (dataUser.notifications !== undefined) {
-            unreadCount = dataUser.notifications.filter((notif: { chat_id: string; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
-        }
-
-        if (contact) {
-            contact.chat_id = chat.id;
-            contact.last_message = chat.last_message;
-            contact.chat = chat;
-            contact.unreadCount = unreadCount ?? 0;
-            contact.id = contact.id;
-        }else{
-       //await getContact(chat.name,phoneNumber,locationId,ghlToken);
-        }
-        return {
-            ...chat,
-            tags: contact ? contact.tags : [],
-            name: contact ? contact.contactName : chat.name,
-            lastMessageBody: '',
-            id: chat.id,
-            contact_id: contact ? contact.id : "",
-            unreadCount,
-        };
-    }).filter(Boolean);
-
-        // Merge WhatsApp contacts with existing contacts
-        mappedChats.forEach((chat: { id: string; last_message: any; unreadCount: any; tags: any; contact_id: any; name: any; }) => {
-          if(chat.id){
-            const phoneNumber = `+${chat.id.split('@')[0]}`;
-            const existingContact = contacts.find(contact => contact.phone === phoneNumber);
-            if (existingContact) {
-                existingContact.chat_id = chat.id;
-                existingContact.last_message = chat.last_message || existingContact.last_message;
-                existingContact.chat = chat;
-                existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
-                existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
-            } else {
-                contacts.push({
-                    id: chat.contact_id,
-                    phone: phoneNumber,
-                    contactName: chat.name,
-                    chat_id: chat.id,
-                    last_message: chat.last_message || null,
-                    chat: chat,
-                    tags: chat.tags,
-                    conversation_id: chat.id,
-                    unreadCount: chat.unreadCount,
-                });
-            }
-          }
-
-      });
- 
-    // Merge and update contacts with conversations
-         contacts.forEach(contact => {
-        const matchedConversation = conversations.find(conversation => conversation.contactId === contact.id);
-        if (matchedConversation) {
-          const currentcount =  (contact.unreadCount != undefined)?contact.unreadCount:0;
-            contact.conversation_id = matchedConversation.id;
-            contact.chat_id = contact.chat_id || matchedConversation.id;
-            contact.unreadCount = currentcount+ matchedConversation.unreadCount;
-            contact.conversations = contact.conversations || [];
-            contact.conversations.push(matchedConversation);
-            if (!contact.last_message) {
-                contact.last_message = {
-                    id: matchedConversation.id,
-                    text: { body: matchedConversation.lastMessageBody },
-                    from_me: matchedConversation.lastMessageDirection === 'outbound',
-                    createdAt: matchedConversation.lastMessageDate,
-                    type: matchedConversation.lastMessageType,
-                    image: undefined,
-                };
-            }
-        }
-    });
-    // Ensure all contacts are unique and filter those with last messages
-    // Fetch and update enquiries
-    const employeeListData: Employee[] = [];
-    employeeSnapshot.forEach((doc) => {
-        employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
-    });
-    setEmployeeList(employeeListData);
-    const enquriryListData: Enquiry[] = [];
-    enquirySnapshot.forEach((doc) => {
-      enquriryListData.push({ id: doc.id, ...doc.data() } as Enquiry);
-    });
-    enquriryListData.forEach((enquiry) => {
-      const existingContact = contacts.find(contact => contact.id === enquiry.contact_id);
-      if (existingContact) {
-        existingContact.enquiries = existingContact.enquiries || [];
-        existingContact.enquiries.push(enquiry);
-        if (!existingContact.last_message || getTimestamp(existingContact.last_message.createdAt) < getTimestamp(enquiry.timestamp)) {
-          existingContact.last_message = {
-            id: enquiry.id,
-            text: { body: enquiry.message },
-            from_me: false,
-            createdAt: getTimestamp(enquiry.timestamp),
-            type: 'text',
-            image: undefined,
-            read: enquiry.read ?? true,
-          };
-        }
-        existingContact.unreadCount = (existingContact.unreadCount || 0) + (enquiry.read ? 0 : 1);
-      } else {
-        contacts.push({
-          id: enquiry.contact_id,
-          phone: enquiry.phone || '',
-          contactName: enquiry.name || '',
-          enquiries: [enquiry],
-          tags: [],
-          last_message: {
-            id: enquiry.id,
-            text: { body: enquiry.message },
-            from_me: false,
-            createdAt: getTimestamp(enquiry.timestamp),
-            type: 'text',
-            image: undefined,
-            read: enquiry.read ?? true,
-          },
-          unreadCount: enquiry.read ? 0 : 1,
+    const fetchChats = async (offset: number) => {
+        const response = await fetch(`https://gate.whapi.cloud/chats?count=${count}&offset=${offset}`, {
+            headers: { 'Authorization': `Bearer ${whapiToken}` }
         });
-      }
-    });
+        if (!response.ok) throw new Error('Failed to fetch chats');
+        const data = await response.json();
+        return data.chats;
+    };
 
+    const processChats = async (chats: any[]) => {
+        const mappedChats = await Promise.all(chats.map(async (chat: { id: string; last_message: any; name: any; }) => {
+            if (!chat?.id) return null;
+            const phoneNumber = `+${chat.id.split('@')[0]}`;
+            const duplicateContacts = await fetchDuplicateContact(phoneNumber, locationId, ghlToken);
+            let contact: any;
+            if (duplicateContacts) {
+                contact = duplicateContacts;
+            }
+            let unreadCount = 0;
+            if (dataUser.notifications !== undefined) {
+                unreadCount = dataUser.notifications.filter((notif: { chat_id: string; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
+            }
 
-    // Sort contacts by last message date
-    contacts.sort((a, b) => {
-        const dateA = a.last_message?.createdAt
-            ? new Date(getTimestamp(a.last_message.createdAt))
-            : a.last_message?.timestamp
-                ? new Date(getTimestamp(a.last_message.timestamp))
-                : new Date(0);
-        const dateB = b.last_message?.createdAt
-            ? new Date(getTimestamp(b.last_message.createdAt))
-            : b.last_message?.timestamp
-                ? new Date(getTimestamp(b.last_message.timestamp))
-                : new Date(0);
-        return dateB.getTime() - dateA.getTime();
-    });
-    // Filter contacts by user name in tags if necessary
-    if (user_role == '2') {
-        const filteredContacts = contacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
-        setContacts(filteredContacts);
-    } else {
-        // Set contacts to state
-        setContacts(contacts);
-    }
-    setFilteredContacts(contacts);
-    setFilteredContactsForForwarding(contacts);
-    console.log(contacts);
+            if (contact) {
+                contact.chat_id = chat.id;
+                contact.last_message = chat.last_message;
+                contact.chat = chat;
+                contact.unreadCount = unreadCount ?? 0;
+            }
+
+            return {
+                ...chat,
+                tags: contact ? contact.tags : [],
+                name: contact ? contact.firstName : chat.name,
+                lastMessageBody: '',
+                id: chat.id,
+                contact_id: contact ? contact.id : "",
+                unreadCount,
+            };
+        }).filter(Boolean));
+
+        mappedChats.forEach((chat) => {
+            if (chat?.id) {
+                const phoneNumber = `+${chat.id.split('@')[0]}`;
+                const existingContact = contacts.find((contact: { phone: string; }) => contact.phone === phoneNumber);
+                if (existingContact) {
+                    existingContact.chat_id = chat.id;
+                    existingContact.last_message = chat.last_message || existingContact.last_message;
+                    existingContact.chat = chat;
+                    existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
+                    existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
+                } else {
+                    contacts.push({
+                        id: chat.contact_id,
+                        phone: phoneNumber,
+                        contactName: chat.name,
+                        chat_id: chat.id,
+                        last_message: chat.last_message || null,
+                        chat: chat,
+                        tags: chat.tags,
+                        conversation_id: chat.id,
+                        unreadCount: chat.unreadCount,
+                    });
+                }
+            }
+        });
+
+        contacts.sort((a: { last_message: { createdAt: any; timestamp: any; }; }, b: { last_message: { createdAt: any; timestamp: any; }; }) => {
+            const dateA = a.last_message?.createdAt
+                ? new Date(getTimestamp(a.last_message.createdAt))
+                : a.last_message?.timestamp
+                    ? new Date(getTimestamp(a.last_message.timestamp))
+                    : new Date(0);
+            const dateB = b.last_message?.createdAt
+                ? new Date(getTimestamp(b.last_message.createdAt))
+                : b.last_message?.timestamp
+                    ? new Date(getTimestamp(b.last_message.timestamp))
+                    : new Date(0);
+            return dateB.getTime() - dateA.getTime();
+        });
+
+        if (user_role == '2') {
+            const filteredContacts = contacts.filter((contact: { tags: any[]; }) => contact.tags.some((tag) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
+            setContacts([...filteredContacts]);
+            setFilteredContacts([...filteredContacts]);
+        } else {
+            setContacts([...contacts]);
+            setFilteredContacts([...contacts]);
+        }
+    };
+
+    let chats = await fetchChats(offset);
+    await processChats(chats);
+
+    const fetchRemainingChats = async () => {
+        offset += count;
+        while (true) {
+            chats = await fetchChats(offset);
+            if (chats.length === 0) break;
+            await processChats(chats);
+            offset += count;
+        }
+    };
+
+    fetchRemainingChats();
+
 } catch (error) {
     console.error('Failed to fetch contacts:', error);
 } finally {
-
+   
 }
 };
   async function searchConversations(accessToken: any, locationId: any): Promise<any[]> {
@@ -1834,30 +1772,8 @@ const handleForwardMessage = async () => {
             {contact.unreadCount > 0 && (
               <span className="bg-blue-900 text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
             )}
-             {contact.chat_id != undefined && (
-              <span>   <img
-              className={`source-button}`}
-              src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon4.png?alt=media&token=d4ab65b6-9b90-4aca-9d69-6263300a91ec"
-              alt="WhatsApp"
-              style={{ width: '30px', height: '30px' }}
-            /> </span>
-            )}
-             {contact.conversation_id != undefined  && !contact.conversation_id.includes('@') && (
-              <span>   <img
-              className={`source-button}`}
-              src={(contact.last_message!.type == 'TYPE_INSTAGRAM')?"https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon3.png?alt=media&token=9395326d-ff56-45e7-8ebc-70df4be6971a":"https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/facebook-logo-on-transparent-isolated-background-free-vector-removebg-preview.png?alt=media&token=c312eb23-dfee-40d3-a55c-476ef3041369"}
-              alt="WhatsApp"
-              style={{ width: '30px', height: '30px' }}
-            /> </span>
-            )}
-             {contact.source == 'Enquiry Form' && (
-              <span>   <img
-              className={`source-button}`}
-              src={"https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon2.png?alt=media&token=813f94d4-cad1-4944-805a-2454293278c9"}
-              alt="Mail"
-              style={{ width: '30px', height: '30px' }}
-            /> </span>
-            )}
+           
+           
           </div>
      
           <label className="inline-flex items-center cursor-pointer">
@@ -2000,78 +1916,8 @@ const handleForwardMessage = async () => {
         </div>
 
         <div className="absolute bottom-0 left-0 w-500px !box m-2 bg-none border-t border-gray-300 py-1 px-2">
-        <div className=" border-gray-200 dark:border-gray-700 mb-1">
-        <ul className="flex flex-wrap -mb-px text-md font-medium text-center" role="tablist">
-            <li role="presentation">
-            <button
-              className={`inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg ${selectedIcon === 'ws' ? 'text-blue-500 border-blue-500' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'}`}
-              onClick={() => handleIconClick('ws', selectedChatId!, selectedContact.conversation_id)}
-              aria-selected={selectedIcon === 'ws'}
-              style={{ width: '125px', height: '40px' }}
-            >
-              <svg className="mr-1" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 464 488" fill="currentColor">
-                <path d="M462 228q0 93-66 159t-160 66q-56 0-109-28L2 464l40-120q-32-54-32-116q0-93 66-158.5T236 4t160 65.5T462 228zM236 39q-79 0-134.5 55.5T46 228q0 62 36 111l-24 70l74-23q49 31 104 31q79 0 134.5-55.5T426 228T370.5 94.5T236 39zm114 241q-1-1-10-7q-3-1-19-8.5t-19-8.5q-9-3-13 2q-1 3-4.5 7.5t-7.5 9t-5 5.5q-4 6-12 1q-34-17-45-27q-7-7-13.5-15t-12-15t-5.5-8q-3-7 3-11q4-6 8-10l6-9q2-5-1-10q-4-13-17-41q-3-9-12-9h-11q-9 0-15 7q-19 19-19 45q0 24 22 57l2 3q2 3 4.5 6.5t7 9t9 10.5t10.5 11.5t13 12.5t14.5 11.5t16.5 10t18 8.5q16 6 27.5 10t18 5t9.5 1t7-1t5-1q9-1 21.5-9t15.5-17q8-21 3-26z"/>
-              </svg>
-              <span className="ml-0">WhatsApp</span>
-            </button>
-            </li>
-            <li role="presentation">
-            <button
-              className={`inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg ${selectedIcon === 'fb' ? 'text-blue-500 border-blue-500' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'}`}
-              onClick={() => handleIconClick('fb', selectedChatId!, selectedContact.conversation_id)}
-              aria-selected={selectedIcon === 'fb'}
-              style={{ width: '125px', height: '40px' }}
-            >
-              <svg className="mr-1" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2.04c-5.5 0-10 4.49-10 10.02c0 5 3.66 9.15 8.44 9.9v-7H7.9v-2.9h2.54V9.85c0-2.51 1.49-3.89 3.78-3.89c1.09 0 2.23.19 2.23.19v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.45 2.9h-2.33v7a10 10 0 0 0 8.44-9.9c0-5.53-4.5-10.02-10-10.02Z"/>
-              </svg>
-              <span className="ml-0">Facebook</span>
-            </button>
-            </li>
-            <li role="presentation">
-            <button
-                className={`inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg ${selectedIcon === 'ig' ? 'text-blue-500 border-blue-500' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'}`}
-                onClick={() => handleIconClick('ig', selectedChatId!, selectedContact.id)}
-                aria-selected={selectedIcon === 'ig'}
-                style={{ width: '132px', height: '40px' }}
-              >
-                <svg className="mr-1" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 7.9a4.1 4.1 0 1 0 4.1 4.1A4.09 4.09 0 0 0 12 7.9Zm0 6.77A2.67 2.67 0 1 1 14.67 12A2.67 2.67 0 0 1 12 14.67Zm5.23-6.94a1 1 0 1 1-1-1a1 1 0 0 1 1 1Zm2.71 1a4.71 4.71 0 0 0-1.29-3.35a4.71 4.71 0 0 0-3.35-1.32C14 4 10 4 8.7 4.06a4.73 4.73 0 0 0-3.35 1.29A4.71 4.71 0 0 0 4.06 8.7C4 10 4 14 4.06 15.3a4.71 4.71 0 0 0 1.29 3.35a4.73 4.73 0 0 0 3.35 1.29c1.32.08 5.28.08 6.6 0a4.71 4.71 0 0 0 3.35-1.29a4.71 4.71 0 0 0 1.29-3.35c.06-1.3.06-5.3 0-6.6Zm-1.7 8a2.7 2.7 0 0 1-1.52 1.52a18 18 0 0 1-4.72.32a17.91 17.91 0 0 1-4.71-.32a2.7 2.7 0 0 1-1.52-1.52c-.42-1.06-.33-3.56-.33-4.72s-.09-3.67.33-4.72a2.65 2.65 0 0 1 1.52-1.53A17.91 17.91 0 0 1 12 5.44a18 18 0 0 1 4.72.32a2.7 2.7 0 0 1 1.52 1.52c.42 1.06.32 3.56.32 4.72s.1 3.67-.32 4.72Z"/>
-                </svg>
-                <span className="ml-0">Instagram</span>
-              </button>
-            </li>
-            <li role="presentation">
-            <button
-              className={`inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg ${selectedIcon === 'gmb' ? 'text-blue-500 border-blue-500' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'}`}
-              onClick={() => handleIconClick('gmb', selectedChatId!, selectedContact.id)}
-              aria-selected={selectedIcon === 'gmb'}
-              style={{ width: '200px', height: '40px' }}
-            >
-              <svg className="mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
-                <path d="M14.25 19.557H24V7.094h-8.142L14.25 19.557z"/>
-                <path d="M15.858 7.094H9.142a2 2 0 0 0-1.941 1.52L4.5 19.557h9.75m9.75 0a4.875 4.875 0 0 1-9.75 0m0 0a4.875 4.875 0 0 1-9.75 0m29.25 0H24V7.094h8.142l1.608 12.463zM32.142 7.094h6.716a2 2 0 0 1 1.941 1.52L43.5 19.557h-9.75m-9.75 0a4.875 4.875 0 0 0 9.75 0m0 0a4.875 4.875 0 0 0 9.75 0"/>
-                <path d="M7.325 23.977v14.93a2 2 0 0 0 2 2h29.35a2 2 0 0 0 2-2v-14.93"/>
-                <path d="M33.5 33.569h3.956a3.977 3.977 0 0 1-3.88 4.072l-.077.001a4.073 4.073 0 1 1 0-8.147a4.011 4.011 0 0 1 2.02.536"/>
-              </svg>
-              <span className="ml-0">Google My Business</span>
-            </button>
-            </li>
-            <li role="presentation">
-            <button
-                className={`inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg ${selectedIcon === 'mail' ? 'text-blue-500 border-blue-500' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'}`}
-                onClick={() => handleIconClick('mail', selectedChatId!, selectedContact.id)}
-                aria-selected={selectedIcon === 'mail'}
-                style={{ width: '120px', height: '40px' }}>
-                <svg className="mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 32 32" fill="currentColor">
-                    <path d="M32 6v20c0 1.135-.865 2-2 2h-2V9.849l-12 8.62l-12-8.62V28H2c-1.135 0-2-.865-2-2V6c0-.568.214-1.068.573-1.422A1.973 1.973 0 0 1 2 4h.667L16 13.667L29.333 4H30c.568 0 1.068.214 1.427.578c.359.354.573.854.573 1.422z"/>
-                </svg>
-                <span className="ml-0">Gmail</span>
-            </button>
 
-            </li>
-        </ul>
-    </div>
+
           <div className="flex items-center">
           <Menu as="div" className="relative inline-block text-left p-2">
             <div className="flex items-center space-x-3">
