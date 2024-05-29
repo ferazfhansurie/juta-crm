@@ -584,15 +584,17 @@ const fetchDuplicateContact = async (phone: string, locationId: string, accessTo
                 const filteredContacts = contacts.filter((contact: { tags: any[]; }) => contact.tags.some((tag) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
                 setContacts([...filteredContacts]);
                 setFilteredContacts([...filteredContacts]);
+             
             } else {
                 setContacts([...contacts]);
                 setFilteredContacts([...contacts]);
+               
             }
         };
 
         let chats = await fetchChats(offset);
         await processChats(chats);
-
+        setLoading(false);
         const fetchRemainingChats = async () => {
             offset += count;
             while (true) {
@@ -608,7 +610,7 @@ const fetchDuplicateContact = async (phone: string, locationId: string, accessTo
     } catch (error) {
         console.error('Failed to fetch contacts:', error);
     } finally {
-        setLoading(false);
+      
     }
 };
 async function getContact(name: any, number: string, location: any, access_token: any) {

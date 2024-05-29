@@ -298,31 +298,46 @@ const handleConfirmDeleteTag = async () => {
     }
   };
   const fetchTags = async (token:string, location:string, employeeList: string[]) => {
-    try {
-      const options = {
-        method: 'GET',
-        url: `https://services.leadconnectorhq.com/locations/${location}/tags`,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Version: '2021-07-28',
-        },
-      };
-      await rateLimiter(); // Ensure rate limit is respected before making the request
-      const response = await axios.request(options);
-      console.log('tags', response.data.tags);
-      
-      // Extract employee names to filter tags
+    const maxRetries = 5; // Maximum number of retries
+    const baseDelay = 1000; // Initial delay in milliseconds
 
-  console.log(employeeList);
-      // Filter out tags that match with employeeList
+    const fetchData = async (url: string, retries: number = 0): Promise<any> => {
+        const options = {
+            method: 'GET',
+            url: url,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                Version: '2021-07-28',
+            },
+        };
+        await rateLimiter(); // Ensure rate limit is respected before making the request
+        try {
+            const response = await axios.request(options);
+            return response;
+        } catch (error: any) {
+            if (error.response && error.response.status === 429 && retries < maxRetries) {
+                const delay = baseDelay * Math.pow(2, retries);
+                console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return fetchData(url, retries + 1);
+            } else {
+                throw error;
+            }
+        }
+    };
+
+    try {
+        const url = `https://services.leadconnectorhq.com/locations/${location}/tags`;
+        const response = await fetchData(url);
+            // Filter out tags that match with employeeList
       const filteredTags = response.data.tags.filter((tag: Tag) => !employeeList.includes(tag.name));
       
       setTagList(filteredTags);
     } catch (error) {
-      console.error('Error searching tags:', error);
-      return [];
+        console.error('Error fetching tags:', error);
+        return [];
     }
-  };
+};
   async function fetchCompanyData() {
     const user = auth.currentUser;
     try {
@@ -349,9 +364,6 @@ const handleConfirmDeleteTag = async () => {
         access_token: companyData.access_token,
         refresh_token: companyData.refresh_token,
       }, { merge: true });
-
-      await searchContacts(companyData.access_token, companyData.location_id);
-
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
 
@@ -363,6 +375,9 @@ const handleConfirmDeleteTag = async () => {
       setEmployeeList(employeeListData);
       const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
       await fetchTags(companyData.access_token,companyData.location_id,employeeNames);
+      await searchContacts(companyData.access_token, companyData.location_id);
+
+
     } catch (error) {
       console.error('Error fetching company data:', error);
     }
@@ -499,7 +514,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
         let nextPageUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&limit=100`;
 
         const maxRetries = 5; // Maximum number of retries
-        const baseDelay = 1000; // Initial delay in milliseconds
+        const baseDelay = 5000; // Initial delay in milliseconds
 
         const fetchData = async (url: string, retries: number = 0): Promise<any> => {
             const options = {
