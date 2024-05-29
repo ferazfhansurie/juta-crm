@@ -26,6 +26,7 @@ function Main() {
   const auth = getAuth(app);
   const firestore = getFirestore(app);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [categories, setCategories] = useState(["1"]);
   const location = useLocation();
   const { contactId, contact, companyId } = location.state ?? [];
@@ -44,7 +45,7 @@ function Main() {
     if (contact) {
       setUserData({
         name: contact.name || "",
-        phoneNumber: contact.phoneNumber || "",
+        phoneNumber: contact.phoneNumber.split('+6')[1] || "",
         email: contact.id || "",
         password: "",
         role: contact.role || "",
@@ -103,6 +104,7 @@ if (contactId) {
     companyId:userData.companyId,
     company:company
 };
+
   const response = await fetch('https://buds-359313.et.r.appspot.com/api/update-user', {
     method: 'PUT',
     headers: {
@@ -110,11 +112,7 @@ if (contactId) {
     },
     body: JSON.stringify(userDataToSend)
 });
-
-if (!response.ok) {
-    throw new Error('Failed to update user');
-}
-
+console.log(response.body);
 
   await updateDoc(doc(firestore, `companies/${companyId}/employee`, contactId), userDataToSend);
   await updateDoc(doc(firestore, 'user', userData.email), userDataToSend);
@@ -128,8 +126,9 @@ if (!response.ok) {
     role: userData.role,
     companyId: userData.companyId,
 });
+setSuccessMessage("User updated successfully");
 } else {
-     
+
   // Prepare user data to be sent to the server
   const userDataToSend = {
     name: userData.name,
@@ -147,13 +146,16 @@ if (!response.ok) {
     },
   });
   const responseData = await response.json();
-  
-  await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
-  await setDoc(doc(firestore, `companies/${companyId}/employee`, userData.email), userDataToSend);
-  
-  toast.success("User created successfully");
+  console.log(responseData.message);
+  if(responseData.message == 'User created successfully'){
+    toast.success("User created successfully");
+ await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
+ await setDoc(doc(firestore, `companies/${companyId}/employee`, userData.email), userDataToSend);
+ setSuccessMessage('User created successfully');
+
   setErrorMessage('');
-  setUserData({
+ 
+setUserData({
     name: "",
     phoneNumber: "",
     email: "",
@@ -161,6 +163,12 @@ if (!response.ok) {
     role: "",
     companyId: ""
 });
+
+  }else{
+    setErrorMessage(responseData.error);
+  }
+
+
 }
       
     
@@ -242,6 +250,7 @@ if (!response.ok) {
               />
             </div>
             {errorMessage && <div className="text-red-500">{errorMessage}</div>}
+            {successMessage && <div className="text-green-500">{successMessage}</div>}
             <div className="mt-5 text-right">
               <Button
                 type="button"
