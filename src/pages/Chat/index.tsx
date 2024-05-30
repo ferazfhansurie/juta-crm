@@ -17,6 +17,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { onMessage } from "firebase/messaging";
 import { getFirebaseToken, messaging } from "../../firebaseconfig";
 import { rateLimiter } from '../../utils/rate';
+import errorIllustration from "@/assets/images/chat.svg";
+
 interface Label {
   id: string;
   name: string;
@@ -182,9 +184,15 @@ function Main() {
   const [newQuickReply, setNewQuickReply] = useState<string>('');
   const [filteredContactsForForwarding, setFilteredContactsForForwarding] = useState<Contact[]>(contacts);
   const [selectedMessages, setSelectedMessages] = useState<Message[]>([]);
+  const messageListRef = useRef<HTMLDivElement>(null);
   let companyId = '014';
   let user_name = '';
   let user_role='2';
+  useEffect(() => {
+    if (messageListRef.current) {
+      messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+    }
+  }, [selectedChatId, messages]);
 
   useEffect(() => {
     fetchConfigFromDatabase();
@@ -764,30 +772,21 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             return dateB.getTime() - dateA.getTime();
         });
 
-        if (user_role == '2') {
-            const filteredContacts = contacts.filter((contact: { tags: any[]; }) => contact.tags.some((tag) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
-            setContacts([...filteredContacts]);
-            setFilteredContacts([...filteredContacts]);
-        } else {
-            setContacts([...contacts]);
-            setFilteredContacts([...contacts]);
-        }
+       
     };
 
     let chats = await fetchChats(offset);
     await processChats(chats);
+    if (user_role == '2') {
+      const filteredContacts = contacts.filter((contact: { tags: any[]; }) => contact.tags.some((tag) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
+      setContacts([...filteredContacts]);
+      setFilteredContacts([...filteredContacts]);
+  } else {
+      setContacts(contacts);
+      setFilteredContacts(contacts);
+  }
 
-    const fetchRemainingChats = async () => {
-        offset += count;
-        while (true) {
-            chats = await fetchChats(offset);
-            if (chats.length === 0) break;
-            await processChats(chats);
-            offset += count;
-        }
-    };
 
-    fetchRemainingChats();
 
 } catch (error) {
     console.error('Failed to fetch contacts:', error);
@@ -919,19 +918,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
   useEffect(() => {
     if (selectedChatId) {
       console.log(selectedContact);
-      if(selectedChatId.includes('@s.')  ){
-        fetchMessages(selectedChatId, whapiToken!);
-      }else if (selectedContact.enquiries != undefined){
-       fetchEnquiries(selectedContact.email);
-      }else{
-        console.log(selectedContact.last_message.type);
-        if(selectedContact.last_message.type != 'TYPE_INSTAGRAM'){
-          setSelectedIcon('fb');
-        }else{
-          setSelectedIcon('ig');
-        }
-        fetchConversationMessages(selectedChatId,selectedContact);
-      }
+      fetchMessages(selectedChatId, whapiToken!);
     }
   }, [selectedChatId]);
   async function fetchEnquiries(email: string) {
@@ -1031,7 +1018,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       if (selectedChatId.includes('@')) {
         const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
         const data = response.data;
-     
+     console.log(data);
         setMessages(
           data.messages.map((message: { id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; document:any}) => ({
             id: message.id,
@@ -1880,7 +1867,7 @@ const handleForwardMessage = async () => {
           </div>
         )}
            
-        <div className="flex-1 overflow-y-auto p-4" style={{ paddingBottom: "150px" }}>
+        <div className="flex-1 overflow-y-auto p-4" style={{ paddingBottom: "150px" }} ref={messageListRef}>
            
         {isLoading && (
                 <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
@@ -1894,65 +1881,82 @@ const handleForwardMessage = async () => {
                   </div>
                 </div>
               )}
-          {messages.slice().reverse().map((message) => (
-            <div
-                   className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
-              key={message.id}
-              style={{
-                maxWidth: '70%',
-                width: `${message.type === 'image' || message.type === 'document' ? '350' : Math.min((message.text?.body?.length || 0) * 10, 350)}px`,
-                minWidth: '75px'  // Add a minimum width here
-              }}
-              onMouseEnter={() => setHoveredMessageId(message.id)}
-              onMouseLeave={() => setHoveredMessageId(null)}
-            >
-              {message.type === 'image' && message.image && (
-                <div className="message-content image-message">
-                  <img
-                    src={message.image.link}
-                    alt="Image"
-                    className="message-image"
-                    style={{ maxWidth: '300px' }}
-                  />
-                  <div className="caption">{message.image.caption}</div>
+      {selectedChatId ? (
+    messages.slice().reverse().map((message) => (
+      <div
+        className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+        key={message.id}
+        style={{
+          maxWidth: '70%',
+          width: `${message.type === 'image' || message.type === 'document' ? '350' : Math.min((message.text?.body?.length || 0) * 10, 350)}px`,
+          minWidth: '75px'  // Add a minimum width here
+        }}
+        onMouseEnter={() => setHoveredMessageId(message.id)}
+        onMouseLeave={() => setHoveredMessageId(null)}
+      >
+        {message.type === 'image' && message.image && (
+          <div className="message-content image-message">
+            <img
+              src={message.image.link}
+              alt="Image"
+              className="message-image"
+              style={{ maxWidth: '300px' }}
+            />
+            <div className="caption">{message.image.caption}</div>
+          </div>
+        )}
+        {message.type === 'text' && (
+          <div className="whitespace-pre-wrap break-words">
+            {formatText(message.text?.body || '')}
+          </div>
+        )}
+        {message.type === 'document' && message.document && (
+          <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
+            <img
+              src={message.document.preview}
+              alt="Document Preview"
+              className="w-40 h-40 mb-3 border rounded"
+            />
+            <div className="flex-1 text-justify">
+              <div className="font-semibold">{message.document.file_name}</div>
+              <div>{message.document.page_count} page{message.document.page_count > 1 ? 's' : ''} • PDF • {(message.document.file_size / 1024).toFixed(2)} kB</div>
+            </div>
+            <a href={message.document.link} target="_blank" rel="noopener noreferrer" className="mt-3">
+              <Lucide icon="Download" className="w-6 h-6 text-white-700" />
+            </a>
+          </div>
+        )}
+        <div className="message-timestamp text-xs text-gray-100 mt-1">
+          {formatTimestamp(message.createdAt||message.dateAdded)}
+          {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+            <input
+              type="checkbox"
+              className="form-checkbox h-5 w-5 text-blue-900 transition duration-150 ease-in-out rounded-full ml-2"
+              checked={selectedMessages.includes(message)}
+              onChange={() => handleSelectMessage(message)}
+            />
+          )}
+        </div>
+      </div>
+    ))
+  ) : (
+    <div className="-intro-x ">
+            
+            {!isLoading && (
+                <div className="justify-center items-center ">
+                  <div className="items-center ">
+                    <div role="status">
+                    <img
+        alt="Midone Tailwind HTML Admin Template"
+        className="w-[550px] h-48 lg:h-auto"
+        src={errorIllustration}
+      />
+                    </div>
+                  </div>
                 </div>
               )}
-    {message.type === 'text' && (
-  <div className="whitespace-pre-wrap break-words">
-    {formatText(message.text?.body || '')}
-  </div>
-)}
-{message.type === 'document' && message.document && (
-  <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
-    <img
-      src={message.document.preview}
-      alt="Document Preview"
-      className="w-40 h-40 mb-3 border rounded"
-    />
-    <div className="flex-1 text-justify">
-      <div className="font-semibold">{message.document.file_name}</div>
-      <div>{message.document.page_count} page{message.document.page_count > 1 ? 's' : ''} • PDF • {(message.document.file_size / 1024).toFixed(2)} kB</div>
     </div>
-    <a href={message.document.link} target="_blank" rel="noopener noreferrer" className="mt-3">
-      <Lucide icon="Download" className="w-6 h-6 text-white-700" />
-    </a>
-  </div>
-)}
-
-              <div className="message-timestamp text-xs text-gray-100 mt-1">
-            {formatTimestamp(message.createdAt||message.dateAdded)}
-            {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
-                <input
-                    type="checkbox"
-                    className="form-checkbox h-5 w-5 text-blue-900 transition duration-150 ease-in-out rounded-full ml-2"
-                    checked={selectedMessages.includes(message)}
-                    onChange={() => handleSelectMessage(message)}
-                />
-            )}
-          </div>
-         
-            </div>
-          ))}
+  )}
         </div>
 
         <div className="absolute bottom-0 left-0 w-500px !box m-2 bg-none border-t border-gray-300 py-1 px-2">

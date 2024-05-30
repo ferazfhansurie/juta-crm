@@ -34,7 +34,7 @@ const firebaseConfig = {
       signInWithEmailAndPassword(auth, email, password)
         .then((userCredential) => {
           const user = userCredential.user;
-          
+          console.log(user);
           // Instead of directly navigating here, set a state indicating successful sign-in
           <Link to="/dashboard">Dashboard</Link>
         })
