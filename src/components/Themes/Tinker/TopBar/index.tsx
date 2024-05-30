@@ -33,7 +33,7 @@ let userEmail = '';
 let ghlConfig = {
   ghl_id: '',
   ghl_secret: '',
-  refresh_token: '',
+  ghl_refreshToken: '',
 };
 
 const app = initializeApp(firebaseConfig);
@@ -99,7 +99,7 @@ function Main() {
       ghlConfig = {
         ghl_id: data.ghl_id,
         ghl_secret: data.ghl_secret,
-        refresh_token: data.refresh_token
+        ghl_refreshToken: data.ghl_refreshToken
       };
       setToken(data.whapiToken);
     } catch (error) {

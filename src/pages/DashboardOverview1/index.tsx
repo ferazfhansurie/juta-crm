@@ -161,8 +161,9 @@ function Main() {
       }
       
       await requestPermission(userEmail);
-      await searchOpportunities( data.access_token,data.location_id,);
-      //await searchContacts(data.access_token, data.location_id);
+  
+      await searchOpportunities( data.ghl_accessToken,data.ghl_location);
+      //await searchContacts(data.ghl_accessToken, data.ghl_location);
     } catch (error) {
       console.error('Error fetching config:', error);
       throw error;
@@ -207,52 +208,47 @@ function Main() {
   async function searchOpportunities(ghlToken: any, locationId: any) {
     setLoading(true);
     setError(null);
-  
-    try {
-      let allOpportunities: any[] = [];
-      let page = 1;
-      let totalFetched = 0;
-      let hasMore = true;
-  
-      while (hasMore) {
-        const response = await axios.get('https://services.leadconnectorhq.com/opportunities/search', {
-          headers: {
-            Authorization: `Bearer ${ghlToken}`,
-            Version: '2021-07-28',
-            Accept: 'application/json'
-          },
-          params: {
-            location_id: locationId,
-            limit: 100,
-            page: page
-          }
-        });
-  
-        const opportunities = response.data.opportunities;
-        totalFetched = opportunities.length;
-        allOpportunities = [...allOpportunities, ...opportunities];
-  
-        // Check if there are more opportunities to fetch
-        if (totalFetched < 100) {
-          hasMore = false;
-        } else {
-          page++;
+  console.log(locationId);
+    let allOpportunities: any[] = [];
+    let page = 1;
+    let totalFetched = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await axios.get('https://services.leadconnectorhq.com/opportunities/search', {
+        headers: {
+          Authorization: `Bearer ${ghlToken}`,
+          Version: '2021-07-28',
+          Accept: 'application/json'
+        },
+        params: {
+          location_id: locationId,
+          limit: 100,
+          page: page
         }
+      });
+console.log(response.data);
+      const opportunities = response.data.opportunities;
+      totalFetched = opportunities.length;
+      allOpportunities = [...allOpportunities, ...opportunities];
+
+      // Check if there are more opportunities to fetch
+      if (totalFetched < 100) {
+        hasMore = false;
+      } else {
+        page++;
       }
-  
-      
-  
-     const total_contacts = allOpportunities.length;
-      const closedCount = allOpportunities.filter(opportunity => opportunity.status === 'won').length;
-      const unclosedCount = allOpportunities.filter(opportunity => opportunity.status === 'open').length;
-      setTotalContacts(total_contacts);
-      setClosed(closedCount);
-      setUnclosed(unclosedCount);
-    } catch (error) {
-      setError('An error occurred while fetching the opportunities.');
-    } finally {
-      setLoading(false);
     }
+
+    
+
+   const total_contacts = allOpportunities.length;
+    const closedCount = allOpportunities.filter(opportunity => opportunity.status === 'won').length;
+    const unclosedCount = allOpportunities.filter(opportunity => opportunity.status === 'open').length;
+    setTotalContacts(total_contacts);
+    setClosed(closedCount);
+    setUnclosed(unclosedCount);
+    setLoading(false);
   }
 
   const prevImportantNotes = () => {
@@ -317,7 +313,7 @@ function Main() {
       // Assuming refreshAccessToken is defined elsewhere
 console.log(companyData);
 
-      await searchContacts(companyData.access_token,companyData.ghl_location);
+      await searchContacts(companyData.ghl_accessToken,companyData.ghl_location);
 
 
     } catch (error) {

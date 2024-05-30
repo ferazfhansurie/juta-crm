@@ -76,9 +76,9 @@ interface Contact {
 interface GhlConfig {
   ghl_id: string;
   ghl_secret: string;
-  refresh_token: string;
-  access_token: string;
-  location_id: string;
+  ghl_refreshToken: string;
+  ghl_accessToken: string;
+  ghl_location: string;
   whapiToken: string;
 }
 interface Chat {
@@ -188,6 +188,7 @@ function Main() {
   let companyId = '014';
   let user_name = '';
   let user_role='2';
+  
   useEffect(() => {
     if (messageListRef.current) {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
@@ -273,16 +274,16 @@ console.log(filteredContacts);
               setGhlConfig({
                 ghl_id: data.ghl_id,
                 ghl_secret: data.ghl_secret,
-                refresh_token: data.refresh_token,
-                access_token: data.access_token,
-                location_id: data.location_id,
+                ghl_refreshToken: data.ghl_refreshToken,
+                ghl_accessToken: data.ghl_accessToken,
+                ghl_location: data.ghl_location,
                 whapiToken: data.whapiToken,
               });
               const user_name = dataUser.name;
          fetchContactsBackground(
                 data.whapiToken,
-                data.location_id,
-                data.access_token,
+                data.ghl_location,
+                data.ghl_accessToken,
                 user_name
               );
             }
@@ -318,15 +319,16 @@ console.log(filteredContacts);
   setGhlConfig({
         ghl_id: data.ghl_id,
         ghl_secret: data.ghl_secret,
-        refresh_token: data.refresh_token,
-        access_token: data.access_token,
-        location_id: data.location_id,
+        ghl_refreshToken: data.ghl_refreshToken,
+        ghl_accessToken: data.ghl_accessToken,
+        ghl_location: data.ghl_location,
         whapiToken: data.whapiToken,
       });
      
   setToken(data.whapiToken);
       user_name = dataUser.name;
-      fetchContacts(data.whapiToken, data.location_id, data.access_token, dataUser.name,dataUser.role);
+      await fetchTags(data.ghl_accessToken,data.ghl_location);
+      await fetchContacts(data.whapiToken, data.ghl_location, data.ghl_accessToken, dataUser.name,dataUser.role);
     } catch (error) {
       console.error('Error fetching config:', error);
       throw error;
@@ -489,8 +491,8 @@ const fetchDuplicateContact = async (phone: string, locationId: string, accessTo
     try {
         setLoading(true);
         setFetching(true);
-        const [tags, employeeSnapshot] = await Promise.all([
-            fetchTags(ghlToken, locationId),
+        const [employeeSnapshot] = await Promise.all([
+          
             getDocs(collection(firestore, `companies/${companyId}/employee`)),
         ]);
 
@@ -626,7 +628,7 @@ const fetchDuplicateContact = async (phone: string, locationId: string, accessTo
      
     }
 };
-async function getContact(name: any, number: string, location: any, access_token: any) {
+async function getContact(name: any, number: string, location: any, ghl_accessToken: any) {
   const options = {
     method: 'POST',
     url: 'https://services.leadconnectorhq.com/contacts/',
@@ -637,7 +639,7 @@ async function getContact(name: any, number: string, location: any, access_token
       phone: number,
     },
     headers: {
-      Authorization: `Bearer ${access_token}`,
+      Authorization: `Bearer ${ghl_accessToken}`,
       Version: '2021-07-28',
       Accept: 'application/json',
       'Content-Type': 'application/json',
@@ -887,11 +889,11 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         return;
       }
       const data2 = docSnapshot.data();
-      await updateConversation(conversationId,data2.access_token,data2.location_id)
+      await updateConversation(conversationId,data2.ghl_accessToken,data2.ghl_location)
       setToken(data2.whapiToken);
       const leadConnectorResponse = await axios.get(`https://services.leadconnectorhq.com/conversations/${conversationId}/messages`, {
         headers: {
-          Authorization: `Bearer ${data2.access_token}`,
+          Authorization: `Bearer ${data2.ghl_accessToken}`,
           Version: '2021-04-15',
           Accept: 'application/json'
         }
@@ -1116,7 +1118,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     }
   
     const data2 = docSnapshot.data();
-    const accessToken = data2.access_token;
+    const accessToken = data2.ghl_accessToken;
   
     try {
       const options = {
@@ -1199,7 +1201,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       }
       const companyData = docSnapshot.data();
  
-      const accessToken = companyData.access_token;
+      const accessToken = companyData.ghl_accessToken;
       const hasLabel = contact && contact.tags && Array.isArray(contact.tags) ? contact.tags.includes('stop bot') : false;
       const method = hasLabel ? 'DELETE' : 'POST';
   
@@ -1267,8 +1269,8 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     // Assuming ghlConfig, setToken, and fetchChatsWithRetry are defined elsewhere
     // Update Firestore document with new token data
     await setDoc(doc(firestore, 'companies', companyId), {
-      access_token: companyData.access_token,
-      refresh_token: companyData.refresh_token,
+      ghl_accessToken: companyData.ghl_accessToken,
+      ghl_refreshToken: companyData.ghl_refreshToken,
     }, { merge: true });
   
     if (selectedEmployee) {
@@ -1277,7 +1279,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       // Merge existing tags with the new tag
       const updatedTags = [...new Set([...(contact.tags || []), tagName])];
   
-      const success = await updateContactTags(contact.id, companyData.access_token, updatedTags);
+      const success = await updateContactTags(contact.id, companyData.ghl_accessToken, updatedTags);
       if (success) {
         // Update the selected contact's tags directly
         setContacts(prevContacts =>
@@ -1588,7 +1590,7 @@ const handleForwardMessage = async () => {
       }
   
       const data = await response.json();
-      fetchMessages(selectedChatId!,companyData.access_token);
+      fetchMessages(selectedChatId!,companyData.ghl_accessToken);
       console.log('Image message sent successfully:', data);
     } catch (error) {
       console.error('Error sending image message:', error);
@@ -1633,7 +1635,7 @@ const handleForwardMessage = async () => {
       }
   
       const data = await response.json();
-      fetchMessages(selectedChatId!,companyData.access_token);
+      fetchMessages(selectedChatId!,companyData.ghl_accessToken);
       console.log('Image message sent successfully:', data);
     } catch (error) {
       console.error('Error sending image message:', error);

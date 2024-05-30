@@ -26,7 +26,7 @@ let companyId= "014";
 let ghlConfig ={
   ghl_id:'',
   ghl_secret:'',
-  refresh_token:'',
+  ghl_refreshToken:'',
 };
 const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
@@ -106,7 +106,7 @@ companyId = dataUser.companyId;
           }
           const companyData = docSnapshot.data();
 
-          accessToken = companyData.access_token;
+          accessToken = companyData.ghl_accessToken;
 
           
 

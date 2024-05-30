@@ -131,9 +131,9 @@ function Main() {
         return;
       }
       const companyData = docSnapshot.data();
-        const accessToken = companyData.access_token; // Replace with your actual access token
+        const accessToken = companyData.ghl_accessToken; // Replace with your actual access token
       
-        newContact.locationId =companyData.location_id;
+        newContact.locationId =companyData.ghl_location;
         const apiUrl = 'https://services.leadconnectorhq.com/contacts';
         const options = {
           method: 'POST',
@@ -195,8 +195,8 @@ const handleSaveNewTag = async () => {
       return;
     }
     const companyData = docSnapshot.data();
-    const accessToken = companyData.access_token;
-    const locationId = companyData.location_id;
+    const accessToken = companyData.ghl_accessToken;
+    const locationId = companyData.ghl_location;
 
     const apiUrl = `https://services.leadconnectorhq.com/locations/${locationId}/tags`;
     const options = {
@@ -244,8 +244,8 @@ const handleConfirmDeleteTag = async () => {
       return;
     }
     const companyData = docSnapshot.data();
-    const accessToken = companyData.access_token;
-    const locationId = companyData.location_id;
+    const accessToken = companyData.ghl_accessToken;
+    const locationId = companyData.ghl_location;
 
     const apiUrl = `https://services.leadconnectorhq.com/locations/${locationId}/tags/${tagToDelete.id}`;
     const options = {
@@ -363,8 +363,8 @@ setLoading(true);
       const companyData = docSnapshot.data();
      
       await setDoc(doc(firestore, 'companies', companyId), {
-        access_token: companyData.access_token,
-        refresh_token: companyData.refresh_token,
+        ghl_accessToken: companyData.ghl_accessToken,
+        ghl_refreshToken: companyData.ghl_refreshToken,
       }, { merge: true });
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
@@ -376,8 +376,8 @@ setLoading(true);
      
       setEmployeeList(employeeListData);
       const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
-      await fetchTags(companyData.access_token,companyData.location_id,employeeNames);
-      await searchContacts(companyData.access_token, companyData.location_id);
+      await fetchTags(companyData.ghl_accessToken,companyData.ghl_location,employeeNames);
+      await searchContacts(companyData.ghl_accessToken, companyData.ghl_location);
 
 
     } catch (error) {
@@ -409,14 +409,14 @@ setLoading(true);
       const selectedContactsCopy = [...selectedContacts];
 
       for (const contact of selectedContactsCopy) {
-        const success = await updateContactTags(contact.id, companyData.access_token, [tagName]);
+        const success = await updateContactTags(contact.id, companyData.ghl_accessToken, [tagName]);
         if (!success) {
           console.error(`Failed to add tag "${tagName}" to contact with ID ${contact.id}`);
         } else {
           console.log(`Tag "${tagName}" added to contact with ID ${contact.id}`);
         }
       }
-      await searchContacts(companyData.access_token, companyData.location_id);
+      await searchContacts(companyData.ghl_accessToken, companyData.ghl_location);
     }
   };
 
@@ -438,12 +438,12 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
     return;
   }
   const companyData = docSnapshot.data();
-  console.log(companyData.access_token);
+  console.log(companyData.ghl_accessToken);
   const url = `https://services.leadconnectorhq.com/contacts/${contactId}/tags`;
   const options = {
     method: 'DELETE',
     headers: {
-      Authorization: `Bearer ${companyData.access_token}`,
+      Authorization: `Bearer ${companyData.ghl_accessToken}`,
       Version: '2021-07-28',
       Accept: 'application/json',
       'Content-Type': 'application/json'
@@ -597,7 +597,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
             return;
           }
           const companyData = docSnapshot.data();
-            const accessToken = companyData.access_token; // Replace with your actual access token
+            const accessToken = companyData.ghl_accessToken; // Replace with your actual access token
             const apiUrl = `https://services.leadconnectorhq.com/contacts/${currentContact.id}`;
 
             const options = {
@@ -648,7 +648,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
             return;
           }
           const companyData = docSnapshot.data();
-            const accessToken = companyData.access_token; // Replace with your actual access token
+            const accessToken = companyData.ghl_accessToken; // Replace with your actual access token
             const apiUrl = `https://services.leadconnectorhq.com/contacts/${currentContact.id}`;
 
             const options = {
@@ -752,7 +752,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       }
   
       const companyData = docSnapshot.data();
-      const accessToken = companyData.access_token; // Assuming you store access token in company data
+      const accessToken = companyData.ghl_accessToken; // Assuming you store access token in company data
       const phoneNumber = id.split('+')[1];
       const chat_id = phoneNumber+"@s.whatsapp.net"
       console.log(chat_id);

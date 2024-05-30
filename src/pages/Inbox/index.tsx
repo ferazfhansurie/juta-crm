@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import axios from "axios";
 import Button from "@/components/Base/Button";
-import { FormInput, FormTextarea } from "@/components/Base/Form";
-import { Menu, Tab } from "@/components/Base/Headless";
 
 interface Chat {
   id: string;
@@ -20,73 +19,123 @@ interface Chat {
   not_spam: boolean;
 }
 
+const MessageList = () => {
+  const [newMessage, setNewMessage] = useState('');
+  const dummyMessages = [
+    { id: 1, from_me: true, type: 'text', text: { body: 'Hello!' }, createdAt: '2024-05-29T10:00:00Z' },
+    { id: 2, from_me: false, type: 'text', text: { body: 'Hi there!' }, createdAt: '2024-05-29T10:01:00Z' }
+  ];
+  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-4 bg-blue-500 text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-right";
+  const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-2 self-start text-left";
+  return (
+    <div className="flex flex-col w-full h-full bg-white relative">
+      <div className="flex items-center justify-between p-2 border-b border-gray-300 bg-gray-100">
+        <div className="flex items-center">
+          <div className="w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3">
+            <span className="text-lg">A</span>
+          </div>
+          <div>
+            <div className="font-semibold text-gray-800">Alice</div>
+            <div className="text-sm text-gray-600">+123456789</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4" style={{ paddingBottom: "150px" }}>
+        {dummyMessages.slice().reverse().map((message) => (
+          <div
+            className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+            key={message.id}
+            style={{
+              maxWidth: '70%',
+              width: `${message.type === 'image' || message.type === 'document' ? '350' : Math.min((message.text?.body?.length || 0) * 10, 350)}px`,
+              minWidth: '75px'
+            }}
+          >
+            {message.type === 'text' && (
+              <div className="whitespace-pre-wrap break-words">
+                {message.text.body}
+              </div>
+            )}
+            <div className="message-timestamp text-xs text-gray-500 mt-1">
+              {new Date(message.createdAt).toLocaleTimeString()}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-300 py-1 px-2">
+        <div className="flex items-center">
+          <textarea
+            className="flex-grow px-5 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-lg mr-2 ml-4 resize-none bg-gray-100 text-gray-800"
+            placeholder="Type a message"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            rows={3}
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                setNewMessage('');
+              }
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function Main() {
+  const [assistantInfo, setAssistantInfo] = useState<any>(null);
   const [chatBox, setChatBox] = useState(false);
   const [chats, setChats] = useState<Chat[]>([]);
-  const [error, setError] = useState<string | null>(null); // Set error type to string
-  const chatBoxRef = useRef<HTMLDivElement>(null); // Specify ref type
+  const [error, setError] = useState<string | null>(null);
+  const chatBoxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchChats();
+    fetchAssistantInfo();
   }, []);
 
-  const showChatBox = () => {
-    setChatBox(!chatBox);
-  };
-
-  const fetchChats = async () => {
+  const fetchAssistantInfo = async () => {
     try {
-      const response = await fetch('/api/whapi/chats');
-      if (!response.ok) {
-        throw new Error('Failed to fetch chats');
-      }
-      const data = response.body;
-      
-  
+      const response = await axios.get('https://api.openai.com/v1/assistants/asst_bFQpgPcgRiP8jaKihKwkhQAn', {
+        headers: {
+          'Authorization': `Bearer `,
+          'OpenAI-Beta': 'assistants=v2'
+        }
+      });
+      setAssistantInfo(response.data);
     } catch (error) {
-      console.error(error);
-      setError('Failed to fetch chats');
+      console.error("Error fetching assistant information:", error);
+      setError("Failed to fetch assistant information");
     }
   };
 
   return (
-    <div>
-      <Button onClick={showChatBox}>Toggle Chat</Button>
-      {chatBox && (
-        <div ref={chatBoxRef}>
-          <h2>Chats</h2>
-          {error ? (
-            <div>Error: {error}</div>
-          ) : (
-            <ul>
-              {chats.map((chat) => (
-                <li key={chat.id}>
-                  <div>Name: {chat.name}</div>
-                  <div>Type: {chat.type}</div>
-                  <div>Timestamp: {chat.timestamp}</div>
-                  <div>
-                    Chat Pic: <img src={chat.chat_pic} alt="Chat Pic" />
-                  </div>
-                  <div>
-                    Chat Pic Full:{" "}
-                    <img src={chat.chat_pic_full} alt="Chat Pic Full" />
-                  </div>
-                  <div>Pin: {chat.pin ? "Yes" : "No"}</div>
-                  <div>Mute: {chat.mute ? "Yes" : "No"}</div>
-                  <div>Mute Until: {chat.mute_until}</div>
-                  <div>Archive: {chat.archive ? "Yes" : "No"}</div>
-                  <div>Unread Messages: {chat.unread}</div>
-                  <div>
-                    Unread Mention: {chat.unread_mention ? "Yes" : "No"}
-                  </div>
-                  <div>Read Only: {chat.read_only ? "Yes" : "No"}</div>
-                  <div>Not Spam: {chat.not_spam ? "Yes" : "No"}</div>
-                </li>
-              ))}
-            </ul>
+    <div className="flex"   style={{ height: '88vh' }}>
+      <div className="w-1/2 p-6 h-full overflow-auto ">
+        <div className="flex flex-col mb-4">
+          {assistantInfo && (
+            <>
+              <div className="mb-2 text-lg font-semibold">{assistantInfo.name} - {assistantInfo.model}</div>
+            </>
           )}
         </div>
-      )}
+        <div className="mb-4">
+          <label className="mb-2 text-lg font-semibold" htmlFor="instructions">
+            Instructions
+          </label>
+          <textarea
+            id="instructions"
+            className="w-full p-2 border border-gray-300 rounded h-96"
+            value={assistantInfo ? assistantInfo.instructions : ''}
+          />
+        </div>
+      </div>
+      <div className="w-1/2 border-l border-gray-300 h-full">
+        <MessageList />
+      </div>
     </div>
   );
 }
