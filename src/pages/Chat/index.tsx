@@ -529,7 +529,7 @@ const fetchDuplicateContact = async (phone: string, locationId: string, accessTo
                 if (duplicateContacts) {
                     contact = duplicateContacts;
                 }else{
-                  contact = getContact(chat.name,phoneNumber,locationId,ghlToken);
+                  //contact = getContact(chat.name,phoneNumber,locationId,ghlToken);
                 }
                 let unreadCount = 0;
                 if (dataUser.notifications !== undefined) {
@@ -773,20 +773,20 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
                     : new Date(0);
             return dateB.getTime() - dateA.getTime();
         });
-
+        if (user_role == '2') {
+          const filteredContacts = contacts.filter((contact: { tags: any[]; }) => contact.tags.some((tag) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
+          setContacts([...filteredContacts]);
+          setFilteredContacts([...filteredContacts]);
+      } else {
+          setContacts(contacts);
+          setFilteredContacts(contacts);
+      }
        
     };
 
     let chats = await fetchChats(offset);
     await processChats(chats);
-    if (user_role == '2') {
-      const filteredContacts = contacts.filter((contact: { tags: any[]; }) => contact.tags.some((tag) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
-      setContacts([...filteredContacts]);
-      setFilteredContacts([...filteredContacts]);
-  } else {
-      setContacts(contacts);
-      setFilteredContacts(contacts);
-  }
+  
 
 
 
