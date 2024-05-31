@@ -79,6 +79,7 @@ function Main() {
   const [viewContactModal, setViewContactModal] = useState(false);
   const deleteButtonRef = useRef(null);
   const [isLoading, setLoading] = useState<boolean>(false);
+  const [isFetching, setFetching] = useState<boolean>(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -96,6 +97,7 @@ function Main() {
   const [tags, setTags] = useState<TagsState>({}); 
   const [blastMessageModal, setBlastMessageModal] = useState(false);
   const [blastMessage, setBlastMessage] = useState("");
+  const [progress, setProgress] = useState<number>(0);
   const [newContact, setNewContact] = useState({
       firstName: '',
       lastName: '',
@@ -105,7 +107,8 @@ function Main() {
       companyName: '',
       locationId:'',
   });
-
+  const [total, setTotal] = useState(0);
+  const [fetched, setFetched] = useState(0);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [contactsPerPage] = useState(10); // Adjust the number of contacts per page as needed
@@ -510,6 +513,8 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
 
   async function searchContacts(accessToken: string, locationId: string) {
     setLoading(true);
+    setFetching(true);
+    setProgress(0);
     try {
         let allContacts: any[] = [];
         let fetchMore = true;
@@ -527,9 +532,11 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
                     Version: '2021-07-28',
                 },
             };
-            await rateLimiter(); // Ensure rate limit is respected before making the request
+           // await rateLimiter(); // Ensure rate limit is respected before making the request
             try {
                 const response = await axios.request(options);
+                console.log(response.data.meta.total);
+              
                 return response;
             } catch (error: any) {
                 if (error.response && error.response.status === 429 && retries < maxRetries) {
@@ -542,15 +549,24 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
                 }
             }
         };
-
+        let fetchedContacts = 0;
+        let totalContacts = 0;
         // Fetch contacts in batches of 100
         while (fetchMore) {
             const response = await fetchData(nextPageUrl);
             const contacts = response.data.contacts;
-
+            totalContacts = response.data.meta.total;
+           
             if (contacts.length > 0) {
                 allContacts = [...allContacts, ...contacts];
                 setContacts([...allContacts]); // Update state with the new batch of contacts
+                console.log(allContacts.length);
+                fetchedContacts = allContacts.length;
+
+              totalContacts = response.data.meta.total;
+                setTotal(totalContacts);
+                setFetched(fetchedContacts);
+                setProgress((fetchedContacts / totalContacts) * 100);
                 setLoading(false);
             }
 
@@ -564,7 +580,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
     } catch (error) {
         console.error('Error searching contacts:', error);
     } finally {
-       
+      setFetching(false);
     }
 }
   const handleEditContact = (contact: Contact) => {
@@ -867,19 +883,35 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       </button>
       </div>
       <div className="relative w-full text-slate-500 p-2 mb-3">
-        
-        <FormInput
-          type="text"
-          className="relative w-full h-[40px] pr-10 !box text-lg"
-          placeholder="Search..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <Lucide
-          icon="Search"
-          className="absolute inset-y-0 right-5 w-5 h-5 my-auto"
-        />
+  {isFetching ? (
+    <>
+      <div className="w-full bg-gray-200 rounded-full h-4">
+        <div
+          className="bg-blue-600 h-4 rounded-full"
+          style={{ width: `${progress}%` }}
+        ></div>
       </div>
+      <div className="text-right mt-2">
+        Fetched {fetched} of {total} contacts
+      </div>
+    </>
+  ) : (
+    <>
+      <FormInput
+        type="text"
+        className="relative w-full h-[40px] pr-10 !box text-lg"
+        placeholder="Search..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
+      <Lucide
+        icon="Search"
+        className="absolute inset-y-0 right-5 w-5 h-5 my-auto"
+      />
+    </>
+  )}
+</div>
+
       <span className="item-end">
       </span>
     </div>

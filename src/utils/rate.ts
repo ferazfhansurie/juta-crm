@@ -1,5 +1,5 @@
 let lastRequestTime = 0;
-const minInterval = 10000; // Minimum interval between requests in milliseconds
+const minInterval = 5000; // Minimum interval between requests in milliseconds
 
 export const rateLimiter = async () => {
     const now = Date.now();
