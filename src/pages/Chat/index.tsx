@@ -577,7 +577,7 @@ setFetching(true);
       if (progress >= 100) {
         clearInterval(progressInterval);
       }
-    }, 200); // 300 milliseconds interval for 30 seconds total
+    }, 250); // 300 milliseconds interval for 30 seconds total
 
     // Fetch processed data from server
     const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}/${locationId}/${ghlToken}/${user_name}/${role}/${userEmail}`);
