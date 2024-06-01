@@ -6,7 +6,7 @@ import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
 import Button from "@/components/Base/Button";
 import { Dialog, Menu } from "@/components/Base/Headless";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { FormInput } from "@/components/Base/Form";
 import { format } from 'date-fns';
 import { access } from "fs";
@@ -194,6 +194,31 @@ function Main() {
   let user_name = '';
   let user_role='2';
   let totalChats = 0;
+  const getQueryParams = (query: string | string[][] | Record<string, string> | URLSearchParams | undefined) => {
+    return new URLSearchParams(query);
+  };
+
+  const chatId = getQueryParams(location.search).get("chatId");
+
+
+  useEffect(() => {
+    const ws = new WebSocket('wss://buds-359313.et.r.appspot.com:8081'); // Update with your server's WebSocket URL
+
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === 'progress') {
+        setProgress(message.progress);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket connection closed');
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, []);
   useEffect(() => {
     if (messageListRef.current) {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
@@ -203,6 +228,7 @@ function Main() {
   useEffect(() => {
     fetchConfigFromDatabase();
     fetchQuickReplies();
+    
   }, []);
   const fetchQuickReplies = async () => {
     const user = auth.currentUser;
@@ -298,7 +324,9 @@ function Main() {
                 data.whapiToken,
                 data.ghl_location,
                 data.ghl_accessToken,
-                user_name
+                user_name,
+                dataUser.role,
+                dataUser.email
               );
             }
           }
@@ -314,6 +342,7 @@ function Main() {
 
   async function fetchConfigFromDatabase() {
     const user = auth.currentUser;
+
     try {
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
@@ -344,7 +373,10 @@ function Main() {
      
   setToken(data.whapiToken);
       user_name = dataUser.name;
-      fetchContacts(data.whapiToken, data.ghl_location, data.ghl_accessToken, dataUser.name,dataUser.role);
+      await fetchTags(data.ghl_accessToken,data.ghl_location);
+      await fetchContacts(data.whapiToken, data.ghl_location, data.ghl_accessToken, dataUser.name, dataUser.role, dataUser.email,);
+     
+   
     } catch (error) {
       console.error('Error fetching config:', error);
       throw error;
@@ -383,6 +415,7 @@ function Main() {
     );
     const contact = contacts.find(contact => contact.chat_id === chatId || contact.id === chatId);
     setSelectedContact(contact);
+    console.log(selectedContact);
     if(chatId === undefined && id !== undefined){
       setSelectedChatId(id);
       try {
@@ -472,11 +505,8 @@ function Main() {
     }
 };
 
-const fetchDuplicateContact = async (phone: string, locationId: string, accessToken: string, signal: AbortSignal) => {
+const fetchDuplicateContact = async (phone: string, locationId: string, accessToken: string) => {
   const url = `https://services.leadconnectorhq.com/contacts/search/duplicate?locationId=${locationId}${phone ? `&number=${phone}` : ''}`;
-
-  await rateLimiter(); // Ensure rate limit is respected before making the request
-
   try {
       const response = await axios.get(url, {
           headers: {
@@ -484,7 +514,6 @@ const fetchDuplicateContact = async (phone: string, locationId: string, accessTo
               Version: '2021-07-28',
               Accept: 'application/json',
           },
-          signal, // Pass the abort signal to axios
       });
       return response.data.contact;
   } catch (err) {
@@ -501,186 +530,86 @@ const fetchDuplicateContact = async (phone: string, locationId: string, accessTo
       }
   }
 };
-const fetchContacts = async (whapiToken: any, locationId: string, ghlToken: string, user_name: string, role: string) => {
-  const abortController = new AbortController();
-  const { signal } = abortController;
+async function searchContacts(accessToken: any, locationId: any): Promise<any[]> {
   try {
-      setLoading(true);
-      setFetching(true);
-      setProgress(0); // Initialize the progress
-      setTotal(0);
-      setFetched(0);
-      const [tags, employeeSnapshot] = await Promise.all([
-          fetchTags(ghlToken, locationId),
-          getDocs(collection(firestore, `companies/${companyId}/employee`)),
-      ]);
-
-      const user = auth.currentUser;
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-          console.log('No such document!');
-          return;
+    let allContacts: any[] = [];
+    let page = 1;
+    while (true) {
+      const options = {
+        method: 'GET',
+        url: 'https://services.leadconnectorhq.com/contacts/',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Version: '2021-07-28',
+        },
+        params: {
+          locationId: locationId,
+          limit:100,
+          page: page,
+        }
+      };
+      const response = await axios.request(options);
+      const contacts = response.data.contacts;
+      allContacts = [...allContacts, ...contacts];
+      if (contacts.length === 0) {
+        break;
       }
-      const dataUser = docUserSnapshot.data() as UserData;
-      const user_role = dataUser.role;
-
-      let contacts: any[] = [];
-      const count = 500; // Fetch 500 chats at a time
-      let offset = 0;
-      let totalChatsFetched = 0;
-
-      const fetchChats = async (offset: number) => {
-          const response = await fetch(`https://gate.whapi.cloud/chats?count=${count}&offset=${offset}`, {
-              headers: { 'Authorization': `Bearer ${whapiToken}` }
-          });
-          if (!response.ok) throw new Error('Failed to fetch chats');
-          const data = await response.json();
-          return data;
-      };
-
-      const processChats = async (chats: any[],total: number) => {
-          const mappedChats = await Promise.all(chats.map(async (chat) => {
-              if (!chat?.id) return null;
-              const phoneNumber = `+${chat.id.split('@')[0]}`;
-              const duplicateContacts = await fetchDuplicateContact(phoneNumber, locationId, ghlToken, signal);
-              let contact = duplicateContacts ?? null;
-
-              let unreadCount = 0;
-              if (dataUser.notifications !== undefined) {
-                  unreadCount = dataUser.notifications.filter((notif: { chat_id: any; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
-              }
-
-              if (contact) {
-                  contact = {
-                      ...contact,
-                      chat_id: chat.id,
-                      last_message: chat.last_message,
-                      chat: chat,
-                      unreadCount: unreadCount ?? 0,
-                  };
-              }
-
-              return {
-                  ...chat,
-                  tags: contact ? contact.tags : [],
-                  name: contact ? contact.firstName : chat.name,
-                  lastMessageBody: '',
-                  id: chat.id,
-                  contact_id: contact ? contact.id : "",
-                  unreadCount,
-              };
-          }));
-
-          mappedChats.filter(Boolean).forEach(chat => {
-              if (chat?.id) {
-                  const phoneNumber = `+${chat.id.split('@')[0]}`;
-                  const existingContact = contacts.find(contact => contact.phone === phoneNumber);
-                  if (existingContact) {
-                      existingContact.chat_id = chat.id;
-                      existingContact.last_message = chat.last_message || existingContact.last_message;
-                      existingContact.chat = chat;
-                      existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
-                      existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
-                  } else {
-                      contacts.push({
-                          id: chat.contact_id,
-                          phone: phoneNumber,
-                          contactName: chat.name,
-                          chat_id: chat.id,
-                          last_message: chat.last_message || null,
-                          chat: chat,
-                          tags: chat.tags,
-                          conversation_id: chat.id,
-                          unreadCount: chat.unreadCount,
-                      });
-                  }
-              
-              }
-          });
-
-          contacts.sort((a, b) => {
-              const dateA = a.last_message?.createdAt
-                  ? new Date(getTimestamp(a.last_message.createdAt))
-                  : a.last_message?.timestamp
-                      ? new Date(getTimestamp(a.last_message.timestamp))
-                      : new Date(0);
-              const dateB = b.last_message?.createdAt
-                  ? new Date(getTimestamp(b.last_message.createdAt))
-                  : b.last_message?.timestamp
-                      ? new Date(getTimestamp(b.last_message.timestamp))
-                      : new Date(0);
-              return dateB.getTime() - dateA.getTime();
-          });
-    // Increment progress for each processed chat
-    totalChatsFetched = totalChatsFetched +chats.length;
-    setFetched(totalChatsFetched);
-    setProgress((totalChatsFetched / total) * 100);
-          if (user_role === '2') {
-              const filteredContacts = contacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
-              setContacts([...filteredContacts]);
-              setFilteredContacts([...filteredContacts]);
-          } else {
-              setContacts([...contacts]);
-              setFilteredContacts([...contacts]);
-          }
-      };
-
-      let chat = await fetchChats(offset);
-      let initialChats = chat.chats;
-      totalChats = chat.total;
-      console.log(totalChats);
-setTotal(totalChats);
-
-      await processChats(initialChats,totalChats);
-      setLoading(false);
-
-      const fetchRemainingChats = async (total:number) => {
-          offset += count;
-          while (true) {
-              const chats = await fetchChats(offset);
-              const remainingChats = chats.chats;
-              if (remainingChats.length === 0) break;
-              await processChats(remainingChats,total);
-              offset += count;
-          }
-      };
-
-      await fetchRemainingChats(totalChats);
-    
-      setFetching(false);
-  } catch (error) {
-      console.error('Failed to fetch contacts:', error);
-  } finally {
-      setProgress(100); // Set progress to 100% on completion
-  }
-};
-async function getContact(name: any, number: string, location: any, ghl_accessToken: any) {
-  const options = {
-    method: 'POST',
-    url: 'https://services.leadconnectorhq.com/contacts/',
-    data: {
-      firstName: name,
-      name: name,
-      locationId: location,
-      phone: number,
-    },
-    headers: {
-      Authorization: `Bearer ${ghl_accessToken}`,
-      Version: '2021-07-28',
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
+      page++;
     }
-  };
-  await rateLimiter(); // Ensure rate limit is respected before making the request
-  try {
-    const response = await axios.request(options);
-    return response.data.contact;
+    return allContacts;
   } catch (error) {
-    console.error(error);
-    return null;
+    console.error('Error searching contacts:', error);
+    return [];
   }
 }
+const fetchContacts = async (whapiToken: any, locationId: any, ghlToken: any, user_name: string, role: string, userEmail: string, callback?: Function) => {
+  try {
+    setLoading(true);
+    setProgress(0); // Initialize the progress
+    setTotal(0);
+    setFetched(0);
+setFetching(true);
+    // Use setInterval to update progress over 30 seconds
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+      progress += 1;
+      setProgress(progress);
+      if (progress >= 100) {
+        clearInterval(progressInterval);
+      }
+    }, 200); // 300 milliseconds interval for 30 seconds total
+
+    // Fetch processed data from server
+    const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}/${locationId}/${ghlToken}/${user_name}/${role}/${userEmail}`);
+    const { contacts, totalChats } = await response.json();
+    setTotal(totalChats);
+
+    // Update the fetched count and progress
+    setFetched(contacts.length);
+
+    // Set contacts to state
+    setContacts(contacts);
+    setFilteredContacts(contacts);
+    setFilteredContactsForForwarding(contacts);
+    setLoading(false);
+    clearInterval(progressInterval); // Clear interval when fetch completes
+    setFetching(false);
+    if (chatId) {
+      const phone = "+" + chatId.split('@')[0];
+      const contact = await fetchDuplicateContact(phone, locationId, ghlToken);
+      setSelectedContact(contact);
+      console.log(selectedContact + "contact");
+      setSelectedChatId(chatId);
+    }
+  } catch (error) {
+    console.error('Failed to fetch contacts:', error);
+  } finally {
+    setLoading(false);
+    setFetching(false);
+  }
+};
+
+
 const getTimestamp = (timestamp: any): number => {
   if (typeof timestamp === 'number') {
       // Assume timestamp is in seconds if it's less than 10000000000
@@ -696,146 +625,28 @@ const getTimestamp = (timestamp: any): number => {
   }
 };
 
-const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
-  const abortController = new AbortController();
-  const { signal } = abortController;
+const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string,role: string, userEmail: string) => {
   try {
 
-      setFetching(true);
-      setProgress(0); // Initialize the progress
-    setFetched(0); // Initialize the progress
-    setTotal(0); // Initialize the progress
-      const [ employeeSnapshot] = await Promise.all([
-        
-          getDocs(collection(firestore, `companies/${companyId}/employee`)),
-      ]);
 
-      const user = auth.currentUser;
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-          console.log('No such document!');
-          return;
-      }
-      const dataUser = docUserSnapshot.data() as UserData;
-      const user_role = dataUser.role;
 
-      let contacts: any[] = [];
-      const count = 500; // Fetch 500 chats at a time
-      let offset = 0;
-      let totalChatsFetched = 0;
+    // Fetch processed data from server
+    const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}/${locationId}/${ghlToken}/${user_name}/${role}/${userEmail}`);
+    const { contacts, totalChats } = await response.json();
 
-      const fetchChats = async (offset: number) => {
-          const response = await fetch(`https://gate.whapi.cloud/chats?count=${count}&offset=${offset}`, {
-              headers: { 'Authorization': `Bearer ${whapiToken}` }
-          });
-          if (!response.ok) throw new Error('Failed to fetch chats');
-          const data = await response.json();
-          return data;
-      };
 
-      const processChats = async (chats: any[],total: number) => {
-          const mappedChats = await Promise.all(chats.map(async (chat) => {
-              if (!chat?.id) return null;
-              const phoneNumber = `+${chat.id.split('@')[0]}`;
-              const duplicateContacts = await fetchDuplicateContact(phoneNumber, locationId, ghlToken, signal);
-              let contact = duplicateContacts ?? null;
 
-              let unreadCount = 0;
-              if (dataUser.notifications !== undefined) {
-                  unreadCount = dataUser.notifications.filter((notif: { chat_id: any; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
-              }
+    // Set contacts to state
+    setContacts(contacts);
+    setFilteredContacts(contacts);
+    setFilteredContactsForForwarding(contacts);
 
-              if (contact) {
-                  contact = {
-                      ...contact,
-                      chat_id: chat.id,
-                      last_message: chat.last_message,
-                      chat: chat,
-                      unreadCount: unreadCount ?? 0,
-                  };
-              }
+    console.log(contacts);
+} catch (error) {
+    console.error('Failed to fetch contacts:', error);
+} finally {
 
-              return {
-                  ...chat,
-                  tags: contact ? contact.tags : [],
-                  name: contact ? contact.firstName : chat.name,
-                  lastMessageBody: '',
-                  id: chat.id,
-                  contact_id: contact ? contact.id : "",
-                  unreadCount,
-              };
-          }));
-
-          mappedChats.filter(Boolean).forEach(chat => {
-              if (chat?.id) {
-                  const phoneNumber = `+${chat.id.split('@')[0]}`;
-                  const existingContact = contacts.find(contact => contact.phone === phoneNumber);
-                  if (existingContact) {
-                      existingContact.chat_id = chat.id;
-                      existingContact.last_message = chat.last_message || existingContact.last_message;
-                      existingContact.chat = chat;
-                      existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
-                      existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
-                  } else {
-                      contacts.push({
-                          id: chat.contact_id,
-                          phone: phoneNumber,
-                          contactName: chat.name,
-                          chat_id: chat.id,
-                          last_message: chat.last_message || null,
-                          chat: chat,
-                          tags: chat.tags,
-                          conversation_id: chat.id,
-                          unreadCount: chat.unreadCount,
-                      });
-                  }
-              
-              }
-          });
-
-          contacts.sort((a, b) => {
-              const dateA = a.last_message?.createdAt
-                  ? new Date(getTimestamp(a.last_message.createdAt))
-                  : a.last_message?.timestamp
-                      ? new Date(getTimestamp(a.last_message.timestamp))
-                      : new Date(0);
-              const dateB = b.last_message?.createdAt
-                  ? new Date(getTimestamp(b.last_message.createdAt))
-                  : b.last_message?.timestamp
-                      ? new Date(getTimestamp(b.last_message.timestamp))
-                      : new Date(0);
-              return dateB.getTime() - dateA.getTime();
-          });
-    // Increment progress for each processed chat
-    totalChatsFetched = totalChatsFetched +chats.length;
-    console.log(totalChatsFetched);
-    console.log(total);
-          if (user_role === '2') {
-              const filteredContacts = contacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
-              setContacts([...filteredContacts]);
-              setFilteredContacts([...filteredContacts]);
-          } else {
-              setContacts([...contacts]);
-              setFilteredContacts([...contacts]);
-          }
-      };
-
-      let chat = await fetchChats(offset);
-      setProgress(50); // Set progress to 100% on completion
-      let initialChats = chat.chats;
-     totalChats = chat.total;
-      console.log(totalChats);
-
-      await processChats(initialChats,totalChats);
-
-    
-      setFetching(false);
-  } catch (error) {
-      console.error('Failed to fetch contacts:', error);
-  } finally {
-      setProgress(100); // Set progress to 100% on completion
-  }
+}
 };
 
 
@@ -1216,7 +1027,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
 
   const handleAddTagToSelectedContacts = async (selectedEmployee: string, contact: any) => {
     const user = auth.currentUser;
-  
+  console.log(selectedEmployee);
     if (!user) {
       console.log('No authenticated user');
       return;
@@ -1237,17 +1048,12 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       return;
     }
     const companyData = docSnapshot.data();
-  
-    // Assuming ghlConfig, setToken, and fetchChatsWithRetry are defined elsewhere
-    // Update Firestore document with new token data
-    await setDoc(doc(firestore, 'companies', companyId), {
-      ghl_accessToken: companyData.ghl_accessToken,
-      refresh_token: companyData.refresh_token,
-    }, { merge: true });
-  
+
+    console.log(selectedEmployee);
     if (selectedEmployee) {
       const tagName = selectedEmployee;
-  
+
+
       // Merge existing tags with the new tag
       const updatedTags = [...new Set([...(contact.tags || []), tagName])];
   
@@ -1288,7 +1094,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             }
         };
         const response = await axios.request(options);
-      
+      console.log(response);
         if (response.status === 200) {
             console.log('Contact tags updated successfully');
             return true;
@@ -1617,6 +1423,7 @@ const handleForwardMessage = async () => {
     setIsForwardDialogOpen(false);
     setSearchQuery2(''); // Clear the search query
   };
+
   return (
     <div className="flex overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '85vh' }}>
     <div className="flex flex-col w-full sm:w-1/4 bg-gray-100 border-r border-gray-300">
@@ -1692,11 +1499,9 @@ const handleForwardMessage = async () => {
     <div className="bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 relative">
       <div className="bg-blue-900 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
     </div>
-    {total > 0 && (
-      <div className="text-right mt-1">
-        <span className="font-semibold truncate">{fetched}/{total}</span>
-      </div>
-    )}
+    <div className="text-right mt-1">
+      <span className="font-semibold truncate">{progress.toFixed(2)}%</span>
+    </div>
   </div>
 )}
 {!isFetching && (
@@ -1763,11 +1568,11 @@ const handleForwardMessage = async () => {
         onClick={() => selectChat(contact.chat_id!, contact.email!)}
       >
         <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
-          {contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"}
+          {contact.firstName ? contact.firstName.charAt(0).toUpperCase() : "?"}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-center">
-            <span className="font-semibold truncate">{contact.contactName ?? contact.phone}</span>
+            <span className="font-semibold truncate">{contact.firstName ?? contact.phone}</span>
             <span className="text-xs">
               {contact.last_message?.createdAt || contact.last_message?.timestamp
                 ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
@@ -1807,10 +1612,10 @@ const handleForwardMessage = async () => {
           <div className="flex items-center justify-between p-2 border-b border-gray-300 bg-gray-100">
             <div className="flex items-center">
               <div className="w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3">
-                <span className="text-lg">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
+                <span className="text-lg">{selectedContact.firstName ? selectedContact.firstName.charAt(0).toUpperCase() : "?"}</span>
               </div>
               <div>
-                <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.phone}</div>
+                <div className="font-semibold text-gray-800">{selectedContact.firstName || selectedContact.phone}</div>
                 <div className="text-sm text-gray-600">{selectedContact.phone}</div>
               </div>
             </div>
@@ -2019,10 +1824,10 @@ const handleForwardMessage = async () => {
     <div className="p-6">
       <div className="flex items-center p-4 border-b border-gray-300 bg-gray-100">
         <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-          <span className="text-xl">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
+          <span className="text-xl">{selectedContact.firstName ? selectedContact.firstName.charAt(0).toUpperCase() : "?"}</span>
         </div>
         <div>
-          <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.phone}</div>
+          <div className="font-semibold text-gray-800">{selectedContact.firstName || selectedContact.phone}</div>
           <div className="text-sm text-gray-600">{selectedContact.phone}</div>
         </div>
       </div>

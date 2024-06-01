@@ -23,6 +23,7 @@ import { initializeApp } from "firebase/app";
 import { DocumentReference, getDoc, onSnapshot } from 'firebase/firestore';
 import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import { onMessage } from "firebase/messaging";
+import { useNavigate } from "react-router-dom"; // Add this import
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -55,6 +56,18 @@ function Main() {
   const [closed, setClosed] = useState(0);
   const [unclosed, setUnclosed] = useState(0);
   const [num_replies, setReplies] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearchChange = (e: { target: { value: string; }; }) => {
+    setSearchQuery(e.target.value.toLowerCase());
+  };
+
+  const filteredNotifications = notifications.filter((notification) => {
+    return (
+      notification.from_name.toLowerCase().includes(searchQuery) ||
+      (notification.text && notification.text.body.toLowerCase().includes(searchQuery))
+    );
+  });
   const saveTokenToFirestore = async (userId: string, token: string) => {
     try {
       await setDoc(doc(firestore, "user", userId), {
@@ -281,7 +294,11 @@ console.log(response.data);
       return [];
     }
   }
+  const navigate = useNavigate(); // Initialize useNavigate
 
+  const handleNotificationClick = (chatId: any) => {
+    navigate(`/dashboard/chat/?chatId=${chatId}`);
+  };
   useEffect(() => {
     fetchCompanyData();
   }, []);
@@ -458,46 +475,60 @@ console.log(companyData);
               </div>
             </div>
           </div>
-
-          {/* Notifications */}
-     <div className="col-span-12 mt-8">
-  <div className="flex items-center h-10 intro-y">
-    <h2 className="mr-5 text-lg font-medium truncate">Recent Messages</h2>
-  </div>
-  <div className="mt-5">
-    {notifications && notifications.length > 0 ? (
-      notifications.reduce((uniqueNotifications, notification) => {
-        const existingNotificationIndex = uniqueNotifications.findIndex(
-          (n: { chat_id: any; }) => n.chat_id === notification.chat_id
-        );
-        if (existingNotificationIndex !== -1) {
-          // If a notification with the same chat_id exists, replace it with the new one
-          uniqueNotifications[existingNotificationIndex] = notification;
-        } else {
-          // Otherwise, add the new notification
-          uniqueNotifications.push(notification);
-        }
-        return uniqueNotifications;
-      }, []).sort((a: { timestamp: number; }, b: { timestamp: number; }) => b.timestamp - a.timestamp).map((notification: { from_name: string ; text: { body: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | null | undefined; } | undefined; timestamp: number; }, key: Key | null | undefined) => (
-        <div key={key} className="w-70">
-          <div className="flex items-center px-5 py-3 mb-3 box zoom-in w-70">
-            <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
-              {notification.from_name ? notification.from_name.charAt(0).toUpperCase() : "?"}
+{/* Notifications */}
+<div className="col-span-12 mt-8">
+      <div className="flex items-center h-10 intro-y">
+        <h2 className="mr-5 text-lg font-medium truncate">Recent Messages</h2>
+      </div>
+      <div className="relative">
+        <input
+          type="text"
+          className="!box mt-2 mb-2 w-full py-2 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Search..."
+          onChange={handleSearchChange}
+          value={searchQuery}
+        />
+      </div>
+      <div className="mt-2 h-64 overflow-y-auto"> {/* Set height and enable scrolling */}
+        {filteredNotifications && filteredNotifications.length > 0 ? (
+          filteredNotifications.reduce((uniqueNotifications, notification) => {
+            const existingNotificationIndex = uniqueNotifications.findIndex(
+              (n: { chat_id: any; }) => n.chat_id === notification.chat_id
+            );
+            if (existingNotificationIndex !== -1) {
+              // If a notification with the same chat_id exists, replace it with the new one
+              uniqueNotifications[existingNotificationIndex] = notification;
+            } else {
+              // Otherwise, add the new notification
+              uniqueNotifications.push(notification);
+            }
+            return uniqueNotifications;
+          }, []).sort((a: { timestamp: number; }, b: { timestamp: number; }) => b.timestamp - a.timestamp).map((notification: { chat_id: any; from_name: string ; text: { body: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | null | undefined; }; timestamp: number; }, key: Key | null | undefined) => (
+            <div key={key} className="w-70">
+              <div
+                className="flex items-center px-5 py-3 mb-3 box zoom-in w-70 cursor-pointer"
+                onClick={() => handleNotificationClick(notification.chat_id)}
+              >
+                <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
+                  {notification.from_name ? notification.from_name.charAt(0).toUpperCase() : "?"}
+                </div>
+                <div className="ml-4 mr-auto">
+                  <div className="font-medium">{notification.from_name}</div>
+                  <div className="text-base text-slate-500">{notification.text ? notification.text.body : ""}</div>
+                  <div className="text-slate-500 text-xs mt-0.5">
+                    {new Date(notification.timestamp * 1000).toLocaleString()}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="ml-4 mr-auto">
-              <div className="font-medium">{notification.from_name}</div>
-              <div className="text-base text-slate-500">{(notification.text != undefined) ? notification.text.body : ""}</div>
-              <div className="text-slate-500 text-xs mt-0.5">{new Date(notification.timestamp * 1000).toLocaleString()}</div>
-            </div>
-          </div>
-        </div>
-      ))
-    ) : (
-      <div className="text-center text-slate-500">No messages available</div>
-    )}
-  </div>
-</div>
+          ))
+        ) : (
+          <div className="text-center text-slate-500">No messages available</div>
+        )}
+      </div>
+    </div>
 {/* END: Notifications */}
+
         </div>
       </div>
     </div>
