@@ -388,9 +388,11 @@ setLoading(true);
     }
   }
   const handleAddTagToSelectedContacts = async (selectedEmployee: string) => {
+    if (!selectedEmployee) return;
+    
     setSelectedContacts([]);
     const user = auth.currentUser;
-
+  
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
@@ -406,20 +408,26 @@ setLoading(true);
       return;
     }
     const companyData = docSnapshot.data();
-
-    if (selectedEmployee) {
-      const tagName = selectedEmployee;
-      const selectedContactsCopy = [...selectedContacts];
-
+    const accessToken = companyData.ghl_accessToken;
+  
+    const tagName = selectedEmployee;
+    const selectedContactsCopy = [...selectedContacts];
+  
+    try {
       for (const contact of selectedContactsCopy) {
-        const success = await updateContactTags(contact.id, companyData.ghl_accessToken, [tagName]);
+        const success = await updateContactTags(contact.id, accessToken, [tagName]);
         if (!success) {
           console.error(`Failed to add tag "${tagName}" to contact with ID ${contact.id}`);
         } else {
           console.log(`Tag "${tagName}" added to contact with ID ${contact.id}`);
         }
       }
-      await searchContacts(companyData.ghl_accessToken, companyData.ghl_location);
+  
+      // Fetch the latest contacts after tagging
+      await searchContacts(accessToken, companyData.ghl_location);
+  
+    } catch (error) {
+      console.error('Error tagging contacts:', error);
     }
   };
 

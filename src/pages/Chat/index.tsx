@@ -578,9 +578,16 @@ setFetching(true);
         clearInterval(progressInterval);
       }
     }, 250); // 300 milliseconds interval for 30 seconds total
-
+console.log(whapiToken);
+    console.log(locationId);
+    console.log(ghlToken);
+    console.log(user_name);
+    console.log(role);
+    console.log(userEmail);
     // Fetch processed data from server
-    const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}/${locationId}/${ghlToken}/${user_name}/${role}/${userEmail}`);
+    const response = await fetch(`http://localhost:8443/api/chats/${whapiToken}/${locationId}/${ghlToken}/${user_name}/${role}/${userEmail}`);
+    console.log(response);
+
     const { contacts, totalChats } = await response.json();
     setTotal(totalChats);
 
