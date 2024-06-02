@@ -16,6 +16,7 @@ import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { rateLimiter } from '../../utils/rate';
+import { useNavigate } from "react-router-dom";
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
   authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -112,7 +113,8 @@ function Main() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [contactsPerPage] = useState(10); // Adjust the number of contacts per page as needed
-
+let role = 1;
+let userName ='';
   const handleSaveNewContact = async () => {
     try {
       console.log(newContact);
@@ -355,6 +357,8 @@ setLoading(true);
 
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
+      role = userData.role;
+      userName = userData.name;
       setShowAddUserButton(userData.role === "1");
 
       const docRef = doc(firestore, 'companies', companyId);
@@ -518,7 +522,12 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       return false;
     }
   }
-
+  const navigate = useNavigate(); // Initialize useNavigate
+  const handleClick = (phone: any) => {
+const tempphone = phone.split('+')[1];
+const chatId = tempphone + "@s.whatsapp.net"
+    navigate(`/dashboard/chat/?chatId=${chatId}`);
+  };
   async function searchContacts(accessToken: string, locationId: string) {
     setLoading(true);
     setFetching(true);
@@ -567,7 +576,13 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
            
             if (contacts.length > 0) {
                 allContacts = [...allContacts, ...contacts];
-                setContacts([...allContacts]); // Update state with the new batch of contacts
+                if (role == 2) {
+                  const filteredContacts = allContacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(userName.toLowerCase())));
+                  setContacts([...filteredContacts]); // Update state with the new batch of contacts
+                }else{
+                  setContacts([...allContacts]); // Update state with the new batch of contacts
+                }
+            
                 console.log(allContacts.length);
                 fetchedContacts = allContacts.length;
 
@@ -1001,7 +1016,13 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
                       <Lucide icon="Eye" className="w-5 h-5" />
                     </span>
                   </button>
-                 
+                  <button className="p-2 m-1 !box text-blue-900" onClick={() => {
+                    handleClick(contact.phone)
+                  }}>
+                    <span className="flex items-center justify-center w-5 h-5">
+                      <Lucide icon="MessageSquare" className="w-5 h-5" />
+                    </span>
+                  </button>
                   <button className="p-2 m-1 !box text-red-500" onClick={() => {
                     setCurrentContact(contact);
                     setDeleteConfirmationModal(true);
