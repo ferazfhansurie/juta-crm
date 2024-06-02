@@ -298,7 +298,7 @@ console.log(response.data);
   const navigate = useNavigate(); // Initialize useNavigate
 
   const handleNotificationClick = (chatId: any) => {
-    navigate(`/dashboard/chat/?chatId=${chatId}`);
+    navigate(`/chat/?chatId=${chatId}`);
   };
   useEffect(() => {
     fetchCompanyData();
