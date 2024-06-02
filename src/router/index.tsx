@@ -92,12 +92,17 @@ function Router() {
   const routes = [
     {
       path: "/",
-      element: isLoggedIn ? <Navigate to="/dashboard" /> : <Login />,
+      element: isLoggedIn ? <Navigate to="/chat" /> : <Login />,
     },
+  
     {
-      path: "/dashboard",
+      path: "/",
       element:  isLoggedIn ?<Layout />: <Login />,
       children: [
+          {
+      path: "chat",
+      element: <Chat />,
+    },
         {
           path: "/dashboard",
           element: <DashboardOverview1 />,
@@ -370,6 +375,10 @@ function Router() {
     {
       path: "product-grid",
       element: <ProductGrid />,
+    },
+    {
+      path: "/login",
+      element: <Login />,
     },
     {
       path: "/",

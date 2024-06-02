@@ -2,19 +2,19 @@ import { type Menu } from "@/stores/menuSlice";
 
 const menu: Array<Menu | "divider"> = [
   {
-    icon: "Home",
-    title: "Dashboard",
-   pathname:'/dashboard'
-  },
-  {
     icon: "MessageSquare",
-    pathname: "/dashboard/chat",
-    title: "Chat",
+    title: "Chats",
+   pathname:'/chat'
   },
   {
     icon: "HardDrive",
-    pathname: "/dashboard/crud-data-list",
+    pathname: "/crud-data-list",
     title: "Contacts",
+  },
+  {
+    icon: "AreaChart",
+    pathname: "/dashboard",
+    title: "Stats",
   },
   /* {
     icon: "Bot",
@@ -35,7 +35,7 @@ const menu: Array<Menu | "divider"> = [
   {
     icon: "Users",
     title: "Users",
-    pathname: "/dashboard/users-layout-2",
+    pathname: "users-layout-2",
   },
  /* {
     icon: "Trello",

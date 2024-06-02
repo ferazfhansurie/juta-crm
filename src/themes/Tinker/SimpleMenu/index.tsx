@@ -7,7 +7,7 @@ import { useAppSelector } from "@/stores/hooks";
 import { FormattedMenu, linkTo, nestedMenu, enter, leave } from "./simple-menu";
 import Lucide from "@/components/Base/Lucide";
 import Tippy from "@/components/Base/Tippy";
-import logoUrl from "@/assets/images/logo2.png";
+import logoUrl from "@/assets/images/logo.png";
 import clsx from "clsx";
 import TopBar from "@/components/Themes/Tinker/TopBar";
 import MobileMenu from "@/components/MobileMenu";
@@ -35,15 +35,8 @@ function Main() {
       <MobileMenu />
       <div className="flex mt-[4.7rem] md:mt-0 overflow-hidden">
         {/* BEGIN: Simple Menu */}
-        <nav className="side-nav side-nav--simple hidden md:block md:w-[100px] xl:w-[100px] px-5 pb-16 overflow-x-hidden z-10">
-          <Link to="/dashboard" className="flex items-center pt-4 pl-5 mt-3 intro-x">
-            <img
-              alt="Tinker Tailwind HTML Admin Template"
-              className="w-6"
-              src={logoUrl}
-            />
-          </Link>
-          <div className="my-6 side-nav__divider"></div>
+        <nav className="py-5 side-nav side-nav--simple hidden md:block md:w-[100px] xl:w-[100px] px-5 pb-16 overflow-x-hidden z-10">
+     
           <ul>
             {/* BEGIN: First Child */}
             {formattedMenu.map((menu, menuKey) =>

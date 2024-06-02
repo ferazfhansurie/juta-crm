@@ -9,7 +9,7 @@ import { selectTheme } from "@/stores/themeSlice";
 import { useAppSelector } from "@/stores/hooks";
 import { FormattedMenu, linkTo, nestedMenu, enter, leave } from "./mobile-menu";
 import Lucide from "@/components/Base/Lucide";
-import logoUrl from "@/assets/images/logo2.png";
+import logoUrl from "@/assets/images/logo.png";
 import clsx from "clsx";
 import SimpleBar from "simplebar";
 

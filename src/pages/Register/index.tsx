@@ -1,5 +1,5 @@
 import ThemeSwitcher from "@/components/ThemeSwitcher";
-import logoUrl from "@/assets/images/logo2.png";
+import logoUrl from "@/assets/images/logo.png";
 import illustrationUrl from "@/assets/images/illustration.svg";
 import { FormInput, FormCheck } from "@/components/Base/Form";
 import Button from "@/components/Base/Button";

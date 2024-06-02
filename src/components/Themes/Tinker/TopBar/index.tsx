@@ -43,7 +43,7 @@ const firestore = getFirestore(app);
 const handleSignOut = () => {
   signOut(auth)
     .then(() => {
-      
+      console.log("Sign-out successful.");
     })
     .catch((error) => {
       console.error("Error signing out:", error);
@@ -181,7 +181,7 @@ function Main() {
             <Menu.Divider className="bg-white/[0.08]" />
             <Menu.Item className="hover:bg-white/5">
               {/* Logout link with sign out function */}
-              <Link to="/" onClick={handleSignOut}>
+              <Link to="/login" onClick={handleSignOut}>
                 <Lucide icon="ToggleRight" className="w-4 h-4 mr-2" /> Logout
               </Link>
             </Menu.Item>
