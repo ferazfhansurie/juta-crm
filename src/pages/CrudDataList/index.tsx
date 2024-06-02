@@ -31,50 +31,51 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const firestore = getFirestore(app);
 
-interface Contact {
-  additionalEmails: string[];
-  address1: string | null;
-  assignedTo: string | null;
-  businessId: string | null;
-  city: string | null;
-  companyName: string | null;
-  contactName: string;
-  country: string;
-  customFields: any[];
-  dateAdded: string;
-  dateOfBirth: string | null;
-  dateUpdated: string;
-  dnd: boolean;
-  dndSettings: any;
-  email: string | null;
-  firstName: string;
-  followers: string[];
-  id: string;
-  lastName: string;
-  locationId: string;
-  phone: string | null;
-  postalCode: string | null;
-  source: string | null;
-  state: string | null;
-  tags: string[];
-  type: string;
-  website: string | null;
 
-}
-
-interface Employee {
-  id: string;
-  name: string;
-  role: string;
-}
-interface Tag {
-  id: string;
-  name: string;
-}
-interface TagsState {
-  [key: string]: string[];
-}
 function Main() {
+  interface Contact {
+    additionalEmails: string[];
+    address1: string | null;
+    assignedTo: string | null;
+    businessId: string | null;
+    city: string | null;
+    companyName: string | null;
+    contactName: string;
+    country: string;
+    customFields: any[];
+    dateAdded: string;
+    dateOfBirth: string | null;
+    dateUpdated: string;
+    dnd: boolean;
+    dndSettings: any;
+    email: string | null;
+    firstName: string;
+    followers: string[];
+    id: string;
+    lastName: string;
+    locationId: string;
+    phone: string | null;
+    postalCode: string | null;
+    source: string | null;
+    state: string | null;
+    tags: string[];
+    type: string;
+    website: string | null;
+  
+  }
+  
+  interface Employee {
+    id: string;
+    name: string;
+    role: string;
+  }
+  interface Tag {
+    id: string;
+    name: string;
+  }
+  interface TagsState {
+    [key: string]: string[];
+  }
   const [deleteConfirmationModal, setDeleteConfirmationModal] = useState(false);
   const [editContactModal, setEditContactModal] = useState(false);
   const [viewContactModal, setViewContactModal] = useState(false);
@@ -393,8 +394,7 @@ setLoading(true);
   }
   const handleAddTagToSelectedContacts = async (selectedEmployee: string) => {
     if (!selectedEmployee) return;
-    
-    setSelectedContacts([]);
+  
     const user = auth.currentUser;
   
     const docUserRef = doc(firestore, 'user', user?.email!);
@@ -415,11 +415,14 @@ setLoading(true);
     const accessToken = companyData.ghl_accessToken;
   
     const tagName = selectedEmployee;
-    const selectedContactsCopy = [...selectedContacts];
+    const updatedContacts = selectedContacts.map(contact => ({
+      ...contact,
+      tags: [...new Set([...(contact.tags || []), tagName])]
+    }));
   
     try {
-      for (const contact of selectedContactsCopy) {
-        const success = await updateContactTags(contact.id, accessToken, [tagName]);
+      for (const contact of updatedContacts) {
+        const success = await updateContactTags(contact.id, accessToken, contact.tags);
         if (!success) {
           console.error(`Failed to add tag "${tagName}" to contact with ID ${contact.id}`);
         } else {
@@ -427,14 +430,17 @@ setLoading(true);
         }
       }
   
-      // Fetch the latest contacts after tagging
-      await searchContacts(accessToken, companyData.ghl_location);
-  
+      // Update the contacts state without refetching
+      setContacts(prevContacts => 
+        prevContacts.map(contact =>
+          updatedContacts.find(updatedContact => updatedContact.id === contact.id) || contact
+        )
+      );
+      setSelectedContacts([]);
     } catch (error) {
       console.error('Error tagging contacts:', error);
     }
   };
-
 const handleRemoveTag = async (contactId: string, tagName: string) => {
   const user = auth.currentUser;
 
