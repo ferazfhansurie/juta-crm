@@ -203,7 +203,7 @@ function Main() {
     return new URLSearchParams(query);
   };
 
-  const chatId = getQueryParams(location.search).get("chatId");
+
 
 console.log(initialContacts);
   useEffect(() => {
@@ -231,7 +231,7 @@ console.log(initialContacts);
   }, [selectedChatId, messages]);
 
   useEffect(() => {
-    //fetchConfigFromDatabase();
+   fetchConfigFromDatabase();
     fetchQuickReplies();
     
   }, []);
@@ -346,6 +346,7 @@ console.log(initialContacts);
   }, [companyId, selectedChatId, whapiToken]);
 
 async function fetchConfigFromDatabase() {
+
   const user = auth.currentUser;
 
   if (!user) {
@@ -395,17 +396,21 @@ async function fetchConfigFromDatabase() {
 
     setToken(data.whapiToken);
     user_name = dataUser.name;
-
   
-    await fetchContacts(
-      data.whapiToken,
-      data.ghl_location,
-      data.ghl_accessToken,
-      dataUser.name,
-      dataUser.role,
-      dataUser.email,
-    );
-
+    await fetchTags(data.ghl_accessToken,data.ghl_location);
+    const params = new URLSearchParams(location.search);
+    const chatId = params.get("chatId");
+  
+    if (chatId) {
+      setLoading(true);
+      const phone = "+" + chatId.split('@')[0];
+     const contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
+     setSelectedContact(contact);
+     console.log(selectedContact + "contact");
+     setSelectedChatId(chatId);
+     setLoading(false);
+   }
+   
   } catch (error) {
     console.error('Error fetching config:', error);
   }
@@ -565,13 +570,7 @@ const fetchContacts = async (whapiToken: any, locationId: any, ghlToken: any, us
     setContacts(initialContacts);
     setFilteredContacts(initialContacts);
     setFilteredContactsForForwarding(initialContacts);
-    if (chatId) {
-      const phone = "+" + chatId.split('@')[0];
-      const contact = await fetchDuplicateContact(phone, locationId, ghlToken);
-      setSelectedContact(contact);
-      console.log(selectedContact + "contact");
-      setSelectedChatId(chatId);
-    }
+   
   } catch (error) {
     console.error('Failed to fetch contacts:', error);
   } finally {

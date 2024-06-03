@@ -26,7 +26,7 @@ function LoadingPage() {
     <div className="flex items-center justify-center h-screen">
       <div className="flex flex-col items-center w-3/4 max-w-lg text-center">
         <img alt="Logo" className="w-24 h-24" src={logoUrl} />
-        <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
+        <LoadingIcon icon="spinning-circles" className="w-12 h-12" />
         <div className="w-full bg-gray-400 rounded-full h-2.5 dark:bg-gray-700 mt-4 relative">
           <div className="bg-blue-900 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
         </div>
