@@ -36,7 +36,7 @@ const firebaseConfig = {
           const user = userCredential.user;
           console.log(user);
           // Instead of directly navigating here, set a state indicating successful sign-in
-          navigate(`/chat`);
+          navigate(`/loading`);
         })
         .catch((error) => {
           const errorCode = error.code;

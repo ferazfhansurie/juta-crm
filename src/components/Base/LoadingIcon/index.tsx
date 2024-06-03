@@ -22,7 +22,7 @@ interface LoadingIconProps extends React.ComponentPropsWithoutRef<"span"> {
 function LoadingIcon(props: LoadingIconProps) {
   const darkMode = useAppSelector(selectDarkMode);
   const iconColor = useMemo(() => {
-    return !darkMode ? props.color : "#ffffff";
+    return !darkMode ?  "#1E3A8A" : "#ffffff";
   }, [darkMode]);
   const { icon, color, ...computedProps } = props;
   return (

@@ -18,7 +18,9 @@ import { onMessage } from "firebase/messaging";
 import { getFirebaseToken, messaging } from "../../firebaseconfig";
 import { rateLimiter } from '../../utils/rate';
 import errorIllustration from "@/assets/images/chat.svg";
-
+import LoadingIcon from "@/components/Base/LoadingIcon";
+import { useLocation } from "react-router-dom";
+import { useContacts } from '../../contact';
 interface Label {
   id: string;
   name: string;
@@ -147,18 +149,21 @@ const firestore = getFirestore(app);
 const auth = getAuth(app);
 
 function Main() {
+  const location = useLocation();
+  const { contacts: initialContacts, isLoading } = useContacts();
+  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState<string>("");
-  const [isLoading, setLoading] = useState<boolean>(false);
+  const [isLoading2, setLoading] = useState<boolean>(false);
   const [isFetching, setFetching] = useState<boolean>(false);
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [stopBotLabelCheckedState, setStopBotLabelCheckedState] = useState<boolean[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
+
   const [selectedMessage2, setSelectedMessage2] = useState(null);
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
@@ -200,7 +205,7 @@ function Main() {
 
   const chatId = getQueryParams(location.search).get("chatId");
 
-
+console.log(initialContacts);
   useEffect(() => {
     const ws = new WebSocket('wss://buds-359313.et.r.appspot.com:8081'); // Update with your server's WebSocket URL
 
@@ -226,7 +231,7 @@ function Main() {
   }, [selectedChatId, messages]);
 
   useEffect(() => {
-    fetchConfigFromDatabase();
+    //fetchConfigFromDatabase();
     fetchQuickReplies();
     
   }, []);
@@ -340,48 +345,71 @@ function Main() {
     return () => unsubscribe();
   }, [companyId, selectedChatId, whapiToken]);
 
-  async function fetchConfigFromDatabase() {
-    const user = auth.currentUser;
+async function fetchConfigFromDatabase() {
+  const user = auth.currentUser;
 
-    try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-       }
-      const dataUser = docUserSnapshot.data() as UserData;
-    
-      setUserData(dataUser);
-      user_role =dataUser.role;
-      companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-      const data = docSnapshot.data();
-  setGhlConfig({
-        ghl_id: data.ghl_id,
-        ghl_secret: data.ghl_secret,
-        refresh_token: data.refresh_token,
-        ghl_accessToken: data.ghl_accessToken,
-        ghl_location: data.ghl_location,
-        whapiToken: data.whapiToken,
-      });
-     
-  setToken(data.whapiToken);
-      user_name = dataUser.name;
-      await fetchTags(data.ghl_accessToken,data.ghl_location);
-      await fetchContacts(data.whapiToken, data.ghl_location, data.ghl_accessToken, dataUser.name, dataUser.role, dataUser.email,);
-     
-   
-    } catch (error) {
-      console.error('Error fetching config:', error);
-      throw error;
-    }
+  if (!user) {
+    console.error('No user is authenticated');
+    return;
   }
+
+  try {
+    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.error('No such document for user!');
+      return;
+    }
+    const dataUser = docUserSnapshot.data() as UserData;
+
+    if (!dataUser || !dataUser.companyId) {
+      console.error('Invalid user data or companyId');
+      return;
+    }
+
+    setUserData(dataUser);
+    user_role = dataUser.role;
+    companyId = dataUser.companyId;
+
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) {
+      console.error('No such document for company!');
+      return;
+    }
+    const data = docSnapshot.data();
+
+    if (!data) {
+      console.error('Invalid company data');
+      return;
+    }
+
+    setGhlConfig({
+      ghl_id: data.ghl_id,
+      ghl_secret: data.ghl_secret,
+      refresh_token: data.refresh_token,
+      ghl_accessToken: data.ghl_accessToken,
+      ghl_location: data.ghl_location,
+      whapiToken: data.whapiToken,
+    });
+
+    setToken(data.whapiToken);
+    user_name = dataUser.name;
+
+  
+    await fetchContacts(
+      data.whapiToken,
+      data.ghl_location,
+      data.ghl_accessToken,
+      dataUser.name,
+      dataUser.role,
+      dataUser.email,
+    );
+
+  } catch (error) {
+    console.error('Error fetching config:', error);
+  }
+}
   const updateConversation = async (conversationId: string, token: string, locationId: string,) => {
     const url = `https://services.leadconnectorhq.com/conversations/${conversationId}`;
     const options = {
@@ -530,77 +558,13 @@ const fetchDuplicateContact = async (phone: string, locationId: string, accessTo
       }
   }
 };
-async function searchContacts(accessToken: any, locationId: any): Promise<any[]> {
-  try {
-    let allContacts: any[] = [];
-    let page = 1;
-    while (true) {
-      const options = {
-        method: 'GET',
-        url: 'https://services.leadconnectorhq.com/contacts/',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Version: '2021-07-28',
-        },
-        params: {
-          locationId: locationId,
-          limit:100,
-          page: page,
-        }
-      };
-      const response = await axios.request(options);
-      const contacts = response.data.contacts;
-      allContacts = [...allContacts, ...contacts];
-      if (contacts.length === 0) {
-        break;
-      }
-      page++;
-    }
-    return allContacts;
-  } catch (error) {
-    console.error('Error searching contacts:', error);
-    return [];
-  }
-}
+
 const fetchContacts = async (whapiToken: any, locationId: any, ghlToken: any, user_name: string, role: string, userEmail: string, callback?: Function) => {
   try {
-    setLoading(true);
-    setProgress(0); // Initialize the progress
-    setTotal(0);
-    setFetched(0);
-setFetching(true);
-    // Use setInterval to update progress over 30 seconds
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-      progress += 1;
-      setProgress(progress);
-      if (progress >= 100) {
-        clearInterval(progressInterval);
-      }
-    }, 250); // 300 milliseconds interval for 30 seconds total
-console.log(whapiToken);
-    console.log(locationId);
-    console.log(ghlToken);
-    console.log(user_name);
-    console.log(role);
-    console.log(userEmail);
-    // Fetch processed data from server
-    const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}/${locationId}/${ghlToken}/${user_name}/${role}/${userEmail}`);
-    console.log(response);
-
-    const { contacts, totalChats } = await response.json();
-    setTotal(totalChats);
-
-    // Update the fetched count and progress
-    setFetched(contacts.length);
-
     // Set contacts to state
-    setContacts(contacts);
-    setFilteredContacts(contacts);
-    setFilteredContactsForForwarding(contacts);
-    setLoading(false);
-    clearInterval(progressInterval); // Clear interval when fetch completes
-    setFetching(false);
+    setContacts(initialContacts);
+    setFilteredContacts(initialContacts);
+    setFilteredContactsForForwarding(initialContacts);
     if (chatId) {
       const phone = "+" + chatId.split('@')[0];
       const contact = await fetchDuplicateContact(phone, locationId, ghlToken);
@@ -611,8 +575,7 @@ console.log(whapiToken);
   } catch (error) {
     console.error('Failed to fetch contacts:', error);
   } finally {
-    setLoading(false);
-    setFetching(false);
+  
   }
 };
 
@@ -632,28 +595,27 @@ const getTimestamp = (timestamp: any): number => {
   }
 };
 
-const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string,role: string, userEmail: string) => {
+const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string, role: string, userEmail: string) => {
   try {
-
-
-
     // Fetch processed data from server
     const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}/${locationId}/${ghlToken}/${user_name}/${role}/${userEmail}`);
     const { contacts, totalChats } = await response.json();
-
-
 
     // Set contacts to state
     setContacts(contacts);
     setFilteredContacts(contacts);
     setFilteredContactsForForwarding(contacts);
 
-    console.log(contacts);
-} catch (error) {
-    console.error('Failed to fetch contacts:', error);
-} finally {
+    // Store the contacts in localStorage
+    localStorage.setItem('contacts', JSON.stringify(contacts));
+    sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
 
-}
+    console.log(contacts);
+  } catch (error) {
+    console.error('Failed to fetch contacts:', error);
+  } finally {
+    // Any final operations if necessary
+  }
 };
 
 
@@ -713,76 +675,6 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       fetchMessages(selectedChatId, whapiToken!);
     }
   }, [selectedChatId]);
-  async function fetchEnquiries(email: string) {
-    if (!email) return;
-  
-    setSelectedIcon('mail');
-    const auth = getAuth(app);
-    const user = auth.currentUser;
-  
-    try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-  
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-  
-      const data2 = docSnapshot.data();
-      setToken(data2.whapiToken);
-  
-      // Fetch enquiries from Firestore
-      const employeeRef = collection(firestore, `companies/${companyId}/conversations`);
-      const employeeSnapshot = await getDocs(employeeRef);
-      const employeeListData: Enquiry[] = [];
-  
-      employeeSnapshot.forEach((doc) => {
-        employeeListData.push({ id: doc.id, ...doc.data() } as Enquiry);
-      });
-  
-      const matchingEnquiry = employeeListData.find(enquiry => enquiry.email === email);
-  
-      if (matchingEnquiry) {
-        console.log('Matching enquiry found:', matchingEnquiry);
-
-        // Update the 'unread' status to true
-        const enquiryRef = doc(firestore, `companies/${companyId}/conversations`, matchingEnquiry.id);
-        await updateDoc(enquiryRef, { read: true });
-
-        // Set messages using the data from the matching enquiry
-        setMessages([
-          {
-            id: matchingEnquiry.id,
-            text: { body: matchingEnquiry.message },
-            
-            from_me: false, // Assuming the enquiry is inbound
-            createdAt: getTimestamp(matchingEnquiry.timestamp), // Use the processed timestamp
-            timestamp: getTimestamp(matchingEnquiry.timestamp),
-            dateAdded: getTimestamp(matchingEnquiry.timestamp),
-            type: 'text',
-            image: undefined, // Assuming there is no image field in the enquiry
-          }
-        ]);
-      
-      } else {
-        console.log('No matching enquiry found.');
-        setMessages([]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch enquiries:', error);
-    }
-}
-
-
   async function fetchMessages(selectedChatId: string, whapiToken: string) {
     setLoading(true);
     setSelectedIcon('ws');
@@ -1669,14 +1561,14 @@ const handleForwardMessage = async () => {
            
         <div className="flex-1 overflow-y-auto p-4" style={{ paddingBottom: "150px" }} ref={messageListRef}>
            
-        {isLoading && (
+        {isLoading2 && (
                 <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
                   <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white p-4 rounded-md shadow-lg">
                     <div role="status">
-                      <svg aria-hidden="true" className="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor" />
-                        <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill" />
-                      </svg>
+                    <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
+          <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
+          <div className="mt-2 text-xs text-center">Fetching Data...</div>
+        </div>
                     </div>
                   </div>
                 </div>
