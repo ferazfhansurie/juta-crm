@@ -533,7 +533,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
   const handleClick = (phone: any) => {
 const tempphone = phone.split('+')[1];
 const chatId = tempphone + "@s.whatsapp.net"
-    navigate(`/dashboard/chat/?chatId=${chatId}`);
+    navigate(`/chat/?chatId=${chatId}`);
   };
   async function searchContacts(accessToken: string, locationId: string) {
     setLoading(true);
