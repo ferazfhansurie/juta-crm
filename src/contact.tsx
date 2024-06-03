@@ -4,6 +4,7 @@ import { getFirestore, doc, getDoc } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import LZString from 'lz-string';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -54,7 +55,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     } else {
       const storedContacts = localStorage.getItem('contacts');
       if (storedContacts) {
-        setContacts(JSON.parse(storedContacts));
+        setContacts(JSON.parse(LZString.decompress(storedContacts)!));
       }
       setIsLoading(false);
     }
@@ -96,7 +97,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         const response = await axios.get(url);
 
         setContacts(response.data.contacts);
-        localStorage.setItem('contacts', JSON.stringify(response.data.contacts));
+        localStorage.setItem('contacts', LZString.compress(JSON.stringify(response.data.contacts)));
         sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
         navigate('/chat');  // Navigate to the chat page after fetching contacts
       } catch (error) {
