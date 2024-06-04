@@ -11,7 +11,7 @@ import Breadcrumb from "@/components/Base/Breadcrumb";
 import { FormInput } from "@/components/Base/Form";
 import { Menu, Popover } from "@/components/Base/Headless";
 import { Transition } from "@headlessui/react";
-import logoUrl from "@/assets/images/logo2.png";
+import logoUrl from "@/assets/images/logo.png";
 import clsx from "clsx";
 import MobileMenu from "@/components/MobileMenu";
 

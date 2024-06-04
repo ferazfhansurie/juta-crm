@@ -15,7 +15,9 @@ import { initializeApp } from "firebase/app";
 import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
+import { rateLimiter } from '../../utils/rate';
+import { useNavigate } from "react-router-dom";
+import LoadingIcon from "@/components/Base/LoadingIcon";
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
   authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -30,6 +32,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const firestore = getFirestore(app);
 
+<<<<<<< HEAD
 interface Contact {
   additionalEmails: string[];
   address1: string | null;
@@ -58,27 +61,59 @@ interface Contact {
   tags: string[];
   type: string;
   website: string | null;
+=======
+>>>>>>> 56d65feb347d4787fffd6d731ba53af66ddf3b69
 
-}
-
-interface Employee {
-  id: string;
-  name: string;
-  role: string;
-}
-interface Tag {
-  id: string;
-  name: string;
-}
-interface TagsState {
-  [key: string]: string[];
-}
 function Main() {
+  interface Contact {
+    additionalEmails: string[];
+    address1: string | null;
+    assignedTo: string | null;
+    businessId: string | null;
+    city: string | null;
+    companyName: string | null;
+    contactName: string;
+    country: string;
+    customFields: any[];
+    dateAdded: string;
+    dateOfBirth: string | null;
+    dateUpdated: string;
+    dnd: boolean;
+    dndSettings: any;
+    email: string | null;
+    firstName: string;
+    followers: string[];
+    id: string;
+    lastName: string;
+    locationId: string;
+    phone: string | null;
+    postalCode: string | null;
+    source: string | null;
+    state: string | null;
+    tags: string[];
+    type: string;
+    website: string | null;
+  
+  }
+  
+  interface Employee {
+    id: string;
+    name: string;
+    role: string;
+  }
+  interface Tag {
+    id: string;
+    name: string;
+  }
+  interface TagsState {
+    [key: string]: string[];
+  }
   const [deleteConfirmationModal, setDeleteConfirmationModal] = useState(false);
   const [editContactModal, setEditContactModal] = useState(false);
   const [viewContactModal, setViewContactModal] = useState(false);
   const deleteButtonRef = useRef(null);
   const [isLoading, setLoading] = useState<boolean>(false);
+  const [isFetching, setFetching] = useState<boolean>(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -96,6 +131,10 @@ function Main() {
   const [tags, setTags] = useState<TagsState>({}); 
   const [blastMessageModal, setBlastMessageModal] = useState(false);
   const [blastMessage, setBlastMessage] = useState("");
+<<<<<<< HEAD
+=======
+  const [progress, setProgress] = useState<number>(0);
+>>>>>>> 56d65feb347d4787fffd6d731ba53af66ddf3b69
   const [newContact, setNewContact] = useState({
       firstName: '',
       lastName: '',
@@ -105,11 +144,13 @@ function Main() {
       companyName: '',
       locationId:'',
   });
-
+  const [total, setTotal] = useState(0);
+  const [fetched, setFetched] = useState(0);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [contactsPerPage] = useState(10); // Adjust the number of contacts per page as needed
-
+let role = 1;
+let userName ='';
   const handleSaveNewContact = async () => {
     try {
       console.log(newContact);
@@ -131,9 +172,9 @@ function Main() {
         return;
       }
       const companyData = docSnapshot.data();
-        const accessToken = companyData.access_token; // Replace with your actual access token
+        const accessToken = companyData.ghl_accessToken; // Replace with your actual access token
       
-        newContact.locationId =companyData.location_id;
+        newContact.locationId =companyData.ghl_location;
         const apiUrl = 'https://services.leadconnectorhq.com/contacts';
         const options = {
           method: 'POST',
@@ -195,8 +236,8 @@ const handleSaveNewTag = async () => {
       return;
     }
     const companyData = docSnapshot.data();
-    const accessToken = companyData.access_token;
-    const locationId = companyData.location_id;
+    const accessToken = companyData.ghl_accessToken;
+    const locationId = companyData.ghl_location;
 
     const apiUrl = `https://services.leadconnectorhq.com/locations/${locationId}/tags`;
     const options = {
@@ -244,8 +285,8 @@ const handleConfirmDeleteTag = async () => {
       return;
     }
     const companyData = docSnapshot.data();
-    const accessToken = companyData.access_token;
-    const locationId = companyData.location_id;
+    const accessToken = companyData.ghl_accessToken;
+    const locationId = companyData.ghl_location;
 
     const apiUrl = `https://services.leadconnectorhq.com/locations/${locationId}/tags/${tagToDelete.id}`;
     const options = {
@@ -298,30 +339,48 @@ const handleConfirmDeleteTag = async () => {
     }
   };
   const fetchTags = async (token:string, location:string, employeeList: string[]) => {
-    try {
-      const options = {
-        method: 'GET',
-        url: `https://services.leadconnectorhq.com/locations/${location}/tags`,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Version: '2021-07-28',
-        },
-      };
-      const response = await axios.request(options);
-      console.log('tags', response.data.tags);
-      
-      // Extract employee names to filter tags
+    const maxRetries = 5; // Maximum number of retries
+    const baseDelay = 1000; // Initial delay in milliseconds
+setLoading(true);
+    const fetchData = async (url: string, retries: number = 0): Promise<any> => {
+        const options = {
+            method: 'GET',
+            url: url,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                Version: '2021-07-28',
+            },
+        };
+        await rateLimiter(); // Ensure rate limit is respected before making the request
+        try {
+            const response = await axios.request(options);
+            return response;
+        } catch (error: any) {
+            if (error.response && error.response.status === 429 && retries < maxRetries) {
+                const delay = baseDelay * Math.pow(2, retries);
+                console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return fetchData(url, retries + 1);
+            } else {
+                throw error;
+            }
+        }
+    };
 
-  console.log(employeeList);
-      // Filter out tags that match with employeeList
+    try {
+        const url = `https://services.leadconnectorhq.com/locations/${location}/tags`;
+        const response = await fetchData(url);
+            // Filter out tags that match with employeeList
       const filteredTags = response.data.tags.filter((tag: Tag) => !employeeList.includes(tag.name));
       
       setTagList(filteredTags);
+      setLoading(true);
     } catch (error) {
-      console.error('Error searching tags:', error);
-      return [];
+        console.error('Error fetching tags:', error);
+        setLoading(true);
+        return [];
     }
-  };
+};
   async function fetchCompanyData() {
     const user = auth.currentUser;
     try {
@@ -334,6 +393,8 @@ const handleConfirmDeleteTag = async () => {
 
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
+      role = userData.role;
+      userName = userData.name;
       setShowAddUserButton(userData.role === "1");
 
       const docRef = doc(firestore, 'companies', companyId);
@@ -345,12 +406,9 @@ const handleConfirmDeleteTag = async () => {
       const companyData = docSnapshot.data();
      
       await setDoc(doc(firestore, 'companies', companyId), {
-        access_token: companyData.access_token,
-        refresh_token: companyData.refresh_token,
+        ghl_accessToken: companyData.ghl_accessToken,
+        ghl_refreshToken: companyData.ghl_refreshToken,
       }, { merge: true });
-
-      await searchContacts(companyData.access_token, companyData.location_id);
-
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
 
@@ -361,15 +419,19 @@ const handleConfirmDeleteTag = async () => {
      
       setEmployeeList(employeeListData);
       const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
-      await fetchTags(companyData.access_token,companyData.location_id,employeeNames);
+      await fetchTags(companyData.ghl_accessToken,companyData.ghl_location,employeeNames);
+      await searchContacts(companyData.ghl_accessToken, companyData.ghl_location);
+
+
     } catch (error) {
       console.error('Error fetching company data:', error);
     }
   }
   const handleAddTagToSelectedContacts = async (selectedEmployee: string) => {
-    setSelectedContacts([]);
+    if (!selectedEmployee) return;
+  
     const user = auth.currentUser;
-
+  
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
@@ -385,23 +447,35 @@ const handleConfirmDeleteTag = async () => {
       return;
     }
     const companyData = docSnapshot.data();
-
-    if (selectedEmployee) {
-      const tagName = selectedEmployee;
-      const selectedContactsCopy = [...selectedContacts];
-
-      for (const contact of selectedContactsCopy) {
-        const success = await updateContactTags(contact.id, companyData.access_token, [tagName]);
+    const accessToken = companyData.ghl_accessToken;
+  
+    const tagName = selectedEmployee;
+    const updatedContacts = selectedContacts.map(contact => ({
+      ...contact,
+      tags: [...new Set([...(contact.tags || []), tagName])]
+    }));
+  
+    try {
+      for (const contact of updatedContacts) {
+        const success = await updateContactTags(contact.id, accessToken, contact.tags);
         if (!success) {
           console.error(`Failed to add tag "${tagName}" to contact with ID ${contact.id}`);
         } else {
           console.log(`Tag "${tagName}" added to contact with ID ${contact.id}`);
         }
       }
-      await searchContacts(companyData.access_token, companyData.location_id);
+  
+      // Update the contacts state without refetching
+      setContacts(prevContacts => 
+        prevContacts.map(contact =>
+          updatedContacts.find(updatedContact => updatedContact.id === contact.id) || contact
+        )
+      );
+      setSelectedContacts([]);
+    } catch (error) {
+      console.error('Error tagging contacts:', error);
     }
   };
-
 const handleRemoveTag = async (contactId: string, tagName: string) => {
   const user = auth.currentUser;
 
@@ -420,12 +494,12 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
     return;
   }
   const companyData = docSnapshot.data();
-  console.log(companyData.access_token);
+  console.log(companyData.ghl_accessToken);
   const url = `https://services.leadconnectorhq.com/contacts/${contactId}/tags`;
   const options = {
     method: 'DELETE',
     headers: {
-      Authorization: `Bearer ${companyData.access_token}`,
+      Authorization: `Bearer ${companyData.ghl_accessToken}`,
       Version: '2021-07-28',
       Accept: 'application/json',
       'Content-Type': 'application/json'
@@ -489,42 +563,90 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       return false;
     }
   }
-
-  async function searchContacts(accessToken: any, locationId: any) {
+  const navigate = useNavigate(); // Initialize useNavigate
+  const handleClick = (phone: any) => {
+const tempphone = phone.split('+')[1];
+const chatId = tempphone + "@s.whatsapp.net"
+    navigate(`/chat/?chatId=${chatId}`);
+  };
+  async function searchContacts(accessToken: string, locationId: string) {
     setLoading(true);
+    setFetching(true);
+    setProgress(0);
     try {
-      let allContacts: any[] = [];
-      let page = 1;
-      while (true) {
-        const options = {
-          method: 'GET',
-          url: 'https://services.leadconnectorhq.com/contacts/',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Version: '2021-07-28',
-          },
-          params: {
-            locationId: locationId,
-            page: page,
-          }
-        };
-        const response = await axios.request(options);
-        const contacts = response.data.contacts;
-        allContacts = [...allContacts, ...contacts];
-        if (contacts.length === 0) {
-          break;
-        }
-        page++;
-      }
-      const filteredContacts = allContacts.filter(contact => contact.phone !== null);
-      setContacts(filteredContacts);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error searching contacts:', error);
-      setLoading(false);
-    }
-  }
+        let allContacts: any[] = [];
+        let fetchMore = true;
+        let nextPageUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&limit=100`;
 
+        const maxRetries = 5; // Maximum number of retries
+        const baseDelay = 5000; // Initial delay in milliseconds
+
+        const fetchData = async (url: string, retries: number = 0): Promise<any> => {
+            const options = {
+                method: 'GET',
+                url: url,
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Version: '2021-07-28',
+                },
+            };
+           // await rateLimiter(); // Ensure rate limit is respected before making the request
+            try {
+                const response = await axios.request(options);
+                console.log(response.data.meta.total);
+              
+                return response;
+            } catch (error: any) {
+                if (error.response && error.response.status === 429 && retries < maxRetries) {
+                    const delay = baseDelay * Math.pow(2, retries);
+                    console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchData(url, retries + 1);
+                } else {
+                    throw error;
+                }
+            }
+        };
+        let fetchedContacts = 0;
+        let totalContacts = 0;
+        // Fetch contacts in batches of 100
+        while (fetchMore) {
+            const response = await fetchData(nextPageUrl);
+            const contacts = response.data.contacts;
+            totalContacts = response.data.meta.total;
+           
+            if (contacts.length > 0) {
+                allContacts = [...allContacts, ...contacts];
+                if (role == 2) {
+                  const filteredContacts = allContacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(userName.toLowerCase())));
+                  setContacts([...filteredContacts]); // Update state with the new batch of contacts
+                }else{
+                  setContacts([...allContacts]); // Update state with the new batch of contacts
+                }
+            
+                console.log(allContacts.length);
+                fetchedContacts = allContacts.length;
+
+              totalContacts = response.data.meta.total;
+                setTotal(totalContacts);
+                setFetched(fetchedContacts);
+                setProgress((fetchedContacts / totalContacts) * 100);
+                setLoading(false);
+            }
+
+            // Check if there's a next page
+            if (response.data.meta.nextPageUrl) {
+                nextPageUrl = response.data.meta.nextPageUrl;
+            } else {
+                fetchMore = false;
+            }
+        }
+    } catch (error) {
+        console.error('Error searching contacts:', error);
+    } finally {
+      setFetching(false);
+    }
+}
   const handleEditContact = (contact: Contact) => {
     setCurrentContact(contact);
     setEditContactModal(true);
@@ -555,7 +677,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
             return;
           }
           const companyData = docSnapshot.data();
-            const accessToken = companyData.access_token; // Replace with your actual access token
+            const accessToken = companyData.ghl_accessToken; // Replace with your actual access token
             const apiUrl = `https://services.leadconnectorhq.com/contacts/${currentContact.id}`;
 
             const options = {
@@ -606,7 +728,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
             return;
           }
           const companyData = docSnapshot.data();
-            const accessToken = companyData.access_token; // Replace with your actual access token
+            const accessToken = companyData.ghl_accessToken; // Replace with your actual access token
             const apiUrl = `https://services.leadconnectorhq.com/contacts/${currentContact.id}`;
 
             const options = {
@@ -710,7 +832,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       }
   
       const companyData = docSnapshot.data();
-      const accessToken = companyData.access_token; // Assuming you store access token in company data
+      const accessToken = companyData.ghl_accessToken; // Assuming you store access token in company data
       const phoneNumber = id.split('+')[1];
       const chat_id = phoneNumber+"@s.whatsapp.net"
       console.log(chat_id);
@@ -825,6 +947,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       </button>
       </div>
       <div className="relative w-full text-slate-500 p-2 mb-3">
+<<<<<<< HEAD
         
         <FormInput
           type="text"
@@ -837,7 +960,37 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
           icon="Search"
           className="absolute inset-y-0 right-5 w-5 h-5 my-auto"
         />
+=======
+  {isFetching ? (
+    <>
+      <div className="w-full bg-gray-200 rounded-full h-4">
+        <div
+          className="bg-blue-600 h-4 rounded-full"
+          style={{ width: `${progress}%` }}
+        ></div>
+>>>>>>> 56d65feb347d4787fffd6d731ba53af66ddf3b69
       </div>
+      <div className="text-right mt-2">
+        Fetched {fetched} of {total} contacts
+      </div>
+    </>
+  ) : (
+    <>
+      <FormInput
+        type="text"
+        className="relative w-full h-[40px] pr-10 !box text-lg"
+        placeholder="Search..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
+      <Lucide
+        icon="Search"
+        className="absolute inset-y-0 right-5 w-5 h-5 my-auto"
+      />
+    </>
+  )}
+</div>
+
       <span className="item-end">
       </span>
     </div>
@@ -919,7 +1072,13 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
                       <Lucide icon="Eye" className="w-5 h-5" />
                     </span>
                   </button>
-                 
+                  <button className="p-2 m-1 !box text-blue-900" onClick={() => {
+                    handleClick(contact.phone)
+                  }}>
+                    <span className="flex items-center justify-center w-5 h-5">
+                      <Lucide icon="MessageSquare" className="w-5 h-5" />
+                    </span>
+                  </button>
                   <button className="p-2 m-1 !box text-red-500" onClick={() => {
                     setCurrentContact(contact);
                     setDeleteConfirmationModal(true);
@@ -1242,10 +1401,10 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
         <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
           <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white p-4 rounded-md shadow-lg">
             <div role="status">
-              <svg aria-hidden="true" className="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor" />
-                <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill" />
-              </svg>
+            <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
+          <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
+          <div className="mt-2 text-xs text-center">Fetching Data...</div>
+        </div>
             </div>
           </div>
         </div>

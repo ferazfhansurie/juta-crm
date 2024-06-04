@@ -1,10 +1,10 @@
 import ThemeSwitcher from "@/components/ThemeSwitcher";
-import logoUrl from "@/assets/images/logo2.png";
+import logoUrl from "@/assets/images/logo.png";
 import illustrationUrl from "@/assets/images/illustration.svg";
 import { FormInput, FormCheck } from "@/components/Base/Form";
 import Button from "@/components/Base/Button";
 import clsx from "clsx";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"; // Import Firebase authentication methods
 import { initializeApp } from 'firebase/app';
 import { useState } from "react";
@@ -28,7 +28,7 @@ const firebaseConfig = {
     const [password, setPassword] = useState(""); // State for password input
     const [signInResult, setSignInResult] = useState(null);
     const [signedIn, setSignedIn] = useState(false);
-
+    const navigate = useNavigate(); // Initialize useNavigate
     const handleSignIn = () => {
       const auth = getAuth(app);
       signInWithEmailAndPassword(auth, email, password)
@@ -36,7 +36,7 @@ const firebaseConfig = {
           const user = userCredential.user;
           console.log(user);
           // Instead of directly navigating here, set a state indicating successful sign-in
-          <Link to="/dashboard">Dashboard</Link>
+          navigate(`/loading`);
         })
         .catch((error) => {
           const errorCode = error.code;

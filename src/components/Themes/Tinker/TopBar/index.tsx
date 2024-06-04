@@ -33,7 +33,7 @@ let userEmail = '';
 let ghlConfig = {
   ghl_id: '',
   ghl_secret: '',
-  refresh_token: '',
+  ghl_refreshToken: '',
 };
 
 const app = initializeApp(firebaseConfig);
@@ -43,7 +43,9 @@ const firestore = getFirestore(app);
 const handleSignOut = () => {
   signOut(auth)
     .then(() => {
-      console.log("User signed out successfully");
+      console.log("Sign-out successful.");
+      localStorage.removeItem('contacts'); // Clear contacts from localStorage
+      sessionStorage.removeItem('contactsFetched'); // Clear the session marker
     })
     .catch((error) => {
       console.error("Error signing out:", error);
@@ -76,7 +78,7 @@ function Main() {
       const docUserRef = doc(firestore, 'user', user.email);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
 
@@ -85,13 +87,13 @@ function Main() {
       userName = dataUser.name;
       companyName = dataUser.company;
       userEmail = dataUser.email;
-      console.log(dataUser.notifications);
+      
    
       setMessages(dataUser.notifications || []);
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
 
@@ -99,7 +101,7 @@ function Main() {
       ghlConfig = {
         ghl_id: data.ghl_id,
         ghl_secret: data.ghl_secret,
-        refresh_token: data.refresh_token
+        ghl_refreshToken: data.ghl_refreshToken
       };
       setToken(data.whapiToken);
     } catch (error) {
@@ -181,7 +183,7 @@ function Main() {
             <Menu.Divider className="bg-white/[0.08]" />
             <Menu.Item className="hover:bg-white/5">
               {/* Logout link with sign out function */}
-              <Link to="/" onClick={handleSignOut}>
+              <Link to="/login" onClick={handleSignOut}>
                 <Lucide icon="ToggleRight" className="w-4 h-4 mr-2" /> Logout
               </Link>
             </Menu.Item>

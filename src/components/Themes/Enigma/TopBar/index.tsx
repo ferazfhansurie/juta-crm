@@ -1,7 +1,7 @@
 import { useState, Fragment } from "react";
 import { Link } from "react-router-dom";
 import Lucide from "@/components/Base/Lucide";
-import logoUrl from "@/assets/images/logo2.png";
+import logoUrl from "@/assets/images/logo.png";
 import Breadcrumb from "@/components/Base/Breadcrumb";
 import { FormInput } from "@/components/Base/Form";
 import { Menu, Popover } from "@/components/Base/Headless";

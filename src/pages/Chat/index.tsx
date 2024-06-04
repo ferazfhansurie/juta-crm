@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
 import Button from "@/components/Base/Button";
 import { Dialog, Menu } from "@/components/Base/Headless";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { FormInput } from "@/components/Base/Form";
 import { format } from 'date-fns';
 import { access } from "fs";
@@ -16,6 +16,11 @@ import { time } from "console";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { onMessage } from "firebase/messaging";
 import { getFirebaseToken, messaging } from "../../firebaseconfig";
+import { rateLimiter } from '../../utils/rate';
+import errorIllustration from "@/assets/images/chat.svg";
+import LoadingIcon from "@/components/Base/LoadingIcon";
+import { useLocation } from "react-router-dom";
+import { useContacts } from '../../contact';
 interface Label {
   id: string;
   name: string;
@@ -68,13 +73,14 @@ interface Contact {
   last_message?: Message | null;
   chat_id: string;
   unreadCount:number;
+  pic:string;
 }
 interface GhlConfig {
   ghl_id: string;
   ghl_secret: string;
   refresh_token: string;
-  access_token: string;
-  location_id: string;
+  ghl_accessToken: string;
+  ghl_location: string;
   whapiToken: string;
 }
 interface Chat {
@@ -143,17 +149,21 @@ const firestore = getFirestore(app);
 const auth = getAuth(app);
 
 function Main() {
+  const location = useLocation();
+  const { contacts: initialContacts, isLoading } = useContacts();
+  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState<string>("");
-  const [isLoading, setLoading] = useState<boolean>(false);
+  const [isLoading2, setLoading] = useState<boolean>(false);
+  const [isFetching, setFetching] = useState<boolean>(false);
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [stopBotLabelCheckedState, setStopBotLabelCheckedState] = useState<boolean[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
+
   const [selectedMessage2, setSelectedMessage2] = useState(null);
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
@@ -179,13 +189,51 @@ function Main() {
   const [newQuickReply, setNewQuickReply] = useState<string>('');
   const [filteredContactsForForwarding, setFilteredContactsForForwarding] = useState<Contact[]>(contacts);
   const [selectedMessages, setSelectedMessages] = useState<Message[]>([]);
+  const messageListRef = useRef<HTMLDivElement>(null);
+  const [progress, setProgress] = useState(0);
+  const [fetched, setFetched] = useState(0);
+  const [total, setTotal] = useState(0);
+  const prevNotificationsRef = useRef<number | null>(null);
+  const isInitialMount = useRef(true);
   let companyId = '014';
   let user_name = '';
   let user_role='2';
+  let totalChats = 0;
+  const getQueryParams = (query: string | string[][] | Record<string, string> | URLSearchParams | undefined) => {
+    return new URLSearchParams(query);
+  };
+
+
+
+console.log(initialContacts);
+  useEffect(() => {
+    const ws = new WebSocket('wss://buds-359313.et.r.appspot.com:8081'); // Update with your server's WebSocket URL
+
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === 'progress') {
+        setProgress(message.progress);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket connection closed');
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, []);
+  useEffect(() => {
+    if (messageListRef.current) {
+      messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+    }
+  }, [selectedChatId, messages]);
 
   useEffect(() => {
-    fetchConfigFromDatabase();
+   fetchConfigFromDatabase();
     fetchQuickReplies();
+    
   }, []);
   const fetchQuickReplies = async () => {
     const user = auth.currentUser;
@@ -236,62 +284,30 @@ function Main() {
     setNewMessage(text);
     setIsQuickRepliesOpen(false);
   };
-  useEffect(() => {
-    let inProgress = false;
-  
-    const unsubscribe = onSnapshot(
-      doc(firestore, 'companies', '014'),
-      async (snapshot) => {
-        if (snapshot.exists() && !inProgress) {
-          inProgress = true;
-          const dataUser = snapshot.data();
-          for (const notification of dataUser.notifications) {
-            if (selectedChatId === notification.chat_id) {
-              await fetchMessagesBackground(selectedChatId!, whapiToken!);
-            } else {
-              const newCompanyId = dataUser.companyId;
-              const docRef = doc(firestore, 'companies', newCompanyId);
-              const docSnapshot = await getDoc(docRef);
-              if (!docSnapshot.exists()) {
-                console.log('No such document!');
-                continue;
-              }
-              const data = docSnapshot.data();
-              setGhlConfig({
-                ghl_id: data.ghl_id,
-                ghl_secret: data.ghl_secret,
-                refresh_token: data.refresh_token,
-                access_token: data.access_token,
-                location_id: data.location_id,
-                whapiToken: data.whapiToken,
-              });
-              const user_name = dataUser.name;
-              await fetchContactsBackground(
-                data.whapiToken,
-                data.location_id,
-                data.access_token,
-                user_name
-              );
-            }
-          }
-          inProgress = false;
-        }
-      }
-    );
-  
-    return () => unsubscribe();
-  }, [companyId, selectedChatId]);
-  
+
   useEffect(() => {
     const unsubscribe = onSnapshot(
       doc(firestore, 'user', auth.currentUser?.email!),
-      (snapshot) => {
+      async (snapshot) => {
         if (snapshot.exists()) {
           const dataUser = snapshot.data();
-          dataUser.notifications.forEach(async (notification: any) => {
-            if (selectedChatId === notification.chat_id) {
+          const currentNotifications = dataUser.notifications || [];
+
+          // Prevent running on initial mount
+          if (isInitialMount.current) {
+            isInitialMount.current = false;
+            prevNotificationsRef.current = currentNotifications.length;
+            return;
+          }
+
+          // Check if a new notification has been added
+          if (prevNotificationsRef.current !== null && currentNotifications.length > prevNotificationsRef.current) {
+            const latestNotification = currentNotifications[currentNotifications.length - 1];
+
+            if (selectedChatId === latestNotification.chat_id) {
               fetchMessagesBackground(selectedChatId!, whapiToken!);
             } else {
+              console.log('Received a new notification');
               const newCompanyId = dataUser.companyId;
               const docRef = doc(firestore, 'companies', newCompanyId);
               const docSnapshot = await getDoc(docRef);
@@ -304,64 +320,101 @@ function Main() {
                 ghl_id: data.ghl_id,
                 ghl_secret: data.ghl_secret,
                 refresh_token: data.refresh_token,
-                access_token: data.access_token,
-                location_id: data.location_id,
+                ghl_accessToken: data.ghl_accessToken,
+                ghl_location: data.ghl_location,
                 whapiToken: data.whapiToken,
               });
               const user_name = dataUser.name;
               fetchContactsBackground(
                 data.whapiToken,
-                data.location_id,
-                data.access_token,
-                user_name
+                data.ghl_location,
+                data.ghl_accessToken,
+                user_name,
+                dataUser.role,
+                dataUser.email
               );
             }
-          });
+          }
+
+          // Update the previous notifications count
+          prevNotificationsRef.current = currentNotifications.length;
         }
       }
     );
-  
-    return () => unsubscribe();
-  }, [companyId, selectedChatId]);
 
-  async function fetchConfigFromDatabase() {
-    const user = auth.currentUser;
-    try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-       }
-      const dataUser = docUserSnapshot.data() as UserData;
-    
-      setUserData(dataUser);
-      user_role =dataUser.role;
-      companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-      const data = docSnapshot.data();
-  setGhlConfig({
-        ghl_id: data.ghl_id,
-        ghl_secret: data.ghl_secret,
-        refresh_token: data.refresh_token,
-        access_token: data.access_token,
-        location_id: data.location_id,
-        whapiToken: data.whapiToken,
-      });
-     
-  setToken(data.whapiToken);
-      user_name = dataUser.name;
-      fetchContacts(data.whapiToken, data.location_id, data.access_token, dataUser.name,dataUser.role);
-    } catch (error) {
-      console.error('Error fetching config:', error);
-      throw error;
-    }
+    return () => unsubscribe();
+  }, [companyId, selectedChatId, whapiToken]);
+
+async function fetchConfigFromDatabase() {
+
+  const user = auth.currentUser;
+
+  if (!user) {
+    console.error('No user is authenticated');
+    return;
   }
+
+  try {
+    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.error('No such document for user!');
+      return;
+    }
+    const dataUser = docUserSnapshot.data() as UserData;
+
+    if (!dataUser || !dataUser.companyId) {
+      console.error('Invalid user data or companyId');
+      return;
+    }
+
+    setUserData(dataUser);
+    user_role = dataUser.role;
+    companyId = dataUser.companyId;
+
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) {
+      console.error('No such document for company!');
+      return;
+    }
+    const data = docSnapshot.data();
+
+    if (!data) {
+      console.error('Invalid company data');
+      return;
+    }
+
+    setGhlConfig({
+      ghl_id: data.ghl_id,
+      ghl_secret: data.ghl_secret,
+      refresh_token: data.refresh_token,
+      ghl_accessToken: data.ghl_accessToken,
+      ghl_location: data.ghl_location,
+      whapiToken: data.whapiToken,
+    });
+
+    setToken(data.whapiToken);
+    user_name = dataUser.name;
+  
+    await fetchTags(data.ghl_accessToken,data.ghl_location);
+    const params = new URLSearchParams(location.search);
+    const chatId = params.get("chatId");
+  
+    if (chatId) {
+      setLoading(true);
+      const phone = "+" + chatId.split('@')[0];
+     const contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
+     setSelectedContact(contact);
+     console.log(selectedContact + "contact");
+     setSelectedChatId(chatId);
+     setLoading(false);
+   }
+   
+  } catch (error) {
+    console.error('Error fetching config:', error);
+  }
+}
   const updateConversation = async (conversationId: string, token: string, locationId: string,) => {
     const url = `https://services.leadconnectorhq.com/conversations/${conversationId}`;
     const options = {
@@ -395,6 +448,7 @@ function Main() {
     );
     const contact = contacts.find(contact => contact.chat_id === chatId || contact.id === chatId);
     setSelectedContact(contact);
+    console.log(selectedContact);
     if(chatId === undefined && id !== undefined){
       setSelectedChatId(id);
       try {
@@ -445,233 +499,86 @@ function Main() {
       }
     }
   };
-  const fetchTags = async (token:string,location:string) => {
-    try {
-      const options = {
-        method: 'GET',
-        url: `https://services.leadconnectorhq.com/locations/${location}/tags`,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Version: '2021-07-28',
-        },
-      };
-      const response = await axios.request(options);
-      setTagList(response.data.tags);
-    } catch (error) {
-      console.error('Error searching tags:', error);
-      return [];
-    }
-  
-  };
-  const fetchContacts = async (whapiToken: any, locationId: string, ghlToken: string, user_name: string, role: string) => {
-    try {
-        setLoading(true);
-        // Parallelize initial fetch operations including fetchTags
-        const [tags, chatResponse, conversations, contacts, employeeSnapshot, enquirySnapshot] = await Promise.all([
-            fetchTags(ghlToken, locationId),
-            fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`),
-            searchConversations(ghlToken, locationId),
-            searchContacts(ghlToken, locationId),
-            getDocs(collection(firestore, `companies/${companyId}/employee`)),
-            getDocs(collection(firestore, `companies/${companyId}/conversations`))
-        ]);
-    
-        if (!chatResponse.ok) throw new Error('Failed to fetch chats');
-        const chatData = await chatResponse.json();
-        const user = auth.currentUser;
-  
-        const docUserRef = doc(firestore, 'user', user?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-            console.log('No such document!');
-            return;
+  const fetchTags = async (token: string, location: string) => {
+    const maxRetries = 5; // Maximum number of retries
+    const baseDelay = 1000; // Initial delay in milliseconds
+
+    const fetchData = async (url: string, retries: number = 0): Promise<any> => {
+        const options = {
+            method: 'GET',
+            url: url,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                Version: '2021-07-28',
+            },
+        };
+        await rateLimiter(); // Ensure rate limit is respected before making the request
+        try {
+            const response = await axios.request(options);
+            return response;
+        } catch (error: any) {
+            if (error.response && error.response.status === 429 && retries < maxRetries) {
+                const delay = baseDelay * Math.pow(2, retries);
+                console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return fetchData(url, retries + 1);
+            } else {
+                throw error;
+            }
         }
-        const dataUser = docUserSnapshot.data() as UserData;
+    };
 
-        user_role = dataUser.role;
-
-        // Process chat data
-        const mappedChats = chatData.chats.map((chat: { id: string; last_message: any; name: any; }) => {
-            if (!chat.id) return null;
-            const phoneNumber = `+${chat.id.split('@')[0]}`;
-            let contact = contacts.find(contact => contact.phone === phoneNumber);
-            let unreadCount = 0;
-            if (dataUser.notifications !== undefined) {
-                unreadCount = dataUser.notifications.filter((notif: { chat_id: string; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
-            }
-
-            if (contact) {
-                contact.chat_id = chat.id;
-                contact.last_message = chat.last_message;
-                contact.chat = chat;
-                contact.unreadCount = unreadCount ?? 0;
-                contact.id = contact.id;
-            }
-            return {
-                ...chat,
-                tags: contact ? contact.tags : [],
-                name: contact ? contact.contactName : chat.name,
-                lastMessageBody: '',
-                id: chat.id,
-                contact_id: contact ? contact.id : "",
-                unreadCount,
-            };
-        }).filter(Boolean);
-
-            // Merge WhatsApp contacts with existing contacts
-            mappedChats.forEach((chat: { id: string; last_message: any; unreadCount: any; tags: any; contact_id: any; name: any; }) => {
-              const phoneNumber = `+${chat.id.split('@')[0]}`;
-              const existingContact = contacts.find(contact => contact.phone === phoneNumber);
-              if (existingContact) {
-                  existingContact.chat_id = chat.id;
-                  existingContact.last_message = chat.last_message || existingContact.last_message;
-                  existingContact.chat = chat;
-                  existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
-                  existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
-              } else {
-                  contacts.push({
-                      id: chat.contact_id,
-                      phone: phoneNumber,
-                      contactName: chat.name,
-                      chat_id: chat.id,
-                      last_message: chat.last_message || null,
-                      chat: chat,
-                      tags: chat.tags,
-                      conversation_id: chat.id,
-                      unreadCount: chat.unreadCount,
-                  });
-              }
-          });
-     
-        // Merge and update contacts with conversations
-             contacts.forEach(contact => {
-            const matchedConversation = conversations.find(conversation => conversation.contactId === contact.id);
-            if (matchedConversation) {
-              const currentcount =  (contact.unreadCount != undefined)?contact.unreadCount:0;
-                contact.conversation_id = matchedConversation.id;
-                contact.chat_id = contact.chat_id || matchedConversation.id;
-                contact.unreadCount = currentcount+ matchedConversation.unreadCount;
-                contact.conversations = contact.conversations || [];
-                contact.conversations.push(matchedConversation);
-                if (!contact.last_message) {
-                    contact.last_message = {
-                        id: matchedConversation.id,
-                        text: { body: matchedConversation.lastMessageBody },
-                        from_me: matchedConversation.lastMessageDirection === 'outbound',
-                        createdAt: matchedConversation.lastMessageDate,
-                        type: matchedConversation.lastMessageType,
-                        image: undefined,
-                    };
-                }
-            }
-        });
-        // Ensure all contacts are unique and filter those with last messages
-        // Fetch and update enquiries
-        const employeeListData: Employee[] = [];
-        employeeSnapshot.forEach((doc) => {
-            employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
-        });
-        setEmployeeList(employeeListData);
-        const enquriryListData: Enquiry[] = [];
-        enquirySnapshot.forEach((doc) => {
-          enquriryListData.push({ id: doc.id, ...doc.data() } as Enquiry);
-        });
-        enquriryListData.forEach((enquiry) => {
-          const existingContact = contacts.find(contact => contact.id === enquiry.contact_id);
-          if (existingContact) {
-            existingContact.enquiries = existingContact.enquiries || [];
-            existingContact.enquiries.push(enquiry);
-            if (!existingContact.last_message || getTimestamp(existingContact.last_message.createdAt) < getTimestamp(enquiry.timestamp)) {
-              existingContact.last_message = {
-                id: enquiry.id,
-                text: { body: enquiry.message },
-                from_me: false,
-                createdAt: getTimestamp(enquiry.timestamp),
-                type: 'text',
-                image: undefined,
-                read: enquiry.read ?? true,
-              };
-            }
-            existingContact.unreadCount = (existingContact.unreadCount || 0) + (enquiry.read ? 0 : 1);
-          } else {
-            contacts.push({
-              id: enquiry.contact_id,
-              phone: enquiry.phone || '',
-              contactName: enquiry.name || '',
-              enquiries: [enquiry],
-              tags: [],
-              last_message: {
-                id: enquiry.id,
-                text: { body: enquiry.message },
-                from_me: false,
-                createdAt: getTimestamp(enquiry.timestamp),
-                type: 'text',
-                image: undefined,
-                read: enquiry.read ?? true,
-              },
-              unreadCount: enquiry.read ? 0 : 1,
-            });
-          }
-        });
-    
-  
-        // Sort contacts by last message date
-        contacts.sort((a, b) => {
-            const dateA = a.last_message?.createdAt
-                ? new Date(getTimestamp(a.last_message.createdAt))
-                : a.last_message?.timestamp
-                    ? new Date(getTimestamp(a.last_message.timestamp))
-                    : new Date(0);
-            const dateB = b.last_message?.createdAt
-                ? new Date(getTimestamp(b.last_message.createdAt))
-                : b.last_message?.timestamp
-                    ? new Date(getTimestamp(b.last_message.timestamp))
-                    : new Date(0);
-            return dateB.getTime() - dateA.getTime();
-        });
-        // Filter contacts by user name in tags if necessary
-        if (user_role == '2') {
-            const filteredContacts = contacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
-            setContacts(filteredContacts);
-        } else {
-            // Set contacts to state
-            setContacts(contacts);
-        }
-        setFilteredContacts(contacts);
-        setFilteredContactsForForwarding(contacts);
-        console.log(contacts);
+    try {
+        const url = `https://services.leadconnectorhq.com/locations/${location}/tags`;
+        const response = await fetchData(url);
+        setTagList(response.data.tags);
     } catch (error) {
-        console.error('Failed to fetch contacts:', error);
-    } finally {
-        setLoading(false);
+        console.error('Error fetching tags:', error);
+        return [];
     }
 };
 
-async function getContact(name: any, number: string, location: any, access_token: any) {
-  const options = {
-    method: 'POST',
-    url: 'https://services.leadconnectorhq.com/contacts/',
-    data: {
-      firstName: name,
-      name: name,
-      locationId: location,
-      phone: number,
-    },
-    headers: {
-      Authorization: `Bearer ${access_token}`,
-      Version: '2021-07-28',
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    }
-  };
+const fetchDuplicateContact = async (phone: string, locationId: string, accessToken: string) => {
+  const url = `https://services.leadconnectorhq.com/contacts/search/duplicate?locationId=${locationId}${phone ? `&number=${phone}` : ''}`;
   try {
-    const response = await axios.request(options);
-    return response.data.contact;
-  } catch (error) {
-    console.error(error);
-    return null;
+      const response = await axios.get(url, {
+          headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Version: '2021-07-28',
+              Accept: 'application/json',
+          },
+      });
+      return response.data.contact;
+  } catch (err) {
+      const error = err as AxiosError;
+      if (error.response && error.response.status === 429) {
+        
+          // Handle rate limit error gracefully
+          return null;
+      } else if (axios.isCancel(error)) {
+          console.warn('Fetch cancelled:', error.message);
+      } else {
+          console.error('Error fetching duplicate contact:', error);
+          throw error;
+      }
   }
-}
+};
+
+const fetchContacts = async (whapiToken: any, locationId: any, ghlToken: any, user_name: string, role: string, userEmail: string, callback?: Function) => {
+  try {
+    // Set contacts to state
+    setContacts(initialContacts);
+    setFilteredContacts(initialContacts);
+    setFilteredContactsForForwarding(initialContacts);
+   
+  } catch (error) {
+    console.error('Failed to fetch contacts:', error);
+  } finally {
+  
+  }
+};
+
+
 const getTimestamp = (timestamp: any): number => {
   if (typeof timestamp === 'number') {
       // Assume timestamp is in seconds if it's less than 10000000000
@@ -687,260 +594,30 @@ const getTimestamp = (timestamp: any): number => {
   }
 };
 
-const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string) => {
+const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string, role: string, userEmail: string) => {
   try {
+    // Fetch processed data from server
+    const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}/${locationId}/${ghlToken}/${user_name}/${role}/${userEmail}`);
+    const { contacts, totalChats } = await response.json();
 
-    // Parallelize initial fetch operations including fetchTags
-    const [tags, chatResponse, conversations, contacts, employeeSnapshot, enquirySnapshot] = await Promise.all([
-        fetchTags(ghlToken, locationId),
-        fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}`),
-        searchConversations(ghlToken, locationId),
-        searchContacts(ghlToken, locationId),
-        getDocs(collection(firestore, `companies/${companyId}/employee`)),
-        getDocs(collection(firestore, `companies/${companyId}/conversations`))
-    ]);
-
-    if (!chatResponse.ok) throw new Error('Failed to fetch chats');
-    const chatData = await chatResponse.json();
-    const user = auth.currentUser;
-
-    const docUserRef = doc(firestore, 'user', user?.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-    }
-    const dataUser = docUserSnapshot.data() as UserData;
-
-    user_role = dataUser.role;
-
-    // Process chat data
-    const mappedChats = chatData.chats.map((chat: { id: string; last_message: any; name: any; }) => {
-        if (!chat.id) return null;
-        const phoneNumber = `+${chat.id.split('@')[0]}`;
-        let contact = contacts.find(contact => contact.phone === phoneNumber);
-        let unreadCount = 0;
-        if (dataUser.notifications !== undefined) {
-            unreadCount = dataUser.notifications.filter((notif: { chat_id: string; read: any; }) => notif.chat_id === chat.id && !notif.read).length;
-        }
-
-        if (contact) {
-            contact.chat_id = chat.id;
-            contact.last_message = chat.last_message;
-            contact.chat = chat;
-            contact.unreadCount = unreadCount ?? 0;
-            contact.id = contact.id;
-        }
-        return {
-            ...chat,
-            tags: contact ? contact.tags : [],
-            name: contact ? contact.contactName : chat.name,
-            lastMessageBody: '',
-            id: chat.id,
-            contact_id: contact ? contact.id : "",
-            unreadCount,
-        };
-    }).filter(Boolean);
-
-        // Merge WhatsApp contacts with existing contacts
-        mappedChats.forEach((chat: { id: string; last_message: any; unreadCount: any; tags: any; contact_id: any; name: any; }) => {
-          const phoneNumber = `+${chat.id.split('@')[0]}`;
-          const existingContact = contacts.find(contact => contact.phone === phoneNumber);
-          if (existingContact) {
-              existingContact.chat_id = chat.id;
-              existingContact.last_message = chat.last_message || existingContact.last_message;
-              existingContact.chat = chat;
-              existingContact.unreadCount = (existingContact.unreadCount || 0) + chat.unreadCount;
-              existingContact.tags = [...new Set([...existingContact.tags, ...chat.tags])];
-          } else {
-              contacts.push({
-                  id: chat.contact_id,
-                  phone: phoneNumber,
-                  contactName: chat.name,
-                  chat_id: chat.id,
-                  last_message: chat.last_message || null,
-                  chat: chat,
-                  tags: chat.tags,
-                  conversation_id: chat.id,
-                  unreadCount: chat.unreadCount,
-              });
-          }
-      });
- 
-    // Merge and update contacts with conversations
-         contacts.forEach(contact => {
-        const matchedConversation = conversations.find(conversation => conversation.contactId === contact.id);
-        if (matchedConversation) {
-          const currentcount =  (contact.unreadCount != undefined)?contact.unreadCount:0;
-            contact.conversation_id = matchedConversation.id;
-            contact.chat_id = contact.chat_id || matchedConversation.id;
-            contact.unreadCount = currentcount+ matchedConversation.unreadCount;
-            contact.conversations = contact.conversations || [];
-            contact.conversations.push(matchedConversation);
-            if (!contact.last_message) {
-                contact.last_message = {
-                    id: matchedConversation.id,
-                    text: { body: matchedConversation.lastMessageBody },
-                    from_me: matchedConversation.lastMessageDirection === 'outbound',
-                    createdAt: matchedConversation.lastMessageDate,
-                    type: matchedConversation.lastMessageType,
-                    image: undefined,
-                };
-            }
-        }
-    });
-    // Ensure all contacts are unique and filter those with last messages
-    // Fetch and update enquiries
-    const employeeListData: Employee[] = [];
-    employeeSnapshot.forEach((doc) => {
-        employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
-    });
-    setEmployeeList(employeeListData);
-    const enquriryListData: Enquiry[] = [];
-    enquirySnapshot.forEach((doc) => {
-      enquriryListData.push({ id: doc.id, ...doc.data() } as Enquiry);
-    });
-    enquriryListData.forEach((enquiry) => {
-      const existingContact = contacts.find(contact => contact.id === enquiry.contact_id);
-      if (existingContact) {
-        existingContact.enquiries = existingContact.enquiries || [];
-        existingContact.enquiries.push(enquiry);
-        if (!existingContact.last_message || getTimestamp(existingContact.last_message.createdAt) < getTimestamp(enquiry.timestamp)) {
-          existingContact.last_message = {
-            id: enquiry.id,
-            text: { body: enquiry.message },
-            from_me: false,
-            createdAt: getTimestamp(enquiry.timestamp),
-            type: 'text',
-            image: undefined,
-            read: enquiry.read ?? true,
-          };
-        }
-        existingContact.unreadCount = (existingContact.unreadCount || 0) + (enquiry.read ? 0 : 1);
-      } else {
-        contacts.push({
-          id: enquiry.contact_id,
-          phone: enquiry.phone || '',
-          contactName: enquiry.name || '',
-          enquiries: [enquiry],
-          tags: [],
-          last_message: {
-            id: enquiry.id,
-            text: { body: enquiry.message },
-            from_me: false,
-            createdAt: getTimestamp(enquiry.timestamp),
-            type: 'text',
-            image: undefined,
-            read: enquiry.read ?? true,
-          },
-          unreadCount: enquiry.read ? 0 : 1,
-        });
-      }
-    });
-
-
-    // Sort contacts by last message date
-    contacts.sort((a, b) => {
-        const dateA = a.last_message?.createdAt
-            ? new Date(getTimestamp(a.last_message.createdAt))
-            : a.last_message?.timestamp
-                ? new Date(getTimestamp(a.last_message.timestamp))
-                : new Date(0);
-        const dateB = b.last_message?.createdAt
-            ? new Date(getTimestamp(b.last_message.createdAt))
-            : b.last_message?.timestamp
-                ? new Date(getTimestamp(b.last_message.timestamp))
-                : new Date(0);
-        return dateB.getTime() - dateA.getTime();
-    });
-    // Filter contacts by user name in tags if necessary
-    if (user_role == '2') {
-        const filteredContacts = contacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(user_name.toLowerCase())));
-        setContacts(filteredContacts);
-    } else {
-        // Set contacts to state
-        setContacts(contacts);
-    }
+    // Set contacts to state
+    setContacts(contacts);
     setFilteredContacts(contacts);
     setFilteredContactsForForwarding(contacts);
+
+    // Store the contacts in localStorage
+    localStorage.setItem('contacts', JSON.stringify(contacts));
+    sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
+
     console.log(contacts);
-} catch (error) {
+  } catch (error) {
     console.error('Failed to fetch contacts:', error);
-} finally {
-  
-}
+  } finally {
+    // Any final operations if necessary
+  }
 };
-  async function searchConversations(accessToken: any, locationId: any): Promise<any[]> {
-    try {
-      let allConversation: any[] = [];
-      let page = 1;
-      const options = {
-        method: 'GET',
-        url: 'https://services.leadconnectorhq.com/conversations/search/',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Version: '2021-07-28',
-        },
-        params: {
-          locationId: locationId,
-          page: page,
-          limit:100,
-        }
-      };
-      const response = await axios.request(options);
-   
-      const conversations = response.data.conversations;
-      console.log(conversations);
-      allConversation = [...allConversation, ...conversations];
-      return allConversation;
-    } catch (error) {
-      console.error('Error searching contacts:', error);
-      return [];
-    }
-  }
-  async function searchContacts(accessToken: any, locationId: any): Promise<any[]> {
-    try {
-      let allContacts: any[] = [];
-      let page = 1;
-      while (true) {
-        const options = {
-          method: 'GET',
-          url: 'https://services.leadconnectorhq.com/contacts/',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Version: '2021-07-28',
-          },
-          params: {
-            locationId: locationId,
-            page: page,
-          }
-        };
-        const response = await axios.request(options);
-        const contacts = response.data.contacts;
-        allContacts = [...allContacts, ...contacts];
-        if (contacts.length === 0) {
-          break;
-        }
-        page++;
-      }
-      return allContacts;
-    } catch (error) {
-      console.error('Error searching contacts:', error);
-      return [];
-    }
-  }
-  const handleIconClick = (iconId: string,selectedChatId:string,id:string) => {
-    setMessages([]);
-    setSelectedIcon(iconId);
-    console.log(selectedChatId);
-    if(iconId == 'ws'){
-      fetchMessages(selectedChatId, whapiToken!);
-    }else if (iconId === 'mail'){
-     fetchEnquiries(selectedContact.email);
-    }else if(iconId == 'fb'||iconId =='ig'){
-      fetchConversationMessages(id,selectedContact);
-    }
-  };
+
+
   async function fetchConversationMessages(conversationId: string,contact:any) {
     if (!conversationId) return;
     console.log(contact);
@@ -963,11 +640,11 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         return;
       }
       const data2 = docSnapshot.data();
-      await updateConversation(conversationId,data2.access_token,data2.location_id)
+      await updateConversation(conversationId,data2.ghl_accessToken,data2.ghl_location)
       setToken(data2.whapiToken);
       const leadConnectorResponse = await axios.get(`https://services.leadconnectorhq.com/conversations/${conversationId}/messages`, {
         headers: {
-          Authorization: `Bearer ${data2.access_token}`,
+          Authorization: `Bearer ${data2.ghl_accessToken}`,
           Version: '2021-04-15',
           Accept: 'application/json'
         }
@@ -994,91 +671,9 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
   useEffect(() => {
     if (selectedChatId) {
       console.log(selectedContact);
-      if(selectedChatId.includes('@s.')  ){
-        fetchMessages(selectedChatId, whapiToken!);
-      }else if (selectedContact.enquiries != undefined){
-       fetchEnquiries(selectedContact.email);
-      }else{
-        console.log(selectedContact.last_message.type);
-        if(selectedContact.last_message.type != 'TYPE_INSTAGRAM'){
-          setSelectedIcon('fb');
-        }else{
-          setSelectedIcon('ig');
-        }
-        fetchConversationMessages(selectedChatId,selectedContact);
-      }
+      fetchMessages(selectedChatId, whapiToken!);
     }
   }, [selectedChatId]);
-  async function fetchEnquiries(email: string) {
-    if (!email) return;
-  
-    setSelectedIcon('mail');
-    const auth = getAuth(app);
-    const user = auth.currentUser;
-  
-    try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-  
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-  
-      const data2 = docSnapshot.data();
-      setToken(data2.whapiToken);
-  
-      // Fetch enquiries from Firestore
-      const employeeRef = collection(firestore, `companies/${companyId}/conversations`);
-      const employeeSnapshot = await getDocs(employeeRef);
-      const employeeListData: Enquiry[] = [];
-  
-      employeeSnapshot.forEach((doc) => {
-        employeeListData.push({ id: doc.id, ...doc.data() } as Enquiry);
-      });
-  
-      const matchingEnquiry = employeeListData.find(enquiry => enquiry.email === email);
-  
-      if (matchingEnquiry) {
-        console.log('Matching enquiry found:', matchingEnquiry);
-
-        // Update the 'unread' status to true
-        const enquiryRef = doc(firestore, `companies/${companyId}/conversations`, matchingEnquiry.id);
-        await updateDoc(enquiryRef, { read: true });
-
-        // Set messages using the data from the matching enquiry
-        setMessages([
-          {
-            id: matchingEnquiry.id,
-            text: { body: matchingEnquiry.message },
-            
-            from_me: false, // Assuming the enquiry is inbound
-            createdAt: getTimestamp(matchingEnquiry.timestamp), // Use the processed timestamp
-            timestamp: getTimestamp(matchingEnquiry.timestamp),
-            dateAdded: getTimestamp(matchingEnquiry.timestamp),
-            type: 'text',
-            image: undefined, // Assuming there is no image field in the enquiry
-          }
-        ]);
-      
-      } else {
-        console.log('No matching enquiry found.');
-        setMessages([]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch enquiries:', error);
-    }
-}
-
-
   async function fetchMessages(selectedChatId: string, whapiToken: string) {
     setLoading(true);
     setSelectedIcon('ws');
@@ -1106,7 +701,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       if (selectedChatId.includes('@')) {
         const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
         const data = response.data;
-     
+     console.log(data);
         setMessages(
           data.messages.map((message: { id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; document:any}) => ({
             id: message.id,
@@ -1204,7 +799,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     }
   
     const data2 = docSnapshot.data();
-    const accessToken = data2.access_token;
+    const accessToken = data2.ghl_accessToken;
   
     try {
       const options = {
@@ -1287,7 +882,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       }
       const companyData = docSnapshot.data();
  
-      const accessToken = companyData.access_token;
+      const accessToken = companyData.ghl_accessToken;
       const hasLabel = contact && contact.tags && Array.isArray(contact.tags) ? contact.tags.includes('stop bot') : false;
       const method = hasLabel ? 'DELETE' : 'POST';
   
@@ -1330,7 +925,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
 
   const handleAddTagToSelectedContacts = async (selectedEmployee: string, contact: any) => {
     const user = auth.currentUser;
-  
+  console.log(selectedEmployee);
     if (!user) {
       console.log('No authenticated user');
       return;
@@ -1351,21 +946,16 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       return;
     }
     const companyData = docSnapshot.data();
-  
-    // Assuming ghlConfig, setToken, and fetchChatsWithRetry are defined elsewhere
-    // Update Firestore document with new token data
-    await setDoc(doc(firestore, 'companies', companyId), {
-      access_token: companyData.access_token,
-      refresh_token: companyData.refresh_token,
-    }, { merge: true });
-  
+
+    console.log(selectedEmployee);
     if (selectedEmployee) {
       const tagName = selectedEmployee;
-  
+
+
       // Merge existing tags with the new tag
       const updatedTags = [...new Set([...(contact.tags || []), tagName])];
   
-      const success = await updateContactTags(contact.id, companyData.access_token, updatedTags);
+      const success = await updateContactTags(contact.id, companyData.ghl_accessToken, updatedTags);
       if (success) {
         // Update the selected contact's tags directly
         setContacts(prevContacts =>
@@ -1402,7 +992,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             }
         };
         const response = await axios.request(options);
-      
+      console.log(response);
         if (response.status === 200) {
             console.log('Contact tags updated successfully');
             return true;
@@ -1676,7 +1266,7 @@ const handleForwardMessage = async () => {
       }
   
       const data = await response.json();
-      fetchMessages(selectedChatId!,companyData.access_token);
+      fetchMessages(selectedChatId!,companyData.ghl_accessToken);
       console.log('Image message sent successfully:', data);
     } catch (error) {
       console.error('Error sending image message:', error);
@@ -1721,7 +1311,7 @@ const handleForwardMessage = async () => {
       }
   
       const data = await response.json();
-      fetchMessages(selectedChatId!,companyData.access_token);
+      fetchMessages(selectedChatId!,companyData.ghl_accessToken);
       console.log('Image message sent successfully:', data);
     } catch (error) {
       console.error('Error sending image message:', error);
@@ -1731,9 +1321,10 @@ const handleForwardMessage = async () => {
     setIsForwardDialogOpen(false);
     setSearchQuery2(''); // Clear the search query
   };
+
   return (
-    <div className="flex item-center overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '90vh' }}>
-    <div className="flex flex-col w-full sm:w-4/12 bg-gray-100 border-r border-gray-300">
+    <div className="flex overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '85vh' }}>
+    <div className="flex flex-col w-full sm:w-1/4 bg-gray-100 border-r border-gray-300">
     <div className="relative mr-3 intro-x sm:mr-6"></div>
     <div className="relative hidden sm:block p-4">
     <div className="flex items-center space-x-2">
@@ -1801,6 +1392,7 @@ const handleForwardMessage = async () => {
       </div>
     </div>
   </div>
+<<<<<<< HEAD
 )}
   <div className="relative flex-grow">
     <input
@@ -1814,7 +1406,34 @@ const handleForwardMessage = async () => {
       icon="Search"
       className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500"
     />
+=======
+)} {isFetching && (
+  <div className="w-full">
+    <div className="bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 relative">
+      <div className="bg-blue-900 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+    </div>
+    <div className="text-right mt-1">
+      <span className="font-semibold truncate">{progress.toFixed(2)}%</span>
+    </div>
+>>>>>>> 56d65feb347d4787fffd6d731ba53af66ddf3b69
   </div>
+)}
+{!isFetching && (
+ <div className="relative flex-grow">
+ <input
+   type="text"
+   className="!box w-full py-1 pl-10 pr-4 bg-gray-100 text-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
+   placeholder="Search..."
+   value={searchQuery}
+   onChange={handleSearchChange}
+ />
+ <Lucide
+   icon="Search"
+   className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500"
+ />
+</div>
+)}
+  
   <div className="flex justify-end">
       <Menu as="div" className="relative inline-block text-left">
         <div className="flex items-right space-x-3">
@@ -1851,7 +1470,7 @@ const handleForwardMessage = async () => {
     {filteredContacts.map((contact, index) => (
       <div
         key={contact.id || `${contact.phone}-${index}`}
-        className={`p-2 mb-2 rounded cursor-pointer flex items-center space-x-4 ${
+        className={`p-2 mb-2 rounded cursor-pointer flex items-center space-x-3 ${
           contact.chat_id !== undefined
             ? selectedChatId === contact.chat_id
               ? 'bg-gray-700 text-white'
@@ -1863,11 +1482,11 @@ const handleForwardMessage = async () => {
         onClick={() => selectChat(contact.chat_id!, contact.email!)}
       >
         <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
-          {contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"}
+          {contact.firstName ? contact.firstName.charAt(0).toUpperCase() : "?"}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-center">
-            <span className="font-semibold truncate">{contact.contactName ?? contact.phone}</span>
+            <span className="font-semibold truncate">{contact.firstName ?? contact.phone}</span>
             <span className="text-xs">
               {contact.last_message?.createdAt || contact.last_message?.timestamp
                 ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
@@ -1881,34 +1500,12 @@ const handleForwardMessage = async () => {
             {contact.unreadCount > 0 && (
               <span className="bg-blue-900 text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
             )}
-             {contact.chat_id != undefined && (
-              <span>   <img
-              className={`source-button}`}
-              src="https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon4.png?alt=media&token=d4ab65b6-9b90-4aca-9d69-6263300a91ec"
-              alt="WhatsApp"
-              style={{ width: '30px', height: '30px' }}
-            /> </span>
-            )}
-             {contact.conversation_id != undefined  && !contact.conversation_id.includes('@') && (
-              <span>   <img
-              className={`source-button}`}
-              src={(contact.last_message!.type == 'TYPE_INSTAGRAM')?"https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon3.png?alt=media&token=9395326d-ff56-45e7-8ebc-70df4be6971a":"https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/facebook-logo-on-transparent-isolated-background-free-vector-removebg-preview.png?alt=media&token=c312eb23-dfee-40d3-a55c-476ef3041369"}
-              alt="WhatsApp"
-              style={{ width: '30px', height: '30px' }}
-            /> </span>
-            )}
-             {contact.source == 'Enquiry Form' && (
-              <span>   <img
-              className={`source-button}`}
-              src={"https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/icon2.png?alt=media&token=813f94d4-cad1-4944-805a-2454293278c9"}
-              alt="Mail"
-              style={{ width: '30px', height: '30px' }}
-            /> </span>
-            )}
+           
+           
           </div>
      
           <label className="inline-flex items-center cursor-pointer">
-            <input
+          <input
               type="checkbox"
               value=""
               className="sr-only peer"
@@ -1929,22 +1526,28 @@ const handleForwardMessage = async () => {
           <div className="flex items-center justify-between p-2 border-b border-gray-300 bg-gray-100">
             <div className="flex items-center">
               <div className="w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3">
-                <span className="text-lg">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
+                <span className="text-lg">{selectedContact.firstName ? selectedContact.firstName.charAt(0).toUpperCase() : "?"}</span>
               </div>
               <div>
-                <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.phone}</div>
+                <div className="font-semibold text-gray-800">{selectedContact.firstName || selectedContact.phone}</div>
                 <div className="text-sm text-gray-600">{selectedContact.phone}</div>
               </div>
             </div>
             <Menu as="div" className="relative inline-block text-left p-2">
             <div className="flex items-center space-x-3">
         {/* Adjust the space-x value to increase the padding */}
-        <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
+       
+        {!isFetching && ( <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
           <span className="flex items-center justify-center w-5 h-5">
             <Lucide icon="Tag" className="w-5 h-5" />
           </span>
-        </Menu.Button>
-
+        </Menu.Button>)}
+                      {isFetching && (
+        <svg aria-hidden="true" className="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor" />
+        <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill" />
+      </svg>
+      )}
         <button className="p-2 m-0 !box" onClick={handleEyeClick}>
       <span className="flex items-center justify-center w-5 h-5">
         <Lucide icon={isTabOpen ? "X" : "Eye"} className="w-5 h-5" />
@@ -1971,154 +1574,90 @@ const handleForwardMessage = async () => {
           </div>
         )}
            
-        <div className="flex-1 overflow-y-auto p-5" style={{ paddingBottom: "150px" }}>
+        <div className="flex-1 overflow-y-auto p-4" style={{ paddingBottom: "150px" }} ref={messageListRef}>
            
-        {isLoading && (
+        {isLoading2 && (
                 <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
                   <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white p-4 rounded-md shadow-lg">
                     <div role="status">
-                      <svg aria-hidden="true" className="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor" />
-                        <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill" />
-                      </svg>
+                    <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
+          <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
+          <div className="mt-2 text-xs text-center">Fetching Data...</div>
+        </div>
                     </div>
                   </div>
                 </div>
               )}
-          {messages.slice().reverse().map((message) => (
-            <div
-                   className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
-              key={message.id}
-              style={{
-                maxWidth: '70%',
-                width: `${message.type === 'image' || message.type === 'document' ? '350' : Math.min((message.text?.body?.length || 0) * 10, 350)}px`,
-                minWidth: '75px'  // Add a minimum width here
-              }}
-              onMouseEnter={() => setHoveredMessageId(message.id)}
-              onMouseLeave={() => setHoveredMessageId(null)}
-            >
-              {message.type === 'image' && message.image && (
-                <div className="message-content image-message">
-                  <img
-                    src={message.image.link}
-                    alt="Image"
-                    className="message-image"
-                    style={{ maxWidth: '300px' }}
-                  />
-                  <div className="caption">{message.image.caption}</div>
-                </div>
-              )}
-    {message.type === 'text' && (
-  <div className="whitespace-pre-wrap break-words">
-    {formatText(message.text?.body || '')}
-  </div>
-)}
-{message.type === 'document' && message.document && (
-  <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
-    <img
-      src={message.document.preview}
-      alt="Document Preview"
-      className="w-40 h-40 mb-3 border rounded"
-    />
-    <div className="flex-1 text-justify">
-      <div className="font-semibold">{message.document.file_name}</div>
-      <div>{message.document.page_count} page{message.document.page_count > 1 ? 's' : ''} • PDF • {(message.document.file_size / 1024).toFixed(2)} kB</div>
-    </div>
-    <a href={message.document.link} target="_blank" rel="noopener noreferrer" className="mt-3">
-      <Lucide icon="Download" className="w-6 h-6 text-white-700" />
-    </a>
-  </div>
-)}
-
-              <div className="message-timestamp text-xs text-gray-100 mt-1">
-            {formatTimestamp(message.createdAt||message.dateAdded)}
-            {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
-                <input
-                    type="checkbox"
-                    className="form-checkbox h-5 w-5 text-blue-900 transition duration-150 ease-in-out rounded-full ml-2"
-                    checked={selectedMessages.includes(message)}
-                    onChange={() => handleSelectMessage(message)}
-                />
-            )}
+      {selectedChatId && (
+    messages.slice().reverse().map((message) => (
+      <div
+        className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+        key={message.id}
+        style={{
+          maxWidth: '70%',
+          width: `${message.type === 'image' || message.type === 'document' ? '350' : Math.min((message.text?.body?.length || 0) * 10, 350)}px`,
+          minWidth: '75px'  // Add a minimum width here
+        }}
+        onMouseEnter={() => setHoveredMessageId(message.id)}
+        onMouseLeave={() => setHoveredMessageId(null)}
+      >
+        {message.type === 'image' && message.image && (
+          <div className="message-content image-message">
+            <img
+              src={message.image.link}
+              alt="Image"
+              className="message-image"
+              style={{ maxWidth: '300px' }}
+            />
+            <div className="caption">{message.image.caption}</div>
           </div>
-         
+        )}
+        {message.type === 'text' && (
+          <div className="whitespace-pre-wrap break-words">
+            {formatText(message.text?.body || '')}
+          </div>
+        )}
+        {message.type === 'document' && message.document && (
+          <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
+            <img
+              src={message.document.preview}
+              alt="Document Preview"
+              className="w-40 h-40 mb-3 border rounded"
+            />
+            <div className="flex-1 text-justify">
+              <div className="font-semibold">{message.document.file_name}</div>
+              <div>{message.document.page_count} page{message.document.page_count > 1 ? 's' : ''} • PDF • {(message.document.file_size / 1024).toFixed(2)} kB</div>
             </div>
-          ))}
+            <a href={message.document.link} target="_blank" rel="noopener noreferrer" className="mt-3">
+              <Lucide icon="Download" className="w-6 h-6 text-white-700" />
+            </a>
+          </div>
+        )}
+        <div className="message-timestamp text-xs text-gray-100 mt-1">
+          {formatTimestamp(message.createdAt||message.dateAdded)}
+          {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+            <input
+              type="checkbox"
+              className="form-checkbox h-5 w-5 text-blue-900 transition duration-150 ease-in-out rounded-full ml-2"
+              checked={selectedMessages.includes(message)}
+              onChange={() => handleSelectMessage(message)}
+            />
+          )}
+        </div>
+      </div>
+    ))
+  ) }
         </div>
 
         <div className="absolute bottom-0 left-0 w-500px !box m-2 bg-none border-t border-gray-300 py-1 px-2">
-        <div className=" border-gray-200 dark:border-gray-700 mb-1">
-        <ul className="flex flex-wrap -mb-px text-md font-medium text-center" role="tablist">
-            <li role="presentation">
-            <button
-              className={`inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg ${selectedIcon === 'ws' ? 'text-blue-500 border-blue-500' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'}`}
-              onClick={() => handleIconClick('ws', selectedChatId!, selectedContact.conversation_id)}
-              aria-selected={selectedIcon === 'ws'}
-              style={{ width: '125px', height: '40px' }}
-            >
-              <svg className="mr-1" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 464 488" fill="currentColor">
-                <path d="M462 228q0 93-66 159t-160 66q-56 0-109-28L2 464l40-120q-32-54-32-116q0-93 66-158.5T236 4t160 65.5T462 228zM236 39q-79 0-134.5 55.5T46 228q0 62 36 111l-24 70l74-23q49 31 104 31q79 0 134.5-55.5T426 228T370.5 94.5T236 39zm114 241q-1-1-10-7q-3-1-19-8.5t-19-8.5q-9-3-13 2q-1 3-4.5 7.5t-7.5 9t-5 5.5q-4 6-12 1q-34-17-45-27q-7-7-13.5-15t-12-15t-5.5-8q-3-7 3-11q4-6 8-10l6-9q2-5-1-10q-4-13-17-41q-3-9-12-9h-11q-9 0-15 7q-19 19-19 45q0 24 22 57l2 3q2 3 4.5 6.5t7 9t9 10.5t10.5 11.5t13 12.5t14.5 11.5t16.5 10t18 8.5q16 6 27.5 10t18 5t9.5 1t7-1t5-1q9-1 21.5-9t15.5-17q8-21 3-26z"/>
-              </svg>
-              <span className="ml-0">WhatsApp</span>
-            </button>
-            </li>
-            <li role="presentation">
-            <button
-              className={`inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg ${selectedIcon === 'fb' ? 'text-blue-500 border-blue-500' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'}`}
-              onClick={() => handleIconClick('fb', selectedChatId!, selectedContact.conversation_id)}
-              aria-selected={selectedIcon === 'fb'}
-              style={{ width: '125px', height: '40px' }}
-            >
-              <svg className="mr-1" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2.04c-5.5 0-10 4.49-10 10.02c0 5 3.66 9.15 8.44 9.9v-7H7.9v-2.9h2.54V9.85c0-2.51 1.49-3.89 3.78-3.89c1.09 0 2.23.19 2.23.19v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.45 2.9h-2.33v7a10 10 0 0 0 8.44-9.9c0-5.53-4.5-10.02-10-10.02Z"/>
-              </svg>
-              <span className="ml-0">Facebook</span>
-            </button>
-            </li>
-            <li role="presentation">
-            <button
-                className={`inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg ${selectedIcon === 'ig' ? 'text-blue-500 border-blue-500' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'}`}
-                onClick={() => handleIconClick('ig', selectedChatId!, selectedContact.id)}
-                aria-selected={selectedIcon === 'ig'}
-                style={{ width: '132px', height: '40px' }}
-              >
-                <svg className="mr-1" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 7.9a4.1 4.1 0 1 0 4.1 4.1A4.09 4.09 0 0 0 12 7.9Zm0 6.77A2.67 2.67 0 1 1 14.67 12A2.67 2.67 0 0 1 12 14.67Zm5.23-6.94a1 1 0 1 1-1-1a1 1 0 0 1 1 1Zm2.71 1a4.71 4.71 0 0 0-1.29-3.35a4.71 4.71 0 0 0-3.35-1.32C14 4 10 4 8.7 4.06a4.73 4.73 0 0 0-3.35 1.29A4.71 4.71 0 0 0 4.06 8.7C4 10 4 14 4.06 15.3a4.71 4.71 0 0 0 1.29 3.35a4.73 4.73 0 0 0 3.35 1.29c1.32.08 5.28.08 6.6 0a4.71 4.71 0 0 0 3.35-1.29a4.71 4.71 0 0 0 1.29-3.35c.06-1.3.06-5.3 0-6.6Zm-1.7 8a2.7 2.7 0 0 1-1.52 1.52a18 18 0 0 1-4.72.32a17.91 17.91 0 0 1-4.71-.32a2.7 2.7 0 0 1-1.52-1.52c-.42-1.06-.33-3.56-.33-4.72s-.09-3.67.33-4.72a2.65 2.65 0 0 1 1.52-1.53A17.91 17.91 0 0 1 12 5.44a18 18 0 0 1 4.72.32a2.7 2.7 0 0 1 1.52 1.52c.42 1.06.32 3.56.32 4.72s.1 3.67-.32 4.72Z"/>
-                </svg>
-                <span className="ml-0">Instagram</span>
-              </button>
-            </li>
-            <li role="presentation">
-            <button
-              className={`inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg ${selectedIcon === 'gmb' ? 'text-blue-500 border-blue-500' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'}`}
-              onClick={() => handleIconClick('gmb', selectedChatId!, selectedContact.id)}
-              aria-selected={selectedIcon === 'gmb'}
-              style={{ width: '200px', height: '40px' }}
-            >
-              <svg className="mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
-                <path d="M14.25 19.557H24V7.094h-8.142L14.25 19.557z"/>
-                <path d="M15.858 7.094H9.142a2 2 0 0 0-1.941 1.52L4.5 19.557h9.75m9.75 0a4.875 4.875 0 0 1-9.75 0m0 0a4.875 4.875 0 0 1-9.75 0m29.25 0H24V7.094h8.142l1.608 12.463zM32.142 7.094h6.716a2 2 0 0 1 1.941 1.52L43.5 19.557h-9.75m-9.75 0a4.875 4.875 0 0 0 9.75 0m0 0a4.875 4.875 0 0 0 9.75 0"/>
-                <path d="M7.325 23.977v14.93a2 2 0 0 0 2 2h29.35a2 2 0 0 0 2-2v-14.93"/>
-                <path d="M33.5 33.569h3.956a3.977 3.977 0 0 1-3.88 4.072l-.077.001a4.073 4.073 0 1 1 0-8.147a4.011 4.011 0 0 1 2.02.536"/>
-              </svg>
-              <span className="ml-0">Google My Business</span>
-            </button>
-            </li>
-            <li role="presentation">
-            <button
-                className={`inline-flex items-center justify-center p-4 border-b-2 rounded-t-lg ${selectedIcon === 'mail' ? 'text-blue-500 border-blue-500' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'}`}
-                onClick={() => handleIconClick('mail', selectedChatId!, selectedContact.id)}
-                aria-selected={selectedIcon === 'mail'}
-                style={{ width: '120px', height: '40px' }}>
-                <svg className="mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 32 32" fill="currentColor">
-                    <path d="M32 6v20c0 1.135-.865 2-2 2h-2V9.849l-12 8.62l-12-8.62V28H2c-1.135 0-2-.865-2-2V6c0-.568.214-1.068.573-1.422A1.973 1.973 0 0 1 2 4h.667L16 13.667L29.333 4H30c.568 0 1.068.214 1.427.578c.359.354.573.854.573 1.422z"/>
-                </svg>
-                <span className="ml-0">Gmail</span>
-            </button>
 
+<<<<<<< HEAD
             </li>
         </ul>
     </div>
+=======
+
+>>>>>>> 56d65feb347d4787fffd6d731ba53af66ddf3b69
           <div className="flex items-center">
           <Menu as="div" className="relative inline-block text-left p-2">
             <div className="flex items-center space-x-3">
@@ -2164,7 +1703,7 @@ const handleForwardMessage = async () => {
     </span>
   </button>
             <textarea
-               className="flex-grow item-center w-50 h-10 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-md mr-2 ml-4 resize-none bg-gray-100 text-gray-800"
+               className="flex-grow px-5 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-lg mr-2 ml-4 resize-none bg-gray-100 text-gray-800"
               placeholder="Type a message"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -2205,10 +1744,10 @@ const handleForwardMessage = async () => {
     <div className="p-6">
       <div className="flex items-center p-4 border-b border-gray-300 bg-gray-100">
         <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-          <span className="text-xl">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
+          <span className="text-xl">{selectedContact.firstName ? selectedContact.firstName.charAt(0).toUpperCase() : "?"}</span>
         </div>
         <div>
-          <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.phone}</div>
+          <div className="font-semibold text-gray-800">{selectedContact.firstName || selectedContact.phone}</div>
           <div className="text-sm text-gray-600">{selectedContact.phone}</div>
         </div>
       </div>

@@ -23,6 +23,8 @@ import { initializeApp } from "firebase/app";
 import { DocumentReference, getDoc, onSnapshot } from 'firebase/firestore';
 import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import { onMessage } from "firebase/messaging";
+import { useNavigate } from "react-router-dom"; // Add this import
+import LoadingIcon from "@/components/Base/LoadingIcon";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -44,7 +46,7 @@ let total_contacts = 0;
 let closed = 0;
 let unclosed = 0;
 let num_replies =0;
-
+let role = 2;
 function Main() {
   const [salesReportFilter, setSalesReportFilter] = useState<string>();
   const importantNotesRef = useRef<TinySliderElement>();
@@ -55,12 +57,24 @@ function Main() {
   const [closed, setClosed] = useState(0);
   const [unclosed, setUnclosed] = useState(0);
   const [num_replies, setReplies] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearchChange = (e: { target: { value: string; }; }) => {
+    setSearchQuery(e.target.value.toLowerCase());
+  };
+
+  const filteredNotifications = notifications.filter((notification) => {
+    return (
+      notification.from_name.toLowerCase().includes(searchQuery) ||
+      (notification.text && notification.text.body.toLowerCase().includes(searchQuery))
+    );
+  });
   const saveTokenToFirestore = async (userId: string, token: string) => {
     try {
       await setDoc(doc(firestore, "user", userId), {
         fcmToken: token
       }, { merge: true });
-      console.log('Token saved to Firestore successfully');
+      
     } catch (error) {
       console.error('Error saving token to Firestore:', error);
     }
@@ -69,7 +83,7 @@ function Main() {
   const handleGetFirebaseToken = (userId: string) => {
     getFirebaseToken().then(async (firebaseToken: string | undefined) => {
       if (firebaseToken) {
-        console.log(firebaseToken);
+        
         await saveTokenToFirestore(userId, firebaseToken);
       }
     });
@@ -78,7 +92,7 @@ function Main() {
   const requestPermission = async (id: string) => {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      console.log('Notification permission granted.');
+      
       handleGetFirebaseToken(id);
     } else {
       console.error('Notification permission denied.');
@@ -96,7 +110,7 @@ function Main() {
     });
 
     const unsubscribeMessage = onMessage(messaging, (payload) => {
-      console.log('Message received. ', payload);
+      
       setNotifications((prevNotifications) => [
         ...prevNotifications,
         payload.notification,
@@ -129,40 +143,42 @@ function Main() {
       const docUserRef = doc(firestore, 'user', userEmail);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
       const dataUser = docUserSnapshot.data();
       if (!dataUser) {
-        console.log('User document has no data!');
+        
         return;
       }
   
       companyId = dataUser.companyId;
+      role = dataUser.role;
       setNotifications(dataUser.notifications || []);
    
       setReplies(dataUser.notifications.length);
-      console.log(dataUser.notifications);
+      
       if (!companyId) {
-        console.log('User document has no companyId!');
+        
         return;
       }
   
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document!');
+        
         return;
       }
       const data = docSnapshot.data();
       if (!data) {
-        console.log('Company document has no data!');
+        
         return;
       }
-      console.log(data);
+      
       await requestPermission(userEmail);
-      await searchOpportunities( data.access_token,data.location_id,);
-      //await searchContacts(data.access_token, data.location_id);
+  
+      await searchOpportunities( data.ghl_accessToken,data.ghl_location);
+      //await searchContacts(data.ghl_accessToken, data.ghl_location);
     } catch (error) {
       console.error('Error fetching config:', error);
       throw error;
@@ -187,7 +203,7 @@ function Main() {
           }
         };
         const response = await axios.request(options);
-        console.log('Search Conversation Response:', response.data);
+        
         const contacts = response.data.contacts;
         allContacts = [...allContacts, ...contacts];
         if (contacts.length === 0) {
@@ -198,7 +214,7 @@ function Main() {
       const filteredContacts = allContacts.filter(contact => contact.phone !== null);
       total_contacts = allContacts.length;
       setLoading(false);
-      console.log('Search Conversation Response:', filteredContacts);
+      
     } catch (error) {
       console.error('Error searching conversation:', error);
     }
@@ -207,11 +223,13 @@ function Main() {
   async function searchOpportunities(ghlToken: any, locationId: any) {
     setLoading(true);
     setError(null);
+  console.log(locationId);
+    let allOpportunities: any[] = [];
+    let page = 1;
+    let totalFetched = 0;
+    let hasMore = true;
 
-    try {
-      let allOpportunities: any[] = [];
-      let page = 1;
-
+    while (hasMore) {
       const response = await axios.get('https://services.leadconnectorhq.com/opportunities/search', {
         headers: {
           Authorization: `Bearer ${ghlToken}`,
@@ -220,25 +238,33 @@ function Main() {
         },
         params: {
           location_id: locationId,
-          limit:100
+          limit: 100,
+          page: page
         }
       });
 console.log(response.data);
       const opportunities = response.data.opportunities;
+      totalFetched = opportunities.length;
       allOpportunities = [...allOpportunities, ...opportunities];
-total_contacts = allOpportunities.length;
-      const closedCount = allOpportunities.filter(opportunity => opportunity.status === 'won').length;
-      const unclosedCount = allOpportunities.filter(opportunity => opportunity.status === 'open').length;
 
-
-      setClosed(closedCount);
-      setUnclosed(unclosedCount);
-    } catch (error) {
-      setError('An error occurred while fetching the opportunities.');
-    } finally {
-      setLoading(false);
+      // Check if there are more opportunities to fetch
+      if (totalFetched < 100) {
+        hasMore = false;
+      } else {
+        page++;
+      }
     }
-  };
+
+    
+
+   const total_contacts = allOpportunities.length;
+    const closedCount = allOpportunities.filter(opportunity => opportunity.status === 'won').length;
+    const unclosedCount = allOpportunities.filter(opportunity => opportunity.status === 'open').length;
+    setTotalContacts(total_contacts);
+    setClosed(closedCount);
+    setUnclosed(unclosedCount);
+    setLoading(false);
+  }
 
   const prevImportantNotes = () => {
     importantNotesRef.current?.tns.goTo("prev");
@@ -270,7 +296,11 @@ total_contacts = allOpportunities.length;
       return [];
     }
   }
+  const navigate = useNavigate(); // Initialize useNavigate
 
+  const handleNotificationClick = (chatId: any) => {
+    navigate(`/chat/?chatId=${chatId}`);
+  };
   useEffect(() => {
     fetchCompanyData();
   }, []);
@@ -302,7 +332,7 @@ total_contacts = allOpportunities.length;
       // Assuming refreshAccessToken is defined elsewhere
 console.log(companyData);
 
-      await searchContacts(companyData.access_token,companyData.ghl_location);
+      await searchContacts(companyData.ghl_accessToken,companyData.ghl_location);
 
 
     } catch (error) {
@@ -340,7 +370,14 @@ console.log(companyData);
                       <div className="ml-auto"></div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                      {total_contacts}
+                     
+                      {!loading && totalContacts}
+                      {loading && (
+         <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
+         <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
+   
+       </div>
+      )}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       Total Contacts
@@ -364,7 +401,13 @@ console.log(companyData);
                       <div className="ml-auto"></div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                    {num_replies}
+                    {!loading && num_replies}
+                      {loading && (
+         <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
+         <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
+        
+       </div>
+      )}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       Number Of Replies
@@ -388,7 +431,13 @@ console.log(companyData);
                       <div className="ml-auto"></div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                      {unclosed}
+                    {!loading && unclosed}
+                      {loading && (
+         <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
+         <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
+     
+       </div>
+      )}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       Open
@@ -412,7 +461,13 @@ console.log(companyData);
                       <div className="ml-auto"></div>
                     </div>
                     <div className="mt-6 text-3xl font-medium leading-8">
-                      {closed}
+                    {!loading && closed}
+                      {loading && (
+        <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
+        <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
+     
+      </div>
+      )}
                     </div>
                     <div className="mt-1 text-base text-slate-500">
                       Closed
@@ -422,46 +477,63 @@ console.log(companyData);
               </div>
             </div>
           </div>
-
-          {/* Notifications */}
-     <div className="col-span-12 mt-8">
-  <div className="flex items-center h-10 intro-y">
-    <h2 className="mr-5 text-lg font-medium truncate">Recent Messages</h2>
-  </div>
-  <div className="mt-5">
-    {notifications && notifications.length > 0 ? (
-      notifications.reduce((uniqueNotifications, notification) => {
-        const existingNotificationIndex = uniqueNotifications.findIndex(
-          (n: { chat_id: any; }) => n.chat_id === notification.chat_id
-        );
-        if (existingNotificationIndex !== -1) {
-          // If a notification with the same chat_id exists, replace it with the new one
-          uniqueNotifications[existingNotificationIndex] = notification;
-        } else {
-          // Otherwise, add the new notification
-          uniqueNotifications.push(notification);
-        }
-        return uniqueNotifications;
-      }, []).sort((a: { timestamp: number; }, b: { timestamp: number; }) => b.timestamp - a.timestamp).map((notification: { from_name: string ; text: { body: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | null | undefined; } | undefined; timestamp: number; }, key: Key | null | undefined) => (
-        <div key={key} className="w-70">
-          <div className="flex items-center px-5 py-3 mb-3 box zoom-in w-70">
-            <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
-              {notification.from_name ? notification.from_name.charAt(0).toUpperCase() : "?"}
-            </div>
-            <div className="ml-4 mr-auto">
-              <div className="font-medium">{notification.from_name}</div>
-              <div className="text-base text-slate-500">{(notification.text != undefined) ? notification.text.body : ""}</div>
-              <div className="text-slate-500 text-xs mt-0.5">{new Date(notification.timestamp * 1000).toLocaleString()}</div>
-            </div>
-          </div>
-        </div>
-      ))
-    ) : (
-      <div className="text-center text-slate-500">No messages available</div>
-    )}
-  </div>
+{/* Notifications */}
+{role == 1 && (
+ <div className="col-span-12 mt-8">
+ <div className="flex items-center h-10 intro-y">
+   <h2 className="mr-5 text-lg font-medium truncate">Recent Messages</h2>
+ </div>
+ <div className="relative">
+   <input
+     type="text"
+     className="!box mt-2 mb-2 w-full py-2 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+     placeholder="Search..."
+     onChange={handleSearchChange}
+     value={searchQuery}
+   />
+ </div>
+ <div className="mt-2 h-64 overflow-y-auto"> {/* Set height and enable scrolling */}
+   {filteredNotifications && filteredNotifications.length > 0 ? (
+     filteredNotifications.reduce((uniqueNotifications, notification) => {
+       const existingNotificationIndex = uniqueNotifications.findIndex(
+         (n: { chat_id: any; }) => n.chat_id === notification.chat_id
+       );
+       if (existingNotificationIndex !== -1) {
+         // If a notification with the same chat_id exists, replace it with the new one
+         uniqueNotifications[existingNotificationIndex] = notification;
+       } else {
+         // Otherwise, add the new notification
+         uniqueNotifications.push(notification);
+       }
+       return uniqueNotifications;
+     }, []).sort((a: { timestamp: number; }, b: { timestamp: number; }) => b.timestamp - a.timestamp).map((notification: { chat_id: any; from_name: string ; text: { body: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | null | undefined; }; timestamp: number; }, key: Key | null | undefined) => (
+       <div key={key} className="w-70">
+         <div
+           className="flex items-center px-5 py-3 mb-3 box zoom-in w-70 cursor-pointer"
+           onClick={() => handleNotificationClick(notification.chat_id)}
+         >
+           <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
+             {notification.from_name ? notification.from_name.charAt(0).toUpperCase() : "?"}
+           </div>
+           <div className="ml-4 mr-auto">
+             <div className="font-medium">{notification.from_name}</div>
+             <div className="text-base text-slate-500">{notification.text ? notification.text.body : ""}</div>
+             <div className="text-slate-500 text-xs mt-0.5">
+               {new Date(notification.timestamp * 1000).toLocaleString()}
+             </div>
+           </div>
+         </div>
+       </div>
+     ))
+   ) : (
+     <div className="text-center text-slate-500">No messages available</div>
+   )}
+ </div>
 </div>
+)}
+
 {/* END: Notifications */}
+
         </div>
       </div>
     </div>

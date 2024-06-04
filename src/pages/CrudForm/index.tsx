@@ -1,19 +1,14 @@
 import { ClassicEditor } from "@/components/Base/Ckeditor";
 import TomSelect from "@/components/Base/TomSelect";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Button from "@/components/Base/Button";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { getAuth, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { DocumentReference, getDoc, updateDoc } from 'firebase/firestore';
-import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { useLocation } from 'react-router-dom';
-
-import {
-  FormInput,
-  FormLabel,
-  FormSwitch,
-  InputGroup,
-} from "@/components/Base/Form";
+import { FormInput, FormLabel } from "@/components/Base/Form";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -31,13 +26,11 @@ function Main() {
   const auth = getAuth(app);
   const firestore = getFirestore(app);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [categories, setCategories] = useState(["1"]);
   const location = useLocation();
-  const { contactId, contact, companyId } = location.state?? [];
+  const { contactId, contact, companyId } = location.state ?? [];
 
-  console.log('Contact ID:', contactId);
-  console.log('Contact:', contact);
-  console.log('Company ID:', companyId);
 
   const [userData, setUserData] = useState({
     name: "",
@@ -48,18 +41,11 @@ function Main() {
     companyId: ""
   });
 
-  let ghlConfig = {
-    ghl_id: '',
-    ghl_secret: '',
-    refresh_token: '',
-  };
-
   useEffect(() => {
-    // Set userData state with the values from contact when component mounts
     if (contact) {
       setUserData({
         name: contact.name || "",
-        phoneNumber: contact.phoneNumber || "",
+        phoneNumber: contact.phoneNumber.split('+6')[1] || "",
         email: contact.id || "",
         password: "",
         role: contact.role || "",
@@ -83,72 +69,116 @@ function Main() {
 
   const saveUser = async () => {
     try {
-      setIsLoading(true); // Set isLoading to true before user creation
-      const userOri = auth.currentUser;
-      const docUserRef = doc(firestore, 'user', userOri?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      } else {
-        const dataUser = docUserSnapshot.data();
-        const companyId = dataUser.companyId;
-        const company = dataUser.company;
-        // Prepare user data to be sent to the server
-        const userDataToSend = {
-          name: userData.name,
-          phoneNumber: userData.phoneNumber,
-          email: userData.email,
-          role: categories.toString(),
-          companyId: companyId,
-          company: company
-          // Add any other required fields here
-        };
-
-        if (contactId) {
-          // Update existing contact
-          await updateDoc(doc(firestore, `companies/${companyId}/employee`, contactId), userDataToSend);
-          await updateDoc(doc(firestore, `user`, userData.email), userDataToSend);
-          console.log("Contact updated successfully");
-        } else {
-          // Create new user
-          const response = await fetch(`https://buds-359313.et.r.appspot.com/api/create-user/${userData.email}/+60${userData.phoneNumber}/${userData.password}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-          });
-    
-          if (!response.ok) {
-            throw new Error('Failed to create user');
-          }
-    
-          // Parse response data if needed
-          const responseData = await response.json();
-          console.log("respon" + responseData);
-          // Handle success response
-          await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
-          await setDoc(doc(firestore, `companies/${companyId}/employee`, userData.email), userDataToSend);
-          console.log("User created successfully");
+        setIsLoading(true);
+        const userOri = auth.currentUser;
+        const docUserRef = doc(firestore, 'user', userOri?.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        
+    const dataUser = docUserSnapshot.data();
+    const companyId = dataUser!.companyId;
+    const company = dataUser!.company;
+        if (!userOri || !userOri.email) {
+            
+            return;
         }
 
-        setUserData({
-          name: "",
-          phoneNumber: "",
-          email: "",
-          password: "",
-          role: "",
-          companyId: ""
-        }); // Clear form fields after successful user creation
-      }
-      setIsLoading(false); // Set isLoading to false after successful user creation
-    } catch (error) {
-      console.error("Error creating user:", error);
-      setErrorMessage('An error occurred while creating the user. Please try again.');
-      setIsLoading(false); // Set isLoading to false if an error occurs
-    }
-  };
+        const formatPhoneNumber = (phoneNumber: string) => {
+            // Ensure phone number is in E.164 format
+            if (phoneNumber && !phoneNumber.startsWith('+')) {
+               phoneNumber = "+6"+phoneNumber;
+            }
+            return phoneNumber;
+        };
+    
+        // Prepare user data
+     
+   
+if (contactId) {
+  const userDataToSend = {
+    uid: contact.id ,
+    email: userData.email,
+    phoneNumber: formatPhoneNumber(userData.phoneNumber),
+    password: userData.password,
+    name: userData.name,
+    role:userData.role,
+    companyId:userData.companyId,
+    company:company
+};
 
+  const response = await fetch('https://buds-359313.et.r.appspot.com/api/update-user', {
+    method: 'PUT',
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(userDataToSend)
+});
+console.log(response.body);
+
+  await updateDoc(doc(firestore, `companies/${companyId}/employee`, contactId), userDataToSend);
+  await updateDoc(doc(firestore, 'user', userData.email), userDataToSend);
+  
+  toast.success("User updated successfully");
+  setUserData({
+    name: userData.name,
+    phoneNumber: userData.phoneNumber,
+    email: userData.email,
+    password: userData.password,
+    role: userData.role,
+    companyId: userData.companyId,
+});
+setSuccessMessage("User updated successfully");
+} else {
+
+  // Prepare user data to be sent to the server
+  const userDataToSend = {
+    name: userData.name,
+    phoneNumber: userData.phoneNumber,
+    email: userData.email,
+    role: categories.toString(),
+    companyId: companyId,
+    company: company
+    // Add any other required fields here
+  };
+  const response = await fetch(`https://buds-359313.et.r.appspot.com/api/create-user/${userData.email}/${formatPhoneNumber(userData.phoneNumber)}/${userData.password}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+  });
+  const responseData = await response.json();
+  console.log(responseData.message);
+  if(responseData.message == 'User created successfully'){
+    toast.success("User created successfully");
+ await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
+ await setDoc(doc(firestore, `companies/${companyId}/employee`, userData.email), userDataToSend);
+ setSuccessMessage('User created successfully');
+
+  setErrorMessage('');
+ 
+setUserData({
+    name: "",
+    phoneNumber: "",
+    email: "",
+    password: "",
+    role: "",
+    companyId: ""
+});
+
+  }else{
+    setErrorMessage(responseData.error);
+  }
+
+
+}
+      
+    
+        setIsLoading(false);
+    } catch (error) {
+        console.error("Error updating user:", error);
+        setErrorMessage('An error occurred while saving the user');
+        setIsLoading(false);
+    }
+};
   const editorConfig = {
     toolbar: {
       items: ["bold", "italic", "link"],
@@ -219,6 +249,8 @@ function Main() {
                 placeholder="Password"
               />
             </div>
+            {errorMessage && <div className="text-red-500">{errorMessage}</div>}
+            {successMessage && <div className="text-green-500">{successMessage}</div>}
             <div className="mt-5 text-right">
               <Button
                 type="button"
@@ -232,7 +264,7 @@ function Main() {
                 type="button"
                 variant="primary"
                 className="w-24"
-                onClick={saveUser} // Call saveUser function on button click
+                onClick={saveUser}
                 disabled={isLoading}
               >
                 {isLoading ? "Saving..." : "Save"}
