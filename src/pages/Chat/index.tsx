@@ -1392,21 +1392,6 @@ const handleForwardMessage = async () => {
       </div>
     </div>
   </div>
-<<<<<<< HEAD
-)}
-  <div className="relative flex-grow">
-    <input
-      type="text"
-      className="w-[320px] h-[40px] !box pr-2 text-md py-2 pl-9 bg-gray-200 text-gray-700 rounded-md focus:bg-gray-200"
-      placeholder="Search..."
-      value={searchQuery}
-      onChange={handleSearchChange}
-    />
-    <Lucide
-      icon="Search"
-      className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500"
-    />
-=======
 )} {isFetching && (
   <div className="w-full">
     <div className="bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 relative">
@@ -1415,7 +1400,6 @@ const handleForwardMessage = async () => {
     <div className="text-right mt-1">
       <span className="font-semibold truncate">{progress.toFixed(2)}%</span>
     </div>
->>>>>>> 56d65feb347d4787fffd6d731ba53af66ddf3b69
   </div>
 )}
 {!isFetching && (
@@ -1651,13 +1635,6 @@ const handleForwardMessage = async () => {
 
         <div className="absolute bottom-0 left-0 w-500px !box m-2 bg-none border-t border-gray-300 py-1 px-2">
 
-<<<<<<< HEAD
-            </li>
-        </ul>
-    </div>
-=======
-
->>>>>>> 56d65feb347d4787fffd6d731ba53af66ddf3b69
           <div className="flex items-center">
           <Menu as="div" className="relative inline-block text-left p-2">
             <div className="flex items-center space-x-3">

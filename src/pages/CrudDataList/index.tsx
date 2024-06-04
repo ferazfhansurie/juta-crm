@@ -32,37 +32,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const firestore = getFirestore(app);
 
-<<<<<<< HEAD
-interface Contact {
-  additionalEmails: string[];
-  address1: string | null;
-  assignedTo: string | null;
-  businessId: string | null;
-  city: string | null;
-  companyName: string | null;
-  contactName: string;
-  country: string;
-  customFields: any[];
-  dateAdded: string;
-  dateOfBirth: string | null;
-  dateUpdated: string;
-  dnd: boolean;
-  dndSettings: any;
-  email: string | null;
-  firstName: string;
-  followers: string[];
-  id: string;
-  lastName: string;
-  locationId: string;
-  phone: string | null;
-  postalCode: string | null;
-  source: string | null;
-  state: string | null;
-  tags: string[];
-  type: string;
-  website: string | null;
-=======
->>>>>>> 56d65feb347d4787fffd6d731ba53af66ddf3b69
 
 function Main() {
   interface Contact {
@@ -131,10 +100,7 @@ function Main() {
   const [tags, setTags] = useState<TagsState>({}); 
   const [blastMessageModal, setBlastMessageModal] = useState(false);
   const [blastMessage, setBlastMessage] = useState("");
-<<<<<<< HEAD
-=======
   const [progress, setProgress] = useState<number>(0);
->>>>>>> 56d65feb347d4787fffd6d731ba53af66ddf3b69
   const [newContact, setNewContact] = useState({
       firstName: '',
       lastName: '',
@@ -947,20 +913,6 @@ const chatId = tempphone + "@s.whatsapp.net"
       </button>
       </div>
       <div className="relative w-full text-slate-500 p-2 mb-3">
-<<<<<<< HEAD
-        
-        <FormInput
-          type="text"
-          className="relative w-full h-[40px] pr-10 !box text-lg"
-          placeholder="Search..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <Lucide
-          icon="Search"
-          className="absolute inset-y-0 right-5 w-5 h-5 my-auto"
-        />
-=======
   {isFetching ? (
     <>
       <div className="w-full bg-gray-200 rounded-full h-4">
@@ -968,7 +920,6 @@ const chatId = tempphone + "@s.whatsapp.net"
           className="bg-blue-600 h-4 rounded-full"
           style={{ width: `${progress}%` }}
         ></div>
->>>>>>> 56d65feb347d4787fffd6d731ba53af66ddf3b69
       </div>
       <div className="text-right mt-2">
         Fetched {fetched} of {total} contacts
