@@ -93,11 +93,13 @@ interface Chat {
 }
 
 interface Message {
+  chat_id:string;
   dateAdded: number;
   timestamp: number;
   id: string;
   text?: { body: string | "" };
   from_me?: boolean;
+  from_name:string;
   createdAt: number;
   type?: string;
   image?: { link?: string; caption?: string };
@@ -173,8 +175,8 @@ function Main() {
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState(contacts);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-4 bg-blue-500 text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-right";
-  const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-2 self-start text-left";
+  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-blue-500 text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-right";
+  const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [ghlConfig, setGhlConfig] = useState<GhlConfig | null>(null);
@@ -344,7 +346,60 @@ console.log(initialContacts);
 
     return () => unsubscribe();
   }, [companyId, selectedChatId, whapiToken]);
+  let params :URLSearchParams;
+  let chatId: any ;
+  if(location != undefined){
+    params =new URLSearchParams(location.search);
+    chatId =  params.get("chatId");
+  }
 
+
+  useEffect(() => {
+    const fetchContact = async () => {
+
+      console.log(chatId);
+      if (chatId) {
+        setLoading(true);
+        const user = auth.currentUser;
+        if (!user) {
+          console.error('No user is authenticated');
+          return;
+        }
+        const docUserRef = doc(firestore, 'user', user.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.error('No such document for user!');
+      return;
+    }
+    const dataUser = docUserSnapshot.data() as UserData;
+
+    if (!dataUser || !dataUser.companyId) {
+      console.error('Invalid user data or companyId');
+      return;
+    }
+
+    setUserData(dataUser);
+    user_role = dataUser.role;
+    companyId = dataUser.companyId;
+
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) {
+      console.error('No such document for company!');
+      return;
+    }
+    const data = docSnapshot.data();
+        const phone = "+" + chatId.split('@')[0];
+        const contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
+        setSelectedContact(contact);
+        console.log(selectedContact + " contact");
+        setSelectedChatId(chatId);
+        setLoading(false);
+      }
+    };
+  
+    fetchContact();
+  }, [chatId]);
 async function fetchConfigFromDatabase() {
 
   const user = auth.currentUser;
@@ -398,8 +453,7 @@ async function fetchConfigFromDatabase() {
     user_name = dataUser.name;
   
     await fetchTags(data.ghl_accessToken,data.ghl_location);
-    const params = new URLSearchParams(location.search);
-    const chatId = params.get("chatId");
+
   
     if (chatId) {
       setLoading(true);
@@ -701,12 +755,14 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       if (selectedChatId.includes('@')) {
         const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
         const data = response.data;
-     console.log(data);
+     console.log(data.messages);
         setMessages(
-          data.messages.map((message: { id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; document:any}) => ({
+          data.messages.map((message: { chat_id:string,from_name: string; id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; document:any}) => ({
             id: message.id,
             text: { body: message.text ? message.text.body : '' },
             from_me: message.from_me,
+            from_name: message.from_name,
+            chat_id:message.chat_id,
             createdAt: message.timestamp,
             type: message.type,
             image: message.image ? message.image : undefined,
@@ -752,10 +808,12 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
         const data = response.data;
         setMessages(
-          data.messages.map((message: { id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; }) => ({
+          data.messages.map((message: {chat_id:string;from_name:string; id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; }) => ({
             id: message.id,
             text: { body: message.text ? message.text.body : '' },
             from_me: message.from_me,
+            chat_id:message.chat_id,
+            from_name: message.from_name,
             createdAt: message.timestamp,
             type: message.type,
             image: message.image ? message.image : undefined,
@@ -1323,7 +1381,7 @@ const handleForwardMessage = async () => {
   };
 
   return (
-    <div className="flex overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '85vh' }}>
+    <div className="flex overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '92vh' }}>
     <div className="flex flex-col w-full sm:w-1/4 bg-gray-100 border-r border-gray-300">
     <div className="relative mr-3 intro-x sm:mr-6"></div>
     <div className="relative hidden sm:block p-4">
@@ -1505,7 +1563,7 @@ const handleForwardMessage = async () => {
   </div>
 </div>
 
-      <div className="flex flex-col w-full sm:w-3/4 bg-white relative">
+      <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 relative">
       {selectedContact && (
           <div className="flex items-center justify-between p-2 border-b border-gray-300 bg-gray-100">
             <div className="flex items-center">
@@ -1585,6 +1643,10 @@ const handleForwardMessage = async () => {
         onMouseEnter={() => setHoveredMessageId(message.id)}
         onMouseLeave={() => setHoveredMessageId(null)}
       >
+
+        {message.chat_id.includes('@g.us')&& (
+            <div className="pb-1 text-md font-medium">{message.from_name}</div>
+        )}
         {message.type === 'image' && message.image && (
           <div className="message-content image-message">
             <img
@@ -1680,7 +1742,7 @@ const handleForwardMessage = async () => {
     </span>
   </button>
             <textarea
-               className="flex-grow px-5 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-lg mr-2 ml-4 resize-none bg-gray-100 text-gray-800"
+               className="flex-grow h-10 px-2 py-1.5 m-1 mr-0 ml-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
               placeholder="Type a message"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -1756,10 +1818,10 @@ const handleForwardMessage = async () => {
 
       <ToastContainer />
       {isQuickRepliesOpen && (
-  <div className="bg-gray-100 p-4 rounded-md shadow-lg mt-2">
+  <div className="bg-gray-100 p-2 rounded-md shadow-lg mt-2">
     <div className="flex items-center mb-4">
     <textarea
-  className="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+  className="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
   placeholder="Add new quick reply"
   value={newQuickReply}
   onChange={(e) => setNewQuickReply(e.target.value)}

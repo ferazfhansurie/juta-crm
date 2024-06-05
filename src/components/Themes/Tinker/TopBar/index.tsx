@@ -1,5 +1,6 @@
 import { useState, Fragment } from "react";
 import React, { useEffect, useRef } from "react";
+import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal} from "react";
 import Lucide from "@/components/Base/Lucide";
 import Breadcrumb from "@/components/Base/Breadcrumb";
 import { FormInput } from "@/components/Base/Form";
@@ -13,6 +14,7 @@ import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
 import { initializeApp } from 'firebase/app';
 import { DocumentReference, getDoc } from 'firebase/firestore';
 import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
+import { useNavigate } from "react-router-dom"; // Add this import
 
 // Initialize Firebase app
 const firebaseConfig = {
@@ -35,6 +37,7 @@ let ghlConfig = {
   ghl_secret: '',
   ghl_refreshToken: '',
 };
+let role = 2;
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -56,6 +59,21 @@ function Main() {
   const [searchDropdown, setSearchDropdown] = useState(false);
   const [whapiToken, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredNotifications = notifications.filter((notification) => {
+    return (
+      notification.from_name.toLowerCase().includes(searchQuery) ||
+      (notification.text && notification.text.body.toLowerCase().includes(searchQuery))
+    );
+  });
+
+  const navigate = useNavigate(); // Initialize useNavigate
+
+  const handleNotificationClick = (chatId: any) => {
+    navigate(`/chat/?chatId=${chatId}`);
+  };
 
   const showSearchDropdown = () => {
     setSearchDropdown(true);
@@ -71,39 +89,61 @@ function Main() {
 
 
   async function fetchConfigFromDatabase() {
+    const user = auth.currentUser;
+  
+    if (!user) {
+      console.error("No user is currently authenticated.");
+      return;
+    }
+  
+    const userEmail = user.email;
+  
+    if (!userEmail) {
+      console.error("Authenticated user has no email.");
+      return;
+    }
+  
     try {
-      const user = auth.currentUser;
-      if (!user || !user.email) return;
-
-      const docUserRef = doc(firestore, 'user', user.email);
+      
+      const docUserRef = doc(firestore, 'user', userEmail);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
         
         return;
       }
-
       const dataUser = docUserSnapshot.data();
+      if (!dataUser) {
+        
+        return;
+      }
+  
       companyId = dataUser.companyId;
-      userName = dataUser.name;
-      companyName = dataUser.company;
-      userEmail = dataUser.email;
-      
+      role = dataUser.role;
+      setNotifications(dataUser.notifications || []);
    
-      setMessages(dataUser.notifications || []);
+  
+      
+      if (!companyId) {
+        
+        return;
+      }
+  
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
         
         return;
       }
-
       const data = docSnapshot.data();
-      ghlConfig = {
-        ghl_id: data.ghl_id,
-        ghl_secret: data.ghl_secret,
-        ghl_refreshToken: data.ghl_refreshToken
-      };
-      setToken(data.whapiToken);
+      if (!data) {
+        
+        return;
+      }
+      
+
+  
+
+      //await searchContacts(data.ghl_accessToken, data.ghl_location);
     } catch (error) {
       console.error('Error fetching config:', error);
       throw error;
@@ -122,50 +162,62 @@ function Main() {
           </h2>
         </Breadcrumb>
         {/* END: Breadcrumb */}
-        {/* BEGIN: Search */}
-      
-        {/* END: Search  */}
-        {/* BEGIN: Notifications    <Popover className="mr-auto intro-x sm:mr-6">
-          <Popover.Button
-            className="
-              relative text-slate-600 outline-none block
-              before:content-[''] before:w-[8px] before:h-[8px] before:rounded-full before:absolute before:top-[-2px] before:right-0 before:bg-danger
-            "
-          >
-            <Lucide icon="Bell" className="w-5 h-5 dark:text-slate-500" />
-          </Popover.Button>
-          <Popover.Panel className="w-[280px] sm:w-[350px] p-5 mt-2">
-            <div className="mb-5 font-medium">Notifications</div>
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={clsx([
-                  "cursor-pointer relative flex items-center",
-                  { "mt-5": index > 0 },
-                ])}
-              >
-                <div className="relative flex-none w-12 h-12 mr-1 image-fit">
-              
-                  <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full ${message.read ? 'bg-success' : 'bg-danger'} dark:border-darkmode-600`}></div>
-                </div>
-                <div className="ml-2 overflow-hidden">
-                  <div className="flex items-center">
-                    <a href="" className="mr-5 font-medium truncate">
-                      {message.from_name}
-                    </a>
-                    <div className="ml-auto text-xs text-slate-400 whitespace-nowrap">
-                      {new Date(message.timestamp*1000).toLocaleString()}
+        {/* BEGIN: Notifications  */}
+        <div>
+          <Menu>
+            <Menu.Button className="block w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+              <Lucide icon="Bell" className="w-5 h-5" />
+            </Menu.Button>
+            <Menu.Items className="w-auto mt-2 mr-8 text-white bg-primary">
+              <Menu.Header className="font-normal">
+                <div className="font-medium">Notifications</div>
+              </Menu.Header>
+
+              <div className="mt-2 pl-2 pr-2 h-64 overflow-y-auto"> {/* Set height and enable scrolling */}
+                {filteredNotifications && filteredNotifications.length > 0 ? (
+                  filteredNotifications.reduce((uniqueNotifications, notification) => {
+                    const existingNotificationIndex = uniqueNotifications.findIndex(
+                      (n: { chat_id: any; }) => n.chat_id === notification.chat_id
+                    );
+                    if (existingNotificationIndex !== -1) {
+                      // If a notification with the same chat_id exists, replace it with the new one
+                      uniqueNotifications[existingNotificationIndex] = notification;
+                    } else {
+                      // Otherwise, add the new notification
+                      uniqueNotifications.push(notification);
+                    }
+                    return uniqueNotifications;
+                  }, []).sort((a: { timestamp: number; }, b: { timestamp: number; }) => b.timestamp - a.timestamp).map((notification: { chat_id: any; from_name: string; text: { body: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | null | undefined; }; timestamp: number; }, key: Key | null | undefined) => (
+                    <div key={key} className="w-100">
+                      <div
+                        className="flex items-center mb-2 box hover:bg-blue-100 zoom-in w-70 cursor-pointer"
+                        onClick={() => handleNotificationClick(notification.chat_id)}
+                      >
+                        <div className="p-2 pl-1 ml-2" >
+                          <div className="text-s font-medium text-slate-800 truncate capitalize">{notification.from_name}</div>
+                          <div className="text-base text-xs text-slate-500">{notification.text ? notification.text.body : ""}</div>
+                          <div className="text-slate-500 text-xs mt-0.5">
+                            {new Date(notification.timestamp * 1000).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="w-full truncate text-slate-500 mt-0.5">
-                    {message.text.body}
-                  </div>
-                </div>
+                  ))
+                ) : (
+                  <div className="text-center text-slate-500">No messages available</div>
+                )}
               </div>
-            ))}
-          </Popover.Panel>
-        </Popover>*/}
-     
+
+              <Menu.Divider className="bg-white/[0.08]" />
+              <Menu.Item className="hover:bg-white/5">
+                {/* Logout link with sign out function */}
+                <Link to="/login" onClick={handleSignOut}>
+                  <Lucide icon="ToggleRight" className="w-4 h-4 mr-2" /> Logout
+                </Link>
+              </Menu.Item>
+            </Menu.Items>
+          </Menu>
+        </div>
         {/* END: Notifications  */}
         {/* BEGIN: Account Menu */}
         <Menu>
