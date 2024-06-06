@@ -59,6 +59,9 @@ function Main() {
   const [searchDropdown, setSearchDropdown] = useState(false);
   const [whapiToken, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
+  const [userName, setUserName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
   const [notifications, setNotifications] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -97,6 +100,7 @@ function Main() {
     }
   
     const userEmail = user.email;
+    setUserEmail(userEmail || "");
   
     if (!userEmail) {
       console.error("Authenticated user has no email.");
@@ -117,6 +121,7 @@ function Main() {
         return;
       }
   
+      setUserName(dataUser.name);
       companyId = dataUser.companyId;
       role = dataUser.role;
       setNotifications(dataUser.notifications || []);
@@ -135,10 +140,12 @@ function Main() {
         return;
       }
       const data = docSnapshot.data();
-      if (!data) {
-        
-        return;
-      }
+        if (!data) {
+          console.error("No data found in company document.");
+          return;
+        }
+
+        setCompanyName(data.companyName); // Set companyName
       
 
   
@@ -170,7 +177,7 @@ function Main() {
             </Menu.Button>
             <Menu.Items className="w-auto mt-2 mr-8 text-white bg-primary">
               <Menu.Header className="font-normal">
-                <div className="font-medium">Notifications</div>
+                <div className="font-medium text-lg">Notifications</div>
               </Menu.Header>
 
               <div className="mt-2 pl-2 pr-2 h-64 overflow-y-auto"> {/* Set height and enable scrolling */}
@@ -207,14 +214,6 @@ function Main() {
                   <div className="text-center text-slate-500">No messages available</div>
                 )}
               </div>
-
-              <Menu.Divider className="bg-white/[0.08]" />
-              <Menu.Item className="hover:bg-white/5">
-                {/* Logout link with sign out function */}
-                <Link to="/login" onClick={handleSignOut}>
-                  <Lucide icon="ToggleRight" className="w-4 h-4 mr-2" /> Logout
-                </Link>
-              </Menu.Item>
             </Menu.Items>
           </Menu>
         </div>
@@ -224,16 +223,13 @@ function Main() {
           <Menu.Button className="block w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white">
           <Lucide icon="Settings" className="w-5 h-5" />
           </Menu.Button>
-          <Menu.Items className="w-56 mt-px text-white bg-primary">
-            <Menu.Header className="font-normal">
+          <Menu.Items className="w-auto mt-2 mr-4 text-white bg-primary">
+            <Menu.Header>
               <div className="font-medium">{userEmail}</div>
-              <div className="text-xs text-white/70 mt-0.5 dark:text-slate-500">
-                {companyName}
-              </div>
             </Menu.Header>
         
             <Menu.Divider className="bg-white/[0.08]" />
-            <Menu.Item className="hover:bg-white/5">
+            <Menu.Item className="hover:bg-white/5" >
               {/* Logout link with sign out function */}
               <Link to="/login" onClick={handleSignOut}>
                 <Lucide icon="ToggleRight" className="w-4 h-4 mr-2" /> Logout

@@ -452,6 +452,12 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
     return;
   }
   const userData = docUserSnapshot.data();
+
+  // Check if the user has the "sales" role
+  if (userData.role === '2') {
+    toast.error("You do not have permission to remove tags.");
+    return;
+  }
   const companyId = userData.companyId;
   const docRef = doc(firestore, 'companies', companyId);
   const docSnapshot = await getDoc(docRef);

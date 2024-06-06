@@ -44,6 +44,12 @@ const firebaseConfig = {
           setSignInResult(errorMessage);
         });
     }
+
+    const handleKeyDown = (event: { key: string; }) => {
+      if (event.key === "Enter") {
+        handleSignIn();
+      }
+    };
   
     return (
       <>
@@ -85,6 +91,8 @@ const firebaseConfig = {
                       placeholder="Email"
                       value={email} // Bind value to email state
                       onChange={(e) => setEmail(e.target.value)} // Update email state on change
+
+                      onKeyDown={handleKeyDown} // Add keydown event listener
                     />
                     <FormInput
                       type="password"
@@ -92,6 +100,8 @@ const firebaseConfig = {
                       placeholder="Password"
                       value={password} // Bind value to password state
                       onChange={(e) => setPassword(e.target.value)} // Update password state on change
+
+                      onKeyDown={handleKeyDown} // Add keydown event listener
                     />
                   </div>
                   <div className="mt-5 text-center intro-x xl:mt-8 xl:text-left">
