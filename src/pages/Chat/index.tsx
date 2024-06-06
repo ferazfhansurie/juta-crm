@@ -1382,9 +1382,9 @@ const handleForwardMessage = async () => {
 
   return (
     <div className="flex overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '92vh' }}>
-    <div className="flex flex-col w-full sm:w-1/4 bg-gray-100 border-r border-gray-300">
+    <div className="flex flex-col min-w-full md:min-w-15  sm:min-w-5 bg-gray-100 border-r border-gray-300">
     <div className="relative mr-3 intro-x sm:mr-6"></div>
-    <div className="relative hidden sm:block p-4">
+    <div className="relative hidden sm:block p-2">
     <div className="flex items-center space-x-2">
     {isForwardDialogOpen && (
   <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
@@ -1512,23 +1512,23 @@ const handleForwardMessage = async () => {
     {filteredContacts.map((contact, index) => (
       <div
         key={contact.id || `${contact.phone}-${index}`}
-        className={`p-2 mb-2 rounded cursor-pointer flex items-center space-x-3 ${
+        className={`m-2 pl-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 ${
           contact.chat_id !== undefined
             ? selectedChatId === contact.chat_id
               ? 'bg-gray-700 text-white'
               : 'hover:bg-gray-300'
             : selectedChatId === contact.phone
             ? 'bg-gray-700 text-white'
-            : 'hover:bg-gray-700'
+            : 'hover:bg-gray-300'
         }`}
         onClick={() => selectChat(contact.chat_id!, contact.email!)}
       >
-        <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
+        <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
           {contact.firstName ? contact.firstName.charAt(0).toUpperCase() : "?"}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-center">
-            <span className="font-semibold truncate">{contact.firstName ?? contact.phone}</span>
+            <span className="font-semibold capitalize truncate">{contact.firstName ?? contact.phone}</span>
             <span className="text-xs">
               {contact.last_message?.createdAt || contact.last_message?.timestamp
                 ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
@@ -1543,20 +1543,18 @@ const handleForwardMessage = async () => {
               <span className="bg-blue-900 text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
             )}
            
-           
+           <label className="inline-flex items-center cursor-pointer">
+            <input
+                type="checkbox"
+                value=""
+                className="sr-only peer"
+                checked={contact.tags?.includes("stop bot")}
+                onChange={() => toggleStopBotLabel(contact.chat, index, contact)}
+              />
+              <div className="mt-1 ml-2 relative w-11 h-6 bg-gray-400 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-blue-400">
+              </div>
+            </label>
           </div>
-     
-          <label className="inline-flex items-center cursor-pointer">
-          <input
-              type="checkbox"
-              value=""
-              className="sr-only peer"
-              checked={contact.tags?.includes("stop bot")}
-              onChange={() => toggleStopBotLabel(contact.chat, index, contact)}
-            />
-            <div className="relative w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600">
-            </div>
-          </label>
         </div>
       </div>
     ))}
@@ -1565,7 +1563,7 @@ const handleForwardMessage = async () => {
 
       <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 relative">
       {selectedContact && (
-          <div className="flex items-center justify-between p-2 border-b border-gray-300 bg-gray-100">
+          <div className="flex items-center justify-between p-1 border-b border-gray-300 bg-gray-100">
             <div className="flex items-center">
               <div className="w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3">
                 <span className="text-lg">{selectedContact.firstName ? selectedContact.firstName.charAt(0).toUpperCase() : "?"}</span>
