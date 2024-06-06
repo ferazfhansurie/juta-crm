@@ -98,7 +98,6 @@ function Router() {
       children: [
         { path: "chat", element: <Chat /> },
         { path: "/dashboard", element: <DashboardOverview1 /> },
-        { path: "dashboard-overview-2", element: <DashboardOverview2 /> },
         { path: "dashboard-overview-3", element: <DashboardOverview3 /> },
         { path: "dashboard-overview-4", element: <DashboardOverview4 /> },
         { path: "profile", element: <ProfileOverview1 /> },
@@ -163,6 +162,7 @@ function Router() {
         { path: "image-zoom", element: <ImageZoom /> },
       ],
     },
+    { path: "dashboard-overview-2", element: <DashboardOverview2 /> },
     { path: "loading", element: <LoadingIcon /> },
     { path: "product-list", element: <ProductList /> },
     { path: "product-grid", element: <ProductGrid /> },
