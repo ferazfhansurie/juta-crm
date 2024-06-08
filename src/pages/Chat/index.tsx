@@ -21,6 +21,7 @@ import errorIllustration from "@/assets/images/chat.svg";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { useLocation } from "react-router-dom";
 import { useContacts } from '../../contact';
+
 interface Label {
   id: string;
   name: string;
@@ -74,6 +75,7 @@ interface Contact {
   chat_id: string;
   unreadCount:number;
   chat_pic_full:string;
+  pinned: boolean;  
 }
 interface GhlConfig {
   ghl_id: string;
@@ -135,6 +137,28 @@ interface QuickReply {
   id: string;
   text: string;
 }
+
+const ImageModal = ({ isOpen, onClose, imageUrl }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75" onClick={onClose}>
+      <div className="relative mt-10 p-2 bg-white rounded-lg shadow-lg max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <img src={imageUrl} alt="Modal Content" className="rounded-md max-w-full max-h-full" />
+        <a href={imageUrl} download className="mt-2 block text-center text-blue-500 hover:underline">
+          Save Image
+        </a>
+        <button
+          className="absolute top-4 right-4 text-gray-600 hover:text-gray-900"
+          onClick={onClose}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
   authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -165,6 +189,8 @@ function Main() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [stopBotLabelCheckedState, setStopBotLabelCheckedState] = useState<boolean[]>([]);
+  const [isImageModalOpen, setImageModalOpen] = useState(false);
+  const [modalImageUrl, setModalImageUrl] = useState('');
 
   const [selectedMessage2, setSelectedMessage2] = useState(null);
   const [selectedContact, setSelectedContact] = useState<any>(null);
@@ -197,6 +223,7 @@ function Main() {
   const [total, setTotal] = useState(0);
   const prevNotificationsRef = useRef<number | null>(null);
   const isInitialMount = useRef(true);
+
   let companyId = '014';
   let user_name = '';
   let user_role='2';
@@ -1380,9 +1407,33 @@ const handleForwardMessage = async () => {
     setSearchQuery2(''); // Clear the search query
   };
 
+  const togglePinConversation = (contactId: string) => {
+    setContacts((prevContacts) =>
+      prevContacts.map((contact) =>
+        contact.id === contactId ? { ...contact, pinned: !contact.pinned } : contact
+      )
+    );
+  };
+
+  useEffect(() => {
+    const sortedContacts = [...contacts].sort((a, b) => b.pinned - a.pinned);
+    setFilteredContacts(sortedContacts);
+  }, [contacts, searchQuery, activeTags]);
+
+  const openImageModal = (imageUrl: string) => {
+    setModalImageUrl(imageUrl);
+    setImageModalOpen(true);
+  };
+
+  const closeImageModal = () => {
+    setImageModalOpen(false);
+    setModalImageUrl('');
+  };
+
+
   return (
     <div className="flex overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '92vh' }}>
-    <div className="flex flex-col min-w-full md:min-w-15  sm:min-w-5 bg-gray-100 border-r border-gray-300">
+    <div className="flex flex-col min-w-full md:min-w-15 sm:min-w-5 bg-gray-100 border-r border-gray-300">
     <div className="relative mr-3 intro-x sm:mr-6"></div>
     <div className="relative hidden sm:block p-2">
     <div className="flex items-center space-x-2">
@@ -1530,10 +1581,19 @@ const handleForwardMessage = async () => {
     contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"
   )}
 </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 group">
           <div className="flex justify-between items-center">
             <span className="font-semibold capitalize truncate">{contact.contactName??contact.phone }</span>
             <span className="text-xs">
+            <button
+                className="text-md font-medium mr-2 text-gray-500 hover:text-blue-500 transform transition-opacity opacity-0 group-hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePinConversation(contact.id);
+                }}
+              >
+                {contact.pinned ? 'Unpin' : 'Pin'}
+              </button>
               {contact.last_message?.createdAt || contact.last_message?.timestamp
                 ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
                 : 'No Messages'}
@@ -1639,7 +1699,7 @@ const handleForwardMessage = async () => {
         key={message.id}
         style={{
           maxWidth: '70%',
-          width: `${message.type === 'image' || message.type === 'document' ? '350' : Math.min((message.text?.body?.length || 0) * 10, 350)}px`,
+          width: `${message.type === 'image' || message.type === 'document' ? '320' : Math.min((message.text?.body?.length || 0) * 10, 320)}px`,
           minWidth: '75px'  // Add a minimum width here
         }}
         onMouseEnter={() => setHoveredMessageId(message.id)}
@@ -1650,12 +1710,13 @@ const handleForwardMessage = async () => {
             <div className="pb-1 text-md font-medium">{message.from_name}</div>
         )}
         {message.type === 'image' && message.image && (
-          <div className="message-content image-message">
+          <div className=" p-0 message-content image-message">
             <img
               src={message.image.link}
               alt="Image"
-              className="message-image"
+              className="rounded-lg message-image cursor-pointer"
               style={{ maxWidth: '300px' }}
+              onClick={() => openImageModal(message.image.link)}
             />
             <div className="caption">{message.image.caption}</div>
           </div>
@@ -1817,7 +1878,7 @@ const handleForwardMessage = async () => {
     </div>
   </div>
 )}
-
+      <ImageModal isOpen={isImageModalOpen} onClose={closeImageModal} imageUrl={modalImageUrl} />
       <ToastContainer />
       {isQuickRepliesOpen && (
   <div className="bg-gray-100 p-2 rounded-md shadow-lg mt-2">
