@@ -12,7 +12,7 @@ import { Transition } from "@headlessui/react";
 import { Link } from "react-router-dom";
 import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
 import { initializeApp } from 'firebase/app';
-import { DocumentReference, getDoc } from 'firebase/firestore';
+import { DocumentData, DocumentReference, getDoc, getDocs } from 'firebase/firestore';
 import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import { useNavigate } from "react-router-dom"; // Add this import
 
@@ -109,49 +109,44 @@ function Main() {
     }
   
     try {
-      
       const docUserRef = doc(firestore, 'user', userEmail);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        
         return;
       }
       const dataUser = docUserSnapshot.data();
       if (!dataUser) {
-        
         return;
       }
   
       setUserName(dataUser.name);
       companyId = dataUser.companyId;
       role = dataUser.role;
-      setNotifications(dataUser.notifications || []);
-   
   
-      
       if (!companyId) {
-        
         return;
       }
   
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        
         return;
       }
       const data = docSnapshot.data();
-        if (!data) {
-          console.error("No data found in company document.");
-          return;
-        }
-
-        setCompanyName(data.companyName); // Set companyName
-      
-
+      if (!data) {
+        console.error("No data found in company document.");
+        return;
+      }
   
-
-      //await searchContacts(data.ghl_accessToken, data.ghl_location);
+      setCompanyName(data.companyName); // Set companyName
+  
+      // Fetch notifications from the notifications subcollection
+      const notificationsRef = collection(firestore, 'user', userEmail, 'notifications');
+      const notificationsSnapshot = await getDocs(notificationsRef);
+      const notifications = notificationsSnapshot.docs.map((doc: { data: () => DocumentData; }) => doc.data());
+  
+      // Update state with the fetched notifications
+      setNotifications(notifications);
     } catch (error) {
       console.error('Error fetching config:', error);
       throw error;

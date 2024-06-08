@@ -965,7 +965,7 @@ const chatId = tempphone + "@s.whatsapp.net"
     <>
       <div className="w-full bg-gray-200 rounded-full h-4">
         <div
-          className="bg-blue-600 h-4 rounded-full"
+          className="bg-primary h-4 rounded-full"
           style={{ width: `${progress}%` }}
         ></div>
       </div>
@@ -1074,7 +1074,7 @@ Total Contacts: {filteredContacts.length}
                       <Lucide icon="Eye" className="w-5 h-5" />
                     </span>
                   </button>
-                  <button className="p-2 m-1 !box text-blue-900" onClick={() => {
+                  <button className="p-2 m-1 !box text-primary" onClick={() => {
                     handleClick(contact.phone)
                   }}>
                     <span className="flex items-center justify-center w-5 h-5">
@@ -1170,7 +1170,7 @@ Total Contacts: {filteredContacts.length}
                                 Cancel
                             </button>
                             <button
-                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md "
                                 onClick={handleSaveNewContact}
                             >
                                 Save
@@ -1257,7 +1257,7 @@ Total Contacts: {filteredContacts.length}
                     Cancel
                 </button>
                 <button
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                    className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
                     onClick={handleSaveContact}
                 >
                     Save
@@ -1281,7 +1281,7 @@ Total Contacts: {filteredContacts.length}
           ></textarea>
           <div className="flex justify-end mt-4">
             <button
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
               onClick={sendBlastMessage}>Send Message
             </button>
           </div>
@@ -1319,7 +1319,7 @@ Total Contacts: {filteredContacts.length}
             Cancel
           </button>
           <button
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
             onClick={handleSaveNewTag}
           >
             Save

@@ -231,7 +231,7 @@ toggleModal();
           <div className="flex">
             <button
               onClick={() => navigate(`crud-form`, { state: { contactId: contacts.id, contact: contacts, companyId: companyId || '' } })}
-              className="p-2 text-blue-500 hover:text-blue-600 relative"
+              className="p-2 text-primary hover:text-blue-600 relative"
               aria-label="Edit"
               type="button"
             >

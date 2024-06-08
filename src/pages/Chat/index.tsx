@@ -137,8 +137,12 @@ interface QuickReply {
   id: string;
   text: string;
 }
-
-const ImageModal = ({ isOpen, onClose, imageUrl }) => {
+interface ImageModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  imageUrl: string;
+}
+const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageUrl }) => {
   if (!isOpen) return null;
 
   return (
@@ -201,7 +205,7 @@ function Main() {
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState(contacts);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-blue-500 text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-right";
+  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-right";
   const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [tagList, setTagList] = useState<Tag[]>([]);
@@ -223,7 +227,8 @@ function Main() {
   const [total, setTotal] = useState(0);
   const prevNotificationsRef = useRef<number | null>(null);
   const isInitialMount = useRef(true);
-
+  const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
+  const [isGroupFilterActive, setIsGroupFilterActive] = useState(false);
   let companyId = '014';
   let user_name = '';
   let user_role='2';
@@ -234,25 +239,6 @@ function Main() {
 
 
 
-console.log(initialContacts);
-  useEffect(() => {
-    const ws = new WebSocket('wss://buds-359313.et.r.appspot.com:8081'); // Update with your server's WebSocket URL
-
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      if (message.type === 'progress') {
-        setProgress(message.progress);
-      }
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket connection closed');
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, []);
   useEffect(() => {
     if (messageListRef.current) {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
@@ -316,61 +302,65 @@ console.log(initialContacts);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
-      doc(firestore, 'user', auth.currentUser?.email!),
+      collection(firestore, 'user', auth.currentUser?.email!, 'notifications'),
       async (snapshot) => {
-        if (snapshot.exists()) {
-          const dataUser = snapshot.data();
-          const currentNotifications = dataUser.notifications || [];
-
-          // Prevent running on initial mount
-          if (isInitialMount.current) {
-            isInitialMount.current = false;
-            prevNotificationsRef.current = currentNotifications.length;
-            return;
-          }
-
-          // Check if a new notification has been added
-          if (prevNotificationsRef.current !== null && currentNotifications.length > prevNotificationsRef.current) {
-            const latestNotification = currentNotifications[currentNotifications.length - 1];
-
-            if (selectedChatId === latestNotification.chat_id) {
-              fetchMessagesBackground(selectedChatId!, whapiToken!);
-            } else {
-              console.log('Received a new notification');
-              const newCompanyId = dataUser.companyId;
-              const docRef = doc(firestore, 'companies', newCompanyId);
-              const docSnapshot = await getDoc(docRef);
-              if (!docSnapshot.exists()) {
-                console.log('No such document!');
-                return;
-              }
-              const data = docSnapshot.data();
-              setGhlConfig({
-                ghl_id: data.ghl_id,
-                ghl_secret: data.ghl_secret,
-                refresh_token: data.refresh_token,
-                ghl_accessToken: data.ghl_accessToken,
-                ghl_location: data.ghl_location,
-                whapiToken: data.whapiToken,
-              });
-              const user_name = dataUser.name;
-              fetchContactsBackground(
-                data.whapiToken,
-                data.ghl_location,
-                data.ghl_accessToken,
-                user_name,
-                dataUser.role,
-                dataUser.email
-              );
-            }
-          }
-
-          // Update the previous notifications count
+        const currentNotifications = snapshot.docs.map(doc => doc.data());
+  
+        // Prevent running on initial mount
+        if (isInitialMount.current) {
+          isInitialMount.current = false;
           prevNotificationsRef.current = currentNotifications.length;
+          return;
         }
+  
+        // Check if a new notification has been added
+        if (prevNotificationsRef.current !== null && currentNotifications.length > prevNotificationsRef.current) {
+          const latestNotification = currentNotifications[currentNotifications.length - 1];
+  
+          if (selectedChatId === latestNotification.chat_id) {
+            fetchMessagesBackground(selectedChatId!, whapiToken!);
+          } else {
+            console.log('Received a new notification');
+            const userDocRef = doc(firestore, 'user', auth.currentUser?.email!);
+            const userDocSnapshot = await getDoc(userDocRef);
+            if (!userDocSnapshot.exists()) {
+              console.log('No such user document!');
+              return;
+            }
+            const dataUser = userDocSnapshot.data();
+            const newCompanyId = dataUser.companyId;
+            const companyDocRef = doc(firestore, 'companies', newCompanyId);
+            const companyDocSnapshot = await getDoc(companyDocRef);
+            if (!companyDocSnapshot.exists()) {
+              console.log('No such company document!');
+              return;
+            }
+            const data = companyDocSnapshot.data();
+            setGhlConfig({
+              ghl_id: data.ghl_id,
+              ghl_secret: data.ghl_secret,
+              refresh_token: data.refresh_token,
+              ghl_accessToken: data.ghl_accessToken,
+              ghl_location: data.ghl_location,
+              whapiToken: data.whapiToken,
+            });
+            const user_name = dataUser.name;
+            fetchContactsBackground(
+              data.whapiToken,
+              data.ghl_location,
+              data.ghl_accessToken,
+              user_name,
+              dataUser.role,
+              dataUser.email
+            );
+          }
+        }
+  
+        // Update the previous notifications count
+        prevNotificationsRef.current = currentNotifications.length;
       }
     );
-
+  
     return () => unsubscribe();
   }, [companyId, selectedChatId, whapiToken]);
   let params :URLSearchParams;
@@ -427,75 +417,79 @@ console.log(initialContacts);
   
     fetchContact();
   }, [chatId]);
-async function fetchConfigFromDatabase() {
-
-  const user = auth.currentUser;
-
-  if (!user) {
-    console.error('No user is authenticated');
-    return;
-  }
-
-  try {
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.error('No such document for user!');
-      return;
-    }
-    const dataUser = docUserSnapshot.data() as UserData;
-
-    if (!dataUser || !dataUser.companyId) {
-      console.error('Invalid user data or companyId');
-      return;
-    }
-
-    setUserData(dataUser);
-    user_role = dataUser.role;
-    companyId = dataUser.companyId;
-
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      console.error('No such document for company!');
-      return;
-    }
-    const data = docSnapshot.data();
-
-    if (!data) {
-      console.error('Invalid company data');
-      return;
-    }
-
-    setGhlConfig({
-      ghl_id: data.ghl_id,
-      ghl_secret: data.ghl_secret,
-      refresh_token: data.refresh_token,
-      ghl_accessToken: data.ghl_accessToken,
-      ghl_location: data.ghl_location,
-      whapiToken: data.whapiToken,
-    });
-
-    setToken(data.whapiToken);
-    user_name = dataUser.name;
+  async function fetchConfigFromDatabase() {
+    const user = auth.currentUser;
   
-    await fetchTags(data.ghl_accessToken,data.ghl_location);
-
+    if (!user) {
+      console.error('No user is authenticated');
+      return;
+    }
   
-    if (chatId) {
-      setLoading(true);
-      const phone = "+" + chatId.split('@')[0];
-     const contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
-     setSelectedContact(contact);
-     console.log(selectedContact + "contact");
-     setSelectedChatId(chatId);
-     setLoading(false);
-   }
-   
-  } catch (error) {
-    console.error('Error fetching config:', error);
+    try {
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const dataUser = docUserSnapshot.data() as UserData;
+  
+      if (!dataUser || !dataUser.companyId) {
+        console.error('Invalid user data or companyId');
+        return;
+      }
+  
+      setUserData(dataUser);
+      user_role = dataUser.role;
+      companyId = dataUser.companyId;
+  
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.error('No such document for company!');
+        return;
+      }
+      const data = docSnapshot.data();
+  
+      if (!data) {
+        console.error('Invalid company data');
+        return;
+      }
+  
+      setGhlConfig({
+        ghl_id: data.ghl_id,
+        ghl_secret: data.ghl_secret,
+        refresh_token: data.refresh_token,
+        ghl_accessToken: data.ghl_accessToken,
+        ghl_location: data.ghl_location,
+        whapiToken: data.whapiToken,
+      });
+  
+      setToken(data.whapiToken);
+      user_name = dataUser.name;
+  
+      // Set wallpaper URL if available
+      if (dataUser.wallpaper_url) {
+        setWallpaperUrl(dataUser.wallpaper_url);
+      }
+  
+      await fetchTags(data.ghl_accessToken, data.ghl_location);
+  
+      if (chatId) {
+        setLoading(true);
+        const phone = "+" + chatId.split('@')[0];
+        const contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
+        setSelectedContact(contact);
+        console.log(contact);
+        console.log(selectedContact);
+        setSelectedChatId(chatId);
+        setLoading(false);
+      }
+     
+    } catch (error) {
+      console.error('Error fetching config:', error);
+    }
   }
-}
   const updateConversation = async (conversationId: string, token: string, locationId: string,) => {
     const url = `https://services.leadconnectorhq.com/conversations/${conversationId}`;
     const options = {
@@ -1122,26 +1116,37 @@ const formatText = (text: string) => {
   };
   useEffect(() => {
     let updatedContacts = contacts;
-
+  
+    // Apply group filter if active
+    if (isGroupFilterActive) {
+      updatedContacts = updatedContacts.filter(contact => contact.chat_id?.includes('@g.us'));
+    }else{
+      updatedContacts = contacts;
+    }
+  
+    // Apply search query filter
     if (searchQuery !== '') {
       updatedContacts = updatedContacts.filter((contact) =>
         contact.contactName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         contact.phone?.includes(searchQuery)
       );
     }
-
+  
+    // Apply tag filter
     if (activeTags.length > 0) {
       updatedContacts = updatedContacts.filter((contact) =>
         activeTags.every((tag) => contact.tags?.includes(tag))
       );
     }
-
+  
     setFilteredContacts(updatedContacts);
-  }, [searchQuery, activeTags, contacts]);
+  }, [searchQuery, activeTags, contacts, isGroupFilterActive]);
   useEffect(() => {
     let updatedContacts = contacts;
-      updatedContacts = contacts.filter(contact =>
+    updatedContacts = contacts.filter(contact =>
       contact.contactName?.toLowerCase().includes(searchQuery2.toLowerCase()) ||
+      contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       contact.phone?.includes(searchQuery2)
     );
     setFilteredContactsForForwarding(updatedContacts);
@@ -1281,26 +1286,28 @@ const handleForwardMessage = async () => {
     setActiveMenu('forward');
   };
   const handleImageUpload: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
-    setLoading(true)
-    const file = event.target.files && event.target.files[0];
-    if (file) {
-      const imageUrl = await uploadFile(file); // Implement uploadFile to handle the upload
-      await sendImageMessage(selectedChatId!, imageUrl!,"");
+    setLoading(true);
+    const files = event.target.files;
+    if (files) {
+      for (const file of Array.from(files)) {
+        const imageUrl = await uploadFile(file);
+        await sendImageMessage(selectedChatId!, imageUrl!, "");
+      }
     }
-    setLoading(false)
+    setLoading(false);
   };
   
   const handleDocumentUpload: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
-    setLoading(true)
-    const file = event.target.files && event.target.files[0];
-    console.log(file);
-    if (file) {
-      const imageUrl = await uploadFile(file); // Implement uploadFile to handle the upload
-      await sendDocumentMessage(selectedChatId!, imageUrl!,file.type,file.name,"");
+    setLoading(true);
+    const files = event.target.files;
+    if (files) {
+      for (const file of Array.from(files)) {
+        const imageUrl = await uploadFile(file);
+        await sendDocumentMessage(selectedChatId!, imageUrl!, file.type, file.name, "");
+      }
     }
-    setLoading(false)
+    setLoading(false);
   };
-  
   
   const uploadFile = async (file: any): Promise<string> => {
     const storage = getStorage();
@@ -1408,15 +1415,26 @@ const handleForwardMessage = async () => {
   };
 
   const togglePinConversation = (contactId: string) => {
-    setContacts((prevContacts) =>
-      prevContacts.map((contact) =>
+    setContacts((prevContacts) => {
+      const contactToToggle = prevContacts.find(contact => contact.id === contactId);
+      if (!contactToToggle) return prevContacts;
+  
+      const updatedContacts = prevContacts.map((contact) =>
         contact.id === contactId ? { ...contact, pinned: !contact.pinned } : contact
-      )
-    );
+      );
+  
+      const sortedContacts = [...updatedContacts].sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return 0;
+      });
+  
+      return sortedContacts;
+    });
   };
-
+  
   useEffect(() => {
-    const sortedContacts = [...contacts].sort((a, b) => b.pinned - a.pinned);
+    const sortedContacts = [...contacts].sort((a, b) => Number(b.pinned) - Number(a.pinned));
     setFilteredContacts(sortedContacts);
   }, [contacts, searchQuery, activeTags]);
 
@@ -1432,9 +1450,8 @@ const handleForwardMessage = async () => {
 
 
   return (
-    <div className="flex overflow-hidden bg-gray-100 text-gray-800"  style={{ height: '92vh' }}>
-    <div className="flex flex-col min-w-full md:min-w-15 sm:min-w-5 bg-gray-100 border-r border-gray-300">
-    <div className="relative mr-3 intro-x sm:mr-6"></div>
+    <div className="flex overflow-hidden bg-gray-100 text-gray-800" style={{ height: '92vh' }}>
+    <div className="flex flex-col min-w-[25%] max-w-[25%] bg-gray-100 border-r border-gray-300">
     <div className="relative hidden sm:block p-2">
     <div className="flex items-center space-x-2">
     {isForwardDialogOpen && (
@@ -1474,7 +1491,7 @@ const handleForwardMessage = async () => {
                       {contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"}
                     </div>
                     <div className="flex-grow">
-                      <div className="font-semibold">{contact.contactName || contact.phone}</div>
+                      <div className="font-semibold">{contact.contactName || contact.firstName || contact.phone}</div>
                     </div>
                   </div>
                 </div>
@@ -1486,7 +1503,7 @@ const handleForwardMessage = async () => {
       <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
         <Button
           type="button"
-          className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+          className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
           onClick={handleForwardMessage}
         >
           Forward
@@ -1504,7 +1521,7 @@ const handleForwardMessage = async () => {
 )} {isFetching && (
   <div className="w-full">
     <div className="bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 relative">
-      <div className="bg-blue-900 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+      <div className="bg-primary h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
     </div>
     <div className="text-right mt-1">
       <span className="font-semibold truncate">{progress.toFixed(2)}%</span>
@@ -1527,33 +1544,40 @@ const handleForwardMessage = async () => {
 </div>
 )}
   
-  <div className="flex justify-end">
-      <Menu as="div" className="relative inline-block text-left">
-        <div className="flex items-right space-x-3">
-          <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
-            <span className="flex items-center justify-center w-5 h-5">
-              <Lucide icon="Filter" className="w-5 h-5" />
-            </span>
-          </Menu.Button>
-       
-        </div>
-        <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-                    {tagList.map((tag) => (
-                      <Menu.Item key={tag.id}>
-                        <button
-                          className={`flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md ${
-                            activeTags.includes(tag.name) ? 'bg-gray-200' : ''
-                          }`}
-                          onClick={() => filterTagContact(tag.name)}
-                        >
-                          <Lucide icon="Filter" className="w-4 h-4 mr-2" />
-                          {tag.name}
-                        </button>
-                      </Menu.Item>
-                    ))}
-                  </Menu.Items>
-      </Menu>
-  </div>
+  <div className="flex justify-end space-x-3">
+  <Menu as="div" className="relative inline-block text-left">
+    <div className="flex items-right space-x-3">
+      <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
+        <span className="flex items-center justify-center w-5 h-5">
+          <Lucide icon="Filter" className="w-5 h-5" />
+        </span>
+      </Menu.Button>
+    </div>
+    <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+      {tagList.map((tag) => (
+        <Menu.Item key={tag.id}>
+          <button
+            className={`flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md ${
+              activeTags.includes(tag.name) ? 'bg-gray-200' : ''
+            }`}
+            onClick={() => filterTagContact(tag.name)}
+          >
+            <Lucide icon="Filter" className="w-4 h-4 mr-2" />
+            {tag.name}
+          </button>
+        </Menu.Item>
+      ))}
+    </Menu.Items>
+  </Menu>
+  <button 
+    className={`p-2 !box m-0`} 
+    onClick={() => setIsGroupFilterActive(!isGroupFilterActive)}
+  >
+    <span className="flex items-center justify-center w-5 h-5">
+      <Lucide icon={isGroupFilterActive ? "X" : "Users"} className="w-5 h-5" />
+    </span>
+  </button>
+</div>
 </div>
           <div className="border-b border-gray-300 mt-4"></div>
        
@@ -1583,7 +1607,7 @@ const handleForwardMessage = async () => {
 </div>
         <div className="flex-1 min-w-0 group">
           <div className="flex justify-between items-center">
-            <span className="font-semibold capitalize truncate">{contact.contactName??contact.phone }</span>
+            <span className="font-semibold capitalize truncate">{contact.contactName??contact.firstName??contact.phone }</span>
             <span className="text-xs">
             <button
                 className="text-md font-medium mr-2 text-gray-500 hover:text-blue-500 transform transition-opacity opacity-0 group-hover:opacity-100"
@@ -1604,7 +1628,7 @@ const handleForwardMessage = async () => {
               {(contact.last_message?.type == "text")?contact.last_message?.text?.body ?? "No Messages":"Photo"}
             </span>
             {contact.unreadCount > 0 && (
-              <span className="bg-blue-900 text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
+              <span className="bg-primary text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
             )}
            
            <label className="inline-flex items-center cursor-pointer">
@@ -1615,7 +1639,7 @@ const handleForwardMessage = async () => {
                 checked={contact.tags?.includes("stop bot")}
                 onChange={() => toggleStopBotLabel(contact.chat, index, contact)}
               />
-              <div className="mt-1 ml-2 relative w-11 h-6 bg-gray-400 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-blue-400">
+              <div className="mt-1 ml-2 relative w-11 h-6 bg-gray-400 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-primary">
               </div>
             </label>
           </div>
@@ -1633,7 +1657,7 @@ const handleForwardMessage = async () => {
                 <span className="text-lg">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
               </div>
               <div>
-                <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.phone}</div>
+                <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
                 <div className="text-sm text-gray-600">{selectedContact.phone}</div>
               </div>
             </div>
@@ -1678,7 +1702,14 @@ const handleForwardMessage = async () => {
           </div>
         )}
            
-        <div className="flex-1 overflow-y-auto p-4" style={{ paddingBottom: "150px" }} ref={messageListRef}>
+        <div className="flex-1 overflow-y-auto p-4" 
+      style={{ 
+        paddingBottom: "150px", 
+        backgroundImage: 'url(https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/wallpaper_1.png?alt=media&token=0391060c-fcb4-4760-8172-d8f341127ea6)',
+        backgroundSize: 'cover',
+        backgroundRepeat: 'no-repeat'
+      }}
+    ref={messageListRef}>
            
         {isLoading2 && (
                 <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
@@ -1716,7 +1747,7 @@ const handleForwardMessage = async () => {
               alt="Image"
               className="rounded-lg message-image cursor-pointer"
               style={{ maxWidth: '300px' }}
-              onClick={() => openImageModal(message.image.link)}
+              onClick={() => openImageModal(message.image?.link || '')}
             />
             <div className="caption">{message.image.caption}</div>
           </div>
@@ -1770,19 +1801,20 @@ const handleForwardMessage = async () => {
 </Menu.Button>
 </div>
 <Menu.Items className="absolute left-0 bottom-full mb-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-  <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
-    <label htmlFor="imageUpload" className="flex items-center cursor-pointer">
-      <Lucide icon="Image" className="w-4 h-4 mr-2" />
-      Image
-      <input
-        type="file"
-        id="imageUpload"
-        accept="image/*"
-        className="hidden"
-        onChange={handleImageUpload}
-      />
-    </label>
-  </button>
+<button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
+  <label htmlFor="imageUpload" className="flex items-center cursor-pointer">
+    <Lucide icon="Image" className="w-4 h-4 mr-2" />
+    Image
+    <input
+      type="file"
+      id="imageUpload"
+      accept="image/*"
+      className="hidden"
+      onChange={handleImageUpload}
+      multiple
+    />
+  </label>
+</button>
   <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
     <label htmlFor="documentUpload" className="flex items-center cursor-pointer">
       <Lucide icon="File" className="w-4 h-4 mr-2" />
@@ -1793,6 +1825,7 @@ const handleForwardMessage = async () => {
         accept="application/pdf"
         className="hidden"
         onChange={handleDocumentUpload}
+        multiple
       />
     </label>
   </button>
@@ -1849,7 +1882,7 @@ const handleForwardMessage = async () => {
           <span className="text-xl">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
         </div>
         <div>
-          <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.phone}</div>
+          <div className="font-semibold text-gray-800">{selectedContact.contactName ||selectedContact.firstName|| selectedContact.phone}</div>
           <div className="text-sm text-gray-600">{selectedContact.phone}</div>
         </div>
       </div>
@@ -1869,7 +1902,7 @@ const handleForwardMessage = async () => {
           <p><span className="font-semibold text-blue-600">Email:</span> {selectedContact.email || 'N/A'}</p>
           <p><span className="font-semibold text-blue-600">Company:</span> {selectedContact.companyName || 'N/A'}</p>
           <p><span className="font-semibold text-blue-600">Address:</span> {selectedContact.address1 || 'N/A'}</p>
-          <p><span className="font-semibold text-blue-600">First Name:</span> {selectedContact.contactName}</p>
+          <p><span className="font-semibold text-blue-600">First Name:</span> {selectedContact.contactName??selectedContact.firstName}</p>
           <p><span className="font-semibold text-blue-600">Last Name:</span> {selectedContact.lastName}</p>
           <p><span className="font-semibold text-blue-600">Website:</span> {selectedContact.website || 'N/A'}</p>
           {/* Add more fields as necessary */}

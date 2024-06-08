@@ -38,6 +38,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Clear the session flag when the page reloads
     window.addEventListener('beforeunload', () => {
+
       sessionStorage.removeItem('contactsFetched');
     });
 

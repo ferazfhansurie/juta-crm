@@ -15,16 +15,13 @@ interface ColorSchemeState {
   value: ColorSchemes;
 }
 
-const getColorScheme = () => {
+const getColorScheme = (): ColorSchemes => {
   const colorScheme = localStorage.getItem("colorScheme");
-  return colorSchemes.filter((item, key) => {
-    return item === colorScheme;
-  })[0];
+  return colorSchemes.find((scheme) => scheme === colorScheme) || "default";
 };
 
 const initialState: ColorSchemeState = {
-  value:
-    localStorage.getItem("colorScheme") === null ? "default" : getColorScheme(),
+  value: getColorScheme(),
 };
 
 export const colorSchemeSlice = createSlice({
@@ -41,10 +38,6 @@ export const colorSchemeSlice = createSlice({
 export const { setColorScheme } = colorSchemeSlice.actions;
 
 export const selectColorScheme = (state: RootState) => {
-  if (localStorage.getItem("colorScheme") === null) {
-    localStorage.setItem("colorScheme", "default");
-  }
-
   return state.colorScheme.value;
 };
 

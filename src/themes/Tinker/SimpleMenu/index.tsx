@@ -15,9 +15,7 @@ import MobileMenu from "@/components/MobileMenu";
 function Main() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [formattedMenu, setFormattedMenu] = useState<
-    Array<FormattedMenu | "divider">
-  >([]);
+  const [formattedMenu, setFormattedMenu] = useState<Array<FormattedMenu | "divider">>([]);
   const menuStore = useAppSelector(selectMenu("simple-menu"));
   const menu = () => nestedMenu(menuStore, location);
 
@@ -26,22 +24,16 @@ function Main() {
   }, [menuStore, location.pathname]);
 
   return (
-    <div
-      className={clsx([
-        "tinker md:bg-black/[0.15] dark:bg-transparent relative py-5 px-5 md:py-0 sm:px-8 md:px-0",
-        "after:content-[''] after:bg-gradient-to-b after:from-theme-1 after:to-theme-2 dark:after:from-darkmode-800 dark:after:to-darkmode-800 after:fixed after:inset-0 after:z-[-2]",
-      ])}
-    >
+    <div className="tinker">
       <MobileMenu />
       <div className="flex mt-[4.7rem] md:mt-0 overflow-hidden">
         {/* BEGIN: Simple Menu */}
-        <nav className="py-5 side-nav side-nav--simple hidden md:block md:w-[100px] xl:w-[100px] px-5 pb-16 overflow-x-hidden z-10">
-     
-          <ul>
+        <nav className="py-5 side-nav side-nav--simple hidden md:block md:w-[72px] xl:w-[72px] px-2 pb-16 overflow-x-hidden z-10 bg-gray-100">
+          <ul className="space-y-2">
             {/* BEGIN: First Child */}
             {formattedMenu.map((menu, menuKey) =>
               menu == "divider" ? (
-                <li className="my-6 side-nav__divider" key={menuKey}></li>
+                <li className="my-2 side-nav__divider" key={menuKey}></li>
               ) : (
                 <li key={menuKey}>
                   <Tippy
@@ -57,24 +49,12 @@ function Main() {
                       setFormattedMenu([...formattedMenu]);
                     }}
                     className={clsx([
-                      menu.active ? "side-menu side-menu--active" : "side-menu",
+                      "flex items-center p-2 my-1 rounded hover:bg-gray-200",
+                      menu.active ? "bg-gray-300" : "",
                     ])}
                   >
-                    <div className="side-menu__icon">
-                      <Lucide icon={menu.icon} />
-                    </div>
-                    <div className="side-menu__title">
-                      {menu.title}
-                      {menu.subMenu && (
-                        <div
-                          className={clsx([
-                            "side-menu__sub-icon",
-                            menu.activeDropdown && "transform rotate-180",
-                          ])}
-                        >
-                          <Lucide icon="ChevronDown" />
-                        </div>
-                      )}
+                    <div className="w-5 h-5 flex items-center justify-center">
+                      <Lucide icon={menu.icon} className="text-gray-700" />
                     </div>
                   </Tippy>
                   {/* BEGIN: Second Child */}
@@ -105,27 +85,12 @@ function Main() {
                                 setFormattedMenu([...formattedMenu]);
                               }}
                               className={clsx([
-                                subMenu.active
-                                  ? "side-menu side-menu--active"
-                                  : "side-menu",
+                                "flex items-center p-1 my-1 rounded hover:bg-gray-200",
+                                subMenu.active ? "bg-gray-300" : "",
                               ])}
                             >
-                              <div className="side-menu__icon">
-                                <Lucide icon={subMenu.icon} />
-                              </div>
-                              <div className="side-menu__title">
-                                {subMenu.title}
-                                {subMenu.subMenu && (
-                                  <div
-                                    className={clsx([
-                                      "side-menu__sub-icon",
-                                      subMenu.activeDropdown &&
-                                        "transform rotate-180",
-                                    ])}
-                                  >
-                                    <Lucide icon="ChevronDown" />
-                                  </div>
-                                )}
+                              <div className="w-4 h-4 flex items-center justify-center">
+                                <Lucide icon={subMenu.icon} className="text-gray-700" />
                               </div>
                             </Tippy>
                             {/* BEGIN: Third Child */}
@@ -138,49 +103,38 @@ function Main() {
                               >
                                 <ul
                                   className={clsx({
-                                    "side-menu__sub-open":
-                                      subMenu.activeDropdown,
+                                    "side-menu__sub-open": subMenu.activeDropdown,
                                   })}
                                 >
-                                  {subMenu.subMenu.map(
-                                    (lastSubMenu, lastSubMenuKey) => (
-                                      <li key={lastSubMenuKey}>
-                                        <Tippy
-                                          as="a"
-                                          content={lastSubMenu.title}
-                                          options={{
-                                            placement: "left",
-                                          }}
-                                          href={
-                                            lastSubMenu.subMenu
-                                              ? "#"
-                                              : lastSubMenu.pathname
-                                          }
-                                          onClick={(
-                                            event: React.MouseEvent
-                                          ) => {
-                                            event.preventDefault();
-                                            linkTo(lastSubMenu, navigate);
-                                            setFormattedMenu([
-                                              ...formattedMenu,
-                                            ]);
-                                          }}
-                                          className={clsx([
-                                            lastSubMenu.active
-                                              ? "side-menu side-menu--active"
-                                              : "side-menu",
-                                          ])}
-                                        >
-                                          <div className="side-menu__icon">
-                                            <Lucide icon={lastSubMenu.icon} />
-                                          </div>
-                                          <div className="side-menu__title">
-                                            {lastSubMenu.title}
-                                          </div>
-                                        </Tippy>
-                                      </li>
-                                    )
-                                  )}
+                                  {subMenu.subMenu.map((lastSubMenu, lastSubMenuKey) => (
+                                    <li key={lastSubMenuKey}>
+                                      <Tippy
+                                        as="a"
+                                        content={lastSubMenu.title}
+                                        options={{
+                                          placement: "left",
+                                        }}
+                                        href={
+                                          lastSubMenu.subMenu ? "#" : lastSubMenu.pathname
+                                        }
+                                        onClick={(event: React.MouseEvent) => {
+                                          event.preventDefault();
+                                          linkTo(lastSubMenu, navigate);
+                                          setFormattedMenu([
+                                            ...formattedMenu,
+                                          ]);
+                                        }}
+                                        className={clsx([
+                                          "flex items-center p-1 my-1 rounded hover:bg-gray-200",
+                                          lastSubMenu.active ? "bg-gray-300" : "",
+                                        ])}
+                                      >
+                                        <div className="w-4 h-4 flex items-center justify-center">
+                                          <Lucide icon={lastSubMenu.icon} className="text-gray-700" />
+                                        </div>
+                                      </Tippy>
+                                    </li>
+                                  ))}
                                 </ul>
                               </Transition>
                             )}
@@ -199,13 +153,7 @@ function Main() {
         </nav>
         {/* END: Simple Menu */}
         {/* BEGIN: Content */}
-        <div
-          className={clsx([
-            "rounded-[30px] md:rounded-[35px/50px_0px_0px_0px] min-w-0 min-h-screen max-w-full md:max-w-none bg-slate-100 flex-1 pb-10 px-4 md:px-6 relative md:ml-4 dark:bg-darkmode-700",
-            "before:content-[''] before:w-full before:h-px before:block",
-            "after:content-[''] after:z-[-1] after:rounded-[40px_0px_0px_0px] after:w-full after:inset-y-0 after:absolute after:left-0 after:bg-white/10 after:mt-8 after:-ml-4 after:dark:bg-darkmode-400/50 after:hidden md:after:block",
-          ])}
-        >
+        <div className="min-h-screen max-w-full md:max-w-none bg-slate-100 flex-1 pb-10 px-2 md:px-2 relative md:ml-4 dark:bg-darkmode-700 before:content-[''] before:w-full before:h-px before:block after:content-[''] after:z-[-1] after:rounded-[40px_0px_0px_0px] after:w-full after:inset-y-0 after:absolute after:left-0 after:bg-white/10 after:mt-8 after:-ml-4 after:dark:bg-darkmode-400/50 after:hidden md:after:block">
           <TopBar />
           <Outlet />
         </div>
