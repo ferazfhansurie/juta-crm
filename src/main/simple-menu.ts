@@ -1,4 +1,8 @@
 import { type Menu } from "@/stores/menuSlice";
+import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
+import { initializeApp } from 'firebase/app';
+import { DocumentReference, getDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 
 const menu: Array<Menu | "divider"> = [
   {

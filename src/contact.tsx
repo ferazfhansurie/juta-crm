@@ -97,6 +97,8 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         const response = await axios.get(url);
 
         setContacts(response.data.contacts);
+        const contactsWithChatPic = response.data.contacts.filter((contact: { chat_pic: any; }) => contact.chat_pic);
+console.log('Contacts with chat_pic:', contactsWithChatPic);
         localStorage.setItem('contacts', LZString.compress(JSON.stringify(response.data.contacts)));
         sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
         navigate('/chat');  // Navigate to the chat page after fetching contacts

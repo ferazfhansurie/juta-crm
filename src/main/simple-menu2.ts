@@ -2,21 +2,22 @@ import { type Menu } from "@/stores/menuSlice";
 
 const menu: Array<Menu | "divider"> = [
   {
-    icon: "Home",
+    icon: "Calendar",
     title: "Dashboard",
-   pathname:'/dashboard'
+   pathname:'/calendar'
   },
-  {
-    icon: "MessageSquare",
-    pathname: "/dashboard/chat",
-    title: "Chat",
-  },
+
   {
     icon: "HardDrive",
-    pathname: "/dashboard/crud-data-list",
+    pathname: "/crud-data-list",
     title: "Contacts",
   },
-  /*{
+  /* {
+    icon: "Bot",
+    pathname: "/dashboard/inbox",
+    title: "Assistant",
+  },
+ {
     icon: "HardDrive",
     pathname: "/dashboard/file-manager",
     title: "File Manager",
@@ -26,17 +27,12 @@ const menu: Array<Menu | "divider"> = [
     pathname: "/dashboard/calendar",
     title: "Calendar",
   },*/
-
-
- /* {
-    icon: "Trello",
-    title: "Profile",
-    pathname: "/dashboard/profile-overview-1",
-    
-  }
-  ,
-*/
   "divider",
+  {
+    icon: "Users",
+    title: "Users",
+    pathname: "users-layout-2",
+  },
 
 ];
 

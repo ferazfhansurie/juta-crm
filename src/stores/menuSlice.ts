@@ -4,8 +4,9 @@ import { type Themes } from "@/stores/themeSlice";
 import { icons } from "@/components/Base/Lucide";
 import sideMenu from "@/main/side-menu";
 import simpleMenu from "@/main/simple-menu";
+import simpleMenu2 from "@/main/simple-menu2";
 import topMenu from "@/main/top-menu";
-
+import { useConfig } from '../config';
 export interface Menu {
   icon: keyof typeof icons;
   title: string;
@@ -30,12 +31,21 @@ export const menuSlice = createSlice({
 });
 
 export const selectMenu = (layout: Themes["layout"]) => (state: RootState) => {
+  const { config: initialContacts } = useConfig();
+  console.log(initialContacts.name);
   if (layout == "top-menu") {
     return topMenu;
   }
 
   if (layout == "simple-menu") {
-    return simpleMenu;
+    if(initialContacts.name === "Infinity Pilates & Physiotherapy")
+    {
+      return simpleMenu2;
+    }else{
+      return simpleMenu;
+    }
+
+    
   }
 
   return simpleMenu;

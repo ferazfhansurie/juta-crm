@@ -1,239 +1,700 @@
 import Lucide from "@/components/Base/Lucide";
-import { Menu } from "@/components/Base/Headless";
+import { Menu, Dialog } from "@/components/Base/Headless";
 import Button from "@/components/Base/Button";
-import Calendar from "@/components/Calendar";
-import { Draggable as FullCalendarDraggable } from "@/components/Base/Calendar";
-import { Draggable } from "@fullcalendar/interaction";
-import { FormSwitch } from "@/components/Base/Form";
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { getAuth } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { initializeApp } from "firebase/app";
+import { format } from 'date-fns';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
+  authDomain: "onboarding-a5fcb.firebaseapp.com",
+  databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "onboarding-a5fcb",
+  storageBucket: "onboarding-a5fcb.appspot.com",
+  messagingSenderId: "334607574757",
+  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
+  measurementId: "G-2C9J1RY67L"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const firestore = getFirestore(app);
+
+interface Appointment {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  address: string;
+  appointmentStatus: string;
+  staff: string;
+  package: string;
+  dateAdded: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  extension: string;
+  permissions: any;
+  roles: any;
+}
 
 function Main() {
-  const dragableOptions: Draggable["settings"] = {
-    itemSelector: ".event",
-    eventData(eventEl) {
-      const getDays = () => {
-        const days = eventEl.querySelectorAll(".event__days")[0]?.textContent;
-        return days ? days : "0";
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [accessToken, setAccessToken] = useState<string>('');
+  const [locationId, setLocationId] = useState<string>('');
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [currentEvent, setCurrentEvent] = useState<any>(null);
+  const [view, setView] = useState<string>('dayGridMonth');
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterDate, setFilterDate] = useState<string>('');
+
+  let role = 1;
+  let userName = '';
+
+  useEffect(() => {
+    const fetchCompanyData = async () => {
+      const user = auth.currentUser;
+      try {
+        const docUserRef = doc(firestore, 'user', user?.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (!docUserSnapshot.exists()) {
+          console.log('No such document for user!');
+          return;
+        }
+        const userData = docUserSnapshot.data();
+        const companyId = userData.companyId;
+        role = userData.role;
+        userName = userData.name;
+
+        const docRef = doc(firestore, 'companies', companyId);
+        const docSnapshot = await getDoc(docRef);
+        if (!docSnapshot.exists()) {
+          console.log('No such document for company!');
+          return;
+        }
+        const companyData = docSnapshot.data();
+        setAccessToken(companyData.ghl_accessToken);
+        setLocationId(companyData.ghl_location);
+
+        const startTime = new Date(0).getTime(); // January 1, 1970 in milliseconds
+        const endTime = new Date(Date.now() + 50 * 365 * 24 * 60 * 60 * 1000).getTime(); // 50 years from now in milliseconds
+        const usersData = await fetchUsers(companyData.ghl_accessToken, companyData.ghl_location);
+        if (usersData.length > 0) {
+          setSelectedUserId(usersData[0].id);
+          await fetchAppointments(companyData.ghl_accessToken, companyData.ghl_location, usersData[0].id, startTime, endTime);
+        }
+      } catch (error) {
+        console.error('Error fetching company data:', error);
+      }
+    };
+
+    fetchCompanyData();
+  }, []);
+
+  const fetchAppointments = async (accessToken: string, locationId: string, userId: string, startTime: number, endTime: number) => {
+    setLoading(true);
+    try {
+      let allAppointments: Appointment[] = [];
+      let fetchMore = true;
+      let nextPageUrl = `https://services.leadconnectorhq.com/calendars/events?locationId=${locationId}&startTime=${startTime}&endTime=${endTime}&userId=${userId}`;
+
+      const fetchData = async (url: string, retries: number = 0): Promise<any> => {
+        const options = {
+          method: 'GET',
+          url: url,
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Version: '2021-04-15',
+          },
+        };
+
+        try {
+          const response = await axios.request(options);
+          return response;
+        } catch (error) {
+          console.error('Error fetching data:', error);
+        }
       };
-      return {
-        title: eventEl.querySelectorAll(".event__title")[0]?.innerHTML,
-        duration: {
-          days: parseInt(getDays()),
-        },
-      };
-    },
+
+      while (fetchMore) {
+        const response = await fetchData(nextPageUrl);
+        if (!response) break;
+        const events = response.data.events;
+
+        if (events.length > 0) {
+          allAppointments = [...allAppointments, ...events];
+        }
+
+        if (response.data.meta && response.data.meta.nextPageUrl) {
+          nextPageUrl = response.data.meta.nextPageUrl;
+        } else {
+          fetchMore = false;
+        }
+      }
+
+      const formattedAppointments = allAppointments.map(event => ({
+        id: event.id,
+        title: event.title,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        address: event.address,
+        appointmentStatus: event.appointmentStatus,
+        staff: event.staff,  // Assuming 'staff' is available in the event object
+        package: event.package,  // Assuming 'package' is available in the event object
+        dateAdded: event.dateAdded,  // Assuming 'dateAdded' is available in the event object
+      })).sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());  // Sort by newest on top
+
+      setAppointments(formattedAppointments);
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const fetchUsers = async (accessToken: string, locationId: string) => {
+    try {
+      const response = await axios.post('http://localhost:8443/api/fetch-users', {
+        accessToken,
+        locationId
+      });
+      setUsers(response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return [];
+    }
+  };
+
+  const handleUserChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const userId = event.target.value;
+    setSelectedUserId(userId);
+    const startTime = new Date(0).getTime(); // January 1, 1970 in milliseconds
+    const endTime = new Date(Date.now() + 50 * 365 * 24 * 60 * 60 * 1000).getTime(); // 50 years from now in milliseconds
+    fetchAppointments(accessToken, locationId, userId, startTime, endTime);
+  };
+
+  const handleEventClick = (info: any) => {
+    setCurrentEvent(info.event);
+    setEditModalOpen(true);
+  };
+
+  const handleSaveAppointment = async () => {
+    const { id, title, startStr, endStr, extendedProps } = currentEvent;
+    const updatedAppointment = {
+      id,
+      title,
+      startTime: startStr,
+      endTime: endStr,
+      address: extendedProps.address,
+      appointmentStatus: extendedProps.appointmentStatus,
+      staff: extendedProps.staff,
+      package: extendedProps.package,
+      dateAdded: extendedProps.dateAdded
+    };
+
+    try {
+      await axios.put(
+        `https://services.leadconnectorhq.com/calendars/events/appointments/${id}`,
+        updatedAppointment,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Version: '2021-04-15'
+          }
+        }
+      );
+
+      setAppointments(appointments.map(appointment => 
+        appointment.id === id ? updatedAppointment : appointment
+      ));
+      setEditModalOpen(false);
+    } catch (error) {
+      console.error('Error saving appointment:', error);
+    }
+  };
+
+  const handleDateSelect = (selectInfo: any) => {
+    const startStr = format(new Date(selectInfo.startStr), "yyyy-MM-dd'T'HH:mm");
+    const endStr = format(new Date(selectInfo.endStr), "yyyy-MM-dd'T'HH:mm");
+  
+    setCurrentEvent({
+      title: '',
+      startStr: startStr,
+      endStr: endStr,
+      extendedProps: {
+        address: '',
+        appointmentStatus: '',
+        staff: '',
+        package: '',
+        dateAdded: new Date().toISOString()
+      }
+    });
+    setAddModalOpen(true);
+  };
+
+  const createAppointment = async (newEvent: any) => {
+    try {
+      const response = await axios.post(
+        'https://services.leadconnectorhq.com/calendars/events/appointments',
+        {
+          calendarId: 'CVokAlI8fgw4WYWoCtQz', // replace with actual calendarId
+          locationId,
+          contactId: selectedUserId,
+          startTime: newEvent.startTime,
+          endTime: newEvent.endTime,
+          title: newEvent.title,
+          appointmentStatus: newEvent.appointmentStatus,
+          assignedUserId: selectedUserId,
+          address: newEvent.address,
+          ignoreDateRange: false,
+          toNotify: false
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Version: '2021-04-15'
+          }
+        }
+      );
+
+      setAppointments([...appointments, response.data]);
+    } catch (error) {
+      console.error('Error creating appointment:', error);
+    }
+  };
+
+  const handleEventDrop = async (eventDropInfo: any) => {
+    const { event } = eventDropInfo;
+    const updatedAppointment = {
+      id: event.id,
+      title: event.title,
+      startTime: event.startStr,
+      endTime: event.endStr,
+      address: event.extendedProps.address,
+      appointmentStatus: event.extendedProps.appointmentStatus,
+      staff: event.extendedProps.staff,
+      package: event.extendedProps.package,
+      dateAdded: event.extendedProps.dateAdded
+    };
+
+    try {
+      await axios.put(
+        `https://services.leadconnectorhq.com/calendars/events/appointments/${event.id}`,
+        updatedAppointment,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Version: '2021-04-15'
+          }
+        }
+      );
+
+      setAppointments(appointments.map(appointment => 
+        appointment.id === event.id ? updatedAppointment : appointment
+      ));
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+    }
+  };
+
+  const handleStatusFilterChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilterStatus(event.target.value);
+  };
+
+  const handleDateFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterDate(event.target.value);
+  };
+
+  const filteredAppointments = appointments.filter(appointment => {
+    return (
+      (filterStatus ? appointment.appointmentStatus === filterStatus : true) &&
+      (filterDate ? format(new Date(appointment.startTime), 'yyyy-MM-dd') === filterDate : true)
+    );
+  });
+
+  const handleAppointmentClick = (appointment: Appointment) => {
+    setCurrentEvent({
+      id: appointment.id,
+      title: appointment.title,
+      startStr: appointment.startTime,
+      endStr: appointment.endTime,
+      extendedProps: {
+        address: appointment.address,
+        appointmentStatus: appointment.appointmentStatus,
+        staff: appointment.staff,
+        package: appointment.package,
+        dateAdded: appointment.dateAdded
+      }
+    });
+    setEditModalOpen(true);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'new':
+        return 'bg-yellow-500';
+      case 'confirmed':
+        return 'bg-green-500';
+      case 'cancelled':
+        return 'bg-red-500';
+      case 'showed':
+        return 'bg-blue-500';
+      case 'noshow':
+        return 'bg-gray-500';
+      case 'invalid':
+        return 'bg-purple-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+  const getStatusColor2 = (status: string) => {
+    switch (status) {
+      case 'new':
+        return 'orange'; // Replacing yellow with orange
+      case 'confirmed':
+        return 'green';
+      case 'cancelled':
+        return 'red';
+      case 'showed':
+        return 'blue';
+      case 'noshow':
+        return 'gray';
+      case 'invalid':
+        return 'purple';
+      default:
+        return 'gray';
+    }
+  };
+  const renderEventContent = (eventInfo: any) => {
+    const statusColor = getStatusColor2(eventInfo.event.extendedProps.appointmentStatus);
+    return (
+      <div style={{ backgroundColor: statusColor, color: 'white', padding: '5px', borderRadius: '5px' }}>
+        <b>{eventInfo.timeText}</b>
+        <i>{eventInfo.event.title}</i>
+      </div>
+    );
+  };
+  const selectedUser = users.find(user => user.id === selectedUserId);
 
   return (
     <>
       <div className="flex flex-col items-center mt-8 intro-y sm:flex-row">
-        <h2 className="mr-auto text-lg font-medium">Calendar</h2>
+        {users.length > 0 && (
+          <div className="flex w-full mt-4 sm:w-auto sm:mt-0">
+            <select value={selectedUserId} onChange={handleUserChange} className="mr-4">
+              {users.map(user => (
+                <option key={user.id} value={user.id}>
+                  {user.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="flex w-full mt-4 sm:w-auto sm:mt-0">
-          <Button variant="primary" className="mr-2 shadow-md">
-            Print Schedule
+          <select value={filterStatus} onChange={handleStatusFilterChange} className="mr-4">
+            <option value="">All Statuses</option>
+            <option value="new">New</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="showed">Showed</option>
+            <option value="noshow">No Show</option>
+            <option value="invalid">Invalid</option>
+          </select>
+          <input 
+            type="date" 
+            value={filterDate} 
+            onChange={handleDateFilterChange} 
+            className="mr-4"
+          />
+        </div>
+        <div className="flex w-full mt-4 sm:w-auto sm:mt-0">
+          <Button
+            variant="primary"
+            type="button"
+            onClick={() => {
+              setCurrentEvent({
+                title: '',
+                startStr: '',
+                endStr: '',
+                extendedProps: {
+                  address: '',
+                  appointmentStatus: '',
+                  staff: '',
+                  package: '',
+                  dateAdded: new Date().toISOString()
+                }
+              });
+              setAddModalOpen(true);
+            }}
+          >
+            <Lucide icon="FilePenLine" className="w-4 h-4 mr-2" /> Add New Appointment
           </Button>
-          <Menu className="ml-auto sm:ml-0">
-            <Menu.Button as={Button} className="px-2 !box">
-              <span className="flex items-center justify-center w-5 h-5">
-                <Lucide icon="Plus" className="w-4 h-4" />
-              </span>
-            </Menu.Button>
-            <Menu.Items className="w-40">
-              <Menu.Item>
-                <Lucide icon="Share2" className="w-4 h-4 mr-2" /> Share
-              </Menu.Item>
-              <Menu.Item>
-                <Lucide icon="Settings" className="w-4 h-4 mr-2" /> Settings
-              </Menu.Item>
-            </Menu.Items>
-          </Menu>
         </div>
       </div>
       <div className="grid grid-cols-12 gap-5 mt-5">
-        {/* BEGIN: Calendar Side Menu */}
         <div className="col-span-12 xl:col-span-4 2xl:col-span-3">
           <div className="p-5 box intro-y">
-            <Button variant="primary" type="button" className="w-full mt-2">
-              <Lucide icon="FilePenLine" className="w-4 h-4 mr-2" /> Add New
-              Schedule
-            </Button>
-            <FullCalendarDraggable
-              id="calendar-events"
-              options={dragableOptions}
-              className="py-3 mt-6 mb-5 border-t border-b border-slate-200/60 dark:border-darkmode-400"
-            >
-              <div className="relative">
-                <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-darkmode-400">
-                  <div className="w-2 h-2 mr-3 rounded-full bg-pending"></div>
-                  <div className="pr-10">
-                    <div className="truncate event__title">VueJS Amsterdam</div>
-                    <div className="text-slate-500 text-xs mt-0.5">
-                      <span className="event__days">2</span> Days{" "}
-                      <span className="mx-1">•</span> 10:00 AM
+            <div className="mt-6 mb-5 border-t border-b border-slate-200/60 dark:border-darkmode-400">
+              {filteredAppointments.length > 0 ? (
+                filteredAppointments.map((appointment, index) => (
+                  <div key={index} className="relative" onClick={() => handleAppointmentClick(appointment)}>
+                    <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-darkmode-400">
+                      <div className={`w-2 h-2 mr-3 rounded-full ${getStatusColor(appointment.appointmentStatus)}`}></div>
+                      <div className="pr-10">
+                        <div className="truncate event__title">Name: {appointment.title}</div>
+                        <div className="text-slate-500 text-xs mt-0.5">Title: {appointment.title}</div>
+                        <div className="text-slate-500 text-xs mt-0.5">Status: {appointment.appointmentStatus}</div>
+                        <div className="text-slate-500 text-xs mt-0.5">
+                          Appointment Date & Time: {new Date(appointment.startTime).toLocaleString()} - {new Date(appointment.endTime).toLocaleString()}
+                        </div>
+                        <div className="text-slate-500 text-xs mt-0.5">Staff: {selectedUser?.name}</div>
+                        <div className="text-slate-500 text-xs mt-0.5">Package: {appointment.package}</div>
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="p-3 text-center text-slate-500">
+                  No events yet
                 </div>
-                <a
-                  className="absolute top-0 bottom-0 right-0 flex items-center my-auto"
-                  href=""
-                >
-                  <Lucide
-                    icon="FilePenLine"
-                    className="w-4 h-4 text-slate-500"
-                  />
-                </a>
-              </div>
-              <div className="relative">
-                <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-darkmode-400">
-                  <div className="w-2 h-2 mr-3 rounded-full bg-warning"></div>
-                  <div className="pr-10">
-                    <div className="truncate event__title">
-                      Vue Fes Japan 2019
-                    </div>
-                    <div className="text-slate-500 text-xs mt-0.5">
-                      <span className="event__days">3</span> Days{" "}
-                      <span className="mx-1">•</span> 07:00 AM
-                    </div>
-                  </div>
-                </div>
-                <a
-                  className="absolute top-0 bottom-0 right-0 flex items-center my-auto"
-                  href=""
-                >
-                  <Lucide
-                    icon="FilePenLine"
-                    className="w-4 h-4 text-slate-500"
-                  />
-                </a>
-              </div>
-              <div className="relative">
-                <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-darkmode-400">
-                  <div className="w-2 h-2 mr-3 rounded-full bg-pending"></div>
-                  <div className="pr-10">
-                    <div className="truncate event__title">Laracon 2021</div>
-                    <div className="text-slate-500 text-xs mt-0.5">
-                      <span className="event__days">4</span> Days{" "}
-                      <span className="mx-1">•</span> 11:00 AM
-                    </div>
-                  </div>
-                </div>
-                <a
-                  className="absolute top-0 bottom-0 right-0 flex items-center my-auto"
-                  href=""
-                >
-                  <Lucide
-                    icon="FilePenLine"
-                    className="w-4 h-4 text-slate-500"
-                  />
-                </a>
-              </div>
-              <div
-                className="hidden p-3 text-center text-slate-500"
-                id="calendar-no-events"
-              >
-                No events yet
-              </div>
-            </FullCalendarDraggable>
-            <FormSwitch className="flex">
-              <FormSwitch.Label htmlFor="checkbox-events">
-                Remove after drop
-              </FormSwitch.Label>
-              <FormSwitch.Input
-                className="ml-auto"
-                type="checkbox"
-                id="checkbox-events"
-              />
-            </FormSwitch>
-          </div>
-          <div className="p-5 mt-5 box intro-y">
-            <div className="flex">
-              <Lucide icon="ChevronLeft" className="w-5 h-5 text-slate-500" />
-              <div className="mx-auto text-base font-medium">April</div>
-              <Lucide icon="ChevronRight" className="w-5 h-5 text-slate-500" />
-            </div>
-            <div className="grid grid-cols-7 gap-4 mt-5 text-center">
-              <div className="font-medium">Su</div>
-              <div className="font-medium">Mo</div>
-              <div className="font-medium">Tu</div>
-              <div className="font-medium">We</div>
-              <div className="font-medium">Th</div>
-              <div className="font-medium">Fr</div>
-              <div className="font-medium">Sa</div>
-              <div className="py-0.5 rounded relative text-slate-500">29</div>
-              <div className="py-0.5 rounded relative text-slate-500">30</div>
-              <div className="py-0.5 rounded relative text-slate-500">31</div>
-              <div className="py-0.5 rounded relative">1</div>
-              <div className="py-0.5 rounded relative">2</div>
-              <div className="py-0.5 rounded relative">3</div>
-              <div className="py-0.5 rounded relative">4</div>
-              <div className="py-0.5 rounded relative">5</div>
-              <div className="py-0.5 bg-success/20 dark:bg-success/30 rounded relative">
-                6
-              </div>
-              <div className="py-0.5 rounded relative">7</div>
-              <div className="py-0.5 bg-primary text-white rounded relative">
-                8
-              </div>
-              <div className="py-0.5 rounded relative">9</div>
-              <div className="py-0.5 rounded relative">10</div>
-              <div className="py-0.5 rounded relative">11</div>
-              <div className="py-0.5 rounded relative">12</div>
-              <div className="py-0.5 rounded relative">13</div>
-              <div className="py-0.5 rounded relative">14</div>
-              <div className="py-0.5 rounded relative">15</div>
-              <div className="py-0.5 rounded relative">16</div>
-              <div className="py-0.5 rounded relative">17</div>
-              <div className="py-0.5 rounded relative">18</div>
-              <div className="py-0.5 rounded relative">19</div>
-              <div className="py-0.5 rounded relative">20</div>
-              <div className="py-0.5 rounded relative">21</div>
-              <div className="py-0.5 rounded relative">22</div>
-              <div className="py-0.5 bg-pending/20 dark:bg-pending/30 rounded relative">
-                23
-              </div>
-              <div className="py-0.5 rounded relative">24</div>
-              <div className="py-0.5 rounded relative">25</div>
-              <div className="py-0.5 rounded relative">26</div>
-              <div className="py-0.5 bg-primary/10 dark:bg-primary/50 rounded relative">
-                27
-              </div>
-              <div className="py-0.5 rounded relative">28</div>
-              <div className="py-0.5 rounded relative">29</div>
-              <div className="py-0.5 rounded relative">30</div>
-              <div className="py-0.5 rounded relative text-slate-500">1</div>
-              <div className="py-0.5 rounded relative text-slate-500">2</div>
-              <div className="py-0.5 rounded relative text-slate-500">3</div>
-              <div className="py-0.5 rounded relative text-slate-500">4</div>
-              <div className="py-0.5 rounded relative text-slate-500">5</div>
-              <div className="py-0.5 rounded relative text-slate-500">6</div>
-              <div className="py-0.5 rounded relative text-slate-500">7</div>
-              <div className="py-0.5 rounded relative text-slate-500">8</div>
-              <div className="py-0.5 rounded relative text-slate-500">9</div>
-            </div>
-            <div className="pt-5 mt-5 border-t border-slate-200/60 dark:border-darkmode-400">
-              <div className="flex items-center">
-                <div className="w-2 h-2 mr-3 rounded-full bg-pending"></div>
-                <span className="truncate">Independence Day</span>
-                <div className="flex-1 h-px mx-3 border border-r border-dashed border-slate-200 xl:hidden"></div>
-                <span className="font-medium xl:ml-auto">23th</span>
-              </div>
-              <div className="flex items-center mt-4">
-                <div className="w-2 h-2 mr-3 rounded-full bg-primary"></div>
-                <span className="truncate">Memorial Day</span>
-                <div className="flex-1 h-px mx-3 border border-r border-dashed border-slate-200 xl:hidden"></div>
-                <span className="font-medium xl:ml-auto">10th</span>
-              </div>
+              )}
             </div>
           </div>
         </div>
-        {/* END: Calendar Side Menu */}
-        {/* BEGIN: Calendar Content */}
         <div className="col-span-12 xl:col-span-8 2xl:col-span-9">
           <div className="p-5 box">
-            <Calendar />
-          </div>
+          <FullCalendar
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView={view}
+            events={filteredAppointments.map(appointment => ({
+              id: appointment.id,
+              title: appointment.title,
+              start: appointment.startTime,
+              end: appointment.endTime,
+              extendedProps: {
+                appointmentStatus: appointment.appointmentStatus
+              }
+            }))}
+            selectable={true}
+            select={handleDateSelect}
+            eventClick={handleEventClick}
+            editable={true}
+            eventDrop={handleEventDrop}
+            eventContent={renderEventContent}
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            }}
+            datesSet={(dateInfo) => setView(dateInfo.view.type)}
+          />
+   <style jsx global>{`
+  .fc .fc-toolbar {
+    color: #1e3a8a;
+  }
+  .fc .fc-toolbar button {
+    text-transform: capitalize;
+    background-color: #1e3a8a; /* Tailwind blue-600 */
+    color: white; /* Ensure button text is white */
+    border: none;
+    padding: 0.5rem 1rem;
+    margin: 0 0.25rem;
+    border-radius: 0.375rem; /* Tailwind rounded-md */
+    cursor: pointer;
+  }
+  .fc .fc-toolbar button:hover {
+    background-color: #1e3a8a; /* Tailwind blue-800 */
+  }
+`}</style>
+            </div>
         </div>
-        {/* END: Calendar Content */}
       </div>
+      {editModalOpen && (
+        <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
+              <div className="flex items-center p-4 border-b">
+                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+                  <span className="text-xl">{currentEvent?.title.charAt(0).toUpperCase()}</span>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-800">{currentEvent?.title}</div>
+                  <div className="text-sm text-gray-600">{currentEvent?.extendedProps?.address}</div>
+                </div>
+              </div>
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Title</label>
+                  <input
+                    type="text"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.title || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                  <input
+                    type="datetime-local"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={format(new Date(currentEvent?.startStr), "yyyy-MM-dd'T'HH:mm") || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, startStr: new Date(e.target.value).toISOString() })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">End Time</label>
+                  <input
+                    type="datetime-local"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={format(new Date(currentEvent?.endStr), "yyyy-MM-dd'T'HH:mm") || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, endStr: new Date(e.target.value).toISOString() })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Address</label>
+                  <input
+                    type="text"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.extendedProps?.address || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, address: e.target.value } })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Appointment Status</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.extendedProps?.appointmentStatus || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
+                  >
+                    <option value="new">New</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="showed">Showed</option>
+                    <option value="noshow">No Show</option>
+                    <option value="invalid">Invalid</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end mt-6">
+                <button
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  onClick={() => setEditModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  onClick={handleSaveAppointment}
+                >
+                  Save
+                </button>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+      )}
+      {addModalOpen && (
+        <Dialog open={addModalOpen} onClose={() => setAddModalOpen(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
+              <div className="flex items-center p-4 border-b">
+                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+                  <Lucide icon="User" className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-xl">Add New Appointment</span>
+                </div>
+              </div>
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Title</label>
+                  <input
+                    type="text"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.title}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                  <input
+                    type="datetime-local"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.startStr}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, startStr: new Date(e.target.value).toISOString() })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">End Time</label>
+                  <input
+                    type="datetime-local"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.endStr}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, endStr: new Date(e.target.value).toISOString() })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Address</label>
+                  <input
+                    type="text"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.extendedProps?.address}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, address: e.target.value } })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Appointment Status</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.extendedProps?.appointmentStatus}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
+                  >
+                    <option value="new">New</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="showed">Showed</option>
+                    <option value="noshow">No Show</option>
+                    <option value="invalid">Invalid</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end mt-6">
+                <button
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  onClick={() => setAddModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  onClick={handleSaveAppointment}
+                >
+                  Save
+                </button>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+      )}
+
     </>
   );
 }

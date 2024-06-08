@@ -73,7 +73,7 @@ interface Contact {
   last_message?: Message | null;
   chat_id: string;
   unreadCount:number;
-  pic:string;
+  chat_pic_full:string;
 }
 interface GhlConfig {
   ghl_id: string;
@@ -1523,12 +1523,16 @@ const handleForwardMessage = async () => {
         }`}
         onClick={() => selectChat(contact.chat_id!, contact.email!)}
       >
-        <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
-          {contact.firstName ? contact.firstName.charAt(0).toUpperCase() : "?"}
-        </div>
+      <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
+  {contact.chat_pic_full ? (
+    <img src={contact.chat_pic_full}  className="w-full h-full rounded-full object-cover" />
+  ) : (
+    contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"
+  )}
+</div>
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-center">
-            <span className="font-semibold capitalize truncate">{contact.firstName ?? contact.phone}</span>
+            <span className="font-semibold capitalize truncate">{contact.contactName??contact.phone }</span>
             <span className="text-xs">
               {contact.last_message?.createdAt || contact.last_message?.timestamp
                 ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
@@ -1566,10 +1570,10 @@ const handleForwardMessage = async () => {
           <div className="flex items-center justify-between p-1 border-b border-gray-300 bg-gray-100">
             <div className="flex items-center">
               <div className="w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3">
-                <span className="text-lg">{selectedContact.firstName ? selectedContact.firstName.charAt(0).toUpperCase() : "?"}</span>
+                <span className="text-lg">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
               </div>
               <div>
-                <div className="font-semibold text-gray-800">{selectedContact.firstName || selectedContact.phone}</div>
+                <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.phone}</div>
                 <div className="text-sm text-gray-600">{selectedContact.phone}</div>
               </div>
             </div>
@@ -1781,10 +1785,10 @@ const handleForwardMessage = async () => {
     <div className="p-6">
       <div className="flex items-center p-4 border-b border-gray-300 bg-gray-100">
         <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-          <span className="text-xl">{selectedContact.firstName ? selectedContact.firstName.charAt(0).toUpperCase() : "?"}</span>
+          <span className="text-xl">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
         </div>
         <div>
-          <div className="font-semibold text-gray-800">{selectedContact.firstName || selectedContact.phone}</div>
+          <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.phone}</div>
           <div className="text-sm text-gray-600">{selectedContact.phone}</div>
         </div>
       </div>
@@ -1804,7 +1808,7 @@ const handleForwardMessage = async () => {
           <p><span className="font-semibold text-blue-600">Email:</span> {selectedContact.email || 'N/A'}</p>
           <p><span className="font-semibold text-blue-600">Company:</span> {selectedContact.companyName || 'N/A'}</p>
           <p><span className="font-semibold text-blue-600">Address:</span> {selectedContact.address1 || 'N/A'}</p>
-          <p><span className="font-semibold text-blue-600">First Name:</span> {selectedContact.firstName}</p>
+          <p><span className="font-semibold text-blue-600">First Name:</span> {selectedContact.contactName}</p>
           <p><span className="font-semibold text-blue-600">Last Name:</span> {selectedContact.lastName}</p>
           <p><span className="font-semibold text-blue-600">Website:</span> {selectedContact.website || 'N/A'}</p>
           {/* Add more fields as necessary */}

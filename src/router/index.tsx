@@ -172,7 +172,7 @@ function Router() {
     { path: "/error-page", element: <ErrorPage /> },
     { path: "*", element: <ErrorPage /> },
   ];
-  if (isLoading) {
+if (isLoading) {
     return <LoadingIcon />;
   }
 if(!isLoggedIn){
