@@ -18,6 +18,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { rateLimiter } from '../../utils/rate';
 import { useNavigate } from "react-router-dom";
 import LoadingIcon from "@/components/Base/LoadingIcon";
+import { useContacts } from "@/contact";
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
   authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -83,7 +84,8 @@ function Main() {
   const deleteButtonRef = useRef(null);
   const [isLoading, setLoading] = useState<boolean>(false);
   const [isFetching, setFetching] = useState<boolean>(false);
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const { contacts: initialContacts} = useContacts();
+  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
@@ -101,6 +103,8 @@ function Main() {
   const [blastMessageModal, setBlastMessageModal] = useState(false);
   const [blastMessage, setBlastMessage] = useState("");
   const [progress, setProgress] = useState<number>(0);
+  const [totalContacts, setTotalContacts] = useState(contacts.length);
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
   const [newContact, setNewContact] = useState({
       firstName: '',
       lastName: '',
@@ -115,8 +119,15 @@ function Main() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [contactsPerPage] = useState(10); // Adjust the number of contacts per page as needed
+  
 let role = 1;
 let userName ='';
+useEffect(() => {
+  setTotalContacts(contacts.length);
+}, [contacts]);
+const handleTagFilterChange = (tag: string) => {
+  setSelectedTagFilter(tag);
+};
   const handleSaveNewContact = async () => {
     try {
       console.log(newContact);
@@ -386,7 +397,8 @@ setLoading(true);
       setEmployeeList(employeeListData);
       const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
       await fetchTags(companyData.ghl_accessToken,companyData.ghl_location,employeeNames);
-      await searchContacts(companyData.ghl_accessToken, companyData.ghl_location);
+      setLoading(false);
+     // await searchContacts(companyData.ghl_accessToken, companyData.ghl_location);
 
 
     } catch (error) {
@@ -751,9 +763,10 @@ const chatId = tempphone + "@s.whatsapp.net"
     fetchCompanyData();
   }, []);
 
-  const filteredContacts = contacts.filter(contact =>
-    contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.phone?.includes(searchQuery)
+  const filteredContacts: Contact[] = contacts.filter(contact =>
+    (contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.phone?.includes(searchQuery)) &&
+    (selectedTagFilter ? contact.tags.includes(selectedTagFilter) : true)
   );
 
   // Get current contacts for pagination
@@ -911,6 +924,35 @@ const chatId = tempphone + "@s.whatsapp.net"
           ))}
         </Menu.Items>
       </Menu>
+      <Menu>
+        <Menu.Button as={Button} className="p-2 m-2 !box">
+          <span className="flex items-center justify-center w-5 h-5">
+            <Lucide icon="Filter" className="w-5 h-5" />
+          </span>
+          <span className="ml-2">Filter by Tag</span>
+        </Menu.Button>
+        <Menu.Items className="w-150">
+          <div>
+            <button
+              className="flex items-center p-2 font-medium"
+              onClick={() => handleTagFilterChange("")}
+            >
+              <Lucide icon="X" className="w-4 h-4 mr-1" />
+              Clear Filter
+            </button>
+          </div>
+          {tagList.map((tag) => (
+            <Menu.Item key={tag.id}>
+              <span
+                className="flex items-center p-2 text-sm"
+                onClick={() => handleTagFilterChange(tag.name)}
+              >
+                {tag.name}
+              </span>
+            </Menu.Item>
+          ))}
+        </Menu.Items>
+      </Menu>
       <button className="flex inline p-2 m-2 !box" onClick={() => setBlastMessageModal(true)}>
         <span className="flex items-center justify-center w-5 h-5">
           <Lucide icon="Send" className="w-5 h-5" />
@@ -947,7 +989,10 @@ const chatId = tempphone + "@s.whatsapp.net"
     </>
   )}
 </div>
-
+<div className="text-lg font-semibold text-gray-700">
+Total Contacts: {filteredContacts.length}
+          {selectedTagFilter && <span> (Filtered by: {selectedTagFilter})</span>}
+        </div>
       <span className="item-end">
       </span>
     </div>
@@ -999,7 +1044,7 @@ const chatId = tempphone + "@s.whatsapp.net"
                   </div>
                 </td>
                 <td className="px-6 py-4 font-medium capitalize text-gray-900 whitespace-nowrap dark:text-white">
-                  {contact.firstName ? contact.lastName ? `${contact.firstName} ${contact.lastName}` : contact.firstName: contact.phone}
+                  {contact.contactName ? contact.lastName ? `${contact.contactName}` : contact.contactName: contact.phone}
                 </td>
                 <td className="px-6 py-4">{contact.phone ?? contact.source}</td>
              
