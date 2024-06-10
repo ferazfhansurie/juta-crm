@@ -21,6 +21,7 @@ import errorIllustration from "@/assets/images/chat.svg";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { useLocation } from "react-router-dom";
 import { useContacts } from '../../contact';
+import { Pin, PinOff } from "lucide-react";
 
 interface Label {
   id: string;
@@ -572,20 +573,21 @@ function Main() {
       try {
         const user = auth.currentUser;
         if (user) {
-          const userRef = doc(firestore, 'user', user.email!);
-          const userDoc = await getDoc(userRef);
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const notifications = userData?.notifications || [];
-            const updatedNotifications = notifications.map((notification: any) => {
-              if (notification.chat_id === chatId) {
-                return { ...notification, read: true };
-              }
-              return notification;
-            });
+          const notificationsRef = collection(firestore, 'users', user.email!, 'notifications');
+          const notificationsSnapshot = await getDocs(notificationsRef);
     
-            // Update the user's notifications in the database
-            await setDoc(userRef, { notifications: updatedNotifications }, { merge: true });
+          const notifications = notificationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          const updatedNotifications = notifications.map((notification: any) => {
+            if (notification.chat_id === chatId) {
+              return { ...notification, read: true };
+            }
+            return notification;
+          });
+    
+          // Update each notification document in the subcollection
+          for (const notification of updatedNotifications) {
+            const notificationDocRef = doc(firestore, 'users', user.email!, 'notifications', notification.id);
+            await setDoc(notificationDocRef, notification, { merge: true });
           }
         }
       } catch (error) {
@@ -1494,7 +1496,7 @@ const handleForwardMessage = async () => {
 
   return (
     <div className="flex overflow-hidden bg-gray-100 text-gray-800" style={{ height: '92vh' }}>
-    <div className="flex flex-col min-w-[25%] max-w-[25%] bg-gray-100 border-r border-gray-300">
+    <div className="flex flex-col min-w-[35%] max-w-[35%] bg-gray-100 border-r border-gray-300">
     <div className="relative hidden sm:block p-2">
     <div className="flex items-center space-x-2">
     {isForwardDialogOpen && (
@@ -1659,7 +1661,7 @@ const handleForwardMessage = async () => {
                   togglePinConversation(contact.id);
                 }}
               >
-                {contact.pinned ? 'Unpin' : 'Pin'}
+                {contact.pinned ? <PinOff size={16} color="#b91c1c" strokeWidth={1.25} absoluteStrokeWidth /> : <Pin size={16} color="#1e40af" strokeWidth={1.25} absoluteStrokeWidth />}
               </button>
               {contact.last_message?.createdAt || contact.last_message?.timestamp
                 ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
@@ -1682,7 +1684,7 @@ const handleForwardMessage = async () => {
                 checked={contact.tags?.includes("stop bot")}
                 onChange={() => toggleStopBotLabel(contact.chat, index, contact)}
               />
-              <div className="mt-1 ml-2 relative w-11 h-6 bg-gray-400 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-primary">
+              <div className="mt-1 ml-0 relative w-11 h-6 bg-gray-400 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-primary">
               </div>
             </label>
           </div>
