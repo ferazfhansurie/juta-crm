@@ -1139,7 +1139,7 @@ const formatText = (text: string) => {
         activeTags.every((tag) => contact.tags?.includes(tag))
       );
     }
-  
+    updatedContacts.sort((a, b) => Number(b.pinned) - Number(a.pinned));
     setFilteredContacts(updatedContacts);
   }, [searchQuery, activeTags, contacts, isGroupFilterActive]);
   useEffect(() => {
@@ -1170,7 +1170,7 @@ const formatText = (text: string) => {
             ? prevSelectedMessages.filter(m => m.id !== message.id)
             : [...prevSelectedMessages, message]
     );
-};
+  };
 const formatTextForSending = (text: string) => {
   // Step 1: Ensure proper spacing between items
   text = text.replace(/- /g, '\n- ');
@@ -1433,10 +1433,7 @@ const handleForwardMessage = async () => {
     });
   };
   
-  useEffect(() => {
-    const sortedContacts = [...contacts].sort((a, b) => Number(b.pinned) - Number(a.pinned));
-    setFilteredContacts(sortedContacts);
-  }, [contacts, searchQuery, activeTags]);
+  
 
   const openImageModal = (imageUrl: string) => {
     setModalImageUrl(imageUrl);
@@ -1447,6 +1444,23 @@ const handleForwardMessage = async () => {
     setImageModalOpen(false);
     setModalImageUrl('');
   };
+
+  // Handle keydown event
+  const handleKeyDown = (event: { key: string; }) => {
+    if (event.key === "Escape") {
+      setSelectedMessages([]);
+    }
+  };
+
+  useEffect(() => {
+    // Add event listener for keydown
+    window.addEventListener("keydown", handleKeyDown);
+    
+    // Cleanup event listener on component unmount
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
 
   return (
@@ -1867,13 +1881,20 @@ const handleForwardMessage = async () => {
         </div>
       </div>
       {selectedMessages.length > 0 && (
-    <button
-        className="fixed bottom-20 right-10 bg-blue-900 text-white px-10 py-5 rounded-full shadow-lg"
-        onClick={() => setIsForwardDialogOpen(true)}
-    >
-        Forward
-    </button>
-)}
+      <div className="fixed bottom-20 right-10 space-x-4">
+        <button
+          className="bg-primary text-white px-4 py-3 rounded-xl shadow-lg"
+          onClick={() => setIsForwardDialogOpen(true)}>
+          Forward
+        </button>
+        <button
+          className="bg-red-700 text-white px-4 py-3 rounded-xl shadow-lg"
+          onClick={() => setSelectedMessages([])}
+          onKeyDown={handleKeyDown}>
+          Cancel
+        </button>
+      </div>
+    )}
       {isTabOpen && (
   <div className="w-2/4 bg-white border-l border-gray-300 overflow-y-auto">
     <div className="p-6">
