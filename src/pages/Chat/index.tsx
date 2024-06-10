@@ -1728,7 +1728,7 @@ const handleForwardMessage = async () => {
     </button>
       </div>
 
-      <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+      <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-50 max-h-60 overflow-y-auto">
     {(tagList).map((item) => (
       <Menu.Item key={item.id}>
         <button

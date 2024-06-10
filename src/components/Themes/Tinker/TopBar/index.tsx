@@ -157,7 +157,7 @@ function Main() {
   return (
     <>
       {/* BEGIN: Top Bar */}
-      <div className="relative z-[51] flex h-[67px] items-center border-b border-slate-200">
+      <div className="relative flex h-[67px] items-center border-b border-slate-200">
         {/* BEGIN: Breadcrumb */}
         <Breadcrumb className="hidden mr-auto -intro-x sm:flex text-slate-600">
           <h2 className="mr-5 text-lg font-medium truncate">
