@@ -1667,11 +1667,11 @@ const handleForwardMessage = async () => {
       {selectedContact && (
           <div className="flex items-center justify-between p-1 border-b border-gray-300 bg-gray-100">
             <div className="flex items-center">
-              <div className="w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3">
+              <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3 ml-2">
                 <span className="text-lg">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
               </div>
               <div>
-                <div className="font-semibold text-gray-800">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
+                <div className="font-semibold text-gray-800 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
                 <div className="text-sm text-gray-600">{selectedContact.phone}</div>
               </div>
             </div>
@@ -1803,7 +1803,7 @@ const handleForwardMessage = async () => {
   ) }
         </div>
 
-        <div className="absolute bottom-0 left-0 w-500px !box m-2 bg-none border-t border-gray-300 py-1 px-2">
+        <div className="absolute bottom-0 left-0 w-500px !box m-1 py-1 px-2">
 
           <div className="flex items-center">
           <Menu as="div" className="relative inline-block text-left p-2">
@@ -1903,7 +1903,7 @@ const handleForwardMessage = async () => {
           <span className="text-xl">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
         </div>
         <div>
-          <div className="font-semibold text-gray-800">{selectedContact.contactName ||selectedContact.firstName|| selectedContact.phone}</div>
+          <div className="font-semibold text-gray-800 capitalize">{selectedContact.contactName ||selectedContact.firstName|| selectedContact.phone}</div>
           <div className="text-sm text-gray-600">{selectedContact.phone}</div>
         </div>
       </div>
