@@ -1146,7 +1146,7 @@ const formatText = (text: string) => {
     let updatedContacts = contacts;
     updatedContacts = contacts.filter(contact =>
       contact.contactName?.toLowerCase().includes(searchQuery2.toLowerCase()) ||
-      contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.firstName?.toLowerCase().includes(searchQuery2.toLowerCase()) ||
       contact.phone?.includes(searchQuery2)
     );
     setFilteredContactsForForwarding(updatedContacts);
@@ -1792,7 +1792,7 @@ const handleForwardMessage = async () => {
           {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
             <input
               type="checkbox"
-              className="form-checkbox h-5 w-5 text-blue-900 transition duration-150 ease-in-out rounded-full ml-2"
+              className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
               checked={selectedMessages.includes(message)}
               onChange={() => handleSelectMessage(message)}
             />
@@ -1883,7 +1883,7 @@ const handleForwardMessage = async () => {
       {selectedMessages.length > 0 && (
       <div className="fixed bottom-20 right-10 space-x-4">
         <button
-          className="bg-primary text-white px-4 py-3 rounded-xl shadow-lg"
+          className="bg-blue-800 text-white px-4 py-3 rounded-xl shadow-lg"
           onClick={() => setIsForwardDialogOpen(true)}>
           Forward
         </button>
