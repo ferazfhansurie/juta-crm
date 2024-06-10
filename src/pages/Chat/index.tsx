@@ -143,13 +143,32 @@ interface ImageModalProps {
   imageUrl: string;
 }
 const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageUrl }) => {
+  const [zoomLevel, setZoomLevel] = useState(1);
+
   if (!isOpen) return null;
+
+  const handleImageClick = () => {
+    setZoomLevel(prevZoomLevel => (prevZoomLevel === 1 ? 2 : 1));
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75" onClick={onClose}>
-      <div className="relative mt-10 p-2 bg-white rounded-lg shadow-lg max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-        <img src={imageUrl} alt="Modal Content" className="rounded-md max-w-full max-h-full" />
-        <a href={imageUrl} download className="mt-2 block text-center text-blue-500 hover:underline">
+      <div
+        className="relative mt-10 p-2 bg-white rounded-lg shadow-lg max-w-md w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={imageUrl}
+          alt="Modal Content"
+          className="rounded-md cursor-pointer"
+          style={{ transform: `scale(${zoomLevel})`, transition: 'transform 0.3s', maxWidth: '100%', maxHeight: '100%' }}
+          onClick={handleImageClick}
+        />
+        <a
+          href={imageUrl}
+          download
+          className="mt-2 block text-center text-blue-500 hover:underline"
+        >
           Save Image
         </a>
         <button
@@ -926,14 +945,20 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
  
     setToken(data2.whapiToken);
     try {
-      const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${selectedChatId!}/${data2.whapiToken}/${newMessage!}`, {
+      const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${selectedChatId!}/${data2.whapiToken}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: newMessage,
+
+        }),
       });
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
+      console.log(response);
       const data = await response.json();
+      
       toast.success("Message sent successfully!");
       fetchMessagesBackground(selectedChatId!, whapiToken!);
     } catch (error) {
@@ -1219,10 +1244,14 @@ const handleForwardMessage = async () => {
                       }),
                   });
               } else {
-                const message_string = formatTextForSending(message!.text?.body!);
-                  response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${contact.chat_id}/${whapiToken}/${message_string}`, {
+                const message_string = message!.text?.body!;
+                  response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${contact.chat_id}/${whapiToken}`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        message: message_string,
+              
+                      }),
                   });
               }
               if (!response.ok) throw new Error('Failed to forward message');
@@ -1505,7 +1534,7 @@ const handleForwardMessage = async () => {
                       {contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"}
                     </div>
                     <div className="flex-grow">
-                      <div className="font-semibold">{contact.contactName || contact.firstName || contact.phone}</div>
+                      <div className="font-semibold capitalize">{contact.contactName || contact.firstName || contact.phone}</div>
                     </div>
                   </div>
                 </div>
@@ -1777,6 +1806,7 @@ const handleForwardMessage = async () => {
               src={message.document.preview}
               alt="Document Preview"
               className="w-40 h-40 mb-3 border rounded"
+              onClick={() => openImageModal(message.document?.preview || '')}
             />
             <div className="flex-1 text-justify">
               <div className="font-semibold">{message.document.file_name}</div>
