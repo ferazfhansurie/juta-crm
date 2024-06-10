@@ -26,9 +26,9 @@ function Main() {
   return (
     <div className="tinker">
       <MobileMenu />
-      <div className="flex mt-[4.7rem] md:mt-0 overflow-hidden">
+      <div className="flex mt-[5rem] md:mt-0 overflow-hidden">
         {/* BEGIN: Simple Menu */}
-        <nav className="py-5 side-nav side-nav--simple hidden md:block md:w-[72px] xl:w-[72px] px-2 pb-16 overflow-x-hidden z-10 bg-gray-100">
+        <nav className="pt-5 p-2 side-nav side-nav--simple hidden md:block md:w-[120px] xl:w-[120px] overflow-x-hidden z-10 bg-slate-300">
           <ul className="space-y-2">
             {/* BEGIN: First Child */}
             {formattedMenu.map((menu, menuKey) =>
@@ -49,13 +49,14 @@ function Main() {
                       setFormattedMenu([...formattedMenu]);
                     }}
                     className={clsx([
-                      "flex items-center p-2 my-1 rounded hover:bg-gray-200",
-                      menu.active ? "bg-gray-300" : "",
+                      "flex items-center p-2 rounded hover:bg-slate-700",
+                      menu.active ? "bg-slate-400 text-slate-200 font-medium" : "",
                     ])}
                   >
-                    <div className="w-5 h-5 flex items-center justify-center">
-                      <Lucide icon={menu.icon} className="text-gray-700" />
+                    <div className="text-left w-10 h-6 m-0 flex items-center justify-between">
+                      <Lucide icon={menu.icon} className="text-slate-500 hover:text-slate-200" />
                     </div>
+                    <span className="ml-3 mr-10">{menu.title}</span>
                   </Tippy>
                   {/* BEGIN: Second Child */}
                   {menu.subMenu && (
@@ -153,7 +154,7 @@ function Main() {
         </nav>
         {/* END: Simple Menu */}
         {/* BEGIN: Content */}
-        <div className="min-h-screen max-w-full md:max-w-none bg-slate-100 flex-1 pb-10 px-2 md:px-2 relative md:ml-4 dark:bg-darkmode-700 before:content-[''] before:w-full before:h-px before:block after:content-[''] after:z-[-1] after:rounded-[40px_0px_0px_0px] after:w-full after:inset-y-0 after:absolute after:left-0 after:bg-white/10 after:mt-8 after:-ml-4 after:dark:bg-darkmode-400/50 after:hidden md:after:block">
+        <div className="min-h-screen max-w-full md:max-w-none bg-slate-100 flex-1 pb-2 px-2 md:px-2 relative  dark:bg-darkmode-700 before:content-[''] before:w-full before:h-px before:block after:content-[''] after:z-[-1] after:rounded-[40px_0px_0px_0px] after:w-full after:inset-y-0 after:absolute after:left-0 after:bg-white/10 after:mt-8 after:-ml-4 after:dark:bg-darkmode-400/50 after:hidden md:after:block">
           <TopBar />
           <Outlet />
         </div>
