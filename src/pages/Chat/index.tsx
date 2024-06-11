@@ -1444,14 +1444,16 @@ const handleForwardMessage = async () => {
     setIsForwardDialogOpen(false);
     setSearchQuery2(''); // Clear the search query
   };
-
-  const togglePinConversation = (contactId: string) => {
+  const togglePinConversation = async (chatId: string) => {
     setContacts((prevContacts) => {
-      const contactToToggle = prevContacts.find(contact => contact.id === contactId);
-      if (!contactToToggle) return prevContacts;
+      const contactToToggle = prevContacts.find(contact => contact.chat_id === chatId);
+      if (!contactToToggle) {
+        console.error("Contact not found in state for chatId:", chatId);
+        return prevContacts;
+      }
   
       const updatedContacts = prevContacts.map((contact) =>
-        contact.id === contactId ? { ...contact, pinned: !contact.pinned } : contact
+        contact.chat_id === chatId ? { ...contact, pinned: !contact.pinned } : contact
       );
   
       const sortedContacts = [...updatedContacts].sort((a, b) => {
@@ -1462,10 +1464,35 @@ const handleForwardMessage = async () => {
   
       return sortedContacts;
     });
+  
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+  
+      const pinnedCollection = collection(firestore, `user/${user.email}/pinned`);
+      const contactDocRef = doc(pinnedCollection, chatId);
+  
+      const contactToToggle = contacts.find(contact => contact.chat_id === chatId);
+      if (!contactToToggle) {
+        console.error("Contact not found for chatId:", chatId);
+        return;
+      }
+  
+      const userDataToSend = { ...contactToToggle, pinned: !contactToToggle.pinned };
+  
+      if (contactToToggle.pinned) {
+        // Unpin the chat
+        await deleteDoc(contactDocRef);
+        console.log(`Chat ${chatId} unpinned`);
+      } else {
+        // Pin the chat
+        await setDoc(contactDocRef, userDataToSend);
+        console.log(`Chat ${chatId} pinned`);
+      }
+    } catch (error) {
+      console.error('Error toggling chat pin state:', error);
+    }
   };
-  
-  
-
   const openImageModal = (imageUrl: string) => {
     setModalImageUrl(imageUrl);
     setImageModalOpen(true);
@@ -1629,68 +1656,73 @@ const handleForwardMessage = async () => {
         </div>
   <div className="flex-1 overflow-y-auto">
     
-    {filteredContacts.map((contact, index) => (
-      <div
-        key={contact.id || `${contact.phone}-${index}`}
-        className={`m-2 pl-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 ${
-          contact.chat_id !== undefined
-            ? selectedChatId === contact.chat_id
-              ? 'bg-gray-700 text-white'
-              : 'hover:bg-gray-300'
-            : selectedChatId === contact.phone
-            ? 'bg-gray-700 text-white'
-            : 'hover:bg-gray-300'
-        }`}
-        onClick={() => selectChat(contact.chat_id!, contact.email!)}
-      >
-      <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
-  {contact.chat_pic_full ? (
-    <img src={contact.chat_pic_full}  className="w-full h-full rounded-full object-cover" />
-  ) : (
-    contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"
-  )}
-</div>
-        <div className="flex-1 min-w-0 group">
-          <div className="flex justify-between items-center">
-            <span className="font-semibold capitalize truncate">{contact.contactName??contact.firstName??contact.phone }</span>
-            <span className="text-xs">
-            <button
-                className="text-md font-medium mr-2 text-gray-500 hover:text-blue-500 transform transition-opacity opacity-0 group-hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  togglePinConversation(contact.id);
-                }}
-              >
-                {contact.pinned ? <PinOff size={16} color="#b91c1c" strokeWidth={1.25} absoluteStrokeWidth /> : <Pin size={16} color="#1e40af" strokeWidth={1.25} absoluteStrokeWidth />}
-              </button>
-              {contact.last_message?.createdAt || contact.last_message?.timestamp
-                ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
-                : 'No Messages'}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm truncate" style={{ width: '200px' }}>
-              {(contact.last_message?.type == "text")?contact.last_message?.text?.body ?? "No Messages":"Photo"}
-            </span>
-            {contact.unreadCount > 0 && (
-              <span className="bg-primary text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
+  {filteredContacts.map((contact, index) => (
+  <div
+    key={contact.id || `${contact.phone}-${index}`}
+    className={`m-2 pl-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 group ${
+      contact.chat_id !== undefined
+        ? selectedChatId === contact.chat_id
+          ? 'bg-gray-700 text-white'
+          : 'hover:bg-gray-300'
+        : selectedChatId === contact.phone
+        ? 'bg-gray-700 text-white'
+        : 'hover:bg-gray-300'
+    }`}
+    onClick={() => selectChat(contact.chat_id!, contact.email!)}
+  >
+    <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
+      {contact.chat_pic_full ? (
+        <img src={contact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
+      ) : (
+        contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"
+      )}
+    </div>
+    <div className="flex-1 min-w-0">
+      <div className="flex justify-between items-center">
+        <span className="font-semibold capitalize truncate">{contact.contactName ?? contact.firstName ?? contact.phone}</span>
+        <span className="text-xs flex items-center space-x-2">
+          <button
+            className={`text-md font-medium mr-2 ${
+              contact.pinned ? 'text-blue-500' : 'text-gray-500 group-hover:text-blue-500'
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              togglePinConversation(contact.chat_id);
+            }}
+          >
+            {contact.pinned ? (
+              <Pin size={16} color="#2D2D2D" strokeWidth={1.25} absoluteStrokeWidth  fill="#2D2D2D" />
+            ) : (
+              <PinOff size={16} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
             )}
-           
-           <label className="inline-flex items-center cursor-pointer">
-            <input
-                type="checkbox"
-                value=""
-                className="sr-only peer"
-                checked={contact.tags?.includes("stop bot")}
-                onChange={() => toggleStopBotLabel(contact.chat, index, contact)}
-              />
-              <div className="mt-1 ml-0 relative w-11 h-6 bg-gray-400 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-primary">
-              </div>
-            </label>
-          </div>
-        </div>
+          </button>
+          {contact.last_message?.createdAt || contact.last_message?.timestamp
+            ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
+            : 'No Messages'}
+        </span>
       </div>
-    ))}
+      <div className="flex justify-between items-center">
+        <span className="text-sm truncate" style={{ width: '200px' }}>
+          {(contact.last_message?.type === "text") ? contact.last_message?.text?.body ?? "No Messages" : "Photo"}
+        </span>
+        {contact.unreadCount > 0 && (
+          <span className="bg-primary text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
+        )}
+        <label className="inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            value=""
+            className="sr-only peer"
+            checked={contact.tags?.includes("stop bot")}
+            onChange={() => toggleStopBotLabel(contact.chat, index, contact)}
+          />
+          <div className="mt-1 ml-0 relative w-11 h-6 bg-gray-400 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-primary">
+          </div>
+        </label>
+      </div>
+    </div>
+  </div>
+))}
   </div>
 </div>
 
