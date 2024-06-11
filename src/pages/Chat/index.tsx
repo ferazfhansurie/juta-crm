@@ -122,7 +122,7 @@ interface Message {
     preview: string;
     sha256: string;
   };
-  link_preview?: { link: string; title: string; description: string };
+  link_preview?: { link: string; title: string; description: string ,body:string,preview:string};
   sticker?: { link: string; emoji: string };
   location?: { latitude: number; longitude: number; name: string };
   live_location?: { latitude: number; longitude: number; name: string };
@@ -2118,7 +2118,7 @@ const handleForwardMessage = async () => {
             className={`flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md ${
               activeTags.includes(tag.name) ? 'bg-gray-200' : ''
             }`}
-            onClick={() => filterTagContact(tag.name)}
+            onClick={() => filterTagContact(tag.name.toLowerCase())}
           >
             <Lucide icon="User" className="w-4 h-4 mr-2" />
             {tag.name}
@@ -2407,11 +2407,19 @@ const handleForwardMessage = async () => {
           </div>
         )}
         {message.type === 'link_preview' && message.link_preview && (
-          <div className="link-preview-content p-0 message-content image-message">
-            <a href={message.link_preview.link} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-              {message.link_preview.title}
+          <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden">
+            <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
+              <img
+                src={message.link_preview.preview}
+                alt="Preview"
+                className="w-full"
+              />
+              <div className="p-2">
+                <div className="font-bold text-lg">{message.link_preview.title}</div>
+                <div className="text-sm text-gray-100">{message.link_preview.description}</div>
+                <div className="text-blue-500 mt-1">{message.link_preview.body}</div>
+              </div>
             </a>
-            <div className="caption">{message.link_preview.description}</div>
           </div>
         )}
         {message.type === 'sticker' && message.sticker && (
@@ -2450,21 +2458,21 @@ const handleForwardMessage = async () => {
             )}
           </div>
         )}
-        {message.reactions && message.reactions.length > 0 && (
-          <div className="flex items-center space-x-2 mt-1">
-            {message.reactions.map((reaction, index) => (
-              <div key={index} className="text-gray-500 text-sm flex items-center space-x-1">
-                <span
-                  className="inline-flex items-center justify-center border border-white rounded-full"
-                  style={{ padding: '2px', backgroundColor: 'white' }}
-                >
-                  {reaction.emoji}
-                </span>
-                <span>{reaction.from_name}</span>
-              </div>
-            ))}
-          </div>
-        )}
+{message.reactions && message.reactions.length > 0 && (
+  <div className="flex items-center space-x-2 mt-1">
+    {message.reactions.map((reaction, index) => (
+      <div key={index} className="text-gray-500 text-sm flex items-center space-x-1">
+        <span
+          className="inline-flex items-center justify-center border border-white rounded-full"
+          style={{ padding: '10px', backgroundColor: 'white', fontSize: '24px' }} // Adjust font size here
+        >
+          {reaction.emoji}
+        </span>
+      </div>
+    ))}
+  </div>
+)}
+
         <div className="message-timestamp text-xs text-gray-100 mt-1">
           {formatTimestamp(message.createdAt || message.dateAdded)}
           {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
