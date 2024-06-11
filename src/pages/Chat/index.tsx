@@ -2166,7 +2166,15 @@ const handleForwardMessage = async () => {
     <div className="flex-1 min-w-0">
       <div className="flex justify-between items-center">
         <span className="font-semibold capitalize truncate">{contact.contactName ?? contact.firstName ?? contact.phone}</span>
+   
         <span className="text-xs flex items-center space-x-2">
+        <div className="ml-2 flex flex-wrap">
+            {contact.tags.map((tag, tagIndex) => (
+              <span key={tagIndex} className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded">
+                {tag}
+              </span>
+            ))}
+          </div>
           <button
             className={`text-md font-medium mr-2 ${
               contact.pinned ? 'text-blue-500' : 'text-gray-500 group-hover:text-blue-500'
