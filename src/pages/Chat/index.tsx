@@ -167,6 +167,12 @@ interface ImageModalProps {
   onClose: () => void;
   imageUrl: string;
 }
+interface EditMessagePopupProps {
+  editedMessageText: string;
+  setEditedMessageText: (value: string) => void;
+  handleEditMessage: () => void;
+  cancelEditMessage: () => void;
+}
 const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageUrl }) => {
   const [zoomLevel, setZoomLevel] = useState(1);
 
@@ -274,6 +280,8 @@ function Main() {
   const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
   const [isGroupFilterActive, setIsGroupFilterActive] = useState(false);
   const [isDeletePopupOpen, setIsDeletePopupOpen] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [editedMessageText, setEditedMessageText] = useState<string>("");
 const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   let companyId = '014';
   let user_name = '';
@@ -284,15 +292,13 @@ const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   };
 
 
-  const openDeletePopup = (message: Message) => {
-    setMessageToDelete(message);
+  const openDeletePopup = () => {
     setIsDeletePopupOpen(true);
   };
   const closeDeletePopup = () => {
-    setMessageToDelete(null);
     setIsDeletePopupOpen(false);
   };
-  const deleteMessage = async (messageId: string) => {
+  const deleteMessages = async () => {
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -316,23 +322,27 @@ const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
       }
       const companyData = docSnapshot.data();
   
-      const response = await axios.delete(`https://gate.whapi.cloud/messages/${messageId}`, {
-        headers: {
-          'Authorization': `Bearer ${companyData.whapiToken}`,
-          'Accept': 'application/json',
-        },
-      });
+      for (const message of selectedMessages) {
+        const response = await axios.delete(`https://gate.whapi.cloud/messages/${message.id}`, {
+          headers: {
+            'Authorization': `Bearer ${companyData.whapiToken}`,
+            'Accept': 'application/json',
+          },
+        });
   
-      if (response.status === 200) {
-        toast.success('Message deleted successfully');
-        setMessages((prevMessages) => prevMessages.filter((msg) => msg.id !== messageId));
-        closeDeletePopup();
-      } else {
-        throw new Error(`Failed to delete message: ${response.statusText}`);
+        if (response.status === 200) {
+          setMessages((prevMessages) => prevMessages.filter((msg) => msg.id !== message.id));
+        } else {
+          throw new Error(`Failed to delete message: ${response.statusText}`);
+        }
       }
+  
+      toast.success('Messages deleted successfully');
+      setSelectedMessages([]);
+      closeDeletePopup();
     } catch (error) {
-      console.error('Error deleting message:', error);
-      toast.error('Failed to delete message');
+      console.error('Error deleting messages:', error);
+      toast.error('Failed to delete messages');
     }
   };
   useEffect(() => {
@@ -1407,6 +1417,11 @@ const formatText = (text: string) => {
     }
   });
 };
+const openEditMessage = (message: Message) => {
+  setEditingMessage(message);
+  setEditedMessageText(message.text?.body || "");
+};
+
   function formatDate(timestamp: string | number | Date) {
     const date = new Date(timestamp);
     const now = new Date();
@@ -1830,7 +1845,62 @@ const handleForwardMessage = async () => {
       adjustHeight(textareaRef.current);
     }
   }, [newMessage]);
-
+  const cancelEditMessage = () => {
+    setEditingMessage(null);
+    setEditedMessageText("");
+  };
+  const handleEditMessage = async () => {
+    if (!editedMessageText.trim() || !editingMessage) return;
+    
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.error('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+  
+      const response = await axios.post(`https://gate.whapi.cloud/messages/text`, {
+        to: editingMessage.chat_id,
+        body: editedMessageText,
+        edit: editingMessage.id,
+      }, {
+        headers: {
+          'Authorization': `Bearer ${companyData.whapiToken}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+  console.log(response);
+      if (response.status === 200) {
+        toast.success('Message edited successfully');
+        fetchMessages(editingMessage.chat_id, companyData.whapiToken);
+        setEditingMessage(null);
+        setEditedMessageText("");
+      } else {
+        console.log(response);
+      }
+    } catch (error) {
+     
+      console.error('Error editing message:', error);
+      toast.error('Failed to edit message');
+    }
+  };
   const DeleteConfirmationPopup = () => (
     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
@@ -1846,11 +1916,7 @@ const handleForwardMessage = async () => {
           <Button
             type="button"
             className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
-            onClick={() => {
-              if (messageToDelete) {
-                deleteMessage(messageToDelete.id);
-              }
-            }}
+           onClick={deleteMessages}
           >
             Delete
           </Button>
@@ -1865,12 +1931,51 @@ const handleForwardMessage = async () => {
       </div>
     </div>
   );
+
+  
   return (
     <div className="flex overflow-hidden bg-gray-100 text-gray-800" style={{ height: '100vh' }}>
     <div className="flex flex-col min-w-[35%] max-w-[35%] bg-gray-100 border-r border-gray-300">
     <div className="relative hidden sm:block p-2">
     <div className="flex items-center space-x-2">
     {isDeletePopupOpen && <DeleteConfirmationPopup />}
+ 
+    {editingMessage && (
+     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+     <div className="bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
+       <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+         <div className="sm:flex sm:items-start">
+           <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Edit message</h3>
+             <textarea
+               className="w-full h-24 px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
+               placeholder="Edit your message"
+               value={editedMessageText}
+               onChange={(e) => setEditedMessageText(e.target.value)}
+               style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+             />
+           </div>
+         </div>
+       </div>
+       <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+         <Button
+           type="button"
+           className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-500 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+           onClick={handleEditMessage}
+         >
+           Save
+         </Button>
+         <Button
+           type="button"
+           className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:w-auto sm:text-sm"
+           onClick={cancelEditMessage}
+         >
+           Cancel
+         </Button>
+       </div>
+     </div>
+   </div>
+    )}
     {isForwardDialogOpen && (
   <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
     <div className="bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
@@ -2146,175 +2251,179 @@ const handleForwardMessage = async () => {
                 </div>
               )}
 {selectedChatId && (
-  messages.slice().reverse().map((message) => (
-    message.type !== 'system' &&
-    <div
-      className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
-      key={message.id}
-      style={{
-        maxWidth: '70%',
-        width: `${message.type !== 'text' ? '320' : (message.text?.context ? Math.min((message.text.context.quoted_content?.body?.length || 0) * 10, 320) : Math.min((message.text?.body?.length || 0) * 10, 320))}px`,
-        minWidth: '75px'  // Add a minimum width here
-      }}
-      onMouseEnter={() => setHoveredMessageId(message.id)}
-      onMouseLeave={() => setHoveredMessageId(null)}
-    >
-      {message.chat_id.includes('@g.us') && (
-        <div className="pb-1 text-md font-medium">{message.from_name}</div>
-      )}
-      {message.type === 'text' && message.text?.context && (
-        <div className="p-2 mb-2 rounded bg-gray-600">
-          <div className="text-sm font-medium">{message.text.context.quoted_author || ''}</div>
-          <div className="text-sm">{message.text.context.quoted_content?.body || ''}</div>
-        </div>
-      )}
-      {message.type === 'text' && (
-        <div className="whitespace-pre-wrap break-words">
-          {formatText(message.text?.body || '')}
-        </div>
-      )}
-      {message.type === 'image' && message.image && (
-        <div className="p-0 message-content image-message">
-          <img
-            src={message.image.link}
-            alt="Image"
-            className="rounded-lg message-image cursor-pointer"
-            style={{ maxWidth: '300px' }}
-            onClick={() => openImageModal(message.image?.link || '')}
-          />
-          <div className="caption">{message.image.caption}</div>
-        </div>
-      )}
-      {message.type === 'video' && message.video && (
-        <div className="video-content p-0 message-content image-message">
-          <video
-            controls
-            src={message.video.link}
-            className="rounded-lg message-image cursor-pointer"
-            style={{ maxWidth: '300px' }}
-          />
-          <div className="caption">{message.video.caption}</div>
-        </div>
-      )}
-      {message.type === 'gif' && message.gif && (
-        <div className="gif-content p-0 message-content image-message">
-          <img
-            src={message.gif.link}
-            alt="GIF"
-            className="rounded-lg message-image cursor-pointer"
-            style={{ maxWidth: '300px' }}
-            onClick={() => openImageModal(message.gif?.link || '')}
-          />
-          <div className="caption">{message.gif.caption}</div>
-        </div>
-      )}
-      {message.type === 'audio' && message.audio && (
-        <div className="audio-content p-0 message-content image-message">
-          <audio controls src={message.audio.link} className="rounded-lg message-image cursor-pointer" />
-        </div>
-      )}
-      {message.type === 'voice' && message.voice && (
-        <div className="voice-content p-0 message-content image-message">
-          <audio controls src={message.voice.link} className="rounded-lg message-image cursor-pointer" />
-        </div>
-      )}
-      {message.type === 'document' && message.document && (
-        <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
-          <img
-            src={message.document.preview}
-            alt="Document Preview"
-            className="w-40 h-40 mb-3 border rounded"
-            onClick={() => openImageModal(message.document?.preview || '')}
-          />
-          <div className="flex-1 text-justify">
-            <div className="font-semibold">{message.document.file_name}</div>
-            <div>{message.document.page_count} page{message.document.page_count > 1 ? 's' : ''} • PDF • {(message.document.file_size / 1024).toFixed(2)} kB</div>
-          </div>
-          <a href={message.document.link} target="_blank" rel="noopener noreferrer" className="mt-3">
-            <Lucide icon="Download" className="w-6 h-6 text-white-700" />
-          </a>
-        </div>
-      )}
-      {message.type === 'link_preview' && message.link_preview && (
-        <div className="link-preview-content p-0 message-content image-message">
-          <a href={message.link_preview.link} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-            {message.link_preview.title}
-          </a>
-          <div className="caption">{message.link_preview.description}</div>
-        </div>
-      )}
-      {message.type === 'sticker' && message.sticker && (
-        <div className="sticker-content p-0 message-content image-message">
-          <img
-            src={message.sticker.link}
-            alt="Sticker"
-            className="rounded-lg message-image cursor-pointer"
-            style={{ maxWidth: '150px' }}
-            onClick={() => openImageModal(message.sticker?.link || '')}
-          />
-        </div>
-      )}
-      {message.type === 'location' && message.location && (
-        <div className="location-content p-0 message-content image-message">
-          <div className="text-sm">Location: {message.location.latitude}, {message.location.longitude}</div>
-        </div>
-      )}
-      {message.type === 'poll' && message.poll && (
-        <div className="poll-content p-0 message-content image-message">
-          <div className="text-sm">Poll: {message.poll.title}</div>
-        </div>
-      )}
-      {message.type === 'hsm' && message.hsm && (
-        <div className="hsm-content p-0 message-content image-message">
-          <div className="text-sm">HSM: {message.hsm.title}</div>
-        </div>
-      )}
-      {message.type === 'action' && message.action && (
-        <div className="action-content flex flex-col p-4 rounded-md shadow-md">
-          {message.action.type === 'delete' ? (
-            <div className="text-gray-400">This message was deleted</div>
-          ) : (
-            /* Handle other action types */
-            <div>{message.action.emoji}</div>
-          )}
-        </div>
-      )}
-      {message.reactions && message.reactions.length > 0 && (
-        <div className="flex items-center space-x-2 mt-1">
-          {message.reactions.map((reaction, index) => (
-            <div key={index} className="text-gray-500 text-sm flex items-center space-x-1">
-              <span
-                className="inline-flex items-center justify-center border border-white rounded-full"
-                style={{ padding: '2px', backgroundColor: 'white' }}
-              >
-                {reaction.emoji}
-              </span>
-              <span>{reaction.from_name}</span>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="message-timestamp text-xs text-gray-100 mt-1">
-        {formatTimestamp(message.createdAt || message.dateAdded)}
-        {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
-              checked={selectedMessages.includes(message)}
-              onChange={() => handleSelectMessage(message)}
-            />
-            <button
-              className="ml-2 text-red-500 hover:text-red-700 fill-current"
-              onClick={() => openDeletePopup(message)}
-            >
-              <Lucide icon="Trash" className="w-5 h-5" />
-            </button>
+  messages
+    .filter((message) => message.type !== 'action') // Filter out action type messages
+    .slice()
+    .reverse()
+    .map((message) => (
+      message.type !== 'system' &&
+      <div
+        className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+        key={message.id}
+        style={{
+          maxWidth: '70%',
+          width: `${message.type !== 'text' ? '320' : (message.text?.context ? Math.min((message.text.context.quoted_content?.body?.length || 0) * 10, 320) : Math.min((message.text?.body?.length || 0) * 10, 320))}px`,
+          minWidth: '75px'  // Add a minimum width here
+        }}
+        onMouseEnter={() => setHoveredMessageId(message.id)}
+        onMouseLeave={() => setHoveredMessageId(null)}
+      >
+        {message.chat_id.includes('@g.us') && (
+          <div className="pb-1 text-md font-medium">{message.from_name}</div>
+        )}
+        {message.type === 'text' && message.text?.context && (
+          <div className="p-2 mb-2 rounded bg-gray-600">
+            <div className="text-sm font-medium">{message.text.context.quoted_author || ''}</div>
+            <div className="text-sm">{message.text.context.quoted_content?.body || ''}</div>
           </div>
         )}
+        {message.type === 'text' && (
+          <div className="whitespace-pre-wrap break-words">
+            {formatText(message.text?.body || '')}
+          </div>
+        )}
+        {message.type === 'image' && message.image && (
+          <div className="p-0 message-content image-message">
+            <img
+              src={message.image.link}
+              alt="Image"
+              className="rounded-lg message-image cursor-pointer"
+              style={{ maxWidth: '300px' }}
+              onClick={() => openImageModal(message.image?.link || '')}
+            />
+            <div className="caption">{message.image.caption}</div>
+          </div>
+        )}
+        {message.type === 'video' && message.video && (
+          <div className="video-content p-0 message-content image-message">
+            <video
+              controls
+              src={message.video.link}
+              className="rounded-lg message-image cursor-pointer"
+              style={{ maxWidth: '300px' }}
+            />
+            <div className="caption">{message.video.caption}</div>
+          </div>
+        )}
+        {message.type === 'gif' && message.gif && (
+          <div className="gif-content p-0 message-content image-message">
+            <img
+              src={message.gif.link}
+              alt="GIF"
+              className="rounded-lg message-image cursor-pointer"
+              style={{ maxWidth: '300px' }}
+              onClick={() => openImageModal(message.gif?.link || '')}
+            />
+            <div className="caption">{message.gif.caption}</div>
+          </div>
+        )}
+        {message.type === 'audio' && message.audio && (
+          <div className="audio-content p-0 message-content image-message">
+            <audio controls src={message.audio.link} className="rounded-lg message-image cursor-pointer" />
+          </div>
+        )}
+        {message.type === 'voice' && message.voice && (
+          <div className="voice-content p-0 message-content image-message">
+            <audio controls src={message.voice.link} className="rounded-lg message-image cursor-pointer" />
+          </div>
+        )}
+        {message.type === 'document' && message.document && (
+          <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
+            <img
+              src={message.document.preview}
+              alt="Document Preview"
+              className="w-40 h-40 mb-3 border rounded"
+              onClick={() => openImageModal(message.document?.preview || '')}
+            />
+            <div className="flex-1 text-justify">
+              <div className="font-semibold">{message.document.file_name}</div>
+              <div>{message.document.page_count} page{message.document.page_count > 1 ? 's' : ''} • PDF • {(message.document.file_size / 1024).toFixed(2)} kB</div>
+            </div>
+            <a href={message.document.link} target="_blank" rel="noopener noreferrer" className="mt-3">
+              <Lucide icon="Download" className="w-6 h-6 text-white-700" />
+            </a>
+          </div>
+        )}
+        {message.type === 'link_preview' && message.link_preview && (
+          <div className="link-preview-content p-0 message-content image-message">
+            <a href={message.link_preview.link} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+              {message.link_preview.title}
+            </a>
+            <div className="caption">{message.link_preview.description}</div>
+          </div>
+        )}
+        {message.type === 'sticker' && message.sticker && (
+          <div className="sticker-content p-0 message-content image-message">
+            <img
+              src={message.sticker.link}
+              alt="Sticker"
+              className="rounded-lg message-image cursor-pointer"
+              style={{ maxWidth: '150px' }}
+              onClick={() => openImageModal(message.sticker?.link || '')}
+            />
+          </div>
+        )}
+        {message.type === 'location' && message.location && (
+          <div className="location-content p-0 message-content image-message">
+            <div className="text-sm">Location: {message.location.latitude}, {message.location.longitude}</div>
+          </div>
+        )}
+        {message.type === 'poll' && message.poll && (
+          <div className="poll-content p-0 message-content image-message">
+            <div className="text-sm">Poll: {message.poll.title}</div>
+          </div>
+        )}
+        {message.type === 'hsm' && message.hsm && (
+          <div className="hsm-content p-0 message-content image-message">
+            <div className="text-sm">HSM: {message.hsm.title}</div>
+          </div>
+        )}
+        {message.type === 'action' && message.action && (
+          <div className="action-content flex flex-col p-4 rounded-md shadow-md">
+            {message.action.type === 'delete' ? (
+              <div className="text-gray-400">This message was deleted</div>
+            ) : (
+              /* Handle other action types */
+              <div>{message.action.emoji}</div>
+            )}
+          </div>
+        )}
+        {message.reactions && message.reactions.length > 0 && (
+          <div className="flex items-center space-x-2 mt-1">
+            {message.reactions.map((reaction, index) => (
+              <div key={index} className="text-gray-500 text-sm flex items-center space-x-1">
+                <span
+                  className="inline-flex items-center justify-center border border-white rounded-full"
+                  style={{ padding: '2px', backgroundColor: 'white' }}
+                >
+                  {reaction.emoji}
+                </span>
+                <span>{reaction.from_name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="message-timestamp text-xs text-gray-100 mt-1">
+          {formatTimestamp(message.createdAt || message.dateAdded)}
+          {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
+                checked={selectedMessages.includes(message)}
+                onChange={() => handleSelectMessage(message)}
+              />
+                <button
+                className="ml-2 text-white hover:text-gray-400 fill-current"
+                onClick={() => openEditMessage(message)}
+              >
+                <Lucide icon="Pencil" className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  ))
+    ))
 )}
         </div>
 
@@ -2406,8 +2515,14 @@ const handleForwardMessage = async () => {
           onClick={() => setIsForwardDialogOpen(true)}>
           Forward
         </button>
+
         <button
-          className="bg-red-700 text-white px-4 py-3 rounded-xl shadow-lg"
+      className="bg-red-800 text-white px-4 py-3 rounded-xl shadow-lg"
+      onClick={openDeletePopup}>
+      Delete
+    </button>
+        <button
+          className="bg-gray-700 text-white px-4 py-3 rounded-xl shadow-lg"
           onClick={() => setSelectedMessages([])}
           onKeyDown={handleKeyDown}>
           Cancel
