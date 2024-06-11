@@ -2145,7 +2145,6 @@ const handleForwardMessage = async () => {
                   </div>
                 </div>
               )}
-<<<<<<< Updated upstream
 {selectedChatId && (
   messages.slice().reverse().map((message) => (
     message.type !== 'system' &&
@@ -2230,35 +2229,6 @@ const handleForwardMessage = async () => {
           <div className="flex-1 text-justify">
             <div className="font-semibold">{message.document.file_name}</div>
             <div>{message.document.page_count} page{message.document.page_count > 1 ? 's' : ''} • PDF • {(message.document.file_size / 1024).toFixed(2)} kB</div>
-=======
-      {selectedChatId && (
-    messages.slice().reverse().map((message) => (
-      <div
-        className={`p-2 mb-1 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
-        key={message.id}
-        style={{
-          maxWidth: '70%',
-          width: `${message.type === 'image' || message.type === 'document' ? '320' : Math.min((message.text?.body?.length || 0) * 10, 320)}px`,
-          minWidth: '75px'  // Add a minimum width here
-        }}
-        onMouseEnter={() => setHoveredMessageId(message.id)}
-        onMouseLeave={() => setHoveredMessageId(null)}
-      >
-
-        {message.chat_id.includes('@g.us')&& (
-            <div className="pb-1 text-md font-medium">{message.from_name}</div>
-        )}
-        {message.type === 'image' && message.image && (
-          <div className=" p-0 message-content image-message">
-            <img
-              src={message.image.link}
-              alt="Image"
-              className="rounded-lg message-image cursor-pointer"
-              style={{ maxWidth: '300px' }}
-              onClick={() => openImageModal(message.image?.link || '')}
-            />
-            <div className="caption">{message.image.caption}</div>
->>>>>>> Stashed changes
           </div>
           <a href={message.document.link} target="_blank" rel="noopener noreferrer" className="mt-3">
             <Lucide icon="Download" className="w-6 h-6 text-white-700" />
