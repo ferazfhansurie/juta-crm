@@ -2413,12 +2413,14 @@ const handleForwardMessage = async () => {
                 checked={selectedMessages.includes(message)}
                 onChange={() => handleSelectMessage(message)}
               />
+               {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && (
                 <button
-                className="ml-2 text-white hover:text-gray-400 fill-current"
-                onClick={() => openEditMessage(message)}
-              >
-                <Lucide icon="Pencil" className="w-5 h-5" />
-              </button>
+                  className="ml-2 text-white hover:text-gray-400 fill-current"
+                  onClick={() => openEditMessage(message)}
+                >
+                  <Lucide icon="Pencil" className="w-5 h-5" />
+                </button>
+              )}
             </div>
           )}
         </div>
