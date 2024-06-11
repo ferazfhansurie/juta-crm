@@ -1811,7 +1811,7 @@ const handleForwardMessage = async () => {
       textarea.style.height = 'auto';
     }
     const lineHeight = 24; // Approximate line height in pixels
-    const maxLines = 4;
+    const maxLines = 8;
     const maxHeight = lineHeight * maxLines;
 
     textarea.style.height = 'auto';
@@ -1866,7 +1866,7 @@ const handleForwardMessage = async () => {
     </div>
   );
   return (
-    <div className="flex overflow-hidden bg-gray-100 text-gray-800" style={{ height: '92vh' }}>
+    <div className="flex overflow-hidden bg-gray-100 text-gray-800" style={{ height: '100vh' }}>
     <div className="flex flex-col min-w-[35%] max-w-[35%] bg-gray-100 border-r border-gray-300">
     <div className="relative hidden sm:block p-2">
     <div className="flex items-center space-x-2">
