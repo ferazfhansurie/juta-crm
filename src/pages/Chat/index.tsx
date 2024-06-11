@@ -320,6 +320,22 @@ function Main() {
 const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
 const [isPDFModalOpen, setPDFModalOpen] = useState(false);
 const [pdfUrl, setPdfUrl] = useState('');
+const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
+
+const handlereplyMessage = async () => {
+  if (!newMessage.trim() || !selectedChatId) return;
+  
+  // Your existing send message logic
+
+  if (replyToMessage) {
+    // Logic to handle replying to a specific message
+    // Use replyToMessage.id to send the reply
+  }
+
+  // Clear the reply state after sending the message
+  setReplyToMessage(null);
+};
+
 const openPDFModal = (url: string) => {
   setPdfUrl(url);
   setPDFModalOpen(true);
@@ -1298,7 +1314,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       return;
     }
     const data2 = docSnapshot.data();
- 
+  
     setToken(data2.whapiToken);
     try {
       const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${selectedChatId!}/${data2.whapiToken}`, {
@@ -1306,7 +1322,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: newMessage,
-
+          quotedMessageId: replyToMessage?.id || null // Add the quotedMessageId here
         }),
       });
       if (!response.ok) {
@@ -1317,6 +1333,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       
       toast.success("Message sent successfully!");
       fetchMessagesBackground(selectedChatId!, whapiToken!);
+      setReplyToMessage(null); // Clear the replyToMessage state after sending the message
     } catch (error) {
       console.error('Error sending message:', error);
     }
@@ -2546,6 +2563,12 @@ const handleForwardMessage = async () => {
                 checked={selectedMessages.includes(message)}
                 onChange={() => handleSelectMessage(message)}
               />
+           <button
+                  className="ml-2 text-blue-500 hover:text-gray-400 fill-current"
+                  onClick={() => setReplyToMessage(message)}
+                >
+                  <Lucide icon="MessageSquare" className="w-5 h-5" />
+                </button>
                {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && (
                 <button
                   className="ml-2 text-white hover:text-gray-400 fill-current"
@@ -2554,6 +2577,7 @@ const handleForwardMessage = async () => {
                   <Lucide icon="Pencil" className="w-5 h-5" />
                 </button>
               )}
+         
             </div>
           )}
         </div>
@@ -2563,7 +2587,34 @@ const handleForwardMessage = async () => {
         </div>
 
         <div className="absolute bottom-0 left-0 w-500px !box m-1 py-1 px-2">
-
+        {replyToMessage && (
+    <div className="p-2 mb-2 rounded bg-gray-200 flex items-center justify-between">
+      <div>
+        <div className="font-semibold">{replyToMessage.from_name}</div>
+        <div>
+          {replyToMessage.type === 'text' && replyToMessage.text?.body}
+          {replyToMessage.type === 'link_preview' && replyToMessage.link_preview?.body}
+          {replyToMessage.type === 'image' && <img src={replyToMessage.image?.link} alt="Image" style={{ maxWidth: '200px' }} />}
+          {replyToMessage.type === 'video' && <video controls src={replyToMessage.video?.link} style={{ maxWidth: '200px' }} />}
+          {replyToMessage.type === 'gif' && <img src={replyToMessage.gif?.link} alt="GIF" style={{ maxWidth: '200px' }} />}
+          {replyToMessage.type === 'audio' && <audio controls src={replyToMessage.audio?.link} />}
+          {replyToMessage.type === 'voice' && <audio controls src={replyToMessage.voice?.link} />}
+          {replyToMessage.type === 'document' && <iframe src={replyToMessage.document?.link} width="100%" height="200px" />}
+          {replyToMessage.type === 'sticker' && <img src={replyToMessage.sticker?.link} alt="Sticker" style={{ maxWidth: '150px' }} />}
+          {replyToMessage.type === 'location' && (
+            <div>
+              Location: {replyToMessage.location?.latitude}, {replyToMessage.location?.longitude}
+            </div>
+          )}
+          {replyToMessage.type === 'poll' && <div>Poll: {replyToMessage.poll?.title}</div>}
+          {replyToMessage.type === 'hsm' && <div>HSM: {replyToMessage.hsm?.title}</div>}
+        </div>
+      </div>
+      <button onClick={() => setReplyToMessage(null)}>
+        <Lucide icon="X" className="w-5 h-5" />
+      </button>
+    </div>
+  )}
           <div className="flex items-center">
           <Menu as="div" className="relative inline-block text-left p-2">
             <div className="flex items-center space-x-3">
