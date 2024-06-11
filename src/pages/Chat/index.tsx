@@ -22,6 +22,7 @@ import LoadingIcon from "@/components/Base/LoadingIcon";
 import { useLocation } from "react-router-dom";
 import { useContacts } from '../../contact';
 import { Pin, PinOff } from "lucide-react";
+import LZString from 'lz-string';
 
 interface Label {
   id: string;
@@ -96,16 +97,20 @@ interface Chat {
 }
 
 interface Message {
-  chat_id:string;
+  chat_id: string;
   dateAdded: number;
   timestamp: number;
   id: string;
-  text?: { body: string | "" };
+  text?: { body: string | "" ,  context?: any;};
   from_me?: boolean;
-  from_name:string;
+  from_name: string;
   createdAt: number;
   type?: string;
   image?: { link?: string; caption?: string };
+  video?: { link?: string; caption?: string };
+  gif?: { link?: string; caption?: string };
+  audio?: { link?: string; caption?: string };
+  voice?: { link?: string; caption?: string };
   document?: {
     file_name: string;
     file_size: number;
@@ -117,6 +122,25 @@ interface Message {
     preview: string;
     sha256: string;
   };
+  link_preview?: { link: string; title: string; description: string };
+  sticker?: { link: string; emoji: string };
+  location?: { latitude: number; longitude: number; name: string };
+  live_location?: { latitude: number; longitude: number; name: string };
+  contact?: { name: string; phone: string };
+  contact_list?: { contacts: { name: string; phone: string }[] };
+  interactive?: any;
+  poll?: any;
+  hsm?: any;
+  system?: any;
+  order?: any;
+  group_invite?: any;
+  admin_invite?: any;
+  product?: any;
+  catalog?: any;
+  product_items?: any;
+  action?: any;
+  context?: any;
+  reactions?: { emoji: string; from_name: string }[];
 }interface Employee {
   id: string;
   name: string;
@@ -199,7 +223,6 @@ const firestore = getFirestore(app);
 const auth = getAuth(app);
 
 function Main() {
-  const location = useLocation();
   const { contacts: initialContacts, isLoading } = useContacts();
   const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -215,7 +238,6 @@ function Main() {
   const [stopBotLabelCheckedState, setStopBotLabelCheckedState] = useState<boolean[]>([]);
   const [isImageModalOpen, setImageModalOpen] = useState(false);
   const [modalImageUrl, setModalImageUrl] = useState('');
-
   const [selectedMessage2, setSelectedMessage2] = useState(null);
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
@@ -249,6 +271,8 @@ function Main() {
   const isInitialMount = useRef(true);
   const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
   const [isGroupFilterActive, setIsGroupFilterActive] = useState(false);
+  const [isDeletePopupOpen, setIsDeletePopupOpen] = useState(false);
+const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   let companyId = '014';
   let user_name = '';
   let user_role='2';
@@ -258,7 +282,57 @@ function Main() {
   };
 
 
-
+  const openDeletePopup = (message: Message) => {
+    setMessageToDelete(message);
+    setIsDeletePopupOpen(true);
+  };
+  const closeDeletePopup = () => {
+    setMessageToDelete(null);
+    setIsDeletePopupOpen(false);
+  };
+  const deleteMessage = async (messageId: string) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.error('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+  
+      const response = await axios.delete(`https://gate.whapi.cloud/messages/${messageId}`, {
+        headers: {
+          'Authorization': `Bearer ${companyData.whapiToken}`,
+          'Accept': 'application/json',
+        },
+      });
+  
+      if (response.status === 200) {
+        toast.success('Message deleted successfully');
+        setMessages((prevMessages) => prevMessages.filter((msg) => msg.id !== messageId));
+        closeDeletePopup();
+      } else {
+        throw new Error(`Failed to delete message: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast.error('Failed to delete message');
+    }
+  };
   useEffect(() => {
     if (messageListRef.current) {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
@@ -335,7 +409,10 @@ function Main() {
   
         // Check if a new notification has been added
         if (prevNotificationsRef.current !== null && currentNotifications.length > prevNotificationsRef.current) {
-          const latestNotification = currentNotifications[currentNotifications.length - 1];
+          // Sort notifications by timestamp to ensure the latest one is picked
+          currentNotifications.sort((a, b) => b.timestamp - a.timestamp);
+          const latestNotification = currentNotifications[0];
+          console.log(latestNotification);
   
           if (selectedChatId === latestNotification.chat_id) {
             fetchMessagesBackground(selectedChatId!, whapiToken!);
@@ -535,64 +612,53 @@ function Main() {
       console.error(error);
     }
   };
-  const selectChat = async (chatId: string,id?:string) => {
-    setContacts(prevContacts =>
-      prevContacts.map(contact =>
-        contact.chat_id === chatId ? { ...contact, unreadCount: 0 } : contact
-      )
+
+  const selectChat = async (chatId: string, id?: string) => {
+
+    const updatedContacts = contacts.map(contact =>
+      contact.chat_id === chatId ? { ...contact, unreadCount: 0 } : contact
     );
+  
+    setContacts(updatedContacts);
+  
+    // Update local storage to reflect the updated contacts
+    localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
+    sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been updated in this session
+  
     const contact = contacts.find(contact => contact.chat_id === chatId || contact.id === chatId);
     setSelectedContact(contact);
-    console.log(selectedContact);
-    if(chatId === undefined && id !== undefined){
-      setSelectedChatId(id);
-      try {
-        const user = auth.currentUser;
-        if (user) {
-          const userRef = doc(firestore, 'user', user.email!);
-          const userDoc = await getDoc(userRef);
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            user_role =userData.role;
-            companyId = userData.companyId;
-            const docRef = doc(firestore, 'companies', companyId);
-            const docSnapshot = await getDoc(docRef);
-            if (!docSnapshot.exists()) {
-              console.log('No such document!');
-              return;
-            }
-            const data = docSnapshot.data();
-        
+    console.log('Selected Contact:', contact);
+    setSelectedChatId(chatId);
+  
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        console.log('Fetching notifications for user:', user.email);
+        const notificationsRef = collection(firestore, 'user', user.email!, 'notifications');
+        console.log('Notifications Reference Path:', notificationsRef.path);
+  
+        const notificationsSnapshot = await getDocs(notificationsRef);
+        if (notificationsSnapshot.empty) {
+          console.log('No notifications found for user:', user.email);
+        } else {
+          const notifications = notificationsSnapshot.docs.map(doc => ({
+            docId: doc.id,
+            ...doc.data()
+          }));
+          console.log('Fetched Notifications:', notifications);
+  
+          const notificationsToDelete = notifications.filter((notification: any) => notification.chat_id === chatId);
+  
+          // Delete each notification document in the subcollection
+          for (const notification of notificationsToDelete) {
+            const notificationDocRef = doc(firestore, 'user', user.email!, 'notifications', notification.docId);
+            await deleteDoc(notificationDocRef);
+            console.log('Deleted notification:', notification.docId);
           }
         }
-      } catch (error) {
-        console.error('Error updating notifications:', error);
       }
-    }else{
-      setSelectedChatId(chatId);
-      try {
-        const user = auth.currentUser;
-        if (user) {
-          const notificationsRef = collection(firestore, 'users', user.email!, 'notifications');
-          const notificationsSnapshot = await getDocs(notificationsRef);
-    
-          const notifications = notificationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          const updatedNotifications = notifications.map((notification: any) => {
-            if (notification.chat_id === chatId) {
-              return { ...notification, read: true };
-            }
-            return notification;
-          });
-    
-          // Update each notification document in the subcollection
-          for (const notification of updatedNotifications) {
-            const notificationDocRef = doc(firestore, 'users', user.email!, 'notifications', notification.id);
-            await setDoc(notificationDocRef, notification, { merge: true });
-          }
-        }
-      } catch (error) {
-        console.error('Error updating notifications:', error);
-      }
+    } catch (error) {
+      console.error('Error deleting notifications:', error);
     }
   };
   const fetchTags = async (token: string, location: string) => {
@@ -776,100 +842,318 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     const auth = getAuth(app);
     const user = auth.currentUser;
     try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-      const data2 = docSnapshot.data();
-  
-      setToken(data2.whapiToken);
+        const docUserRef = doc(firestore, 'user', user?.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (!docUserSnapshot.exists()) {
+            console.log('No such document!');
+            return;
+        }
+        const dataUser = docUserSnapshot.data();
+        companyId = dataUser.companyId;
+        const docRef = doc(firestore, 'companies', companyId);
+        const docSnapshot = await getDoc(docRef);
+        if (!docSnapshot.exists()) {
+            console.log('No such document!');
+            return;
+        }
+        const data2 = docSnapshot.data();
 
-      if (selectedChatId.includes('@')) {
-        const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
-        const data = response.data;
-     console.log(data.messages);
-        setMessages(
-          data.messages.map((message: { chat_id:string,from_name: string; id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; document:any}) => ({
-            id: message.id,
-            text: { body: message.text ? message.text.body : '' },
-            from_me: message.from_me,
-            from_name: message.from_name,
-            chat_id:message.chat_id,
-            createdAt: message.timestamp,
-            type: message.type,
-            image: message.image ? message.image : undefined,
-            document:message.document?message.document:undefined,
-          }))
-        );
-        console.log( data.messages);
-      } else {
-        setMessages([
-        
-        ]);}
+        setToken(data2.whapiToken);
+
+        if (selectedChatId.includes('@')) {
+            const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
+            const data = response.data;
+            console.log(data.messages);
+
+            const formattedMessages: any[] = [];
+            const reactionsMap: Record<string, any[]> = {};
+
+            data.messages.forEach((message: any) => {
+                if (message.type === 'action' && message.action.type === 'reaction') {
+                    const targetMessageId = message.action.target;
+                    if (!reactionsMap[targetMessageId]) {
+                        reactionsMap[targetMessageId] = [];
+                    }
+                    reactionsMap[targetMessageId].push({
+                        emoji: message.action.emoji,
+                        from_name: message.from_name
+                    });
+                } else {
+                    const formattedMessage: any = {
+                        id: message.id,
+                        from_me: message.from_me,
+                        from_name: message.from_name,
+                        chat_id: message.chat_id,
+                        createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
+                        type: message.type,
+                    };
+
+                    // Include message-specific content
+                    switch (message.type) {
+                        case 'text':
+                            formattedMessage.text = {
+                                body: message.text ? message.text.body : '', // Include the message body
+                                context: message.context ? message.context : '' // Include the context
+                            };
+                            break;
+                        case 'image':
+                            formattedMessage.image = message.image ? message.image : undefined;
+                            break;
+                        case 'video':
+                            formattedMessage.video = message.video ? message.video : undefined;
+                            break;
+                        case 'gif':
+                            formattedMessage.gif = message.gif ? message.gif : undefined;
+                            break;
+                        case 'audio':
+                            formattedMessage.audio = message.audio ? message.audio : undefined;
+                            break;
+                        case 'voice':
+                            formattedMessage.voice = message.voice ? message.voice : undefined;
+                            break;
+                        case 'document':
+                            formattedMessage.document = message.document ? message.document : undefined;
+                            break;
+                        case 'link_preview':
+                            formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
+                            break;
+                        case 'sticker':
+                            formattedMessage.sticker = message.sticker ? message.sticker : undefined;
+                            break;
+                        case 'location':
+                            formattedMessage.location = message.location ? message.location : undefined;
+                            break;
+                        case 'live_location':
+                            formattedMessage.live_location = message.live_location ? message.live_location : undefined;
+                            break;
+                        case 'contact':
+                            formattedMessage.contact = message.contact ? message.contact : undefined;
+                            break;
+                        case 'contact_list':
+                            formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
+                            break;
+                        case 'interactive':
+                            formattedMessage.interactive = message.interactive ? message.interactive : undefined;
+                            break;
+                        case 'poll':
+                            formattedMessage.poll = message.poll ? message.poll : undefined;
+                            break;
+                        case 'hsm':
+                            formattedMessage.hsm = message.hsm ? message.hsm : undefined;
+                            break;
+                        case 'system':
+                            formattedMessage.system = message.system ? message.system : undefined;
+                            break;
+                        case 'order':
+                            formattedMessage.order = message.order ? message.order : undefined;
+                            break;
+                        case 'group_invite':
+                            formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
+                            break;
+                        case 'admin_invite':
+                            formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
+                            break;
+                        case 'product':
+                            formattedMessage.product = message.product ? message.product : undefined;
+                            break;
+                        case 'catalog':
+                            formattedMessage.catalog = message.catalog ? message.catalog : undefined;
+                            break;
+                        case 'product_items':
+                            formattedMessage.product_items = message.product_items ? message.product_items : undefined;
+                            break;
+                        case 'action':
+                            formattedMessage.action = message.action ? message.action : undefined;
+                            break;
+                        case 'context':
+                            formattedMessage.context = message.context ? message.context : undefined;
+                            break;
+                        case 'reactions':
+                            formattedMessage.reactions = message.reactions ? message.reactions : undefined;
+                            break;
+                        default:
+                            console.warn(`Unknown message type: ${message.type}`);
+                    }
+
+                    formattedMessages.push(formattedMessage);
+                }
+            });
+
+            // Add reactions to the respective messages
+            formattedMessages.forEach(message => {
+                if (reactionsMap[message.id]) {
+                    message.reactions = reactionsMap[message.id];
+                }
+            });
+            console.log(formattedMessages);
+            setMessages(formattedMessages);
+        } else {
+            setMessages([]);
+        }
     } catch (error) {
-      console.error('Failed to fetch messages:', error);
+        console.error('Failed to fetch messages:', error);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  }
+}
   async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
-
-
+  
+    setSelectedIcon('ws');
     const auth = getAuth(app);
     const user = auth.currentUser;
     try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-      const data2 = docSnapshot.data();
+        const docUserRef = doc(firestore, 'user', user?.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (!docUserSnapshot.exists()) {
+            console.log('No such document!');
+            return;
+        }
+        const dataUser = docUserSnapshot.data();
+        companyId = dataUser.companyId;
+        const docRef = doc(firestore, 'companies', companyId);
+        const docSnapshot = await getDoc(docRef);
+        if (!docSnapshot.exists()) {
+            console.log('No such document!');
+            return;
+        }
+        const data2 = docSnapshot.data();
 
-      setToken(data2.whapiToken);
+        setToken(data2.whapiToken);
 
-      if (selectedChatId.includes('@s.whatsapp.net')) {
-        const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
-        const data = response.data;
-        setMessages(
-          data.messages.map((message: {chat_id:string;from_name:string; id: any; text: { body: any; }; from_me: any; timestamp: any; type: any; image: any; }) => ({
-            id: message.id,
-            text: { body: message.text ? message.text.body : '' },
-            from_me: message.from_me,
-            chat_id:message.chat_id,
-            from_name: message.from_name,
-            createdAt: message.timestamp,
-            type: message.type,
-            image: message.image ? message.image : undefined,
-          }))
-        );
-        console.log(messages);
-      } else {
-        setMessages([
-        
-        ]);}
+        if (selectedChatId.includes('@')) {
+            const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
+            const data = response.data;
+            console.log(data.messages);
+
+            const formattedMessages: any[] = [];
+            const reactionsMap: Record<string, any[]> = {};
+
+            data.messages.forEach((message: any) => {
+                if (message.type === 'action' && message.action.type === 'reaction') {
+                    const targetMessageId = message.action.target;
+                    if (!reactionsMap[targetMessageId]) {
+                        reactionsMap[targetMessageId] = [];
+                    }
+                    reactionsMap[targetMessageId].push({
+                        emoji: message.action.emoji,
+                        from_name: message.from_name
+                    });
+                } else {
+                    const formattedMessage: any = {
+                        id: message.id,
+                        from_me: message.from_me,
+                        from_name: message.from_name,
+                        chat_id: message.chat_id,
+                        createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
+                        type: message.type,
+                    };
+
+                    // Include message-specific content
+                    switch (message.type) {
+                        case 'text':
+                            formattedMessage.text = {
+                                body: message.text ? message.text.body : '', // Include the message body
+                                context: message.context ? message.context : '' // Include the context
+                            };
+                            break;
+                        case 'image':
+                            formattedMessage.image = message.image ? message.image : undefined;
+                            break;
+                        case 'video':
+                            formattedMessage.video = message.video ? message.video : undefined;
+                            break;
+                        case 'gif':
+                            formattedMessage.gif = message.gif ? message.gif : undefined;
+                            break;
+                        case 'audio':
+                            formattedMessage.audio = message.audio ? message.audio : undefined;
+                            break;
+                        case 'voice':
+                            formattedMessage.voice = message.voice ? message.voice : undefined;
+                            break;
+                        case 'document':
+                            formattedMessage.document = message.document ? message.document : undefined;
+                            break;
+                        case 'link_preview':
+                            formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
+                            break;
+                        case 'sticker':
+                            formattedMessage.sticker = message.sticker ? message.sticker : undefined;
+                            break;
+                        case 'location':
+                            formattedMessage.location = message.location ? message.location : undefined;
+                            break;
+                        case 'live_location':
+                            formattedMessage.live_location = message.live_location ? message.live_location : undefined;
+                            break;
+                        case 'contact':
+                            formattedMessage.contact = message.contact ? message.contact : undefined;
+                            break;
+                        case 'contact_list':
+                            formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
+                            break;
+                        case 'interactive':
+                            formattedMessage.interactive = message.interactive ? message.interactive : undefined;
+                            break;
+                        case 'poll':
+                            formattedMessage.poll = message.poll ? message.poll : undefined;
+                            break;
+                        case 'hsm':
+                            formattedMessage.hsm = message.hsm ? message.hsm : undefined;
+                            break;
+                        case 'system':
+                            formattedMessage.system = message.system ? message.system : undefined;
+                            break;
+                        case 'order':
+                            formattedMessage.order = message.order ? message.order : undefined;
+                            break;
+                        case 'group_invite':
+                            formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
+                            break;
+                        case 'admin_invite':
+                            formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
+                            break;
+                        case 'product':
+                            formattedMessage.product = message.product ? message.product : undefined;
+                            break;
+                        case 'catalog':
+                            formattedMessage.catalog = message.catalog ? message.catalog : undefined;
+                            break;
+                        case 'product_items':
+                            formattedMessage.product_items = message.product_items ? message.product_items : undefined;
+                            break;
+                        case 'action':
+                            formattedMessage.action = message.action ? message.action : undefined;
+                            break;
+                        case 'context':
+                            formattedMessage.context = message.context ? message.context : undefined;
+                            break;
+                        case 'reactions':
+                            formattedMessage.reactions = message.reactions ? message.reactions : undefined;
+                            break;
+                        default:
+                            console.warn(`Unknown message type: ${message.type}`);
+                    }
+
+                    formattedMessages.push(formattedMessage);
+                }
+            });
+
+            // Add reactions to the respective messages
+            formattedMessages.forEach(message => {
+                if (reactionsMap[message.id]) {
+                    message.reactions = reactionsMap[message.id];
+                }
+            });
+            console.log(formattedMessages);
+            setMessages(formattedMessages);
+        } else {
+            setMessages([]);
+        }
     } catch (error) {
-      console.error('Failed to fetch messages:', error);
+        console.error('Failed to fetch messages:', error);
     } finally {
-
+    
     }
   }
   async function sendTextMessage(selectedChatId: string, newMessage: string,contact:any): Promise<void> {
@@ -1520,12 +1804,46 @@ const handleForwardMessage = async () => {
     };
   }, []);
 
-
+  const DeleteConfirmationPopup = () => (
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
+        <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          <div className="sm:flex sm:items-start">
+            <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Delete message</h3>
+              <p>Are you sure you want to delete this message?</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <Button
+            type="button"
+            className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+            onClick={() => {
+              if (messageToDelete) {
+                deleteMessage(messageToDelete.id);
+              }
+            }}
+          >
+            Delete
+          </Button>
+          <Button
+            type="button"
+            className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
+            onClick={closeDeletePopup}
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
   return (
     <div className="flex overflow-hidden bg-gray-100 text-gray-800" style={{ height: '92vh' }}>
     <div className="flex flex-col min-w-[35%] max-w-[35%] bg-gray-100 border-r border-gray-300">
     <div className="relative hidden sm:block p-2">
     <div className="flex items-center space-x-2">
+    {isDeletePopupOpen && <DeleteConfirmationPopup />}
     {isForwardDialogOpen && (
   <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
     <div className="bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
@@ -1800,71 +2118,177 @@ const handleForwardMessage = async () => {
                   </div>
                 </div>
               )}
-      {selectedChatId && (
-    messages.slice().reverse().map((message) => (
-      <div
-        className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
-        key={message.id}
-        style={{
-          maxWidth: '70%',
-          width: `${message.type === 'image' || message.type === 'document' ? '320' : Math.min((message.text?.body?.length || 0) * 10, 320)}px`,
-          minWidth: '75px'  // Add a minimum width here
-        }}
-        onMouseEnter={() => setHoveredMessageId(message.id)}
-        onMouseLeave={() => setHoveredMessageId(null)}
-      >
-
-        {message.chat_id.includes('@g.us')&& (
-            <div className="pb-1 text-md font-medium">{message.from_name}</div>
-        )}
-        {message.type === 'image' && message.image && (
-          <div className=" p-0 message-content image-message">
-            <img
-              src={message.image.link}
-              alt="Image"
-              className="rounded-lg message-image cursor-pointer"
-              style={{ maxWidth: '300px' }}
-              onClick={() => openImageModal(message.image?.link || '')}
-            />
-            <div className="caption">{message.image.caption}</div>
+{selectedChatId && (
+  messages.slice().reverse().map((message) => (
+    message.type !== 'system' &&
+    <div
+      className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+      key={message.id}
+      style={{
+        maxWidth: '70%',
+        width: `${message.type !== 'text' ? '320' : (message.text?.context ? Math.min((message.text.context.quoted_content?.body?.length || 0) * 10, 320) : Math.min((message.text?.body?.length || 0) * 10, 320))}px`,
+        minWidth: '75px'  // Add a minimum width here
+      }}
+      onMouseEnter={() => setHoveredMessageId(message.id)}
+      onMouseLeave={() => setHoveredMessageId(null)}
+    >
+      {message.chat_id.includes('@g.us') && (
+        <div className="pb-1 text-md font-medium">{message.from_name}</div>
+      )}
+      {message.type === 'text' && message.text?.context && (
+        <div className="p-2 mb-2 rounded bg-gray-600">
+          <div className="text-sm font-medium">{message.text.context.quoted_author || ''}</div>
+          <div className="text-sm">{message.text.context.quoted_content?.body || ''}</div>
+        </div>
+      )}
+      {message.type === 'text' && (
+        <div className="whitespace-pre-wrap break-words">
+          {formatText(message.text?.body || '')}
+        </div>
+      )}
+      {message.type === 'image' && message.image && (
+        <div className="p-0 message-content image-message">
+          <img
+            src={message.image.link}
+            alt="Image"
+            className="rounded-lg message-image cursor-pointer"
+            style={{ maxWidth: '300px' }}
+            onClick={() => openImageModal(message.image?.link || '')}
+          />
+          <div className="caption">{message.image.caption}</div>
+        </div>
+      )}
+      {message.type === 'video' && message.video && (
+        <div className="video-content p-0 message-content image-message">
+          <video
+            controls
+            src={message.video.link}
+            className="rounded-lg message-image cursor-pointer"
+            style={{ maxWidth: '300px' }}
+          />
+          <div className="caption">{message.video.caption}</div>
+        </div>
+      )}
+      {message.type === 'gif' && message.gif && (
+        <div className="gif-content p-0 message-content image-message">
+          <img
+            src={message.gif.link}
+            alt="GIF"
+            className="rounded-lg message-image cursor-pointer"
+            style={{ maxWidth: '300px' }}
+            onClick={() => openImageModal(message.gif?.link || '')}
+          />
+          <div className="caption">{message.gif.caption}</div>
+        </div>
+      )}
+      {message.type === 'audio' && message.audio && (
+        <div className="audio-content p-0 message-content image-message">
+          <audio controls src={message.audio.link} className="rounded-lg message-image cursor-pointer" />
+        </div>
+      )}
+      {message.type === 'voice' && message.voice && (
+        <div className="voice-content p-0 message-content image-message">
+          <audio controls src={message.voice.link} className="rounded-lg message-image cursor-pointer" />
+        </div>
+      )}
+      {message.type === 'document' && message.document && (
+        <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
+          <img
+            src={message.document.preview}
+            alt="Document Preview"
+            className="w-40 h-40 mb-3 border rounded"
+            onClick={() => openImageModal(message.document?.preview || '')}
+          />
+          <div className="flex-1 text-justify">
+            <div className="font-semibold">{message.document.file_name}</div>
+            <div>{message.document.page_count} page{message.document.page_count > 1 ? 's' : ''} • PDF • {(message.document.file_size / 1024).toFixed(2)} kB</div>
           </div>
-        )}
-        {message.type === 'text' && (
-          <div className="whitespace-pre-wrap break-words">
-            {formatText(message.text?.body || '')}
-          </div>
-        )}
-        {message.type === 'document' && message.document && (
-          <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
-            <img
-              src={message.document.preview}
-              alt="Document Preview"
-              className="w-40 h-40 mb-3 border rounded"
-              onClick={() => openImageModal(message.document?.preview || '')}
-            />
-            <div className="flex-1 text-justify">
-              <div className="font-semibold">{message.document.file_name}</div>
-              <div>{message.document.page_count} page{message.document.page_count > 1 ? 's' : ''} • PDF • {(message.document.file_size / 1024).toFixed(2)} kB</div>
+          <a href={message.document.link} target="_blank" rel="noopener noreferrer" className="mt-3">
+            <Lucide icon="Download" className="w-6 h-6 text-white-700" />
+          </a>
+        </div>
+      )}
+      {message.type === 'link_preview' && message.link_preview && (
+        <div className="link-preview-content p-0 message-content image-message">
+          <a href={message.link_preview.link} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+            {message.link_preview.title}
+          </a>
+          <div className="caption">{message.link_preview.description}</div>
+        </div>
+      )}
+      {message.type === 'sticker' && message.sticker && (
+        <div className="sticker-content p-0 message-content image-message">
+          <img
+            src={message.sticker.link}
+            alt="Sticker"
+            className="rounded-lg message-image cursor-pointer"
+            style={{ maxWidth: '150px' }}
+            onClick={() => openImageModal(message.sticker?.link || '')}
+          />
+        </div>
+      )}
+      {message.type === 'location' && message.location && (
+        <div className="location-content p-0 message-content image-message">
+          <div className="text-sm">Location: {message.location.latitude}, {message.location.longitude}</div>
+        </div>
+      )}
+      {message.type === 'poll' && message.poll && (
+        <div className="poll-content p-0 message-content image-message">
+          <div className="text-sm">Poll: {message.poll.title}</div>
+        </div>
+      )}
+      {message.type === 'hsm' && message.hsm && (
+        <div className="hsm-content p-0 message-content image-message">
+          <div className="text-sm">HSM: {message.hsm.title}</div>
+        </div>
+      )}
+      {message.type === 'action' && message.action && (
+        <div className="action-content flex flex-col p-4 rounded-md shadow-md">
+          {message.action.type === 'delete' ? (
+            <div className="text-gray-400">This message was deleted</div>
+          ) : (
+            /* Handle other action types */
+            <div>{message.action.emoji}</div>
+          )}
+        </div>
+      )}
+      {message.reactions && message.reactions.length > 0 && (
+        <div className="flex items-center space-x-2 mt-1">
+          {message.reactions.map((reaction, index) => (
+            <div key={index} className="text-gray-500 text-sm flex items-center space-x-1">
+              <span
+                className="inline-flex items-center justify-center border border-white rounded-full"
+                style={{ padding: '2px', backgroundColor: 'white' }}
+              >
+                {reaction.emoji}
+              </span>
+              <span>{reaction.from_name}</span>
             </div>
-            <a href={message.document.link} target="_blank" rel="noopener noreferrer" className="mt-3">
-              <Lucide icon="Download" className="w-6 h-6 text-white-700" />
-            </a>
-          </div>
-        )}
-        <div className="message-timestamp text-xs text-gray-100 mt-1">
-          {formatTimestamp(message.createdAt||message.dateAdded)}
-          {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+          ))}
+        </div>
+      )}
+      <div className="message-timestamp text-xs text-gray-100 mt-1">
+        {formatTimestamp(message.createdAt || message.dateAdded)}
+        {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+          <div className="flex items-center">
             <input
               type="checkbox"
               className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
               checked={selectedMessages.includes(message)}
               onChange={() => handleSelectMessage(message)}
             />
-          )}
-        </div>
+            <button
+              className="ml-2 text-red-500 hover:text-red-700 fill-current"
+              onClick={() => openDeletePopup(message)}
+            >
+              <Lucide icon="Trash" className="w-5 h-5" />
+            </button>
+          </div>
+        )}
       </div>
-    ))
-  ) }
+    </div>
+  ))
+)}
         </div>
 
         <div className="absolute bottom-0 left-0 w-500px !box m-1 py-1 px-2">
