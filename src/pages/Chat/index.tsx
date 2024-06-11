@@ -229,7 +229,9 @@ function Main() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+
   const [newMessage, setNewMessage] = useState<string>("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading2, setLoading] = useState<boolean>(false);
   const [isFetching, setFetching] = useState<boolean>(false);
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
@@ -247,7 +249,7 @@ function Main() {
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState(contacts);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-right";
+  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-right";
   const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [tagList, setTagList] = useState<Tag[]>([]);
@@ -1803,6 +1805,31 @@ const handleForwardMessage = async () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+  
+  const adjustHeight = (textarea: HTMLTextAreaElement, reset = false) => {
+    if (reset) {
+      textarea.style.height = 'auto';
+    }
+    const lineHeight = 24; // Approximate line height in pixels
+    const maxLines = 4;
+    const maxHeight = lineHeight * maxLines;
+
+    textarea.style.height = 'auto';
+    if (textarea.scrollHeight > maxHeight) {
+      textarea.style.height = `${maxHeight}px`;
+      textarea.style.overflowY = 'scroll';
+    } else {
+      textarea.style.height = `${textarea.scrollHeight}px`;
+      textarea.style.overflowY = 'hidden';
+    }
+  };
+
+  // Adjust height on new message change
+  useEffect(() => {
+    if (textareaRef.current) {
+      adjustHeight(textareaRef.current);
+    }
+  }, [newMessage]);
 
   const DeleteConfirmationPopup = () => (
     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
@@ -2118,6 +2145,7 @@ const handleForwardMessage = async () => {
                   </div>
                 </div>
               )}
+<<<<<<< Updated upstream
 {selectedChatId && (
   messages.slice().reverse().map((message) => (
     message.type !== 'system' &&
@@ -2202,6 +2230,35 @@ const handleForwardMessage = async () => {
           <div className="flex-1 text-justify">
             <div className="font-semibold">{message.document.file_name}</div>
             <div>{message.document.page_count} page{message.document.page_count > 1 ? 's' : ''} • PDF • {(message.document.file_size / 1024).toFixed(2)} kB</div>
+=======
+      {selectedChatId && (
+    messages.slice().reverse().map((message) => (
+      <div
+        className={`p-2 mb-1 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+        key={message.id}
+        style={{
+          maxWidth: '70%',
+          width: `${message.type === 'image' || message.type === 'document' ? '320' : Math.min((message.text?.body?.length || 0) * 10, 320)}px`,
+          minWidth: '75px'  // Add a minimum width here
+        }}
+        onMouseEnter={() => setHoveredMessageId(message.id)}
+        onMouseLeave={() => setHoveredMessageId(null)}
+      >
+
+        {message.chat_id.includes('@g.us')&& (
+            <div className="pb-1 text-md font-medium">{message.from_name}</div>
+        )}
+        {message.type === 'image' && message.image && (
+          <div className=" p-0 message-content image-message">
+            <img
+              src={message.image.link}
+              alt="Image"
+              className="rounded-lg message-image cursor-pointer"
+              style={{ maxWidth: '300px' }}
+              onClick={() => openImageModal(message.image?.link || '')}
+            />
+            <div className="caption">{message.image.caption}</div>
+>>>>>>> Stashed changes
           </div>
           <a href={message.document.link} target="_blank" rel="noopener noreferrer" className="mt-3">
             <Lucide icon="Download" className="w-6 h-6 text-white-700" />
@@ -2334,37 +2391,41 @@ const handleForwardMessage = async () => {
 </Menu.Items>
 
 </Menu>
-          <button className="p-2 m-0 !box" onClick={handleQR}>
+  <button className="p-2 m-0 !box" onClick={handleQR}>
     <span className="flex items-center justify-center w-5 h-5">
       <Lucide icon='Zap' className="w-5 h-5" />
     </span>
   </button>
-            <textarea
-               className="flex-grow h-10 px-2 py-1.5 m-1 mr-0 ml-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
-              placeholder="Type a message"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              rows={3}  // Adjust the rows attribute as needed
-              style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  if (e.shiftKey) {
-                    // Insert a new line if Shift + Enter is pressed
-                    e.preventDefault();
-                    setNewMessage(newMessage + '\n');
+  <textarea
+            ref={textareaRef}
+            className="flex-grow h-10 px-2 py-1.5 m-1 mr-0 ml-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
+            placeholder="Type a message"
+            value={newMessage}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+              adjustHeight(e.target);
+            }}
+            rows={1}
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+            onKeyDown={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              if (e.key === 'Enter') {
+                if (e.shiftKey) {
+                  e.preventDefault();
+                  setNewMessage((prev) => prev + '\n');
+                } else {
+                  e.preventDefault();
+                  if (selectedIcon === 'ws') {
+                    handleSendMessage();
                   } else {
-                    // Send the message if only Enter is pressed
-                    e.preventDefault();
-                    if (selectedIcon === 'ws') {
-                      handleSendMessage();
-                    } else {
-                      sendTextMessage(selectedContact.id, newMessage, selectedContact);
-                    }
-                    setNewMessage('');
+                    sendTextMessage(selectedContact.id, newMessage, selectedContact);
                   }
+                  setNewMessage('');
+                  adjustHeight(target, true); // Reset height after sending message
                 }
-              }}
-            />
+              }
+            }}
+          />
           </div>
         </div>
       </div>
