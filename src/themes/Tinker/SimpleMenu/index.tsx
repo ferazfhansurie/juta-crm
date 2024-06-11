@@ -161,8 +161,8 @@ async function fetchConfigFromDatabase() {
       <MobileMenu />
       <div className="flex mt-[5rem] md:mt-0 overflow-hidden">
         {/* BEGIN: Simple Menu */}
-        <nav className="pt-5 mb-2 p-2 side-nav side-nav--simple hidden md:block sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300">
-          <ul className="space-y-4">
+        <nav className="pt-5 mb-2 p-2 side-nav side-nav--simple hidden md:flex flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300">
+          <ul className="space-y-4 flex-grow">
             {/* BEGIN: First Child */}
             {formattedMenu.map((menu, menuKey) =>
               menu == "divider" ? (
@@ -287,7 +287,7 @@ async function fetchConfigFromDatabase() {
             <Menu.Button className="block w-8 h-8 overflow rounded-md shadow-lg bg-primary flex items-center justify-center text-white mr-4">
               <Lucide icon="Bell" className="w-5 h-5" />
             </Menu.Button>
-            <Menu.Items className="absolute left-0 w-auto mt-2 mr-8 text-white bg-primary">
+            <Menu.Items className="absolute left-0 w-auto mt-0 mr-4 text-white bg-primary">
               <Menu.Header className="font-normal">
                 <div className="font-medium text-lg">Notifications</div>
               </Menu.Header>
@@ -329,14 +329,16 @@ async function fetchConfigFromDatabase() {
             </Menu.Items>
           </Menu>
         </div>
-        <Menu>
-          <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-red-700 flex items-center justify-center text-white">
-          <Link to="/login" onClick={handleSignOut}>
+      </ul>
+          <div className="mb-4">
+          <Menu>
+            <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-red-700 flex items-center justify-center text-white">
+              <Link to="/login" onClick={handleSignOut}>
                 <Lucide icon="LogOut" className="text-center justify-center w-4 h-4" />
-          </Link>
-          </Menu.Button>
-        </Menu>
-          </ul>
+              </Link>
+            </Menu.Button>
+          </Menu>
+        </div>
         </nav>
        
         {/* END: Simple Menu */}

@@ -2368,7 +2368,7 @@ const handleForwardMessage = async () => {
   </button>
   <textarea
             ref={textareaRef}
-            className="flex-grow h-10 px-2 py-1.5 m-1 mr-0 ml-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
+            className="flex-grow h-10 px-2 py-1.5 m-1 mr-0 ml-2 border border-gray-300 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
             placeholder="Type a message"
             value={newMessage}
             onChange={(e) => {
