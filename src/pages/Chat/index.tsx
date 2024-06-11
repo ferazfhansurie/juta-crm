@@ -23,6 +23,8 @@ import { useLocation } from "react-router-dom";
 import { useContacts } from '../../contact';
 import { Pin, PinOff } from "lucide-react";
 import LZString from 'lz-string';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 
 interface Label {
   id: string;
@@ -167,6 +169,11 @@ interface ImageModalProps {
   onClose: () => void;
   imageUrl: string;
 }
+interface PDFModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  pdfUrl: string;
+}
 interface EditMessagePopupProps {
   editedMessageText: string;
   setEditedMessageText: (value: string) => void;
@@ -212,6 +219,34 @@ const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageUrl }) =>
     </div>
   );
 };
+const PDFModal: React.FC<PDFModalProps> = ({ isOpen, onClose, pdfUrl }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75" onClick={onClose}>
+      <div
+        className="relative mt-10 p-2 bg-white rounded-lg shadow-lg w-full max-w-5xl h-4/5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          className="absolute top-4 right-4 text-white bg-gray-800 hover:bg-gray-900 rounded-full p-2"
+          onClick={onClose}
+        >
+          <Lucide icon="X" className="w-6 h-6" />
+        </button>
+        <iframe
+          src={pdfUrl}
+          width="100%"
+          height="100%"
+          title="PDF Document"
+          className="border rounded"
+        />
+      </div>
+    </div>
+  );
+};
+
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -235,7 +270,7 @@ function Main() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-
+   const [numPages, setNumPages] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading2, setLoading] = useState<boolean>(false);
@@ -283,6 +318,17 @@ function Main() {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [editedMessageText, setEditedMessageText] = useState<string>("");
 const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
+const [isPDFModalOpen, setPDFModalOpen] = useState(false);
+const [pdfUrl, setPdfUrl] = useState('');
+const openPDFModal = (url: string) => {
+  setPdfUrl(url);
+  setPDFModalOpen(true);
+};
+
+const closePDFModal = () => {
+  setPDFModalOpen(false);
+  setPdfUrl('');
+};
   let companyId = '014';
   let user_name = '';
   let user_role='2';
@@ -1951,7 +1997,7 @@ const handleForwardMessage = async () => {
     <div className="relative hidden sm:block p-2">
     <div className="flex items-center space-x-2">
     {isDeletePopupOpen && <DeleteConfirmationPopup />}
- 
+    <PDFModal isOpen={isPDFModalOpen} onClose={closePDFModal} pdfUrl={pdfUrl} />
     {editingMessage && (
      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
      <div className="bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
@@ -2323,9 +2369,17 @@ const handleForwardMessage = async () => {
         className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
         key={message.id}
         style={{
-          maxWidth: '70%',
-          width: `${message.type !== 'text' ? '320' : (message.text?.context ? Math.min((message.text.context.quoted_content?.body?.length || 0) * 10, 320) : Math.min((message.text?.body?.length || 0) * 10, 320))}px`,
-          minWidth: '75px'  // Add a minimum width here
+          maxWidth: message.type === 'document' ? '90%' : '70%',
+          width: `${
+            message.type === 'document'
+              ? '500'
+              : message.type !== 'text'
+              ? '320'
+              : message.text?.context
+              ? Math.min((message.text.context.quoted_content?.body?.length || 0) * 10, 320)
+              : Math.min((message.text?.body?.length || 0) * 10, 320)
+          }px`,
+          minWidth: '100px'  // Add a minimum width here
         }}
         onMouseEnter={() => setHoveredMessageId(message.id)}
         onMouseLeave={() => setHoveredMessageId(null)}
@@ -2389,23 +2443,32 @@ const handleForwardMessage = async () => {
             <audio controls src={message.voice.link} className="rounded-lg message-image cursor-pointer" />
           </div>
         )}
-        {message.type === 'document' && message.document && (
-          <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
-            <img
-              src={message.document.preview}
-              alt="Document Preview"
-              className="w-40 h-40 mb-3 border rounded"
-              onClick={() => openImageModal(message.document?.preview || '')}
-            />
-            <div className="flex-1 text-justify">
-              <div className="font-semibold">{message.document.file_name}</div>
-              <div>{message.document.page_count} page{message.document.page_count > 1 ? 's' : ''} • PDF • {(message.document.file_size / 1024).toFixed(2)} kB</div>
-            </div>
-            <a href={message.document.link} target="_blank" rel="noopener noreferrer" className="mt-3">
-              <Lucide icon="Download" className="w-6 h-6 text-white-700" />
-            </a>
-          </div>
-        )}
+  {message.type === 'document' && message.document && (
+  <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
+    <iframe
+      src={message.document.link}
+      width="100%"
+      height="500px"
+      title="PDF Document"
+      className="border rounded cursor-pointer"
+      onClick={() => openPDFModal(message.document?.link || '')}
+    />
+    <div className="flex-1 text-justify mt-3">
+      <div className="font-semibold">{message.document.file_name}</div>
+      <div>
+        {message.document.page_count} page
+        {message.document.page_count > 1 ? 's' : ''} • PDF •{' '}
+        {(message.document.file_size / 1024).toFixed(2)} kB
+      </div>
+    </div>
+    <button
+            onClick={() => openPDFModal(message.document!.link)}
+            className="mt-3"
+          >
+            <Lucide icon="ExternalLink" className="w-6 h-6 text-white-700" />
+          </button>
+  </div>
+)}
         {message.type === 'link_preview' && message.link_preview && (
           <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden">
             <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
