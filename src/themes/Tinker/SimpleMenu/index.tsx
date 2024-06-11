@@ -63,7 +63,7 @@ const filteredNotifications = notifications.filter((notification) => {
 
 const navigate = useNavigate(); // Initialize useNavigate
 
-const handleNotificationClick = (chatId: any) => {
+const handleNotificationClick = (chatId: string) => {
   navigate(`/chat/?chatId=${chatId}`);
 };
 
@@ -132,7 +132,7 @@ async function fetchConfigFromDatabase() {
     const notificationsRef = collection(firestore, 'user', userEmail, 'notifications');
     const notificationsSnapshot = await getDocs(notificationsRef);
     const notifications = notificationsSnapshot.docs.map((doc: { data: () => DocumentData; }) => doc.data());
-
+console.log(notifications);
     // Update state with the fetched notifications
     setNotifications(notifications);
   } catch (error) {
@@ -287,46 +287,57 @@ async function fetchConfigFromDatabase() {
             <Menu.Button className="block w-8 h-8 overflow rounded-md shadow-lg bg-primary flex items-center justify-center text-white mr-4">
               <Lucide icon="Bell" className="w-5 h-5" />
             </Menu.Button>
-            <Menu.Items className="absolute left-0 w-auto mt-0 mr-4 text-white bg-primary">
-              <Menu.Header className="font-normal">
-                <div className="font-medium text-lg">Notifications</div>
-              </Menu.Header>
 
-              <div className="mt-2 pl-2 pr-2 h-64 overflow-y-auto"> {/* Set height and enable scrolling */}
-                {filteredNotifications && filteredNotifications.length > 0 ? (
-                  filteredNotifications.reduce((uniqueNotifications, notification) => {
-                    const existingNotificationIndex = uniqueNotifications.findIndex(
-                      (n: { chat_id: any; }) => n.chat_id === notification.chat_id
-                    );
-                    if (existingNotificationIndex !== -1) {
-                      // If a notification with the same chat_id exists, replace it with the new one
-                      uniqueNotifications[existingNotificationIndex] = notification;
-                    } else {
-                      // Otherwise, add the new notification
-                      uniqueNotifications.push(notification);
-                    }
-                    return uniqueNotifications;
-                  }, []).sort((a: { timestamp: number; }, b: { timestamp: number; }) => b.timestamp - a.timestamp).map((notification: { chat_id: any; from_name: string; text: { body: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | null | undefined; }; timestamp: number; }, key: Key | null | undefined) => (
-                    <div key={key} className="w-100">
-                      <div
-                        className="flex items-center mb-2 box hover:bg-blue-100 zoom-in w-70 cursor-pointer"
-                       // onClick={() => handleNotificationClick(notification.chat_id)}
-                      >
-                        <div className="p-2 pl-1 ml-2" >
-                          <div className="text-s font-medium text-slate-800 truncate capitalize">{notification.from_name}</div>
-                          <div className="text-base text-xs text-slate-500">{notification.text ? notification.text.body : ""}</div>
-                          <div className="text-slate-500 text-xs mt-0.5">
-                            {new Date(notification.timestamp * 1000).toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center text-slate-500">No messages available</div>
-                )}
+     
+            <Menu.Items className="absolute left-0 w-auto mt-0 mr-4 text-white bg-primary" style={{ width: '400px' }}> {/* Adjust the width as needed */}
+    <Menu.Header className="font-normal">
+      <div className="font-medium text-lg">Notifications</div>
+    </Menu.Header>
+
+    <div className="mt-2 pl-2 pr-2 h-64 overflow-y-auto">
+      {filteredNotifications && filteredNotifications.length > 0 ? (
+        filteredNotifications.reduce((uniqueNotifications, notification) => {
+          const existingNotificationIndex = uniqueNotifications.findIndex(
+            (n: { chat_id: any; }) => n.chat_id === notification.chat_id
+          );
+          if (existingNotificationIndex !== -1) {
+            // If a notification with the same chat_id exists, replace it with the new one if it has a later timestamp
+            if (uniqueNotifications[existingNotificationIndex].timestamp < notification.timestamp) {
+              uniqueNotifications[existingNotificationIndex] = notification;
+            }
+          } else {
+            // Otherwise, add the new notification
+            uniqueNotifications.push(notification);
+          }
+          return uniqueNotifications;
+        }, []).sort((a: { timestamp: number; }, b: { timestamp: number; }) => b.timestamp - a.timestamp).map((notification: { chat_id: any; from_name: string; text: { body: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | null | undefined; }; timestamp: number; }, key: Key | null | undefined) => (
+          <div key={key} className="w-full">
+            <div
+              className="flex items-center mb-2 box hover:bg-blue-100 zoom-in cursor-pointer"
+              onClick={() => handleNotificationClick(notification.chat_id)}
+            >
+              <div className="p-2 pl-1 ml-2 w-full">
+                <div className="text-s font-medium text-slate-800 truncate capitalize">{notification.chat_id.split('@')[0]}</div>
+                <div className="text-base text-xs text-slate-500">{notification.text ? notification.text.body : ""}</div>
+                <div className="text-slate-500 text-xs mt-0.5">
+                  {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
+                    hour: 'numeric',
+                    minute: 'numeric',
+                    hour12: true,
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </div>
               </div>
-            </Menu.Items>
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="text-center text-slate-500">No messages available</div>
+      )}
+    </div>
+  </Menu.Items>
           </Menu>
         </div>
       </ul>
