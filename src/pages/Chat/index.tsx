@@ -2369,11 +2369,14 @@ const handleForwardMessage = async () => {
         )}
            
         <div className="flex-1 overflow-y-auto p-4" 
-      style={{ 
-        paddingBottom: "150px", 
-        backgroundImage: 'url(https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/wallpaper_1.png?alt=media&token=0391060c-fcb4-4760-8172-d8f341127ea6)',
+       style={{
+        paddingBottom: "150px",
+        backgroundImage: selectedContact 
+          ? 'url(https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/wallpaper_1.png?alt=media&token=0391060c-fcb4-4760-8172-d8f341127ea6)' 
+          : 'none',
+        backgroundColor: selectedContact ? 'transparent' : 'bg-slate-400',
         backgroundSize: 'cover',
-        backgroundRepeat: 'no-repeat'
+        backgroundRepeat: 'no-repeat',
       }}
     ref={messageListRef}>
            
