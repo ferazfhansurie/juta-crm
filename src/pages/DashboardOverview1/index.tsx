@@ -505,7 +505,7 @@ function Main() {
                 </div>
               </div>
               <br></br>
-              <div className="col-span-4 sm:col-span-4 xl:col-span-4 intro-y">
+              <div className="col-span-4 sm:col-span-4 xl:col-span-4 intro-y" style={{ zIndex: 1 }}>
                 <div className="relative">
                   <div className="p-2 box">
                     <div className="flex justify-center">
