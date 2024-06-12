@@ -1688,7 +1688,21 @@ const handleForwardMessage = async () => {
   const handleTagClick = () => {
  
   };
-
+  useEffect(() => {
+    const handleKeyDown = (event: { key: string; }) => {
+      if (event.key === "Escape") {
+        console.log('escape');
+        setSelectedContact(null);
+        setSelectedChatId(null);
+      }
+    };
+  
+    window.addEventListener("keydown", handleKeyDown);
+  
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
   const handleForwardClick = () => {
     setActiveMenu('forward');
   };
@@ -2392,11 +2406,11 @@ const handleForwardMessage = async () => {
               ? '500'
               : message.type !== 'text'
               ? '320'
-              : message.text?.context
-              ? Math.min((message.text.context.quoted_content?.body?.length || 0) * 10, 320)
-              : Math.min((message.text?.body?.length || 0) * 10, 320)
+              : message.text?.body
+              ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
+              : '100'
           }px`,
-          minWidth: '100px'  // Add a minimum width here
+          minWidth: '150px',
         }}
         onMouseEnter={() => setHoveredMessageId(message.id)}
         onMouseLeave={() => setHoveredMessageId(null)}
