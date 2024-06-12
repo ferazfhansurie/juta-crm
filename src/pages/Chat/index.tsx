@@ -2246,12 +2246,17 @@ const handleForwardMessage = async () => {
    
         <span className="text-xs flex items-center space-x-2">
         <div className="ml-2 flex flex-wrap">
-            {contact.tags.map((tag, tagIndex) => (
-              <span key={tagIndex} className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded">
-                {tag}
-              </span>
-            ))}
-          </div>
+    {contact.tags.map((tag, tagIndex) => {
+      const isEmployee = employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase());
+      return (
+        <span 
+          key={tagIndex} 
+          className={`inline-block text-xs font-semibold mr-2 px-2.5 py-0.5 rounded ${isEmployee ? 'bg-green-100 text-green-800 border border-green-400' : 'bg-blue-100 text-blue-800'}`}>
+          {tag}
+        </span>
+      );
+    })}
+  </div>
           <button
             className={`text-md font-medium mr-2 ${
               contact.pinned ? 'text-blue-500' : 'text-gray-500 group-hover:text-blue-500'
