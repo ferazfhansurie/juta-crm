@@ -171,7 +171,7 @@ function Main() {
 
   const fetchUsers = async (accessToken: string, locationId: string) => {
     try {
-      const response = await axios.post('http://localhost:8443/api/fetch-users', {
+      const response = await axios.post('https://buds-359313.et.r.appspot.com/api/fetch-users', {
         accessToken,
         locationId
       });

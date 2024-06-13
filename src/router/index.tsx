@@ -68,6 +68,7 @@ import Validation from "../pages/Validation";
 import Chart from "../pages/Chart";
 import Slider from "../pages/Slider";
 import ImageZoom from "../pages/ImageZoom";
+import Opportunities from "../pages/Opportunities";
 
 import Layout from "../themes";
 import { getAuth } from "firebase/auth";
@@ -141,7 +142,6 @@ function Router() {
         { path: "tabulator", element: <Tabulator /> },
         { path: "modal", element: <Modal /> },
         { path: "slideover", element: <Slideover /> },
-        { path: "notification", element: <Notification /> },
         { path: "tab", element: <Tab /> },
         { path: "accordion", element: <Accordion /> },
         { path: "button", element: <Button /> },
@@ -160,8 +160,10 @@ function Router() {
         { path: "chart", element: <Chart /> },
         { path: "slider", element: <Slider /> },
         { path: "image-zoom", element: <ImageZoom /> },
+        { path: "opp", element: <Opportunities /> },
       ],
     },
+    { path: "notification", element: <Notification /> },
     { path: "dashboard-overview-2", element: <DashboardOverview2 /> },
     { path: "loading", element: <LoadingIcon /> },
     { path: "product-list", element: <ProductList /> },

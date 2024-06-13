@@ -308,13 +308,13 @@ console.log(notifications);
             {/* END: First Child */}
             <div>
           <Menu>
-            <Menu.Button className="block w-8 h-8 overflow rounded-md shadow-lg bg-primary flex items-center justify-center text-white mr-4">
+            <Menu.Button className="z-100 block w-8 h-8 overflow rounded-md shadow-lg bg-primary flex items-center justify-center text-white mr-4">
               <Lucide icon="Bell" className="w-5 h-5" />
               {uniqueNotifications.length > 0 && (
-        <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1 py-0.5 text-[8px] transform translate-x-1/2 -translate-y-1/2">
-            {uniqueNotifications.length}
+        <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1 py-0.5 text-[8px] z-10 transform translate-x-1/2 -translate-y-1/2">
+          {uniqueNotifications.length}
         </span>
-    )}
+      )}
             </Menu.Button>
 
      

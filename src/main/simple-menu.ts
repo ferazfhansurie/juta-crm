@@ -16,10 +16,16 @@ const menu: Array<Menu | "divider"> = [
     title: "Contacts",
   },
   {
+    icon: "Globe",
+    pathname: "/opp",
+    title: "Opportunities",
+  },
+  {
     icon: "AreaChart",
     pathname: "/dashboard",
     title: "Stats",
   },
+
   /* {
     icon: "Bot",
     pathname: "/dashboard/inbox",
