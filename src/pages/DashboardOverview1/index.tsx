@@ -406,9 +406,39 @@ function Main() {
         <div className="grid grid-cols-12 gap-6">
           {/* BEGIN: General Report */}
           <div className="col-span-12 mt-8">
+<<<<<<< Updated upstream
 
             <div className="grid grid-cols-12 gap-4 mt-5">
               <div className="item-center col-span-2 sm:col-span-2 xl:col-span-2 intro-y">
+=======
+            <div className="flex items-center h-10 intro-y">
+              <h2 className="mr-5 text-2xl font-bold truncate">
+                General Report
+              </h2>
+            </div>
+            <div className="flex flex-grow gap-4 ml-2 item-center">
+              <div className="col-span-4 sm:col-span-4 xl:col-span-4 intro-y" style={{ zIndex: 1 }}>
+                <div className="relative">
+                  <div className="p-2 box">
+                    <div className="flex justify-center">
+                      <Doughnut data={data} options={options}/>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="col-span-4 sm:col-span-4 xl:col-span-4 intro-y">
+                <div className="relative">
+                  <div className="p-2 box">
+                    <div className="flex justify-center">
+                      <Bar data={data}/>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex grid-cols-12 gap-4 ml-2 mt-5">
+              <div className="flex item-center justify-start col-span-3 intro-y">
+>>>>>>> Stashed changes
                 <div>
                   <div className="flex p-4 box text-right">
                     <span className="">
@@ -431,7 +461,7 @@ function Main() {
                   </div>
                 </div>
               </div>
-              <div className="item-center col-span-2 sm:col-span-2 xl:col-span-2 intro-y">
+              <div className="flex item-center col-span-3 intro-y">
                 <div>
                   <div className="flex p-4 box text-right">
                     <span className="">
@@ -454,7 +484,7 @@ function Main() {
                   </div>
                 </div>
               </div>
-              <div className="item-center col-span-2 sm:col-span-2 xl:col-span-2 intro-y">
+              <div className="flex item-center col-span-3 intro-y">
                 <div>
                   <div className="flex p-4 box text-right">
                     <span className="">
@@ -477,7 +507,7 @@ function Main() {
                   </div>
                 </div>
               </div>
-              <div className="item-center col-span-2 sm:col-span-2 xl:col-span-2 intro-y">
+              <div className="flex item-center col-span-3 intro-y">
                 <div>
                   <div className="flex p-4 box text-right">
                     <span className="">
@@ -495,25 +525,6 @@ function Main() {
                       <div className="mt-1 text-sm text-slate-400">
                       Closed Leads
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <br></br>
-              <div className="col-span-4 sm:col-span-4 xl:col-span-4 intro-y" style={{ zIndex: 1 }}>
-                <div className="relative">
-                  <div className="p-2 box">
-                    <div className="flex justify-center">
-                      <Doughnut data={data} options={options}/>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="col-span-4 sm:col-span-4 xl:col-span-4 intro-y">
-                <div className="relative">
-                  <div className="p-2 box">
-                    <div className="flex justify-center">
-                      <Bar data={data}/>
                     </div>
                   </div>
                 </div>

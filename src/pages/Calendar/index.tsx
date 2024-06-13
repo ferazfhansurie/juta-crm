@@ -386,8 +386,8 @@ function Main() {
   const renderEventContent = (eventInfo: any) => {
     const statusColor = getStatusColor2(eventInfo.event.extendedProps.appointmentStatus);
     return (
-      <div style={{ backgroundColor: statusColor, color: 'white', padding: '5px', borderRadius: '5px' }}>
-        <b>{eventInfo.timeText}</b>
+      <div className="flex-grow text-center text-normal font-medium" style={{ backgroundColor: statusColor, color: 'white', padding: '5px', borderRadius: '5px' }}>
+        {/* <b>{eventInfo.timeText}</b> */}
         <i>{eventInfo.event.title}</i>
       </div>
     );
@@ -399,7 +399,7 @@ function Main() {
       <div className="flex flex-col items-center mt-8 intro-y sm:flex-row">
         {users.length > 0 && (
           <div className="flex w-full mt-4 sm:w-auto sm:mt-0">
-            <select value={selectedUserId} onChange={handleUserChange} className="mr-4">
+            <select value={selectedUserId} onChange={handleUserChange} className="text-white bg-primary hover:bg-white hover:text-primary hover focus:ring-2 focus:ring-blue-300 font-medium rounded-lg text-sm text-start inline-flex items-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 mr-4">
               {users.map(user => (
                 <option key={user.id} value={user.id}>
                   {user.name}
@@ -408,8 +408,8 @@ function Main() {
             </select>
           </div>
         )}
-        <div className="flex w-full mt-4 sm:w-auto sm:mt-0">
-          <select value={filterStatus} onChange={handleStatusFilterChange} className="mr-4">
+        <div className="flex flex-col items-center sm:flex-row w-full mt-4 sm:w-auto sm:mt-0">
+          <select value={filterStatus} onChange={handleStatusFilterChange} className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm mr-4">
             <option value="">All Statuses</option>
             <option value="new">New</option>
             <option value="confirmed">Confirmed</option>
@@ -422,7 +422,7 @@ function Main() {
             type="date" 
             value={filterDate} 
             onChange={handleDateFilterChange} 
-            className="mr-4"
+            className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm mr-4"
           />
         </div>
         <div className="flex w-full mt-4 sm:w-auto sm:mt-0">
@@ -450,22 +450,32 @@ function Main() {
         </div>
       </div>
       <div className="grid grid-cols-12 gap-5 mt-5">
-        <div className="col-span-12 xl:col-span-4 2xl:col-span-3">
+        <div className="md:col-span-4 xl:col-span-4 2xl:col-span-3">
           <div className="p-5 box intro-y">
+            <div className="flex justify-between items-center h-10 intro-y gap-4">
+                <h2 className="text-3xl font-bold">
+                  Appointments
+                </h2>
+                <div className="">
+                  <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-yellow-500 rounded-full me-1.5 flex-shrink-0"></span>New</span>
+                  <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-blue-500 rounded-full me-1.5 flex-shrink-0"></span>Showed</span>
+                  <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-green-500 rounded-full me-1.5 flex-shrink-0"></span>Confirmed</span>
+                </div>
+                  
+              </div>
             <div className="mt-6 mb-5 border-t border-b border-slate-200/60 dark:border-darkmode-400">
               {filteredAppointments.length > 0 ? (
                 filteredAppointments.map((appointment, index) => (
                   <div key={index} className="relative" onClick={() => handleAppointmentClick(appointment)}>
                     <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-darkmode-400">
-                      <div className={`w-2 h-2 mr-3 rounded-full ${getStatusColor(appointment.appointmentStatus)}`}></div>
-                      <div className="pr-10">
-                        <div className="truncate event__title">Name: {appointment.title}</div>
-                        <div className="text-slate-500 text-xs mt-0.5">Title: {appointment.title}</div>
-                        <div className="text-slate-500 text-xs mt-0.5">Status: {appointment.appointmentStatus}</div>
+                      <div className={`w-2 h-16 mr-3 rounded-sm ${getStatusColor(appointment.appointmentStatus)}`}></div>
+                      <div className="pr-10 item-center">
+                        <div className="truncate event__title text-lg font-medium">{appointment.title}</div>
+                        {/* <div className="text-slate-500 text-xs mt-0.5">Status: {appointment.appointmentStatus}</div> */}
                         <div className="text-slate-500 text-xs mt-0.5">
-                          Appointment Date & Time: {new Date(appointment.startTime).toLocaleString()} - {new Date(appointment.endTime).toLocaleString()}
+                          {new Date(appointment.startTime).toLocaleString()} - {new Date(appointment.endTime).toLocaleString()}
                         </div>
-                        <div className="text-slate-500 text-xs mt-0.5">Staff: {selectedUser?.name}</div>
+                        {/* <div className="text-slate-500 text-xs mt-0.5">Staff: {selectedUser?.name}</div> */}
                         <div className="text-slate-500 text-xs mt-0.5">Package: {appointment.package}</div>
                       </div>
                     </div>
@@ -479,7 +489,7 @@ function Main() {
             </div>
           </div>
         </div>
-        <div className="col-span-12 xl:col-span-8 2xl:col-span-9">
+        <div className="md:col-span-8 xl:col-span-8 2xl:col-span-9">
           <div className="p-5 box">
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -508,11 +518,11 @@ function Main() {
           />
    <style jsx global>{`
   .fc .fc-toolbar {
-    color: #1e3a8a;
+    color: #164E63;
   }
   .fc .fc-toolbar button {
     text-transform: capitalize;
-    background-color: #1e3a8a; /* Tailwind blue-600 */
+    background-color: #164E63; /* Tailwind blue-600 */
     color: white; /* Ensure button text is white */
     border: none;
     padding: 0.5rem 1rem;
@@ -521,7 +531,7 @@ function Main() {
     cursor: pointer;
   }
   .fc .fc-toolbar button:hover {
-    background-color: #1e3a8a; /* Tailwind blue-800 */
+    background-color: #164E63; /* Tailwind blue-800 */
   }
 `}</style>
             </div>
