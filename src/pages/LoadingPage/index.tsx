@@ -12,7 +12,7 @@ function LoadingPage() {
   useEffect(() => {
     let progressInterval: string | number | NodeJS.Timeout | undefined;
     if (!isLoading) {
-
+      navigate('/chat');
     } else {
       progressInterval = setInterval(() => {
         setProgress((prev) => (prev < 100 ? prev + 1 : prev));
