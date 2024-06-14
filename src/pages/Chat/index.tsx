@@ -2242,177 +2242,173 @@ const handleForwardMessage = async () => {
   <div className="flex-1 overflow-y-auto">
     
   {filteredContacts.map((contact, index) => (
-  <div
-    key={contact.id || `${contact.phone}-${index}`}
-    className={`m-2 pl-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 group ${
-      contact.chat_id !== undefined
-        ? selectedChatId === contact.chat_id
+  <React.Fragment key={contact.id || `${contact.phone}-${index}`}>
+    <div
+      className={`m-2 pl-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 group ${
+        contact.chat_id !== undefined
+          ? selectedChatId === contact.chat_id
+            ? 'bg-gray-700 text-white'
+            : 'hover:bg-gray-300'
+          : selectedChatId === contact.phone
           ? 'bg-gray-700 text-white'
           : 'hover:bg-gray-300'
-        : selectedChatId === contact.phone
-        ? 'bg-gray-700 text-white'
-        : 'hover:bg-gray-300'
-    }`}
-    onClick={() => selectChat(contact.chat_id!, contact.email!)}
-  >
-    <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
-      {contact.chat_pic_full ? (
-        <img src={contact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
-      ) : (
-        contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"
-      )}
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="flex justify-between items-center">
-        <span className="font-semibold capitalize truncate">{contact.contactName ?? contact.firstName ?? contact.phone}</span>
-   
-        <span className="text-xs flex items-center space-x-2">
-        <div className="ml-2 flex flex-wrap">
-  {(() => {
-    const employeeTags = contact.tags.filter(tag =>
-      employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
-    );
-
-    const otherTags = contact.tags.filter(tag =>
-      !employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
-    );
-
-    return (
-      <>
-        {employeeTags.length > 0 && (
-          <Tippy content={employeeTags.join(', ')}>
-            <span className="bg-green-100 text-green-800 text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
-              <Lucide icon="User" className="w-4 h-4 inline-block" />
-              <span className="ml-1">{employeeTags.length}</span>
-            </span>
-          </Tippy>
+      }`}
+      onClick={() => selectChat(contact.chat_id!, contact.email!)}
+    >
+      <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
+        {contact.chat_pic_full ? (
+          <img src={contact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
+        ) : (
+          contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"
         )}
-        {otherTags.map((tag, tagIndex) => (
-          <span 
-            key={tagIndex} 
-            className="inline-block text-xs font-semibold mr-2 px-2.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-400">
-            {tag}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-center">
+          <span className="font-semibold capitalize truncate">{contact.contactName ?? contact.firstName ?? contact.phone}</span>
+          <span className="text-xs flex items-center space-x-2">
+            <div className="ml-2 flex flex-wrap">
+              {(() => {
+                const employeeTags = contact.tags.filter(tag =>
+                  employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+                );
+
+                const otherTags = contact.tags.filter(tag =>
+                  !employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+                );
+
+                return (
+                  <>
+                    {employeeTags.length > 0 && (
+                      <Tippy content={employeeTags.join(', ')}>
+                        <span className="bg-green-100 text-green-800 text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
+                          <Lucide icon="User" className="w-4 h-4 inline-block" />
+                          <span className="ml-1">{employeeTags.length}</span>
+                        </span>
+                      </Tippy>
+                    )}
+                    {otherTags.map((tag, tagIndex) => (
+                      <span 
+                        key={tagIndex} 
+                        className="inline-block text-xs font-semibold mr-2 px-2.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-400">
+                        {tag}
+                      </span>
+                    ))}
+                  </>
+                );
+              })()}
+            </div>
+            <button
+              className={`text-md font-medium mr-2 ${
+                contact.pinned ? 'text-blue-500' : 'text-gray-500 group-hover:text-blue-500'
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                togglePinConversation(contact.chat_id);
+              }}
+            >
+              {contact.pinned ? (
+                <Pin size={16} color="#2D2D2D" strokeWidth={1.25} absoluteStrokeWidth fill="#2D2D2D" />
+              ) : (
+                <PinOff size={16} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
+              )}
+            </button>
+            {contact.last_message?.createdAt || contact.last_message?.timestamp
+              ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
+              : 'No Messages'}
           </span>
-        ))}
-      </>
-    );
-  })()}
-</div>
-          <button
-            className={`text-md font-medium mr-2 ${
-              contact.pinned ? 'text-blue-500' : 'text-gray-500 group-hover:text-blue-500'
-            }`}
-            onClick={(e) => {
-              e.stopPropagation();
-              togglePinConversation(contact.chat_id);
-            }}
-          >
-            {contact.pinned ? (
-              <Pin size={16} color="#2D2D2D" strokeWidth={1.25} absoluteStrokeWidth  fill="#2D2D2D" />
-            ) : (
-              <PinOff size={16} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
-            )}
-          </button>
-          {contact.last_message?.createdAt || contact.last_message?.timestamp
-            ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
-            : 'No Messages'}
-        </span>
-      </div>
-      <div className="flex justify-between items-center">
-        <span className="text-sm truncate" style={{ width: '200px' }}>
-          {(contact.last_message?.type === "text") ? contact.last_message?.text?.body ?? "No Messages" : "Photo"}
-        </span>
-        {contact.unreadCount > 0 && (
-          <span className="bg-primary text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
-        )}
-        <label className="inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            value=""
-            className="sr-only peer"
-            checked={contact.tags?.includes("stop bot")}
-            onChange={() => toggleStopBotLabel(contact.chat, index, contact)}
-          />
-          <div className="mt-1 ml-0 relative w-11 h-6 bg-gray-400 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-primary">
-          </div>
-        </label>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-sm truncate" style={{ width: '200px' }}>
+            {(contact.last_message?.type === "text") ? contact.last_message?.text?.body ?? "No Messages" : "Photo"}
+          </span>
+          {contact.unreadCount > 0 && (
+            <span className="bg-primary text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
+          )}
+          <label className="inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              value=""
+              className="sr-only peer"
+              checked={contact.tags?.includes("stop bot")}
+              onChange={() => toggleStopBotLabel(contact.chat, index, contact)}
+            />
+            <div className="mt-1 ml-0 relative w-11 h-6 bg-gray-400 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-primary">
+            </div>
+          </label>
+        </div>
       </div>
     </div>
-  </div>
+    {index < filteredContacts.length - 1 && <hr className="my-2 border-gray-300" />}
+  </React.Fragment>
 ))}
   </div>
 </div>
 
       <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 relative">
       {selectedContact && (
-          <div className="flex items-center justify-between p-1 border-b border-gray-300 bg-gray-100">
-            <div className="flex items-center">
-              <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3 ml-2">
-                <span className="text-lg">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
-              </div>
-              <div>
-                <div className="font-semibold text-gray-800 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
-                <div className="text-sm text-gray-600">{selectedContact.phone}</div>
-              </div>
-            </div>
-            <Menu as="div" className="relative inline-block text-left p-2">
-            <div className="flex items-center space-x-3">
-        {/* Adjust the space-x value to increase the padding */}
-       
-        <Menu as="div" className="relative inline-block text-left">
-          <div className="flex items-right space-x-3">
-            <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
-              <span className="flex items-center justify-center w-5 h-5">
-                <Lucide icon="Users" className="w-5 h-5" />
-              </span>
-            </Menu.Button>
-          </div>
-          <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-            {employeeList.map((tag) => (
-              <Menu.Item key={tag.id}>
-                <button
-                  className={`flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md ${
-                    activeTags.includes(tag.name) ? 'bg-gray-200' : ''
-                  }`}
-                  onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
-                >
-                  <Lucide icon="User" className="w-4 h-4 mr-2" />
-                  {tag.name}
-                </button>
-              </Menu.Item>
-            ))}
-          </Menu.Items>
-        </Menu>
-        <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
+  <div className="flex items-center justify-between p-1 border-b border-gray-300 bg-gray-100">
+    <div className="flex items-center">
+      <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3 ml-2">
+        <span className="text-lg">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
+      </div>
+      <div>
+        <div className="font-semibold text-gray-800 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
+        <div className="text-sm text-gray-600">{selectedContact.phone}</div>
+      </div>
+    </div>
+    <div className="flex items-center space-x-3">
+      <Menu as="div" className="relative inline-block text-left">
+        <Menu.Button as={Button} className="p-2 !box m-0">
+          <span className="flex items-center justify-center w-5 h-5">
+            <Lucide icon="Users" className="w-5 h-5" />
+          </span>
+        </Menu.Button>
+        <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+          {employeeList.map((tag) => (
+            <Menu.Item key={tag.id}>
+              <button
+                className={`flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md ${
+                  activeTags.includes(tag.name) ? 'bg-gray-200' : ''
+                }`}
+                onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
+              >
+                <Lucide icon="User" className="w-4 h-4 mr-2" />
+                {tag.name}
+              </button>
+            </Menu.Item>
+          ))}
+        </Menu.Items>
+      </Menu>
+      <Menu as="div" className="relative inline-block text-left">
+        <Menu.Button as={Button} className="p-2 !box m-0">
           <span className="flex items-center justify-center w-5 h-5">
             <Lucide icon="Tag" className="w-5 h-5" />
           </span>
         </Menu.Button>
-        <button className="p-2 m-0 !box" onClick={handleEyeClick}>
-      <span className="flex items-center justify-center w-5 h-5">
-        <Lucide icon={isTabOpen ? "X" : "Eye"} className="w-5 h-5" />
-      </span>
-    </button>
-      </div>
-      <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-50 max-h-60 overflow-y-auto">
-    {(tagList).map((item) => (
-      <Menu.Item key={item.id}>
-        <button
-          className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md"
-          onClick={() =>
-             handleAddTagToSelectedContacts(item.name, selectedContact)
-          }
-        >
-          <Lucide icon="User" className="w-4 h-4 mr-2" />
-          {item.name}
-        </button>
-      </Menu.Item>
-    ))}
-  </Menu.Items>
-</Menu>
-
-          </div>
-        )}
+        <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+          {tagList.map((tag) => (
+            <Menu.Item key={tag.id}>
+              <button
+                className={`flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md ${
+                  activeTags.includes(tag.name) ? 'bg-gray-200' : ''
+                }`}
+                onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
+              >
+                <Lucide icon="User" className="w-4 h-4 mr-2" />
+                {tag.name}
+              </button>
+            </Menu.Item>
+          ))}
+        </Menu.Items>
+      </Menu>
+      <button className="p-2 m-0 !box" onClick={handleEyeClick}>
+        <span className="flex items-center justify-center w-5 h-5">
+          <Lucide icon={isTabOpen ? "X" : "Eye"} className="w-5 h-5" />
+        </span>
+      </button>
+    </div>
+  </div>
+)}
            
         <div className="flex-1 overflow-y-auto p-4" 
        style={{
@@ -2466,7 +2462,7 @@ const handleForwardMessage = async () => {
                 maxWidth: message.type === 'document' ? '90%' : '70%',
                 width: `${
                   message.type === 'document'
-                    ? '500'
+                    ? '400'
                     : message.type !== 'text'
                     ? '320'
                     : message.text?.body
@@ -2777,24 +2773,29 @@ const handleForwardMessage = async () => {
         </button>
       </div>
     )}
-      {isTabOpen && (
-  <div className="w-2/4 bg-white border-l border-gray-300 overflow-y-auto">
+{isTabOpen && (
+  <div className="absolute top-0 right-0 h-full w-full md:w-1/3 bg-white border-l border-gray-300 overflow-y-auto z-50">
     <div className="p-6">
-      <div className="flex items-center p-4 border-b border-gray-300 bg-gray-100">
-        <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-          <span className="text-xl">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
+      <div className="flex items-center justify-between p-4 border-b border-gray-300 bg-gray-100">
+        <div className="flex items-center">
+          <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+            <span className="text-xl">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
+          </div>
+          <div>
+            <div className="font-semibold text-gray-800 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
+            <div className="text-sm text-gray-600">{selectedContact.phone}</div>
+          </div>
         </div>
-        <div>
-          <div className="font-semibold text-gray-800 capitalize">{selectedContact.contactName ||selectedContact.firstName|| selectedContact.phone}</div>
-          <div className="text-sm text-gray-600">{selectedContact.phone}</div>
-        </div>
+        <button onClick={handleEyeClick} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300 focus:outline-none">
+          <Lucide icon="X" className="w-6 h-6 text-gray-800" />
+        </button>
       </div>
       <div className="mt-6">
         <p className="font-semibold text-lg mb-4">Contact Info</p>
         <div className="space-y-2 text-gray-700">
           <p><span className="font-semibold text-blue-600">Tags:</span>
             <div className="flex flex-wrap mt-2">
-              {selectedContact.tags.map((tag:any, index:any) => (
+              {selectedContact.tags.map((tag: any, index: any) => (
                 <span key={index} className="inline-block bg-blue-100 text-blue-800 text-sm font-semibold mr-2 mb-2 px-3 py-1 rounded border border-blue-400">
                   {tag}
                 </span>
@@ -2805,7 +2806,7 @@ const handleForwardMessage = async () => {
           <p><span className="font-semibold text-blue-600">Email:</span> {selectedContact.email || 'N/A'}</p>
           <p><span className="font-semibold text-blue-600">Company:</span> {selectedContact.companyName || 'N/A'}</p>
           <p><span className="font-semibold text-blue-600">Address:</span> {selectedContact.address1 || 'N/A'}</p>
-          <p><span className="font-semibold text-blue-600">First Name:</span> {selectedContact.contactName??selectedContact.firstName}</p>
+          <p><span className="font-semibold text-blue-600">First Name:</span> {selectedContact.contactName ?? selectedContact.firstName}</p>
           <p><span className="font-semibold text-blue-600">Last Name:</span> {selectedContact.lastName}</p>
           <p><span className="font-semibold text-blue-600">Website:</span> {selectedContact.website || 'N/A'}</p>
           {/* Add more fields as necessary */}
@@ -2814,19 +2815,17 @@ const handleForwardMessage = async () => {
     </div>
   </div>
 )}
-      <ImageModal isOpen={isImageModalOpen} onClose={closeImageModal} imageUrl={modalImageUrl} />
-      <ToastContainer />
-      {isQuickRepliesOpen && (
-  <div className="bg-gray-100 p-2 rounded-md shadow-lg mt-2">
+ {isQuickRepliesOpen && (
+  <div className="absolute bottom-20 left-2 w-full max-w-md bg-gray-100 p-2 rounded-md shadow-lg mt-2">
     <div className="flex items-center mb-4">
-    <textarea
-  className="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  placeholder="Add new quick reply"
-  value={newQuickReply}
-  onChange={(e) => setNewQuickReply(e.target.value)}
-  rows={3}  // Adjust the rows attribute as needed
-  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-/>
+      <textarea
+        className="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="Add new quick reply"
+        value={newQuickReply}
+        onChange={(e) => setNewQuickReply(e.target.value)}
+        rows={3}
+        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+      />
       <button className="p-2 m-1 !box" onClick={addQuickReply}>
         <span className="flex items-center justify-center w-5 h-5">
           <Lucide icon="Plus" className="w-5 h-5" />
@@ -2878,6 +2877,9 @@ const handleForwardMessage = async () => {
     </div>
   </div>
 )}
+      <ImageModal isOpen={isImageModalOpen} onClose={closeImageModal} imageUrl={modalImageUrl} />
+      <ToastContainer />
+
     </div>
   );
 };
