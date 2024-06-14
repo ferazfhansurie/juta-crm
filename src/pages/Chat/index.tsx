@@ -1900,7 +1900,18 @@ const handleForwardMessage = async () => {
       setSelectedMessages([]);
     }
   };
-
+  const isSameDay = (date1: Date, date2: Date) => {
+    return (
+      date1.getFullYear() === date2.getFullYear() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getDate() === date2.getDate()
+    );
+  };
+  
+  const formatDateHeader = (timestamp: string | number | Date) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  };
   useEffect(() => {
     // Add event listener for keydown
     window.addEventListener("keydown", handleKeyDown);
@@ -2417,215 +2428,203 @@ const handleForwardMessage = async () => {
                   </div>
                 </div>
               )}
-{selectedChatId && (
-  messages
-    .filter((message) => message.type !== 'action') // Filter out action type messages
-    .slice()
-    .reverse()
-    .map((message) => (
-      message.type !== 'system' &&
-      <div
-        className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
-        key={message.id}
-        style={{
-          maxWidth: message.type === 'document' ? '90%' : '70%',
-          width: `${
-            message.type === 'document'
-              ? '500'
-              : message.type !== 'text'
-              ? '320'
-              : message.text?.body
-              ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
-              : '100'
-          }px`,
-          minWidth: '150px',
-        }}
-        onMouseEnter={() => setHoveredMessageId(message.id)}
-        onMouseLeave={() => setHoveredMessageId(null)}
-      >
-        {message.chat_id.includes('@g.us') && (
-          <div className="pb-1 text-md font-medium">{message.from_name}</div>
-        )}
-        {message.type === 'text' && message.text?.context && (
-          <div className="p-2 mb-2 rounded bg-gray-600">
-            <div className="text-sm font-medium">{message.text.context.quoted_author || ''}</div>
-            <div className="text-sm">{message.text.context.quoted_content?.body || ''}</div>
-          </div>
-        )}
-        {message.type === 'text' && (
-          <div className="whitespace-pre-wrap break-words">
-            {formatText(message.text?.body || '')}
-          </div>
-        )}
-        {message.type === 'image' && message.image && (
-          <div className="p-0 message-content image-message">
-            <img
-              src={message.image.link}
-              alt="Image"
-              className="rounded-lg message-image cursor-pointer"
-              style={{ maxWidth: '300px' }}
-              onClick={() => openImageModal(message.image?.link || '')}
-            />
-            <div className="caption">{message.image.caption}</div>
-          </div>
-        )}
-        {message.type === 'video' && message.video && (
-          <div className="video-content p-0 message-content image-message">
-            <video
-              controls
-              src={message.video.link}
-              className="rounded-lg message-image cursor-pointer"
-              style={{ maxWidth: '300px' }}
-            />
-            <div className="caption">{message.video.caption}</div>
-          </div>
-        )}
-        {message.type === 'gif' && message.gif && (
-          <div className="gif-content p-0 message-content image-message">
-            <img
-              src={message.gif.link}
-              alt="GIF"
-              className="rounded-lg message-image cursor-pointer"
-              style={{ maxWidth: '300px' }}
-              onClick={() => openImageModal(message.gif?.link || '')}
-            />
-            <div className="caption">{message.gif.caption}</div>
-          </div>
-        )}
-        {message.type === 'audio' && message.audio && (
-          <div className="audio-content p-0 message-content image-message">
-            <audio controls src={message.audio.link} className="rounded-lg message-image cursor-pointer" />
-          </div>
-        )}
-        {message.type === 'voice' && message.voice && (
-          <div className="voice-content p-0 message-content image-message">
-            <audio controls src={message.voice.link} className="rounded-lg message-image cursor-pointer" />
-          </div>
-        )}
-  {message.type === 'document' && message.document && (
-  <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
-    <iframe
-      src={message.document.link}
-      width="100%"
-      height="500px"
-      title="PDF Document"
-      className="border rounded cursor-pointer"
-      onClick={() => openPDFModal(message.document?.link || '')}
-    />
-    <div className="flex-1 text-justify mt-3">
-      <div className="font-semibold">{message.document.file_name}</div>
-      <div>
-        {message.document.page_count} page
-        {message.document.page_count > 1 ? 's' : ''} • PDF •{' '}
-        {(message.document.file_size / 1024).toFixed(2)} kB
-      </div>
-    </div>
-    <button
-            onClick={() => openPDFModal(message.document!.link)}
-            className="mt-3"
-          >
-            <Lucide icon="ExternalLink" className="w-6 h-6 text-white-700" />
-          </button>
-  </div>
-)}
-        {message.type === 'link_preview' && message.link_preview && (
-          <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden">
-            <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
-              <img
-                src={message.link_preview.preview}
-                alt="Preview"
-                className="w-full"
-              />
-              <div className="p-2">
-                <div className="font-bold text-lg">{message.link_preview.title}</div>
-                <div className="text-sm text-gray-100">{message.link_preview.description}</div>
-                <div className="text-blue-500 mt-1">{message.link_preview.body}</div>
-              </div>
-            </a>
-          </div>
-        )}
-        {message.type === 'sticker' && message.sticker && (
-          <div className="sticker-content p-0 message-content image-message">
-            <img
-              src={message.sticker.link}
-              alt="Sticker"
-              className="rounded-lg message-image cursor-pointer"
-              style={{ maxWidth: '150px' }}
-              onClick={() => openImageModal(message.sticker?.link || '')}
-            />
-          </div>
-        )}
-        {message.type === 'location' && message.location && (
-          <div className="location-content p-0 message-content image-message">
-            <div className="text-sm">Location: {message.location.latitude}, {message.location.longitude}</div>
-          </div>
-        )}
-        {message.type === 'poll' && message.poll && (
-          <div className="poll-content p-0 message-content image-message">
-            <div className="text-sm">Poll: {message.poll.title}</div>
-          </div>
-        )}
-        {message.type === 'hsm' && message.hsm && (
-          <div className="hsm-content p-0 message-content image-message">
-            <div className="text-sm">HSM: {message.hsm.title}</div>
-          </div>
-        )}
-        {message.type === 'action' && message.action && (
-          <div className="action-content flex flex-col p-4 rounded-md shadow-md">
-            {message.action.type === 'delete' ? (
-              <div className="text-gray-400">This message was deleted</div>
-            ) : (
-              /* Handle other action types */
-              <div>{message.action.emoji}</div>
-            )}
-          </div>
-        )}
-{message.reactions && message.reactions.length > 0 && (
-  <div className="flex items-center space-x-2 mt-1">
-    {message.reactions.map((reaction, index) => (
-      <div key={index} className="text-gray-500 text-sm flex items-center space-x-1">
-        <span
-          className="inline-flex items-center justify-center border border-white rounded-full"
-          style={{ padding: '10px', backgroundColor: 'white', fontSize: '24px' }} // Adjust font size here
-        >
-          {reaction.emoji}
-        </span>
-      </div>
-    ))}
-  </div>
-)}
-
-        <div className="message-timestamp text-xs text-gray-100 mt-1">
-          {formatTimestamp(message.createdAt || message.dateAdded)}
-          {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
-                checked={selectedMessages.includes(message)}
-                onChange={() => handleSelectMessage(message)}
-              />
-           <button
-                  className="ml-2 text-blue-500 hover:text-gray-400 fill-current"
-                  onClick={() => setReplyToMessage(message)}
-                >
-                  <Lucide icon="MessageSquare" className="w-5 h-5" />
-                </button>
-               {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && (
-                <button
-                  className="ml-2 text-white hover:text-gray-400 fill-current"
-                  onClick={() => openEditMessage(message)}
-                >
-                  <Lucide icon="Pencil" className="w-5 h-5" />
-                </button>
-              )}
-         
+  {selectedChatId && (
+    messages
+      .filter((message) => message.type !== 'action') // Filter out action type messages
+      .slice()
+      .reverse()
+      .map((message, index,array) => {
+        const previousMessage = messages[index - 1];
+        const showDateHeader =
+          index === 0 ||
+          !isSameDay(
+            new Date(array[index - 1]?.createdAt || array[index - 1]?.dateAdded),
+            new Date(message.createdAt || message.dateAdded)
+          );
+        return (
+          <React.Fragment key={message.id}>
+           {showDateHeader && (
+          <div className="flex justify-center my-4">
+            <div className="inline-block bg-white text-gray-800 font-bold py-1 px-4 rounded-lg shadow-md">
+              {formatDateHeader(message.createdAt || message.dateAdded)}
             </div>
-          )}
-        </div>
-      </div>
-    ))
-)}
+          </div>
+        )}
+            <div
+              className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+              style={{
+                maxWidth: message.type === 'document' ? '90%' : '70%',
+                width: `${
+                  message.type === 'document'
+                    ? '500'
+                    : message.type !== 'text'
+                    ? '320'
+                    : message.text?.body
+                    ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
+                    : '100'
+                }px`,
+                minWidth: '150px',
+              }}
+              onMouseEnter={() => setHoveredMessageId(message.id)}
+              onMouseLeave={() => setHoveredMessageId(null)}
+            >
+              {message.chat_id.includes('@g.us') && (
+                <div className="pb-1 text-md font-medium">{message.from_name}</div>
+              )}
+              {message.type === 'text' && message.text?.context && (
+                <div className="p-2 mb-2 rounded bg-gray-600">
+                  <div className="text-sm font-medium">{message.text.context.quoted_author || ''}</div>
+                  <div className="text-sm">{message.text.context.quoted_content?.body || ''}</div>
+                </div>
+              )}
+              {message.type === 'text' && (
+                <div className="whitespace-pre-wrap break-words">
+                  {formatText(message.text?.body || '')}
+                </div>
+              )}
+              {message.type === 'image' && message.image && (
+                <div className="p-0 message-content image-message">
+                  <img
+                    src={message.image.link}
+                    alt="Image"
+                    className="rounded-lg message-image cursor-pointer"
+                    style={{ maxWidth: '300px' }}
+                    onClick={() => openImageModal(message.image?.link || '')}
+                  />
+                  <div className="caption">{message.image.caption}</div>
+                </div>
+              )}
+              {message.type === 'video' && message.video && (
+                <div className="video-content p-0 message-content image-message">
+                  <video
+                    controls
+                    src={message.video.link}
+                    className="rounded-lg message-image cursor-pointer"
+                    style={{ maxWidth: '300px' }}
+                  />
+                  <div className="caption">{message.video.caption}</div>
+                </div>
+              )}
+              {message.type === 'gif' && message.gif && (
+                <div className="gif-content p-0 message-content image-message">
+                  <img
+                    src={message.gif.link}
+                    alt="GIF"
+                    className="rounded-lg message-image cursor-pointer"
+                    style={{ maxWidth: '300px' }}
+                    onClick={() => openImageModal(message.gif?.link || '')}
+                  />
+                  <div className="caption">{message.gif.caption}</div>
+                </div>
+              )}
+              {message.type === 'audio' && message.audio && (
+                <div className="audio-content p-0 message-content image-message">
+                  <audio controls src={message.audio.link} className="rounded-lg message-image cursor-pointer" />
+                </div>
+              )}
+              {message.type === 'voice' && message.voice && (
+                <div className="voice-content p-0 message-content image-message">
+                  <audio controls src={message.voice.link} className="rounded-lg message-image cursor-pointer" />
+                </div>
+              )}
+              {message.type === 'document' && message.document && (
+                <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
+                  <iframe
+                    src={message.document.link}
+                    width="100%"
+                    height="500px"
+                    title="PDF Document"
+                    className="border rounded cursor-pointer"
+                    onClick={() => openPDFModal(message.document?.link || '')}
+                  />
+                  <div className="flex-1 text-justify mt-3">
+                    <div className="font-semibold">{message.document.file_name}</div>
+                    <div>
+                      {message.document.page_count} page
+                      {message.document.page_count > 1 ? 's' : ''} • PDF •{' '}
+                      {(message.document.file_size / 1024).toFixed(2)} kB
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => openPDFModal(message.document!.link)}
+                    className="mt-3"
+                  >
+                    <Lucide icon="ExternalLink" className="w-6 h-6 text-white-700" />
+                  </button>
+                </div>
+              )}
+              {message.type === 'link_preview' && message.link_preview && (
+                <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden">
+                  <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
+                    <img
+                      src={message.link_preview.preview}
+                      alt="Preview"
+                      className="w-full"
+                    />
+                    <div className="p-2">
+                      <div className="font-bold text-lg">{message.link_preview.title}</div>
+                      <div className="text-sm text-gray-100">{message.link_preview.description}</div>
+                      <div className="text-blue-500 mt-1">{message.link_preview.body}</div>
+                    </div>
+                  </a>
+                </div>
+              )}
+              {message.type === 'sticker' && message.sticker && (
+                <div className="sticker-content p-0 message-content image-message">
+                  <img
+                    src={message.sticker.link}
+                    alt="Sticker"
+                    className="rounded-lg message-image cursor-pointer"
+                    style={{ maxWidth: '150px' }}
+                    onClick={() => openImageModal(message.sticker?.link || '')}
+                  />
+                </div>
+              )}
+              {message.type === 'location' && message.location && (
+                <div className="location-content p-0 message-content image-message">
+                  <div className="text-sm">Location: {message.location.latitude}, {message.location.longitude}</div>
+                </div>
+              )}
+              {message.type === 'poll' && message.poll && (
+                <div className="poll-content p-0 message-content image-message">
+                  <div className="text-sm">Poll: {message.poll.title}</div>
+                </div>
+              )}
+              {message.type === 'hsm' && message.hsm && (
+                <div className="hsm-content p-0 message-content image-message">
+                  <div className="text-sm">HSM: {message.hsm.title}</div>
+                </div>
+              )}
+              {message.type === 'action' && message.action && (
+                <div className="action-content flex flex-col p-4 rounded-md shadow-md">
+                  {message.action.type === 'delete' ? (
+                    <div className="text-gray-400">This message was deleted</div>
+                  ) : (
+                    /* Handle other action types */
+                    <div>{message.action.emoji}</div>
+                  )}
+                </div>
+              )}
+              {message.reactions && message.reactions.length > 0 && (
+                <div className="flex items-center space-x-2 mt-1">
+                  {message.reactions.map((reaction, index) => (
+                    <div key={index} className="text-gray-500 text-sm flex items-center space-x-1">
+                      <span
+                        className="inline-flex items-center justify-center border border-white rounded-full"
+                        style={{ padding: '10px', backgroundColor: '#F0F0F0' }}
+                      >
+                        {reaction.emoji}
+                      </span>
+                    
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </React.Fragment>
+        );
+      })
+  )}
         </div>
 
         <div className="absolute bottom-0 left-0 w-500px !box m-1 py-1 px-2">

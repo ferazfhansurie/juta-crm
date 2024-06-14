@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { getAuth, User, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -52,11 +52,11 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     const shouldFetchContacts = !sessionStorage.getItem('contactsFetched');
 
     if (shouldFetchContacts) {
-      fetchContactsOnAuthChange();
+     fetchContactsOnAuthChange();
     } else {
       const storedContacts = localStorage.getItem('contacts');
       if (storedContacts) {
-        setContacts(JSON.parse(LZString.decompress(storedContacts)!));
+       setContacts(JSON.parse(LZString.decompress(storedContacts)!));
       }
       setIsLoading(false);
     }
@@ -92,6 +92,17 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
+        const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
+        const contactsSnapshot = await getDocs(contactsCollectionRef);
+        const contactsFromFirebase = contactsSnapshot.docs.map(doc => doc.data());
+
+        if (contactsFromFirebase.length > 0) {
+          setContacts(contactsFromFirebase);
+          console.log("Fetched contacts from Firebase:", contactsFromFirebase);
+          localStorage.setItem('contacts', LZString.compress(JSON.stringify(contactsFromFirebase)));
+          sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
+       
+        } 
         const data = docSnapshot.data();
 
         const url = `https://buds-359313.et.r.appspot.com/api/chats/${data?.whapiToken}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}`;
@@ -102,7 +113,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
 console.log('Contacts with chat_pic:', contactsWithChatPic);
         localStorage.setItem('contacts', LZString.compress(JSON.stringify(response.data.contacts)));
         sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
-        setIsLoading(false);
+  
       } catch (error) {
         console.error('Error fetching contacts:', error);
       } finally {
@@ -114,7 +125,7 @@ console.log('Contacts with chat_pic:', contactsWithChatPic);
       if (user) {
         fetchContacts(user);
       } else {
-        navigate('/login');  // Redirect to login page if not authenticated
+     
         setIsLoading(false);
       }
     });
