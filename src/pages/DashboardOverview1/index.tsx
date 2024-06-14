@@ -406,11 +406,6 @@ function Main() {
         <div className="grid grid-cols-12 gap-6">
           {/* BEGIN: General Report */}
           <div className="col-span-12 mt-8">
-<<<<<<< Updated upstream
-
-            <div className="grid grid-cols-12 gap-4 mt-5">
-              <div className="item-center col-span-2 sm:col-span-2 xl:col-span-2 intro-y">
-=======
             <div className="flex items-center h-10 intro-y">
               <h2 className="mr-5 text-2xl font-bold truncate">
                 General Report
@@ -438,7 +433,6 @@ function Main() {
             </div>
             <div className="flex grid-cols-12 gap-4 ml-2 mt-5">
               <div className="flex item-center justify-start col-span-3 intro-y">
->>>>>>> Stashed changes
                 <div>
                   <div className="flex p-4 box text-right">
                     <span className="">
