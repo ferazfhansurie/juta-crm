@@ -26,6 +26,12 @@ import LZString from 'lz-string';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import Tippy from "@/components/Base/Tippy";
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+
+
+
+
+
 
 interface Label {
   id: string;
@@ -322,7 +328,11 @@ const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
 const [isPDFModalOpen, setPDFModalOpen] = useState(false);
 const [pdfUrl, setPdfUrl] = useState('');
 const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
+const [isEmojiPickerOpen, setEmojiPickerOpen] = useState(false);
 
+const handleEmojiClick = (emojiObject: EmojiClickData) => {
+  setNewMessage(prevMessage => prevMessage + emojiObject.emoji);
+};
 const handlereplyMessage = async () => {
   if (!newMessage.trim() || !selectedChatId) return;
   
@@ -2656,85 +2666,96 @@ const handleForwardMessage = async () => {
       </button>
     </div>
   )}
-          <div className="flex items-center">
-          <Menu as="div" className="relative inline-block text-left p-2">
-            <div className="flex items-center space-x-3">
-            <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
-  <span className="flex items-center justify-center w-5 h-5">
-    <Lucide icon="Paperclip" className="w-5 h-5" />
-  </span>
-</Menu.Button>
-</div>
-<Menu.Items className="absolute left-0 bottom-full mb-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-<button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
-  <label htmlFor="imageUpload" className="flex items-center cursor-pointer">
-    <Lucide icon="Image" className="w-4 h-4 mr-2" />
-    Image
-    <input
-      type="file"
-      id="imageUpload"
-      accept="image/*"
-      className="hidden"
-      onChange={handleImageUpload}
-      multiple
-    />
-  </label>
-</button>
-  <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
-    <label htmlFor="documentUpload" className="flex items-center cursor-pointer">
-      <Lucide icon="File" className="w-4 h-4 mr-2" />
-      Document
-      <input
-        type="file"
-        id="documentUpload"
-        accept="application/pdf"
-        className="hidden"
-        onChange={handleDocumentUpload}
-        multiple
-      />
-    </label>
+<div className="flex items-center w-full">
+  <button className="p-2 m-0 !box" onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}>
+    <span className="flex items-center justify-center w-5 h-5">
+      <Lucide icon="Smile" className="w-5 h-5" />
+    </span>
   </button>
-</Menu.Items>
-
-</Menu>
+  <Menu as="div" className="relative inline-block text-left p-2">
+    <div className="flex items-center space-x-3">
+      <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
+        <span className="flex items-center justify-center w-5 h-5">
+          <Lucide icon="Paperclip" className="w-5 h-5" />
+        </span>
+      </Menu.Button>
+    </div>
+    <Menu.Items className="absolute left-0 bottom-full mb-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+      <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
+        <label htmlFor="imageUpload" className="flex items-center cursor-pointer">
+          <Lucide icon="Image" className="w-4 h-4 mr-2" />
+          Image
+          <input
+            type="file"
+            id="imageUpload"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageUpload}
+            multiple
+          />
+        </label>
+      </button>
+      <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
+        <label htmlFor="documentUpload" className="flex items-center cursor-pointer">
+          <Lucide icon="File" className="w-4 h-4 mr-2" />
+          Document
+          <input
+            type="file"
+            id="documentUpload"
+            accept="application/pdf"
+            className="hidden"
+            onChange={handleDocumentUpload}
+            multiple
+          />
+        </label>
+      </button>
+    </Menu.Items>
+  </Menu>
   <button className="p-2 m-0 !box" onClick={handleQR}>
     <span className="flex items-center justify-center w-5 h-5">
       <Lucide icon='Zap' className="w-5 h-5" />
     </span>
   </button>
   <textarea
-            ref={textareaRef}
-            className="flex-grow h-10 px-2 py-1.5 m-1 mr-0 ml-2 border border-gray-300 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
-            placeholder="Type a message"
-            value={newMessage}
-            onChange={(e) => {
-              setNewMessage(e.target.value);
-              adjustHeight(e.target);
-            }}
-            rows={1}
-            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-            onKeyDown={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              if (e.key === 'Enter') {
-                if (e.shiftKey) {
-                  e.preventDefault();
-                  setNewMessage((prev) => prev + '\n');
-                } else {
-                  e.preventDefault();
-                  if (selectedIcon === 'ws') {
-                    handleSendMessage();
-                  } else {
-                    sendTextMessage(selectedContact.id, newMessage, selectedContact);
-                  }
-                  setNewMessage('');
-                  adjustHeight(target, true); // Reset height after sending message
-                }
-              }
-            }}
-          />
-          </div>
+    ref={textareaRef}
+    className="flex-grow h-10 px-2 py-1.5 m-1 ml-2 border border-gray-300 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
+    placeholder="Type a message"
+    value={newMessage}
+    onChange={(e) => {
+      setNewMessage(e.target.value);
+      adjustHeight(e.target);
+    }}
+    rows={1}
+    style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+    onKeyDown={(e) => {
+      const target = e.target as HTMLTextAreaElement;
+      if (e.key === 'Enter') {
+        if (e.shiftKey) {
+          e.preventDefault();
+          setNewMessage((prev) => prev + '\n');
+        } else {
+          e.preventDefault();
+          if (selectedIcon === 'ws') {
+            handleSendMessage();
+          } else {
+            sendTextMessage(selectedContact.id, newMessage, selectedContact);
+          }
+          setNewMessage('');
+          adjustHeight(target, true); // Reset height after sending message
+        }
+      }
+    }}
+  />
+</div>
+
+          {isEmojiPickerOpen && (
+         <div className="absolute bottom-20 left-2">
+       <EmojiPicker onEmojiClick={handleEmojiClick} />
+       </div>
+      )}
         </div>
       </div>
+    
       {selectedMessages.length > 0 && (
       <div className="fixed bottom-20 right-10 space-x-4">
         <button
