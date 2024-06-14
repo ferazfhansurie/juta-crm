@@ -2626,6 +2626,35 @@ const handleForwardMessage = async () => {
                   ))}
                 </div>
               )}
+
+        <div className="message-timestamp text-xs text-gray-100 mt-1">
+          {formatTimestamp(message.createdAt || message.dateAdded)}
+          {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
+                checked={selectedMessages.includes(message)}
+                onChange={() => handleSelectMessage(message)}
+              />
+           <button
+                  className="ml-2 text-blue-500 hover:text-gray-400 fill-current"
+                  onClick={() => setReplyToMessage(message)}
+                >
+                  <Lucide icon="MessageSquare" className="w-5 h-5" />
+                </button>
+               {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && (
+                <button
+                  className="ml-2 text-white hover:text-gray-400 fill-current"
+                  onClick={() => openEditMessage(message)}
+                >
+                  <Lucide icon="Pencil" className="w-5 h-5" />
+                </button>
+              )}
+         
+            </div>
+          )}
+        </div>
             </div>
           </React.Fragment>
         );
