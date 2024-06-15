@@ -3,16 +3,24 @@ import logoUrl from "@/assets/images/logo_black.png";
 import { useNavigate } from "react-router-dom";
 import { useContacts } from "../../contact";
 import LoadingIcon from "@/components/Base/LoadingIcon";
+import { useConfig } from '../../config';
 
 function LoadingPage() {
   const [progress, setProgress] = useState(0);
   const navigate = useNavigate();
   const { isLoading } = useContacts();
+  const { config: initialContacts } = useConfig();
 
   useEffect(() => {
     let progressInterval: string | number | NodeJS.Timeout | undefined;
     if (!isLoading) {
+      console.log(initialContacts.name);
+      if(initialContacts.name === "Infinity Pilates & Physiotherapy")
+    {
+      navigate('/calendar');
+    }else{
       navigate('/chat');
+    }
     } else {
       progressInterval = setInterval(() => {
         setProgress((prev) => (prev < 100 ? prev + 1 : prev));

@@ -2256,11 +2256,15 @@ const handleForwardMessage = async () => {
       onClick={() => selectChat(contact.chat_id!, contact.email!)}
     >
       <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
-        {contact.chat_pic_full ? (
-          <img src={contact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
-        ) : (
-          contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"
-        )}
+      {contact && contact.chat_pic_full ? (
+  <img src={contact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
+) : (
+  contact && contact.chat_id && contact.chat_id.includes('@g.us') ? (
+    <Lucide icon="Users" className="w-6 h-6 text-white" />
+  ) : (
+    <Lucide icon="User" className="w-6 h-6 text-white" />
+  )
+)}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center">
@@ -2350,7 +2354,11 @@ const handleForwardMessage = async () => {
   <div className="flex items-center justify-between p-1 border-b border-gray-300 bg-gray-100">
     <div className="flex items-center">
       <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3 ml-2">
-        <span className="text-lg">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
+        {selectedContact.chat_pic_full ? (
+          <img src={selectedContact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
+        ) : (
+          selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"
+        )}
       </div>
       <div>
         <div className="font-semibold text-gray-800 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
@@ -2809,7 +2817,11 @@ const handleForwardMessage = async () => {
       <div className="flex items-center justify-between p-4 border-b border-gray-300 bg-gray-100">
         <div className="flex items-center">
           <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-            <span className="text-xl">{selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}</span>
+          {selectedContact.chat_pic_full ? (
+          <img src={selectedContact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
+        ) : (
+          selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"
+        )}
           </div>
           <div>
             <div className="font-semibold text-gray-800 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>

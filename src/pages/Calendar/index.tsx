@@ -8,9 +8,11 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { initializeApp } from "firebase/app";
 import { format } from 'date-fns';
+import { getDoc, getFirestore, doc, setDoc, collection, addDoc, getDocs, updateDoc, QueryDocumentSnapshot, DocumentData, query, where } from 'firebase/firestore';
+import { useContacts } from "@/contact";
+import Select from 'react-select';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -37,25 +39,50 @@ interface Appointment {
   staff: string;
   package: string;
   dateAdded: string;
+  contacts: { id: string, name: string, session: number }[]; // Include contacts in the interface
 }
 
-interface User {
+
+interface Employee {
   id: string;
   name: string;
+}
+
+interface Contact {
+  additionalEmails: string[];
+  address1: string | null;
+  assignedTo: string | null;
+  businessId: string | null;
+  city: string | null;
+  companyName: string | null;
+  contactName: string;
+  country: string;
+  customFields: any[];
+  dateAdded: string;
+  dateOfBirth: string | null;
+  dateUpdated: string;
+  dnd: boolean;
+  dndSettings: any;
+  email: string | null;
   firstName: string;
+  followers: string[];
+  id: string;
   lastName: string;
-  email: string;
-  phone: string;
-  extension: string;
-  permissions: any;
-  roles: any;
+  locationId: string;
+  phone: string | null;
+  postalCode: string | null;
+  source: string | null;
+  state: string | null;
+  tags: string[];
+  type: string;
+  website: string | null;
 }
 
 function Main() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [accessToken, setAccessToken] = useState<string>('');
   const [locationId, setLocationId] = useState<string>('');
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -64,102 +91,70 @@ function Main() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterDate, setFilterDate] = useState<string>('');
+  const { contacts: initialContacts } = useContacts();
+  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
+  const [selectedStaff, setSelectedStaff] = useState<string>('');
+  const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
+  const [contactSessions, setContactSessions] = useState<{ [key: string]: number }>({});
 
   let role = 1;
   let userName = '';
 
   useEffect(() => {
-    const fetchCompanyData = async () => {
-      const user = auth.currentUser;
-      try {
-        const docUserRef = doc(firestore, 'user', user?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          console.log('No such document for user!');
-          return;
-        }
-        const userData = docUserSnapshot.data();
-        const companyId = userData.companyId;
-        role = userData.role;
-        userName = userData.name;
-
-        const docRef = doc(firestore, 'companies', companyId);
-        const docSnapshot = await getDoc(docRef);
-        if (!docSnapshot.exists()) {
-          console.log('No such document for company!');
-          return;
-        }
-        const companyData = docSnapshot.data();
-        setAccessToken(companyData.ghl_accessToken);
-        setLocationId(companyData.ghl_location);
-
-        const startTime = new Date(0).getTime(); // January 1, 1970 in milliseconds
-        const endTime = new Date(Date.now() + 50 * 365 * 24 * 60 * 60 * 1000).getTime(); // 50 years from now in milliseconds
-        const usersData = await fetchUsers(companyData.ghl_accessToken, companyData.ghl_location);
-        if (usersData.length > 0) {
-          setSelectedUserId(usersData[0].id);
-          await fetchAppointments(companyData.ghl_accessToken, companyData.ghl_location, usersData[0].id, startTime, endTime);
-        }
-      } catch (error) {
-        console.error('Error fetching company data:', error);
-      }
-    };
-
-    fetchCompanyData();
+    fetchEmployees();
   }, []);
 
-  const fetchAppointments = async (accessToken: string, locationId: string, userId: string, startTime: number, endTime: number) => {
-    setLoading(true);
+  const fetchEmployees = async () => {
+    const auth = getAuth(app);
+    const user = auth.currentUser;
     try {
-      let allAppointments: Appointment[] = [];
-      let fetchMore = true;
-      let nextPageUrl = `https://services.leadconnectorhq.com/calendars/events?locationId=${locationId}&startTime=${startTime}&endTime=${endTime}&userId=${userId}`;
-
-      const fetchData = async (url: string, retries: number = 0): Promise<any> => {
-        const options = {
-          method: 'GET',
-          url: url,
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Version: '2021-04-15',
-          },
-        };
-
-        try {
-          const response = await axios.request(options);
-          return response;
-        } catch (error) {
-          console.error('Error fetching data:', error);
-        }
-      };
-
-      while (fetchMore) {
-        const response = await fetchData(nextPageUrl);
-        if (!response) break;
-        const events = response.data.events;
-
-        if (events.length > 0) {
-          allAppointments = [...allAppointments, ...events];
-        }
-
-        if (response.data.meta && response.data.meta.nextPageUrl) {
-          nextPageUrl = response.data.meta.nextPageUrl;
-        } else {
-          fetchMore = false;
-        }
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
       }
 
-      const formattedAppointments = allAppointments.map(event => ({
-        id: event.id,
-        title: event.title,
-        startTime: event.startTime,
-        endTime: event.endTime,
-        address: event.address,
-        appointmentStatus: event.appointmentStatus,
-        staff: event.staff,  // Assuming 'staff' is available in the event object
-        package: event.package,  // Assuming 'package' is available in the event object
-        dateAdded: event.dateAdded,  // Assuming 'dateAdded' is available in the event object
-      })).sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());  // Sort by newest on top
+      const dataUser = docUserSnapshot.data();
+      const companyId = dataUser.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+      const accessToken = companyData.ghl_accessToken;
+
+      const employeeRef = collection(firestore, `companies/${companyId}/employee`);
+      const employeeSnapshot = await getDocs(employeeRef);
+
+      const employeeListData: Employee[] = [];
+      employeeSnapshot.forEach((doc) => {
+        employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
+      });
+
+      setEmployees(employeeListData);
+      fetchAppointments(user?.email!);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      throw error;
+    }
+  };
+
+  const fetchAppointments = async (selectedUserId: string) => {
+    setLoading(true);
+    try {
+      const userRef = doc(firestore, 'user', selectedUserId);
+      const appointmentsCollectionRef = collection(userRef, 'appointments');
+      const querySnapshot = await getDocs(appointmentsCollectionRef);
+
+      const allAppointments: Appointment[] = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Appointment));
+
+      const formattedAppointments = allAppointments.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()); // Sort by newest on top
 
       setAppointments(formattedAppointments);
     } catch (error) {
@@ -169,60 +164,107 @@ function Main() {
     }
   };
 
-  const fetchUsers = async (accessToken: string, locationId: string) => {
+  const handleEmployeeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const employeeId = event.target.value;
+    setSelectedEmployeeId(employeeId);
+    fetchAppointments(employeeId);
+  };
+
+  const fetchContactSession = async (contactId: string) => {
     try {
-      const response = await axios.post('https://buds-359313.et.r.appspot.com/api/fetch-users', {
-        accessToken,
-        locationId
+      const auth = getAuth(app);
+      const user = auth.currentUser;
+
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+
+      const dataUser = docUserSnapshot.data();
+      const companyId = dataUser.companyId;
+
+      const sessionsCollectionRef = collection(firestore, `companies/${companyId}/session`);
+      const q = query(sessionsCollectionRef, where('id', '==', contactId));
+      const querySnapshot = await getDocs(q);
+
+      let sessionNumber = 0;
+      querySnapshot.forEach((doc) => {
+        sessionNumber = doc.data().session;
       });
-      setUsers(response.data);
-      return response.data;
+
+      setContactSessions((prevSessions) => ({
+        ...prevSessions,
+        [contactId]: sessionNumber,
+      }));
     } catch (error) {
-      console.error('Error fetching users:', error);
-      return [];
+      console.error('Error fetching contact session:', error);
     }
   };
 
-  const handleUserChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const userId = event.target.value;
-    setSelectedUserId(userId);
-    const startTime = new Date(0).getTime(); // January 1, 1970 in milliseconds
-    const endTime = new Date(Date.now() + 50 * 365 * 24 * 60 * 60 * 1000).getTime(); // 50 years from now in milliseconds
-    fetchAppointments(accessToken, locationId, userId, startTime, endTime);
+  const handleContactChange = (selectedOptions: any) => {
+    const selectedContactsArray = selectedOptions.map((option: any) => contacts.find(contact => contact.id === option.value)!);
+    setSelectedContacts(selectedContactsArray);
+
+    selectedContactsArray.forEach((contact: { id: string; }) => fetchContactSession(contact.id));
   };
 
-  const handleEventClick = (info: any) => {
-    setCurrentEvent(info.event);
-    setEditModalOpen(true);
-  };
+const handleEventClick = (info: any) => {
+  setCurrentEvent({
+    id: info.event.id,
+    title: info.event.title,
+    dateStr: format(new Date(info.event.start), 'yyyy-MM-dd'),
+    startTimeStr: format(new Date(info.event.start), 'HH:mm'),
+    endTimeStr: format(new Date(info.event.end), 'HH:mm'),
+    extendedProps: {
+      address: info.event.extendedProps.address || '',
+      appointmentStatus: info.event.extendedProps.appointmentStatus || '',
+      staff: info.event.extendedProps.staff || '',
+      package: info.event.extendedProps.package || '',
+      dateAdded: info.event.extendedProps.dateAdded || '',
+    }
+  });
+  setEditModalOpen(true);
+};
+
 
   const handleSaveAppointment = async () => {
-    const { id, title, startStr, endStr, extendedProps } = currentEvent;
-    const updatedAppointment = {
+    const { id, title, dateStr, startTimeStr, endTimeStr, extendedProps } = currentEvent;
+    const startTime = new Date(`${dateStr}T${startTimeStr}`).toISOString();
+    const endTime = new Date(`${dateStr}T${endTimeStr}`).toISOString();
+  
+    const updatedAppointment: Appointment = {
       id,
       title,
-      startTime: startStr,
-      endTime: endStr,
+      startTime,
+      endTime,
       address: extendedProps.address,
       appointmentStatus: extendedProps.appointmentStatus,
       staff: extendedProps.staff,
       package: extendedProps.package,
-      dateAdded: extendedProps.dateAdded
+      dateAdded: extendedProps.dateAdded,
+      contacts: selectedContacts.map(contact => ({
+        id: contact.id,
+        name: contact.contactName, // Include contact name
+        session: contactSessions[contact.id] || 0 // Include session number
+      })),
     };
-
+  
     try {
-      await axios.put(
-        `https://services.leadconnectorhq.com/calendars/events/appointments/${id}`,
-        updatedAppointment,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Version: '2021-04-15'
-          }
-        }
-      );
-
-      setAppointments(appointments.map(appointment => 
+      const user = auth.currentUser;
+      if (!user || !user.email) {
+        console.error('No authenticated user or email found');
+        return;
+      }
+  
+      const userRef = doc(firestore, 'user', user.email);
+      const appointmentsCollectionRef = collection(userRef, 'appointments');
+      const appointmentRef = doc(appointmentsCollectionRef, id); // Ensure id is not empty
+  
+      await setDoc(appointmentRef, updatedAppointment);
+  
+      setAppointments(appointments.map(appointment =>
         appointment.id === id ? updatedAppointment : appointment
       ));
       setEditModalOpen(false);
@@ -230,11 +272,12 @@ function Main() {
       console.error('Error saving appointment:', error);
     }
   };
+  
 
   const handleDateSelect = (selectInfo: any) => {
     const startStr = format(new Date(selectInfo.startStr), "yyyy-MM-dd'T'HH:mm");
     const endStr = format(new Date(selectInfo.endStr), "yyyy-MM-dd'T'HH:mm");
-  
+
     setCurrentEvent({
       title: '',
       startStr: startStr,
@@ -250,40 +293,62 @@ function Main() {
     setAddModalOpen(true);
   };
 
+  const handleAddAppointment = async () => {
+    const newEvent = {
+      title: currentEvent.title,
+      startTime: new Date(`${currentEvent.dateStr}T${currentEvent.startTimeStr}`).toISOString(),
+      endTime: new Date(`${currentEvent.dateStr}T${currentEvent.endTimeStr}`).toISOString(),
+      address: currentEvent.extendedProps.address,
+      appointmentStatus: currentEvent.extendedProps.appointmentStatus,
+      staff: selectedStaff,
+      contacts: selectedContacts.map(contact => ({
+        id: contact.id,
+        name: contact.contactName, // Include contact name
+        session: contactSessions[contact.id] || 0 // Include session number
+      })),
+      package: currentEvent.extendedProps.package,
+    };
+    await createAppointment(newEvent);
+    setAddModalOpen(false);
+  };
+  
+
   const createAppointment = async (newEvent: any) => {
     try {
-      const response = await axios.post(
-        'https://services.leadconnectorhq.com/calendars/events/appointments',
-        {
-          calendarId: 'CVokAlI8fgw4WYWoCtQz', // replace with actual calendarId
-          locationId,
-          contactId: selectedUserId,
-          startTime: newEvent.startTime,
-          endTime: newEvent.endTime,
-          title: newEvent.title,
-          appointmentStatus: newEvent.appointmentStatus,
-          assignedUserId: selectedUserId,
-          address: newEvent.address,
-          ignoreDateRange: false,
-          toNotify: false
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Version: '2021-04-15'
-          }
-        }
-      );
-
-      setAppointments([...appointments, response.data]);
+      const user = auth.currentUser;
+      if (!user || !user.email) {
+        console.error('No authenticated user or email found');
+        return;
+      }
+      const userRef = doc(firestore, 'user', user.email); // Correct path to the user document
+      const appointmentsCollectionRef = collection(userRef, 'appointments');
+      const newAppointmentRef = doc(appointmentsCollectionRef); // Generates a new document ID
+  
+      const newAppointment = {
+        id: newAppointmentRef.id,
+        title: newEvent.title,
+        startTime: newEvent.startTime,
+        endTime: newEvent.endTime,
+        address: newEvent.address,
+        appointmentStatus: newEvent.appointmentStatus,
+        staff: newEvent.staff,
+        package: newEvent.package,
+        dateAdded: new Date().toISOString(),
+        contacts: newEvent.contacts, // Include contacts array
+      };
+  
+      await setDoc(newAppointmentRef, newAppointment);
+  
+      setAppointments([...appointments, newAppointment]);
     } catch (error) {
       console.error('Error creating appointment:', error);
     }
   };
+  
 
   const handleEventDrop = async (eventDropInfo: any) => {
     const { event } = eventDropInfo;
-    const updatedAppointment = {
+    const updatedAppointment: Appointment = {
       id: event.id,
       title: event.title,
       startTime: event.startStr,
@@ -292,28 +357,35 @@ function Main() {
       appointmentStatus: event.extendedProps.appointmentStatus,
       staff: event.extendedProps.staff,
       package: event.extendedProps.package,
-      dateAdded: event.extendedProps.dateAdded
+      dateAdded: event.extendedProps.dateAdded,
+      contacts: event.extendedProps.contacts.map((contact: any) => ({
+        id: contact.id,
+        name: contact.name, // Ensure contact name is included
+        session: contact.session
+      }))
     };
-
+  
     try {
-      await axios.put(
-        `https://services.leadconnectorhq.com/calendars/events/appointments/${event.id}`,
-        updatedAppointment,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Version: '2021-04-15'
-          }
-        }
-      );
-
-      setAppointments(appointments.map(appointment => 
+      const user = auth.currentUser;
+      if (!user || !user.email) {
+        console.error('No authenticated user or email found');
+        return;
+      }
+  
+      const userRef = doc(firestore, 'user', user.email);
+      const appointmentsCollectionRef = collection(userRef, 'appointments');
+      const appointmentRef = doc(appointmentsCollectionRef, event.id); // Ensure id is not empty
+  
+      await setDoc(appointmentRef, updatedAppointment);
+  
+      setAppointments(appointments.map(appointment =>
         appointment.id === event.id ? updatedAppointment : appointment
       ));
     } catch (error) {
       console.error('Error updating appointment:', error);
     }
   };
+  
 
   const handleStatusFilterChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setFilterStatus(event.target.value);
@@ -334,18 +406,21 @@ function Main() {
     setCurrentEvent({
       id: appointment.id,
       title: appointment.title,
-      startStr: appointment.startTime,
-      endStr: appointment.endTime,
+      dateStr: format(new Date(appointment.startTime), 'yyyy-MM-dd'),
+      startTimeStr: format(new Date(appointment.startTime), 'HH:mm'),
+      endTimeStr: format(new Date(appointment.endTime), 'HH:mm'),
       extendedProps: {
         address: appointment.address,
         appointmentStatus: appointment.appointmentStatus,
         staff: appointment.staff,
         package: appointment.package,
-        dateAdded: appointment.dateAdded
+        dateAdded: appointment.dateAdded,
+        contacts: appointment.contacts // Include contacts in currentEvent
       }
     });
     setEditModalOpen(true);
   };
+  
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -365,6 +440,7 @@ function Main() {
         return 'bg-gray-500';
     }
   };
+
   const getStatusColor2 = (status: string) => {
     switch (status) {
       case 'new':
@@ -383,31 +459,32 @@ function Main() {
         return 'gray';
     }
   };
+
   const renderEventContent = (eventInfo: any) => {
     const statusColor = getStatusColor2(eventInfo.event.extendedProps.appointmentStatus);
     return (
       <div className="flex-grow text-center text-normal font-medium" style={{ backgroundColor: statusColor, color: 'white', padding: '5px', borderRadius: '5px' }}>
-        {/* <b>{eventInfo.timeText}</b> */}
         <i>{eventInfo.event.title}</i>
       </div>
     );
   };
-  const selectedUser = users.find(user => user.id === selectedUserId);
+
+  const selectedEmployee = employees.find(employee => employee.id === selectedEmployeeId);
 
   return (
     <>
       <div className="flex flex-col items-center mt-8 intro-y sm:flex-row">
-        {users.length > 0 && (
-          <div className="flex w-full mt-4 sm:w-auto sm:mt-0">
-            <select value={selectedUserId} onChange={handleUserChange} className="text-white bg-primary hover:bg-white hover:text-primary hover focus:ring-2 focus:ring-blue-300 font-medium rounded-lg text-sm text-start inline-flex items-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 mr-4">
-              {users.map(user => (
-                <option key={user.id} value={user.id}>
-                  {user.name}
+        <div className="flex w-full mt-4 sm:w-auto sm:mt-0">
+          {employees.length > 0 && (
+            <select value={selectedEmployeeId} onChange={handleEmployeeChange} className="text-white bg-primary hover:bg-white hover:text-primary hover focus:ring-2 focus:ring-blue-300 font-medium rounded-lg text-sm text-start inline-flex items-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 mr-4">
+              {employees.map(employee => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.name}
                 </option>
               ))}
             </select>
-          </div>
-        )}
+          )}
+        </div>
         <div className="flex flex-col items-center sm:flex-row w-full mt-4 sm:w-auto sm:mt-0">
           <select value={filterStatus} onChange={handleStatusFilterChange} className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm mr-4">
             <option value="">All Statuses</option>
@@ -418,10 +495,10 @@ function Main() {
             <option value="noshow">No Show</option>
             <option value="invalid">Invalid</option>
           </select>
-          <input 
-            type="date" 
-            value={filterDate} 
-            onChange={handleDateFilterChange} 
+          <input
+            type="date"
+            value={filterDate}
+            onChange={handleDateFilterChange}
             className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm mr-4"
           />
         </div>
@@ -432,8 +509,9 @@ function Main() {
             onClick={() => {
               setCurrentEvent({
                 title: '',
-                startStr: '',
-                endStr: '',
+                dateStr: '',
+                startTimeStr: '',
+                endTimeStr: '',
                 extendedProps: {
                   address: '',
                   appointmentStatus: '',
@@ -451,103 +529,214 @@ function Main() {
       </div>
       <div className="grid grid-cols-12 gap-5 mt-5">
         <div className="md:col-span-4 xl:col-span-4 2xl:col-span-3">
-          <div className="p-5 box intro-y">
+          <div className="p-5 box intro-y" style={{ maxHeight: '700px', overflowY: 'auto' }}>
             <div className="flex justify-between items-center h-10 intro-y gap-4">
-                <h2 className="text-3xl font-bold">
-                  Appointments
-                </h2>
-                <div className="">
-                  <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-yellow-500 rounded-full me-1.5 flex-shrink-0"></span>New</span>
-                  <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-blue-500 rounded-full me-1.5 flex-shrink-0"></span>Showed</span>
-                  <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-green-500 rounded-full me-1.5 flex-shrink-0"></span>Confirmed</span>
-                </div>
-                  
+              <h2 className="text-3xl font-bold">
+                Appointments
+              </h2>
+              <div className="">
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-yellow-500 rounded-full me-1.5 flex-shrink-0"></span>New</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-blue-500 rounded-full me-1.5 flex-shrink-0"></span>Showed</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-green-500 rounded-full me-1.5 flex-shrink-0"></span>Confirmed</span>
               </div>
+            </div>
             <div className="mt-6 mb-5 border-t border-b border-slate-200/60 dark:border-darkmode-400">
-              {filteredAppointments.length > 0 ? (
-                filteredAppointments.map((appointment, index) => (
-                  <div key={index} className="relative" onClick={() => handleAppointmentClick(appointment)}>
-                    <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-darkmode-400">
-                      <div className={`w-2 h-16 mr-3 rounded-sm ${getStatusColor(appointment.appointmentStatus)}`}></div>
-                      <div className="pr-10 item-center">
-                        <div className="truncate event__title text-lg font-medium">{appointment.title}</div>
-                        {/* <div className="text-slate-500 text-xs mt-0.5">Status: {appointment.appointmentStatus}</div> */}
-                        <div className="text-slate-500 text-xs mt-0.5">
-                          {new Date(appointment.startTime).toLocaleString()} - {new Date(appointment.endTime).toLocaleString()}
-                        </div>
-                        {/* <div className="text-slate-500 text-xs mt-0.5">Staff: {selectedUser?.name}</div> */}
-                        <div className="text-slate-500 text-xs mt-0.5">Package: {appointment.package}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-3 text-center text-slate-500">
-                  No events yet
-                </div>
-              )}
+            {filteredAppointments.length > 0 ? (
+  filteredAppointments.map((appointment, index) => (
+    <div key={index} className="relative" onClick={() => handleAppointmentClick(appointment)}>
+      <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-darkmode-400">
+        <div className={`w-2 h-16 mr-3 rounded-sm ${getStatusColor(appointment.appointmentStatus)}`}></div>
+        <div className="pr-10 item-center">
+          <div className="truncate event__title text-lg font-medium">{appointment.title}</div>
+          <div className="text-slate-500 text-xs mt-0.5">
+            {new Date(appointment.startTime).toLocaleString()} - {new Date(appointment.endTime).toLocaleString()}
+          </div>
+          <div className="text-slate-500 text-xs mt-0.5">Package: {appointment.package}</div>
+          <div className="text-slate-500 text-xs mt-0.5">
+            Contacts:
+            {appointment.contacts && appointment.contacts.length > 0 ? (
+              <ul>
+                {appointment.contacts.map(contact => (
+                  <li key={contact.id}>
+                    {contact.name}: Session {contact.session}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <span>No contacts</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  ))
+) : (
+  <div className="p-3 text-center text-slate-500">
+    No events yet
+  </div>
+)}
+
             </div>
           </div>
         </div>
         <div className="md:col-span-8 xl:col-span-8 2xl:col-span-9">
           <div className="p-5 box">
-          <FullCalendar
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView={view}
-            events={filteredAppointments.map(appointment => ({
-              id: appointment.id,
-              title: appointment.title,
-              start: appointment.startTime,
-              end: appointment.endTime,
-              extendedProps: {
-                appointmentStatus: appointment.appointmentStatus
+            <FullCalendar
+              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+              initialView={view}
+              events={filteredAppointments.map(appointment => ({
+                id: appointment.id,
+                title: appointment.title,
+                start: appointment.startTime,
+                end: appointment.endTime,
+                extendedProps: {
+                  appointmentStatus: appointment.appointmentStatus
+                }
+              }))}
+              selectable={true}
+              select={handleDateSelect}
+              eventClick={handleEventClick}
+              editable={true}
+              eventDrop={handleEventDrop}
+              eventContent={renderEventContent}
+              headerToolbar={{
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+              }}
+              datesSet={(dateInfo) => setView(dateInfo.view.type)}
+            />
+            <style jsx global>{`
+              .fc .fc-toolbar {
+                color: #164E63;
               }
-            }))}
-            selectable={true}
-            select={handleDateSelect}
-            eventClick={handleEventClick}
-            editable={true}
-            eventDrop={handleEventDrop}
-            eventContent={renderEventContent}
-            headerToolbar={{
-              left: 'prev,next today',
-              center: 'title',
-              right: 'dayGridMonth,timeGridWeek,timeGridDay'
-            }}
-            datesSet={(dateInfo) => setView(dateInfo.view.type)}
-          />
-   <style jsx global>{`
-  .fc .fc-toolbar {
-    color: #164E63;
-  }
-  .fc .fc-toolbar button {
-    text-transform: capitalize;
-    background-color: #164E63; /* Tailwind blue-600 */
-    color: white; /* Ensure button text is white */
-    border: none;
-    padding: 0.5rem 1rem;
-    margin: 0 0.25rem;
-    border-radius: 0.375rem; /* Tailwind rounded-md */
-    cursor: pointer;
-  }
-  .fc .fc-toolbar button:hover {
-    background-color: #164E63; /* Tailwind blue-800 */
-  }
-`}</style>
-            </div>
+              .fc .fc-toolbar button {
+                text-transform: capitalize;
+                background-color: #164E63; /* Tailwind blue-600 */
+                color: white; /* Ensure button text is white */
+                border: none;
+                padding: 0.5rem 1rem;
+                margin: 0 0.25rem;
+                border-radius: 0.375rem; /* Tailwind rounded-md */
+                cursor: pointer;
+              }
+              .fc .fc-toolbar button:hover {
+                background-color: #164E63; /* Tailwind blue-800 */
+              }
+            `}</style>
+          </div>
         </div>
       </div>
       {editModalOpen && (
-        <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)}>
+  <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+      <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
+        <div className="flex items-center p-4 border-b">
+          <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+            <span className="text-xl">{currentEvent?.title.charAt(0).toUpperCase()}</span>
+          </div>
+          <div>
+            <div className="font-semibold text-gray-800">{currentEvent?.title}</div>
+            <div className="text-sm text-gray-600">{currentEvent?.extendedProps?.address}</div>
+          </div>
+        </div>
+        <div className="mt-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Title</label>
+            <input
+              type="text"
+              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              value={currentEvent?.title || ''}
+              onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Date</label>
+            <input
+              type="date"
+              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              value={currentEvent?.dateStr || ''}
+              onChange={(e) => setCurrentEvent({ ...currentEvent, dateStr: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Start Time</label>
+            <input
+              type="time"
+              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              value={currentEvent?.startTimeStr || ''}
+              onChange={(e) => setCurrentEvent({ ...currentEvent, startTimeStr: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">End Time</label>
+            <input
+              type="time"
+              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              value={currentEvent?.endTimeStr || ''}
+              onChange={(e) => setCurrentEvent({ ...currentEvent, endTimeStr: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Appointment Status</label>
+            <select
+              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              value={currentEvent?.extendedProps?.appointmentStatus || ''}
+              onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
+            >
+              <option value="new">New</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="showed">Showed</option>
+              <option value="noshow">No Show</option>
+              <option value="invalid">Invalid</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Staff</label>
+            <select
+              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              value={currentEvent?.extendedProps?.staff || ''}
+              onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, staff: e.target.value } })}
+            >
+              {employees.map(employee => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.name}
+                </option>
+              ))}
+            </select>
+          </div>
+   
+        </div>
+        <div className="flex justify-end mt-6">
+          <button
+            className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            onClick={() => setEditModalOpen(false)}
+          >
+            Cancel
+          </button>
+          <button
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            onClick={handleSaveAppointment}
+          >
+            Save
+          </button>
+        </div>
+      </Dialog.Panel>
+    </div>
+  </Dialog>
+)}
+
+      {addModalOpen && (
+        <Dialog open={addModalOpen} onClose={() => setAddModalOpen(false)}>
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
             <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
               <div className="flex items-center p-4 border-b">
                 <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-                  <span className="text-xl">{currentEvent?.title.charAt(0).toUpperCase()}</span>
+                  <Lucide icon="User" className="w-6 h-6" />
                 </div>
                 <div>
-                  <div className="font-semibold text-gray-800">{currentEvent?.title}</div>
-                  <div className="text-sm text-gray-600">{currentEvent?.extendedProps?.address}</div>
+                  <span className="text-xl">Add New Appointment</span>
                 </div>
               </div>
               <div className="mt-6 space-y-4">
@@ -561,21 +750,30 @@ function Main() {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700">Date</label>
+                  <input
+                    type="date"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.dateStr || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, dateStr: e.target.value })}
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700">Start Time</label>
                   <input
-                    type="datetime-local"
+                    type="time"
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={format(new Date(currentEvent?.startStr), "yyyy-MM-dd'T'HH:mm") || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, startStr: new Date(e.target.value).toISOString() })}
+                    value={currentEvent?.startTimeStr || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, startTimeStr: e.target.value })}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">End Time</label>
                   <input
-                    type="datetime-local"
+                    type="time"
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={format(new Date(currentEvent?.endStr), "yyyy-MM-dd'T'HH:mm") || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, endStr: new Date(e.target.value).toISOString() })}
+                    value={currentEvent?.endTimeStr || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, endTimeStr: e.target.value })}
                   />
                 </div>
                 <div>
@@ -602,88 +800,32 @@ function Main() {
                     <option value="invalid">Invalid</option>
                   </select>
                 </div>
-              </div>
-              <div className="flex justify-end mt-6">
-                <button
-                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                  onClick={() => setEditModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                  onClick={handleSaveAppointment}
-                >
-                  Save
-                </button>
-              </div>
-            </Dialog.Panel>
-          </div>
-        </Dialog>
-      )}
-      {addModalOpen && (
-        <Dialog open={addModalOpen} onClose={() => setAddModalOpen(false)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
-              <div className="flex items-center p-4 border-b">
-                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-                  <Lucide icon="User" className="w-6 h-6" />
-                </div>
                 <div>
-                  <span className="text-xl">Add New Appointment</span>
-                </div>
-              </div>
-              <div className="mt-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Title</label>
-                  <input
-                    type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={currentEvent?.title}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Start Time</label>
-                  <input
-                    type="datetime-local"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={currentEvent?.startStr}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, startStr: new Date(e.target.value).toISOString() })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">End Time</label>
-                  <input
-                    type="datetime-local"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={currentEvent?.endStr}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, endStr: new Date(e.target.value).toISOString() })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Address</label>
-                  <input
-                    type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={currentEvent?.extendedProps?.address}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, address: e.target.value } })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Appointment Status</label>
+                  <label className="block text-sm font-medium text-gray-700">Staff</label>
                   <select
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={currentEvent?.extendedProps?.appointmentStatus}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
+                    value={currentEvent?.extendedProps?.staff || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, staff: e.target.value } })}
                   >
-                    <option value="new">New</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="showed">Showed</option>
-                    <option value="noshow">No Show</option>
-                    <option value="invalid">Invalid</option>
+                    {employees.map(employee => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </option>
+                    ))}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Contacts</label>
+                  <Select
+                    isMulti
+                    options={contacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
+                    onChange={handleContactChange}
+                  />
+                  {selectedContacts.map(contact => (
+                    <div key={contact.id} className="text-sm text-gray-600">
+                      {contact.contactName}: Session {contactSessions[contact.id] || 'N/A'}
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="flex justify-end mt-6">
@@ -695,7 +837,7 @@ function Main() {
                 </button>
                 <button
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                  onClick={handleSaveAppointment}
+                  onClick={handleAddAppointment}
                 >
                   Save
                 </button>
@@ -704,7 +846,6 @@ function Main() {
           </div>
         </Dialog>
       )}
-
     </>
   );
 }

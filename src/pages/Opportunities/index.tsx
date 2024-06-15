@@ -741,10 +741,10 @@ console.log(sortedColumns);
             <div
               {...provided.droppableProps}
               ref={provided.innerRef}
-              className={`flex-shrink-0 flex flex-col items-center rounded-lg w-1/4 border-t-4 ${borderColor} overflow-hidden`}
+              className={`flex-shrink-0 flex flex-col items-center rounded-lg w-1/5 border-t-4 ${borderColor} overflow-hidden`}
             >
               <div className="w-full mb-4 p-4 bg-white shadow rounded-lg border">
-                <h2 className="text-xl font-bold text-primary">{column.name}</h2>
+                <h2 className="text-base font-bold text-primary">{column.name}</h2>
               </div>
               <div
                 className={`p-4 rounded-lg w-full h-full overflow-y-auto ${snapshot.isDraggingOver ? 'bg-slate-300' : 'bg-slate-100'}`}
