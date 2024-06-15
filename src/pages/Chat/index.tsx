@@ -115,6 +115,7 @@ interface Message {
   from_name: string;
   createdAt: number;
   type?: string;
+  from:string;
   image?: { link?: string; caption?: string };
   video?: { link?: string; caption?: string };
   gif?: { link?: string; caption?: string };
@@ -297,8 +298,8 @@ function Main() {
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState(contacts);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-right";
-  const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
+  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-[#dcf8c6] text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-right";
+  const otherMessageClass = "bg-white text-black rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [ghlConfig, setGhlConfig] = useState<GhlConfig | null>(null);
@@ -960,6 +961,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         if (selectedChatId.includes('@')) {
             const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
             const data = response.data;
+            console.log('pure');
             console.log(data.messages);
 
             const formattedMessages: any[] = [];
@@ -980,6 +982,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
                         id: message.id,
                         from_me: message.from_me,
                         from_name: message.from_name,
+                        from:message.from,
                         chat_id: message.chat_id,
                         createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
                         type: message.type,
@@ -2484,16 +2487,16 @@ const handleForwardMessage = async () => {
               onMouseLeave={() => setHoveredMessageId(null)}
             >
               {message.chat_id.includes('@g.us') && (
-                <div className="pb-1 text-md font-medium">{message.from_name}</div>
+                <div className="pb-1 text-gray-400  font-medium">{message.from_name||'+'+message.from}</div>
               )}
               {message.type === 'text' && message.text?.context && (
-                <div className="p-2 mb-2 rounded bg-gray-600">
+                <div className="p-2 mb-2 rounded bg-gray-300">
                   <div className="text-sm font-medium">{message.text.context.quoted_author || ''}</div>
                   <div className="text-sm">{message.text.context.quoted_content?.body || ''}</div>
                 </div>
               )}
               {message.type === 'text' && (
-                <div className="whitespace-pre-wrap break-words">
+                <div className="whitespace-pre-wrap break-words text-black">
                   {formatText(message.text?.body || '')}
                 </div>
               )}
@@ -2517,7 +2520,7 @@ const handleForwardMessage = async () => {
                     className="rounded-lg message-image cursor-pointer"
                     style={{ maxWidth: '300px' }}
                   />
-                  <div className="caption">{message.video.caption}</div>
+                  <div className="caption text-black">{message.video.caption}</div>
                 </div>
               )}
               {message.type === 'gif' && message.gif && (
@@ -2529,7 +2532,7 @@ const handleForwardMessage = async () => {
                     style={{ maxWidth: '300px' }}
                     onClick={() => openImageModal(message.gif?.link || '')}
                   />
-                  <div className="caption">{message.gif.caption}</div>
+                  <div className="caption text-black">{message.gif.caption}</div>
                 </div>
               )}
               {message.type === 'audio' && message.audio && (
@@ -2553,7 +2556,7 @@ const handleForwardMessage = async () => {
                     onClick={() => openPDFModal(message.document?.link || '')}
                   />
                   <div className="flex-1 text-justify mt-3">
-                    <div className="font-semibold">{message.document.file_name}</div>
+                    <div className="font-semibold text-black">{message.document.file_name}</div>
                     <div>
                       {message.document.page_count} page
                       {message.document.page_count > 1 ? 's' : ''} • PDF •{' '}
@@ -2569,7 +2572,7 @@ const handleForwardMessage = async () => {
                 </div>
               )}
               {message.type === 'link_preview' && message.link_preview && (
-                <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden">
+                <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden text-black">
                   <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
                     <img
                       src={message.link_preview.preview}
@@ -2578,7 +2581,7 @@ const handleForwardMessage = async () => {
                     />
                     <div className="p-2">
                       <div className="font-bold text-lg">{message.link_preview.title}</div>
-                      <div className="text-sm text-gray-100">{message.link_preview.description}</div>
+                      <div className="text-sm text-black">{message.link_preview.description}</div>
                       <div className="text-blue-500 mt-1">{message.link_preview.body}</div>
                     </div>
                   </a>
@@ -2636,7 +2639,7 @@ const handleForwardMessage = async () => {
                 </div>
               )}
 
-        <div className="message-timestamp text-xs text-gray-100 mt-1">
+        <div className="message-timestamp text-xs text-black mt-1">
           {formatTimestamp(message.createdAt || message.dateAdded)}
           {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
             <div className="flex items-center">
