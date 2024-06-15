@@ -19,6 +19,8 @@ import { rateLimiter } from '../../utils/rate';
 import { useNavigate } from "react-router-dom";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { useContacts } from "@/contact";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
   authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -63,7 +65,7 @@ function Main() {
     tags: string[];
     type: string;
     website: string | null;
-  
+  chat_pic_full:string|null;
   }
   
   interface Employee {
@@ -119,6 +121,34 @@ function Main() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [contactsPerPage] = useState(10); // Adjust the number of contacts per page as needed
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    setSelectedImage(file);
+  }
+};
+
+const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    setSelectedDocument(file);
+  }
+};
+
+const uploadFile = async (file: any): Promise<string> => {
+  const storage = getStorage();
+  const storageRef = ref(storage, `${file.name}`);
+  
+  // Upload the file
+  await uploadBytes(storageRef, file);
+
+  // Get the file's download URL
+  const downloadURL = await getDownloadURL(storageRef);
+  return downloadURL;
+};
+
   
 let role = 1;
 let userName ='';
@@ -779,19 +809,131 @@ const chatId = tempphone + "@s.whatsapp.net"
       toast.error("No contacts selected!");
       return;
     }
+  
     try {
-      for (const contact of selectedContacts) {
-        await sendTextMessage(contact.phone!, blastMessage, contact);
+      let imageUrl = '';
+      let documentUrl = '';
+      if (selectedImage) {
+        imageUrl = await uploadFile(selectedImage);
+        console.log(imageUrl);
       }
-      toast.success("Messages sent successfully!");
+      if (selectedDocument) {
+        documentUrl = await uploadFile(selectedDocument);
+      }
       setBlastMessageModal(false);
+      toast.success("Messages sent successfully!");
       setBlastMessage("");
+      for (const contact of selectedContacts) {
+        if (imageUrl != '') {
+          await sendImageMessage(contact.phone!, imageUrl, blastMessage);
+        }else if (documentUrl != '') {
+          const mimeType = selectedDocument!.type;
+        const fileName = selectedDocument!.name;
+        await sendDocumentMessage(contact.phone!, documentUrl, mimeType, fileName, blastMessage);
+        }else if (!imageUrl && !documentUrl) {
+          await sendTextMessage(contact.phone!, blastMessage, contact);
+        }
+      }
+      
+ 
     } catch (error) {
       console.error('Error sending blast message:', error);
       toast.error("Failed to send messages.");
     }
   };
+  
 
+  const sendImageMessage = async (id: string, imageUrl: string,caption?: string) => {
+    try {
+      const user = auth.currentUser;
+
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const phoneNumber = id.split('+')[1];
+      const chat_id = phoneNumber+"@s.whatsapp.net"
+      const companyData = docSnapshot.data();
+      const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/image/${companyData.whapiToken}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chatId: chat_id,
+          imageUrl: imageUrl,
+          caption: caption || '',
+        }),
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Failed to send image message: ${response.statusText}`);
+      }
+  
+      const data = await response.json();
+    
+      console.log('Image message sent successfully:', data);
+    } catch (error) {
+      console.error('Error sending image message:', error);
+    }
+  };
+  
+  const sendDocumentMessage = async (id: string, imageUrl: string,mime_type:string,fileName:string, caption?: string,) => {
+    try {
+      const user = auth.currentUser;
+
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const phoneNumber = id.split('+')[1];
+      const chat_id = phoneNumber+"@s.whatsapp.net"
+      const companyData = docSnapshot.data();
+      const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/document/${companyData.whapiToken}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chatId: chat_id,
+          imageUrl: imageUrl,
+          mimeType:mime_type,
+          fileName:fileName,
+          caption: caption || '',
+        }),
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Failed to send image message: ${response.statusText}`);
+      }
+  
+      const data = await response.json();
+  
+      console.log('Image message sent successfully:', data);
+    } catch (error) {
+      console.error('Error sending image message:', error);
+    }
+  };
   async function sendTextMessage(id: string, blastMessage: string, contact: Contact): Promise<void> {
     if (!blastMessage.trim()) {
       console.error('Blast message is empty');
@@ -822,13 +964,16 @@ const chatId = tempphone + "@s.whatsapp.net"
       const chat_id = phoneNumber+"@s.whatsapp.net"
       console.log(chat_id);
       const response = await axios.post(
-        `https://buds-359313.et.r.appspot.com/api/messages/text/${chat_id!}/${companyData.whapiToken}/${blastMessage!}`, // This URL should be your API endpoint for sending messages
+        `https://buds-359313.et.r.appspot.com/api/messages/text/${chat_id!}/${companyData.whapiToken}`, // This URL should be your API endpoint for sending messages
         {
           
           contactId: id,
           message: blastMessage,
           additionalInfo: { ...contact },
           method: 'POST',
+          body: JSON.stringify({
+            message: blastMessage,
+          }),
           headers: { 'Content-Type': 'application/json' } // You can pass additional data if needed
         },
         {
@@ -1018,7 +1163,7 @@ const chatId = tempphone + "@s.whatsapp.net"
                       </label>
                     </div>
                   </th>
-                  <th scope="col" className="px-6 py-3">Contact Name</th>
+                  <th scope="col" className="px-6 py-3">Contact</th>
                   <th scope="col" className="px-6 py-3">Phone Number</th>
                   <th scope="col" className="px-6 py-3">Assigned To</th>
                   <th scope="col" className="px-6 py-3">Tags</th>
@@ -1050,9 +1195,16 @@ const chatId = tempphone + "@s.whatsapp.net"
                           </label>
                         </div>
                       </td>
-                      <td className="px-6 py-4 font-medium capitalize text-gray-900 whitespace-nowrap dark:text-white">
-                        {contact.contactName ? contact.lastName ? `${contact.contactName}` : contact.contactName : contact.phone}
-                      </td>
+                      <td className="px-6 py-4 font-medium capitalize text-gray-900 whitespace-nowrap dark:text-white flex items-center">
+  {contact.chat_pic_full ? (
+    <img src={contact.chat_pic_full} className="w-8 h-8 rounded-full object-cover mr-3" />
+  ) : (
+    <div className="w-8 h-8 mr-3 border-2 border-gray-500 rounded-full flex items-center justify-center">
+    <Lucide icon="User" className="w-6 h-6 rounded-full text-gray-500" />
+  </div>
+  )}
+  {contact.contactName ? (contact.lastName ? `${contact.contactName}` : contact.contactName) : contact.phone}
+</td>
                       <td className="px-6 py-4">{contact.phone ?? contact.source}</td>
                       <td className="px-6 py-4 whitespace-nowrap dark:text-white">
                         {employeeTags.length > 0 ? (
@@ -1292,26 +1444,47 @@ const chatId = tempphone + "@s.whatsapp.net"
         </Dialog>
         <ToastContainer />
         <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
-          <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-40">
-              <div className="mb-4 text-lg font-semibold">Send Blast Message</div>
-              <textarea
-                className="w-full p-2 border rounded"
-                placeholder="Type your message here..."
-                value={blastMessage}
-                onChange={(e) => setBlastMessage(e.target.value)}
-                rows={3}
-                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-              ></textarea>
-              <div className="flex justify-end mt-4">
-                <button
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
-                  onClick={sendBlastMessage}>Send Message
-                </button>
-              </div>
-            </Dialog.Panel>
-          </div>
-        </Dialog>
+  <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+    <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-40">
+      <div className="mb-4 text-lg font-semibold">Send Blast Message</div>
+      <textarea
+        className="w-full p-2 border rounded"
+        placeholder="Type your message here..."
+        value={blastMessage}
+        onChange={(e) => setBlastMessage(e.target.value)}
+        rows={3}
+        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+      ></textarea>
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700">Attach Image</label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleImageUpload(e)}
+          className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+        />
+      </div>
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700">Attach Document</label>
+        <input
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+          onChange={(e) => handleDocumentUpload(e)}
+          className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+        />
+      </div>
+      <div className="flex justify-end mt-4">
+        <button
+          className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
+          onClick={sendBlastMessage}
+        >
+          Send Message
+        </button>
+      </div>
+    </Dialog.Panel>
+  </div>
+</Dialog>
+
         {showAddTagModal && (
           <Dialog open={showAddTagModal} onClose={() => setShowAddTagModal(false)}>
             <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
