@@ -10,6 +10,7 @@ import { useContacts } from "../../contact";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import Tippy from "@/components/Base/Tippy";
 import TippyContent from "@/components/Base/TippyContent";
+import Dialog from "@/components/Base/Headless/Dialog";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -30,10 +31,12 @@ interface ToolbarProps {
   employees: { name: string, email: string }[];
   onEmployeeChange: (email: string) => void;
   onOpenModal: () => void;
+  onOpenAddOpportunityModal: () => void; // Add this line
   userRole: number | null;
   onSearchChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
-function Toolbar({ onOpenModal, employees, onEmployeeChange, userRole, onSearchChange }: ToolbarProps) {
+
+function Toolbar({ onOpenModal, onOpenAddOpportunityModal, employees, onEmployeeChange, userRole, onSearchChange }: ToolbarProps) {
   return (
     <div className="flex items-center justify-between w-full p-4 shadow-sm rounded-lg mb-4">
       <div className="flex items-center space-x-4">
@@ -62,9 +65,14 @@ function Toolbar({ onOpenModal, employees, onEmployeeChange, userRole, onSearchC
           <Lucide icon="MoreHorizontal" className="w-5 h-5" />
         </Button>
         {userRole == 1 && (
-          <Button variant="primary" className="px-4 py-2 text-white" onClick={onOpenModal}>
-            Edit Pipeline
-          </Button>
+          <>
+            <Button variant="primary" className="px-4 py-2 text-white" onClick={onOpenModal}>
+              Edit Pipeline
+            </Button>
+            <Button variant="primary" className="px-4 py-2 text-white" onClick={onOpenAddOpportunityModal}>
+              Add Opportunity
+            </Button>
+          </>
         )}
       </div>
     </div>
@@ -110,6 +118,8 @@ interface Item {
   type: string;
   unreadCount: number;
   website: string | null;
+  notes?: string; // Add this line
+  
 }
 
 interface Column {
@@ -130,24 +140,171 @@ function LoadingPage() {
   const navigate = useNavigate();
   const { contacts } = useContacts();
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [isModalOpen2, setIsModalOpen2] = useState(false);
   const [userRole, setUserRole] = useState<number | null>(null);
   const [isLoading, setLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [selectedItemPipelineId, setSelectedItemPipelineId] = useState<string | null>(null);
+  const [isAddOpportunityModalOpen, setIsAddOpportunityModalOpen] = useState(false);
+  const handleOpenAddOpportunityModal = () => {
+    setIsAddOpportunityModalOpen(true);
+  };
+
+  const handleSaveSelectedContacts = async (selectedContacts: any[]) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    // Add selected contacts to the default pipeline or a selected pipeline
+    const defaultPipelineId = Object.keys(columns).find(key => columns[key].sort === 1);
+    if (!defaultPipelineId) return;
+
+    const defaultPipelineRef = collection(firestore, `user/${user.email}/pipeline/${defaultPipelineId}/leads`);
+    for (const contact of selectedContacts) {
+      const leadData = {
+        name: contact.contactName || '',
+        source: contact.phone || '',
+        value: '',
+        additionalEmails: contact.additionalEmails || [],
+        address1: contact.address1 || null,
+        assignedTo: contact.assignedTo || '',
+        businessId: contact.businessId || null,
+        chat: contact.chat || {},
+        chat_id: contact.chat_id || '',
+        chat_pic: contact.chat_pic || '',
+        chat_pic_full: contact.chat_pic_full || '',
+        city: contact.city || null,
+        companyName: contact.companyName || null,
+        country: contact.country || '',
+        customFields: contact.customFields || [],
+        dateAdded: contact.dateAdded || '',
+        dateOfBirth: contact.dateOfBirth || null,
+        dateUpdated: contact.dateUpdated || '',
+        dnd: contact.dnd || false,
+        dndSettings: contact.dndSettings || {},
+        email: contact.email || null,
+        firstName: contact.firstName || null,
+        firstNameRaw: contact.firstNameRaw || null,
+        followers: contact.followers || [],
+        lastName: contact.lastName || null,
+        lastNameRaw: contact.lastNameRaw || null,
+        last_message: contact.last_message || {},
+        locationId: contact.locationId || '',
+        phone: contact.phone || '',
+        pinned: contact.pinned || false,
+        postalCode: contact.postalCode || null,
+        sourceField: contact.sourceField || null,
+        state: contact.state || null,
+        tags: contact.tags || [],
+        type: contact.type || '',
+        unreadCount: contact.unreadCount || 0,
+        website: contact.website || null,
+        notes: contact.notes || null
+      };
+      await addDoc(defaultPipelineRef, leadData);
+    }
+
+    // Update local state
+    setColumns(prevColumns => {
+      const updatedColumns = { ...prevColumns };
+      updatedColumns[defaultPipelineId].items.push(...selectedContacts.map(contact => ({
+        id: contact.id,
+        name: contact.contactName || '',
+        source: contact.phone || '',
+        value: '',
+        additionalEmails: contact.additionalEmails || [],
+        address1: contact.address1 || null,
+        assignedTo: contact.assignedTo || '',
+        businessId: contact.businessId || null,
+        chat: contact.chat || {},
+        chat_id: contact.chat_id || '',
+        chat_pic: contact.chat_pic || '',
+        chat_pic_full: contact.chat_pic_full || '',
+        city: contact.city || null,
+        companyName: contact.companyName || null,
+        country: contact.country || '',
+        customFields: contact.customFields || [],
+        dateAdded: contact.dateAdded || '',
+        dateOfBirth: contact.dateOfBirth || null,
+        dateUpdated: contact.dateUpdated || '',
+        dnd: contact.dnd || false,
+        dndSettings: contact.dndSettings || {},
+        email: contact.email || null,
+        firstName: contact.firstName || null,
+        firstNameRaw: contact.firstNameRaw || null,
+        followers: contact.followers || [],
+        lastName: contact.lastName || null,
+        lastNameRaw: contact.lastNameRaw || null,
+        last_message: contact.last_message || {},
+        locationId: contact.locationId || '',
+        phone: contact.phone || '',
+        pinned: contact.pinned || false,
+        postalCode: contact.postalCode || null,
+        sourceField: contact.sourceField || null,
+        state: contact.state || null,
+        tags: contact.tags || [],
+        type: contact.type || '',
+        unreadCount: contact.unreadCount || 0,
+        website: contact.website || null,
+        notes: contact.notes || null
+      })));
+      return updatedColumns;
+    });
+  };
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
   };
+  const handleItemClick = (pipelineId: string, item: Item) => {
+    setSelectedItemPipelineId(pipelineId);
+    setSelectedItem(item);
+    setIsModalOpen2(true);
+  };
+  const handleSaveItem = async (pipelineId: string, updatedItem: Item) => {
+    const user = auth.currentUser;
+    if (!user) return;
 
+    const itemDocRef = doc(firestore, `user/${user.email}/pipeline/${pipelineId}/leads/${updatedItem.id}`);
+    console.log(itemDocRef);
+   
+    // Convert updatedItem to a plain object and ensure notes is included
+    const updatedItemData = {
+      ...updatedItem,
+      notes: updatedItem.notes || ''
+    };
+    console.log(updatedItemData);
+    try {
+      // Set the document, which will create or update the item
+      await setDoc(itemDocRef, updatedItemData);
+  
+      // Update local state
+      setColumns(prevColumns => {
+        const updatedColumns = { ...prevColumns };
+        const column = updatedColumns[pipelineId];
+        if (column) {
+          const items = column.items;
+          const itemIndex = items.findIndex(item => item.id === updatedItem.id);
+          if (itemIndex !== -1) {
+            items[itemIndex] = updatedItem;
+          }
+        }
+        return updatedColumns;
+      });
+    } catch (error) {
+      console.error('Error updating item in Firestore:', error);
+    }
+  };
   const filterItemsWithIndexes = (items: Item[], query: string) => {
     if (!query) return items.map((item, index) => ({ item, originalIndex: index }));
-    const formattedQuery = query.replace(/[-\s]/g, ''); // Remove hyphens and spaces from query
+    const formattedQuery = query.replace(/[-\s]/g, '').toLowerCase(); // Remove hyphens and spaces from query and convert to lowercase
     return items
       .map((item, index) => ({ item, originalIndex: index }))
       .filter(({ item }) => {
-        const formattedName = item.name.replace(/[-\s]/g, '');
-        const formattedSource = item.source.replace(/[-\s]/g, '');
+        const formattedName = (item.name || '').replace(/[-\s]/g, '').toLowerCase();
+        const formattedSource = (item.source || '').replace(/[-\s]/g, '').toLowerCase();
         return (
-          formattedName.toLowerCase().includes(formattedQuery.toLowerCase()) ||
-          formattedSource.toLowerCase().includes(formattedQuery.toLowerCase())
+          formattedName.includes(formattedQuery) ||
+          formattedSource.includes(formattedQuery)
         );
       });
   };
@@ -228,7 +385,8 @@ function LoadingPage() {
           tags: doc.data().tags || [],
           type: doc.data().type || '',
           unreadCount: doc.data().unreadCount || 0,
-          website: doc.data().website || null
+          website: doc.data().website || null,
+          notes:doc.data().notes || null
         }));
 
         fetchedColumns[pipelineDoc.id] = {
@@ -262,112 +420,13 @@ function LoadingPage() {
         }
       }
 
-      // Filter contacts not already in the pipelines
       const newContacts = filteredContacts.filter(contact => !pipelineContacts.has(contact.contactName));
-      console.log(newContacts);
-      // Add new contacts to the pipeline with sort 1
-      const sort1Pipeline = Object.keys(fetchedColumns).find(key => fetchedColumns[key].sort === 1);
-      console.log(sort1Pipeline);
-      if (sort1Pipeline) {
-        const sort1PipelineRef = collection(firestore, `user/${user.email}/pipeline/${sort1Pipeline}/leads`);
-        for (const contact of newContacts) {
-          console.log(contact);
-          const leadData = {
-            name: contact.contactName || '',
-            source: contact.phone || '',
-            value: '',  // You can add any default value here
-            additionalEmails: contact.additionalEmails || [],
-            address1: contact.address1 || null,
-            assignedTo: contact.assignedTo || '',
-            businessId: contact.businessId || null,
-            chat: contact.chat || {},
-            chat_id: contact.chat_id || '',
-            chat_pic: contact.chat_pic || '',
-            chat_pic_full: contact.chat_pic_full || '',
-            city: contact.city || null,
-            companyName: contact.companyName || null,
-            country: contact.country || '',
-            customFields: contact.customFields || [],
-            dateAdded: contact.dateAdded || '',
-            dateOfBirth: contact.dateOfBirth || null,
-            dateUpdated: contact.dateUpdated || '',
-            dnd: contact.dnd || false,
-            dndSettings: contact.dndSettings || {},
-            email: contact.email || null,
-            firstName: contact.firstName || null,
-            firstNameRaw: contact.firstNameRaw || null,
-            followers: contact.followers || [],
-            lastName: contact.lastName || null,
-            lastNameRaw: contact.lastNameRaw || null,
-            last_message: contact.last_message || {},
-            locationId: contact.locationId || '',
-            phone: contact.phone || '',
-            pinned: contact.pinned || false,
-            postalCode: contact.postalCode || null,
-            sourceField: contact.sourceField || null,
-            state: contact.state || null,
-            tags: contact.tags || [],
-            type: contact.type || '',
-            unreadCount: contact.unreadCount || 0,
-            website: contact.website || null
-          };
-          await addDoc(sort1PipelineRef, leadData);
-        }
-
-        // Update local state
-        const updatedColumns = { ...fetchedColumns };
-        updatedColumns[sort1Pipeline].items.push(...newContacts.map(contact => ({
-          id: contact.id,
-          name: contact.contactName || '',
-          source: contact.phone || '',
-          value: '',  // You can add any default value here
-          additionalEmails: contact.additionalEmails || [],
-          address1: contact.address1 || null,
-          assignedTo: contact.assignedTo || '',
-          businessId: contact.businessId || null,
-          chat: contact.chat || {},
-          chat_id: contact.chat_id || '',
-          chat_pic: contact.chat_pic || '',
-          chat_pic_full: contact.chat_pic_full || '',
-          city: contact.city || null,
-          companyName: contact.companyName || null,
-          country: contact.country || '',
-          customFields: contact.customFields || [],
-          dateAdded: contact.dateAdded || '',
-          dateOfBirth: contact.dateOfBirth || null,
-          dateUpdated: contact.dateUpdated || '',
-          dnd: contact.dnd || false,
-          dndSettings: contact.dndSettings || {},
-          email: contact.email || null,
-          firstName: contact.firstName || null,
-          firstNameRaw: contact.firstNameRaw || null,
-          followers: contact.followers || [],
-          lastName: contact.lastName || null,
-          lastNameRaw: contact.lastNameRaw || null,
-          last_message: contact.last_message || {},
-          locationId: contact.locationId || '',
-          phone: contact.phone || '',
-          pinned: contact.pinned || false,
-          postalCode: contact.postalCode || null,
-          sourceField: contact.sourceField || null,
-          state: contact.state || null,
-          tags: contact.tags || [],
-          type: contact.type || '',
-          unreadCount: contact.unreadCount || 0,
-          website: contact.website || null
-        })));
-  // Sort columns by sort number before setting state
-  const sortedColumnsArray = Object.keys(updatedColumns)
-  .map(key => fetchedColumns[key])
-  .sort((a, b) => a.sort - b.sort);
-
-const sortedColumns = sortedColumnsArray.reduce((acc, column) => {
-  acc[column.id] = column;
-  return acc;
-}, {} as Columns);
-console.log(sortedColumns);
-        setColumns(sortedColumns);
-      }
+      const uniqueContacts = Array.from(new Set(newContacts.map(contact => contact.contactName)))
+        .map(contactName => newContacts.find(contact => contact.contactName === contactName));
+      
+      // Add unique contacts to the pipeline with sort 1
+  
+  
 
       setLoading(false);
     } catch (error) {
@@ -451,7 +510,8 @@ console.log(sortedColumns);
           tags: doc.data().tags || [],
           type: doc.data().type || '',
           unreadCount: doc.data().unreadCount || 0,
-          website: doc.data().website || null
+          website: doc.data().website || null,
+          notes:doc.data().notes || null
         }));
 
         fetchedColumns[pipelineDoc.id] = {
@@ -542,7 +602,8 @@ console.log(sortedColumns);
         tags: removed.tags || [],
         type: removed.type || '',
         unreadCount: removed.unreadCount || 0,
-        website: removed.website || null
+        website: removed.website || null,
+        notes: removed.notes || null
       };
   
       // Update local state first
@@ -631,10 +692,31 @@ console.log(sortedColumns);
     }
     setIsModalOpen(false);
   };
-
+  const handleDeleteItem = async (pipelineId: string, itemId: string) => {
+    const user = auth.currentUser;
+    if (!user) return;
+  
+    const itemDocRef = doc(firestore, `user/${user.email}/pipeline/${pipelineId}/leads/${itemId}`);
+    
+    try {
+      await deleteDoc(itemDocRef);
+      
+      setColumns(prevColumns => {
+        const updatedColumns = { ...prevColumns };
+        const column = updatedColumns[pipelineId];
+        if (column) {
+          const items = column.items.filter(item => item.id !== itemId);
+          column.items = items;
+        }
+        return updatedColumns;
+      });
+    } catch (error) {
+      console.error('Error deleting item from Firestore:', error);
+    }
+  };
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-100 p-4 overflow-hidden">
-      <Toolbar onOpenModal={handleOpenModal} employees={employees} onEmployeeChange={handleEmployeeChange} userRole={userRole} onSearchChange={handleSearchChange} />
+      <Toolbar onOpenModal={handleOpenModal} onOpenAddOpportunityModal={handleOpenAddOpportunityModal} employees={employees} onEmployeeChange={handleEmployeeChange} userRole={userRole} onSearchChange={handleSearchChange} />
       {isLoading && (
         <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
           <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white p-4 rounded-md shadow-lg">
@@ -651,7 +733,8 @@ console.log(sortedColumns);
   <div className="flex w-full space-x-4 h-[calc(100vh-160px)] overflow-x-auto">
     {Object.entries(columns).map(([columnId, column], index) => {
       const borderColor = columnColors[index % columnColors.length];
-      const filteredItemsWithIndexes = filterItemsWithIndexes(column.items, searchQuery); // Filter items with original indexes
+      const filteredItemsWithIndexes = filterItemsWithIndexes(column.items, searchQuery); // Use updated filter function
+      console.log(filteredItemsWithIndexes);
       return (
         <Droppable droppableId={columnId} key={columnId}>
           {(provided, snapshot) => (
@@ -674,9 +757,25 @@ console.log(sortedColumns);
                         {...provided.draggableProps}
                         {...provided.dragHandleProps}
                         className={`user-select-none p-4 mb-4 rounded-lg shadow-md border bg-white text-gray-800 ${snapshot.isDragging ? 'bg-slate-400' : 'bg-white'}`}
+                        onClick={() => handleItemClick(column.id, item)}
                       >
+                        <div className="flex items-center mb-2">
+                          {item.chat_pic_full ? (
+                            <img
+                              src={item.chat_pic_full}
+                              className="w-8 h-8 rounded-full mr-3 object-cover"
+                              alt="Profile"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 flex items-center justify-center bg-gray-300 rounded-full mr-3 text-white">
+                              {item.firstName ? item.firstName.charAt(0).toUpperCase() : "?"}
+                            </div>
+                          )}
+                          <p className="font-medium text-primary">{item.firstName || ""}</p>
+                        </div>
                         <p className="font-semibold">{item.source}</p>
                         <p className="text-sm font-medium">{item.value}</p>
+                        <p className="text-sm text-gray-700">{item.notes}</p>
                         <div className="flex flex-wrap mt-2">
                           {item.tags && item.tags.length > 0 && (
                             <Tippy content={item.tags.join(', ')}>
@@ -700,6 +799,22 @@ console.log(sortedColumns);
     })}
   </div>
 </DragDropContext>
+{isAddOpportunityModalOpen && (
+        <AddOpportunityModal contacts={contacts} onClose={() => setIsAddOpportunityModalOpen(false)} onSave={handleSaveSelectedContacts} />
+      )}
+{isModalOpen2 && selectedItem && selectedItemPipelineId && (
+  <div className="fixed top-0 left-0 z-50 w-full h-full flex items-center justify-center bg-black bg-opacity-50">
+    <div className="bg-white p-8 rounded-lg shadow-md">
+      <EditItemModal
+        pipelineId={selectedItemPipelineId}
+        item={selectedItem}
+        onClose={() => setIsModalOpen2(false)}
+        onSave={handleSaveItem}
+        onDelete={handleDeleteItem}
+      />
+    </div>
+  </div>
+)}
 
       {isModalOpen && (
         <div className="fixed top-0 left-0 z-50 w-full h-full flex items-center justify-center bg-black bg-opacity-50">
@@ -711,6 +826,7 @@ console.log(sortedColumns);
     </div>
   );
 }
+
 
 interface ModalContentProps {
   pipelines: Column[];
@@ -840,5 +956,224 @@ function ModalContent({ pipelines, onClose, onSave, selectedEmployeeEmail }: Mod
     </div>
   );
 }
+interface EditItemModalProps {
+  pipelineId: string;
+  item: Item;
+  onClose: () => void;
+  onSave: (pipelineId: string, updatedItem: Item) => void;
+  onDelete: (pipelineId: string, itemId: string) => void;
+}
+
+function EditItemModal({ pipelineId, item, onClose, onSave, onDelete }: EditItemModalProps) {
+  const [updatedItem, setUpdatedItem] = useState({ ...item, notes: item.notes || '' });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setUpdatedItem({ ...updatedItem, [name]: value });
+  };
+
+  const handleSave = () => {
+    onSave(pipelineId, updatedItem);
+    onClose();
+  };
+
+  const handleDelete = () => {
+    onDelete(pipelineId, item.id);
+    onClose();
+  };
+
+  return (
+    <Dialog open onClose={onClose}>
+      <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
+          <div className="flex items-center p-4 border-b">
+            <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+              {updatedItem.chat_pic_full ? (
+                <img
+                  src={updatedItem.chat_pic_full}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                updatedItem.firstName ? updatedItem.firstName.charAt(0).toUpperCase() : "?"
+              )}
+            </div>
+            <div>
+              <div className="font-semibold text-gray-800">{updatedItem?.firstName} {updatedItem?.lastName}</div>
+              <div className="text-sm text-gray-600">{updatedItem?.phone}</div>
+            </div>
+          </div>
+          <div className="mt-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">First Name</label>
+              <input
+                type="text"
+                name="firstName"
+                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                value={updatedItem.firstName || ''}
+                onChange={handleChange}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Phone</label>
+              <input
+                type="text"
+                name="phone"
+                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                value={updatedItem.phone || ''}
+                onChange={handleChange}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Company</label>
+              <input
+                type="text"
+                name="companyName"
+                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                value={updatedItem.companyName || ''}
+                onChange={handleChange}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Notes</label>
+              <input
+                type="text"
+                name="notes"
+                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                value={updatedItem.notes}
+                onChange={handleChange}
+                placeholder="Notes"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end mt-6">
+            <button
+              className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              className="px-4 py-2 mr-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-700"
+              onClick={handleDelete}
+            >
+              Delete
+            </button>
+            <button
+              className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
+              onClick={handleSave}
+            >
+              Save
+            </button>
+          </div>
+        </Dialog.Panel>
+      </div>
+    </Dialog>
+  );
+}
+
+interface AddOpportunityModalProps {
+  contacts: any[];
+  onClose: () => void;
+  onSave: (selectedContacts: any[]) => void;
+}
+function AddOpportunityModal({ contacts, onClose, onSave }: AddOpportunityModalProps) {
+  const [selectedContacts, setSelectedContacts] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [filteredContacts, setFilteredContacts] = useState<any[]>(contacts);
+
+  useEffect(() => {
+    console.log('Initial Contacts:', contacts);
+    setFilteredContacts(
+      contacts.filter(contact =>
+        contact.contactName?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    );
+    console.log('Filtered Contacts after useEffect:', filteredContacts);
+  }, [searchTerm, contacts]);
+
+  const handleContactSelect = (contact: any) => {
+    setSelectedContacts(prev => {
+      if (prev.includes(contact)) {
+        return prev.filter(c => c !== contact);
+      } else {
+        return [...prev, contact];
+      }
+    });
+  };
+
+  const handleSave = () => {
+    onSave(selectedContacts);
+    onClose();
+  };
+
+  console.log('Search Term:', searchTerm);
+  console.log('Filtered Contacts:', filteredContacts);
+
+  return (
+    <Dialog open onClose={onClose}>
+    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+      <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">Select Contacts</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <Lucide icon="X" className="w-6 h-6" />
+          </button>
+        </div>
+        <input
+          type="text"
+          placeholder="Search contacts..."
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          className="w-full px-3 py-2 mb-4 border rounded-md"
+        />
+        <div className="mt-4 space-y-2 max-h-[70vh] overflow-y-auto">
+          {filteredContacts.length > 0 ? (
+            filteredContacts.map((contact, index) => (
+              <div
+                key={contact.id || `${contact.phone}-${index}`}
+                className="flex items-center p-2 border-b border-gray-200 hover:bg-gray-100"
+              >
+                <input
+                  type="checkbox"
+                  className="mr-3"
+                  checked={selectedContacts.includes(contact)}
+                  onChange={() => handleContactSelect(contact)}
+                />
+                <div className="flex items-center">
+                  <div className="w-8 h-8 flex items-center justify-center bg-gray-300 rounded-full mr-3 text-white">
+                    {contact.chat_pic_full ? (
+                      <img
+                        src={contact.chat_pic_full}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"
+                    )}
+                  </div>
+                  <div className="flex-grow">
+                    <div className="font-semibold capitalize">{contact.contactName || contact.firstName || contact.phone}</div>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-gray-500">No contacts found</p>
+          )}
+        </div>
+        <div className="flex justify-end mt-4">
+          <button onClick={onClose} className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
+            Cancel
+          </button>
+          <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700">
+            Save
+          </button>
+        </div>
+      </Dialog.Panel>
+    </div>
+  </Dialog>
+  );
+}
 
 export default LoadingPage;
+
+

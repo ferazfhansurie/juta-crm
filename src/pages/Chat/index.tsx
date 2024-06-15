@@ -2286,13 +2286,14 @@ const handleForwardMessage = async () => {
                         </span>
                       </Tippy>
                     )}
-                    {otherTags.map((tag, tagIndex) => (
-                      <span 
-                        key={tagIndex} 
-                        className="inline-block text-xs font-semibold mr-2 px-2.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-400">
-                        {tag}
-                      </span>
-                    ))}
+                     {otherTags.length > 0 && (
+                      <Tippy content={otherTags.join(', ')}>
+                        <span className="bg-green-100 text-primary text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
+                          <Lucide icon="Tag" className="w-4 h-4 inline-block" />
+                          <span className="ml-1">{otherTags.length}</span>
+                        </span>
+                      </Tippy>
+                    )}
                   </>
                 );
               })()}
