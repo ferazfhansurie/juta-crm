@@ -105,7 +105,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         } 
         const data = docSnapshot.data();
 
-        const url = `http://localhost:8443/api/chats/${data?.whapiToken}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}`;
+        const url = `https://buds-359313.et.r.appspot.com/api/chats/${data?.whapiToken}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}`;
         const response = await axios.get(url);
 
         setContacts(response.data.contacts);
