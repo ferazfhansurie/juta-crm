@@ -1102,166 +1102,173 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         setLoading(false);
     }
 }
-  async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
-  
-    setSelectedIcon('ws');
-    const auth = getAuth(app);
-    const user = auth.currentUser;
-    try {
-        const docUserRef = doc(firestore, 'user', user?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-            console.log('No such document!');
-            return;
-        }
-        const dataUser = docUserSnapshot.data();
-        companyId = dataUser.companyId;
-        const docRef = doc(firestore, 'companies', companyId);
-        const docSnapshot = await getDoc(docRef);
-        if (!docSnapshot.exists()) {
-            console.log('No such document!');
-            return;
-        }
-        const data2 = docSnapshot.data();
+async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
 
-        setToken(data2.whapiToken);
-
-        if (selectedChatId.includes('@')) {
-            const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
-            const data = response.data;
-            console.log(data.messages);
-
-            const formattedMessages: any[] = [];
-            const reactionsMap: Record<string, any[]> = {};
-
-            data.messages.forEach((message: any) => {
-                if (message.type === 'action' && message.action.type === 'reaction') {
-                    const targetMessageId = message.action.target;
-                    if (!reactionsMap[targetMessageId]) {
-                        reactionsMap[targetMessageId] = [];
-                    }
-                    reactionsMap[targetMessageId].push({
-                        emoji: message.action.emoji,
-                        from_name: message.from_name
-                    });
-                } else {
-                    const formattedMessage: any = {
-                        id: message.id,
-                        from_me: message.from_me,
-                        from_name: message.from_name,
-                        chat_id: message.chat_id,
-                        createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
-                        type: message.type,
-                    };
-
-                    // Include message-specific content
-                    switch (message.type) {
-                        case 'text':
-                            formattedMessage.text = {
-                                body: message.text ? message.text.body : '', // Include the message body
-                                context: message.context ? message.context : '' // Include the context
-                            };
-                            break;
-                        case 'image':
-                            formattedMessage.image = message.image ? message.image : undefined;
-                            break;
-                        case 'video':
-                            formattedMessage.video = message.video ? message.video : undefined;
-                            break;
-                        case 'gif':
-                            formattedMessage.gif = message.gif ? message.gif : undefined;
-                            break;
-                        case 'audio':
-                            formattedMessage.audio = message.audio ? message.audio : undefined;
-                            break;
-                        case 'voice':
-                            formattedMessage.voice = message.voice ? message.voice : undefined;
-                            break;
-                        case 'document':
-                            formattedMessage.document = message.document ? message.document : undefined;
-                            break;
-                        case 'link_preview':
-                            formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
-                            break;
-                        case 'sticker':
-                            formattedMessage.sticker = message.sticker ? message.sticker : undefined;
-                            break;
-                        case 'location':
-                            formattedMessage.location = message.location ? message.location : undefined;
-                            break;
-                        case 'live_location':
-                            formattedMessage.live_location = message.live_location ? message.live_location : undefined;
-                            break;
-                        case 'contact':
-                            formattedMessage.contact = message.contact ? message.contact : undefined;
-                            break;
-                        case 'contact_list':
-                            formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
-                            break;
-                        case 'interactive':
-                            formattedMessage.interactive = message.interactive ? message.interactive : undefined;
-                            break;
-                        case 'poll':
-                            formattedMessage.poll = message.poll ? message.poll : undefined;
-                            break;
-                        case 'hsm':
-                            formattedMessage.hsm = message.hsm ? message.hsm : undefined;
-                            break;
-                        case 'system':
-                            formattedMessage.system = message.system ? message.system : undefined;
-                            break;
-                        case 'order':
-                            formattedMessage.order = message.order ? message.order : undefined;
-                            break;
-                        case 'group_invite':
-                            formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
-                            break;
-                        case 'admin_invite':
-                            formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
-                            break;
-                        case 'product':
-                            formattedMessage.product = message.product ? message.product : undefined;
-                            break;
-                        case 'catalog':
-                            formattedMessage.catalog = message.catalog ? message.catalog : undefined;
-                            break;
-                        case 'product_items':
-                            formattedMessage.product_items = message.product_items ? message.product_items : undefined;
-                            break;
-                        case 'action':
-                            formattedMessage.action = message.action ? message.action : undefined;
-                            break;
-                        case 'context':
-                            formattedMessage.context = message.context ? message.context : undefined;
-                            break;
-                        case 'reactions':
-                            formattedMessage.reactions = message.reactions ? message.reactions : undefined;
-                            break;
-                        default:
-                            console.warn(`Unknown message type: ${message.type}`);
-                    }
-
-                    formattedMessages.push(formattedMessage);
-                }
-            });
-
-            // Add reactions to the respective messages
-            formattedMessages.forEach(message => {
-                if (reactionsMap[message.id]) {
-                    message.reactions = reactionsMap[message.id];
-                }
-            });
-            console.log(formattedMessages);
-            setMessages(formattedMessages);
-        } else {
-            setMessages([]);
-        }
-    } catch (error) {
-        console.error('Failed to fetch messages:', error);
-    } finally {
+  setSelectedIcon('ws');
+  const auth = getAuth(app);
+  const user = auth.currentUser;
+  try {
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
     
-    }
+      if (!docUserSnapshot.exists()) {
+          console.log('No such document!');
+          return;
+      }
+      const dataUser = docUserSnapshot.data();
+ 
+
+      companyId = dataUser.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+          console.log('No such document!');
+          return;
+      }
+      const data2 = docSnapshot.data();
+
+      setToken(data2.whapiToken);
+
+
+          const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}/${user?.email}`);
+      
+          const data = response.data;
+          console.log("pure");
+          console.log(data);
+          const formattedMessages: any[] = [];
+          const reactionsMap: Record<string, any[]> = {};
+
+          data.messages.forEach(async (message: any) => {
+     
+              if (message.type === 'action' && message.action.type === 'reaction') {
+                  const targetMessageId = message.action.target;
+                  if (!reactionsMap[targetMessageId]) {
+                      reactionsMap[targetMessageId] = [];
+                  }
+                  reactionsMap[targetMessageId].push({
+                      emoji: message.action.emoji,
+                      from_name: message.from_name
+                  });
+              } else {
+            
+               
+                  const formattedMessage: any = {
+                      id: message.id,
+                      from_me: message.from_me,
+                      from_name: message.from_name,
+                      from:message.from,
+                      chat_id: message.chat_id,
+                      createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
+                      type: message.type,
+                      name:message.name 
+                  };
+
+                  // Include message-specific content
+                  switch (message.type) {
+                      case 'text':
+                          formattedMessage.text = {
+                              body: message.text ? message.text.body : '', // Include the message body
+                              context: message.context ? message.context : '' // Include the context
+                          };
+                          break;
+                      case 'image':
+                          formattedMessage.image = message.image ? message.image : undefined;
+                          break;
+                      case 'video':
+                          formattedMessage.video = message.video ? message.video : undefined;
+                          break;
+                      case 'gif':
+                          formattedMessage.gif = message.gif ? message.gif : undefined;
+                          break;
+                      case 'audio':
+                          formattedMessage.audio = message.audio ? message.audio : undefined;
+                          break;
+                      case 'voice':
+                          formattedMessage.voice = message.voice ? message.voice : undefined;
+                          break;
+                      case 'document':
+                          formattedMessage.document = message.document ? message.document : undefined;
+                          break;
+                      case 'link_preview':
+                          formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
+                          break;
+                      case 'sticker':
+                          formattedMessage.sticker = message.sticker ? message.sticker : undefined;
+                          break;
+                      case 'location':
+                          formattedMessage.location = message.location ? message.location : undefined;
+                          break;
+                      case 'live_location':
+                          formattedMessage.live_location = message.live_location ? message.live_location : undefined;
+                          break;
+                      case 'contact':
+                          formattedMessage.contact = message.contact ? message.contact : undefined;
+                          break;
+                      case 'contact_list':
+                          formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
+                          break;
+                      case 'interactive':
+                          formattedMessage.interactive = message.interactive ? message.interactive : undefined;
+                          break;
+                      case 'poll':
+                          formattedMessage.poll = message.poll ? message.poll : undefined;
+                          break;
+                      case 'hsm':
+                          formattedMessage.hsm = message.hsm ? message.hsm : undefined;
+                          break;
+                      case 'system':
+                          formattedMessage.system = message.system ? message.system : undefined;
+                          break;
+                      case 'order':
+                          formattedMessage.order = message.order ? message.order : undefined;
+                          break;
+                      case 'group_invite':
+                          formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
+                          break;
+                      case 'admin_invite':
+                          formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
+                          break;
+                      case 'product':
+                          formattedMessage.product = message.product ? message.product : undefined;
+                          break;
+                      case 'catalog':
+                          formattedMessage.catalog = message.catalog ? message.catalog : undefined;
+                          break;
+                      case 'product_items':
+                          formattedMessage.product_items = message.product_items ? message.product_items : undefined;
+                          break;
+                      case 'action':
+                          formattedMessage.action = message.action ? message.action : undefined;
+                          break;
+                      case 'context':
+                          formattedMessage.context = message.context ? message.context : undefined;
+                          break;
+                      case 'reactions':
+                          formattedMessage.reactions = message.reactions ? message.reactions : undefined;
+                          break;
+                      default:
+                          console.warn(`Unknown message type: ${message.type}`);
+                  }
+
+                  formattedMessages.push(formattedMessage);
+              }
+          });
+
+          // Add reactions to the respective messages
+          formattedMessages.forEach(message => {
+              if (reactionsMap[message.id]) {
+                  message.reactions = reactionsMap[message.id];
+              }
+          });
+       
+          setMessages(formattedMessages);
+   
+  } catch (error) {
+      console.error('Failed to fetch messages:', error);
+  } finally {
+   
   }
+}
   async function sendTextMessage(selectedChatId: string, newMessage: string,contact:any): Promise<void> {
     if (!newMessage.trim() || !selectedChatId) return;
   console.log(selectedChatId)
