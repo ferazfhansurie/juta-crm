@@ -587,11 +587,22 @@ const handleEventClick = (info: any) => {
   filteredAppointments.map((appointment, index) => (
     <div key={index} className="relative" onClick={() => handleAppointmentClick(appointment)}>
       <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-darkmode-400">
-        <div className={`w-2 h-16 mr-3 rounded-sm ${getStatusColor(appointment.appointmentStatus)}`}></div>
+        <div className={`w-2 h-20 mr-3 rounded-sm ${getStatusColor(appointment.appointmentStatus)}`}></div>
         <div className="pr-10 item-center">
           <div className="truncate event__title text-lg font-medium">{appointment.title}</div>
           <div className="text-slate-500 text-xs mt-0.5">
-            {new Date(appointment.startTime).toLocaleString()} - {new Date(appointment.endTime).toLocaleString()}
+            {new Date(appointment.startTime).toLocaleString('en-US', {
+              weekday: 'long', // Long name of the day of the week
+              month: 'long',   // Full name of the month
+              day: 'numeric',  // Day of the month
+              hour: 'numeric', // Hour
+              minute: 'numeric', // Minute
+              hour12: true     // 12-hour format
+            })} - {new Date(appointment.endTime).toLocaleString('en-US', {
+              hour: 'numeric',
+              minute: 'numeric',
+              hour12: true
+            })}
           </div>
           <div className="text-slate-500 text-xs mt-0.5">Package: {getPackageName(appointment.package)}</div>
           <div className="text-slate-500 text-xs mt-0.5">
@@ -922,7 +933,10 @@ const handleEventClick = (info: any) => {
               <div className="flex justify-end mt-6">
                 <button
                   className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                  onClick={() => setAddModalOpen(false)}
+                  onClick={() => {
+                    setAddModalOpen(false);
+                    setSelectedContacts([]);
+                  }}
                 >
                   Cancel
                 </button>
