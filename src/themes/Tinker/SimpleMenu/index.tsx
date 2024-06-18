@@ -185,8 +185,8 @@ console.log(notifications);
       <MobileMenu />
       <div className="flex mt-[5rem] md:mt-0 overflow-hidden">
         {/* BEGIN: Simple Menu */}
-        <nav className="pt-5 mb-2 p-2 side-nav side-nav--simple hidden md:flex flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300">
-          <ul className="space-y-4 flex-grow">
+        <nav className="pt-5 mb-0 p-2 side-nav side-nav--simple hidden md:flex flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300">
+          <ul className="space-y-2 flex-grow">
             {/* BEGIN: First Child */}
             {formattedMenu.map((menu, menuKey) =>
               menu == "divider" ? (
@@ -330,7 +330,7 @@ console.log(notifications);
                 .map((notification, key) => (
                     <div key={key} className="w-full">
                         <div
-                            className="flex items-center mb-2 box hover:bg-blue-100 zoom-in cursor-pointer"
+                            className="flex items-center mb-2 box hover:bg-blue-100 cursor-pointer"
                             onClick={() => handleNotificationClick(notification.chat_id)}
                         >
                             <div className="p-2 pl-1 ml-2 w-full">
