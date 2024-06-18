@@ -298,7 +298,7 @@ function Main() {
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState(contacts);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-[#dcf8c6] text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-right";
+  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-[#dcf8c6] text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
   const otherMessageClass = "bg-white text-black rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [tagList, setTagList] = useState<Tag[]>([]);
