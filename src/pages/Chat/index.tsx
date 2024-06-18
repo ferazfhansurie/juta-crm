@@ -2877,7 +2877,7 @@ const handleForwardMessage = async () => {
         </span>
       </button>
     </div>
-    <div className="max-h-full overflow-y-auto">
+    <div className="max-h-60 overflow-y-auto">
       {quickReplies.map(reply => (
         <div key={reply.id} className="flex items-center justify-between mb-2 bg-gray-50">
           {editingReply?.id === reply.id ? (
@@ -2922,6 +2922,7 @@ const handleForwardMessage = async () => {
     </div>
   </div>
 )}
+
       <ImageModal isOpen={isImageModalOpen} onClose={closeImageModal} imageUrl={modalImageUrl} />
       <ToastContainer />
 

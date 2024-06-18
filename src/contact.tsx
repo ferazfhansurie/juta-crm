@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { getAuth, User, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
-import { getFirestore, doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { getFirestore, doc, getDoc, collection, getDocs, addDoc } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -110,9 +110,19 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
 
         setContacts(response.data.contacts);
         const contactsWithChatPic = response.data.contacts.filter((contact: { chat_pic: any; }) => contact.chat_pic);
-console.log('Contacts with chat_pic:', contactsWithChatPic);
+        console.log('Contacts with chat_pic:', contactsWithChatPic);
         localStorage.setItem('contacts', LZString.compress(JSON.stringify(response.data.contacts)));
         sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
+
+        // Add contacts to the Firebase subcollection
+       /* response.data.contacts.forEach(async (contact: any) => {
+          try {
+            await addDoc(contactsCollectionRef, contact);
+            console.log("Added contact to Firebase:", contact);
+          } catch (error) {
+            console.error('Error adding contact to Firebase:', error);
+          }
+        });*/
   
       } catch (error) {
         console.error('Error fetching contacts:', error);
