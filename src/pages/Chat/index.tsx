@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query ,where} from "firebase/firestore";
 import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
 import Button from "@/components/Base/Button";
@@ -151,6 +151,7 @@ interface Message {
   action?: any;
   context?: any;
   reactions?: { emoji: string; from_name: string }[];
+  name?:string;
 }interface Employee {
   id: string;
   name: string;
@@ -942,11 +943,14 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     try {
         const docUserRef = doc(firestore, 'user', user?.email!);
         const docUserSnapshot = await getDoc(docUserRef);
+      
         if (!docUserSnapshot.exists()) {
             console.log('No such document!');
             return;
         }
         const dataUser = docUserSnapshot.data();
+   
+ 
         companyId = dataUser.companyId;
         const docRef = doc(firestore, 'companies', companyId);
         const docSnapshot = await getDoc(docRef);
@@ -958,16 +962,17 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
 
         setToken(data2.whapiToken);
 
-        if (selectedChatId.includes('@')) {
-            const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
+ 
+            const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}/${user?.email}`);
+        
             const data = response.data;
-            console.log('pure');
-            console.log(data.messages);
-
+            console.log("pure");
+            console.log(data);
             const formattedMessages: any[] = [];
             const reactionsMap: Record<string, any[]> = {};
 
-            data.messages.forEach((message: any) => {
+            data.messages.forEach(async (message: any) => {
+       
                 if (message.type === 'action' && message.action.type === 'reaction') {
                     const targetMessageId = message.action.target;
                     if (!reactionsMap[targetMessageId]) {
@@ -978,6 +983,8 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
                         from_name: message.from_name
                     });
                 } else {
+              
+                 
                     const formattedMessage: any = {
                         id: message.id,
                         from_me: message.from_me,
@@ -986,6 +993,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
                         chat_id: message.chat_id,
                         createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
                         type: message.type,
+                        name:message.name 
                     };
 
                     // Include message-specific content
@@ -1085,11 +1093,9 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
                     message.reactions = reactionsMap[message.id];
                 }
             });
-            console.log(formattedMessages);
+         
             setMessages(formattedMessages);
-        } else {
-            setMessages([]);
-        }
+     
     } catch (error) {
         console.error('Failed to fetch messages:', error);
     } finally {
@@ -1342,9 +1348,18 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
-      console.log(response);
+     
       const data = await response.json();
-      
+      console.log(data.message);
+    const messagesCollectionRef = collection(firestore, 'companies',  companyId, 'messages');
+try {
+  await setDoc(doc(messagesCollectionRef, data.message.id), {
+    message: data.message,
+    from:dataUser.name,
+  });
+} catch (error) {
+  console.error('Error adding message: ', error);
+}
       toast.success("Message sent successfully!");
       fetchMessagesBackground(selectedChatId!, whapiToken!);
       setReplyToMessage(null); // Clear the replyToMessage state after sending the message
@@ -2641,6 +2656,9 @@ const handleForwardMessage = async () => {
 
         <div className="message-timestamp text-xs text-black mt-1">
           {formatTimestamp(message.createdAt || message.dateAdded)}
+          {message.name && (
+    <span className="ml-2 text-gray-400">{message.name}</span>
+  )}
           {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
             <div className="flex items-center">
               <input
