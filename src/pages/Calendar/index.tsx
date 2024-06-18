@@ -749,26 +749,37 @@ const handleEventClick = (info: any) => {
             </select>
           </div>
           <div>
-                  <label className="block text-sm font-medium text-gray-700">Package</label>
-                  <select
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={currentEvent?.extendedProps?.package || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
-                  >
-                    <option value="trial1">Trial - Private</option>
-                    <option value="trial2">Trial - Duo</option>
-                    <option value="privDrop">Private - Drop In</option>
-                    <option value="priv4">Private - 4</option>
-                    <option value="priv10">Private - 10</option>
-                    <option value="priv20">Private - 20</option>
-                    <option value="duoDrop">Duo - Drop In</option>
-                    <option value="duo4">Duo - 4</option>
-                    <option value="duo10">Duo - 10</option>
-                    <option value="duo20">Duo - 20</option>
-                  </select>
-                </div>
+            <label className="block text-sm font-medium text-gray-700">Package</label>
+            <select
+              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              value={currentEvent?.extendedProps?.package || ''}
+              onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
+            >
+              <option value="trial1">Trial - Private</option>
+              <option value="trial2">Trial - Duo</option>
+              <option value="privDrop">Private - Drop In</option>
+              <option value="priv4">Private - 4</option>
+              <option value="priv10">Private - 10</option>
+              <option value="priv20">Private - 20</option>
+              <option value="duoDrop">Duo - Drop In</option>
+              <option value="duo4">Duo - 4</option>
+              <option value="duo10">Duo - 10</option>
+              <option value="duo20">Duo - 20</option>
+            </select>
+          </div>
         </div>
         <div className="flex justify-end mt-6">
+        {currentEvent?.id && (
+          <button
+            className="px-4 py-2 mr-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+            onClick={() => {
+              handleDeleteAppointment(currentEvent.id);
+              setEditModalOpen(false);
+            }}
+          >
+            Delete
+          </button>
+        )}
           <button
             className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
             onClick={() => setEditModalOpen(false)}
@@ -781,17 +792,6 @@ const handleEventClick = (info: any) => {
           >
             Save
           </button>
-          {currentEvent?.id && (
-          <button
-            className="px-4 py-2 ml-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
-            onClick={() => {
-              handleDeleteAppointment(currentEvent.id);
-              setEditModalOpen(false);
-            }}
-          >
-            Delete
-          </button>
-        )}
         </div>
       </Dialog.Panel>
     </div>
