@@ -10,7 +10,7 @@ import axios from "axios";
 import { getAuth } from 'firebase/auth';
 import { initializeApp } from "firebase/app";
 import { format } from 'date-fns';
-import { getDoc, getFirestore, doc, setDoc, collection, addDoc, getDocs, updateDoc, QueryDocumentSnapshot, DocumentData, query, where } from 'firebase/firestore';
+import { getDoc, getFirestore, doc, setDoc, collection, addDoc, getDocs, updateDoc, deleteDoc, QueryDocumentSnapshot, DocumentData, query, where } from 'firebase/firestore';
 import { useContacts } from "@/contact";
 import Select from 'react-select';
 
@@ -420,6 +420,21 @@ const handleEventClick = (info: any) => {
     });
     setEditModalOpen(true);
   };
+
+  const handleDeleteAppointment = async (appointmentId: string) => {
+    const user = auth.currentUser;
+    if (!user) return;
+  
+    const appointmentDocRef = doc(firestore, `user/${user.email}/appointments/${appointmentId}`);
+  
+    try {
+      await deleteDoc(appointmentDocRef);
+  
+      setAppointments(prevAppointments => prevAppointments.filter(appointment => appointment.id !== appointmentId));
+    } catch (error) {
+      console.error('Error deleting appointment from Firestore:', error);
+    }
+  };
   
 
   const getStatusColor = (status: string) => {
@@ -438,6 +453,33 @@ const handleEventClick = (info: any) => {
         return 'bg-purple-500';
       default:
         return 'bg-gray-500';
+    }
+  };
+
+  const getPackageName = (status: string) => {
+    switch (status) {
+      case 'trial1':
+        return 'Trial - Private';
+      case 'trial2':
+        return 'Trial - Duo';
+      case 'privDrop':
+        return 'Private - Drop In';
+      case 'priv4':
+        return 'Private - 4';
+      case 'priv10':
+        return 'Private - 10';
+      case 'priv20':
+        return 'Private - 20';
+      case 'DuoDrop':
+        return 'Duo - Drop In';
+      case 'duo4':
+        return 'Duo - 4';
+      case 'duo10':
+        return 'Duo - 10';
+      case 'duo20':
+        return 'Duo - 20';
+      default:
+        return null;
     }
   };
 
@@ -551,19 +593,19 @@ const handleEventClick = (info: any) => {
           <div className="text-slate-500 text-xs mt-0.5">
             {new Date(appointment.startTime).toLocaleString()} - {new Date(appointment.endTime).toLocaleString()}
           </div>
-          <div className="text-slate-500 text-xs mt-0.5">Package: {appointment.package}</div>
+          <div className="text-slate-500 text-xs mt-0.5">Package: {getPackageName(appointment.package)}</div>
           <div className="text-slate-500 text-xs mt-0.5">
-            Contacts:
+            Contacts:{" "}
             {appointment.contacts && appointment.contacts.length > 0 ? (
-              <ul>
+              <span>
                 {appointment.contacts.map(contact => (
-                  <li key={contact.id}>
-                    {contact.name}: Session {contact.session}
-                  </li>
+                  <span className="capitalize" key={contact.id}> 
+                    {contact.name} - Session {contact.session}
+                  </span>
                 ))}
-              </ul>
+              </span>
             ) : (
-              <span>No contacts</span>
+              <span> No contacts</span>
             )}
           </div>
         </div>
@@ -706,7 +748,25 @@ const handleEventClick = (info: any) => {
               ))}
             </select>
           </div>
-   
+          <div>
+                  <label className="block text-sm font-medium text-gray-700">Package</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.extendedProps?.package || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
+                  >
+                    <option value="trial1">Trial - Private</option>
+                    <option value="trial2">Trial - Duo</option>
+                    <option value="privDrop">Private - Drop In</option>
+                    <option value="priv4">Private - 4</option>
+                    <option value="priv10">Private - 10</option>
+                    <option value="priv20">Private - 20</option>
+                    <option value="duoDrop">Duo - Drop In</option>
+                    <option value="duo4">Duo - 4</option>
+                    <option value="duo10">Duo - 10</option>
+                    <option value="duo20">Duo - 20</option>
+                  </select>
+                </div>
         </div>
         <div className="flex justify-end mt-6">
           <button
@@ -721,6 +781,17 @@ const handleEventClick = (info: any) => {
           >
             Save
           </button>
+          {currentEvent?.id && (
+          <button
+            className="px-4 py-2 ml-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+            onClick={() => {
+              handleDeleteAppointment(currentEvent.id);
+              setEditModalOpen(false);
+            }}
+          >
+            Delete
+          </button>
+        )}
         </div>
       </Dialog.Panel>
     </div>
@@ -815,14 +886,34 @@ const handleEventClick = (info: any) => {
                   </select>
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700">Package</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.extendedProps?.package || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
+                  >
+                    <option value="trial1">Trial - Private</option>
+                    <option value="trial2">Trial - Duo</option>
+                    <option value="privDrop">Private - Drop In</option>
+                    <option value="priv4">Private - 4</option>
+                    <option value="priv10">Private - 10</option>
+                    <option value="priv20">Private - 20</option>
+                    <option value="duoDrop">Duo - Drop In</option>
+                    <option value="duo4">Duo - 4</option>
+                    <option value="duo10">Duo - 10</option>
+                    <option value="duo20">Duo - 20</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700">Contacts</label>
                   <Select
                     isMulti
                     options={contacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
                     onChange={handleContactChange}
+                    className="capitalize"
                   />
                   {selectedContacts.map(contact => (
-                    <div key={contact.id} className="text-sm text-gray-600">
+                    <div key={contact.id} className="capitalize text-sm text-gray-600">
                       {contact.contactName}: Session {contactSessions[contact.id] || 'N/A'}
                     </div>
                   ))}
