@@ -229,49 +229,54 @@ const handleEventClick = (info: any) => {
 };
 
 
-  const handleSaveAppointment = async () => {
-    const { id, title, dateStr, startTimeStr, endTimeStr, extendedProps } = currentEvent;
-    const startTime = new Date(`${dateStr}T${startTimeStr}`).toISOString();
-    const endTime = new Date(`${dateStr}T${endTimeStr}`).toISOString();
-  
-    const updatedAppointment: Appointment = {
-      id,
-      title,
-      startTime,
-      endTime,
-      address: extendedProps.address,
-      appointmentStatus: extendedProps.appointmentStatus,
-      staff: extendedProps.staff,
-      package: extendedProps.package,
-      dateAdded: extendedProps.dateAdded,
-      contacts: selectedContacts.map(contact => ({
-        id: contact.id,
-        name: contact.contactName, // Include contact name
-        session: contactSessions[contact.id] || 0 // Include session number
-      })),
-    };
-  
-    try {
-      const user = auth.currentUser;
-      if (!user || !user.email) {
-        console.error('No authenticated user or email found');
-        return;
-      }
-  
-      const userRef = doc(firestore, 'user', user.email);
-      const appointmentsCollectionRef = collection(userRef, 'appointments');
-      const appointmentRef = doc(appointmentsCollectionRef, id); // Ensure id is not empty
-  
-      await setDoc(appointmentRef, updatedAppointment);
-  
-      setAppointments(appointments.map(appointment =>
-        appointment.id === id ? updatedAppointment : appointment
-      ));
-      setEditModalOpen(false);
-    } catch (error) {
-      console.error('Error saving appointment:', error);
-    }
+const handleSaveAppointment = async () => {
+  const { id, title, dateStr, startTimeStr, endTimeStr, extendedProps } = currentEvent;
+  const startTime = new Date(`${dateStr}T${startTimeStr}`).toISOString();
+  const endTime = new Date(`${dateStr}T${endTimeStr}`).toISOString();
+
+  const updatedAppointment: Appointment = {
+    id,
+    title,
+    startTime,
+    endTime,
+    address: extendedProps.address,
+    appointmentStatus: extendedProps.appointmentStatus,
+    staff: extendedProps.staff,
+    package: extendedProps.package,
+    dateAdded: extendedProps.dateAdded,
+    contacts: selectedContacts.map(contact => ({
+      id: contact.id,
+      name: contact.contactName,
+      session: contactSessions[contact.id] || 0
+    })),
   };
+
+  try {
+    const user = auth.currentUser;
+    if (!user || !user.email) {
+      console.error('No authenticated user or email found');
+      return;
+    }
+
+    const userRef = doc(firestore, 'user', user.email);
+    const appointmentsCollectionRef = collection(userRef, 'appointments');
+    const appointmentRef = doc(appointmentsCollectionRef, id); // Ensure id is not empty
+
+    await setDoc(appointmentRef, updatedAppointment);
+
+    setAppointments(appointments.map(appointment =>
+      appointment.id === id ? updatedAppointment : appointment
+    ));
+    setEditModalOpen(false);
+
+    // Decrement session count if the status is confirmed
+    if (updatedAppointment.appointmentStatus === 'confirmed') {
+      updatedAppointment.contacts.forEach(contact => decrementSession(contact.id));
+    }
+  } catch (error) {
+    console.error('Error saving appointment:', error);
+  }
+};
   
 
   const handleDateSelect = (selectInfo: any) => {
@@ -303,8 +308,8 @@ const handleEventClick = (info: any) => {
       staff: selectedStaff,
       contacts: selectedContacts.map(contact => ({
         id: contact.id,
-        name: contact.contactName, // Include contact name
-        session: contactSessions[contact.id] || 0 // Include session number
+        name: contact.contactName,
+        session: contactSessions[contact.id] || getPackageSessions(currentEvent.extendedProps.package) // Initialize session number
       })),
       package: currentEvent.extendedProps.package,
     };
@@ -321,9 +326,25 @@ const handleEventClick = (info: any) => {
         return;
       }
       const userRef = doc(firestore, 'user', user.email); // Correct path to the user document
+    
+      const docUserRef = doc(firestore, 'user', user.email);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+  
+      const dataUser = docUserSnapshot.data();
+      if (!dataUser) {
+        console.error('No data found for user!');
+        return;
+      }
+      const companyId = dataUser.companyId;
+      console.log(companyId);
+  
       const appointmentsCollectionRef = collection(userRef, 'appointments');
       const newAppointmentRef = doc(appointmentsCollectionRef); // Generates a new document ID
-  
+    
       const newAppointment = {
         id: newAppointmentRef.id,
         title: newEvent.title,
@@ -336,9 +357,22 @@ const handleEventClick = (info: any) => {
         dateAdded: new Date().toISOString(),
         contacts: newEvent.contacts, // Include contacts array
       };
-  
+    
       await setDoc(newAppointmentRef, newAppointment);
   
+      const companyRef = doc(firestore, 'companies', companyId); // Correct path to the company document
+      const sessionsCollectionRef = collection(companyRef, 'session');
+  
+      for (const contact of newEvent.contacts) {
+        const newSessionsRef = doc(sessionsCollectionRef, contact.id); // Use contact.id as document ID
+        const newSessions = {
+          id: contact.id,
+          session: contact.session
+        };
+  
+        await setDoc(newSessionsRef, newSessions);
+      }
+    
       setAppointments([...appointments, newAppointment]);
     } catch (error) {
       console.error('Error creating appointment:', error);
@@ -465,19 +499,19 @@ const handleEventClick = (info: any) => {
       case 'privDrop':
         return 'Private - Drop In';
       case 'priv4':
-        return 'Private - 4';
+        return 'Private - 4 Sessions';
       case 'priv10':
-        return 'Private - 10';
+        return 'Private - 10 Sessions';
       case 'priv20':
-        return 'Private - 20';
+        return 'Private - 20 Sessions';
       case 'DuoDrop':
         return 'Duo - Drop In';
       case 'duo4':
-        return 'Duo - 4';
+        return 'Duo - 4 Sessions';
       case 'duo10':
-        return 'Duo - 10';
+        return 'Duo - 10 Sessions';
       case 'duo20':
-        return 'Duo - 20';
+        return 'Duo - 20 Sessions';
       default:
         return null;
     }
@@ -512,6 +546,76 @@ const handleEventClick = (info: any) => {
   };
 
   const selectedEmployee = employees.find(employee => employee.id === selectedEmployeeId);
+
+  const getPackageSessions = (packageType: string) => {
+    switch (packageType) {
+      case 'priv4':
+        return 4;
+      case 'priv10':
+        return 10;
+      case 'priv20':
+        return 20;
+      case 'duo4':
+        return 4;
+      case 'duo10':
+        return 10;
+      case 'duo20':
+        return 20;
+      default:
+        return 1; // Default to 1 for any other package types
+    }
+  };
+  
+  const decrementSession = async (contactId: string) => {
+    // Fetch the current session count from the database
+    try {
+      const auth = getAuth(app);
+      const user = auth.currentUser;
+      if (!user || !user.email) {
+        console.error('No authenticated user or email found');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+  
+      const dataUser = docUserSnapshot.data();
+      if (!dataUser) {
+        console.error('No data found for user!');
+        return;
+      }
+  
+      const companyId = dataUser.companyId as string;
+      const contactRef = doc(firestore, `companies/${companyId}/session`, contactId);
+      const contactSnapshot = await getDoc(contactRef);
+  
+      if (!contactSnapshot.exists()) {
+        console.error('No such document for contact!');
+        return;
+      }
+  
+      const contactData = contactSnapshot.data();
+      const currentSessionCount = contactData.session;
+  console.log(currentSessionCount);
+      // Decrement the session count
+      const newSessionCount = currentSessionCount > 0 ? currentSessionCount - 1 : 0;
+      console.log(newSessionCount);
+      // Update the session count in the state
+      setContactSessions({
+        ...contactSessions,
+        [contactId]: newSessionCount
+      });
+  
+      // Update the session count in the database
+      await updateDoc(contactRef, { session: newSessionCount });
+    } catch (error) {
+      console.error('Error decrementing session count:', error);
+    }
+  };
 
   return (
     <>
@@ -549,6 +653,7 @@ const handleEventClick = (info: any) => {
             variant="primary"
             type="button"
             onClick={() => {
+              setSelectedContacts([]);
               setCurrentEvent({
                 title: '',
                 dateStr: '',
@@ -610,9 +715,9 @@ const handleEventClick = (info: any) => {
             {appointment.contacts && appointment.contacts.length > 0 ? (
               <span>
                 {appointment.contacts.map(contact => (
-                  <span className="capitalize" key={contact.id}> 
-                    {contact.name} - Session {contact.session}
-                  </span>
+                  <div className="capitalize" key={contact.id}>
+                    {contact.name} | Session {contact.session}
+                  </div>
                 ))}
               </span>
             ) : (
@@ -769,13 +874,13 @@ const handleEventClick = (info: any) => {
               <option value="trial1">Trial - Private</option>
               <option value="trial2">Trial - Duo</option>
               <option value="privDrop">Private - Drop In</option>
-              <option value="priv4">Private - 4</option>
-              <option value="priv10">Private - 10</option>
-              <option value="priv20">Private - 20</option>
+              <option value="priv4">Private - 4 Sessions</option>
+              <option value="priv10">Private - 10 Sessions</option>
+              <option value="priv20">Private - 20 Sessions</option>
               <option value="duoDrop">Duo - Drop In</option>
-              <option value="duo4">Duo - 4</option>
-              <option value="duo10">Duo - 10</option>
-              <option value="duo20">Duo - 20</option>
+              <option value="duo4">Duo - 4 Sessions</option>
+              <option value="duo10">Duo - 10 Sessions</option>
+              <option value="duo20">Duo - 20 Sessions</option>
             </select>
           </div>
         </div>
