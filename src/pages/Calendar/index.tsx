@@ -243,6 +243,16 @@ function Main() {
     const date = new Date(dateStr);
     const dayOfWeek = date.getUTCDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const eventContacts = info.event.extendedProps.contacts || [];
+  
+    setSelectedContacts(eventContacts.map((contact: { id: string }) => {
+      const foundContact = contacts.find(c => c.id === contact.id);
+      return foundContact || null;
+    }).filter((contact: any) => contact !== null));
+  
+    eventContacts.forEach((contact: { id: string }) => {
+      fetchContactSession(contact.id);
+    });
   
     setCurrentEvent({
       id: info.event.id,
@@ -827,130 +837,145 @@ const handleSaveAppointment = async () => {
         </div>
       </div>
       {editModalOpen && (
-  <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)}>
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
-        <div className="flex items-center p-4 border-b">
-          <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-            <span className="text-xl">{currentEvent?.title.charAt(0).toUpperCase()}</span>
+        <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
+              <div className="flex items-center p-4 border-b">
+                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+                  <span className="text-xl">{currentEvent?.title.charAt(0).toUpperCase()}</span>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-800">{currentEvent?.title}</div>
+                  <div className="text-sm text-gray-600">{currentEvent?.extendedProps?.address}</div>
+                </div>
+              </div>
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Title</label>
+                  <input
+                    type="text"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.title || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Date</label>
+                  <input
+                    type="date"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.dateStr || ''}
+                    onChange={handleDateChange}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Time Slot</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.startTimeStr && currentEvent?.endTimeStr ? `${currentEvent.startTimeStr} - ${currentEvent.endTimeStr}` : ''}
+                    onChange={handleTimeSlotChange}
+                  >
+                    <option value="" disabled>Select a time slot</option>
+                    {currentEvent?.timeSlots?.map((slot: string) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Appointment Status</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.extendedProps?.appointmentStatus || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
+                  >
+                    <option value="new">New</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="showed">Showed</option>
+                    <option value="noshow">No Show</option>
+                    <option value="invalid">Invalid</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Staff</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.extendedProps?.staff || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, staff: e.target.value } })}
+                  >
+                    {employees.map(employee => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Package</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.extendedProps?.package || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
+                  >
+                    <option value="trial1">Trial - Private</option>
+                    <option value="trial2">Trial - Duo</option>
+                    <option value="privDrop">Private - Drop In</option>
+                    <option value="priv4">Private - 4 Sessions</option>
+                    <option value="priv10">Private - 10 Sessions</option>
+                    <option value="priv20">Private - 20 Sessions</option>
+                    <option value="duoDrop">Duo - Drop In</option>
+                    <option value="duo4">Duo - 4 Sessions</option>
+                    <option value="duo10">Duo - 10 Sessions</option>
+                    <option value="duo20">Duo - 20 Sessions</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Contacts</label>
+                  <Select
+                    isMulti
+                    value={selectedContacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
+                    options={contacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
+                    onChange={handleContactChange}
+                    className="capitalize"
+                  />
+                  {selectedContacts.map(contact => (
+                    <div key={contact.id} className="capitalize text-sm text-gray-600">
+                      {contact.contactName}: Session {contactSessions[contact.id] || 'N/A'}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end mt-6">
+              {currentEvent?.id && (
+                <button
+                  className="px-4 py-2 mr-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                  onClick={() => {
+                    handleDeleteAppointment(currentEvent.id);
+                    setEditModalOpen(false);
+                  }}
+                >
+                  Delete
+                </button>
+              )}
+                <button
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  onClick={() => setEditModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  onClick={handleSaveAppointment}
+                >
+                  Save
+                </button>
+              </div>
+            </Dialog.Panel>
           </div>
-          <div>
-            <div className="font-semibold text-gray-800">{currentEvent?.title}</div>
-            <div className="text-sm text-gray-600">{currentEvent?.extendedProps?.address}</div>
-          </div>
-        </div>
-        <div className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Title</label>
-            <input
-              type="text"
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.title || ''}
-              onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Date</label>
-            <input
-              type="date"
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.dateStr || ''}
-              onChange={handleDateChange}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Time Slot</label>
-            <select
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.startTimeStr && currentEvent?.endTimeStr ? `${currentEvent.startTimeStr} - ${currentEvent.endTimeStr}` : ''}
-              onChange={handleTimeSlotChange}
-            >
-              <option value="" disabled>Select a time slot</option>
-              {currentEvent?.timeSlots?.map((slot: string) => (
-                <option key={slot} value={slot}>
-                  {slot}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Appointment Status</label>
-            <select
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.extendedProps?.appointmentStatus || ''}
-              onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
-            >
-              <option value="new">New</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="showed">Showed</option>
-              <option value="noshow">No Show</option>
-              <option value="invalid">Invalid</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Staff</label>
-            <select
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.extendedProps?.staff || ''}
-              onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, staff: e.target.value } })}
-            >
-              {employees.map(employee => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Package</label>
-            <select
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.extendedProps?.package || ''}
-              onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
-            >
-              <option value="trial1">Trial - Private</option>
-              <option value="trial2">Trial - Duo</option>
-              <option value="privDrop">Private - Drop In</option>
-              <option value="priv4">Private - 4 Sessions</option>
-              <option value="priv10">Private - 10 Sessions</option>
-              <option value="priv20">Private - 20 Sessions</option>
-              <option value="duoDrop">Duo - Drop In</option>
-              <option value="duo4">Duo - 4 Sessions</option>
-              <option value="duo10">Duo - 10 Sessions</option>
-              <option value="duo20">Duo - 20 Sessions</option>
-            </select>
-          </div>
-        </div>
-        <div className="flex justify-end mt-6">
-        {currentEvent?.id && (
-          <button
-            className="px-4 py-2 mr-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
-            onClick={() => {
-              handleDeleteAppointment(currentEvent.id);
-              setEditModalOpen(false);
-            }}
-          >
-            Delete
-          </button>
-        )}
-          <button
-            className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-            onClick={() => setEditModalOpen(false)}
-          >
-            Cancel
-          </button>
-          <button
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-            onClick={handleSaveAppointment}
-          >
-            Save
-          </button>
-        </div>
-      </Dialog.Panel>
-    </div>
-  </Dialog>
-)}
+        </Dialog>
+      )}
 
     {addModalOpen && (
       <Dialog open={addModalOpen} onClose={() => setAddModalOpen(false)}>
