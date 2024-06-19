@@ -5,7 +5,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { useEffect, useState } from "react";
+import { ChangeEvent, JSXElementConstructor, Key, ReactElement, ReactNode, useEffect, useState } from "react";
 import axios from "axios";
 import { getAuth } from 'firebase/auth';
 import { initializeApp } from "firebase/app";
@@ -96,6 +96,33 @@ function Main() {
   const [selectedStaff, setSelectedStaff] = useState<string>('');
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [contactSessions, setContactSessions] = useState<{ [key: string]: number }>({});
+
+  const generateTimeSlots = (isWeekend: boolean): string[] => {
+    const start = 8;
+    const end = isWeekend ? 13 : 20;
+    const slots: string[] = [];
+  
+    for (let hour = start; hour < end; hour++) {
+      slots.push(`${hour.toString().padStart(2, '0')}:00 - ${(hour + 1).toString().padStart(2, '0')}:00`);
+    }
+  
+    return slots;
+  };
+
+
+  const handleDateChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const dateStr = e.target.value;
+    const date = new Date(dateStr);
+    const dayOfWeek = date.getUTCDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday (0) or Saturday (6)
+
+    setCurrentEvent({ ...currentEvent, dateStr, isWeekend, timeSlots: generateTimeSlots(isWeekend) });
+  };
+  
+  const handleTimeSlotChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const [startTimeStr, endTimeStr] = e.target.value.split(' - ');
+    setCurrentEvent({ ...currentEvent, startTimeStr, endTimeStr });
+  };
 
   let role = 1;
   let userName = '';
@@ -810,30 +837,27 @@ const handleSaveAppointment = async () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Date</label>
-            <input
-              type="date"
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.dateStr || ''}
-              onChange={(e) => setCurrentEvent({ ...currentEvent, dateStr: e.target.value })}
-            />
+              <input
+                type="date"
+                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                value={currentEvent?.dateStr || ''}
+                onChange={handleDateChange}
+              />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Start Time</label>
-            <input
-              type="time"
+            <label className="block text-sm font-medium text-gray-700">Time Slot</label>
+            <select
               className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.startTimeStr || ''}
-              onChange={(e) => setCurrentEvent({ ...currentEvent, startTimeStr: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">End Time</label>
-            <input
-              type="time"
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.endTimeStr || ''}
-              onChange={(e) => setCurrentEvent({ ...currentEvent, endTimeStr: e.target.value })}
-            />
+              value={currentEvent?.startTimeStr && currentEvent?.endTimeStr ? `${currentEvent.startTimeStr} - ${currentEvent.endTimeStr}` : ''}
+              onChange={handleTimeSlotChange}
+            >
+              <option value="" disabled>Select a time slot</option>
+              {currentEvent?.timeSlots?.map((slot: string) => (
+                <option key={slot} value={slot}>
+                  {slot}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Appointment Status</label>
@@ -938,30 +962,27 @@ const handleSaveAppointment = async () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Date</label>
-                  <input
-                    type="date"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={currentEvent?.dateStr || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, dateStr: e.target.value })}
-                  />
+                    <input
+                      type="date"
+                      className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                      value={currentEvent?.dateStr || ''}
+                      onChange={handleDateChange}
+                    />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Start Time</label>
-                  <input
-                    type="time"
+                  <label className="block text-sm font-medium text-gray-700">Time Slot</label>
+                  <select
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={currentEvent?.startTimeStr || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, startTimeStr: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">End Time</label>
-                  <input
-                    type="time"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={currentEvent?.endTimeStr || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, endTimeStr: e.target.value })}
-                  />
+                    value={currentEvent?.startTimeStr && currentEvent?.endTimeStr ? `${currentEvent.startTimeStr} - ${currentEvent.endTimeStr}` : ''}
+                    onChange={handleTimeSlotChange}
+                  >
+                    <option value="" disabled>Select a time slot</option>
+                    {currentEvent?.timeSlots?.map((slot: string) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Address</label>
