@@ -236,23 +236,32 @@ function Main() {
     selectedContactsArray.forEach((contact: { id: string; }) => fetchContactSession(contact.id));
   };
 
-const handleEventClick = (info: any) => {
-  setCurrentEvent({
-    id: info.event.id,
-    title: info.event.title,
-    dateStr: format(new Date(info.event.start), 'yyyy-MM-dd'),
-    startTimeStr: format(new Date(info.event.start), 'HH:mm'),
-    endTimeStr: format(new Date(info.event.end), 'HH:mm'),
-    extendedProps: {
-      address: info.event.extendedProps.address || '',
-      appointmentStatus: info.event.extendedProps.appointmentStatus || '',
-      staff: info.event.extendedProps.staff || '',
-      package: info.event.extendedProps.package || '',
-      dateAdded: info.event.extendedProps.dateAdded || '',
-    }
-  });
-  setEditModalOpen(true);
-};
+  const handleEventClick = (info: any) => {
+    const startStr = format(new Date(info.event.start), 'HH:mm');
+    const endStr = format(new Date(info.event.end), 'HH:mm');
+    const dateStr = format(new Date(info.event.start), 'yyyy-MM-dd');
+    const date = new Date(dateStr);
+    const dayOfWeek = date.getUTCDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  
+    setCurrentEvent({
+      id: info.event.id,
+      title: info.event.title,
+      dateStr: dateStr,
+      startTimeStr: startStr,
+      endTimeStr: endStr,
+      extendedProps: {
+        address: info.event.extendedProps.address || '',
+        appointmentStatus: info.event.extendedProps.appointmentStatus || '',
+        staff: info.event.extendedProps.staff || '',
+        package: info.event.extendedProps.package || '',
+        dateAdded: info.event.extendedProps.dateAdded || '',
+      },
+      isWeekend: isWeekend,
+      timeSlots: generateTimeSlots(isWeekend)
+    });
+    setEditModalOpen(true);
+  };
 
 
 const handleSaveAppointment = async () => {
@@ -842,12 +851,12 @@ const handleSaveAppointment = async () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Date</label>
-              <input
-                type="date"
-                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                value={currentEvent?.dateStr || ''}
-                onChange={handleDateChange}
-              />
+            <input
+              type="date"
+              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              value={currentEvent?.dateStr || ''}
+              onChange={handleDateChange}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Time Slot</label>
