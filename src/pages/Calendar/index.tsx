@@ -110,16 +110,15 @@ function Main() {
   };
 
 
-  const handleDateChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const dateStr = e.target.value;
     const date = new Date(dateStr);
     const dayOfWeek = date.getUTCDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday (0) or Saturday (6)
-
     setCurrentEvent({ ...currentEvent, dateStr, isWeekend, timeSlots: generateTimeSlots(isWeekend) });
   };
   
-  const handleTimeSlotChange = (e: ChangeEvent<HTMLSelectElement>) => {
+  const handleTimeSlotChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const [startTimeStr, endTimeStr] = e.target.value.split(' - ');
     setCurrentEvent({ ...currentEvent, startTimeStr, endTimeStr });
   };
