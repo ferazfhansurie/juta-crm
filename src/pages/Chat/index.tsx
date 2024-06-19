@@ -2293,7 +2293,7 @@ const handleForwardMessage = async () => {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center">
-          <span className="font-semibold capitalize truncate">{contact.contactName ?? contact.firstName ?? contact.phone}</span>
+          <span className="font-semibold capitalize truncate w-36">{contact.contactName ?? contact.firstName ?? contact.phone}</span>
           <span className="text-xs flex items-center space-x-2">
             <div className="ml-2 flex flex-wrap">
               {(() => {

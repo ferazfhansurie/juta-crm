@@ -1195,16 +1195,17 @@ const chatId = tempphone + "@s.whatsapp.net"
                           </label>
                         </div>
                       </td>
-                      <td className="px-6 py-4 font-medium capitalize text-gray-900 whitespace-nowrap dark:text-white flex items-center">
+                      <td className="px-6 py-4 font-medium capitalize text-gray-900 whitespace-nowrap dark:text-white flex items-center w-44 overflow-hidden overflow-ellipsis">
   {contact.chat_pic_full ? (
     <img src={contact.chat_pic_full} className="w-8 h-8 rounded-full object-cover mr-3" />
   ) : (
     <div className="w-8 h-8 mr-3 border-2 border-gray-500 rounded-full flex items-center justify-center">
-    <Lucide icon="User" className="w-6 h-6 rounded-full text-gray-500" />
-  </div>
+      <Lucide icon="User" className="w-6 h-6 rounded-full text-gray-500" />
+    </div>
   )}
   {contact.contactName ? (contact.lastName ? `${contact.contactName}` : contact.contactName) : contact.phone}
 </td>
+
                       <td className="px-6 py-4">{contact.phone ?? contact.source}</td>
                       <td className="px-6 py-4 whitespace-nowrap dark:text-white">
                         {employeeTags.length > 0 ? (
