@@ -27,8 +27,8 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import Tippy from "@/components/Base/Tippy";
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
-
-
+import {  useNavigate } from "react-router-dom";
+import noti from "../../assets/audio/noti.mp3";
 
 
 
@@ -183,6 +183,15 @@ interface PDFModalProps {
   onClose: () => void;
   pdfUrl: string;
 }
+type Notification = {
+  text: {
+    body:string
+  }
+  from_name: string;
+  timestamp: number;
+  chat_id: string;
+};
+
 interface EditMessagePopupProps {
   editedMessageText: string;
   setEditedMessageText: (value: string) => void;
@@ -333,6 +342,9 @@ const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
 const [isEmojiPickerOpen, setEmojiPickerOpen] = useState(false);
 const [isImageModalOpen2, setImageModalOpen2] = useState(false);
 const [pastedImageUrl, setPastedImageUrl] = useState('');
+const [notifications, setNotifications] = useState<Notification[]>([]);
+const audioRef = useRef<HTMLAudioElement>(null);
+
 
 const handleEmojiClick = (emojiObject: EmojiClickData) => {
   setNewMessage(prevMessage => prevMessage + emojiObject.emoji);
@@ -482,12 +494,11 @@ const closePDFModal = () => {
     setNewMessage(text);
     setIsQuickRepliesOpen(false);
   };
-
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(firestore, 'user', auth.currentUser?.email!, 'notifications'),
       async (snapshot) => {
-        const currentNotifications = snapshot.docs.map(doc => doc.data());
+        const currentNotifications = snapshot.docs.map(doc => doc.data() as Notification);
   
         // Prevent running on initial mount
         if (isInitialMount.current) {
@@ -503,6 +514,11 @@ const closePDFModal = () => {
           const latestNotification = currentNotifications[0];
           console.log(latestNotification);
   
+          // Add new notification to the state
+          setNotifications(prev => [...prev, latestNotification]);
+          if (audioRef.current) {
+            audioRef.current.play();
+          }
           if (selectedChatId === latestNotification.chat_id) {
             fetchMessagesBackground(selectedChatId!, whapiToken!);
           } else {
@@ -549,6 +565,7 @@ const closePDFModal = () => {
   
     return () => unsubscribe();
   }, [companyId, selectedChatId, whapiToken]);
+  
   let params :URLSearchParams;
   let chatId: any ;
   if(location != undefined){
@@ -2159,10 +2176,13 @@ const handleForwardMessage = async () => {
   };
   
   return (
+    
     <div className="flex overflow-hidden bg-gray-100 text-gray-800" style={{ height: '100vh' }}>
+       <audio ref={audioRef} src={noti} />
     <div className="flex flex-col min-w-[35%] max-w-[35%] bg-gray-100 border-r border-gray-300">
     <div className="relative hidden sm:block p-2">
     <div className="flex items-center space-x-2">
+    {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
     {isDeletePopupOpen && <DeleteConfirmationPopup />}
     <PDFModal isOpen={isPDFModalOpen} onClose={closePDFModal} pdfUrl={pdfUrl} />
     {editingMessage && (
@@ -3150,4 +3170,48 @@ const ImageModal2: React.FC<ImageModalProps2> = ({ isOpen, onClose, imageUrl, on
     </div>
   );
 };
+const NotificationPopup: React.FC<{ notifications: any[] }> = ({ notifications: initialNotifications }) => {
+  const [notifications, setNotifications] = useState(initialNotifications);
+  const navigate = useNavigate(); // Initialize useNavigate
+  const handleDelete = (index: number) => {
+    setNotifications(notifications.filter((_, i) => i !== index));
+  };
+  const handleNotificationClick = (chatId: string,index: number) => {
+    setNotifications(notifications.filter((_, i) => i !== index));
+    navigate(`/chat/?chatId=${chatId}`);
+  };
+  
+  return (
+    <div className="fixed top-5 right-10 z-50">
+      {notifications.map((notification, index) => (
+        <div key={index} className="relative bg-white rounded-lg shadow-lg mb-2 px-4 py-2" style={{ width: '250px' }}>
+         <button
+            className="absolute top-1 left-1 text-black hover:text-gray-800 p-2"
+            onClick={() => handleDelete(index)}
+          >
+            <Lucide icon="X" className="w-4 h-4" />
+          </button>
+          <div className="flex justify-between items-center ">
+            <div className="flex-grow px-10">
+              <div className="font-semibold text-primary">{notification.from_name}</div>
+              <div className="text-gray-700">{notification.text.body}</div>
+            </div>
+            <div className="mx-2 h-full flex items-center">
+              <div className="border-l border-gray-300 h-12"></div>
+            </div>
+            <button 
+            className="bg-primary text-white py-1 px-4 rounded"
+            onClick={() => handleNotificationClick(notification.chat_id,index)}
+            >
+              Show</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+
+
+
 export default Main;
