@@ -115,12 +115,16 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
 
         // Add contacts to the Firebase subcollection
-       /* response.data.contacts.forEach(async (contact: any) => {
-          try {
-            await addDoc(contactsCollectionRef, contact);
-            console.log("Added contact to Firebase:", contact);
-          } catch (error) {
-            console.error('Error adding contact to Firebase:', error);
+        /*const addedContactIds = new Set<string>();
+        response.data.contacts.forEach(async (contact: any) => {
+          if (contact.last_message && Object.keys(contact.last_message).length > 0 && !addedContactIds.has(contact.id)) {
+            try {
+              await addDoc(contactsCollectionRef, contact);
+              console.log("Added contact to Firebase:", contact);
+              addedContactIds.add(contact.id);
+            } catch (error) {
+              console.error('Error adding contact to Firebase:', error);
+            }
           }
         });*/
   

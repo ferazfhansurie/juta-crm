@@ -331,6 +331,8 @@ const [isPDFModalOpen, setPDFModalOpen] = useState(false);
 const [pdfUrl, setPdfUrl] = useState('');
 const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
 const [isEmojiPickerOpen, setEmojiPickerOpen] = useState(false);
+const [isImageModalOpen2, setImageModalOpen2] = useState(false);
+const [pastedImageUrl, setPastedImageUrl] = useState('');
 
 const handleEmojiClick = (emojiObject: EmojiClickData) => {
   setNewMessage(prevMessage => prevMessage + emojiObject.emoji);
@@ -1956,7 +1958,59 @@ const handleForwardMessage = async () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+  const handleRemoveTag = async (contactId: string, tagName: string) => {
+    const user = auth.currentUser;
+
+    const docUserRef = doc(firestore, 'user', user?.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.log('No such document for user!');
+      return;
+    }
+    const userData = docUserSnapshot.data();
   
+    const companyId = userData.companyId;
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) {
+      console.log('No such document for company!');
+      return;
+    }
+    const companyData = docSnapshot.data();
+    console.log(companyData.ghl_accessToken);
+    const url = `https://services.leadconnectorhq.com/contacts/${selectedContact.id}/tags`;
+    const options = {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${companyData.ghl_accessToken}`,
+        Version: '2021-07-28',
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        tags: [tagName]
+      })
+    };
+  
+    try {
+      const response = await fetch(url, options);
+      console.log(response.body);
+      if (response.ok) {
+        setSelectedContact((prevContact: any) => ({
+          ...prevContact,
+          tags: prevContact.tags.filter((tag: string) => tag !== tagName)
+        }));
+  
+        toast.success("Tag removed successfully!");
+      } else {
+        console.error('Failed to remove tag', await response.json());
+        toast.error("Failed to remove tag.");
+      }
+    } catch (error) {
+      console.error('Error removing tag', error);
+      toast.error("An error occurred while removing the tag.");
+    }
+  };
   const adjustHeight = (textarea: HTMLTextAreaElement, reset = false) => {
     if (reset) {
       textarea.style.height = 'auto';
@@ -2067,7 +2121,42 @@ const handleForwardMessage = async () => {
       </div>
     </div>
   );
-
+  const uploadLocalImageUrl = async (localUrl: string): Promise<string | null> => {
+    try {
+      const response = await fetch(localUrl);
+      const blob = await response.blob();
+  
+      // Check the blob content
+      console.log('Blob type:', blob.type);
+      console.log('Blob size:', blob.size);
+  
+      const storageRef = ref(getStorage(), `${Date.now()}_${blob.type.split('/')[1]}`);
+      const uploadResult = await uploadBytes(storageRef, blob);
+  
+      console.log('Upload result:', uploadResult);
+  
+      const publicUrl = await getDownloadURL(storageRef);
+      console.log('Public URL:', publicUrl);
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
+    }
+  };
+  const sendImage = async (imageUrl: string | null, caption: string) => {
+    console.log('Image URL:', imageUrl);
+    console.log('Caption:', caption);
+    setLoading(true);
+    if (imageUrl) {
+      const publicUrl = await uploadLocalImageUrl(imageUrl);
+      console.log(publicUrl);
+      if (publicUrl) {
+     await sendImageMessage(selectedChatId!, publicUrl, caption);
+      }
+    }
+    setLoading(false);
+    //setImageModalOpen2(false);
+  };
   
   return (
     <div className="flex overflow-hidden bg-gray-100 text-gray-800" style={{ height: '100vh' }}>
@@ -2201,7 +2290,6 @@ const handleForwardMessage = async () => {
  />
 </div>
 )}
-  
   <div className="flex justify-end space-x-3">
   <Menu as="div" className="relative inline-block text-left">
     <div className="flex items-right space-x-3">
@@ -2373,7 +2461,6 @@ const handleForwardMessage = async () => {
 ))}
   </div>
 </div>
-
       <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 relative">
       {selectedContact && (
   <div className="flex items-center justify-between p-1 border-b border-gray-300 bg-gray-100">
@@ -2779,35 +2866,70 @@ const handleForwardMessage = async () => {
     </span>
   </button>
   <textarea
-    ref={textareaRef}
-    className="flex-grow h-10 px-2 py-1.5 m-1 ml-2 border border-gray-300 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
-    placeholder="Type a message"
-    value={newMessage}
-    onChange={(e) => {
-      setNewMessage(e.target.value);
-      adjustHeight(e.target);
-    }}
-    rows={1}
-    style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-    onKeyDown={(e) => {
-      const target = e.target as HTMLTextAreaElement;
-      if (e.key === 'Enter') {
-        if (e.shiftKey) {
-          e.preventDefault();
-          setNewMessage((prev) => prev + '\n');
+  ref={textareaRef}
+  className="flex-grow h-10 px-2 py-1.5 m-1 ml-2 border border-gray-300 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
+  placeholder="Type a message"
+  value={newMessage}
+  onChange={(e) => {
+    setNewMessage(e.target.value);
+    adjustHeight(e.target);
+  }}
+  rows={1}
+  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+  onKeyDown={(e) => {
+    const target = e.target as HTMLTextAreaElement;
+    if (e.key === 'Enter') {
+      if (e.shiftKey) {
+        e.preventDefault();
+        setNewMessage((prev) => prev + '\n');
+      } else {
+        e.preventDefault();
+        if (selectedIcon === 'ws') {
+          handleSendMessage();
         } else {
-          e.preventDefault();
-          if (selectedIcon === 'ws') {
-            handleSendMessage();
-          } else {
-            sendTextMessage(selectedContact.id, newMessage, selectedContact);
+          sendTextMessage(selectedContact.id, newMessage, selectedContact);
+        }
+        setNewMessage('');
+        adjustHeight(target, true); // Reset height after sending message
+      }
+    }
+  }}
+  onPaste={(e) => {
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const blob = item.getAsFile();
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            setPastedImageUrl(url);
+            setImageModalOpen2(true);
           }
-          setNewMessage('');
-          adjustHeight(target, true); // Reset height after sending message
+          break;
         }
       }
-    }}
-  />
+    }
+  }}
+  onDragOver={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }}
+  onDrop={async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      const url = URL.createObjectURL(file);
+      setPastedImageUrl(url);
+      setImageModalOpen2(true);
+    }
+  }}
+/>
+
+
+
 </div>
 
           {isEmojiPickerOpen && (
@@ -2863,15 +2985,26 @@ const handleForwardMessage = async () => {
       <div className="mt-6">
         <p className="font-semibold text-lg mb-4">Contact Info</p>
         <div className="space-y-2 text-gray-700">
-          <p><span className="font-semibold text-blue-600">Tags:</span>
-            <div className="flex flex-wrap mt-2">
-              {selectedContact.tags.map((tag: any, index: any) => (
-                <span key={index} className="inline-block bg-blue-100 text-blue-800 text-sm font-semibold mr-2 mb-2 px-3 py-1 rounded border border-blue-400">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </p>
+        <p>
+  <span className="font-semibold text-blue-600">Tags:</span>
+  <div className="flex flex-wrap mt-2">
+    {selectedContact.tags.length > 0 ? (
+      selectedContact.tags.map((tag: string, index: number) => (
+        <div key={index} className="flex items-center mr-2 mb-2">
+          <span className="inline-block bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded border border-blue-400 mr-1">{tag}</span>
+          <button
+            className="p-1"
+            onClick={() => handleRemoveTag(selectedContact.id,tag)}
+          >
+            <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700" />
+          </button>
+        </div>
+      ))
+    ) : (
+      'Unassigned'
+    )}
+  </div>
+</p>
           <p><span className="font-semibold text-blue-600">Phone:</span> {selectedContact.phone}</p>
           <p><span className="font-semibold text-blue-600">Email:</span> {selectedContact.email || 'N/A'}</p>
           <p><span className="font-semibold text-blue-600">Company:</span> {selectedContact.companyName || 'N/A'}</p>
@@ -2949,10 +3082,72 @@ const handleForwardMessage = async () => {
 )}
 
       <ImageModal isOpen={isImageModalOpen} onClose={closeImageModal} imageUrl={modalImageUrl} />
+      <ImageModal2 isOpen={isImageModalOpen2} onClose={() => setImageModalOpen2(false)} imageUrl={pastedImageUrl} onSend={sendImage} />
+
       <ToastContainer />
 
     </div>
   );
 };
+interface ImageModalProps2 {
+  isOpen: boolean;
+  onClose: () => void;
+  imageUrl: string;
+  onSend: (url: string | null, caption: string) => void;
+}
 
+const ImageModal2: React.FC<ImageModalProps2> = ({ isOpen, onClose, imageUrl, onSend }) => {
+  const [caption, setCaption] = useState('');
+
+
+  const handleSendClick = () => {
+    setCaption('');
+    onSend(imageUrl, caption);
+   onClose(); // Close the modal after sending
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-400 bg-opacity-75" onClick={onClose}>
+      <div
+        className="relative bg-slate-400 rounded-lg shadow-lg w-[800px] h-[600px] p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <button
+            className="text-black hover:text-gray-800"
+            onClick={onClose}
+          >
+            <Lucide icon="X" className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="bg-slate-400 p-4 rounded-lg mb-4 flex justify-center items-center" style={{ height: '70%' }}>
+          <img
+            src={imageUrl}
+            alt="Modal Content"
+            className="rounded-md"
+            style={{ maxWidth: '100%', maxHeight: '100%' }}
+          />
+        </div>
+        <div className="flex items-center bg-slate-500 rounded-lg p-2">
+          <input
+            type="text"
+            placeholder="Add a caption"
+            className="flex-grow bg-white text-gray-800 p-2 rounded-lg focus:outline-none"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+          />
+          <button
+            className="ml-2 bg-primary text-white p-2 rounded-lg"
+            onClick={handleSendClick}
+          >
+            <Lucide icon="Send" className="w-5 h-5" />
+          </button>
+         
+        </div>
+      </div>
+    </div>
+  );
+};
 export default Main;
