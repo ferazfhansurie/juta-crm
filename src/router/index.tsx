@@ -61,7 +61,6 @@ import Icon from "../pages/Icon";
 import LoadingIcon from "../pages/LoadingPage";
 import RegularForm from "../pages/RegularForm";
 import Datepicker from "../pages/Datepicker";
-import TomSelect from "../pages/TomSelect";
 import FileUpload from "../pages/FileUpload";
 import WysiwygEditor from "../pages/WysiwygEditor";
 import Validation from "../pages/Validation";
@@ -153,7 +152,6 @@ function Router() {
         { path: "icon", element: <Icon /> },
         { path: "regular-form", element: <RegularForm /> },
         { path: "datepicker", element: <Datepicker /> },
-        { path: "tom-select", element: <TomSelect /> },
         { path: "file-upload", element: <FileUpload /> },
         { path: "wysiwyg-editor", element: <WysiwygEditor /> },
         { path: "validation", element: <Validation /> },

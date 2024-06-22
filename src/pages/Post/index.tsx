@@ -7,7 +7,7 @@ import { FormInput, FormLabel, FormSwitch } from "@/components/Base/Form";
 import Lucide from "@/components/Base/Lucide";
 import Tippy from "@/components/Base/Tippy";
 import Litepicker from "@/components/Base/Litepicker";
-import TomSelect from "@/components/Base/TomSelect";
+
 import { ClassicEditor } from "@/components/Base/Ckeditor";
 import { Menu, Tab } from "@/components/Base/Headless";
 
@@ -279,35 +279,11 @@ function Main() {
             </div>
             <div className="mt-3">
               <FormLabel htmlFor="post-form-3">Categories</FormLabel>
-              <TomSelect
-                id="post-form-3"
-                value={categories}
-                onChange={setCategories}
-                className="w-full"
-                multiple
-              >
-                <option value="1">Horror</option>
-                <option value="2">Sci-fi</option>
-                <option value="3">Action</option>
-                <option value="4">Drama</option>
-                <option value="5">Comedy</option>
-              </TomSelect>
+            
             </div>
             <div className="mt-3">
               <FormLabel htmlFor="post-form-4">Tags</FormLabel>
-              <TomSelect
-                id="post-form-4"
-                value={tags}
-                onChange={setTags}
-                className="w-full"
-                multiple
-              >
-                <option value="1">Leonardo DiCaprio</option>
-                <option value="2">Johnny Deep</option>
-                <option value="3">Robert Downey, Jr</option>
-                <option value="4">Samuel L. Jackson</option>
-                <option value="5">Morgan Freeman</option>
-              </TomSelect>
+         
             </div>
             <FormSwitch className="flex flex-col items-start mt-3">
               <FormSwitch.Label htmlFor="post-form-5" className="mb-2 ml-0">

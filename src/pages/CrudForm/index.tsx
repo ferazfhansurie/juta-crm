@@ -1,5 +1,5 @@
 import { ClassicEditor } from "@/components/Base/Ckeditor";
-import TomSelect from "@/components/Base/TomSelect";
+
 import React, { useState, useEffect } from "react";
 import Button from "@/components/Base/Button";
 import { getAuth, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from "firebase/auth";
@@ -228,18 +228,18 @@ setUserData({
               />
             </div>
             <div className="mt-3">
-              <FormLabel htmlFor="crud-form-2">Role</FormLabel>
-              <TomSelect
-                id="crud-form-2"
-                value={categories}
-                onChange={setCategories}
-                className="w-full"
-              >
-                <option value="1">Admin</option>
-                <option value="2">Sales</option>
-                <option value="3">Others</option>
-              </TomSelect>
-            </div>
+  <FormLabel htmlFor="crud-form-2">Role</FormLabel>
+  <select
+    id="crud-form-2"
+    value={categories}
+    onChange={handleChange}
+    className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm w-full"
+  >
+    <option value="1">Admin</option>
+    <option value="2">Sales</option>
+    <option value="3">Others</option>
+  </select>
+</div>
             <div className="mt-3">
               <FormInput
                 name="password"

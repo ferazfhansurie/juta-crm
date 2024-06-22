@@ -10,7 +10,7 @@ import {
 } from "@/components/Base/Form";
 import Lucide from "@/components/Base/Lucide";
 import Tippy from "@/components/Base/Tippy";
-import TomSelect from "@/components/Base/TomSelect";
+
 import { Menu } from "@/components/Base/Headless";
 
 function Main() {
@@ -166,18 +166,13 @@ function Main() {
                         <FormLabel htmlFor="update-profile-form-2">
                           Nearest MRT Station
                         </FormLabel>
-                        <TomSelect
-                          id="update-profile-form-2"
-                          value={select}
-                          onChange={setSelect}
-                          className="w-full"
-                        >
+                       
                           <option value="1">Admiralty</option>
                           <option value="2">Aljunied</option>
                           <option value="3">Ang Mo Kio</option>
                           <option value="4">Bartley</option>
                           <option value="5">Beauty World</option>
-                        </TomSelect>
+                
                       </div>
                     </div>
                     <div className="col-span-12 2xl:col-span-6">
@@ -185,28 +180,7 @@ function Main() {
                         <FormLabel htmlFor="update-profile-form-3">
                           Postal Code
                         </FormLabel>
-                        <TomSelect
-                          id="update-profile-form-3"
-                          value={select}
-                          onChange={setSelect}
-                          className="w-full"
-                        >
-                          <option value="1">
-                            018906 - 1 STRAITS BOULEVARD SINGA...
-                          </option>
-                          <option value="2">
-                            018910 - 5A MARINA GARDENS DRIVE...
-                          </option>
-                          <option value="3">
-                            018915 - 100A CENTRAL BOULEVARD...
-                          </option>
-                          <option value="4">
-                            018925 - 21 PARK STREET MARINA...
-                          </option>
-                          <option value="5">
-                            018926 - 23 PARK STREET MARINA...
-                          </option>
-                        </TomSelect>
+                    
                       </div>
                       <div className="mt-3">
                         <FormLabel htmlFor="update-profile-form-4">
@@ -359,15 +333,8 @@ function Main() {
                     <FormLabel htmlFor="update-profile-form-12">
                       Bank Name
                     </FormLabel>
-                    <TomSelect
-                      id="update-profile-form-12"
-                      value={select}
-                      onChange={setSelect}
-                      className="w-full"
-                    >
-                      <option value="1">SBI - STATE BANK OF INDIA</option>
-                      <option value="2">CITI BANK - CITI BANK</option>
-                    </TomSelect>
+                
+                   
                   </div>
                   <div className="mt-3">
                     <FormLabel htmlFor="update-profile-form-13">

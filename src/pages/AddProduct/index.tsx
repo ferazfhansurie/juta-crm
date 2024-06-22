@@ -12,7 +12,7 @@ import {
   InputGroup,
   FormSwitch,
 } from "@/components/Base/Form";
-import TomSelect from "@/components/Base/TomSelect";
+
 import { ClassicEditor } from "@/components/Base/Ckeditor";
 import Alert from "@/components/Base/Alert";
 import Lucide from "@/components/Base/Lucide";
@@ -224,21 +224,7 @@ function Main() {
                     </div>
                   </FormLabel>
                   <div className="flex-1 w-full mt-3 xl:mt-0">
-                    <TomSelect
-                      value={subcategory}
-                      onChange={setSubcategory}
-                      options={{
-                        placeholder: "Etalase",
-                      }}
-                      className="w-full"
-                      multiple
-                    >
-                      {_.take(fakerData, 2).map((faker, fakerKey) => (
-                        <option key={fakerKey} value={fakerKey}>
-                          {faker.categories[0].name}
-                        </option>
-                      ))}
-                    </TomSelect>
+                
                   </div>
                 </FormInline>
               </div>
