@@ -10,7 +10,7 @@ import Tippy from "@/components/Base/Tippy";
 import { Dialog, Menu } from "@/components/Base/Headless";
 import Table from "@/components/Base/Table";
 import { getAuth } from 'firebase/auth';
-import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc,updateDoc } from 'firebase/firestore';
 import { initializeApp } from "firebase/app";
 import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { useContacts } from "@/contact";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import LZString from 'lz-string';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -463,6 +464,21 @@ setLoading(true);
       tags: [...new Set([...(contact.tags || []), tagName])]
     }));
   
+    const tagSessionMap: { [key: string]: number } = {
+      '1 session': 1,
+      '10 sessions': 10,
+      '20 sessions': 20,
+      '20 session': 20,
+      '4 sessions': 4,
+      'invoice duo 1 session': 1,
+      'invoice duo 10 sessions': 10,
+      'invoice duo 20 sessions': 20,
+      'invoice duo 4 sessions': 4,
+      'invoice private 1 session': 1,
+      'invoice private 10 sessions': 10,
+      // Add more mappings as needed
+    };
+  
     try {
       for (const contact of updatedContacts) {
         const success = await updateContactTags(contact.id, accessToken, contact.tags);
@@ -470,6 +486,40 @@ setLoading(true);
           console.error(`Failed to add tag "${tagName}" to contact with ID ${contact.id}`);
         } else {
           console.log(`Tag "${tagName}" added to contact with ID ${contact.id}`);
+          
+          // Determine the number of sessions based on the tag
+          const sessionCount = tagSessionMap[tagName] || 0;
+  
+          if (sessionCount > 0) {
+            // Fetch session data from the company collection
+            const sessionDocRef = doc(firestore, `companies/${companyId}/session`, contact.id);
+            const sessionDocSnapshot = await getDoc(sessionDocRef);
+            
+            if (sessionDocSnapshot.exists()) {
+              const sessionData = sessionDocSnapshot.data();
+              const currentSessionCount = sessionData.session || 0;
+  
+              // Update session count in the company collection
+              const newSessionCount = currentSessionCount + sessionCount;
+              await updateDoc(sessionDocRef, { session: newSessionCount });
+              console.log(`Session count updated for contact ${contact.id} in company collection`);
+  
+              // Update session count in the user collection
+              const appointmentsRef = collection(firestore, `user/${user?.email}/appointments`);
+              const appointmentsSnapshot = await getDocs(appointmentsRef);
+              appointmentsSnapshot.forEach(async (appointmentDoc) => {
+                const appointmentData = appointmentDoc.data();
+                const contactToUpdate = appointmentData.contacts.find((c: any) => c.id === contact.id);
+                if (contactToUpdate) {
+                  contactToUpdate.session = newSessionCount;
+                  await updateDoc(doc(firestore, `user/${user?.email}/appointments`, appointmentDoc.id), {
+                    contacts: appointmentData.contacts
+                  });
+                  console.log(`Session count updated for contact ${contact.id} in user collection appointment ${appointmentDoc.id}`);
+                }
+              });
+            }
+          }
         }
       }
   
@@ -479,11 +529,20 @@ setLoading(true);
           updatedContacts.find(updatedContact => updatedContact.id === contact.id) || contact
         )
       );
+      const allContacts = contacts.map(contact =>
+        updatedContacts.find(updatedContact => updatedContact.id === contact.id) || contact
+      );
+      localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
+      toast.success(`Tag "${tagName}" added to contact`);
       setSelectedContacts([]);
+      
     } catch (error) {
       console.error('Error tagging contacts:', error);
     }
+    
   };
+  
+  
 const handleRemoveTag = async (contactId: string, tagName: string) => {
   const user = auth.currentUser;
 
@@ -541,11 +600,12 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
         )
       );
 
-      toast.success("Tag removed successfully!");
+   
     } else {
       console.error('Failed to remove tag', await response.json());
       toast.error("Failed to remove tag.");
     }
+    toast.success("Tag removed successfully!");
   } catch (error) {
     console.error('Error removing tag', error);
     toast.error("An error occurred while removing the tag.");
