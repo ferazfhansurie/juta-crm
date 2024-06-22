@@ -13,6 +13,8 @@ import { format } from 'date-fns';
 import { getDoc, getFirestore, doc, setDoc, collection, addDoc, getDocs, updateDoc, deleteDoc, QueryDocumentSnapshot, DocumentData, query, where } from 'firebase/firestore';
 import { useContacts } from "@/contact";
 import Select from 'react-select';
+import { error } from "console";
+import { title } from "process";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -91,6 +93,7 @@ function Main() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterDate, setFilterDate] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const { contacts: initialContacts } = useContacts();
   const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [selectedStaff, setSelectedStaff] = useState<string>('');
@@ -130,10 +133,19 @@ function Main() {
     fetchEmployees();
   }, []);
 
+  useEffect(() => {
+    if (auth.currentUser?.email) {
+      fetchAppointments(auth.currentUser.email);
+    }
+  }, [selectedEmployeeId]);
+
   const fetchEmployees = async () => {
-    const auth = getAuth(app);
-    const user = auth.currentUser;
     try {
+      const auth = getAuth(app);
+      const user = auth.currentUser;
+
+      if(!user) return;
+
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
@@ -173,15 +185,18 @@ function Main() {
     try {
       const userRef = doc(firestore, 'user', selectedUserId);
       const appointmentsCollectionRef = collection(userRef, 'appointments');
-      const querySnapshot = await getDocs(appointmentsCollectionRef);
-
+      const appointmentsQuery = selectedEmployeeId 
+        ? query(appointmentsCollectionRef, where('staff', '==', selectedEmployeeId))
+        : appointmentsCollectionRef;
+      const querySnapshot = await getDocs(appointmentsQuery);
+  
       const allAppointments: Appointment[] = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as Appointment));
-
-      const formattedAppointments = allAppointments.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()); // Sort by newest on top
-
+  
+      const formattedAppointments = allAppointments.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());
+  
       setAppointments(formattedAppointments);
     } catch (error) {
       console.error('Error fetching appointments:', error);
@@ -193,7 +208,6 @@ function Main() {
   const handleEmployeeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const employeeId = event.target.value;
     setSelectedEmployeeId(employeeId);
-    fetchAppointments(employeeId);
   };
 
   const fetchContactSession = async (contactId: string) => {
@@ -274,54 +288,54 @@ function Main() {
   };
 
 
-const handleSaveAppointment = async () => {
-  const { id, title, dateStr, startTimeStr, endTimeStr, extendedProps } = currentEvent;
-  const startTime = new Date(`${dateStr}T${startTimeStr}`).toISOString();
-  const endTime = new Date(`${dateStr}T${endTimeStr}`).toISOString();
+  const handleSaveAppointment = async () => {
+    const { id, title, dateStr, startTimeStr, endTimeStr, extendedProps } = currentEvent;
+    const startTime = new Date(`${dateStr}T${startTimeStr}`).toISOString();
+    const endTime = new Date(`${dateStr}T${endTimeStr}`).toISOString();
 
-  const updatedAppointment: Appointment = {
-    id,
-    title,
-    startTime,
-    endTime,
-    address: extendedProps.address,
-    appointmentStatus: extendedProps.appointmentStatus,
-    staff: extendedProps.staff,
-    package: extendedProps.package,
-    dateAdded: extendedProps.dateAdded,
-    contacts: selectedContacts.map(contact => ({
-      id: contact.id,
-      name: contact.contactName,
-      session: contactSessions[contact.id] || 0
-    })),
+    const updatedAppointment: Appointment = {
+      id,
+      title,
+      startTime,
+      endTime,
+      address: extendedProps.address,
+      appointmentStatus: extendedProps.appointmentStatus,
+      staff: extendedProps.staff,
+      package: extendedProps.package,
+      dateAdded: extendedProps.dateAdded,
+      contacts: selectedContacts.map(contact => ({
+        id: contact.id,
+        name: contact.contactName,
+        session: contactSessions[contact.id] || 0
+      })),
+    };
+
+    try {
+      const user = auth.currentUser;
+      if (!user || !user.email) {
+        console.error('No authenticated user or email found');
+        return;
+      }
+
+      const userRef = doc(firestore, 'user', user.email);
+      const appointmentsCollectionRef = collection(userRef, 'appointments');
+      const appointmentRef = doc(appointmentsCollectionRef, id); // Ensure id is not empty
+
+      await setDoc(appointmentRef, updatedAppointment);
+
+      setAppointments(appointments.map(appointment =>
+        appointment.id === id ? updatedAppointment : appointment
+      ));
+      setEditModalOpen(false);
+
+      // Decrement session count if the status is confirmed
+      if (updatedAppointment.appointmentStatus === 'confirmed') {
+        updatedAppointment.contacts.forEach(contact => decrementSession(contact.id));
+      }
+    } catch (error) {
+      console.error('Error saving appointment:', error);
+    }
   };
-
-  try {
-    const user = auth.currentUser;
-    if (!user || !user.email) {
-      console.error('No authenticated user or email found');
-      return;
-    }
-
-    const userRef = doc(firestore, 'user', user.email);
-    const appointmentsCollectionRef = collection(userRef, 'appointments');
-    const appointmentRef = doc(appointmentsCollectionRef, id); // Ensure id is not empty
-
-    await setDoc(appointmentRef, updatedAppointment);
-
-    setAppointments(appointments.map(appointment =>
-      appointment.id === id ? updatedAppointment : appointment
-    ));
-    setEditModalOpen(false);
-
-    // Decrement session count if the status is confirmed
-    if (updatedAppointment.appointmentStatus === 'confirmed') {
-      updatedAppointment.contacts.forEach(contact => decrementSession(contact.id));
-    }
-  } catch (error) {
-    console.error('Error saving appointment:', error);
-  }
-};
   
 
   const handleDateSelect = (selectInfo: any) => {
@@ -533,7 +547,7 @@ const handleSaveAppointment = async () => {
       case 'showed':
         return 'bg-blue-500';
       case 'noshow':
-        return 'bg-gray-500';
+        return 'bg-black';
       case 'invalid':
         return 'bg-purple-500';
       default:
@@ -579,11 +593,11 @@ const handleSaveAppointment = async () => {
       case 'showed':
         return 'blue';
       case 'noshow':
-        return 'gray';
+        return 'black';
       case 'invalid':
         return 'purple';
       default:
-        return 'gray';
+        return 'orange';
     }
   };
 
@@ -651,8 +665,8 @@ const handleSaveAppointment = async () => {
   
       const contactData = contactSnapshot.data();
       const currentSessionCount = contactData.session;
-  console.log(currentSessionCount);
-      // Decrement the session count
+      console.log(currentSessionCount);
+      // Increment the session count
       const newSessionCount = currentSessionCount > 0 ? currentSessionCount - 1 : 0;
       console.log(newSessionCount);
       // Update the session count in the state
@@ -668,19 +682,71 @@ const handleSaveAppointment = async () => {
     }
   };
 
+  const incrementSession = async (contactId: string) => {
+    // Fetch the current session count from the database
+    try {
+      const auth = getAuth(app);
+      const user = auth.currentUser;
+      if (!user || !user.email) {
+        console.error('No authenticated user or email found');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+  
+      const dataUser = docUserSnapshot.data();
+      if (!dataUser) {
+        console.error('No data found for user!');
+        return;
+      }
+  
+      const companyId = dataUser.companyId as string;
+      const contactRef = doc(firestore, `companies/${companyId}/session`, contactId);
+      const contactSnapshot = await getDoc(contactRef);
+  
+      if (!contactSnapshot.exists()) {
+        console.error('No such document for contact!');
+        return;
+      }
+  
+      const contactData = contactSnapshot.data();
+      const currentSessionCount = contactData.session;
+      console.log(currentSessionCount);
+      // Increment the session count
+      const newSessionCount = currentSessionCount < getPackageSessions ? currentSessionCount + getPackageSessions : 0;
+      console.log(newSessionCount);
+      // Update the session count in the state
+      setContactSessions({
+        ...contactSessions,
+        [contactId]: newSessionCount
+      });
+  
+      // Update the session count in the database
+      await updateDoc(contactRef, { session: newSessionCount });
+    } catch (error) {
+      console.error('Error incrementing session count:', error);
+    }
+  };
+
   return (
     <>
       <div className="flex flex-col items-center mt-8 intro-y sm:flex-row">
         <div className="flex w-full mt-4 sm:w-auto sm:mt-0">
-          {employees.length > 0 && (
-            <select value={selectedEmployeeId} onChange={handleEmployeeChange} className="text-white bg-primary hover:bg-white hover:text-primary hover focus:ring-2 focus:ring-blue-300 font-medium rounded-lg text-sm text-start inline-flex items-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 mr-4">
-              {employees.map(employee => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </option>
-              ))}
-            </select>
-          )}
+        {employees.length > 0 && (
+          <select value={selectedEmployeeId} onChange={handleEmployeeChange} className="text-white bg-primary hover:bg-white hover:text-primary hover focus:ring-2 focus:ring-blue-300 font-medium rounded-lg text-sm text-start inline-flex items-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 mr-4">
+            <option value="">Select an employee</option>
+            {employees.map(employee => (
+              <option key={employee.id} value={employee.id}>
+                {employee.name}
+              </option>
+            ))}
+          </select>
+        )}
         </div>
         <div className="flex flex-col items-center sm:flex-row w-full mt-4 sm:w-auto sm:mt-0">
           <select value={filterStatus} onChange={handleStatusFilterChange} className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm mr-4">
@@ -739,52 +805,50 @@ const handleSaveAppointment = async () => {
               </div>
             </div>
             <div className="mt-6 mb-5 border-t border-b border-slate-200/60 dark:border-darkmode-400">
-            {filteredAppointments.length > 0 ? (
-  filteredAppointments.map((appointment, index) => (
-    <div key={index} className="relative" onClick={() => handleAppointmentClick(appointment)}>
-      <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-darkmode-400">
-        <div className={`w-2 h-20 mr-3 rounded-sm ${getStatusColor(appointment.appointmentStatus)}`}></div>
-        <div className="pr-10 item-center">
-          <div className="truncate event__title text-lg font-medium">{appointment.title}</div>
-          <div className="text-slate-500 text-xs mt-0.5">
-            {new Date(appointment.startTime).toLocaleString('en-US', {
-              weekday: 'long', // Long name of the day of the week
-              month: 'long',   // Full name of the month
-              day: 'numeric',  // Day of the month
-              hour: 'numeric', // Hour
-              minute: 'numeric', // Minute
-              hour12: true     // 12-hour format
-            })} - {new Date(appointment.endTime).toLocaleString('en-US', {
-              hour: 'numeric',
-              minute: 'numeric',
-              hour12: true
-            })}
-          </div>
-          <div className="text-slate-500 text-xs mt-0.5">Package: {getPackageName(appointment.package)}</div>
-          <div className="text-slate-500 text-xs mt-0.5">
-            Contacts:{" "}
-            {appointment.contacts && appointment.contacts.length > 0 ? (
-              <span>
-                {appointment.contacts.map(contact => (
-                  <div className="capitalize" key={contact.id}>
-                    {contact.name} | Session {contact.session}
+             {filteredAppointments.length > 0 ? (
+                filteredAppointments.map((appointment, index) => (
+                  <div key={index} className="relative" onClick={() => handleAppointmentClick(appointment)}>
+                    <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-darkmode-400">
+                      <div className={`w-2 h-20 mr-3 rounded-sm ${getStatusColor(appointment.appointmentStatus)}`}></div>
+                      <div className="pr-10 item-center">
+                        <div className="truncate event__title text-lg font-medium">{appointment.title}</div>
+                        <div className="text-slate-500 text-xs mt-0.5">
+                          {new Date(appointment.startTime).toLocaleString('en-US', {
+                            weekday: 'long', // Long name of the day of the week
+                            month: 'long',   // Full name of the month
+                            day: 'numeric',  // Day of the month
+                            hour: 'numeric', // Hour
+                            minute: 'numeric', // Minute
+                            hour12: true     // 12-hour format
+                          })} - {new Date(appointment.endTime).toLocaleString('en-US', {
+                            hour: 'numeric',
+                            minute: 'numeric',
+                            hour12: true
+                          })}
+                        </div>
+                        <div className="text-slate-500 text-xs mt-0.5">Package: {getPackageName(appointment.package)}</div>
+                        <div className="text-slate-500 text-xs mt-0.5">
+                          Contacts:{" "}
+                          {appointment.contacts && appointment.contacts.length > 0 ? (
+                            <span>
+                              {appointment.contacts.map(contact => (
+                                <div className="capitalize" key={contact.id}>
+                                  {contact.name} | Session {contact.session}
+                                </div>
+                              ))}
+                            </span>
+                          ) : (
+                            <span> No contacts</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </span>
-            ) : (
-              <span> No contacts</span>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  ))
-) : (
-  <div className="p-3 text-center text-slate-500">
-    No events yet
-  </div>
-)}
-
+                ))) : (
+                <div className="p-3 text-center text-slate-500">
+                  No events yet
+                </div>
+              )}
             </div>
           </div>
         </div>
