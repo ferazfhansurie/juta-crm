@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc,setDoc } from "firebase/firestore";
 import { Dialog, Transition } from '@headlessui/react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -28,48 +28,67 @@ interface PieSelection {
   pie: string;
   size: string;
   quantity: number;
+  remarks: string;
 }
+
 
 interface Order {
   id: string;
-  date: string;
+  createdDate: string;
   name: string;
+  phoneNumber: string; // Add phoneNumber field
   pies: PieSelection[];
   type: string;
   remarks: string;
   status: string;
+  madeDate?: string;
+  requiredDate?: string;
 }
+
 
 interface DeliveryForm {
   cost: string;
   createdOn: Timestamp | null;
-  dateDelivery: string;
+  dateDelivery?: string;
   deliveryPerson: string;
   dropOffAddress: string;
   orderId: string;
   pickupLocation: string;
   recipientName: string;
-  timeDelivery: string;
+  timeDelivery?: string;
+}
+interface Material{
+  id:string;
+  name:string;
 }
 
 const Orders = () => {
   const [ordersData, setOrdersData] = useState<Order[]>([]);
+  const [draftOrders, setDraftOrders] = useState<Order[]>([]);
+const [submittedOrders, setSubmittedOrders] = useState<Order[]>([]);
   const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [materialsData, setMaterialsData] = useState<Material[]>([]);
   const [newOrder, setNewOrder] = useState<Order>({
     id: '',
-    date: '',
+    createdDate: new Date().toISOString().split('T')[0], // Set the created date to the current date
     name: '',
-    pies: [{ pie: '', size: '', quantity: 0 }],
+    phoneNumber:'',
+    pies: [{ pie: '', size: '', quantity: 0, remarks: '' }],
     type: '',
     remarks: '',
-    status: 'Pending'
+    status: 'Pending',
+    madeDate: '',
+    requiredDate: '',
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<Order>>({
-    pies: [{ pie: '', size: '', quantity: 0 }]
+    pies: [{ pie: '', size: '', quantity: 0,remarks:'' }]
   });
   const [openDeliveryDialog, setOpenDeliveryDialog] = useState(false);
-  const [dateRange, setDateRange] = useState([startOfDay(subDays(new Date(), 30)), endOfDay(new Date())]);
+  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
   const [deliveryFormData, setDeliveryFormData] = useState<DeliveryForm>({
     cost: '',
     createdOn: null,
@@ -77,36 +96,75 @@ const Orders = () => {
     deliveryPerson: '',
     dropOffAddress: '',
     orderId: '',
-    pickupLocation: 'TTDI',
+    pickupLocation: 'Taman Tun Dr Ismail',
     recipientName: '',
     timeDelivery: '',
   });
+  const fetchMaterials = async () => {
+    try {
+      const materialsSnapshot = await getDocs(collection(db, "companies/010/materials"));
+      const materialsList: Material[] = [];
+      materialsSnapshot.forEach((doc) => {
+        materialsList.push({ id: doc.id, ...doc.data() } as Material);
+      });
+      setMaterialsData(materialsList);
+    } catch (error) {
+      console.error('Error fetching materials data:', error);
+    }
+  };
+  const handleOpenEditDialog = (order: Order) => {
+    setEditingOrder(order);
+    setOpenEditDialog(true);
+  };
 
+  const handleCloseEditDialog = () => {
+    setOpenEditDialog(false);
+    setEditingOrder(null);
+  };
   const fetchOrders = async () => {
     try {
       const ordersSnapshot = await getDocs(collection(db, "companies/010/orders"));
-      const ordersList: Order[] = [];
+      const draftList: Order[] = [];
+      const submittedList: Order[] = [];
+      
       ordersSnapshot.forEach((doc) => {
         const data = doc.data();
         if (data && Array.isArray(data.pies)) {
-          ordersList.push({ id: doc.id, ...data } as Order);
+          if (data.status === 'Draft') {
+            draftList.push({ id: doc.id, ...data } as Order);
+          } else {
+            submittedList.push({ id: doc.id, ...data } as Order);
+          }
         }
       });
-      const filteredOrders = ordersList.filter(order => {
-        const orderDate = new Date(order.date);
-        return orderDate >= dateRange[0] && orderDate <= dateRange[1];
-      });
-      filteredOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      console.log('Orders data:', filteredOrders);
-      setOrdersData(filteredOrders);
+  
+      console.log("Fetched Draft Orders:", draftList);
+      console.log("Fetched Submitted Orders:", submittedList);
+  
+      const applyFilters = (orders: Order[]) => {
+        return orders.filter(order => {
+          const orderDate = new Date(order.createdDate);
+          const isValidDate = orderDate instanceof Date && !isNaN(orderDate.getTime());
+          const dateInRange = (dateRange[0] && dateRange[1]) ? (isValidDate && orderDate >= dateRange[0] && orderDate <= dateRange[1]) : true;
+          const matchesSearchTerm = order.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                     order.pies.some(pie => pie.pie.toLowerCase().includes(searchTerm.toLowerCase()));
+          return dateInRange && matchesSearchTerm;
+        }).sort((a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime());
+      };
+  
+      setDraftOrders(applyFilters(draftList));
+      setSubmittedOrders(applyFilters(submittedList));
     } catch (error) {
       console.error('Error fetching data:', error);
     }
   };
+  
+  
 
   useEffect(() => {
     fetchOrders();
-  }, [dateRange]);
+    fetchMaterials();
+  }, [dateRange, searchTerm]);
 
   const handleOpenAddDialog = () => {
     setOpenAddDialog(true);
@@ -116,9 +174,10 @@ const Orders = () => {
     setOpenAddDialog(false);
     setNewOrder({
       id: '',
-      date: '',
+      createdDate: '',
+      phoneNumber:'',
       name: '',
-      pies: [{ pie: '', size: '', quantity: 0 }],
+      pies: [{ pie: '', size: '', quantity: 0,remarks:'' }],
       type: '',
       remarks: '',
       status: 'Pending'
@@ -141,7 +200,7 @@ const Orders = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ address: order.dropOffAddress }),
+        body: JSON.stringify({ address: order.dropOffAddress ,pickup:order.pickupLocation}),
       });
       const data = await response.json();
       return parseFloat(data);
@@ -164,7 +223,7 @@ const Orders = () => {
         deliveryPerson: '',
         dropOffAddress: '',
         orderId: '',
-        pickupLocation: '',
+        pickupLocation: 'Taman Tun Dr Ismail',
         recipientName: '',
         timeDelivery: '',
       });
@@ -173,6 +232,7 @@ const Orders = () => {
       console.error('Error submitting delivery information:', error);
     }
   };
+  
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -181,7 +241,7 @@ const Orders = () => {
       [name]: value
     }));
   };
-
+  
   const handlePiesChange = (index: number, field: string, value: string | number) => {
     const updatedPies = [...newOrder.pies];
     updatedPies[index] = { ...updatedPies[index], [field]: value };
@@ -198,7 +258,16 @@ const Orders = () => {
       [name]: value
     }));
   };
-
+  const submitDraftOrder = async (orderId: string) => {
+    try {
+      const orderRef = doc(db, `companies/010/orders/${orderId}`);
+      await updateDoc(orderRef, { status: 'Submitted' });
+      fetchOrders();
+    } catch (error) {
+      console.error('Error submitting drafted order:', error);
+    }
+  };
+  
   const handleEditPiesChange = (index: number, field: string, value: string | number) => {
     const updatedPies = [...(editFormData.pies || [])];
     updatedPies[index] = { ...updatedPies[index], [field]: value };
@@ -207,7 +276,6 @@ const Orders = () => {
       pies: updatedPies
     }));
   };
-
   const handleDeliveryChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setDeliveryFormData(prevState => ({
@@ -219,14 +287,14 @@ const Orders = () => {
   const addPie = () => {
     setNewOrder(prevState => ({
       ...prevState,
-      pies: [...prevState.pies, { pie: '', size: '', quantity: 0 }]
+      pies: [...prevState.pies, { pie: '', size: '', quantity: 0,remarks:'' }]
     }));
   };
 
   const addEditPie = () => {
     setEditFormData(prevState => ({
       ...prevState,
-      pies: [...(prevState.pies || []), { pie: '', size: '', quantity: 0 }]
+      pies: [...(prevState.pies || []), { pie: '', size: '', quantity: 0 ,remarks:''}]
     }));
   };
 
@@ -248,15 +316,28 @@ const Orders = () => {
 
   const submitNewOrder = async (isDraft: boolean) => {
     try {
-      const orderData = { ...newOrder, status: isDraft ? 'Draft' : 'Pending' };
-      const docRef = await addDoc(collection(db, "companies/010/orders"), orderData);
-      await updateDoc(doc(db, `companies/010/orders/${docRef.id}`), { id: docRef.id });
+      const lastSixDigits = newOrder.phoneNumber.slice(-6);
+      const currentDate = new Date().toLocaleDateString('en-GB').split('/').reverse().join(''); // Format as yymmdd
+      const orderId = `${lastSixDigits}${currentDate}`;
+  
+      const orderData = {
+        ...newOrder,
+        id: orderId, // Set the order ID
+        status: isDraft ? 'Draft' : 'Submitted',
+        createdDate: new Date().toISOString().split('T')[0], // Set the created date to the current date
+      };
+  
+      // Use setDoc with the specific document ID
+      await setDoc(doc(db, "companies/010/orders", orderId), orderData);
       fetchOrders();
       handleCloseAddDialog();
     } catch (error) {
       console.error('Error submitting new order:', error);
     }
   };
+  
+  
+  
 
   const startEdit = (order: Order) => {
     setEditingId(order.id);
@@ -288,123 +369,63 @@ const Orders = () => {
       console.error('Error deleting order:', error);
     }
   };
-
-  const renderOrdersTable = () => (
+ 
+  const renderOrdersTable = (orders: Order[], isDraft: boolean) => (
     <div className="max-w-full overflow-x-auto shadow-md sm:rounded-lg">
       <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
           <tr>
             <th scope="col" className="px-6 py-3">Order ID</th>
-            <th scope="col" className="px-6 py-3">Date</th>
+            <th scope="col" className="px-6 py-3">Created Date</th>
+            <th scope="col" className="px-6 py-3">Made Date</th>
+            <th scope="col" className="px-6 py-3">Required Date</th>
             <th scope="col" className="px-6 py-3">Name</th>
+            <th scope="col" className="px-6 py-3">Phone Number</th>
             <th scope="col" className="px-6 py-3">Pies</th>
-            <th scope="col" className="px-6 py-3">Type</th>
+            <th scope="col" className="px-6 py-3">Delivery</th>
             <th scope="col" className="px-6 py-3">Remarks</th>
             <th scope="col" className="px-6 py-3">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {ordersData.map((order, index) => (
+          {orders.map((order, index) => (
             <tr
               key={order.id}
               className={clsx(index % 2 === 0 ? 'bg-white' : 'bg-gray-50', 'border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600')}
             >
               <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{order.id}</td>
-              <td className="px-6 py-4">{editingId === order.id ? <input type="date" name="date" value={editFormData.date || ''} onChange={handleEditChange} className="w-full border p-1 rounded-md" /> : order.date}</td>
-              <td className="px-6 py-4">{editingId === order.id ? <input type="text" name="name" value={editFormData.name || ''} onChange={handleEditChange} className="w-full border p-1 rounded-md" /> : order.name}</td>
+              <td className="px-6 py-4">{order.createdDate}</td>
+              <td className="px-6 py-4">{order.madeDate}</td>
+              <td className="px-6 py-4">{order.requiredDate}</td>
+              <td className="px-6 py-4">{order.name}</td>
+              <td className="px-6 py-4">{order.phoneNumber}</td>
               <td className="px-6 py-4">
-                {editingId === order.id ? (
-                  <>
-                    {(editFormData.pies || []).map((pie, pieIndex) => (
-                      <div key={pieIndex} className="flex space-x-2 mt-2">
-                        <select
-                          name={`edit-pie-${pieIndex}`}
-                          onChange={(e) => handleEditPiesChange(pieIndex, 'pie', e.target.value)}
-                          className="w-1/2 border p-2 rounded"
-                          value={pie.pie}
-                        >
-                          <option value="">Select Pie</option>
-                          <option value="Classic Apple Pie">Classic Apple Pie</option>
-                          <option value="Johnny Blueberry">Johnny Blueberry</option>
-                          <option value="Lady Pineapple">Lady Pineapple</option>
-                          <option value="Caramel 'O' Pecan">Caramel 'O' Pecan</option>
-                        </select>
-                        <select
-                          name={`edit-size-${pieIndex}`}
-                          onChange={(e) => handleEditPiesChange(pieIndex, 'size', e.target.value)}
-                          className="w-1/4 border p-2 rounded"
-                          value={pie.size}
-                        >
-                          <option value="">Select Size</option>
-                          <option value="Regular 5+” (4-5 servings)">Regular 5+” (4-5 servings)</option>
-                          <option value="Medium 7+” (7-9 servings)">Medium 7+” (7-9 servings)</option>
-                          <option value="Large 9+” (12-14 servings)">Large 9+” (12-14 servings)</option>
-                        </select>
-                        <input
-                          type="number"
-                          name={`edit-quantity-${pieIndex}`}
-                          onChange={(e) => handleEditPiesChange(pieIndex, 'quantity', parseInt(e.target.value))}
-                          placeholder="Quantity"
-                          className="w-1/6 border p-2 rounded"
-                          value={pie.quantity}
-                        />
-                        <button onClick={() => removeEditPie(pieIndex)} className="p-2 text-red-600">
-                          <Delete />
-                        </button>
-                      </div>
-                    ))}
-                    <button onClick={addEditPie} className="mt-2 p-2 bg-blue-500 text-white rounded">
-                      Add Another Pie
-                    </button>
-                  </>
-                ) : (
-                  <div>
-                    {order.pies.map((pie, pieIndex) => (
-                      <div key={pieIndex}>
-                        <span>{pie.pie} - {pie.size} - {pie.quantity}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div>
+                  {order.pies.map((pie, pieIndex) => (
+                    <div key={pieIndex}>
+                      <span>{pie.pie} - {pie.size} - {pie.quantity} - {pie.remarks}</span>
+                    </div>
+                  ))}
+                </div>
               </td>
-              <td className="px-6 py-4">
-                {editingId === order.id ? (
-                  <select
-                    name="type"
-                    value={editFormData.type || ''}
-                    onChange={handleEditChange}
-                    className="w-full border p-1 rounded-md"
-                  >
-                    <option value="Delivery">Delivery</option>
-                    <option value="Pick Up">Pick Up</option>
-                  </select>
-                ) : (
-                  order.type
-                )}
-              </td>
-              <td className="px-6 py-4">{editingId === order.id ? <input type="text" name="remarks" value={editFormData.remarks || ''} onChange={handleEditChange} className="w-full border p-1 rounded-md" /> : order.remarks}</td>
+              <td className="px-6 py-4">{order.type}</td>
+              <td className="px-6 py-4">{order.remarks}</td>
               <td className="px-6 py-4 flex space-x-2">
-                {editingId === order.id ? (
-                  <>
-                    <button onClick={saveEdit} className="p-2 text-green-600">
-                      <Save />
-                    </button>
-                    <button onClick={cancelEdit} className="p-2 text-red-600">
-                      <Delete />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button onClick={() => startEdit(order)} className="p-2 text-blue-600">
-                      <Edit />
-                    </button>
-                    <button onClick={() => deleteOrder(order.id)} className="p-2 text-red-600">
-                      <Delete />
-                    </button>
-                    <button onClick={() => handleOpenDeliveryDialog(order)} className="p-2 text-blue-600">
-                      <Truck />
-                    </button>
-                  </>
+                <button onClick={() => handleOpenEditDialog(order)} className="p-2 text-blue-600">
+                  <Edit />
+                </button>
+                <button onClick={() => deleteOrder(order.id)} className="p-2 text-red-600">
+                  <Delete />
+                </button>
+                {!isDraft && (
+                  <button onClick={() => handleOpenDeliveryDialog(order)} className="p-2 text-blue-600">
+                    <Truck />
+                  </button>
+                )}
+                {isDraft && (
+                  <button onClick={() => submitDraftOrder(order.id)} className="p-2 text-green-600">
+                    <Save />
+                  </button>
                 )}
               </td>
             </tr>
@@ -413,281 +434,546 @@ const Orders = () => {
       </table>
     </div>
   );
+  
+  
+  
+  const handleDateChange = (name: string, date: Date | null) => {
+    setNewOrder(prevState => ({
+      ...prevState,
+      [name]: date ? date.toISOString().split('T')[0] : ''
+    }));
+  };
+  const handleSaveEdit = async (updatedOrder: Partial<Order>) => {
+    if (!editingOrder) return;
 
+    try {
+      const orderRef = doc(db, `companies/010/orders/${editingOrder.id}`);
+      await updateDoc(orderRef, updatedOrder);
+      setOpenEditDialog(false);
+      setEditingOrder(null);
+      fetchOrders();
+    } catch (error) {
+      console.error('Error saving order edits:', error);
+    }
+  };
   return (
     <>
       <ToastContainer />
       <div className="flex flex-wrap items-center col-span-12 mt-2 intro-y sm:flex-nowrap pt-4 pb-4 pl-6 pr-6">
-        <div className="text-lg font-semibold">Orders</div>
+      <input
+    type="text"
+    placeholder="Search Orders"
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+    className="p-2 m-2 border rounded"
+  />
         <div className="flex space-x-2 ml-auto">
           <button onClick={handleOpenAddDialog} className="p-2 m-2 !box">
             <PlusCircle />
           </button>
         </div>
       </div>
-
+      <EditOrderModal
+  order={editingOrder}
+  isOpen={openEditDialog}
+  onClose={handleCloseEditDialog}
+  onSave={handleSaveEdit}
+  materialsData={materialsData}
+/>
       <Transition show={openAddDialog} as={React.Fragment}>
-        <Dialog onClose={handleCloseAddDialog} className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="min-h-screen px-4 text-center">
-            <Transition.Child
-              as={React.Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
-            </Transition.Child>
-            <span className="inline-block h-screen align-middle" aria-hidden="true">
-              &#8203;
-            </span>
-            <Transition.Child
-              as={React.Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
-                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
-                  Add New Order
-                </Dialog.Title>
-                <div className="mt-2">
-                  <div className="flex space-x-2">
-                    <input
-                      id="date"
-                      type="date"
-                      name="date"
-                      onChange={handleChange}
-                      value={newOrder.date}
-                      className="w-1/3 border p-2 rounded"
-                    />
-                    <input
-                      type="text"
-                      name="name"
-                      placeholder="Name"
-                      onChange={handleChange}
-                      className="w-1/3 border p-2 rounded"
-                    />
-                    <select
-                      name="type"
-                      onChange={handleChange}
-                      className="w-1/3 border p-2 rounded"
-                    >
-                      <option value="Delivery">Delivery</option>
-                      <option value="Pick Up">Pick Up</option>
-                    </select>
-                  </div>
-                  <div className="mt-2">
-                    <input
-                      type="text"
-                      name="remarks"
-                      placeholder="Remarks"
-                      onChange={handleChange}
-                      className="w-full border p-2 rounded"
-                    />
-                  </div>
-                  <div className="mt-2">
-                    {newOrder.pies.map((pie, index) => (
-                      <div key={index} className="flex space-x-2 mt-2">
-                        <select
-                          name={`pie-${index}`}
-                          onChange={(e) => handlePiesChange(index, 'pie', e.target.value)}
-                          className="w-1/2 border p-2 rounded"
-                          value={pie.pie}
-                        >
-                          <option value="">Select Pie</option>
-                          <option value="Classic Apple Pie">Classic Apple Pie</option>
-                          <option value="Johnny Blueberry">Johnny Blueberry</option>
-                          <option value="Lady Pineapple">Lady Pineapple</option>
-                          <option value="Caramel 'O' Pecan">Caramel 'O' Pecan</option>
-                        </select>
-                        <select
-                          name={`size-${index}`}
-                          onChange={(e) => handlePiesChange(index, 'size', e.target.value)}
-                          className="w-1/4 border p-2 rounded"
-                          value={pie.size}
-                        >
-                          <option value="">Select Size</option>
-                          <option value="Regular 5+” (4-5 servings)">Regular 5+” (4-5 servings)</option>
-                          <option value="Medium 7+” (7-9 servings)">Medium 7+” (7-9 servings)</option>
-                          <option value="Large 9+” (12-14 servings)">Large 9+” (12-14 servings)</option>
-                        </select>
-                        <input
-                          type="number"
-                          name={`quantity-${index}`}
-                          onChange={(e) => handlePiesChange(index, 'quantity', parseInt(e.target.value))}
-                          placeholder="Quantity"
-                          className="w-1/6 border p-2 rounded"
-                          value={pie.quantity}
-                        />
-                        <button onClick={() => removePie(index)} className="p-2 text-red-600">
-                          <Delete />
-                        </button>
-                      </div>
-                    ))}
-                    <button onClick={addPie} className="mt-2 p-2 bg-blue-500 text-white rounded">
-                      Add Another Pie
-                    </button>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={handleCloseAddDialog}
-                    className="inline-flex justify-center px-4 py-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => submitNewOrder(true)}
-                    className="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
-                  >
-                    Save as Draft
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => submitNewOrder(false)}
-                    className="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
-                  >
-                    Submit
-                  </button>
-                </div>
-              </div>
-            </Transition.Child>
-          </div>
-        </Dialog>
-      </Transition>
+  <Dialog onClose={handleCloseAddDialog} className="fixed inset-0 z-10 overflow-y-auto">
+    <div className="min-h-screen px-4 text-center">
+      <Transition.Child
+        as={React.Fragment}
+        enter="ease-out duration-300"
+        enterFrom="opacity-0 scale-95"
+        enterTo="opacity-100 scale-100"
+        leave="ease-in duration-200"
+        leaveFrom="opacity-100 scale-100"
+        leaveTo="opacity-0 scale-95"
+      >
+        <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
+      </Transition.Child>
+      <span className="inline-block h-screen align-middle" aria-hidden="true">
+        &#8203;
+      </span>
+      <Transition.Child
+        as={React.Fragment}
+        enter="ease-out duration-300"
+        enterFrom="opacity-0 scale-95"
+        enterTo="opacity-100 scale-100"
+        leave="ease-in duration-200"
+        leaveFrom="opacity-100 scale-100"
+        leaveTo="opacity-0 scale-95"
+      >
+        <div className="inline-block w-full max-w-4xl h-auto p-10 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+          <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
+            Add New Order
+          </Dialog.Title>
+          <div className="mt-2">
+            <div className="flex space-x-2">
+              <DatePicker
+                selected={newOrder.madeDate ? new Date(newOrder.madeDate) : null}
+                onChange={(date: Date) => handleDateChange('madeDate', date)}
+                dateFormat="dd/MM/yyyy"
+                placeholderText="Made Date"
+                className="border p-2 rounded"
+              />
+              <DatePicker
+                selected={newOrder.requiredDate ? new Date(newOrder.requiredDate) : null}
+                onChange={(date: Date) => handleDateChange('requiredDate', date)}
+                dateFormat="dd/MM/yyyy"
+                placeholderText="Required Date"
+                className="border p-2 rounded"
+              />
+            </div>
+            <div className="flex space-x-2 mt-2">
+              <input
+                type="text"
+                name="name"
+                placeholder="Name"
+                onChange={handleChange}
+                className="w-1/3 border p-2 rounded"
+              />
+              <input
+                type="text"
+                name="phoneNumber"
+                placeholder="Phone Number"
+                onChange={handleChange}
+                className="w-1/3 border p-2 rounded"
+              />
+              <select
+                name="type"
+                onChange={handleChange}
+                className="w-1/3 border p-2 rounded"
+              >
+                <option value="Delivery">Delivery</option>
+                <option value="Pick Up">Pick Up</option>
+              </select>
+            </div>
+            <div className="mt-2">
+              <input
+                type="text"
+                name="remarks"
+                placeholder="Remarks"
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+              />
+            </div>
+            <div className="mt-2">
+  {newOrder.pies.map((pie, index) => (
+    <div key={index} className="flex space-x-2 mt-2">
+      <select
+        name={`pie-${index}`}
+        onChange={(e) => handlePiesChange(index, 'pie', e.target.value)}
+        className="w-1/4 border p-2 rounded"
+        value={pie.pie}
+      >
+        <option value="">Select Pie</option>
+        {materialsData.map((material) => (
+          <option key={material.id} value={material.name}>{material.name}</option>
+        ))}
+      </select>
+      <select
+        name={`size-${index}`}
+        onChange={(e) => handlePiesChange(index, 'size', e.target.value)}
+        className="w-1/4 border p-2 rounded"
+        value={pie.size}
+      >
+        <option value="">Select Size</option>
+        <option value="Regular 5+” (4-5 servings)">Regular 5+” (4-5 servings)</option>
+        <option value="Medium 7+” (7-9 servings)">Medium 7+” (7-9 servings)</option>
+        <option value="Large 9+” (12-14 servings)">Large 9+” (12-14 servings)</option>
+      </select>
+      <input
+        type="number"
+        name={`quantity-${index}`}
+        onChange={(e) => handlePiesChange(index, 'quantity', parseInt(e.target.value))}
+        placeholder="Quantity"
+        className="w-1/6 border p-2 rounded"
+        value={pie.quantity}
+      />
+      <input
+        type="text"
+        name={`remarks-${index}`}
+        onChange={(e) => handlePiesChange(index, 'remarks', e.target.value)}
+        placeholder="Remarks"
+        className="w-1/4 border p-2 rounded"
+        value={pie.remarks}
+      />
+      <button onClick={() => removePie(index)} className="p-2 text-red-600">
+        <Delete />
+      </button>
+    </div>
+  ))}
+  <button onClick={addPie} className="mt-2 p-2 bg-blue-500 text-white rounded">
+    Add Another Pie
+  </button>
+</div>
 
-      <Transition show={openDeliveryDialog} as={React.Fragment}>
-        <Dialog onClose={() => setOpenDeliveryDialog(false)} className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="min-h-screen px-4 text-center">
-            <Transition.Child
-              as={React.Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
-            </Transition.Child>
-            <span className="inline-block h-screen align-middle" aria-hidden="true">
-              &#8203;
-            </span>
-            <Transition.Child
-              as={React.Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
-                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
-                  Add to Delivery
-                </Dialog.Title>
-                <div className="mt-2">
-                  <input
-                    type="text"
-                    name="recipientName"
-                    placeholder="Recipient Name"
-                    onChange={handleDeliveryChange}
-                    value={deliveryFormData.recipientName}
-                    className="w-full mt-2 border p-2 rounded"
-                  />
-                  <input
-                    type="text"
-                    name="dropOffAddress"
-                    placeholder="Drop Off Address"
-                    onChange={handleDeliveryChange}
-                    value={deliveryFormData.dropOffAddress}
-                    className="w-full mt-2 border p-2 rounded"
-                  />
-                  <input
-                    type="time"
-                    name="timeDelivery"
-                    placeholder="Time Delivery"
-                    onChange={handleDeliveryChange}
-                    value={deliveryFormData.timeDelivery}
-                    className="w-full mt-2 border p-2 rounded"
-                  />
-                  <input
-                    type="date"
-                    name="dateDelivery"
-                    placeholder="Date Delivery"
-                    onChange={handleDeliveryChange}
-                    value={deliveryFormData.dateDelivery}
-                    className="w-full mt-2 border p-2 rounded"
-                  />
-                  <input
-                    type="text"
-                    name="deliveryPerson"
-                    placeholder="Delivery Person"
-                    onChange={handleDeliveryChange}
-                    value={deliveryFormData.deliveryPerson}
-                    className="w-full mt-2 border p-2 rounded"
-                  />
-                  <input
-                    type="text"
-                    name="pickupLocation"
-                    placeholder="Pickup Location"
-                    onChange={handleDeliveryChange}
-                    value={deliveryFormData.pickupLocation}
-                    className="w-full mt-2 border p-2 rounded"
-                  />
-                </div>
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={() => setOpenDeliveryDialog(false)}
-                    className="inline-flex justify-center px-4 py-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCloseDeliveryDialog}
-                    className="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
-                  >
-                    Submit
-                  </button>
-                </div>
-              </div>
-            </Transition.Child>
           </div>
-        </Dialog>
-      </Transition>
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={handleCloseAddDialog}
+              className="inline-flex justify-center px-4 py-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => submitNewOrder(true)}
+              className="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+            >
+              Save as Draft
+            </button>
+            <button
+              type="button"
+              onClick={() => submitNewOrder(false)}
+              className="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+            >
+              Submit Order
+            </button>
+          </div>
+        </div>
+      </Transition.Child>
+    </div>
+  </Dialog>
+</Transition>
+<Transition show={openDeliveryDialog} as={React.Fragment}>
+  <Dialog onClose={() => setOpenDeliveryDialog(false)} className="fixed inset-0 z-10 overflow-y-auto">
+    <div className="min-h-screen px-4 text-center">
+      <Transition.Child
+        as={React.Fragment}
+        enter="ease-out duration-300"
+        enterFrom="opacity-0 scale-95"
+        enterTo="opacity-100 scale-100"
+        leave="ease-in duration-200"
+        leaveFrom="opacity-100 scale-100"
+        leaveTo="opacity-0 scale-95"
+      >
+        <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
+      </Transition.Child>
+      <span className="inline-block h-screen align-middle" aria-hidden="true">
+        &#8203;
+      </span>
+      <Transition.Child
+        as={React.Fragment}
+        enter="ease-out duration-300"
+        enterFrom="opacity-0 scale-95"
+        enterTo="opacity-100 scale-100"
+        leave="ease-in duration-200"
+        leaveFrom="opacity-100 scale-100"
+        leaveTo="opacity-0 scale-95"
+      >
+        <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+          <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
+            Add to Delivery
+          </Dialog.Title>
+          <div className="mt-2">
+            <input
+              type="text"
+              name="recipientName"
+              placeholder="Recipient Name"
+              onChange={handleDeliveryChange}
+              value={deliveryFormData.recipientName}
+              className="w-full mt-2 border p-2 rounded"
+            />
+            <input
+              type="text"
+              name="dropOffAddress"
+              placeholder="Drop Off Address"
+              onChange={handleDeliveryChange}
+              value={deliveryFormData.dropOffAddress}
+              className="w-full mt-2 border p-2 rounded"
+            />
+            <div className="mt-2 flex flex-col">
+              <label className="text-sm text-gray-600">Time Delivery (Optional)</label>
+              <input
+                type="time"
+                name="timeDelivery"
+                placeholder="Time Delivery"
+                onChange={handleDeliveryChange}
+                value={deliveryFormData.timeDelivery || ''}
+                className="w-full border p-2 rounded"
+              />
+            </div>
+            <div className="mt-2 flex flex-col">
+              <label className="text-sm text-gray-600">Date Delivery (Optional)</label>
+              <input
+                type="date"
+                name="dateDelivery"
+                placeholder="Date Delivery"
+                onChange={handleDeliveryChange}
+                value={deliveryFormData.dateDelivery || ''}
+                className="w-full border p-2 rounded"
+              />
+            </div>
+            <input
+              type="text"
+              name="deliveryPerson"
+              placeholder="Delivery Person"
+              onChange={handleDeliveryChange}
+              value={deliveryFormData.deliveryPerson}
+              className="w-full mt-2 border p-2 rounded"
+            />
+            <input
+              type="text"
+              name="pickupLocation"
+              placeholder="Pickup Location"
+              onChange={handleDeliveryChange}
+              value={deliveryFormData.pickupLocation}
+              className="w-full mt-2 border p-2 rounded"
+            />
+          </div>
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setOpenDeliveryDialog(false)}
+              className="inline-flex justify-center px-4 py-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleCloseDeliveryDialog}
+              className="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+            >
+              Submit
+            </button>
+          </div>
+        </div>
+      </Transition.Child>
+    </div>
+  </Dialog>
+</Transition>
+
+
       <div className="flex space-x-4 justify-center items-center mb-4">
-        <DatePicker
-          selected={dateRange[0]}
-          onChange={(date: Date) => setDateRange([date, dateRange[0]])}
-          selectsStart
-          startDate={dateRange[0]}
-          endDate={dateRange[1]}
-          className="bg-white rounded"
-        />
-        <DatePicker
-          selected={dateRange[1]}
-          onChange={(date: Date) => setDateRange([dateRange[0], date])}
-          selectsEnd
-          startDate={dateRange[0]}
-          endDate={dateRange[1]}
-          className="bg-white rounded"
-        />
+      <div className="flex space-x-4 justify-center items-center mb-4">
+  <DatePicker
+    selected={dateRange[0]}
+    onChange={(date: Date | null) => setDateRange([date, dateRange[1]])}
+    selectsStart
+    startDate={dateRange[0]}
+    endDate={dateRange[1]}
+    isClearable
+    placeholderText="Start Date"
+    className="bg-white rounded"
+  />
+  <DatePicker
+    selected={dateRange[1]}
+    onChange={(date: Date | null) => setDateRange([dateRange[0], date])}
+    selectsEnd
+    startDate={dateRange[0]}
+    endDate={dateRange[1]}
+    minDate={dateRange[0]}
+    isClearable
+    placeholderText="End Date"
+    className="bg-white rounded"
+  />
+</div>
       </div>
+      <div className="text-lg font-semibold p-5">Drafted</div>
       <div className="p-4">
-        {renderOrdersTable()}
+      {renderOrdersTable(draftOrders,true)}
+      </div>
+      <div className="text-lg font-semibold p-5">Submitted</div>
+      <div className="p-4">
+      {renderOrdersTable(submittedOrders,false)}
       </div>
     </>
   );
 };
+interface EditOrderModalProps {
+  order: Order | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (updatedOrder: Partial<Order>) => void;
+  materialsData: Material[]; // Add this line
+}
 
+
+const EditOrderModal: React.FC<EditOrderModalProps> = ({ order, isOpen, onClose, onSave, materialsData }) => {
+  const [editFormData, setEditFormData] = useState<Partial<Order>>({});
+  useEffect(() => {
+    setEditFormData(order || {});
+  }, [order]);
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
+  };
+
+  const handleEditPiesChange = (index: number, field: string, value: string | number) => {
+    const updatedPies = [...(editFormData.pies || [])];
+    updatedPies[index] = { ...updatedPies[index], [field]: value };
+    setEditFormData(prevState => ({
+      ...prevState,
+      pies: updatedPies
+    }));
+  };
+
+  const addEditPie = () => {
+    setEditFormData(prevState => ({
+      ...prevState,
+      pies: [...(prevState.pies || []), { pie: '', size: '', quantity: 0, remarks: '' }]
+    }));
+  };
+
+  const removeEditPie = (index: number) => {
+    const updatedPies = (editFormData.pies || []).filter((_, i) => i !== index);
+    setEditFormData(prevState => ({
+      ...prevState,
+      pies: updatedPies
+    }));
+  };
+
+  return (
+    <Transition show={isOpen} as={React.Fragment}>
+      <Dialog onClose={onClose} className="fixed inset-0 z-10 overflow-y-auto">
+        <div className="min-h-screen px-4 text-center">
+          <Transition.Child
+            as={React.Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0 scale-95"
+            enterTo="opacity-100 scale-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100 scale-100"
+            leaveTo="opacity-0 scale-95"
+          >
+            <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
+          </Transition.Child>
+          <span className="inline-block h-screen align-middle" aria-hidden="true">
+            &#8203;
+          </span>
+          <Transition.Child
+            as={React.Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0 scale-95"
+            enterTo="opacity-100 scale-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100 scale-100"
+            leaveTo="opacity-0 scale-95"
+          >
+            <div className="inline-block w-full max-w-4xl p-10 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+              <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
+                Edit Order
+              </Dialog.Title>
+              <div className="mt-2">
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Name"
+                    value={editFormData.name || ''}
+                    onChange={handleEditChange}
+                    className="w-1/3 border p-2 rounded"
+                  />
+                  <input
+                    type="text"
+                    name="phoneNumber"
+                    placeholder="Phone Number"
+                    value={editFormData.phoneNumber || ''}
+                    onChange={handleEditChange}
+                    className="w-1/3 border p-2 rounded"
+                  />
+                  <select
+                    name="type"
+                    value={editFormData.type || ''}
+                    onChange={handleEditChange}
+                    className="w-1/3 border p-2 rounded"
+                  >
+                    <option value="Delivery">Delivery</option>
+                    <option value="Pick Up">Pick Up</option>
+                  </select>
+                </div>
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    name="remarks"
+                    placeholder="Remarks"
+                    value={editFormData.remarks || ''}
+                    onChange={handleEditChange}
+                    className="w-full border p-2 rounded"
+                  />
+                </div>
+                <div className="mt-2">
+  {editFormData.pies?.map((pie, index) => (
+    <div key={index} className="flex space-x-2 mt-2">
+      <select
+        name={`pie-${index}`}
+        onChange={(e) => handleEditPiesChange(index, 'pie', e.target.value)}
+        className="w-1/4 border p-2 rounded"
+        value={pie.pie}
+      >
+        <option value="">Select Pie</option>
+        {materialsData.map((material) => (
+          <option key={material.id} value={material.name}>{material.name}</option>
+        ))}
+      </select>
+      <select
+        name={`size-${index}`}
+        onChange={(e) => handleEditPiesChange(index, 'size', e.target.value)}
+        className="w-1/4 border p-2 rounded"
+        value={pie.size}
+      >
+        <option value="">Select Size</option>
+        <option value="Regular 5+” (4-5 servings)">Regular 5+” (4-5 servings)</option>
+        <option value="Medium 7+” (7-9 servings)">Medium 7+” (7-9 servings)</option>
+        <option value="Large 9+” (12-14 servings)">Large 9+” (12-14 servings)</option>
+      </select>
+      <input
+        type="number"
+        name={`quantity-${index}`}
+        onChange={(e) => handleEditPiesChange(index, 'quantity', parseInt(e.target.value))}
+        placeholder="Quantity"
+        className="w-1/6 border p-2 rounded"
+        value={pie.quantity}
+      />
+      <input
+        type="text"
+        name={`remarks-${index}`}
+        onChange={(e) => handleEditPiesChange(index, 'remarks', e.target.value)}
+        placeholder="Remarks"
+        className="w-1/4 border p-2 rounded"
+        value={pie.remarks}
+      />
+      <button onClick={() => removeEditPie(index)} className="p-2 text-red-600">
+        <Delete />
+      </button>
+    </div>
+  ))}
+  <button onClick={addEditPie} className="mt-2 p-2 bg-blue-500 text-white rounded">
+    Add Another Pie
+  </button>
+</div>
+
+              </div>
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex justify-center px-4 py-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSave(editFormData)}
+                  className="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </Transition.Child>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+};
 export default Orders;

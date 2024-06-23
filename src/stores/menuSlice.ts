@@ -5,6 +5,7 @@ import { icons } from "@/components/Base/Lucide";
 import sideMenu from "@/main/side-menu";
 import simpleMenu from "@/main/simple-menu";
 import simpleMenu2 from "@/main/simple-menu2";
+import simpleMenu3 from "@/main/simple-menu3";
 import topMenu from "@/main/top-menu";
 import { useConfig } from '../config';
 export interface Menu {
@@ -41,7 +42,11 @@ export const selectMenu = (layout: Themes["layout"]) => (state: RootState) => {
     if(initialContacts.name === "Infinity Pilates & Physiotherapy")
     {
       return simpleMenu2;
-    }else{
+    }else if(initialContacts.name === "Tatapies")
+    {
+      return simpleMenu3;
+    }
+    else{
       return simpleMenu;
     }
 

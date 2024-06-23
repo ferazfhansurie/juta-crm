@@ -37,7 +37,9 @@ interface Delivery {
 
 const Deliveries = () => {
   const [deliveriesData, setDeliveriesData] = useState<Delivery[]>([]);
-  const [dateRange, setDateRange] = useState<[Date, Date]>([startOfDay(subDays(new Date(), 30)), endOfDay(new Date())]);
+  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+
+
 
   useEffect(() => {
     const fetchDeliveries = async () => {
@@ -47,25 +49,34 @@ const Deliveries = () => {
         deliveriesSnapshot.forEach((doc) => {
           deliveriesList.push({ orderId: doc.id, ...doc.data() } as Delivery);
         });
+  
         // Filter deliveries based on date range
-        const filteredDeliveries = deliveriesList.filter(delivery => {
-          const deliveryDate = new Date(delivery.dateDelivery);
-          return deliveryDate >= dateRange[0] && deliveryDate <= dateRange[1];
-        });
+        const filteredDeliveries = dateRange[0] && dateRange[1]
+          ? deliveriesList.filter(delivery => {
+              const deliveryDate = new Date(delivery.dateDelivery);
+              return dateRange[0] && dateRange[1] && deliveryDate >= dateRange[0] && deliveryDate <= dateRange[1];
+            })
+          : deliveriesList;
+  
         setDeliveriesData(filteredDeliveries);
       } catch (error) {
         console.error("Error fetching deliveries data:", error);
       }
     };
-
+  
     fetchDeliveries();
   }, [dateRange]);
+  
+  
 
   const formatDate = (date: Date) => {
     return date.toISOString().split('T')[0]; // Format date as YYYY-MM-DD
   };
 
   const exportToCSV = () => {
+    const startDate = dateRange[0] ? formatDate(dateRange[0]) : 'undefined';
+    const endDate = dateRange[1] ? formatDate(dateRange[1]) : 'undefined';
+  
     const headers = ["Order ID", "Cost", "Created On", "Delivery Date", "Time", "Delivery Person", "Drop-Off Address", "Pickup Location", "Recipient Name"];
     const rows = deliveriesData.map(delivery => [
       delivery.orderId,
@@ -78,10 +89,8 @@ const Deliveries = () => {
       delivery.pickupLocation,
       delivery.recipientName
     ]);
-
+  
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const startDate = formatDate(dateRange[0]);
-    const endDate = formatDate(dateRange[1]);
     const fileName = `deliveries-${startDate}_to_${endDate}.csv`;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     saveAs(blob, fileName);
@@ -133,22 +142,27 @@ const Deliveries = () => {
     <>
       <div className="text-lg font-semibold pt-4 pb-4 pl-6 pr-6">Deliveries</div>
       <div className="flex space-x-4 justify-center items-center mb-4">
-        <DatePicker
-          selected={dateRange[0]}
-          onChange={(date: Date) => setDateRange([date, dateRange[1]])}
-          selectsStart
-          startDate={dateRange[0]}
-          endDate={dateRange[1]}
-          className="bg-white rounded"
-        />
-        <DatePicker
-          selected={dateRange[1]}
-          onChange={(date: Date) => setDateRange([dateRange[0], date])}
-          selectsEnd
-          startDate={dateRange[0]}
-          endDate={dateRange[1]}
-          className="bg-white rounded"
-        />
+      <DatePicker
+  selected={dateRange[0]}
+  onChange={(date: Date | null) => setDateRange([date, dateRange[1]])}
+  selectsStart
+  startDate={dateRange[0] ?? undefined}
+  endDate={dateRange[1] ?? undefined}
+  isClearable
+  placeholderText="Start Date"
+  className="bg-white rounded"
+/>
+<DatePicker
+  selected={dateRange[1]}
+  onChange={(date: Date | null) => setDateRange([dateRange[0], date])}
+  selectsEnd
+  startDate={dateRange[0] ?? undefined}
+  endDate={dateRange[1] ?? undefined}
+  minDate={dateRange[0] ?? undefined}
+  isClearable
+  placeholderText="End Date"
+  className="bg-white rounded"
+/>
         <button onClick={exportToCSV} className="p-2 bg-blue-500 text-white rounded">Export to CSV</button>
       </div>
       <div className="p-4">{renderDeliveriesTable()}</div>

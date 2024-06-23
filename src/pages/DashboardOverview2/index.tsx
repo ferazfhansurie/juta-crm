@@ -91,7 +91,48 @@ const Main = () => {
     status: 'Pending'
   });
   const [dateRange, setDateRange] = useState([startOfDay(subDays(new Date(), 30)), endOfDay(new Date())]);
+  const [newMaterial, setNewMaterial] = useState({ name: '' });
+  const [openAddMaterialDialog, setOpenAddMaterialDialog] = useState(false);
 
+  const [materialFields, setMaterialFields] = useState<
+  { name: string; small: number; regular: number; large: number }[]
+>([{ name: '', small: 0, regular: 0, large: 0 }]);
+  const handleNewMaterialChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setNewMaterial(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
+  };
+  
+  const handleMaterialNameChange = (index: number, value: string) => {
+    const updatedFields = [...materialFields];
+    updatedFields[index].name = value;
+    setMaterialFields(updatedFields);
+  };
+  
+  const handleMaterialFieldChange = (index: number, size: keyof MaterialSize, value: number) => {
+    const updatedFields = [...materialFields];
+    updatedFields[index][size] = value;
+    setMaterialFields(updatedFields);
+  };
+  
+  const addMaterialField = () => {
+    setMaterialFields(prevFields => [
+      ...prevFields,
+      { name: '', small: 0, regular: 0, large: 0 }
+    ]);
+  };
+  
+  const handleOpenAddMaterialDialog = () => {
+    setOpenAddMaterialDialog(true);
+  };
+  
+  const handleCloseAddMaterialDialog = () => {
+    setOpenAddMaterialDialog(false);
+    setNewMaterial({name: '' });
+    setMaterialFields([{ name: '', small: 0, regular: 0, large: 0 }]);
+  };
   const fetchData = async () => {
     try {
       const ordersSnapshot = await getDocs(collection(db, "companies/010/orders"));
@@ -354,6 +395,26 @@ const Main = () => {
     );
   };
 
+  const submitNewMaterial = async () => {
+    try {
+      const materialData = {
+        ...newMaterial,
+        ...materialFields.reduce((acc, field) => {
+          acc[field.name] = {
+            small: field.small,
+            regular: field.regular,
+            large: field.large
+          };
+          return acc;
+        }, {} as { [key: string]: MaterialSize })
+      };
+      await addDoc(collection(db, "companies/010/materials"), materialData);
+      fetchData();
+      handleCloseAddMaterialDialog();
+    } catch (error) {
+      console.error('Error adding new material:', error);
+    }
+  };
   const renderMaterialsTable = () => {
     return (
       <div className="overflow-x-auto rounded-lg shadow">
@@ -376,7 +437,7 @@ const Main = () => {
                   <td className="border px-4 py-2">{material}</td>
                   <td className="border px-4 py-2">{materialsNeeded[pie][material]}</td>
                   <td className="border px-4 py-2">
-                    <button onClick={() => handleOpenEditMaterialsDialog(materialsData.find(mat => mat.name === pie) as Material)} className="p-2 bg-blue-500 text-white rounded">
+                    <button onClick={() => handleOpenEditMaterialsDialog(materialsData.find(mat => mat.name === pie) as Material)} className="p-2 bg-primary text-white rounded">
                       Edit
                     </button>
                   </td>
@@ -396,11 +457,111 @@ const Main = () => {
         <div className="grid grid-cols-12 gap-6">
           <div className="col-span-12 mt-8">
             <div className="flex items-center h-10 intro-y pt-4 pb-4 pl-6 pr-6">
-              <h2 className="mr-5 text-lg font-medium truncate">Production</h2>
-              <button onClick={handleOpenAddDialog} className="p-2 ml-auto">
-                <PlusCircle />
-              </button>
+         
             </div>
+            <Transition show={openAddMaterialDialog} as={React.Fragment}>
+  <Dialog onClose={handleCloseAddMaterialDialog} className="fixed inset-0 z-10 overflow-y-auto">
+    <div className="min-h-screen px-4 text-center">
+      <Transition.Child
+        as={React.Fragment}
+        enter="ease-out duration-300"
+        enterFrom="opacity-0 scale-95"
+        enterTo="opacity-100 scale-100"
+        leave="ease-in duration-200"
+        leaveFrom="opacity-100 scale-100"
+        leaveTo="opacity-0 scale-95"
+      >
+        <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
+      </Transition.Child>
+      <span className="inline-block h-screen align-middle" aria-hidden="true">
+        &#8203;
+      </span>
+      <Transition.Child
+        as={React.Fragment}
+        enter="ease-out duration-300"
+        enterFrom="opacity-0 scale-95"
+        enterTo="opacity-100 scale-100"
+        leave="ease-in duration-200"
+        leaveFrom="opacity-100 scale-100"
+        leaveTo="opacity-0 scale-95"
+      >
+        <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+          <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
+            Add New Material
+          </Dialog.Title>
+          <div className="mt-2">
+            <input
+              type="text"
+              name="name"
+              placeholder="Material Name"
+              value={newMaterial.name}
+              onChange={handleNewMaterialChange}
+              className="w-full border p-2 rounded"
+            />
+            {materialFields.map((field, index) => (
+              <div key={index} className="mt-2">
+                <input
+                  type="text"
+                  placeholder="Field Name"
+                  value={field.name}
+                  onChange={(e) => handleMaterialNameChange(index, e.target.value)}
+                  className="w-full border p-2 rounded"
+                />
+                <div className="flex flex-col mt-2">
+                  <label className="mt-1">Small</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={field.small}
+                    onChange={(e) => handleMaterialFieldChange(index, 'small', parseFloat(e.target.value))}
+                    className="w-full border p-2 rounded mt-1"
+                  />
+                  <label className="mt-1">Regular</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={field.regular}
+                    onChange={(e) => handleMaterialFieldChange(index, 'regular', parseFloat(e.target.value))}
+                    className="w-full border p-2 rounded mt-1"
+                  />
+                  <label className="mt-1">Large</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={field.large}
+                    onChange={(e) => handleMaterialFieldChange(index, 'large', parseFloat(e.target.value))}
+                    className="w-full border p-2 rounded mt-1"
+                  />
+                </div>
+              </div>
+            ))}
+            <button onClick={addMaterialField} className="mt-2 p-2 bg-primary text-white rounded">
+              Add New Field
+            </button>
+          </div>
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={handleCloseAddMaterialDialog}
+              className="inline-flex justify-center px-4 py-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submitNewMaterial}
+              className="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </Transition.Child>
+    </div>
+  </Dialog>
+</Transition>
+
+
             <div className="mt-5">
               <div className="flex space-x-4 justify-center items-center mb-4">
                 <DatePicker
@@ -420,6 +581,11 @@ const Main = () => {
                   className="bg-white rounded"
                 />
               </div>
+              <div className="p-5">
+  <button onClick={handleOpenAddMaterialDialog} className="mt-2 p-3 bg-primary text-white rounded">
+    Add New Pie
+  </button>
+</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white rounded-lg shadow p-4">
                   <div className="flex justify-between items-center mb-4">
@@ -448,143 +614,7 @@ const Main = () => {
         </div>
       </div>
 
-      <Transition show={openAddDialog} as={React.Fragment}>
-        <Dialog onClose={handleCloseAddDialog} className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="min-h-screen px-4 text-center">
-            <Transition.Child
-              as={React.Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
-            </Transition.Child>
-            <span className="inline-block h-screen align-middle" aria-hidden="true">
-              &#8203;
-            </span>
-            <Transition.Child
-              as={React.Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
-                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
-                  Add New Order
-                </Dialog.Title>
-                <div className="mt-2">
-                  <div className="flex space-x-2">
-                    <input
-                      id="date"
-                      type="date"
-                      name="date"
-                      onChange={handleChange}
-                      value={newOrder.date}
-                      className="w-1/3 border p-2 rounded"
-                    />
-                    <input
-                      type="text"
-                      name="name"
-                      placeholder="Name"
-                      onChange={handleChange}
-                      className="w-1/3 border p-2 rounded"
-                    />
-                    <select
-                      name="type"
-                      onChange={handleChange}
-                      className="w-1/3 border p-2 rounded"
-                    >
-                      <option value="Delivery">Delivery</option>
-                      <option value="Pick Up">Pick Up</option>
-                    </select>
-                  </div>
-                  <div className="mt-2">
-                    <input
-                      type="text"
-                      name="remarks"
-                      placeholder="Remarks"
-                      onChange={handleChange}
-                      className="w-full border p-2 rounded"
-                    />
-                  </div>
-                  <div className="mt-2">
-                    {newOrder.pies.map((pie, index) => (
-                      <div key={index} className="flex space-x-2 mt-2">
-                        <select
-                          name={`pie-${index}`}
-                          onChange={(e) => handlePiesChange(index, 'pie', e.target.value)}
-                          className="w-1/2 border p-2 rounded"
-                          value={pie.pie}
-                        >
-                          <option value="">Select Pie</option>
-                          <option value="Classic Apple Pie">Classic Apple Pie</option>
-                          <option value="Johnny Blueberry">Johnny Blueberry</option>
-                          <option value="Lady Pineapple">Lady Pineapple</option>
-                          <option value="Caramel 'O' Pecan">Caramel 'O' Pecan</option>
-                        </select>
-                        <select
-                          name={`size-${index}`}
-                          onChange={(e) => handlePiesChange(index, 'size', e.target.value)}
-                          className="w-1/4 border p-2 rounded"
-                          value={pie.size}
-                        >
-                          <option value="">Select Size</option>
-                          <option value="Regular 5+” (4-5 servings)">Regular 5+” (4-5 servings)</option>
-                          <option value="Medium 7+” (7-9 servings)">Medium 7+” (7-9 servings)</option>
-                          <option value="Large 9+” (12-14 servings)">Large 9+” (12-14 servings)</option>
-                        </select>
-                        <input
-                          type="number"
-                          name={`quantity-${index}`}
-                          onChange={(e) => handlePiesChange(index, 'quantity', parseInt(e.target.value))}
-                          placeholder="Quantity"
-                          className="w-1/6 border p-2 rounded"
-                          value={pie.quantity}
-                        />
-                        <button onClick={() => removePie(index)} className="p-2 text-red-600">
-                          <Delete />
-                        </button>
-                      </div>
-                    ))}
-                    <button onClick={addPie} className="mt-2 p-2 bg-blue-500 text-white rounded">
-                      Add Another Pie
-                    </button>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={handleCloseAddDialog}
-                    className="inline-flex justify-center px-4 py-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => submitNewOrder(true)}
-                    className="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
-                  >
-                    Save as Draft
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => submitNewOrder(false)}
-                    className="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-blue-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
-                  >
-                    Submit
-                  </button>
-                </div>
-              </div>
-            </Transition.Child>
-          </div>
-        </Dialog>
-      </Transition>
+     
 
       <Transition show={openEditMaterialsDialog} as={React.Fragment}>
         <Dialog onClose={handleCloseEditMaterialsDialog} className="fixed inset-0 z-10 overflow-y-auto">
