@@ -409,6 +409,7 @@ function Main() {
         appointment.id === id ? updatedAppointment : appointment
       ));
       
+      
       setEditModalOpen(false);
 
       // Decrement session count if the status is confirmed
@@ -1120,6 +1121,7 @@ function Main() {
               value={currentEvent?.extendedProps?.appointmentStatus || ''}
               onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
             >
+                    <option value="" disabled>Set a status</option>
               <option value="new">New</option>
               <option value="confirmed">Confirmed</option>
               <option value="cancelled">Cancelled</option>
@@ -1135,6 +1137,7 @@ function Main() {
               value={currentEvent?.extendedProps?.staff || ''}
               onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, staff: e.target.value } })}
             >
+                    <option value="" disabled>Select an employee</option>
               {employees.map(employee => (
                 <option key={employee.id} value={employee.id}>
                   {employee.name}
@@ -1149,6 +1152,7 @@ function Main() {
               value={currentEvent?.extendedProps?.package || ''}
               onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
             >
+                    <option value="" disabled>Select an employee</option>
               <option value="trial1">Trial - Private</option>
               <option value="trial2">Trial - Duo</option>
               <option value="privDrop">Private - Drop In</option>
