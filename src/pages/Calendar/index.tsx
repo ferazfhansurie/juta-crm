@@ -80,6 +80,11 @@ interface Contact {
   website: string | null;
 }
 
+interface ContactWithSession extends Contact {
+  session: number;
+}
+
+
 function Main() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,6 +202,9 @@ function Main() {
   
       const formattedAppointments = allAppointments.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());
   
+      // Sort appointments by startTime in ascending order
+      const sortedAppointments = allAppointments.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
       setAppointments(formattedAppointments);
     } catch (error) {
       console.error('Error fetching appointments:', error);
@@ -988,7 +996,7 @@ function Main() {
                     value={currentEvent?.extendedProps?.package || ''}
                     onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
                   >
-                    <option value="" disabled>Select an employee</option>
+                    <option value="" disabled>Choose a package</option>
                     <option value="trial1">Trial - Private</option>
                     <option value="trial2">Trial - Duo</option>
                     <option value="privDrop">Private - Drop In</option>
@@ -1109,7 +1117,7 @@ function Main() {
                   value={currentEvent?.extendedProps?.appointmentStatus || ''}
                   onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
                 >
-                   <option value="" disabled>Set a status</option>
+                  <option value="" disabled>Set a status</option>
                   <option value="new">New</option>
                   <option value="confirmed">Confirmed</option>
                   <option value="cancelled">Cancelled</option>
@@ -1140,6 +1148,7 @@ function Main() {
                   value={currentEvent?.extendedProps?.package || ''}
                   onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
                 >
+                  <option value="" disabled>Choose a package</option>
                   <option value="trial1">Trial - Private</option>
                   <option value="trial2">Trial - Duo</option>
                   <option value="privDrop">Private - Drop In</option>
