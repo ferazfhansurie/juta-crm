@@ -15,7 +15,7 @@ import { useContacts } from "@/contact";
 import Select from 'react-select';
 import { error } from "console";
 import { title } from "process";
-//
+
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
   authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -79,9 +79,7 @@ interface Contact {
   type: string;
   website: string | null;
 }
-interface ContactWithSession extends Contact {
-  session: number;
-}
+
 function Main() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +99,6 @@ function Main() {
   const [selectedStaff, setSelectedStaff] = useState<string>('');
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [contactSessions, setContactSessions] = useState<{ [key: string]: number }>({});
-  const [initialAppointmentStatus, setInitialAppointmentStatus] = useState<string | null>(null);
 
   const generateTimeSlots = (isWeekend: boolean): string[] => {
     const start = 8;
@@ -253,121 +250,42 @@ function Main() {
     selectedContactsArray.forEach((contact: { id: string; }) => fetchContactSession(contact.id));
   };
 
-  const handleEventClick = async (info: any) => {
-    const appointment = appointments.find(app => app.id === info.event.id);
-  
-    if (!appointment) {
-      console.error('Appointment not found!');
-      return;
-    }
-  
-    const startStr = format(new Date(appointment.startTime), 'HH:mm');
-    const endStr = format(new Date(appointment.endTime), 'HH:mm');
-    const dateStr = format(new Date(appointment.startTime), 'yyyy-MM-dd');
+  const handleEventClick = (info: any) => {
+    const startStr = format(new Date(info.event.start), 'HH:mm');
+    const endStr = format(new Date(info.event.end), 'HH:mm');
+    const dateStr = format(new Date(info.event.start), 'yyyy-MM-dd');
     const date = new Date(dateStr);
     const dayOfWeek = date.getUTCDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const eventContacts = appointment.contacts || [];
+    const eventContacts = info.event.extendedProps.contacts || [];
   
-    console.log('Event info:', info);
-    console.log('Event contacts:', eventContacts);
-  
-    // Fetch the contact sessions if not already fetched
-    const fetchContactSessions = async () => {
-      const newContactSessions: { [key: string]: number } = {};
-      await Promise.all(eventContacts.map(async (contact: { id: string }) => {
-        const auth = getAuth(app);
-        const user = auth.currentUser;
-        if (!user || !user.email) {
-          console.error('No authenticated user or email found');
-          return;
-        }
-  
-        const docUserRef = doc(firestore, 'user', user.email);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          console.error('No such document for user!');
-          return;
-        }
-  
-        const dataUser = docUserSnapshot.data();
-        const companyId = dataUser.companyId as string;
-        const contactRef = doc(firestore, `companies/${companyId}/session`, contact.id);
-        const contactSnapshot = await getDoc(contactRef);
-  
-        if (contactSnapshot.exists()) {
-          const contactData = contactSnapshot.data();
-          newContactSessions[contact.id] = contactData.session;
-          console.log(`Fetched session for contact ${contact.id}: ${contactData.session}`);
-        }
-      }));
-  
-      setContactSessions((prevSessions) => {
-        const updatedSessions = { ...prevSessions, ...newContactSessions };
-        console.log('Updated contact sessions:', updatedSessions);
-        return updatedSessions;
-      });
-    };
-  
-    // Fetch contact sessions and wait for completion
-    await fetchContactSessions();
-  
-    // Map event contacts to ContactWithSession objects
-    const fullContacts: ContactWithSession[] = eventContacts.map((contact: { id: string }) => {
+    setSelectedContacts(eventContacts.map((contact: { id: string }) => {
       const foundContact = contacts.find(c => c.id === contact.id);
-      if (foundContact) {
-        console.log(`Mapping contact ${contact.id} with session ${contactSessions[contact.id] || 0}`);
-        return {
-          ...foundContact,
-          session: contactSessions[contact.id] || 0
-        };
-      }
-      return null;
-    }).filter((contact): contact is ContactWithSession => contact !== null);
+      return foundContact || null;
+    }).filter((contact: any) => contact !== null));
   
-    console.log('Full contacts after mapping:', fullContacts);
-  
-    setSelectedContacts(fullContacts);
-    console.log('Selected contacts:', fullContacts);
+    eventContacts.forEach((contact: { id: string }) => {
+      fetchContactSession(contact.id);
+    });
   
     setCurrentEvent({
-      id: appointment.id,
-      title: appointment.title,
+      id: info.event.id,
+      title: info.event.title,
       dateStr: dateStr,
       startTimeStr: startStr,
       endTimeStr: endStr,
       extendedProps: {
-        address: appointment.address,
-        appointmentStatus: appointment.appointmentStatus,
-        staff: appointment.staff,
-        package: appointment.package,
-        dateAdded: appointment.dateAdded,
-        contacts: eventContacts // Include contacts in currentEvent
+        address: info.event.extendedProps.address || '',
+        appointmentStatus: info.event.extendedProps.appointmentStatus || '',
+        staff: info.event.extendedProps.staff || '',
+        package: info.event.extendedProps.package || '',
+        dateAdded: info.event.extendedProps.dateAdded || '',
       },
       isWeekend: isWeekend,
       timeSlots: generateTimeSlots(isWeekend)
     });
-    console.log('Current event set:', {
-      id: appointment.id,
-      title: appointment.title,
-      dateStr: dateStr,
-      startTimeStr: startStr,
-      endTimeStr: endStr,
-      extendedProps: {
-        address: appointment.address,
-        appointmentStatus: appointment.appointmentStatus,
-        staff: appointment.staff,
-        package: appointment.package,
-        dateAdded: appointment.dateAdded,
-        contacts: eventContacts
-      },
-      isWeekend: isWeekend,
-      timeSlots: generateTimeSlots(isWeekend)
-    });
-    setInitialAppointmentStatus(appointment.appointmentStatus);
     setEditModalOpen(true);
   };
-  
 
 
   const handleSaveAppointment = async () => {
@@ -388,7 +306,7 @@ function Main() {
       contacts: selectedContacts.map(contact => ({
         id: contact.id,
         name: contact.contactName,
-        session: extendedProps.appointmentStatus === 'confirmed' ? (contactSessions[contact.id] || 0) - 1 : contactSessions[contact.id] || 0
+        session: contactSessions[contact.id] || 0
       })),
     };
 
@@ -409,13 +327,14 @@ function Main() {
         appointment.id === id ? updatedAppointment : appointment
       ));
       
-      
       setEditModalOpen(false);
 
       // Decrement session count if the status is confirmed
       if (updatedAppointment.appointmentStatus === 'confirmed') {
         updatedAppointment.contacts.forEach(contact => decrementSession(contact.id));
       }
+      // Refresh the appointments list after saving the appointment
+      fetchAppointments(user.email);
     } catch (error) {
       console.error('Error saving appointment:', error);
     }
@@ -454,7 +373,7 @@ function Main() {
       endTime: new Date(`${currentEvent.dateStr}T${currentEvent.endTimeStr}`).toISOString(),
       address: currentEvent.extendedProps.address,
       appointmentStatus: currentEvent.extendedProps.appointmentStatus,
-      staff: selectedStaff,
+      staff: selectedEmployeeId, // Use selectedEmployeeId instead of selectedStaff
       contacts: selectedContacts.map(contact => ({
         id: contact.id,
         name: contact.contactName,
@@ -531,14 +450,23 @@ function Main() {
 
   const handleEventDrop = async (eventDropInfo: any) => {
     const { event } = eventDropInfo;
+    const updatedAppointment: Appointment = {
+      id: event.id,
+      title: event.title,
+      startTime: event.startStr,
+      endTime: event.endStr,
+      address: event.extendedProps.address,
+      appointmentStatus: event.extendedProps.appointmentStatus,
+      staff: event.extendedProps.staff,
+      package: event.extendedProps.package,
+      dateAdded: event.extendedProps.dateAdded,
+      contacts: event.extendedProps.contacts.map((contact: any) => ({
+        id: contact.id,
+        name: contact.name, // Ensure contact name is included
+        session: contact.session
+      }))
+    };
   
-    console.log('Event Drop Info:', eventDropInfo);
-    console.log('Event:', event);
-    console.log('Event Start:', event.start);
-    console.log('Event End:', event.end);
-    console.log('Event Extended Props:', event.extendedProps);
-  
-    // Fetch the full appointment data to get the contacts array
     try {
       const user = auth.currentUser;
       if (!user || !user.email) {
@@ -548,23 +476,7 @@ function Main() {
   
       const userRef = doc(firestore, 'user', user.email);
       const appointmentsCollectionRef = collection(userRef, 'appointments');
-      const appointmentRef = doc(appointmentsCollectionRef, event.id);
-      const appointmentDoc = await getDoc(appointmentRef);
-  
-      if (!appointmentDoc.exists()) {
-        console.error('No such document!');
-        return;
-      }
-  
-      const appointmentData = appointmentDoc.data() as Appointment;
-  
-      const updatedAppointment: Appointment = {
-        ...appointmentData,
-        startTime: event.start.toISOString(),
-        endTime: event.end.toISOString()
-      };
-  
-      console.log('Updated Appointment:', updatedAppointment);
+      const appointmentRef = doc(appointmentsCollectionRef, event.id); // Ensure id is not empty
   
       await setDoc(appointmentRef, updatedAppointment);
   
@@ -592,65 +504,7 @@ function Main() {
     );
   });
 
-  const handleAppointmentClick = async (appointment: Appointment) => {
-    // Fetch the contact sessions if not already fetched
-    const fetchContactSessions = async () => {
-      const newContactSessions: { [key: string]: number } = {};
-      await Promise.all(appointment.contacts.map(async (contact) => {
-        const auth = getAuth(app);
-        const user = auth.currentUser;
-        if (!user || !user.email) {
-          console.error('No authenticated user or email found');
-          return;
-        }
-  
-        const docUserRef = doc(firestore, 'user', user.email);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          console.error('No such document for user!');
-          return;
-        }
-  
-        const dataUser = docUserSnapshot.data();
-        const companyId = dataUser.companyId as string;
-        const contactRef = doc(firestore, `companies/${companyId}/session`, contact.id);
-        const contactSnapshot = await getDoc(contactRef);
-  
-        if (contactSnapshot.exists()) {
-          const contactData = contactSnapshot.data();
-          newContactSessions[contact.id] = contactData.session;
-          console.log(`Fetched session for contact ${contact.id}: ${contactData.session}`);
-        }
-      }));
-  
-      setContactSessions((prevSessions) => {
-        const updatedSessions = { ...prevSessions, ...newContactSessions };
-        console.log('Updated contact sessions:', updatedSessions);
-        return updatedSessions;
-      });
-    };
-  
-    // Fetch contact sessions and wait for completion
-    await fetchContactSessions();
-  
-    // Map appointment contacts to ContactWithSession objects
-    const fullContacts: ContactWithSession[] = appointment.contacts.map(contact => {
-      const foundContact = contacts.find(c => c.id === contact.id);
-      if (foundContact) {
-        console.log(`Mapping contact ${contact.id} with session ${contactSessions[contact.id] || 0}`);
-        return {
-          ...foundContact,
-          session: contactSessions[contact.id] || 0
-        };
-      }
-      return null;
-    }).filter((contact): contact is ContactWithSession => contact !== null);
-  
-    console.log('Full contacts after mapping:', fullContacts);
-  
-    setSelectedContacts(fullContacts);
-    console.log('Selected contacts:', fullContacts);
-  
+  const handleAppointmentClick = (appointment: Appointment) => {
     setCurrentEvent({
       id: appointment.id,
       title: appointment.title,
@@ -666,26 +520,8 @@ function Main() {
         contacts: appointment.contacts // Include contacts in currentEvent
       }
     });
-    console.log('Current event set:', {
-      id: appointment.id,
-      title: appointment.title,
-      dateStr: format(new Date(appointment.startTime), 'yyyy-MM-dd'),
-      startTimeStr: format(new Date(appointment.startTime), 'HH:mm'),
-      endTimeStr: format(new Date(appointment.endTime), 'HH:mm'),
-      extendedProps: {
-        address: appointment.address,
-        appointmentStatus: appointment.appointmentStatus,
-        staff: appointment.staff,
-        package: appointment.package,
-        dateAdded: appointment.dateAdded,
-        contacts: appointment.contacts
-      }
-    });
-    setInitialAppointmentStatus(appointment.appointmentStatus);
     setEditModalOpen(true);
   };
-  
-
 
   const handleDeleteAppointment = async (appointmentId: string) => {
     const user = auth.currentUser;
@@ -776,7 +612,7 @@ function Main() {
       </div>
     );
   };
-//
+
   const selectedEmployee = employees.find(employee => employee.id === selectedEmployeeId);
 
   const getPackageSessions = (packageType: string) => {
@@ -1068,151 +904,148 @@ function Main() {
         </div>
       </div>
       {editModalOpen && (
-  <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)}>
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
-        <div className="flex items-center p-4 border-b">
-          <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-            <span className="text-xl">{currentEvent?.title.charAt(0).toUpperCase()}</span>
-          </div>
-          <div>
-            <div className="font-semibold text-gray-800">{currentEvent?.title}</div>
-            <div className="text-sm text-gray-600">{currentEvent?.extendedProps?.address}</div>
-          </div>
-        </div>
-        <div className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Title</label>
-            <input
-              type="text"
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.title || ''}
-              onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Date</label>
-            <input
-              type="date"
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.dateStr || ''}
-              onChange={handleDateChange}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Time Slot</label>
-            <select
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.startTimeStr && currentEvent?.endTimeStr ? `${currentEvent.startTimeStr} - ${currentEvent.endTimeStr}` : ''}
-              onChange={handleTimeSlotChange}
-            >
-              <option value="" disabled>Select a time slot</option>
-              {currentEvent?.timeSlots?.map((slot: string) => (
-                <option key={slot} value={slot}>
-                  {slot}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Appointment Status</label>
-            <select
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.extendedProps?.appointmentStatus || ''}
-              onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
-            >
-                    <option value="" disabled>Set a status</option>
-              <option value="new">New</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="showed">Showed</option>
-              <option value="noshow">No Show</option>
-              <option value="invalid">Invalid</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Staff</label>
-            <select
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.extendedProps?.staff || ''}
-              onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, staff: e.target.value } })}
-            >
-                    <option value="" disabled>Select an employee</option>
-              {employees.map(employee => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Package</label>
-            <select
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={currentEvent?.extendedProps?.package || ''}
-              onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
-            >
-                    <option value="" disabled>Select an employee</option>
-              <option value="trial1">Trial - Private</option>
-              <option value="trial2">Trial - Duo</option>
-              <option value="privDrop">Private - Drop In</option>
-              <option value="priv4">Private - 4 Sessions</option>
-              <option value="priv10">Private - 10 Sessions</option>
-              <option value="priv20">Private - 20 Sessions</option>
-              <option value="duoDrop">Duo - Drop In</option>
-              <option value="duo4">Duo - 4 Sessions</option>
-              <option value="duo10">Duo - 10 Sessions</option>
-              <option value="duo20">Duo - 20 Sessions</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Contacts</label>
-            <Select
-              isMulti
-              value={selectedContacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
-              options={contacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
-              onChange={handleContactChange}
-              className="capitalize"
-            />
-            {selectedContacts.map(contact => (
-              <div key={contact.id} className="capitalize text-sm text-gray-600">
-                {contact.contactName}: Session {contactSessions[contact.id] || 'N/A'}
+        <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
+              <div className="flex items-center p-4 border-b">
+                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+                  <span className="text-xl">{currentEvent?.title.charAt(0).toUpperCase()}</span>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-800">{currentEvent?.title}</div>
+                  <div className="text-sm text-gray-600">{currentEvent?.extendedProps?.address}</div>
+                </div>
               </div>
-            ))}
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Title</label>
+                  <input
+                    type="text"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.title || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Date</label>
+                  <input
+                    type="date"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.dateStr || ''}
+                    onChange={handleDateChange}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Time Slot</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.startTimeStr && currentEvent?.endTimeStr ? `${currentEvent.startTimeStr} - ${currentEvent.endTimeStr}` : ''}
+                    onChange={handleTimeSlotChange}
+                  >
+                    <option value="" disabled>Select a time slot</option>
+                    {currentEvent?.timeSlots?.map((slot: string) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Appointment Status</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.extendedProps?.appointmentStatus || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
+                  >
+                    <option value="" disabled>Set a status</option>
+                    <option value="new">New</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="showed">Showed</option>
+                    <option value="noshow">No Show</option>
+                    <option value="invalid">Invalid</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Staff</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.extendedProps?.staff || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, staff: e.target.value } })}
+                  >
+                    <option value="" disabled>Select an employee</option>
+                    {employees.map(employee => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Package</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    value={currentEvent?.extendedProps?.package || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
+                  >
+                    <option value="" disabled>Select an employee</option>
+                    <option value="trial1">Trial - Private</option>
+                    <option value="trial2">Trial - Duo</option>
+                    <option value="privDrop">Private - Drop In</option>
+                    <option value="priv4">Private - 4 Sessions</option>
+                    <option value="priv10">Private - 10 Sessions</option>
+                    <option value="priv20">Private - 20 Sessions</option>
+                    <option value="duoDrop">Duo - Drop In</option>
+                    <option value="duo4">Duo - 4 Sessions</option>
+                    <option value="duo10">Duo - 10 Sessions</option>
+                    <option value="duo20">Duo - 20 Sessions</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Contacts</label>
+                  <Select
+                    isMulti
+                    value={selectedContacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
+                    options={contacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
+                    onChange={handleContactChange}
+                    className="capitalize"
+                  />
+                  {selectedContacts.map(contact => (
+                    <div key={contact.id} className="capitalize text-sm text-gray-600">
+                      {contact.contactName}: Session {contactSessions[contact.id] || 'N/A'}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end mt-6">
+              {currentEvent?.id && (
+                <button
+                  className="px-4 py-2 mr-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                  onClick={() => {
+                    handleDeleteAppointment(currentEvent.id);
+                    setEditModalOpen(false);
+                  }}
+                >
+                  Delete
+                </button>
+              )}
+                <button
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  onClick={() => setEditModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  onClick={handleSaveAppointment}
+                >
+                  Save
+                </button>
+              </div>
+            </Dialog.Panel>
           </div>
-        </div>
-        <div className="flex justify-end mt-6">
-          {currentEvent?.id && (
-            <button
-              className="px-4 py-2 mr-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
-              onClick={() => {
-                handleDeleteAppointment(currentEvent.id);
-                setEditModalOpen(false);
-              }}
-            >
-              Delete
-            </button>
-          )}
-          <button
-            className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-            onClick={() => setEditModalOpen(false)}
-          >
-            Cancel
-          </button>
-          {initialAppointmentStatus !== 'confirmed' && (
-            <button
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-              onClick={handleSaveAppointment}
-            >
-              Save
-            </button>
-          )}
-        </div>
-      </Dialog.Panel>
-    </div>
-  </Dialog>
-)}
-
+        </Dialog>
+      )}
 
     {addModalOpen && (
       <Dialog open={addModalOpen} onClose={() => setAddModalOpen(false)}>
@@ -1276,6 +1109,7 @@ function Main() {
                   value={currentEvent?.extendedProps?.appointmentStatus || ''}
                   onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
                 >
+                   <option value="" disabled>Set a status</option>
                   <option value="new">New</option>
                   <option value="confirmed">Confirmed</option>
                   <option value="cancelled">Cancelled</option>
@@ -1287,16 +1121,17 @@ function Main() {
               <div>
                 <label className="block text-sm font-medium text-gray-700">Staff</label>
                 <select
-                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  value={currentEvent?.extendedProps?.staff || ''}
-                  onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, staff: e.target.value } })}
-                >
-                  {employees.map(employee => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.name}
-                    </option>
-                  ))}
-                </select>
+              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              value={selectedEmployeeId}
+              onChange={(e) => setSelectedEmployeeId(e.target.value)}
+            >
+              <option value="" disabled>Select an employee</option>
+              {employees.map(employee => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.name}
+                </option>
+              ))}
+            </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Package</label>
