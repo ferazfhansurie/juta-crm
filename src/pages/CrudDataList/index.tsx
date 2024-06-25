@@ -584,7 +584,6 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
 
   try {
     const response = await fetch(url, options);
-    console.log(response.body);
     if (response.ok) {
       setTags((prevTags) => ({
         ...prevTags,
@@ -599,17 +598,18 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
             : contact
         )
       );
-
+     
    
     } else {
       console.error('Failed to remove tag', await response.json());
       toast.error("Failed to remove tag.");
     }
-    toast.success("Tag removed successfully!");
+   
   } catch (error) {
     console.error('Error removing tag', error);
     toast.error("An error occurred while removing the tag.");
   }
+
 };
   async function updateContactTags(contactId: any, accessToken: any, tags: any) {
     try {
