@@ -104,6 +104,7 @@ function Main() {
   const [selectedStaff, setSelectedStaff] = useState<string>('');
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [contactSessions, setContactSessions] = useState<{ [key: string]: number }>({});
+  const [initialAppointmentStatus, setInitialAppointmentStatus] = useState<string | null>(null);
 
   const generateTimeSlots = (isWeekend: boolean): string[] => {
     const start = 8;
@@ -258,43 +259,120 @@ function Main() {
     selectedContactsArray.forEach((contact: { id: string; }) => fetchContactSession(contact.id));
   };
 
-  const handleEventClick = (info: any) => {
-    const startStr = format(new Date(info.event.start), 'HH:mm');
-    const endStr = format(new Date(info.event.end), 'HH:mm');
-    const dateStr = format(new Date(info.event.start), 'yyyy-MM-dd');
+  const handleEventClick = async (info: any) => {
+    const appointment = appointments.find(app => app.id === info.event.id);
+  
+    if (!appointment) {
+      console.error('Appointment not found!');
+      return;
+    }
+  
+    const startStr = format(new Date(appointment.startTime), 'HH:mm');
+    const endStr = format(new Date(appointment.endTime), 'HH:mm');
+    const dateStr = format(new Date(appointment.startTime), 'yyyy-MM-dd');
     const date = new Date(dateStr);
     const dayOfWeek = date.getUTCDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const eventContacts = info.event.extendedProps.contacts || [];
+    const eventContacts = appointment.contacts || [];
   
-    setSelectedContacts(eventContacts.map((contact: { id: string }) => {
+    console.log('Event info:', info);
+    console.log('Event contacts:', eventContacts);
+  
+    // Fetch the contact sessions if not already fetched
+    const fetchContactSessions = async () => {
+      const newContactSessions: { [key: string]: number } = {};
+      await Promise.all(eventContacts.map(async (contact: { id: string }) => {
+        const auth = getAuth(app);
+        const user = auth.currentUser;
+        if (!user || !user.email) {
+          console.error('No authenticated user or email found');
+          return;
+        }
+  
+        const docUserRef = doc(firestore, 'user', user.email);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (!docUserSnapshot.exists()) {
+          console.error('No such document for user!');
+          return;
+        }
+  
+        const dataUser = docUserSnapshot.data();
+        const companyId = dataUser.companyId as string;
+        const contactRef = doc(firestore, `companies/${companyId}/session`, contact.id);
+        const contactSnapshot = await getDoc(contactRef);
+  
+        if (contactSnapshot.exists()) {
+          const contactData = contactSnapshot.data();
+          newContactSessions[contact.id] = contactData.session;
+          console.log(`Fetched session for contact ${contact.id}: ${contactData.session}`);
+        }
+      }));
+  
+      setContactSessions((prevSessions) => {
+        const updatedSessions = { ...prevSessions, ...newContactSessions };
+        console.log('Updated contact sessions:', updatedSessions);
+        return updatedSessions;
+      });
+    };
+  
+    // Fetch contact sessions and wait for completion
+    await fetchContactSessions();
+  
+    // Map event contacts to ContactWithSession objects
+    const fullContacts: ContactWithSession[] = eventContacts.map((contact: { id: string }) => {
       const foundContact = contacts.find(c => c.id === contact.id);
-      return foundContact || null;
-    }).filter((contact: any) => contact !== null));
+      if (foundContact) {
+        console.log(`Mapping contact ${contact.id} with session ${contactSessions[contact.id] || 0}`);
+        return {
+          ...foundContact,
+          session: contactSessions[contact.id] || 0
+        };
+      }
+      return null;
+    }).filter((contact): contact is ContactWithSession => contact !== null);
   
-    eventContacts.forEach((contact: { id: string }) => {
-      fetchContactSession(contact.id);
-    });
+    console.log('Full contacts after mapping:', fullContacts);
+  
+    setSelectedContacts(fullContacts);
+    console.log('Selected contacts:', fullContacts);
   
     setCurrentEvent({
-      id: info.event.id,
-      title: info.event.title,
+      id: appointment.id,
+      title: appointment.title,
       dateStr: dateStr,
       startTimeStr: startStr,
       endTimeStr: endStr,
       extendedProps: {
-        address: info.event.extendedProps.address || '',
-        appointmentStatus: info.event.extendedProps.appointmentStatus || '',
-        staff: info.event.extendedProps.staff || '',
-        package: info.event.extendedProps.package || '',
-        dateAdded: info.event.extendedProps.dateAdded || '',
+        address: appointment.address,
+        appointmentStatus: appointment.appointmentStatus,
+        staff: appointment.staff,
+        package: appointment.package,
+        dateAdded: appointment.dateAdded,
+        contacts: eventContacts // Include contacts in currentEvent
       },
       isWeekend: isWeekend,
       timeSlots: generateTimeSlots(isWeekend)
     });
+    console.log('Current event set:', {
+      id: appointment.id,
+      title: appointment.title,
+      dateStr: dateStr,
+      startTimeStr: startStr,
+      endTimeStr: endStr,
+      extendedProps: {
+        address: appointment.address,
+        appointmentStatus: appointment.appointmentStatus,
+        staff: appointment.staff,
+        package: appointment.package,
+        dateAdded: appointment.dateAdded,
+        contacts: eventContacts
+      },
+      isWeekend: isWeekend,
+      timeSlots: generateTimeSlots(isWeekend)
+    });
+    setInitialAppointmentStatus(appointment.appointmentStatus);
     setEditModalOpen(true);
   };
-
 
   const handleSaveAppointment = async () => {
     const { id, title, dateStr, startTimeStr, endTimeStr, extendedProps } = currentEvent;
@@ -314,7 +392,7 @@ function Main() {
       contacts: selectedContacts.map(contact => ({
         id: contact.id,
         name: contact.contactName,
-        session: contactSessions[contact.id] || 0
+        session: extendedProps.appointmentStatus === 'confirmed' ? (contactSessions[contact.id] || 0) - 1 : contactSessions[contact.id] || 0
       })),
     };
 
@@ -341,12 +419,12 @@ function Main() {
       if (updatedAppointment.appointmentStatus === 'confirmed') {
         updatedAppointment.contacts.forEach(contact => decrementSession(contact.id));
       }
-      // Refresh the appointments list after saving the appointment
-      fetchAppointments(user.email);
     } catch (error) {
       console.error('Error saving appointment:', error);
     }
   };
+  
+
   
 
   const handleDateSelect = (selectInfo: any) => {
@@ -458,23 +536,14 @@ function Main() {
 
   const handleEventDrop = async (eventDropInfo: any) => {
     const { event } = eventDropInfo;
-    const updatedAppointment: Appointment = {
-      id: event.id,
-      title: event.title,
-      startTime: event.startStr,
-      endTime: event.endStr,
-      address: event.extendedProps.address,
-      appointmentStatus: event.extendedProps.appointmentStatus,
-      staff: event.extendedProps.staff,
-      package: event.extendedProps.package,
-      dateAdded: event.extendedProps.dateAdded,
-      contacts: event.extendedProps.contacts.map((contact: any) => ({
-        id: contact.id,
-        name: contact.name, // Ensure contact name is included
-        session: contact.session
-      }))
-    };
   
+    console.log('Event Drop Info:', eventDropInfo);
+    console.log('Event:', event);
+    console.log('Event Start:', event.start);
+    console.log('Event End:', event.end);
+    console.log('Event Extended Props:', event.extendedProps);
+  
+    // Fetch the full appointment data to get the contacts array
     try {
       const user = auth.currentUser;
       if (!user || !user.email) {
@@ -484,7 +553,23 @@ function Main() {
   
       const userRef = doc(firestore, 'user', user.email);
       const appointmentsCollectionRef = collection(userRef, 'appointments');
-      const appointmentRef = doc(appointmentsCollectionRef, event.id); // Ensure id is not empty
+      const appointmentRef = doc(appointmentsCollectionRef, event.id);
+      const appointmentDoc = await getDoc(appointmentRef);
+  
+      if (!appointmentDoc.exists()) {
+        console.error('No such document!');
+        return;
+      }
+  
+      const appointmentData = appointmentDoc.data() as Appointment;
+  
+      const updatedAppointment: Appointment = {
+        ...appointmentData,
+        startTime: event.start.toISOString(),
+        endTime: event.end.toISOString()
+      };
+  
+      console.log('Updated Appointment:', updatedAppointment);
   
       await setDoc(appointmentRef, updatedAppointment);
   
@@ -512,7 +597,65 @@ function Main() {
     );
   });
 
-  const handleAppointmentClick = (appointment: Appointment) => {
+  const handleAppointmentClick = async (appointment: Appointment) => {
+    // Fetch the contact sessions if not already fetched
+    const fetchContactSessions = async () => {
+      const newContactSessions: { [key: string]: number } = {};
+      await Promise.all(appointment.contacts.map(async (contact) => {
+        const auth = getAuth(app);
+        const user = auth.currentUser;
+        if (!user || !user.email) {
+          console.error('No authenticated user or email found');
+          return;
+        }
+  
+        const docUserRef = doc(firestore, 'user', user.email);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (!docUserSnapshot.exists()) {
+          console.error('No such document for user!');
+          return;
+        }
+  
+        const dataUser = docUserSnapshot.data();
+        const companyId = dataUser.companyId as string;
+        const contactRef = doc(firestore, `companies/${companyId}/session`, contact.id);
+        const contactSnapshot = await getDoc(contactRef);
+  
+        if (contactSnapshot.exists()) {
+          const contactData = contactSnapshot.data();
+          newContactSessions[contact.id] = contactData.session;
+          console.log(`Fetched session for contact ${contact.id}: ${contactData.session}`);
+        }
+      }));
+  
+      setContactSessions((prevSessions) => {
+        const updatedSessions = { ...prevSessions, ...newContactSessions };
+        console.log('Updated contact sessions:', updatedSessions);
+        return updatedSessions;
+      });
+    };
+  
+    // Fetch contact sessions and wait for completion
+    await fetchContactSessions();
+  
+    // Map appointment contacts to ContactWithSession objects
+    const fullContacts: ContactWithSession[] = appointment.contacts.map(contact => {
+      const foundContact = contacts.find(c => c.id === contact.id);
+      if (foundContact) {
+        console.log(`Mapping contact ${contact.id} with session ${contactSessions[contact.id] || 0}`);
+        return {
+          ...foundContact,
+          session: contactSessions[contact.id] || 0
+        };
+      }
+      return null;
+    }).filter((contact): contact is ContactWithSession => contact !== null);
+  
+    console.log('Full contacts after mapping:', fullContacts);
+  
+    setSelectedContacts(fullContacts);
+    console.log('Selected contacts:', fullContacts);
+  
     setCurrentEvent({
       id: appointment.id,
       title: appointment.title,
@@ -528,8 +671,25 @@ function Main() {
         contacts: appointment.contacts // Include contacts in currentEvent
       }
     });
+    console.log('Current event set:', {
+      id: appointment.id,
+      title: appointment.title,
+      dateStr: format(new Date(appointment.startTime), 'yyyy-MM-dd'),
+      startTimeStr: format(new Date(appointment.startTime), 'HH:mm'),
+      endTimeStr: format(new Date(appointment.endTime), 'HH:mm'),
+      extendedProps: {
+        address: appointment.address,
+        appointmentStatus: appointment.appointmentStatus,
+        staff: appointment.staff,
+        package: appointment.package,
+        dateAdded: appointment.dateAdded,
+        contacts: appointment.contacts
+      }
+    });
+    setInitialAppointmentStatus(appointment.appointmentStatus);
     setEditModalOpen(true);
   };
+  
 
   const handleDeleteAppointment = async (appointmentId: string) => {
     const user = auth.currentUser;
@@ -816,7 +976,7 @@ function Main() {
               </div>
             </div>
             <div className="mt-6 mb-5 border-t border-b border-slate-200/60 dark:border-darkmode-400">
-             {filteredAppointments.length > 0 ? (
+            {filteredAppointments.length > 0 ? (
                 filteredAppointments.map((appointment, index) => (
                   <div key={index} className="relative" onClick={() => handleAppointmentClick(appointment)}>
                     <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-darkmode-400">
@@ -1043,12 +1203,14 @@ function Main() {
                 >
                   Cancel
                 </button>
-                <button
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                  onClick={handleSaveAppointment}
-                >
-                  Save
-                </button>
+                {initialAppointmentStatus !== 'confirmed' && (
+            <button
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              onClick={handleSaveAppointment}
+            >
+              Save
+            </button>
+          )}
               </div>
             </Dialog.Panel>
           </div>
