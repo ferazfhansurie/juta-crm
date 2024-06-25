@@ -57,12 +57,19 @@ function Main() {
 
   const handleChange = (e: { target: { name: any; value: any; }; }) => {
     const { name, value } = e.target;
-    setUserData((prevUserData) => ({
-      ...prevUserData,
-      [name]: value
-    }));
+    if (name === 'role') {
+      setCategories([value]);
+      setUserData((prevUserData) => ({
+        ...prevUserData,
+        role: value
+      }));
+    } else {
+      setUserData((prevUserData) => ({
+        ...prevUserData,
+        [name]: value
+      }));
+    }
   };
-
   const handleGoBack = () => {
     window.history.back();
   };
@@ -230,15 +237,17 @@ setUserData({
             <div className="mt-3">
   <FormLabel htmlFor="crud-form-2">Role</FormLabel>
   <select
-    id="crud-form-2"
-    value={categories}
-    onChange={handleChange}
-    className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm w-full"
-  >
-    <option value="1">Admin</option>
-    <option value="2">Sales</option>
-    <option value="3">Others</option>
-  </select>
+  id="crud-form-2"
+  name="role"
+  value={categories[0]} // Ensure value is correctly set
+  onChange={handleChange}
+  className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm w-full"
+>
+  <option value="1">Admin</option>
+  <option value="2">Sales</option>
+  <option value="3">Others</option>
+</select>
+
 </div>
             <div className="mt-3">
               <FormInput

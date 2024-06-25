@@ -533,7 +533,7 @@ setLoading(true);
         updatedContacts.find(updatedContact => updatedContact.id === contact.id) || contact
       );
       localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
-      toast.success(`Tag "${tagName}" added to contact`);
+   
       setSelectedContacts([]);
       
     } catch (error) {
@@ -767,6 +767,7 @@ const chatId = tempphone + "@s.whatsapp.net"
             const response = await axios.request(options);
             if (response.status === 200) {
               setContacts(prevContacts => prevContacts.filter(contact => contact.id !== currentContact.id));
+              localStorage.setItem('contacts', LZString.compress(JSON.stringify(contacts)));
               setDeleteConfirmationModal(false);
               setCurrentContact(null);
               toast.success("Contact deleted successfully!");
@@ -1065,6 +1066,7 @@ const chatId = tempphone + "@s.whatsapp.net"
           <div className="flex items-center col-span-12 intro-y sm:flex-nowrap">
             <div className="w-full sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
               <div className="flex">
+            
                 {/* Add Contact Button */}
                 <button className="flex inline p-2 m-2 !box" onClick={() => setAddContactModal(true)}>
                   <span className="flex items-center justify-center w-5 h-5">
@@ -1417,7 +1419,7 @@ const chatId = tempphone + "@s.whatsapp.net"
             </Dialog.Panel>
           </div>
         </Dialog>
-        <ToastContainer />
+      
         <Dialog open={editContactModal} onClose={() => setEditContactModal(false)}>
           <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
             <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
@@ -1503,7 +1505,7 @@ const chatId = tempphone + "@s.whatsapp.net"
             </Dialog.Panel>
           </div>
         </Dialog>
-        <ToastContainer />
+     
         <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
   <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
     <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-40">
@@ -1652,6 +1654,7 @@ const chatId = tempphone + "@s.whatsapp.net"
             </div>
           </Dialog.Panel>
         </Dialog>
+   
       </div>
     </div>
   );
