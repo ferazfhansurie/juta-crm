@@ -458,12 +458,11 @@ setLoading(true);
     const companyData = docSnapshot.data();
     const accessToken = companyData.ghl_accessToken;
   
-    const tagName = selectedEmployee;
+    const tagName = selectedEmployee.toLowerCase();
     const updatedContacts = selectedContacts.map(contact => ({
-      ...contact,
-      tags: [...new Set([...(contact.tags || []), tagName])]
+        ...contact,
+        tags: [...new Set([...(contact.tags || []), tagName])]
     }));
-  
     const tagSessionMap: { [key: string]: number } = {
       '1 session': 1,
       '10 sessions': 10,
@@ -478,7 +477,6 @@ setLoading(true);
       'invoice private 10 sessions': 10,
       // Add more mappings as needed
     };
-  
     try {
       for (const contact of updatedContacts) {
         const success = await updateContactTags(contact.id, accessToken, contact.tags);
@@ -486,40 +484,44 @@ setLoading(true);
           console.error(`Failed to add tag "${tagName}" to contact with ID ${contact.id}`);
         } else {
           console.log(`Tag "${tagName}" added to contact with ID ${contact.id}`);
-          
-          // Determine the number of sessions based on the tag
-          const sessionCount = tagSessionMap[tagName] || 0;
+
+          if(companyId === "008")
+          {
+  // Determine the number of sessions based on the tag
+  const sessionCount = tagSessionMap[tagName] || 0;
   
-          if (sessionCount > 0) {
-            // Fetch session data from the company collection
-            const sessionDocRef = doc(firestore, `companies/${companyId}/session`, contact.id);
-            const sessionDocSnapshot = await getDoc(sessionDocRef);
-            
-            if (sessionDocSnapshot.exists()) {
-              const sessionData = sessionDocSnapshot.data();
-              const currentSessionCount = sessionData.session || 0;
-  
-              // Update session count in the company collection
-              const newSessionCount = currentSessionCount + sessionCount;
-              await updateDoc(sessionDocRef, { session: newSessionCount });
-              console.log(`Session count updated for contact ${contact.id} in company collection`);
-  
-              // Update session count in the user collection
-              const appointmentsRef = collection(firestore, `user/${user?.email}/appointments`);
-              const appointmentsSnapshot = await getDocs(appointmentsRef);
-              appointmentsSnapshot.forEach(async (appointmentDoc) => {
-                const appointmentData = appointmentDoc.data();
-                const contactToUpdate = appointmentData.contacts.find((c: any) => c.id === contact.id);
-                if (contactToUpdate) {
-                  contactToUpdate.session = newSessionCount;
-                  await updateDoc(doc(firestore, `user/${user?.email}/appointments`, appointmentDoc.id), {
-                    contacts: appointmentData.contacts
-                  });
-                  console.log(`Session count updated for contact ${contact.id} in user collection appointment ${appointmentDoc.id}`);
-                }
-              });
-            }
+  if (sessionCount > 0) {
+    // Fetch session data from the company collection
+    const sessionDocRef = doc(firestore, `companies/${companyId}/session`, contact.id);
+    const sessionDocSnapshot = await getDoc(sessionDocRef);
+    
+    if (sessionDocSnapshot.exists()) {
+      const sessionData = sessionDocSnapshot.data();
+      const currentSessionCount = sessionData.session || 0;
+
+      // Update session count in the company collection
+      const newSessionCount = currentSessionCount + sessionCount;
+      await updateDoc(sessionDocRef, { session: newSessionCount });
+      console.log(`Session count updated for contact ${contact.id} in company collection`);
+
+      // Update session count in the user collection
+      const appointmentsRef = collection(firestore, `user/${user?.email}/appointments`);
+      const appointmentsSnapshot = await getDocs(appointmentsRef);
+      appointmentsSnapshot.forEach(async (appointmentDoc) => {
+        const appointmentData = appointmentDoc.data();
+        const contactToUpdate = appointmentData.contacts.find((c: any) => c.id === contact.id);
+        if (contactToUpdate) {
+          contactToUpdate.session = newSessionCount;
+          await updateDoc(doc(firestore, `user/${user?.email}/appointments`, appointmentDoc.id), {
+            contacts: appointmentData.contacts
+          });
+          console.log(`Session count updated for contact ${contact.id} in user collection appointment ${appointmentDoc.id}`);
+        }
+      });
+    }
+  }
           }
+        
         }
       }
   
@@ -626,6 +628,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
         }
       };
       const response = await axios.request(options);
+      console.log(response);
       if (response.status === 200) {
         return true;
       } else {

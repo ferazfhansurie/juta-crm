@@ -97,15 +97,15 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         const contactsFromFirebase = contactsSnapshot.docs.map(doc => doc.data());
 
         if (contactsFromFirebase.length > 0) {
-          setContacts(contactsFromFirebase);
+         /* setContacts(contactsFromFirebase);
           console.log("Fetched contacts from Firebase:", contactsFromFirebase);
           localStorage.setItem('contacts', LZString.compress(JSON.stringify(contactsFromFirebase)));
           sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
-       
+       */
         } 
         const data = docSnapshot.data();
 
-        const url = `https://buds-359313.et.r.appspot.com/api/chats/${data?.whapiToken}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}`;
+        const url = `http://localhost:8443/api/chats/${data?.whapiToken}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}`;
         const response = await axios.get(url);
 
         setContacts(response.data.contacts);
