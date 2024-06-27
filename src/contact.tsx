@@ -70,53 +70,60 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     const fetchContacts = async (user: User) => {
       try {
         setIsLoading(true);
-
+  
         const docUserRef = doc(firestore, 'user', user.email!);
         const docUserSnapshot = await getDoc(docUserRef);
         if (!docUserSnapshot.exists()) {
           setIsLoading(false);
           return;
         }
-
+  
         const dataUser = docUserSnapshot.data();
         const companyId = dataUser?.companyId;
         if (!companyId) {
           setIsLoading(false);
           return;
         }
-
+  
         const docRef = doc(firestore, 'companies', companyId);
         const docSnapshot = await getDoc(docRef);
+        const dataCompany = docSnapshot.data();
+        console.log(dataCompany);
         if (!docSnapshot.exists()) {
           setIsLoading(false);
           return;
         }
-
+  
         const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
         const contactsSnapshot = await getDocs(contactsCollectionRef);
         const contactsFromFirebase = contactsSnapshot.docs.map(doc => doc.data());
-
+  
         if (contactsFromFirebase.length > 0) {
-          /*setContacts(contactsFromFirebase);
-          console.log("Fetched contacts from Firebase:", contactsFromFirebase);
-          localStorage.setItem('contacts', LZString.compress(JSON.stringify(contactsFromFirebase)));
-          sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
-       */
+          // Do something with the fetched contacts from Firebase if needed
         } 
+  
         const data = docSnapshot.data();
-
-        const url = `https://buds-359313.et.r.appspot.com/api/chats/${data?.whapiToken}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}`;
+        const url = `http://localhost:8443/api/chats/${data?.whapiToken}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}/${dataUser.companyId}`;
         const response = await axios.get(url);
-
-        setContacts(response.data.contacts);
-        const contactsWithChatPic = response.data.contacts.filter((contact: { chat_pic: any; }) => contact.chat_pic);
+        let allContacts = response.data.contacts;
+  
+        /*if (data.whapiToken2 != null) {
+          const url2 = `http://localhost:8443/api/chats/${data?.whapiToken2}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}`;
+          const response2 = await axios.get(url2);
+          allContacts = allContacts.concat(response2.data.contacts);
+        }*/
+  
+        setContacts(allContacts);
+        const contactsWithChatPic = allContacts.filter((contact: { chat_pic: any; }) => contact.chat_pic);
         console.log('Contacts with chat_pic:', contactsWithChatPic);
-        localStorage.setItem('contacts', LZString.compress(JSON.stringify(response.data.contacts)));
+        localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
         sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
-
+  
+        // Mark that contacts have been fetched in this session
+  
         // Add contacts to the Firebase subcollection
-        /*const addedContactIds = new Set<string>();
-        response.data.contacts.forEach(async (contact: any) => {
+       /* const addedContactIds = new Set<string>();
+        allContacts.forEach(async (contact: any) => {
           if (contact.last_message && Object.keys(contact.last_message).length > 0 && !addedContactIds.has(contact.id)) {
             try {
               await addDoc(contactsCollectionRef, contact);
@@ -126,7 +133,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
               console.error('Error adding contact to Firebase:', error);
             }
           }
-        });*/
+        }); */
   
       } catch (error) {
         console.error('Error fetching contacts:', error);
@@ -134,7 +141,6 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false);
       }
     };
-
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         fetchContacts(user);

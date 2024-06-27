@@ -424,7 +424,7 @@ setLoading(true);
       employeeSnapshot.forEach((doc) => {
         employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
       });
-     
+     console.log(employeeListData);
       setEmployeeList(employeeListData);
       const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
       await fetchTags(companyData.ghl_accessToken,companyData.ghl_location,employeeNames);
@@ -862,7 +862,7 @@ const chatId = tempphone + "@s.whatsapp.net"
       contact.phone?.includes(searchQuery)) &&
     (selectedTagFilter ? contact.tags.includes(selectedTagFilter) : true)
   );
-
+console.log(filteredContacts);
   // Get current contacts for pagination
   const indexOfLastContact = currentPage * contactsPerPage;
   const indexOfFirstContact = indexOfLastContact - contactsPerPage;
