@@ -103,15 +103,15 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         } 
   
         const data = docSnapshot.data();
-        const url = `http://localhost:8443/api/chats/${data?.whapiToken}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}/${dataUser.companyId}`;
+        const url = `https://buds-359313.et.r.appspot.com/api/chats/${data?.whapiToken}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}/${dataUser.companyId}`;
         const response = await axios.get(url);
         let allContacts = response.data.contacts;
   
-        /*if (data.whapiToken2 != null) {
-          const url2 = `http://localhost:8443/api/chats/${data?.whapiToken2}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}`;
+      if (data.whapiToken2 != null) {
+          const url2 = `https://buds-359313.et.r.appspot.com/api/chats/${data?.whapiToken2}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}`;
           const response2 = await axios.get(url2);
           allContacts = allContacts.concat(response2.data.contacts);
-        }*/
+        }
   
         setContacts(allContacts);
         const contactsWithChatPic = allContacts.filter((contact: { chat_pic: any; }) => contact.chat_pic);
