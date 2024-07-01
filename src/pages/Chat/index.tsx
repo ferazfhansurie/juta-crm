@@ -1062,7 +1062,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       let messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken, dataUser?.email);
   
       // If no messages, try with whapiToken2
-      if (messages.length === 0 && data2.whapiToken2) {
+      if ( data2.whapiToken2) {
         messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken2, dataUser?.email);
       }
   
