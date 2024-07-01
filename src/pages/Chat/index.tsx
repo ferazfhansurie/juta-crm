@@ -31,8 +31,6 @@ import {  useNavigate } from "react-router-dom";
 import noti from "../../assets/audio/noti.mp3";
 
 
-
-
 interface Label {
   id: string;
   name: string;
@@ -115,7 +113,7 @@ interface Message {
   from_name: string;
   createdAt: number;
   type?: string;
-  from:string;
+  from: string;
   image?: { link?: string; caption?: string };
   video?: { link?: string; caption?: string };
   gif?: { link?: string; caption?: string };
@@ -151,8 +149,10 @@ interface Message {
   action?: any;
   context?: any;
   reactions?: { emoji: string; from_name: string }[];
-  name?:string;
-}interface Employee {
+  name?: string;
+}
+
+interface Employee {
   id: string;
   name: string;
   role: string;
@@ -412,18 +412,19 @@ const closePDFModal = () => {
       const companyData = docSnapshot.data();
   
       for (const message of selectedMessages) {
-        const response = await axios.delete(`https://gate.whapi.cloud/messages/${message.id}`, {
-          headers: {
-            'Authorization': `Bearer ${companyData.whapiToken}`,
-            'Accept': 'application/json',
-          },
+        const messageRef = doc(firestore, 'companies', companyId, 'messages', message.id);
+        await updateDoc(messageRef, {
+          text: { body: 'This message is deleted' },
+          type: 'deleted'
         });
   
-        if (response.status === 200) {
-          setMessages((prevMessages) => prevMessages.filter((msg) => msg.id !== message.id));
-        } else {
-          throw new Error(`Failed to delete message: ${response.statusText}`);
-        }
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
+            msg.id === message.id
+              ? { ...msg, type: 'deleted', text: { body: 'This message is deleted' } }
+              : msg
+          )
+        );
       }
   
       toast.success('Messages deleted successfully');
@@ -434,6 +435,28 @@ const closePDFModal = () => {
       toast.error('Failed to delete messages');
     }
   };
+
+  const deleteMessage = async (messageId: string, companyId: string) => {
+    try {
+      const messageRef = doc(firestore, 'companies', companyId, 'messages', messageId);
+      await updateDoc(messageRef, {
+        text: 'This message is deleted',
+        deleted: true // Add a flag to indicate that the message is deleted
+      });
+      console.log('Message marked as deleted');
+    } catch (error) {
+      console.error('Error deleting message: ', error);
+    }
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    setMessages(prevMessages =>
+      prevMessages.map(message =>
+        message.id === messageId ? { ...message, type: 'deleted' } : message
+      )
+    );
+  };
+
   useEffect(() => {
     if (messageListRef.current) {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
@@ -1056,20 +1079,16 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         return;
       }
       const data2 = docSnapshot.data();
-      
       setToken(data2.whapiToken);
-      
-      let messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken, dataUser?.email);
   
-      // If no messages, try with whapiToken2
-      if (messages.length === 0 && data2.whapiToken2) {
-        messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken2, dataUser?.email);
-      }
+      const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}/${user?.email}`);
+      const data = response.data;
+      console.log("Fetched Messages:", data);
   
       const formattedMessages: any[] = [];
       const reactionsMap: Record<string, any[]> = {};
   
-      messages.forEach(async (message: any) => {
+      data.messages.forEach(async (message: any) => {
         if (message.type === 'action' && message.action.type === 'reaction') {
           const targetMessageId = message.action.target;
           if (!reactionsMap[targetMessageId]) {
@@ -1086,12 +1105,11 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             from_name: message.from_name,
             from: message.from,
             chat_id: message.chat_id,
-            createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
+            createdAt: new Date(message.timestamp * 1000).toISOString(),
             type: message.type,
             name: message.name
           };
   
-          // Include message-specific content
           switch (message.type) {
             case 'text':
               formattedMessage.text = {
@@ -1177,12 +1195,10 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
             default:
               console.warn(`Unknown message type: ${message.type}`);
           }
-  
           formattedMessages.push(formattedMessage);
         }
       });
   
-      // Add reactions to the respective messages
       formattedMessages.forEach(message => {
         if (reactionsMap[message.id]) {
           message.reactions = reactionsMap[message.id];
@@ -1190,17 +1206,11 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       });
   
       setMessages(formattedMessages);
-  
     } catch (error) {
       console.error('Failed to fetch messages:', error);
     } finally {
       setLoading(false);
     }
-  }
-  
-  async function fetchMessagesFromApi(chatId: string, token: string, userEmail: string) {
-    const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${chatId}/${token}/${userEmail}`);
-    return response.data.messages;
   }
 async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
 
@@ -1455,18 +1465,17 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
-     
       const data = await response.json();
       console.log(data.message);
-    const messagesCollectionRef = collection(firestore, 'companies',  companyId, 'messages');
-try {
-  await setDoc(doc(messagesCollectionRef, data.message.id), {
-    message: data.message,
-    from:dataUser.name,
-  });
-} catch (error) {
-  console.error('Error adding message: ', error);
-}
+      const messagesCollectionRef = collection(firestore, 'companies', companyId, 'messages');
+      try {
+        await setDoc(doc(messagesCollectionRef, data.message.id), {
+          message: data.message,
+          from: dataUser.name,
+        });
+      } catch (error) {
+        console.error('Error adding message: ', error);
+      }
       toast.success("Message sent successfully!");
       fetchMessagesBackground(selectedChatId!, whapiToken!);
       setReplyToMessage(null); // Clear the replyToMessage state after sending the message
@@ -2189,6 +2198,7 @@ const handleForwardMessage = async () => {
       toast.error('Failed to edit message');
     }
   };
+
   const DeleteConfirmationPopup = () => (
     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
@@ -2657,72 +2667,78 @@ const handleForwardMessage = async () => {
                 </div>
               )}
   {selectedChatId && (
-    messages
-      .filter((message) => message.type !== 'action') // Filter out action type messages
-      .slice()
-      .reverse()
-      .map((message, index,array) => {
-        const previousMessage = messages[index - 1];
-        const showDateHeader =
-          index === 0 ||
-          !isSameDay(
-            new Date(array[index - 1]?.createdAt || array[index - 1]?.dateAdded),
-            new Date(message.createdAt || message.dateAdded)
-          );
-        return (
-          <React.Fragment key={message.id}>
-           {showDateHeader && (
-          <div className="flex justify-center my-4">
-            <div className="inline-block bg-white text-gray-800 font-bold py-1 px-4 rounded-lg shadow-md">
-              {formatDateHeader(message.createdAt || message.dateAdded)}
-            </div>
+  messages
+    .filter((message) => message.type !== 'action') // Filter out action type messages
+    .slice()
+    .reverse()
+    .map((message, index,array) => {
+      const previousMessage = messages[index - 1];
+      const showDateHeader =
+        index === 0 ||
+        !isSameDay(
+          new Date(array[index - 1]?.createdAt || array[index - 1]?.dateAdded),
+          new Date(message.createdAt || message.dateAdded)
+        );
+      return (
+        <React.Fragment key={message.id}>
+         {showDateHeader && (
+        <div className="flex justify-center my-4">
+          <div className="inline-block bg-white text-gray-800 font-bold py-1 px-4 rounded-lg shadow-md">
+            {formatDateHeader(message.createdAt || message.dateAdded)}
           </div>
-        )}
-            <div
-              className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
-              style={{
-                maxWidth: message.type === 'document' ? '90%' : '70%',
-                width: `${
-                  message.type === 'document'
-                    ? '400'
-                    : message.type !== 'text'
-                    ? '320'
-                    : message.text?.body
-                    ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
-                    : '100'
-                }px`,
-                minWidth: '150px',
-              }}
-              onMouseEnter={() => setHoveredMessageId(message.id)}
-              onMouseLeave={() => setHoveredMessageId(null)}
-            >
-              {message.chat_id.includes('@g.us') && (
-                <div className="pb-1 text-gray-400  font-medium">{message.from_name||'+'+message.from}</div>
-              )}
-              {message.type === 'text' && message.text?.context && (
-                <div className="p-2 mb-2 rounded bg-gray-300">
-                  <div className="text-sm font-medium">{message.text.context.quoted_author || ''}</div>
-                  <div className="text-sm">{message.text.context.quoted_content?.body || ''}</div>
-                </div>
-              )}
-              {message.type === 'text' && (
-                <div className="whitespace-pre-wrap break-words text-black">
-                  {formatText(message.text?.body || '')}
-                </div>
-              )}
-              {message.type === 'image' && message.image && (
-                <div className="p-0 message-content image-message">
-                  <img
-                    src={message.image.link}
-                    alt="Image"
-                    className="rounded-lg message-image cursor-pointer"
-                    style={{ maxWidth: '300px' }}
-                    onClick={() => openImageModal(message.image?.link || '')}
-                  />
-                  <div className="caption">{message.image.caption}</div>
-                </div>
-              )}
-              {message.type === 'video' && message.video && (
+        </div>
+      )}
+        <div
+          className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+          style={{
+            maxWidth: message.type === 'document' ? '90%' : '70%',
+            width: `${
+              message.type === 'document'
+                ? '400'
+                : message.type !== 'text'
+                ? '320'
+                : message.text?.body
+                ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
+                : '100'
+            }px`,
+            minWidth: '150px',
+          }}
+          onMouseEnter={() => setHoveredMessageId(message.id)}
+          onMouseLeave={() => setHoveredMessageId(null)}
+        >
+            {message.chat_id.includes('@g.us') && (
+              <div className="pb-1 text-gray-400 font-medium">{message.from_name || '+' + message.from}</div>
+            )}
+            {message.type === 'deleted' ? (
+              <div className="whitespace-pre-wrap break-words text-gray-500">
+                This message is deleted
+              </div>
+            ) : (
+              <>
+                {message.type === 'text' && message.text?.context && (
+                  <div className="p-2 mb-2 rounded bg-gray-300">
+                    <div className="text-sm font-medium">{message.text.context.quoted_author || ''}</div>
+                    <div className="text-sm">{message.text.context.quoted_content?.body || ''}</div>
+                  </div>
+                )}
+                {message.type === 'text' && (
+                  <div className="whitespace-pre-wrap break-words text-black">
+                    {message.text?.body}
+                  </div>
+                )}
+                {message.type === 'image' && message.image && (
+                  <div className="p-0 message-content image-message">
+                    <img
+                      src={message.image.link}
+                      alt="Image"
+                      className="rounded-lg message-image cursor-pointer"
+                      style={{ maxWidth: '300px' }}
+                      onClick={() => openImageModal(message.image?.link || '')}
+                    />
+                    <div className="caption">{message.image.caption}</div>
+                  </div>
+          )}
+          {message.type === 'video' && message.video && (
                 <div className="video-content p-0 message-content image-message">
                   <video
                     controls
@@ -2823,7 +2839,7 @@ const handleForwardMessage = async () => {
                   <div className="text-sm">HSM: {message.hsm.title}</div>
                 </div>
               )}
-              {message.type === 'action' && message.action && (
+              {message.type === 'action' && message.action?.type === 'delete' && (
                 <div className="action-content flex flex-col p-4 rounded-md shadow-md">
                   {message.action.type === 'delete' ? (
                     <div className="text-gray-400">This message was deleted</div>
@@ -2854,32 +2870,33 @@ const handleForwardMessage = async () => {
           {message.name && (
     <span className="ml-2 text-gray-400">{message.name}</span>
   )}
-          {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
-                checked={selectedMessages.includes(message)}
-                onChange={() => handleSelectMessage(message)}
-              />
-           <button
-                  className="ml-2 text-blue-500 hover:text-gray-400 fill-current"
-                  onClick={() => setReplyToMessage(message)}
-                >
-                  <Lucide icon="MessageSquare" className="w-5 h-5" />
-                </button>
-               {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && (
-                <button
-                  className="ml-2 text-white hover:text-gray-400 fill-current"
-                  onClick={() => openEditMessage(message)}
-                >
-                  <Lucide icon="Pencil" className="w-5 h-5" />
-                </button>
-              )}
-         
-            </div>
-          )}
+  {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+  <div className="flex items-center">
+    <input
+      type="checkbox"
+      className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
+      checked={selectedMessages.includes(message)}
+      onChange={() => handleSelectMessage(message)}
+    />
+    <button
+      className="ml-2 text-blue-500 hover:text-gray-400 fill-current"
+      onClick={() => setReplyToMessage(message)}
+    >
+      <Lucide icon="MessageSquare" className="w-5 h-5" />
+    </button>
+    {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && (
+      <button
+        className="ml-2 text-white hover:text-gray-400 fill-current"
+        onClick={() => openEditMessage(message)}
+      >
+        <Lucide icon="Pencil" className="w-5 h-5" />
+      </button>
+    )}
+  </div>
+)}
         </div>
+        </>
+        )}
             </div>
           </React.Fragment>
         );
@@ -2889,149 +2906,149 @@ const handleForwardMessage = async () => {
 
         <div className="absolute bottom-0 left-0 w-500px !box m-1 py-1 px-2">
         {replyToMessage && (
-    <div className="p-2 mb-2 rounded bg-gray-200 flex items-center justify-between">
-      <div>
-        <div className="font-semibold">{replyToMessage.from_name}</div>
-        <div>
-          {replyToMessage.type === 'text' && replyToMessage.text?.body}
-          {replyToMessage.type === 'link_preview' && replyToMessage.link_preview?.body}
-          {replyToMessage.type === 'image' && <img src={replyToMessage.image?.link} alt="Image" style={{ maxWidth: '200px' }} />}
-          {replyToMessage.type === 'video' && <video controls src={replyToMessage.video?.link} style={{ maxWidth: '200px' }} />}
-          {replyToMessage.type === 'gif' && <img src={replyToMessage.gif?.link} alt="GIF" style={{ maxWidth: '200px' }} />}
-          {replyToMessage.type === 'audio' && <audio controls src={replyToMessage.audio?.link} />}
-          {replyToMessage.type === 'voice' && <audio controls src={replyToMessage.voice?.link} />}
-          {replyToMessage.type === 'document' && <iframe src={replyToMessage.document?.link} width="100%" height="200px" />}
-          {replyToMessage.type === 'sticker' && <img src={replyToMessage.sticker?.link} alt="Sticker" style={{ maxWidth: '150px' }} />}
-          {replyToMessage.type === 'location' && (
+        <div className="p-2 mb-2 rounded bg-gray-200 flex items-center justify-between">
+          <div>
+            <div className="font-semibold">{replyToMessage.from_name}</div>
             <div>
-              Location: {replyToMessage.location?.latitude}, {replyToMessage.location?.longitude}
+              {replyToMessage.type === 'text' && replyToMessage.text?.body}
+              {replyToMessage.type === 'link_preview' && replyToMessage.link_preview?.body}
+              {replyToMessage.type === 'image' && <img src={replyToMessage.image?.link} alt="Image" style={{ maxWidth: '200px' }} />}
+              {replyToMessage.type === 'video' && <video controls src={replyToMessage.video?.link} style={{ maxWidth: '200px' }} />}
+              {replyToMessage.type === 'gif' && <img src={replyToMessage.gif?.link} alt="GIF" style={{ maxWidth: '200px' }} />}
+              {replyToMessage.type === 'audio' && <audio controls src={replyToMessage.audio?.link} />}
+              {replyToMessage.type === 'voice' && <audio controls src={replyToMessage.voice?.link} />}
+              {replyToMessage.type === 'document' && <iframe src={replyToMessage.document?.link} width="100%" height="200px" />}
+              {replyToMessage.type === 'sticker' && <img src={replyToMessage.sticker?.link} alt="Sticker" style={{ maxWidth: '150px' }} />}
+              {replyToMessage.type === 'location' && (
+                <div>
+                  Location: {replyToMessage.location?.latitude}, {replyToMessage.location?.longitude}
+                </div>
+              )}
+              {replyToMessage.type === 'poll' && <div>Poll: {replyToMessage.poll?.title}</div>}
+              {replyToMessage.type === 'hsm' && <div>HSM: {replyToMessage.hsm?.title}</div>}
             </div>
-          )}
-          {replyToMessage.type === 'poll' && <div>Poll: {replyToMessage.poll?.title}</div>}
-          {replyToMessage.type === 'hsm' && <div>HSM: {replyToMessage.hsm?.title}</div>}
+          </div>
+          <button onClick={() => setReplyToMessage(null)}>
+            <Lucide icon="X" className="w-5 h-5" />
+          </button>
         </div>
-      </div>
-      <button onClick={() => setReplyToMessage(null)}>
-        <Lucide icon="X" className="w-5 h-5" />
-      </button>
-    </div>
-  )}
-<div className="flex items-center w-full">
-  <button className="p-2 m-0 !box" onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}>
-    <span className="flex items-center justify-center w-5 h-5">
-      <Lucide icon="Smile" className="w-5 h-5" />
-    </span>
-  </button>
-  <Menu as="div" className="relative inline-block text-left p-2">
-    <div className="flex items-center space-x-3">
-      <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
-        <span className="flex items-center justify-center w-5 h-5">
-          <Lucide icon="Paperclip" className="w-5 h-5" />
-        </span>
-      </Menu.Button>
-    </div>
-    <Menu.Items className="absolute left-0 bottom-full mb-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-      <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
-        <label htmlFor="imageUpload" className="flex items-center cursor-pointer">
-          <Lucide icon="Image" className="w-4 h-4 mr-2" />
-          Image
-          <input
-            type="file"
-            id="imageUpload"
-            accept="image/*"
-            className="hidden"
-            onChange={handleImageUpload}
-            multiple
-          />
-        </label>
-      </button>
-      <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
-        <label htmlFor="documentUpload" className="flex items-center cursor-pointer">
-          <Lucide icon="File" className="w-4 h-4 mr-2" />
-          Document
-          <input
-            type="file"
-            id="documentUpload"
-            accept="application/pdf"
-            className="hidden"
-            onChange={handleDocumentUpload}
-            multiple
-          />
-        </label>
-      </button>
-    </Menu.Items>
-  </Menu>
-  <button className="p-2 m-0 !box" onClick={handleQR}>
-    <span className="flex items-center justify-center w-5 h-5">
-      <Lucide icon='Zap' className="w-5 h-5" />
-    </span>
-  </button>
-  <textarea
-  ref={textareaRef}
-  className="flex-grow h-10 px-2 py-1.5 m-1 ml-2 border border-gray-300 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
-  placeholder="Type a message"
-  value={newMessage}
-  onChange={(e) => {
-    setNewMessage(e.target.value);
-    adjustHeight(e.target);
-  }}
-  rows={1}
-  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-  onKeyDown={(e) => {
-    const target = e.target as HTMLTextAreaElement;
-    if (e.key === 'Enter') {
-      if (e.shiftKey) {
-        e.preventDefault();
-        setNewMessage((prev) => prev + '\n');
-      } else {
-        e.preventDefault();
-        if (selectedIcon === 'ws') {
-          handleSendMessage();
-        } else {
-          sendTextMessage(selectedContact.id, newMessage, selectedContact);
-        }
-        setNewMessage('');
-        adjustHeight(target, true); // Reset height after sending message
-      }
-    }
-  }}
-  onPaste={(e) => {
-    const items = e.clipboardData?.items;
-    if (items) {
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          const blob = item.getAsFile();
-          if (blob) {
-            const url = URL.createObjectURL(blob);
+      )}
+      <div className="flex items-center w-full">
+        <button className="p-2 m-0 !box" onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}>
+          <span className="flex items-center justify-center w-5 h-5">
+            <Lucide icon="Smile" className="w-5 h-5" />
+          </span>
+        </button>
+        <Menu as="div" className="relative inline-block text-left p-2">
+          <div className="flex items-center space-x-3">
+            <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
+              <span className="flex items-center justify-center w-5 h-5">
+                <Lucide icon="Paperclip" className="w-5 h-5" />
+              </span>
+            </Menu.Button>
+          </div>
+          <Menu.Items className="absolute left-0 bottom-full mb-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+            <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
+              <label htmlFor="imageUpload" className="flex items-center cursor-pointer">
+                <Lucide icon="Image" className="w-4 h-4 mr-2" />
+                Image
+                <input
+                  type="file"
+                  id="imageUpload"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                  multiple
+                />
+              </label>
+            </button>
+            <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
+              <label htmlFor="documentUpload" className="flex items-center cursor-pointer">
+                <Lucide icon="File" className="w-4 h-4 mr-2" />
+                Document
+                <input
+                  type="file"
+                  id="documentUpload"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={handleDocumentUpload}
+                  multiple
+                />
+              </label>
+            </button>
+          </Menu.Items>
+        </Menu>
+        <button className="p-2 m-0 !box" onClick={handleQR}>
+          <span className="flex items-center justify-center w-5 h-5">
+            <Lucide icon='Zap' className="w-5 h-5" />
+          </span>
+        </button>
+        <textarea
+        ref={textareaRef}
+        className="flex-grow h-10 px-2 py-1.5 m-1 ml-2 border border-gray-300 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
+        placeholder="Type a message"
+        value={newMessage}
+        onChange={(e) => {
+          setNewMessage(e.target.value);
+          adjustHeight(e.target);
+        }}
+        rows={1}
+        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+        onKeyDown={(e) => {
+          const target = e.target as HTMLTextAreaElement;
+          if (e.key === 'Enter') {
+            if (e.shiftKey) {
+              e.preventDefault();
+              setNewMessage((prev) => prev + '\n');
+            } else {
+              e.preventDefault();
+              if (selectedIcon === 'ws') {
+                handleSendMessage();
+              } else {
+                sendTextMessage(selectedContact.id, newMessage, selectedContact);
+              }
+              setNewMessage('');
+              adjustHeight(target, true); // Reset height after sending message
+            }
+          }
+        }}
+        onPaste={(e) => {
+          const items = e.clipboardData?.items;
+          if (items) {
+            for (const item of items) {
+              if (item.type.startsWith('image/')) {
+                const blob = item.getAsFile();
+                if (blob) {
+                  const url = URL.createObjectURL(blob);
+                  setPastedImageUrl(url);
+                  setImageModalOpen2(true);
+                }
+                break;
+              }
+            }
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onDrop={async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const files = e.dataTransfer.files;
+          if (files.length > 0) {
+            const file = files[0];
+            const url = URL.createObjectURL(file);
             setPastedImageUrl(url);
             setImageModalOpen2(true);
           }
-          break;
-        }
-      }
-    }
-  }}
-  onDragOver={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }}
-  onDrop={async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      const file = files[0];
-      const url = URL.createObjectURL(file);
-      setPastedImageUrl(url);
-      setImageModalOpen2(true);
-    }
-  }}
-/>
+        }}
+      />
 
 
 
-</div>
+      </div>
 
           {isEmojiPickerOpen && (
          <div className="absolute bottom-20 left-2">
