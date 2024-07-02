@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { getAuth, User, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
-import { getFirestore, doc, getDoc, collection, getDocs, addDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, collection, getDocs,setDoc,query, startAfter, limit, QueryDocumentSnapshot, DocumentData ,Query,CollectionReference} from "firebase/firestore";
 import { initializeApp } from "firebase/app";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import LZString from 'lz-string';
 
@@ -16,6 +15,31 @@ const firebaseConfig = {
   appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
   measurementId: "G-2C9J1RY67L"
 };
+interface Contact {
+  chat_id: string;
+  chat_pic?: string | null;
+  chat_pic_full?: string | null;
+  contactName: string;
+  conversation_id: string;
+  id: string;
+  last_message?: {
+    chat_id: string;
+    from: string;
+    from_me: boolean;
+    id: string;
+    source: string;
+    text: {
+      body: string;
+    };
+    timestamp: number;
+    createdAt?: string;
+    type: string;
+  };
+  phone: string;
+  pinned?: boolean;
+  tags: string[];
+  unreadCount: number;
+}
 
 const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
@@ -38,7 +62,6 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Clear the session flag when the page reloads
     window.addEventListener('beforeunload', () => {
-
       sessionStorage.removeItem('contactsFetched');
     });
 
@@ -52,11 +75,11 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     const shouldFetchContacts = !sessionStorage.getItem('contactsFetched');
 
     if (shouldFetchContacts) {
-     fetchContactsOnAuthChange();
+      fetchContactsOnAuthChange();
     } else {
       const storedContacts = localStorage.getItem('contacts');
       if (storedContacts) {
-       setContacts(JSON.parse(LZString.decompress(storedContacts)!));
+        setContacts(JSON.parse(LZString.decompress(storedContacts)!));
       }
       setIsLoading(false);
     }
@@ -70,78 +93,96 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     const fetchContacts = async (user: User) => {
       try {
         setIsLoading(true);
-  
+    
         const docUserRef = doc(firestore, 'user', user.email!);
         const docUserSnapshot = await getDoc(docUserRef);
         if (!docUserSnapshot.exists()) {
           setIsLoading(false);
           return;
         }
-  
+    
         const dataUser = docUserSnapshot.data();
         const companyId = dataUser?.companyId;
         if (!companyId) {
           setIsLoading(false);
           return;
         }
-  
-        const docRef = doc(firestore, 'companies', companyId);
-        const docSnapshot = await getDoc(docRef);
-        const dataCompany = docSnapshot.data();
-        console.log(dataCompany);
-        if (!docSnapshot.exists()) {
-          setIsLoading(false);
-          return;
+    
+        // Pagination settings
+        const batchSize = 500;
+        let lastVisible: QueryDocumentSnapshot<DocumentData> | undefined = undefined;
+        let allContacts: Contact[] = [];
+    
+        // Fetch contacts in batches
+        while (true) {
+          let queryRef: Query<DocumentData>;
+          const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`) as CollectionReference<DocumentData>;
+          
+          if (lastVisible) {
+            queryRef = query(contactsCollectionRef, startAfter(lastVisible), limit(batchSize));
+          } else {
+            queryRef = query(contactsCollectionRef, limit(batchSize));
+          }
+    
+          const contactsSnapshot = await getDocs(queryRef);
+          const contactsBatch: Contact[] = contactsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Contact));
+    
+          if (contactsBatch.length === 0) break; // Exit if no more documents
+    
+          allContacts = [...allContacts, ...contactsBatch];
+          lastVisible = contactsSnapshot.docs[contactsSnapshot.docs.length - 1];
         }
-  
-        const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
-        const contactsSnapshot = await getDocs(contactsCollectionRef);
-        const contactsFromFirebase = contactsSnapshot.docs.map(doc => doc.data());
-  
-        if (contactsFromFirebase.length > 0) {
-          // Do something with the fetched contacts from Firebase if needed
-        } 
-  
-        const data = docSnapshot.data();
-        const url = `https://buds-359313.et.r.appspot.com/api/chats/${data?.whapiToken}/${data?.ghl_location}/${data?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}/${dataUser.companyId}`;
-        const response = await axios.get(url);
-        let allContacts = response.data.contacts;
+    
+        // Fetch pinned chats
+        const pinnedChatsRef = collection(firestore, `user/${user.email!}/pinned`);
+        const pinnedChatsSnapshot = await getDocs(pinnedChatsRef);
+        const pinnedChats = pinnedChatsSnapshot.docs.map(doc => doc.data() as Contact);
+    
+        // Add pinned status to contactsData and update in Firebase
+        const updatePromises = allContacts.map(async contact => {
+          const isPinned = pinnedChats.some(pinned => pinned.chat_id === contact.chat_id);
+          if (isPinned) {
+            contact.pinned = true;
+            const contactDocRef = doc(firestore, `companies/${companyId}/contacts`, contact.id);
+            await setDoc(contactDocRef, contact, { merge: true });
+          }
+        });
+    
+        await Promise.all(updatePromises);
+    
+        // Sort contactsData by pinned status and last_message timestamp
+        allContacts.sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          const dateA = a.last_message?.createdAt
+            ? new Date(a.last_message.createdAt)
+            : a.last_message?.timestamp
+              ? new Date(a.last_message.timestamp * 1000)
+              : new Date(0);
+          const dateB = b.last_message?.createdAt
+            ? new Date(b.last_message.createdAt)
+            : b.last_message?.timestamp
+              ? new Date(b.last_message.timestamp * 1000)
+              : new Date(0);
+          return dateB.getTime() - dateA.getTime();
+        });
+    
         console.log(allContacts);
-   
-
         setContacts(allContacts);
-        const contactsWithChatPic = allContacts.filter((contact: { chat_pic: any; }) => contact.chat_pic);
-        console.log('Contacts with chat_pic:', contactsWithChatPic);
         localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
         sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
-  
-        // Mark that contacts have been fetched in this session
-  
-        // Add contacts to the Firebase subcollection
-       /* const addedContactIds = new Set<string>();
-        allContacts.forEach(async (contact: any) => {
-          if (contact.last_message && Object.keys(contact.last_message).length > 0 && !addedContactIds.has(contact.id)) {
-            try {
-              await addDoc(contactsCollectionRef, contact);
-              console.log("Added contact to Firebase:", contact);
-              addedContactIds.add(contact.id);
-            } catch (error) {
-              console.error('Error adding contact to Firebase:', error);
-            }
-          }
-        }); */
-  
       } catch (error) {
         console.error('Error fetching contacts:', error);
       } finally {
         setIsLoading(false);
       }
     };
+    
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         fetchContacts(user);
       } else {
-     
         setIsLoading(false);
       }
     });

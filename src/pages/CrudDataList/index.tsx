@@ -10,7 +10,7 @@ import Tippy from "@/components/Base/Tippy";
 import { Dialog, Menu } from "@/components/Base/Headless";
 import Table from "@/components/Base/Table";
 import { getAuth } from 'firebase/auth';
-import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc,updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc,updateDoc,addDoc } from 'firebase/firestore';
 import { initializeApp } from "firebase/app";
 import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
@@ -88,7 +88,7 @@ function Main() {
   const [isLoading, setLoading] = useState<boolean>(false);
   const [isFetching, setFetching] = useState<boolean>(false);
   const { contacts: initialContacts} = useContacts();
-  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
+  const [contacts, setContacts] = useState<Contact[]>(initialContacts.slice(0, 2000));
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
@@ -119,11 +119,14 @@ function Main() {
   });
   const [total, setTotal] = useState(0);
   const [fetched, setFetched] = useState(0);
+  const [allContactsLoaded, setAllContactsLoaded] = useState(false);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [contactsPerPage] = useState(10); // Adjust the number of contacts per page as needed
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
 const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+
+
 const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (file) {
@@ -543,8 +546,73 @@ setLoading(true);
     }
     
   };
+  const handleSyncContact = async () => {
+    try {
+      setFetching(true);
+      const user = auth.currentUser;
+      if (!user) {
+        setFetching(false);
+        return;
+      }
   
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        setFetching(false);
+        return;
+      }
   
+      const dataUser = docUserSnapshot.data();
+      const companyId = dataUser?.companyId;
+      if (!companyId) {
+        setFetching(false);
+        return;
+      }
+  
+      const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
+      const contactsSnapshot = await getDocs(contactsCollectionRef);
+  
+      // Delete existing documents in the collection
+      const deletePromises = contactsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+  
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        setFetching(false);
+        return;
+      }
+  
+      const dataCompany = docSnapshot.data();
+      console.log(dataCompany);
+  
+      const url = `https://buds-359313.et.r.appspot.com/api/chats/${dataCompany?.whapiToken}/${dataCompany?.ghl_location}/${dataCompany?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}/${dataUser.companyId}`;
+      const response = await axios.get(url);
+      let allContacts = response.data.contacts;
+      console.log(allContacts.length);
+  
+      setContacts(allContacts);
+      localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
+      sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
+  
+      // Add new contacts to the Firebase subcollection
+      const addPromises = allContacts.map(async (contact: any) => {
+        try {
+          await addDoc(contactsCollectionRef, contact);
+          console.log("Added contact to Firebase:", contact);
+        } catch (error) {
+          console.error('Error adding contact to Firebase:', error);
+        }
+      });
+  
+      await Promise.all(addPromises);
+  
+    } catch (error) {
+      console.error('Error fetching contacts:', error);
+    } finally {
+      setFetching(false);
+    }
+  };
 const handleRemoveTag = async (contactId: string, tagName: string) => {
   const user = auth.currentUser;
 
@@ -857,11 +925,20 @@ const chatId = tempphone + "@s.whatsapp.net"
     fetchCompanyData();
   }, []);
 
-  const filteredContacts: Contact[] = contacts.filter(contact =>
-    (contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      contact.phone?.includes(searchQuery)) &&
-    (selectedTagFilter ? contact.tags.includes(selectedTagFilter) : true)
-  );
+  const filteredContacts = contacts.filter(contact => {
+    const lowerCaseQuery = searchQuery.toLowerCase();
+    return (
+      (contact.firstName?.toLowerCase().includes(lowerCaseQuery) ||
+      contact.phone?.includes(lowerCaseQuery) ||
+      contact.contactName?.toLowerCase().includes(lowerCaseQuery))&&
+      (selectedTagFilter ? contact.tags.includes(selectedTagFilter) : true)
+    );
+  });
+  useEffect(() => {
+    console.log('Contacts:', contacts);
+    console.log('Filtered Contacts:', filteredContacts);
+    console.log('Search Query:', searchQuery);
+  }, [contacts, filteredContacts, searchQuery]);
 console.log(filteredContacts);
   // Get current contacts for pagination
   const indexOfLastContact = currentPage * contactsPerPage;
@@ -1166,27 +1243,32 @@ console.log(filteredContacts);
                     ))}
                   </Menu.Items>
                 </Menu>
-                <button className="flex inline p-2 m-2 !box" onClick={() => setBlastMessageModal(true)}>
+                <button className="flex inline p-2 m-2 !box"   onClick={() => setBlastMessageModal(true)}>
                   <span className="flex items-center justify-center w-5 h-5">
                     <Lucide icon="Send" className="w-5 h-5" />
                   </span>
                   <span className="ml-2 font-medium">Send Blast Message</span>
                 </button>
+                <button className="flex inline p-2 m-2 !box" onClick={() => handleSyncContact()}>
+                  <span className="flex items-center justify-center w-5 h-5">
+                    <Lucide icon="FolderSync" className="w-5 h-5" />
+                  </span>
+                  <span className="ml-2 font-medium">Sync Database</span>
+                </button>
               </div>
               <div className="relative w-full text-slate-500 p-2 mb-3">
                 {isFetching ? (
-                  <>
-                    <div className="w-full bg-gray-200 rounded-full h-4">
-                      <div
-                        className="bg-primary h-4 rounded-full"
-                        style={{ width: `${progress}%` }}
-                      ></div>
+                <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
+                  <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white p-4 rounded-md shadow-lg">
+                    <div role="status">
+                    <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
+          <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
+          <div className="mt-2 text-xs text-center">Fetching Data...</div>
+        </div>
                     </div>
-                    <div className="text-right mt-2">
-                      Fetched {fetched} of {total} contacts
-                    </div>
-                  </>
-                ) : (
+                  </div>
+                </div>
+              ) : (
                   <>
                     <FormInput
                       type="text"
@@ -1203,7 +1285,7 @@ console.log(filteredContacts);
                 )}
               </div>
               <div className="text-lg font-semibold text-gray-700">
-                Total Contacts: {filteredContacts.length}
+                Total Contacts: {initialContacts.length}
                 {selectedTagFilter && <span> (Filtered by: {selectedTagFilter})</span>}
               </div>
             </div>
