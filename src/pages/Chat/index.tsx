@@ -387,6 +387,7 @@ const closePDFModal = () => {
   const closeDeletePopup = () => {
     setIsDeletePopupOpen(false);
   };
+  
   const deleteMessages = async () => {
     try {
       const user = auth.currentUser;
@@ -395,29 +396,37 @@ const closePDFModal = () => {
         return;
       }
   
-      const docUserRef = doc(firestore, 'user', user.email!);
+      const email = user.email;
+      if (!email) {
+        console.error('No email found for authenticated user');
+        return;
+      }
+  
+      console.log('Authenticated user email:', email); // Debug log
+  
+      const docUserRef = doc(firestore, 'user', email);
+      console.log('User doc path:', docUserRef.path); // Debug log
+  
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
         console.error('No such document for user!');
         return;
       }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.error('No such document for company!');
-        return;
-      }
-      const companyData = docSnapshot.data();
   
+      const userData = docUserSnapshot.data();
+      console.log('User data:', userData); // Debug log
+  
+      // Loop through each selected message and mark it as deleted
       for (const message of selectedMessages) {
-        const messageRef = doc(firestore, 'companies', companyId, 'messages', message.id);
+        const messageRef = doc(firestore, 'user', email, 'messages', message.id);
+        console.log('Message doc path:', messageRef.path); // Debug log
+  
         await updateDoc(messageRef, {
-          text: { body: 'This message is deleted' },
+          'text.body': 'This message is deleted',
           type: 'deleted'
         });
   
+        // Update the local state
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
             msg.id === message.id
@@ -435,26 +444,61 @@ const closePDFModal = () => {
       toast.error('Failed to delete messages');
     }
   };
-
-  const deleteMessage = async (messageId: string, companyId: string) => {
+  
+  const deleteMessage = async (messageId: string) => {
     try {
-      const messageRef = doc(firestore, 'companies', companyId, 'messages', messageId);
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+  
+      const email = user.email;
+      if (!email) {
+        console.error('No email found for authenticated user');
+        return;
+      }
+  
+      console.log('Authenticated user email:', email); // Debug log
+  
+      const docUserRef = doc(firestore, 'user', email);
+      console.log('User doc path:', docUserRef.path); // Debug log
+  
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+  
+      const userData = docUserSnapshot.data();
+      console.log('User data:', userData); // Debug log
+  
+      const messageRef = doc(firestore, 'user', email, 'messages', messageId);
+      console.log('Message doc path:', messageRef.path); // Debug log
+  
       await updateDoc(messageRef, {
-        text: 'This message is deleted',
-        deleted: true // Add a flag to indicate that the message is deleted
+        'text.body': 'This message is deleted',
+        type: 'deleted'
       });
-      console.log('Message marked as deleted');
+  
+      // Update the local state
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.id === messageId
+            ? { ...msg, type: 'deleted', text: { body: 'This message is deleted' } }
+            : msg
+        )
+      );
+  
+      toast.success('Message deleted successfully');
     } catch (error) {
-      console.error('Error deleting message: ', error);
+      console.error('Error deleting message:', error);
+      toast.error('Failed to delete message');
     }
   };
-
-  const handleDeleteMessage = (messageId: string) => {
-    setMessages(prevMessages =>
-      prevMessages.map(message =>
-        message.id === messageId ? { ...message, type: 'deleted' } : message
-      )
-    );
+  
+  const handleDeleteMessage = (messageId: any) => {
+    deleteMessage(messageId);
   };
 
   useEffect(() => {

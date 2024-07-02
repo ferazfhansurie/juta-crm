@@ -48,6 +48,7 @@ interface Appointment {
 interface Employee {
   id: string;
   name: string;
+  color: string;
 }
 
 interface Contact {
@@ -174,8 +175,12 @@ function Main() {
       const employeeSnapshot = await getDocs(employeeRef);
 
       const employeeListData: Employee[] = [];
+      const colors = ["#ff97cf", "#0f52ba", "#f6b092", "#663399",];
+      let colorIndex = 0;
+  
       employeeSnapshot.forEach((doc) => {
-        employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
+        employeeListData.push({ id: doc.id, ...doc.data(), color: colors[colorIndex % colors.length] } as Employee);
+        colorIndex++;
       });
 
       setEmployees(employeeListData);
@@ -392,7 +397,9 @@ function Main() {
       contacts: selectedContacts.map(contact => ({
         id: contact.id,
         name: contact.contactName,
-        session: extendedProps.appointmentStatus === 'confirmed' ? (contactSessions[contact.id] || 0) - 1 : contactSessions[contact.id] || 0
+        session: (extendedProps.appointmentStatus === 'showed' || extendedProps.appointmentStatus === 'noshow') 
+          ? (contactSessions[contact.id] || 0) - 1 
+          : (contactSessions[contact.id] || 0)
       })),
     };
 
@@ -402,21 +409,21 @@ function Main() {
         console.error('No authenticated user or email found');
         return;
       }
-
+  
       const userRef = doc(firestore, 'user', user.email);
       const appointmentsCollectionRef = collection(userRef, 'appointments');
       const appointmentRef = doc(appointmentsCollectionRef, id); // Ensure id is not empty
-
+  
       await setDoc(appointmentRef, updatedAppointment);
-
+  
       setAppointments(appointments.map(appointment =>
         appointment.id === id ? updatedAppointment : appointment
       ));
       
       setEditModalOpen(false);
-
-      // Decrement session count if the status is confirmed
-      if (updatedAppointment.appointmentStatus === 'confirmed') {
+  
+      // Decrement session count if the status is showed or noshow
+      if (updatedAppointment.appointmentStatus === 'showed' || updatedAppointment.appointmentStatus === 'noshow') {
         updatedAppointment.contacts.forEach(contact => decrementSession(contact.id));
       }
     } catch (error) {
@@ -710,17 +717,17 @@ function Main() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'new':
-        return 'bg-yellow-500';
+        return 'bg-gray-500';
       case 'confirmed':
-        return 'bg-green-500';
+        return 'bg-gray-500';
       case 'cancelled':
         return 'bg-red-500';
       case 'showed':
-        return 'bg-blue-500';
+        return 'bg-green-500';
       case 'noshow':
-        return 'bg-black';
-      case 'invalid':
-        return 'bg-purple-500';
+        return 'bg-green-500';
+      case 'rescheduled':
+        return 'bg-gray-500';
       default:
         return 'bg-gray-500';
     }
@@ -756,26 +763,28 @@ function Main() {
   const getStatusColor2 = (status: string) => {
     switch (status) {
       case 'new':
-        return 'orange'; // Replacing yellow with orange
+        return 'gray'; // Replacing yellow with orange
       case 'confirmed':
-        return 'green';
+        return 'gray';
       case 'cancelled':
         return 'red';
       case 'showed':
-        return 'blue';
+        return 'green';
       case 'noshow':
-        return 'black';
-      case 'invalid':
-        return 'purple';
+        return 'green';
+      case 'rescheduled':
+        return 'gray';
       default:
-        return 'orange';
+        return 'gray';
     }
   };
 
   const renderEventContent = (eventInfo: any) => {
-    const statusColor = getStatusColor2(eventInfo.event.extendedProps.appointmentStatus);
+    // const statusColor = getStatusColor2(eventInfo.event.extendedProps.appointmentStatus);
+    const employee = employees.find(emp => emp.id === eventInfo.event.extendedProps.staff);
+    const backgroundColor = employee ? employee.color : '#ffffff'; // Default to white if no employee found
     return (
-      <div className="flex-grow text-center text-normal font-medium" style={{ backgroundColor: statusColor, color: 'white', padding: '5px', borderRadius: '5px' }}>
+      <div className="flex-grow text-center text-normal font-medium" style={{ backgroundColor, color: 'white', padding: '5px', borderRadius: '5px' }}>
         <i>{eventInfo.event.title}</i>
       </div>
     );
@@ -803,7 +812,6 @@ function Main() {
   };
   
   const decrementSession = async (contactId: string) => {
-    // Fetch the current session count from the database
     try {
       const auth = getAuth(app);
       const user = auth.currentUser;
@@ -836,17 +844,13 @@ function Main() {
   
       const contactData = contactSnapshot.data();
       const currentSessionCount = contactData.session;
-      console.log(currentSessionCount);
-      // Increment the session count
       const newSessionCount = currentSessionCount > 0 ? currentSessionCount - 1 : 0;
-      console.log(newSessionCount);
-      // Update the session count in the state
+  
       setContactSessions({
         ...contactSessions,
         [contactId]: newSessionCount
       });
   
-      // Update the session count in the database
       await updateDoc(contactRef, { session: newSessionCount });
     } catch (error) {
       console.error('Error decrementing session count:', error);
@@ -927,7 +931,7 @@ function Main() {
             <option value="cancelled">Cancelled</option>
             <option value="showed">Showed</option>
             <option value="noshow">No Show</option>
-            <option value="invalid">Invalid</option>
+            <option value="rescheduled">Resceduled</option>
           </select>
           <input
             type="date"
@@ -970,9 +974,15 @@ function Main() {
                 Appointments
               </h2>
               <div className="">
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-yellow-500 rounded-full me-1.5 flex-shrink-0"></span>New</span>
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-blue-500 rounded-full me-1.5 flex-shrink-0"></span>Showed</span>
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-green-500 rounded-full me-1.5 flex-shrink-0"></span>Confirmed</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-pink-300 rounded-full me-1.5 flex-shrink-0"></span>Adriana</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-blue-700 rounded-full me-1.5 flex-shrink-0"></span>Azhani</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-orange-300 rounded-full me-1.5 flex-shrink-0"></span>Nurin</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-purple-700 rounded-full me-1.5 flex-shrink-0"></span>Shivaa</span>
+              </div>
+              <div className="">
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-gray-500 rounded-full me-1.5 flex-shrink-0"></span>New</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-green-500 rounded-full me-1.5 flex-shrink-0"></span>Showed</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-red-500 rounded-full me-1.5 flex-shrink-0"></span>Canceled</span>
               </div>
             </div>
             <div className="mt-6 mb-5 border-t border-b border-slate-200/60 dark:border-darkmode-400">
@@ -1034,7 +1044,8 @@ function Main() {
                 start: appointment.startTime,
                 end: appointment.endTime,
                 extendedProps: {
-                  appointmentStatus: appointment.appointmentStatus
+                  appointmentStatus: appointment.appointmentStatus,
+                  staff: appointment.staff // Ensure staff property is included
                 }
               }))}
               selectable={true}
@@ -1131,7 +1142,7 @@ function Main() {
                     <option value="cancelled">Cancelled</option>
                     <option value="showed">Showed</option>
                     <option value="noshow">No Show</option>
-                    <option value="invalid">Invalid</option>
+                    <option value="rescheduled">Rescheduled</option>
                   </select>
                 </div>
                 <div>
@@ -1203,7 +1214,7 @@ function Main() {
                 >
                   Cancel
                 </button>
-                {initialAppointmentStatus !== 'confirmed' && (
+                {(initialAppointmentStatus !== 'showed' && initialAppointmentStatus !== 'noshow') &&  (
             <button
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
               onClick={handleSaveAppointment}
@@ -1285,23 +1296,23 @@ function Main() {
                   <option value="cancelled">Cancelled</option>
                   <option value="showed">Showed</option>
                   <option value="noshow">No Show</option>
-                  <option value="invalid">Invalid</option>
+                  <option value="rescheduled">rescheduled</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Staff</label>
                 <select
-              className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              value={selectedEmployeeId}
-              onChange={(e) => setSelectedEmployeeId(e.target.value)}
-            >
-              <option value="" disabled>Select an employee</option>
-              {employees.map(employee => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </option>
-              ))}
-            </select>
+                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                value={selectedEmployeeId}
+                onChange={(e) => setSelectedEmployeeId(e.target.value)}
+              >
+                <option value="" disabled>Select an employee</option>
+                {employees.map(employee => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.name}
+                  </option>
+                ))}
+              </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Package</label>

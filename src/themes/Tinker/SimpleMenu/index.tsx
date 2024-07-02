@@ -39,6 +39,7 @@ function Main() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [uniqueNotifications, setUniqueNotifications] = useState<Notification[]>([]);
+  const [company, setCompany] = useState("");
 // Initialize Firebase app
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -150,7 +151,7 @@ async function fetchConfigFromDatabase() {
       return;
     }
 
-    setCompanyName(data.companyName); // Set companyName
+    setCompanyName(dataUser.company); // Set company
 
     // Fetch notifications from the notifications subcollection
     const notificationsRef = collection(firestore, 'user', userEmail, 'notifications');
@@ -183,9 +184,9 @@ console.log(notifications);
   return (
     <div className="tinker">
       <MobileMenu />
-      <div className="flex mt-[5rem] md:mt-0 overflow-hidden">
+      <div className="flex mt-[5rem] pl-1 bg-slate-300 md:mt-0 overflow-hidden">
         {/* BEGIN: Simple Menu */}
-        <nav className="pt-5 mb-0 p-2 side-nav side-nav--simple hidden md:flex flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300">
+        <nav className="pt-5 mb-0 pl-1 pr-2 item-center side-nav side-nav--simple hidden md:flex flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300">
           <ul className="space-y-2 flex-grow">
             {/* BEGIN: First Child */}
             {formattedMenu.map((menu, menuKey) =>
@@ -206,12 +207,12 @@ console.log(notifications);
                       setFormattedMenu([...formattedMenu]);
                     }}
                     className={clsx([
-                      "flex items-center p-2 rounded hover:bg-slate-700",
+                      "flex items-center p-2 rounded hover:bg-slate-400",
                       menu.active ? "bg-slate-400 text-slate-200 font-medium" : "",
                     ])}
                   >
                     <div className="text-left w-10 h-6 m-0 flex items-center justify-between">
-                      <Lucide icon={menu.icon} className="text-slate-500 hover:text-slate-200" />
+                      <Lucide icon={menu.icon} className="text-slate-900 hover:text-slate-900" />
                     </div>
                   </Tippy>
                   {/* BEGIN: Second Child */}
@@ -286,7 +287,7 @@ console.log(notifications);
                                           lastSubMenu.active ? "bg-gray-300" : "",
                                         ])}
                                       >
-                                        <div className="w-4 h-4 flex items-center justify-center">
+                                        <div className="w-10 h-10 flex items-center justify-center">
                                           <Lucide icon={lastSubMenu.icon} className="text-gray-700" />
                                         </div>
                                       </Tippy>
@@ -307,60 +308,59 @@ console.log(notifications);
             )}
             {/* END: First Child */}
             <div>
-          <Menu>
-            <Menu.Button className="z-100 block w-8 h-8 overflow rounded-md shadow-lg bg-primary flex items-center justify-center text-white mr-4">
-              <Lucide icon="Bell" className="w-5 h-5" />
-              {uniqueNotifications.length > 0 && (
-        <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1 py-0.5 text-[8px] z-10 transform translate-x-1/2 -translate-y-1/2">
-          {uniqueNotifications.length}
-        </span>
-      )}
-            </Menu.Button>
-
-     
-            <Menu.Items className="absolute left-0 w-auto mt-0 mr-4 text-white bg-primary" style={{ width: '400px' }}>
-    <Menu.Header className="font-normal">
-        <div className="font-medium text-lg">Notifications</div>
-    </Menu.Header>
-
-    <div className="mt-2 pl-2 pr-2 h-64 overflow-y-auto">
-        {uniqueNotifications.length > 0 ? (
-            uniqueNotifications
-                .sort((a, b) => b.timestamp - a.timestamp)
-                .map((notification, key) => (
-                    <div key={key} className="w-full">
-                        <div
-                            className="flex items-center mb-2 box hover:bg-blue-100 cursor-pointer"
-                            onClick={() => handleNotificationClick(notification.chat_id)}
-                        >
-                            <div className="p-2 pl-1 ml-2 w-full">
+            {companyName !== "Infinity Pilates & Physiotherapy" && (
+              <Menu>
+                <Menu.Button className="z-50 block w-10 h-10 overflow rounded-md text-slate-900 hover:bg-slate-400 hover:text-slate-900 font-medium flex items-center justify-center">
+                  <Lucide icon="Bell" className="w-5 h-5" />
+                  {uniqueNotifications.length > 0 && (
+                    <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1 py-0.5 text-[8px] z-10 transform translate-x-1/2 -translate-y-1/2">
+                      {uniqueNotifications.length}
+                    </span>
+                  )}
+                </Menu.Button>
+                <Menu.Items className="absolute left-0 w-auto mt-0 mr-4 text-white bg-primary" style={{ width: '400px' }}>
+                  <Menu.Header className="font-normal">
+                    <div className="font-medium text-lg">Notifications</div>
+                  </Menu.Header>
+                  <div className="mt-2 pl-2 pr-2 h-64 overflow-y-auto">
+                    {uniqueNotifications.length > 0 ? (
+                      uniqueNotifications
+                        .sort((a, b) => b.timestamp - a.timestamp)
+                        .map((notification, key) => (
+                          <div key={key} className="w-full">
+                            <div
+                              className="flex items-center mb-2 box hover:bg-blue-100 cursor-pointer"
+                              onClick={() => handleNotificationClick(notification.chat_id)}
+                            >
+                              <div className="p-2 pl-1 ml-2 w-full">
                                 <div className="text-s font-medium text-slate-800 truncate capitalize">
-                                    {notification.chat_id.split('@')[0]}
+                                  {notification.chat_id.split('@')[0]}
                                 </div>
                                 <div className="text-base text-xs text-slate-500">
-                                    {notification.text ? notification.text.body : ''}
+                                  {notification.text ? notification.text.body : ''}
                                 </div>
                                 <div className="text-slate-500 text-xs mt-0.5">
-                                    {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
-                                        hour: 'numeric',
-                                        minute: 'numeric',
-                                        hour12: true,
-                                        year: 'numeric',
-                                        month: 'long',
-                                        day: 'numeric',
-                                    })}
+                                  {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
+                                    hour: 'numeric',
+                                    minute: 'numeric',
+                                    hour12: true,
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                  })}
                                 </div>
+                              </div>
                             </div>
-                        </div>
-                    </div>
-                ))
-        ) : (
-            <div className="text-center text-slate-500">No messages available</div>
-        )}
-    </div>
-</Menu.Items>
-          </Menu>
-        </div>
+                          </div>
+                        ))
+                    ) : (
+                      <div className="text-center text-slate-500">No messages available</div>
+                    )}
+                  </div>
+                </Menu.Items>
+              </Menu>
+            )}
+          </div>
       </ul>
           <div className="mb-4">
           <Menu>
