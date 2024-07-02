@@ -1081,16 +1081,10 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       const data2 = docSnapshot.data();
       setToken(data2.whapiToken);
   
-<<<<<<< HEAD
-      const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}/${user?.email}`);
-      const data = response.data;
-      console.log("Fetched Messages:", data);
-=======
       // If no messages, try with whapiToken2
       if ( data2.whapiToken2) {
         messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken2, dataUser?.email);
       }
->>>>>>> 2bc818fb9fc00ba61fe26357a82aebbf95119e48
   
       const formattedMessages: any[] = [];
       const reactionsMap: Record<string, any[]> = {};
