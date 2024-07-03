@@ -283,7 +283,8 @@ const auth = getAuth(app);
 
 function Main() {
   const { contacts: initialContacts, isLoading } = useContacts();
-  const [contacts, setContacts] = useState<Contact[]>(initialContacts.slice(0, 2000));
+  const [contacts, setContacts] = useState<Contact[]>([]);
+
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
@@ -345,7 +346,11 @@ const [pastedImageUrl, setPastedImageUrl] = useState('');
 const [notifications, setNotifications] = useState<Notification[]>([]);
 const audioRef = useRef<HTMLAudioElement>(null);
 
-
+useEffect(() => {
+  if (initialContacts.length > 1) {
+    setContacts(initialContacts.slice(0, 2000));
+  }
+}, [initialContacts]);
 const handleEmojiClick = (emojiObject: EmojiClickData) => {
   setNewMessage(prevMessage => prevMessage + emojiObject.emoji);
 };

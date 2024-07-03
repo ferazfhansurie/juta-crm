@@ -87,8 +87,8 @@ function Main() {
   const deleteButtonRef = useRef(null);
   const [isLoading, setLoading] = useState<boolean>(false);
   const [isFetching, setFetching] = useState<boolean>(false);
-  const { contacts: initialContacts} = useContacts();
-  const [contacts, setContacts] = useState<Contact[]>(initialContacts.slice(0, 2000));
+  const { contacts: initialContacts,} = useContacts();
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
@@ -125,7 +125,11 @@ function Main() {
   const [contactsPerPage] = useState(10); // Adjust the number of contacts per page as needed
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
 const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
-
+useEffect(() => {
+  if (initialContacts.length > 1) {
+    setContacts(initialContacts.slice(0, 2000));
+  }
+}, [initialContacts]);
 
 const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];

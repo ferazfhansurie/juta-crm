@@ -168,7 +168,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         });
     
         console.log(allContacts);
-        setContacts(allContacts);
+        setContacts(allContacts.length ? allContacts : []);
         localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
         sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
       } catch (error) {
