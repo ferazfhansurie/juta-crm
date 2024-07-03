@@ -243,12 +243,12 @@ console.log(notifications);
                                 setFormattedMenu([...formattedMenu]);
                               }}
                               className={clsx([
-                                "flex items-center p-1 my-1 rounded hover:bg-gray-200",
-                                subMenu.active ? "bg-gray-300" : "",
+                                "flex items-center p-1 my-1 rounded hover:bg-slate-400",
+                                subMenu.active ? "bg-slate-400" : "",
                               ])}
                             >
                               <div className="w-4 h-4 flex items-center justify-center">
-                                <Lucide icon={subMenu.icon} className="text-gray-700" />
+                                <Lucide icon={subMenu.icon} className="text-slate-900" />
                               </div>
                             </Tippy>
                             {/* BEGIN: Third Child */}
@@ -283,12 +283,12 @@ console.log(notifications);
                                           ]);
                                         }}
                                         className={clsx([
-                                          "flex items-center p-1 my-1 rounded hover:bg-gray-200",
-                                          lastSubMenu.active ? "bg-gray-300" : "",
+                                          "flex items-center p-1 my-1 rounded hover:bg-slate-400",
+                                          lastSubMenu.active ? "bg-slate-400" : "",
                                         ])}
                                       >
                                         <div className="w-10 h-10 flex items-center justify-center">
-                                          <Lucide icon={lastSubMenu.icon} className="text-gray-700" />
+                                          <Lucide icon={lastSubMenu.icon} className="text-slate-900" />
                                         </div>
                                       </Tippy>
                                     </li>
@@ -318,7 +318,7 @@ console.log(notifications);
                     </span>
                   )}
                 </Menu.Button>
-                <Menu.Items className="absolute left-0 w-auto mt-0 mr-4 text-white bg-primary" style={{ width: '400px' }}>
+                <Menu.Items className="absolute left-0 w-auto mt-0 mr-4 text-slate-900 bg-slate-400" style={{ width: '400px' }}>
                   <Menu.Header className="font-normal">
                     <div className="font-medium text-lg">Notifications</div>
                   </Menu.Header>

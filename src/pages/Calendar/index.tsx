@@ -91,6 +91,7 @@ function Main() {
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [accessToken, setAccessToken] = useState<string>('');
   const [locationId, setLocationId] = useState<string>('');
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -383,7 +384,7 @@ function Main() {
     const { id, title, dateStr, startTimeStr, endTimeStr, extendedProps } = currentEvent;
     const startTime = new Date(`${dateStr}T${startTimeStr}`).toISOString();
     const endTime = new Date(`${dateStr}T${endTimeStr}`).toISOString();
-
+  
     const updatedAppointment: Appointment = {
       id,
       title,
@@ -391,18 +392,18 @@ function Main() {
       endTime,
       address: extendedProps.address,
       appointmentStatus: extendedProps.appointmentStatus,
-      staff: extendedProps.staff,
+      staff: extendedProps.staff, // Ensure staff is an array of IDs
       package: extendedProps.package,
       dateAdded: extendedProps.dateAdded,
       contacts: selectedContacts.map(contact => ({
         id: contact.id,
         name: contact.contactName,
-        session: (extendedProps.appointmentStatus === 'showed' || extendedProps.appointmentStatus === 'noshow') 
-          ? (contactSessions[contact.id] || 0) - 1 
+        session: (extendedProps.appointmentStatus === 'showed' || extendedProps.appointmentStatus === 'noshow')
+          ? (contactSessions[contact.id] || 0) - 1
           : (contactSessions[contact.id] || 0)
       })),
     };
-
+  
     try {
       const user = auth.currentUser;
       if (!user || !user.email) {
@@ -419,7 +420,7 @@ function Main() {
       setAppointments(appointments.map(appointment =>
         appointment.id === id ? updatedAppointment : appointment
       ));
-      
+  
       setEditModalOpen(false);
   
       // Decrement session count if the status is showed or noshow
@@ -430,9 +431,6 @@ function Main() {
       console.error('Error saving appointment:', error);
     }
   };
-  
-
-  
 
   const handleDateSelect = (selectInfo: any) => {
     const dateStr = format(new Date(selectInfo.startStr), 'yyyy-MM-dd');
@@ -466,7 +464,7 @@ function Main() {
       endTime: new Date(`${currentEvent.dateStr}T${currentEvent.endTimeStr}`).toISOString(),
       address: currentEvent.extendedProps.address,
       appointmentStatus: currentEvent.extendedProps.appointmentStatus,
-      staff: selectedEmployeeId, // Use selectedEmployeeId instead of selectedStaff
+      staff: selectedEmployeeIds, // Use selectedEmployeeIds array
       contacts: selectedContacts.map(contact => ({
         id: contact.id,
         name: contact.contactName,
@@ -780,9 +778,13 @@ function Main() {
   };
 
   const renderEventContent = (eventInfo: any) => {
-    // const statusColor = getStatusColor2(eventInfo.event.extendedProps.appointmentStatus);
-    const employee = employees.find(emp => emp.id === eventInfo.event.extendedProps.staff);
-    const backgroundColor = employee ? employee.color : '#ffffff'; // Default to white if no employee found
+    const staffIds = eventInfo.event.extendedProps.staff;
+    const staffColors = employees
+      .filter(employee => staffIds.includes(employee.id))
+      .map(employee => employee.color);
+  
+    // Use the first staff color or a default color if no staff assigned
+    const backgroundColor = staffColors.length > 0 ? staffColors[0] : '#51484f';
     return (
       <div className="flex-grow text-center text-normal font-medium" style={{ backgroundColor, color: 'white', padding: '5px', borderRadius: '5px' }}>
         <i>{eventInfo.event.title}</i>
@@ -791,6 +793,30 @@ function Main() {
   };
 
   const selectedEmployee = employees.find(employee => employee.id === selectedEmployeeId);
+
+  const handleStaffChange = (employeeId: string) => {
+    setCurrentEvent((prevEvent: { extendedProps: { staff: string[]; }; }) => {
+      const isSelected = prevEvent.extendedProps.staff.includes(employeeId);
+      const newStaff = isSelected
+        ? prevEvent.extendedProps.staff.filter((id: string) => id !== employeeId)
+        : [...prevEvent.extendedProps.staff, employeeId];
+  
+      return {
+        ...prevEvent,
+        extendedProps: {
+          ...prevEvent.extendedProps,
+          staff: newStaff
+        }
+      };
+    });
+  };
+  
+  const handleStaffChangeAddModal = (employeeId: string) => {
+    setSelectedEmployeeIds((prevSelected) => {
+      const isSelected = prevSelected.includes(employeeId);
+      return isSelected ? prevSelected.filter((id) => id !== employeeId) : [...prevSelected, employeeId];
+    });
+  };
 
   const getPackageSessions = (packageType: string) => {
     switch (packageType) {
@@ -1147,18 +1173,22 @@ function Main() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Staff</label>
-                  <select
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={currentEvent?.extendedProps?.staff || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, staff: e.target.value } })}
-                  >
-                    <option value="" disabled>Select an employee</option>
-                    {employees.map(employee => (
-                      <option key={employee.id} value={employee.id}>
-                        {employee.name}
-                      </option>
+                  <div className="block w-full mt-1 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                    {employees.map((employee) => (
+                      <div key={employee.id} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`employee-${employee.id}`}
+                          checked={currentEvent?.extendedProps?.staff.includes(employee.id)}
+                          onChange={() => handleStaffChange(employee.id)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`employee-${employee.id}`} className="ml-2 text-sm font-medium text-gray-700">
+                          {employee.name}
+                        </label>
+                      </div>
                     ))}
-                  </select>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Package</label>
@@ -1301,18 +1331,22 @@ function Main() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Staff</label>
-                <select
-                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                value={selectedEmployeeId}
-                onChange={(e) => setSelectedEmployeeId(e.target.value)}
-              >
-                <option value="" disabled>Select an employee</option>
-                {employees.map(employee => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name}
-                  </option>
-                ))}
-              </select>
+                <div className="block w-full mt-1 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                  {employees.map((employee) => (
+                    <div key={employee.id} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id={`employee-${employee.id}`}
+                        checked={selectedEmployeeIds.includes(employee.id)}
+                        onChange={() => handleStaffChangeAddModal(employee.id)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <label htmlFor={`employee-${employee.id}`} className="ml-2 text-sm font-medium text-gray-700">
+                        {employee.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Package</label>
