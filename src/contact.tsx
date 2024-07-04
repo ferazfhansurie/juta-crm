@@ -111,6 +111,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         // Pagination settings
         const batchSize = 500;
         let lastVisible: QueryDocumentSnapshot<DocumentData> | undefined = undefined;
+        const phoneSet = new Set<string>();
         let allContacts: Contact[] = [];
     
         // Fetch contacts in batches
@@ -129,7 +130,13 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     
           if (contactsBatch.length === 0) break; // Exit if no more documents
     
-          allContacts = [...allContacts, ...contactsBatch];
+          contactsBatch.forEach(contact => {
+            if (contact.phone && !phoneSet.has(contact.phone)) {
+              phoneSet.add(contact.phone);
+              allContacts.push(contact);
+            }
+          });
+    
           lastVisible = contactsSnapshot.docs[contactsSnapshot.docs.length - 1];
         }
     
@@ -167,6 +174,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
           return dateB.getTime() - dateA.getTime();
         });
     
+        console.log("all");
         console.log(allContacts);
         setContacts(allContacts);
         localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
@@ -177,6 +185,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false);
       }
     };
+    
     
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {

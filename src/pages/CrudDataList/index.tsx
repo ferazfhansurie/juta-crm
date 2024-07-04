@@ -39,34 +39,34 @@ const firestore = getFirestore(app);
 
 function Main() {
   interface Contact {
-    additionalEmails: string[];
-    address1: string | null;
-    assignedTo: string | null;
-    businessId: string | null;
-    city: string | null;
-    companyName: string | null;
-    contactName: string;
-    country: string;
-    customFields: any[];
-    dateAdded: string;
-    dateOfBirth: string | null;
-    dateUpdated: string;
-    dnd: boolean;
-    dndSettings: any;
-    email: string | null;
-    firstName: string;
-    followers: string[];
-    id: string;
-    lastName: string;
-    locationId: string;
-    phone: string | null;
-    postalCode: string | null;
-    source: string | null;
-    state: string | null;
-    tags: string[];
-    type: string;
-    website: string | null;
-  chat_pic_full:string|null;
+    additionalEmails?: string[] | null;
+    address1?: string | null;
+    assignedTo?: string | null;
+    businessId?: string | null;
+    city?: string | null;
+    companyName?: string | null;
+    contactName?: string | null;
+    country?: string | null;
+    customFields?: any[] | null;
+    dateAdded?: string | null;
+    dateOfBirth?: string | null;
+    dateUpdated?: string | null;
+    dnd?: boolean | null;
+    dndSettings?: any | null;
+    email?: string | null;
+    firstName?: string | null;
+    followers?: string[] | null;
+    id?: string | null;
+    lastName?: string | null;
+    locationId?: string | null;
+    phone?: string | null;
+    postalCode?: string | null;
+    source?: string | null;
+    state?: string | null;
+    tags?: string[] | null;
+    type?: string | null;
+    website?: string | null;
+    chat_pic_full?: string | null;
   }
   
   interface Employee {
@@ -87,8 +87,8 @@ function Main() {
   const deleteButtonRef = useRef(null);
   const [isLoading, setLoading] = useState<boolean>(false);
   const [isFetching, setFetching] = useState<boolean>(false);
-  const { contacts: initialContacts} = useContacts();
-  const [contacts, setContacts] = useState<Contact[]>(initialContacts.slice(0, 2000));
+  const { contacts: initialContacts,} = useContacts();
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
@@ -125,7 +125,11 @@ function Main() {
   const [contactsPerPage] = useState(10); // Adjust the number of contacts per page as needed
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
 const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
-
+useEffect(() => {
+  if (initialContacts.length > 1) {
+    setContacts(initialContacts.slice(0, 2000));
+  }
+}, [initialContacts]);
 
 const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
@@ -492,10 +496,10 @@ setLoading(true);
           {
   // Determine the number of sessions based on the tag
   const sessionCount = tagSessionMap[tagName] || 0;
-  
+  const id =contact.id;
   if (sessionCount > 0) {
     // Fetch session data from the company collection
-    const sessionDocRef = doc(firestore, `companies/${companyId}/session`, contact.id);
+    const sessionDocRef = doc(firestore, `companies/${companyId}/session`, );
     const sessionDocSnapshot = await getDoc(sessionDocRef);
     
     if (sessionDocSnapshot.exists()) {
@@ -586,7 +590,7 @@ setLoading(true);
       const dataCompany = docSnapshot.data();
       console.log(dataCompany);
   
-      const url = `https://buds-359313.et.r.appspot.com/api/chats/${dataCompany?.whapiToken}/${dataCompany?.ghl_location}/${dataCompany?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}/${dataUser.companyId}`;
+      const url = `http://localhost:8443/api/chats/${dataCompany?.whapiToken}/${dataCompany?.ghl_location}/${dataCompany?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}/${dataUser.companyId}`;
       const response = await axios.get(url);
       let allContacts = response.data.contacts;
       console.log(allContacts.length);
@@ -664,7 +668,7 @@ const handleRemoveTag = async (contactId: string, tagName: string) => {
       setContacts((prevContacts) =>
         prevContacts.map((contact) =>
           contact.id === contactId
-            ? { ...contact, tags: contact.tags.filter((tag) => tag !== tagName) }
+            ? { ...contact, tags: contact.tags!.filter((tag) => tag !== tagName) }
             : contact
         )
       );
@@ -931,7 +935,7 @@ const chatId = tempphone + "@s.whatsapp.net"
       (contact.firstName?.toLowerCase().includes(lowerCaseQuery) ||
       contact.phone?.includes(lowerCaseQuery) ||
       contact.contactName?.toLowerCase().includes(lowerCaseQuery))&&
-      (selectedTagFilter ? contact.tags.includes(selectedTagFilter) : true)
+      (selectedTagFilter ? contact.tags!.includes(selectedTagFilter) : true)
     );
   });
   useEffect(() => {
@@ -1318,10 +1322,16 @@ console.log(filteredContacts);
                 </tr>
               </thead>
               <tbody>
-                {filteredContacts.map((contact, index) => {
-                  const employeeNames = employeeList.map(employee => employee.name.toLowerCase());
-                  const employeeTags = contact.tags.filter(tag => employeeNames.includes(tag.toLowerCase()));
-                  const otherTags = contact.tags.filter(tag => tagList.some(listTag => listTag.name === tag));
+              {filteredContacts.map((contact, index) => {
+const employeeNames = employeeList.map(employee => employee.name.toLowerCase());
+
+const employeeTags = contact.tags
+  ? contact.tags.filter(tag => employeeNames.includes(tag.toLowerCase()))
+  : [];
+
+const otherTags = contact.tags
+  ? contact.tags.filter(tag => tagList.some(listTag => listTag.name === tag))
+  : [];
 
                   return (
                     <tr
@@ -1361,7 +1371,7 @@ console.log(filteredContacts);
                               <span className="mr-1">{tag}</span>
                               <button
                                 className="p-1"
-                                onClick={() => handleRemoveTag(contact.id, tag)}
+                                onClick={() => handleRemoveTag(contact.id!, tag)}
                               >
                                 <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700" />
                               </button>
@@ -1378,7 +1388,7 @@ console.log(filteredContacts);
                               <span className="mr-1">{tag}</span>
                               <button
                                 className="p-1"
-                                onClick={() => handleRemoveTag(contact.id, tag)}
+                                onClick={() => handleRemoveTag(contact.id!, tag)}
                               >
                                 <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700" />
                               </button>
