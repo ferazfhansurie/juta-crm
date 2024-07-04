@@ -167,8 +167,9 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
           return dateB.getTime() - dateA.getTime();
         });
     
+        console.log("all");
         console.log(allContacts);
-        setContacts(allContacts.length ? allContacts : []);
+        setContacts(allContacts);
         localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
         sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
       } catch (error) {

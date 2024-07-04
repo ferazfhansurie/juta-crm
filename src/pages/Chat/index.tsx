@@ -53,40 +53,40 @@ interface Enquiry {
   read:boolean;
 }
 interface Contact {
-  conversation_id: string;
-  additionalEmails: string[];
-  address1: string | null;
-  assignedTo: string | null;
-  businessId: string | null;
-  city: string | null;
-  companyName: string | null;
-  contactName: string;
-  country: string;
-  customFields: any[];
-  dateAdded: string;
-  dateOfBirth: string | null;
-  dateUpdated: string;
-  dnd: boolean;
-  dndSettings: any;
-  email: string | null;
-  firstName: string;
-  followers: string[];
-  id: string;
-  lastName: string;
-  locationId: string;
-  phone: string | null;
-  postalCode: string | null;
-  source: string | null;
-  state: string | null;
-  tags: string[];
-  type: string;
-  website: string | null;
-  chat: Chat[];
+  conversation_id?: string | null;
+  additionalEmails?: string[] | null;
+  address1?: string | null;
+  assignedTo?: string | null;
+  businessId?: string | null;
+  city?: string | null;
+  companyName?: string | null;
+  contactName?: string | null;
+  country?: string | null;
+  customFields?: any[] | null;
+  dateAdded?: string | null;
+  dateOfBirth?: string | null;
+  dateUpdated?: string | null;
+  dnd?: boolean | null;
+  dndSettings?: any | null;
+  email?: string | null;
+  firstName?: string | null;
+  followers?: string[] | null;
+  id?: string | null;
+  lastName?: string | null;
+  locationId?: string | null;
+  phone?: string | null;
+  postalCode?: string | null;
+  source?: string | null;
+  state?: string | null;
+  tags?: string[] | null;
+  type?: string | null;
+  website?: string | null;
+  chat?: Chat[] | null;
   last_message?: Message | null;
-  chat_id: string;
-  unreadCount:number;
-  chat_pic_full:string;
-  pinned: boolean;  
+  chat_id?: string | null;
+  unreadCount?: number | null;
+  chat_pic_full?: string | null;
+  pinned?: boolean | null;
 }
 interface GhlConfig {
   ghl_id: string;
@@ -307,7 +307,7 @@ function Main() {
   const [isTagged, setIsTagged] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchQuery2, setSearchQuery2] = useState('');
-  const [filteredContacts, setFilteredContacts] = useState(contacts);
+  const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-[#dcf8c6] text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
   const otherMessageClass = "bg-white text-black rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
@@ -346,9 +346,11 @@ const [pastedImageUrl, setPastedImageUrl] = useState('');
 const [notifications, setNotifications] = useState<Notification[]>([]);
 const audioRef = useRef<HTMLAudioElement>(null);
 
+console.log(initialContacts);
 useEffect(() => {
   if (initialContacts.length > 1) {
     setContacts(initialContacts.slice(0, 2000));
+  
   }
 }, [initialContacts]);
 const handleEmojiClick = (emojiObject: EmojiClickData) => {
@@ -552,14 +554,14 @@ const closePDFModal = () => {
               whapiToken: data.whapiToken,
             });
             const user_name = dataUser.name;
-            fetchContactsBackground(
+           /* fetchContactsBackground(
               data.whapiToken,
               data.ghl_location,
               data.ghl_accessToken,
               user_name,
               dataUser.role,
               dataUser.email
-            );
+            );*/
           }
         }
   
@@ -753,9 +755,9 @@ const closePDFModal = () => {
     if (!contact!.id && contactSelect) {
       console.log('creating contact');
       try {
-        contact = await createContact(contactSelect.firstName, contactSelect.phone!);
-        updatedContacts.push(contact);
-        setContacts(updatedContacts);
+       // contact = await createContact(contactSelect!.firstName!, contactSelect.phone!);
+        //updatedContacts.push(contact);
+        //setContacts(updatedContacts);
   
         // Update local storage again to reflect the newly added contact
         localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
@@ -764,11 +766,8 @@ const closePDFModal = () => {
         console.error('Failed to create contact:', error);
       }
     }
-  
     setSelectedContact(contact);
- 
     setSelectedChatId(chatId);
-  
     try {
       const user = auth.currentUser;
       if (user) {
@@ -1521,7 +1520,7 @@ try {
         const updatedContacts = [...contacts];
         const updatedContact = { ...updatedContacts[index] };
   
-        if (hasLabel) {
+        if (hasLabel && updatedContact.tags) {
           updatedContact.tags = updatedContact.tags.filter(tag => tag !== "stop bot");
         } else {
           updatedContact.tags = updatedContact.tags ? [...updatedContact.tags, "stop bot"] : ["stop bot"];
@@ -1659,33 +1658,40 @@ const openEditMessage = (message: Message) => {
     setIsTabOpen(!isTabOpen);
   };
   useEffect(() => {
-    let updatedContacts = contacts;
+    let updatedContacts = [...contacts];
   
-    // Apply group filter if active
-    if (isGroupFilterActive) {
-      updatedContacts = updatedContacts.filter(contact => contact.chat_id?.includes('@g.us'));
-    }else{
-      updatedContacts = contacts;
-    }
-  
-    // Apply search query filter
-    if (searchQuery !== '') {
-      updatedContacts = updatedContacts.filter((contact) =>
-        contact.contactName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        contact.phone?.includes(searchQuery)
-      );
-    }
-  
-    // Apply tag filter
-    if (activeTags.length > 0) {
-      updatedContacts = updatedContacts.filter((contact) =>
-        activeTags.every((tag) => contact.tags?.includes(tag))
-      );
-    }
-    updatedContacts.sort((a, b) => Number(b.pinned) - Number(a.pinned));
+    try {
+      // Apply group filter if active
+      if (isGroupFilterActive) {
+        updatedContacts = updatedContacts.filter(contact => contact.chat_id?.includes('@g.us'));
+      }
+    
+      // Apply search query filter
+      if (searchQuery) {
+        updatedContacts = updatedContacts.filter(contact =>
+          contact.contactName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          contact.phone?.includes(searchQuery)
+        );
+      }
+    
+      // Apply tag filter
+      if (activeTags.length > 0) {
+        updatedContacts = updatedContacts.filter(contact =>
+          activeTags.every(tag => contact.tags?.includes(tag))
+        );
+      }
+    
+      // Sort contacts by pinned status
+      updatedContacts.sort((a, b) => Number(b.pinned) - Number(a.pinned));
+    
     setFilteredContacts(updatedContacts);
-  }, [searchQuery, activeTags, contacts, isGroupFilterActive]);
+    } catch (error) {
+      console.error('Error filtering contacts:', error);
+      // Optionally, handle the error in a user-friendly way
+    }
+  }, [contacts, searchQuery, activeTags, isGroupFilterActive]);
+  
   useEffect(() => {
     let updatedContacts = contacts;
     updatedContacts = contacts.filter(contact =>
@@ -2487,47 +2493,49 @@ const handleForwardMessage = async () => {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center">
-          <span className="font-semibold capitalize truncate w-36">{contact.contactName ?? contact.firstName ?? contact.phone}</span>
+        <span className="font-semibold capitalize truncate w-36">{contact.contactName ?? contact.firstName ?? contact.phone}</span>
+
           <span className="text-xs flex items-center space-x-2">
-            <div className="ml-2 flex flex-wrap">
-              {(() => {
-                const employeeTags = contact.tags.filter(tag =>
-                  employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
-                );
+          <div className="ml-2 flex flex-wrap">
+  {(() => {
+    const employeeTags = contact.tags?.filter(tag =>
+      employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+    ) || [];
 
-                const otherTags = contact.tags.filter(tag =>
-                  !employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
-                );
+    const otherTags = contact.tags?.filter(tag =>
+      !employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+    ) || [];
 
-                return (
-                  <>
-                    {employeeTags.length > 0 && (
-                      <Tippy content={employeeTags.join(', ')}>
-                        <span className="bg-green-100 text-green-800 text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
-                          <Lucide icon="User" className="w-4 h-4 inline-block" />
-                          <span className="ml-1">{employeeTags.length}</span>
-                        </span>
-                      </Tippy>
-                    )}
-                     {otherTags.length > 0 && (
-                      <Tippy content={otherTags.join(', ')}>
-                        <span className="bg-green-100 text-primary text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
-                          <Lucide icon="Tag" className="w-4 h-4 inline-block" />
-                          <span className="ml-1">{otherTags.length}</span>
-                        </span>
-                      </Tippy>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
+    return (
+      <>
+        {employeeTags.length > 0 && (
+          <Tippy content={employeeTags.join(', ')}>
+            <span className="bg-green-100 text-green-800 text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
+              <Lucide icon="User" className="w-4 h-4 inline-block" />
+              <span className="ml-1">{employeeTags.length}</span>
+            </span>
+          </Tippy>
+        )}
+        {otherTags.length > 0 && (
+          <Tippy content={otherTags.join(', ')}>
+            <span className="bg-green-100 text-primary text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
+              <Lucide icon="Tag" className="w-4 h-4 inline-block" />
+              <span className="ml-1">{otherTags.length}</span>
+            </span>
+          </Tippy>
+        )}
+      </>
+    );
+  })()}
+</div>
+
             <button
               className={`text-md font-medium mr-2 ${
                 contact.pinned ? 'text-blue-500' : 'text-gray-500 group-hover:text-blue-500'
               }`}
               onClick={(e) => {
                 e.stopPropagation();
-                togglePinConversation(contact.chat_id);
+                togglePinConversation(contact.chat_id!);
               }}
             >
               {contact.pinned ? (
@@ -2545,7 +2553,7 @@ const handleForwardMessage = async () => {
           <span className="text-sm truncate" style={{ width: '200px' }}>
             {(contact.last_message?.type === "text") ? contact.last_message?.text?.body ?? "No Messages" : "Photo"}
           </span>
-          {contact.unreadCount > 0 && (
+          {contact.unreadCount! > 0 && (
             <span className="bg-primary text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
           )}
           <label className="inline-flex items-center cursor-pointer">
