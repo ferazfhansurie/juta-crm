@@ -185,26 +185,36 @@ const fetchQRCode = async () => {
     return;
     }
     const companyData = docSnapshot.data();
-
-    const response = await axios.get('https://gate.whapi.cloud/users/login/image?wakeup=true', {
+    const healthresponse = await axios.get('https://gate.whapi.cloud/health?wakeup=true&channel_type=web', {
       headers: {
-        'accept': 'image/png',
+        'accept': 'application/json',
         'authorization': `Bearer ${companyData.whapiToken}`,
-        'content-type': 'application/json',
-      },data: {
-        'size': 264,
-        'width': 300,
-        'height': 300,
-        'color_dark': '#122e31',
-        'color_light': '#ffffff',
-      }, responseType: 'blob',
+      },
     });
+    console.log(healthresponse.data.status)
+    if(healthresponse.data.status.text === 'QR' || healthresponse.data.status.text === 'INIT'){
+      const QRresponse = await axios.get('https://gate.whapi.cloud/users/login/image?wakeup=true', {
+        headers: {
+          'accept': 'image/png',
+          'authorization': `Bearer ${companyData.whapiToken}`,
+          'content-type': 'application/json',
+        },data: {
+          'size': 264,
+          'width': 300,
+          'height': 300,
+          'color_dark': '#122e31',
+          'color_light': '#ffffff',
+        }, responseType: 'blob',
+      });
 
-    const qrCodeURL = URL.createObjectURL(response.data); // Create an object URL from the blob
-    console.log("qrCodeURL", qrCodeURL)
-    console.log("response", response)
-    setQrCodeImage(qrCodeURL);
-    setIsLoading(false);
+      const qrCodeURL = URL.createObjectURL(QRresponse.data); // Create an object URL from the blob
+      console.log("qrCodeURL", qrCodeURL)
+      console.log("response", response)
+      setQrCodeImage(qrCodeURL);
+      setIsLoading(false);
+    }else{
+      setIsLoading(false);
+    }
   } catch (error) {
     setIsLoading(false);
     setError('Failed to fetch QR code. Please try again.');
