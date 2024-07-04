@@ -38,7 +38,8 @@ interface Appointment {
   endTime: string;
   address: string;
   appointmentStatus: string;
-  staff: string;
+  staff: string[];
+  color: string;
   package: string;
   dateAdded: string;
   contacts: { id: string, name: string, session: number }[]; // Include contacts in the interface
@@ -85,6 +86,11 @@ interface ContactWithSession extends Contact {
   session: number;
 }
 
+type BackgroundStyle = {
+  backgroundColor?: string;
+  background?: string;
+};
+
 
 function Main() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -118,6 +124,27 @@ function Main() {
     }
   
     return slots;
+  };
+
+  // Utility function to blend two colors
+  const blendColors = (color1: string, color2: string): string => {
+    const hex = (color: string) => {
+      return color.replace("#", "");
+    };
+
+    const r1 = parseInt(hex(color1).substring(0, 2), 16);
+    const g1 = parseInt(hex(color1).substring(2, 4), 16);
+    const b1 = parseInt(hex(color1).substring(4, 6), 16);
+
+    const r2 = parseInt(hex(color2).substring(0, 2), 16);
+    const g2 = parseInt(hex(color2).substring(2, 4), 16);
+    const b2 = parseInt(hex(color2).substring(4, 6), 16);
+
+    const r = Math.round((r1 + r2) / 2).toString(16).padStart(2, "0");
+    const g = Math.round((g1 + g2) / 2).toString(16).padStart(2, "0");
+    const b = Math.round((b1 + b2) / 2).toString(16).padStart(2, "0");
+
+    return `#${r}${g}${b}`;
   };
 
 
@@ -197,28 +224,50 @@ function Main() {
     try {
       const userRef = doc(firestore, 'user', selectedUserId);
       const appointmentsCollectionRef = collection(userRef, 'appointments');
-      const appointmentsQuery = selectedEmployeeId 
-        ? query(appointmentsCollectionRef, where('staff', '==', selectedEmployeeId))
-        : appointmentsCollectionRef;
-      const querySnapshot = await getDocs(appointmentsQuery);
   
-      const allAppointments: Appointment[] = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Appointment));
+      let appointmentsQuery;
+      if (selectedEmployeeId) {
+        // Fetch appointments where the selected employee is the only staff member
+        const singleStaffQuery = query(appointmentsCollectionRef, where('staff', '==', [selectedEmployeeId]));
+        // Fetch appointments where the selected employee is among the staff members
+        const multipleStaffQuery = query(appointmentsCollectionRef, where('staff', 'array-contains', selectedEmployeeId));
   
-      const formattedAppointments = allAppointments.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());
+        const [singleStaffSnapshot, multipleStaffSnapshot] = await Promise.all([
+          getDocs(singleStaffQuery),
+          getDocs(multipleStaffQuery),
+        ]);
   
-      // Sort appointments by startTime in ascending order
-      const sortedAppointments = allAppointments.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-
-      setAppointments(formattedAppointments);
+        // Combine results from both queries, avoiding duplicates
+        const singleStaffAppointments = singleStaffSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        } as Appointment));
+  
+        const multipleStaffAppointments = multipleStaffSnapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          } as Appointment))
+          .filter(appointment => !singleStaffAppointments.some(a => a.id === appointment.id));
+  
+        const allAppointments = [...singleStaffAppointments, ...multipleStaffAppointments];
+        setAppointments(allAppointments.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()));
+      } else {
+        // If no employee is selected, fetch all appointments
+        const querySnapshot = await getDocs(appointmentsCollectionRef);
+        const allAppointments = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        } as Appointment));
+        setAppointments(allAppointments.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()));
+      }
     } catch (error) {
       console.error('Error fetching appointments:', error);
     } finally {
       setLoading(false);
     }
   };
+  
 
   const handleEmployeeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const employeeId = event.target.value;
@@ -385,6 +434,20 @@ function Main() {
     const startTime = new Date(`${dateStr}T${startTimeStr}`).toISOString();
     const endTime = new Date(`${dateStr}T${endTimeStr}`).toISOString();
   
+    const firstEmployeeId = extendedProps.staff[0];
+    const secondEmployeeId = extendedProps.staff[1];
+    const firstEmployee = employees.find(emp => emp.id === firstEmployeeId);
+    const secondEmployee = employees.find(emp => emp.id === secondEmployeeId);
+  
+    let color;
+    if (firstEmployee && secondEmployee) {
+      color = `linear-gradient(to right, ${firstEmployee.color} 50%, ${secondEmployee.color} 50%)`;
+    } else if (firstEmployee) {
+      color = firstEmployee.color;
+    } else {
+      color = '#51484f'; // Default color
+    }
+  
     const updatedAppointment: Appointment = {
       id,
       title,
@@ -393,6 +456,7 @@ function Main() {
       address: extendedProps.address,
       appointmentStatus: extendedProps.appointmentStatus,
       staff: extendedProps.staff, // Ensure staff is an array of IDs
+      color: color,
       package: extendedProps.package,
       dateAdded: extendedProps.dateAdded,
       contacts: selectedContacts.map(contact => ({
@@ -458,6 +522,9 @@ function Main() {
   };
 
   const handleAddAppointment = async () => {
+    const firstEmployeeId = selectedEmployeeIds[0];
+    const firstEmployee = employees.find(emp => emp.id === firstEmployeeId);
+  
     const newEvent = {
       title: currentEvent.title,
       startTime: new Date(`${currentEvent.dateStr}T${currentEvent.startTimeStr}`).toISOString(),
@@ -465,6 +532,7 @@ function Main() {
       address: currentEvent.extendedProps.address,
       appointmentStatus: currentEvent.extendedProps.appointmentStatus,
       staff: selectedEmployeeIds, // Use selectedEmployeeIds array
+      color: firstEmployee ? firstEmployee.color : '#51484f', // Default color if no employee found
       contacts: selectedContacts.map(contact => ({
         id: contact.id,
         name: contact.contactName,
@@ -484,26 +552,11 @@ function Main() {
         console.error('No authenticated user or email found');
         return;
       }
-      const userRef = doc(firestore, 'user', user.email); // Correct path to the user document
-    
-      const docUserRef = doc(firestore, 'user', user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
-        return;
-      }
-  
-      const dataUser = docUserSnapshot.data();
-      if (!dataUser) {
-        console.error('No data found for user!');
-        return;
-      }
-      const companyId = dataUser.companyId;
-      console.log(companyId);
+      const userRef = doc(firestore, 'user', user.email);
   
       const appointmentsCollectionRef = collection(userRef, 'appointments');
-      const newAppointmentRef = doc(appointmentsCollectionRef); // Generates a new document ID
-    
+      const newAppointmentRef = doc(appointmentsCollectionRef);
+  
       const newAppointment = {
         id: newAppointmentRef.id,
         title: newEvent.title,
@@ -512,18 +565,19 @@ function Main() {
         address: newEvent.address,
         appointmentStatus: newEvent.appointmentStatus,
         staff: newEvent.staff,
+        color: newEvent.color, // Include color property
         package: newEvent.package,
         dateAdded: new Date().toISOString(),
-        contacts: newEvent.contacts, // Include contacts array
+        contacts: newEvent.contacts,
       };
-    
+  
       await setDoc(newAppointmentRef, newAppointment);
   
-      const companyRef = doc(firestore, 'companies', companyId); // Correct path to the company document
+      const companyRef = doc(firestore, 'companies', user.email);
       const sessionsCollectionRef = collection(companyRef, 'session');
   
       for (const contact of newEvent.contacts) {
-        const newSessionsRef = doc(sessionsCollectionRef, contact.id); // Use contact.id as document ID
+        const newSessionsRef = doc(sessionsCollectionRef, contact.id);
         const newSessions = {
           id: contact.id,
           session: contact.session
@@ -531,7 +585,7 @@ function Main() {
   
         await setDoc(newSessionsRef, newSessions);
       }
-    
+  
       setAppointments([...appointments, newAppointment]);
     } catch (error) {
       console.error('Error creating appointment:', error);
@@ -598,7 +652,8 @@ function Main() {
   const filteredAppointments = appointments.filter(appointment => {
     return (
       (filterStatus ? appointment.appointmentStatus === filterStatus : true) &&
-      (filterDate ? format(new Date(appointment.startTime), 'yyyy-MM-dd') === filterDate : true)
+      (filterDate ? format(new Date(appointment.startTime), 'yyyy-MM-dd') === filterDate : true) &&
+      (selectedEmployeeId ? appointment.staff.includes(selectedEmployeeId) || (appointment.staff.length === 1 && appointment.staff[0] === selectedEmployeeId) : true)
     );
   });
 
@@ -782,11 +837,17 @@ function Main() {
     const staffColors = employees
       .filter(employee => staffIds.includes(employee.id))
       .map(employee => employee.color);
+    
+    let backgroundStyle: BackgroundStyle = { backgroundColor: '#51484f' }; // Default color
   
-    // Use the first staff color or a default color if no staff assigned
-    const backgroundColor = staffColors.length > 0 ? staffColors[0] : '#51484f';
+    if (staffColors.length === 1) {
+      backgroundStyle = { backgroundColor: staffColors[0] };
+    } else if (staffColors.length > 1) {
+      backgroundStyle = { background: `linear-gradient(to right, ${staffColors[0]} 50%, ${staffColors[1]} 50%)` };
+    }
+  
     return (
-      <div className="flex-grow text-center text-normal font-medium" style={{ backgroundColor, color: 'white', padding: '5px', borderRadius: '5px' }}>
+      <div className="flex-grow text-center text-normal font-medium" style={{ ...backgroundStyle, color: 'white', padding: '5px', borderRadius: '5px' }}>
         <i>{eventInfo.event.title}</i>
       </div>
     );
