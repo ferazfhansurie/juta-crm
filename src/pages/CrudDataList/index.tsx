@@ -445,46 +445,26 @@ setLoading(true);
     }
   }
 
-  const verifyContactIdExists = async (contactId: string, tagName: string) => {
+  const verifyContactIdExists = async (contactId: string, accessToken: string) => {
     try {
       const user = auth.currentUser;
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
         console.log('No such document for user!');
-        return;
+        return false;
       }
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
+      const docRef = doc(firestore, `companies/${companyId}/contacts`, contactId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
-        return;
+        console.log('No such document for contact!');
+        return false;
       }
-      const companyData = docSnapshot.data();
   
-      // Update Firestore
-      await updateDoc(doc(firestore, 'companies', companyId, 'contacts', contactId), {
-        tags: arrayRemove(tagName)
-      });
-  
-      // Update state
-      setContacts(prevContacts =>
-        prevContacts.map(contact =>
-          contact.id === contactId
-            ? { ...contact, tags: (contact.tags ?? []).filter(tag => tag !== tagName) }
-            : contact
-        )
-      );
-      const updatedContacts = contacts.map((contact: Contact) =>
-        contact.id === contactId
-          ? { ...contact, tags: (contact.tags ?? []).filter((tag: string) => tag !== tagName) }
-          : contact
-      );
-      localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
-      sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been updated in this session
-      toast.success('Tag updated successfully');
+      // If the contact exists, return true
+      return true;
     } catch (error) {
       console.error('Error verifying contact ID:', error);
       return false;
@@ -609,7 +589,8 @@ setLoading(true);
       // Add new contacts to the Firebase subcollection
       const addPromises = allContacts.map(async (contact: any) => {
         try {
-          await addDoc(contactsCollectionRef, contact);
+          const contactDocRef = doc(contactsCollectionRef, contact.phone); // Use contact.phone as the document ID
+          await setDoc(contactDocRef, contact);
           console.log("Added contact to Firebase:", contact);
         } catch (error) {
           console.error('Error adding contact to Firebase:', error);
@@ -644,10 +625,11 @@ setLoading(true);
       }
       const companyData = docSnapshot.data();
   
-      await updateDoc(doc(firestore, 'companies', companyId, 'contacts', contactId), {
+      await updateDoc(doc(firestore, `companies/${companyId}/contacts`, contactId), {
         tags: arrayRemove(tagName)
       });
   
+      // Update state
       setContacts(prevContacts =>
         prevContacts.map(contact =>
           contact.id === contactId
@@ -661,7 +643,7 @@ setLoading(true);
           ? { ...contact, tags: (contact.tags ?? []).filter((tag: string) => tag !== tagName) }
           : contact
       );
-      
+  
       const updatedSelectedContact = updatedContacts.find(contact => contact.id === contactId);
       if (updatedSelectedContact) {
         setSelectedContacts(prevSelectedContacts =>
@@ -672,16 +654,17 @@ setLoading(true);
           )
         );
       }
-      
+  
       localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
       sessionStorage.setItem('contactsFetched', 'true');
-      
+  
       toast.success('Tag removed successfully!');
     } catch (error) {
       console.error('Error removing tag:', error);
       toast.error('Failed to remove tag.');
     }
   };
+  
 
   async function updateContactTags(contactId: string, accessToken: string, tags: string[], tagName:string) {
     try {
@@ -710,14 +693,14 @@ setLoading(true);
       setContacts(prevContacts =>
         prevContacts.map(contact =>
           contact.id === contactId
-            ? { ...contact, tags }
+            ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName) }
             : contact
         )
       );
 
       const updatedContacts = contacts.map((contact: Contact) =>
         contact.id === contactId
-          ? { ...contact, tags }
+          ? { ...contact, tags: contact.tags!.filter((tag: string) => tag !== tagName) }
           : contact
       );
 
@@ -726,7 +709,7 @@ setLoading(true);
         setSelectedContacts(prevSelectedContacts =>
           prevSelectedContacts.map(contact =>
             contact.id === contactId
-              ? { ...contact, tags }
+              ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName) }
               : contact
           )
         );

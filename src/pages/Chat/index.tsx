@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query ,where, arrayUnion, arrayRemove} from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query ,arrayRemove,arrayUnion} from "firebase/firestore";
+import {QueryDocumentSnapshot, DocumentData ,Query,CollectionReference, startAfter,limit} from 'firebase/firestore'
 import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
 import Button from "@/components/Base/Button";
@@ -554,14 +555,14 @@ const closePDFModal = () => {
               whapiToken: data.whapiToken,
             });
             const user_name = dataUser.name;
-           /* fetchContactsBackground(
+         fetchContactsBackground(
               data.whapiToken,
               data.ghl_location,
               data.ghl_accessToken,
               user_name,
               dataUser.role,
               dataUser.email
-            );*/
+            );
           }
         }
   
@@ -956,26 +957,105 @@ const getTimestamp = (timestamp: any): number => {
   }
 };
 
-const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string, role: string, userEmail: string) => {
+const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string, role: string, userEmail: string | null | undefined) => {
   try {
-    // Fetch processed data from server
-    const response = await fetch(`https://buds-359313.et.r.appspot.com/api/chats/${whapiToken}/${locationId}/${ghlToken}/${user_name}/${role}/${userEmail}`);
-    const { contacts, totalChats } = await response.json();
+    if (!userEmail) {
+      throw new Error("User email is not provided.");
+    }
+    
+    const docUserRef = doc(firestore, 'user', userEmail);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      return;
+    }
 
-    // Set contacts to state
-    setContacts(contacts);
-    setFilteredContacts(contacts);
-    setFilteredContactsForForwarding(contacts);
+    const dataUser = docUserSnapshot.data();
+    const companyId = dataUser?.companyId;
+    if (!companyId) {
+      return;
+    }
 
-    // Store the contacts in localStorage
-    localStorage.setItem('contacts', JSON.stringify(contacts));
+    // Pagination settings
+    const batchSize = 500;
+    let lastVisible: QueryDocumentSnapshot<DocumentData> | undefined = undefined;
+    const phoneSet = new Set<string>();
+    let allContacts: Contact[] = [];
+
+    // Fetch contacts in batches
+    while (true) {
+      let queryRef: Query<DocumentData>;
+      const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`) as CollectionReference<DocumentData>;
+      
+      if (lastVisible) {
+        queryRef = query(contactsCollectionRef, startAfter(lastVisible), limit(batchSize));
+      } else {
+        queryRef = query(contactsCollectionRef, limit(batchSize));
+      }
+
+      const contactsSnapshot = await getDocs(queryRef);
+      const contactsBatch: Contact[] = contactsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Contact));
+
+      if (contactsBatch.length === 0) break; // Exit if no more documents
+
+      contactsBatch.forEach(contact => {
+        if (contact.phone && !phoneSet.has(contact.phone)) {
+          phoneSet.add(contact.phone);
+          allContacts.push(contact);
+        }
+      });
+
+      lastVisible = contactsSnapshot.docs[contactsSnapshot.docs.length - 1];
+    }
+
+    // Fetch pinned chats
+    const pinnedChatsRef = collection(firestore, `user/${userEmail}/pinned`);
+    const pinnedChatsSnapshot = await getDocs(pinnedChatsRef);
+    const pinnedChats = pinnedChatsSnapshot.docs.map(doc => doc.data() as Contact);
+
+    // Add pinned status to contactsData and update in Firebase
+    const updatePromises = allContacts.map(async contact => {
+      const isPinned = pinnedChats.some(pinned => pinned.chat_id === contact.chat_id);
+      if (isPinned) {
+        contact.pinned = true;
+        if (companyId && contact.id) {
+          const contactDocRef = doc(firestore, `companies/${companyId}/contacts`, contact.id);
+          // Further code to use contactDocRef
+          await setDoc(contactDocRef, contact, { merge: true });
+        } else {
+          console.error('companyId or contact.id is null or undefined');
+        }
+    
+      }
+    });
+
+    await Promise.all(updatePromises);
+
+   // await Promise.all(updatePromises);
+
+    // Sort contactsData by pinned status and last_message timestamp
+    allContacts.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      const dateA = a.last_message?.createdAt
+        ? new Date(a.last_message.createdAt)
+        : a.last_message?.timestamp
+          ? new Date(a.last_message.timestamp * 1000)
+          : new Date(0);
+      const dateB = b.last_message?.createdAt
+        ? new Date(b.last_message.createdAt)
+        : b.last_message?.timestamp
+          ? new Date(b.last_message.timestamp * 1000)
+          : new Date(0);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    console.log("all");
+    console.log(allContacts);
+    setContacts(allContacts);
+    localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
     sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
-
-    console.log(contacts);
   } catch (error) {
-    console.error('Failed to fetch contacts:', error);
-  } finally {
-    // Any final operations if necessary
+    console.error('Error fetching contacts:', error);
   }
 };
 
@@ -1480,6 +1560,7 @@ try {
   };
 
   const toggleStopBotLabel = async (contact: Contact, index: number) => {
+    console.log(contact);
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -1494,47 +1575,50 @@ try {
         return;
       }
       const userData = docUserSnapshot.data();
-      const companyId = userData?.companyId;
-  
-      if (!companyId) {
-        console.log('No company ID found for user!');
-        return;
-      }
-  
-      const contactDocRef = doc(firestore, `companies/${companyId}/contacts`, contact.id!);
-      const contactDocSnapshot = await getDoc(contactDocRef);
-      if (!contactDocSnapshot.exists()) {
-        console.log('No such document for contact!');
-        return;
-      }
-  
-      const hasLabel = (contact.tags ?? []).includes('stop bot');
-      if (hasLabel) {
-        await updateDoc(contactDocRef, {
-          tags: arrayRemove('stop bot')
-        });
-      } else {
-        await updateDoc(contactDocRef, {
-          tags: arrayUnion('stop bot')
-        });
-      }
-  
-      const updatedContacts = [...contacts];
-      const updatedContact = { ...updatedContacts[index] };
-  
-      if (hasLabel) {
-        updatedContact.tags = (updatedContact.tags ?? []).filter(tag => tag !== "stop bot");
-      } else {
-        updatedContact.tags = [...(updatedContact.tags ?? []), "stop bot"];
-      }
-  
-      updatedContacts[index] = updatedContact;
-      setContacts(updatedContacts);
-      localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
+       companyId = userData.companyId;
+       if (companyId && contact.id) {
+        const docRef = doc(firestore, 'companies', companyId, 'contacts', contact.id);
+        // Further code to use contactDocRef
+        const docSnapshot = await getDoc(docRef);
+        if (!docSnapshot.exists()) {
+          console.log('No such document for contact!');
+          return;
+        }
+        const hasLabel = contact.tags!.includes('stop bot');
+        if (hasLabel) {
+          await updateDoc(docRef, {
+            tags: arrayRemove('stop bot')
+          });
+        } else {
+          await updateDoc(docRef, {
+            tags: arrayUnion('stop bot')
+          });
+        }
+    
+        const updatedContacts = [...contacts];
+        const updatedContact = { ...updatedContacts[index] };
+    
+        if (hasLabel) {
+          updatedContact.tags = updatedContact.tags!.filter(tag => tag !== "stop bot");
+        } else {
+          updatedContact.tags = [...updatedContact.tags!, "stop bot"];
+        }
+    
+        updatedContacts[index] = updatedContact;
+        setContacts(updatedContacts);
+        localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
       sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been updated in this session
-      const updatedState = [...stopBotLabelCheckedState];
-      updatedState[index] = !hasLabel;
-      setStopBotLabelCheckedState(updatedState);
+        const updatedState = [...stopBotLabelCheckedState];
+        updatedState[index] = !hasLabel;
+        setStopBotLabelCheckedState(updatedState);
+      } else {
+        console.error('companyId or contact.id is null or undefined');
+      }
+   
+     
+     
+  
+    
   
     } catch (error) {
       console.error('Error toggling label:', error);
@@ -2127,14 +2211,14 @@ const handleForwardMessage = async () => {
       setContacts(prevContacts =>
         prevContacts.map(contact =>
           contact.id === contactId
-            ? { ...contact, tags: (contact.tags ?? []).filter(tag => tag !== tagName) }
+            ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName) }
             : contact
         )
       );
 
       const updatedContacts = contacts.map((contact: Contact) =>
         contact.id === contactId
-          ? { ...contact, tags: (contact.tags ?? []).filter((tag: string) => tag !== tagName) }
+          ? { ...contact, tags: contact.tags!.filter((tag: string) => tag !== tagName) }
           : contact
       );
 
