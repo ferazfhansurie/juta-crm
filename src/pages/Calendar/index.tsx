@@ -455,7 +455,7 @@ function Main() {
       endTime,
       address: extendedProps.address,
       appointmentStatus: extendedProps.appointmentStatus,
-      staff: extendedProps.staff, // Ensure staff is an array of IDs
+      staff: extendedProps.staff,
       color: color,
       package: extendedProps.package,
       dateAdded: extendedProps.dateAdded,
@@ -464,7 +464,7 @@ function Main() {
         name: contact.contactName,
         session: (extendedProps.appointmentStatus === 'showed' || extendedProps.appointmentStatus === 'noshow')
           ? (contactSessions[contact.id] || 0) - 1
-          : (contactSessions[contact.id] || 0)
+          : (contactSessions[contact.id] || 0) // Retain the session count if the status is not "showed" or "noshow"
       })),
     };
   
@@ -477,7 +477,7 @@ function Main() {
   
       const userRef = doc(firestore, 'user', user.email);
       const appointmentsCollectionRef = collection(userRef, 'appointments');
-      const appointmentRef = doc(appointmentsCollectionRef, id); // Ensure id is not empty
+      const appointmentRef = doc(appointmentsCollectionRef, id);
   
       await setDoc(appointmentRef, updatedAppointment);
   
@@ -487,10 +487,12 @@ function Main() {
   
       setEditModalOpen(false);
   
-      // Decrement session count if the status is showed or noshow
-      if (updatedAppointment.appointmentStatus === 'showed' || updatedAppointment.appointmentStatus === 'noshow') {
+      // Decrement session count if the status is "showed" or "noshow"
+      if (initialAppointmentStatus !== updatedAppointment.appointmentStatus &&
+          (updatedAppointment.appointmentStatus === 'showed' || updatedAppointment.appointmentStatus === 'noshow')) {
         updatedAppointment.contacts.forEach(contact => decrementSession(contact.id));
       }
+  
     } catch (error) {
       console.error('Error saving appointment:', error);
     }
@@ -837,12 +839,12 @@ function Main() {
     const staffColors = employees
       .filter(employee => staffIds.includes(employee.id))
       .map(employee => employee.color);
-    
+  
     let backgroundStyle: BackgroundStyle = { backgroundColor: '#51484f' }; // Default color
   
     if (staffColors.length === 1) {
       backgroundStyle = { backgroundColor: staffColors[0] };
-    } else if (staffColors.length > 1) {
+    } else if (staffColors.length === 2) {
       backgroundStyle = { background: `linear-gradient(to right, ${staffColors[0]} 50%, ${staffColors[1]} 50%)` };
     }
   
@@ -894,7 +896,7 @@ function Main() {
       case 'duo20':
         return 20;
       default:
-        return 1; // Default to 1 for any other package types
+        return null; // Default to 1 for any other package types
     }
   };
   
@@ -915,11 +917,6 @@ function Main() {
       }
   
       const dataUser = docUserSnapshot.data();
-      if (!dataUser) {
-        console.error('No data found for user!');
-        return;
-      }
-  
       const companyId = dataUser.companyId as string;
       const contactRef = doc(firestore, `companies/${companyId}/session`, contactId);
       const contactSnapshot = await getDoc(contactRef);
@@ -931,7 +928,7 @@ function Main() {
   
       const contactData = contactSnapshot.data();
       const currentSessionCount = contactData.session;
-      const newSessionCount = currentSessionCount > 0 ? currentSessionCount - 1 : 0;
+      const newSessionCount = currentSessionCount - 1;
   
       setContactSessions({
         ...contactSessions,

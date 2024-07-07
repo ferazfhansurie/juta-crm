@@ -215,6 +215,11 @@ const [submittedOrders, setSubmittedOrders] = useState<Order[]>([]);
       const tempcost = await fetchDeliveryCost(deliveryFormData);
       const cost = tempcost / 1000;
       await addDoc(collection(db, "companies/010/deliveries"), { ...deliveryFormData, cost, createdOn: Timestamp.now() });
+  
+      // Update the order status to indicate it has been added to delivery
+      const orderRef = doc(db, `companies/010/orders/${deliveryFormData.orderId}`);
+      await updateDoc(orderRef, { status: 'Delivered' });
+  
       setOpenDeliveryDialog(false);
       setDeliveryFormData({
         cost: '',
@@ -417,7 +422,7 @@ const [submittedOrders, setSubmittedOrders] = useState<Order[]>([]);
                 <button onClick={() => deleteOrder(order.id)} className="p-2 text-red-600">
                   <Delete />
                 </button>
-                {!isDraft && (
+                {!isDraft && order.status !== 'Delivered' && (
                   <button onClick={() => handleOpenDeliveryDialog(order)} className="p-2 text-blue-600">
                     <Truck />
                   </button>

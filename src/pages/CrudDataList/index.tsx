@@ -10,7 +10,7 @@ import Tippy from "@/components/Base/Tippy";
 import { Dialog, Menu } from "@/components/Base/Headless";
 import Table from "@/components/Base/Table";
 import { getAuth } from 'firebase/auth';
-import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc,updateDoc,addDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc,updateDoc,addDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { initializeApp } from "firebase/app";
 import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
@@ -166,73 +166,73 @@ useEffect(() => {
 const handleTagFilterChange = (tag: string) => {
   setSelectedTagFilter(tag);
 };
-  const handleSaveNewContact = async () => {
-    try {
-      console.log(newContact);
-      
-      const user = auth.currentUser;
 
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
-        return;
-      }
-      const companyData = docSnapshot.data();
-        const accessToken = companyData.ghl_accessToken; // Replace with your actual access token
-      
-        newContact.locationId =companyData.ghl_location;
-        const apiUrl = 'https://services.leadconnectorhq.com/contacts';
-        const options = {
-          method: 'POST',
-          url: 'https://services.leadconnectorhq.com/contacts/',
-          data: {
-            firstName: newContact.firstName,
-            name:  newContact.firstName,
-            locationId: newContact.locationId,
-            phone: newContact.phone,
-          },
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Version: '2021-07-28',
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-          }
-        };
-      
-
-        const response = await axios.request(options);
-console.log(response);
-        if (response.status === 201) {
-            toast.success("Contact added successfully!");
-            setAddContactModal(false);
-            setContacts(prevContacts => [...prevContacts, response.data.contact]); // Update the contacts state
-            setNewContact({
-                firstName: '',
-                lastName: '',
-                email: '',
-                phone: '',
-                address1: '',
-                companyName: '',
-                locationId:'',
-            });
-        } else {
-            console.error('Failed to add contact:', response.statusText);
-            toast.error("Failed to add contact."+response.statusText);
-        }
-    } catch (error) {
-        console.error('Error adding contact:', error);
-        toast.error("An error occurred while adding the contact." + error);
+const handleSaveNewContact = async () => {
+  try {
+    console.log(newContact);
+    
+    const user = auth.currentUser;
+    const docUserRef = doc(firestore, 'user', user?.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.log('No such document for user!');
+      return;
     }
+
+    const userData = docUserSnapshot.data();
+    const companyId = userData.companyId;
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) {
+      console.log('No such document for company!');
+      return;
+    }
+
+    const companyData = docSnapshot.data();
+    const accessToken = companyData.ghl_accessToken;
+    newContact.locationId = companyData.ghl_location;
+    
+    const options = {
+      method: 'POST',
+      url: 'https://services.leadconnectorhq.com/contacts/',
+      data: {
+        firstName: newContact.firstName,
+        name: newContact.firstName,
+        locationId: newContact.locationId,
+        phone: newContact.phone,
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Version: '2021-07-28',
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      }
+    };
+
+    const response = await axios.request(options);
+    if (response.status === 201) {
+      toast.success("Contact added successfully!");
+      setAddContactModal(false);
+      setContacts(prevContacts => [...prevContacts, response.data.contact]);
+      setNewContact({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        address1: '',
+        companyName: '',
+        locationId: '',
+      });
+    } else {
+      console.error('Failed to add contact:', response.statusText);
+      toast.error("Failed to add contact." + response.statusText);
+    }
+  } catch (error) {
+    console.error('Error adding contact:', error);
+    toast.error("An error occurred while adding the contact." + error);
+  }
 };
+
 const handleSaveNewTag = async () => {
   try {
     const user = auth.currentUser;
@@ -328,6 +328,7 @@ const handleConfirmDeleteTag = async () => {
     toast.error("An error occurred while deleting the tag.");
   }
 };
+
   const handleEyeClick = () => {
     setIsTabOpen(!isTabOpen);
   };
@@ -443,12 +444,62 @@ setLoading(true);
       console.error('Error fetching company data:', error);
     }
   }
-  const handleAddTagToSelectedContacts = async (selectedEmployee: string) => {
-    if (!selectedEmployee) return;
+
+  const verifyContactIdExists = async (contactId: string, tagName: string) => {
+    try {
+      const user = auth.currentUser;
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
   
+      // Update Firestore
+      await updateDoc(doc(firestore, 'companies', companyId, 'contacts', contactId), {
+        tags: arrayRemove(tagName)
+      });
+  
+      // Update state
+      setContacts(prevContacts =>
+        prevContacts.map(contact =>
+          contact.id === contactId
+            ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+            : contact
+        )
+      );
+      const updatedContacts = contacts.map((contact: Contact) =>
+        contact.id === contactId
+          ? { ...contact, tags: contact.tags.filter((tag: string) => tag !== tagName) }
+          : contact
+      )
+      localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
+      sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been updated in this session
+      toast.success('Tag updated successfully');
+    } catch (error) {
+      console.error('Error verifying contact ID:', error);
+      return false;
+    }
+  };
+
+  
+  const handleAddTagToSelectedContacts = async (selectedEmployee: string, contact: Contact) => {
     const user = auth.currentUser;
+    if (!user) {
+      console.log('No authenticated user');
+      return;
+    }
   
-    const docUserRef = doc(firestore, 'user', user?.email!);
+    const docUserRef = doc(firestore, 'user', user.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
       console.log('No such document for user!');
@@ -463,8 +514,8 @@ setLoading(true);
       return;
     }
     const companyData = docSnapshot.data();
-    const accessToken = companyData.ghl_accessToken;
   
+<<<<<<< Updated upstream
     const tagName = selectedEmployee.toLowerCase();
     const updatedContacts = selectedContacts.map(contact => ({
         ...contact,
@@ -530,26 +581,50 @@ setLoading(true);
           }
         
         }
+=======
+    if (selectedEmployee) {
+      const tagName = selectedEmployee;
+      const updatedTags = [...new Set([...(contact.tags || []), tagName])];
+  
+      if (!contact.id) {
+        console.error('Contact ID is missing');
+        return;
+>>>>>>> Stashed changes
       }
   
-      // Update the contacts state without refetching
-      setContacts(prevContacts => 
-        prevContacts.map(contact =>
-          updatedContacts.find(updatedContact => updatedContact.id === contact.id) || contact
-        )
-      );
-      const allContacts = contacts.map(contact =>
-        updatedContacts.find(updatedContact => updatedContact.id === contact.id) || contact
-      );
-      localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
-   
-      setSelectedContacts([]);
-      
-    } catch (error) {
-      console.error('Error tagging contacts:', error);
+      const contactExists = await verifyContactIdExists(contact.id, companyData.ghl_accessToken);
+      if (!contactExists) {
+        console.error(`Contact with ID ${contact.id} not found`);
+        toast.error(`Contact with ID ${contact.id} not found`);
+        return;
+      }
+  
+      const success = await updateContactTags(contact.id, companyData.ghl_accessToken, updatedTags, tagName);
+      if (success) {
+        setContacts(prevContacts =>
+          prevContacts.map(c =>
+            c.id === contact.id ? { ...c, tags: updatedTags } : c
+          )
+        );
+  
+        if (currentContact?.id === contact.id) {
+          setCurrentContact((prevContact: any) => ({
+            ...prevContact,
+            tags: updatedTags,
+          }));
+        }
+  
+        localStorage.setItem('contacts', LZString.compress(JSON.stringify((prevContacts: any[]) =>
+          prevContacts.map(c =>
+            c.id === contact.id ? { ...c, tags: updatedTags } : c
+          )
+        )));
+        sessionStorage.setItem('contactsFetched', 'true');
+        toast.success("Tag added successfully!");
+      }
     }
-    
   };
+
   const handleSyncContact = async () => {
     try {
       setFetching(true);
@@ -617,101 +692,127 @@ setLoading(true);
       setFetching(false);
     }
   };
-const handleRemoveTag = async (contactId: string, tagName: string) => {
-  const user = auth.currentUser;
-
-  const docUserRef = doc(firestore, 'user', user?.email!);
-  const docUserSnapshot = await getDoc(docUserRef);
-  if (!docUserSnapshot.exists()) {
-    console.log('No such document for user!');
-    return;
-  }
-  const userData = docUserSnapshot.data();
-
-  // Check if the user has the "sales" role
-  if (userData.role === '2') {
-    toast.error("You do not have permission to remove tags.");
-    return;
-  }
-  const companyId = userData.companyId;
-  const docRef = doc(firestore, 'companies', companyId);
-  const docSnapshot = await getDoc(docRef);
-  if (!docSnapshot.exists()) {
-    console.log('No such document for company!');
-    return;
-  }
-  const companyData = docSnapshot.data();
-  console.log(companyData.ghl_accessToken);
-  const url = `https://services.leadconnectorhq.com/contacts/${contactId}/tags`;
-  const options = {
-    method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${companyData.ghl_accessToken}`,
-      Version: '2021-07-28',
-      Accept: 'application/json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      tags: [tagName]
-    })
-  };
-
-  try {
-    const response = await fetch(url, options);
-    if (response.ok) {
-      setTags((prevTags) => ({
-        ...prevTags,
-        [contactId]: (prevTags[contactId] || []).filter((tag) => tag !== tagName)
-      }));
-
-      // Update the contacts state
-      setContacts((prevContacts) =>
-        prevContacts.map((contact) =>
+  
+  const handleRemoveTag = async (contactId: string, tagName: string) => {
+    try {
+      const user = auth.currentUser;
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+  
+      await updateDoc(doc(firestore, 'companies', companyId, 'contacts', contactId), {
+        tags: arrayRemove(tagName)
+      });
+  
+      setContacts(prevContacts =>
+        prevContacts.map(contact =>
           contact.id === contactId
+<<<<<<< Updated upstream
             ? { ...contact, tags: contact.tags!.filter((tag) => tag !== tagName) }
+=======
+            ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+>>>>>>> Stashed changes
             : contact
         )
       );
-     
-   
-    } else {
-      console.error('Failed to remove tag', await response.json());
-      toast.error("Failed to remove tag.");
-    }
-   
-  } catch (error) {
-    console.error('Error removing tag', error);
-    toast.error("An error occurred while removing the tag.");
-  }
-
-};
-  async function updateContactTags(contactId: any, accessToken: any, tags: any) {
-    try {
-      const options = {
-        method: 'PUT',
-        url: `https://services.leadconnectorhq.com/contacts/${contactId}`,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Version: '2021-07-28',
-          'Content-Type': 'application/json'
-        },
-        data: {
-          tags: tags
-        }
-      };
-      const response = await axios.request(options);
-      console.log(response);
-      if (response.status === 200) {
-        return true;
-      } else {
-        console.error('Failed to update contact tags:', response.statusText);
-        return false;
+  
+      const updatedContacts = contacts.map((contact: Contact) =>
+        contact.id === contactId
+          ? { ...contact, tags: contact.tags.filter((tag: string) => tag !== tagName) }
+          : contact
+      );
+      const updatedSelectedContact = updatedContacts.find(contact => contact.id === contactId);
+      if (updatedSelectedContact) {
+        setSelectedContacts(prevSelectedContacts => 
+          prevSelectedContacts.map(contact =>
+            contact.id === contactId
+              ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+              : contact
+          )
+        );
       }
+      localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
+      sessionStorage.setItem('contactsFetched', 'true');
+      
+      toast.success('Tag removed successfully!');
     } catch (error) {
-      console.error('Error updating contact tags:', error);
+      console.error('Error removing tag:', error);
+      toast.error('Failed to remove tag.');
+    }
+  };
+
+  async function updateContactTags(contactId: string, accessToken: string, tags: string[], tagName:string) {
+    try {
+      const user = auth.currentUser;
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+  
+      await updateDoc(doc(firestore, 'companies', companyId, 'contacts', contactId), {
+        tags: arrayRemove(tagName)
+      });
+  
+      setContacts(prevContacts =>
+        prevContacts.map(contact =>
+          contact.id === contactId
+            ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+            : contact
+        )
+      );
+  
+      const updatedContacts = contacts.map((contact: Contact) =>
+        contact.id === contactId
+          ? { ...contact, tags: contact.tags.filter((tag: string) => tag !== tagName) }
+          : contact
+      );
+      const updatedSelectedContact = updatedContacts.find(contact => contact.id === contactId);
+      if (updatedSelectedContact) {
+        setSelectedContacts(prevSelectedContacts => 
+          prevSelectedContacts.map(contact =>
+            contact.id === contactId
+              ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+              : contact
+          )
+        );
+      }
+      localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
+      sessionStorage.setItem('contactsFetched', 'true');
+      
+      toast.success('Tag removed successfully!');
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error('Error updating contact tags:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error updating contact tags:', error);
+      }
       return false;
     }
   }
+
   const navigate = useNavigate(); // Initialize useNavigate
   const handleClick = (phone: any) => {
 const tempphone = phone.split('+')[1];
@@ -723,79 +824,73 @@ const chatId = tempphone + "@s.whatsapp.net"
     setFetching(true);
     setProgress(0);
     try {
-        let allContacts: any[] = [];
-        let fetchMore = true;
-        let nextPageUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&limit=100`;
-
-        const maxRetries = 5; // Maximum number of retries
-        const baseDelay = 5000; // Initial delay in milliseconds
-
-        const fetchData = async (url: string, retries: number = 0): Promise<any> => {
-            const options = {
-                method: 'GET',
-                url: url,
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    Version: '2021-07-28',
-                },
-            };
-           // await rateLimiter(); // Ensure rate limit is respected before making the request
-            try {
-                const response = await axios.request(options);
-                console.log(response.data.meta.total);
-              
-                return response;
-            } catch (error: any) {
-                if (error.response && error.response.status === 429 && retries < maxRetries) {
-                    const delay = baseDelay * Math.pow(2, retries);
-                    console.warn(`Rate limit hit, retrying in ${delay}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    return fetchData(url, retries + 1);
-                } else {
-                    throw error;
-                }
-            }
+      let allContacts: any[] = [];
+      let fetchMore = true;
+      let nextPageUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&limit=100`;
+  
+      const maxRetries = 5;
+      const baseDelay = 5000;
+  
+      const fetchData = async (url: string, retries: number = 0): Promise<any> => {
+        const options = {
+          method: 'GET',
+          url: url,
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Version: '2021-07-28',
+          },
         };
-        let fetchedContacts = 0;
-        let totalContacts = 0;
-        // Fetch contacts in batches of 100
-        while (fetchMore) {
-            const response = await fetchData(nextPageUrl);
-            const contacts = response.data.contacts;
-            totalContacts = response.data.meta.total;
-           
-            if (contacts.length > 0) {
-                allContacts = [...allContacts, ...contacts];
-                if (role == 2) {
-                  const filteredContacts = allContacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(userName.toLowerCase())));
-                  setContacts([...filteredContacts]); // Update state with the new batch of contacts
-                }else{
-                  setContacts([...allContacts]); // Update state with the new batch of contacts
-                }
-            
-                console.log(allContacts.length);
-                fetchedContacts = allContacts.length;
-
-              totalContacts = response.data.meta.total;
-                setTotal(totalContacts);
-                setFetched(fetchedContacts);
-                setProgress((fetchedContacts / totalContacts) * 100);
-                setLoading(false);
-            }
-
-            // Check if there's a next page
-            if (response.data.meta.nextPageUrl) {
-                nextPageUrl = response.data.meta.nextPageUrl;
-            } else {
-                fetchMore = false;
-            }
+        try {
+          const response = await axios.request(options);
+          console.log(response.data.meta.total);
+          return response;
+        } catch (error: any) {
+          if (error.response && error.response.status === 429 && retries < maxRetries) {
+            const delay = baseDelay * Math.pow(2, retries);
+            console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return fetchData(url, retries + 1);
+          } else {
+            throw error;
+          }
         }
+      };
+  
+      let fetchedContacts = 0;
+      let totalContacts = 0;
+      while (fetchMore) {
+        const response = await fetchData(nextPageUrl);
+        const contacts = response.data.contacts;
+        totalContacts = response.data.meta.total;
+  
+        if (contacts.length > 0) {
+          allContacts = [...allContacts, ...contacts];
+          if (role === 2) {
+            const filteredContacts = allContacts.filter(contact => contact.tags.some((tag: string) => typeof tag === 'string' && tag.toLowerCase().includes(userName.toLowerCase())));
+            setContacts([...filteredContacts]);
+          } else {
+            setContacts([...allContacts]);
+          }
+  
+          fetchedContacts = allContacts.length;
+          setTotal(totalContacts);
+          setFetched(fetchedContacts);
+          setProgress((fetchedContacts / totalContacts) * 100);
+          setLoading(false);
+        }
+  
+        if (response.data.meta.nextPageUrl) {
+          nextPageUrl = response.data.meta.nextPageUrl;
+        } else {
+          fetchMore = false;
+        }
+      }
     } catch (error) {
-        console.error('Error searching contacts:', error);
+      console.error('Error searching contacts:', error);
     } finally {
       setFetching(false);
     }
-}
+  }
   const handleEditContact = (contact: Contact) => {
     setCurrentContact(contact);
     setEditContactModal(true);
@@ -857,72 +952,71 @@ const chatId = tempphone + "@s.whatsapp.net"
     }
 };
 
-  const handleSaveContact = async () => {
-    if (currentContact) {
-    
-        try {
-          const user = auth.currentUser;
+const handleSaveContact = async () => {
+  if (currentContact) {
+    try {
+      const user = auth.currentUser;
 
-          const docUserRef = doc(firestore, 'user', user?.email!);
-          const docUserSnapshot = await getDoc(docUserRef);
-          if (!docUserSnapshot.exists()) {
-            console.log('No such document for user!');
-            return;
-          }
-          const userData = docUserSnapshot.data();
-          const companyId = userData.companyId;
-          const docRef = doc(firestore, 'companies', companyId);
-          const docSnapshot = await getDoc(docRef);
-          if (!docSnapshot.exists()) {
-            console.log('No such document for company!');
-            return;
-          }
-          const companyData = docSnapshot.data();
-            const accessToken = companyData.ghl_accessToken; // Replace with your actual access token
-            const apiUrl = `https://services.leadconnectorhq.com/contacts/${currentContact.id}`;
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+      const accessToken = companyData.ghl_accessToken;
+      const apiUrl = `https://services.leadconnectorhq.com/contacts/${currentContact.id}`;
 
-            const options = {
-                method: 'PUT',
-                url: apiUrl,
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    Version: '2021-07-28',
-                    'Content-Type': 'application/json',
-                },
-                data: {
-                    firstName: currentContact.firstName,
-                    lastName: currentContact.lastName,
-                    email: currentContact.email,
-                    phone: currentContact.phone,
-                    address1: currentContact.address1,
-                    city: currentContact.city,
-                    state: currentContact.state,
-                    postalCode: currentContact.postalCode,
-                    website: currentContact.website,
-                    dnd: currentContact.dnd,
-                    dndSettings: currentContact.dndSettings,
-                    tags: currentContact.tags,
-                    customFields: currentContact.customFields,
-                    source: currentContact.source,
-                    country: currentContact.country
-                }
-            };
-
-            const response = await axios.request(options);
-            if (response.status === 200) {
-                setContacts(contacts.map(contact => (contact.id === currentContact.id ? response.data.contact : contact)));
-                setEditContactModal(false);
-                setCurrentContact(null);
-                toast.success("Contact updated successfully!");
-            } else {
-                console.error('Failed to update contact:', response.statusText);
-                toast.error("Failed to update contact.");
-            }
-        } catch (error) {
-            console.error('Error saving contact:', error);
-            toast.error("Failed to update contact.");
+      const options = {
+        method: 'PUT',
+        url: apiUrl,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Version: '2021-07-28',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          firstName: currentContact.firstName,
+          lastName: currentContact.lastName,
+          email: currentContact.email,
+          phone: currentContact.phone,
+          address1: currentContact.address1,
+          city: currentContact.city,
+          state: currentContact.state,
+          postalCode: currentContact.postalCode,
+          website: currentContact.website,
+          dnd: currentContact.dnd,
+          dndSettings: currentContact.dndSettings,
+          tags: currentContact.tags,
+          customFields: currentContact.customFields,
+          source: currentContact.source,
+          country: currentContact.country
         }
+      };
+
+      const response = await axios.request(options);
+      if (response.status === 200) {
+        setContacts(contacts.map(contact => (contact.id === currentContact.id ? response.data.contact : contact)));
+        setEditContactModal(false);
+        setCurrentContact(null);
+        toast.success("Contact updated successfully!");
+      } else {
+        console.error('Failed to update contact:', response.statusText);
+        toast.error("Failed to update contact.");
+      }
+    } catch (error) {
+      console.error('Error saving contact:', error);
+      toast.error("Failed to update contact.");
     }
+  }
 };
 
   useEffect(() => {
@@ -971,16 +1065,14 @@ console.log(filteredContacts);
       for (const contact of selectedContacts) {
         if (imageUrl != '') {
           await sendImageMessage(contact.phone!, imageUrl, blastMessage);
-        }else if (documentUrl != '') {
+        } else if (documentUrl != '') {
           const mimeType = selectedDocument!.type;
-        const fileName = selectedDocument!.name;
-        await sendDocumentMessage(contact.phone!, documentUrl, mimeType, fileName, blastMessage);
-        }else if (!imageUrl && !documentUrl) {
+          const fileName = selectedDocument!.name;
+          await sendDocumentMessage(contact.phone!, documentUrl, mimeType, fileName, blastMessage);
+        } else if (!imageUrl && !documentUrl) {
           await sendTextMessage(contact.phone!, blastMessage, contact);
         }
       }
-      
- 
     } catch (error) {
       console.error('Error sending blast message:', error);
       toast.error("Failed to send messages.");
@@ -1173,7 +1265,11 @@ console.log(filteredContacts);
                       <Menu.Item key={employee.id}>
                         <span
                           className="flex items-center pb-2"
-                          onClick={() => handleAddTagToSelectedContacts(employee.name)}
+                          onClick={() => {
+                            selectedContacts.forEach(contact => {
+                              handleAddTagToSelectedContacts(employee.name, contact);
+                            });
+                          }}
                         >
                           <Lucide icon="User" className="w-4 h-4 mr-4" />
                           <span className="truncate max-w-xs">{employee.name}</span>
@@ -1192,31 +1288,35 @@ console.log(filteredContacts);
                     </Menu.Button>
                   )}
                   <Menu.Items className="w-150">
-                    <div>
-                      <button className="flex items-center p-2 font-medium" onClick={() => setShowAddTagModal(true)}>
-                        <Lucide icon="Plus" className="w-4 h-4 mr-1" />
-                        Add
-                      </button>
+                  <div>
+                    <button className="flex items-center p-2 font-medium" onClick={() => setShowAddTagModal(true)}>
+                      <Lucide icon="Plus" className="w-4 h-4 mr-1" />
+                      Add
+                    </button>
+                  </div>
+                  {tagList.map((tag) => (
+                    <div key={tag.id} className="flex flex-col items-start">
+                      <span className="flex items-center w-full rounded hover:bg-gray-300">
+                        <button
+                          className="flex items-center p-2 text-sm"
+                          onClick={() => {
+                            selectedContacts.forEach(contact => {
+                              handleAddTagToSelectedContacts(tag.name, contact);
+                            });
+                          }}
+                        >
+                          {tag.name}
+                        </button>
+                        <button className="flex items-center p-2 m-2 text-sm" onClick={() => {
+                          setTagToDelete(tag);
+                          setShowDeleteTagModal(true);
+                        }}>
+                          <Lucide icon="Trash" className="w-4 h-4 mr-1 text-red-500" />
+                        </button>
+                      </span>
                     </div>
-                    {tagList.map((tag) => (
-                      <div key={tag.id} className="flex flex-col items-start">
-                        <span className="flex items-center w-full rounded hover:bg-gray-300">
-                          <button
-                            className="flex items-center p-2 text-sm"
-                            onClick={() => handleAddTagToSelectedContacts(tag.name)}
-                          >
-                            {tag.name}
-                          </button>
-                          <button className="flex items-center p-2 m-2 text-sm" onClick={() => {
-                            setTagToDelete(tag);
-                            setShowDeleteTagModal(true);
-                          }}>
-                            <Lucide icon="Trash" className="w-4 h-4 mr-1 text-red-500" />
-                          </button>
-                        </span>
-                      </div>
-                    ))}
-                  </Menu.Items>
+                  ))}
+                </Menu.Items>
                 </Menu>
                 <Menu>
                   <Menu.Button as={Button} className="p-2 m-2 !box">
