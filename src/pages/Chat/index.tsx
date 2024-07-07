@@ -1482,60 +1482,39 @@ try {
   const toggleStopBotLabel = async (contact: Contact, index: number) => {
     try {
       const user = auth.currentUser;
-      const docUserRef = doc(firestore, 'user', user?.email!);
+      if (!user) {
+        console.log('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
         console.log('No such document for user!');
         return;
       }
       const userData = docUserSnapshot.data();
-       companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId, 'contacts', contact.id);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
+      const companyId = userData?.companyId;
+  
+      if (!companyId) {
+        console.log('No company ID found for user!');
+        return;
+      }
+  
+      const contactDocRef = doc(firestore, `companies/${companyId}/contacts`, contact.id!);
+      const contactDocSnapshot = await getDoc(contactDocRef);
+      if (!contactDocSnapshot.exists()) {
         console.log('No such document for contact!');
         return;
       }
   
-<<<<<<< Updated upstream
-      const response = await fetch(`https://services.leadconnectorhq.com/contacts/${contact.id}/tags`, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + accessToken,
-          'Version': '2021-07-28'
-        },
-        body: JSON.stringify({ tags: ["stop bot"] })
-      });
-  
-      if (response.ok) {
-        const message = await response.json();
-       
-  
-        const updatedContacts = [...contacts];
-        const updatedContact = { ...updatedContacts[index] };
-  
-        if (hasLabel && updatedContact.tags) {
-          updatedContact.tags = updatedContact.tags.filter(tag => tag !== "stop bot");
-        } else {
-          updatedContact.tags = updatedContact.tags ? [...updatedContact.tags, "stop bot"] : ["stop bot"];
-        }
-  
-        updatedContacts[index] = updatedContact;
-        setContacts(updatedContacts);
-  
-        const updatedState = [...stopBotLabelCheckedState];
-        updatedState[index] = !hasLabel;
-        setStopBotLabelCheckedState(updatedState);
-=======
-      const hasLabel = contact.tags.includes('stop bot');
+      const hasLabel = (contact.tags ?? []).includes('stop bot');
       if (hasLabel) {
-        await updateDoc(docRef, {
+        await updateDoc(contactDocRef, {
           tags: arrayRemove('stop bot')
         });
->>>>>>> Stashed changes
       } else {
-        await updateDoc(docRef, {
+        await updateDoc(contactDocRef, {
           tags: arrayUnion('stop bot')
         });
       }
@@ -1544,15 +1523,15 @@ try {
       const updatedContact = { ...updatedContacts[index] };
   
       if (hasLabel) {
-        updatedContact.tags = updatedContact.tags.filter(tag => tag !== "stop bot");
+        updatedContact.tags = (updatedContact.tags ?? []).filter(tag => tag !== "stop bot");
       } else {
-        updatedContact.tags = [...updatedContact.tags, "stop bot"];
+        updatedContact.tags = [...(updatedContact.tags ?? []), "stop bot"];
       }
   
       updatedContacts[index] = updatedContact;
       setContacts(updatedContacts);
       localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
-    sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been updated in this session
+      sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been updated in this session
       const updatedState = [...stopBotLabelCheckedState];
       updatedState[index] = !hasLabel;
       setStopBotLabelCheckedState(updatedState);
@@ -2148,15 +2127,17 @@ const handleForwardMessage = async () => {
       setContacts(prevContacts =>
         prevContacts.map(contact =>
           contact.id === contactId
-            ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+            ? { ...contact, tags: (contact.tags ?? []).filter(tag => tag !== tagName) }
             : contact
         )
       );
+
       const updatedContacts = contacts.map((contact: Contact) =>
         contact.id === contactId
-          ? { ...contact, tags: contact.tags.filter((tag: string) => tag !== tagName) }
+          ? { ...contact, tags: (contact.tags ?? []).filter((tag: string) => tag !== tagName) }
           : contact
       );
+
       const updatedSelectedContact = updatedContacts.find(contact => contact.id === contactId);
       if (updatedSelectedContact) {
         setSelectedContact(updatedSelectedContact);

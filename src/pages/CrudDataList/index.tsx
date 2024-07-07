@@ -473,15 +473,15 @@ setLoading(true);
       setContacts(prevContacts =>
         prevContacts.map(contact =>
           contact.id === contactId
-            ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+            ? { ...contact, tags: (contact.tags ?? []).filter(tag => tag !== tagName) }
             : contact
         )
       );
       const updatedContacts = contacts.map((contact: Contact) =>
         contact.id === contactId
-          ? { ...contact, tags: contact.tags.filter((tag: string) => tag !== tagName) }
+          ? { ...contact, tags: (contact.tags ?? []).filter((tag: string) => tag !== tagName) }
           : contact
-      )
+      );
       localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
       sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been updated in this session
       toast.success('Tag updated successfully');
@@ -515,73 +515,6 @@ setLoading(true);
     }
     const companyData = docSnapshot.data();
   
-<<<<<<< Updated upstream
-    const tagName = selectedEmployee.toLowerCase();
-    const updatedContacts = selectedContacts.map(contact => ({
-        ...contact,
-        tags: [...new Set([...(contact.tags || []), tagName])]
-    }));
-    const tagSessionMap: { [key: string]: number } = {
-      '1 session': 1,
-      '10 sessions': 10,
-      '20 sessions': 20,
-      '20 session': 20,
-      '4 sessions': 4,
-      'invoice duo 1 session': 1,
-      'invoice duo 10 sessions': 10,
-      'invoice duo 20 sessions': 20,
-      'invoice duo 4 sessions': 4,
-      'invoice private 1 session': 1,
-      'invoice private 10 sessions': 10,
-      // Add more mappings as needed
-    };
-    try {
-      for (const contact of updatedContacts) {
-        const success = await updateContactTags(contact.id, accessToken, contact.tags);
-        if (!success) {
-          console.error(`Failed to add tag "${tagName}" to contact with ID ${contact.id}`);
-        } else {
-          console.log(`Tag "${tagName}" added to contact with ID ${contact.id}`);
-
-          if(companyId === "008")
-          {
-  // Determine the number of sessions based on the tag
-  const sessionCount = tagSessionMap[tagName] || 0;
-  const id =contact.id;
-  if (sessionCount > 0) {
-    // Fetch session data from the company collection
-    const sessionDocRef = doc(firestore, `companies/${companyId}/session`, );
-    const sessionDocSnapshot = await getDoc(sessionDocRef);
-    
-    if (sessionDocSnapshot.exists()) {
-      const sessionData = sessionDocSnapshot.data();
-      const currentSessionCount = sessionData.session || 0;
-
-      // Update session count in the company collection
-      const newSessionCount = currentSessionCount + sessionCount;
-      await updateDoc(sessionDocRef, { session: newSessionCount });
-      console.log(`Session count updated for contact ${contact.id} in company collection`);
-
-      // Update session count in the user collection
-      const appointmentsRef = collection(firestore, `user/${user?.email}/appointments`);
-      const appointmentsSnapshot = await getDocs(appointmentsRef);
-      appointmentsSnapshot.forEach(async (appointmentDoc) => {
-        const appointmentData = appointmentDoc.data();
-        const contactToUpdate = appointmentData.contacts.find((c: any) => c.id === contact.id);
-        if (contactToUpdate) {
-          contactToUpdate.session = newSessionCount;
-          await updateDoc(doc(firestore, `user/${user?.email}/appointments`, appointmentDoc.id), {
-            contacts: appointmentData.contacts
-          });
-          console.log(`Session count updated for contact ${contact.id} in user collection appointment ${appointmentDoc.id}`);
-        }
-      });
-    }
-  }
-          }
-        
-        }
-=======
     if (selectedEmployee) {
       const tagName = selectedEmployee;
       const updatedTags = [...new Set([...(contact.tags || []), tagName])];
@@ -589,7 +522,6 @@ setLoading(true);
       if (!contact.id) {
         console.error('Contact ID is missing');
         return;
->>>>>>> Stashed changes
       }
   
       const contactExists = await verifyContactIdExists(contact.id, companyData.ghl_accessToken);
@@ -719,30 +651,28 @@ setLoading(true);
       setContacts(prevContacts =>
         prevContacts.map(contact =>
           contact.id === contactId
-<<<<<<< Updated upstream
-            ? { ...contact, tags: contact.tags!.filter((tag) => tag !== tagName) }
-=======
-            ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
->>>>>>> Stashed changes
+            ? { ...contact, tags: (contact.tags ?? []).filter(tag => tag !== tagName) }
             : contact
         )
       );
   
       const updatedContacts = contacts.map((contact: Contact) =>
         contact.id === contactId
-          ? { ...contact, tags: contact.tags.filter((tag: string) => tag !== tagName) }
+          ? { ...contact, tags: (contact.tags ?? []).filter((tag: string) => tag !== tagName) }
           : contact
       );
+      
       const updatedSelectedContact = updatedContacts.find(contact => contact.id === contactId);
       if (updatedSelectedContact) {
-        setSelectedContacts(prevSelectedContacts => 
+        setSelectedContacts(prevSelectedContacts =>
           prevSelectedContacts.map(contact =>
             contact.id === contactId
-              ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+              ? { ...contact, tags: (contact.tags ?? []).filter(tag => tag !== tagName) }
               : contact
           )
         );
       }
+      
       localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
       sessionStorage.setItem('contactsFetched', 'true');
       
@@ -776,29 +706,32 @@ setLoading(true);
         tags: arrayRemove(tagName)
       });
   
+      // Update state
       setContacts(prevContacts =>
         prevContacts.map(contact =>
           contact.id === contactId
-            ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+            ? { ...contact, tags }
             : contact
         )
       );
-  
+
       const updatedContacts = contacts.map((contact: Contact) =>
         contact.id === contactId
-          ? { ...contact, tags: contact.tags.filter((tag: string) => tag !== tagName) }
+          ? { ...contact, tags }
           : contact
       );
+
       const updatedSelectedContact = updatedContacts.find(contact => contact.id === contactId);
       if (updatedSelectedContact) {
-        setSelectedContacts(prevSelectedContacts => 
+        setSelectedContacts(prevSelectedContacts =>
           prevSelectedContacts.map(contact =>
             contact.id === contactId
-              ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+              ? { ...contact, tags }
               : contact
           )
         );
       }
+      
       localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
       sessionStorage.setItem('contactsFetched', 'true');
       
@@ -1027,11 +960,13 @@ const handleSaveContact = async () => {
     const lowerCaseQuery = searchQuery.toLowerCase();
     return (
       (contact.firstName?.toLowerCase().includes(lowerCaseQuery) ||
-      contact.phone?.includes(lowerCaseQuery) ||
-      contact.contactName?.toLowerCase().includes(lowerCaseQuery))&&
-      (selectedTagFilter ? contact.tags!.includes(selectedTagFilter) : true)
+        contact.phone?.includes(lowerCaseQuery) ||
+        contact.contactName?.toLowerCase().includes(lowerCaseQuery)) &&
+      (selectedTagFilter ? (contact.tags ?? []).includes(selectedTagFilter) : true)
     );
   });
+
+
   useEffect(() => {
     console.log('Contacts:', contacts);
     console.log('Filtered Contacts:', filteredContacts);
@@ -1423,108 +1358,100 @@ console.log(filteredContacts);
               </thead>
               <tbody>
               {filteredContacts.map((contact, index) => {
-const employeeNames = employeeList.map(employee => employee.name.toLowerCase());
-
-const employeeTags = contact.tags
-  ? contact.tags.filter(tag => employeeNames.includes(tag.toLowerCase()))
-  : [];
-
-const otherTags = contact.tags
-  ? contact.tags.filter(tag => tagList.some(listTag => listTag.name === tag))
-  : [];
-
-                  return (
-                    <tr
-                      key={index}
-                      className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600`}
-                    >
-                      <td className="w-4 p-4">
-                        <div className="flex items-center">
-                          <input
-                            id={`checkbox-table-search-${index}`}
-                            type="checkbox"
-                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                            checked={selectedContacts.some((c) => c.phone === contact.phone)}
-                            onChange={() => toggleContactSelection(contact)}
-                          />
-                          <label htmlFor={`checkbox-table-search-${index}`} className="sr-only">
-                            checkbox
-                          </label>
+                const employeeNames = employeeList.map(employee => employee.name.toLowerCase());
+                const employeeTags = (contact.tags ?? []).filter(tag => employeeNames.includes(tag.toLowerCase()));
+                const otherTags = (contact.tags ?? []).filter(tag => tagList.some(listTag => listTag.name === tag));
+                return (
+                  <tr
+                    key={index}
+                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600`}
+                  >
+                    <td className="w-4 p-4">
+                      <div className="flex items-center">
+                        <input
+                          id={`checkbox-table-search-${index}`}
+                          type="checkbox"
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                          checked={selectedContacts.some((c) => c.phone === contact.phone)}
+                          onChange={() => toggleContactSelection(contact)}
+                        />
+                        <label htmlFor={`checkbox-table-search-${index}`} className="sr-only">
+                          checkbox
+                        </label>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 font-medium capitalize text-gray-900 whitespace-nowrap dark:text-white flex items-center w-44 overflow-hidden overflow-ellipsis">
+                      {contact.chat_pic_full ? (
+                        <img src={contact.chat_pic_full} className="w-8 h-8 rounded-full object-cover mr-3" />
+                      ) : (
+                        <div className="w-8 h-8 mr-3 border-2 border-gray-500 rounded-full flex items-center justify-center">
+                          <Lucide icon="User" className="w-6 h-6 rounded-full text-gray-500" />
                         </div>
-                      </td>
-                      <td className="px-6 py-4 font-medium capitalize text-gray-900 whitespace-nowrap dark:text-white flex items-center w-44 overflow-hidden overflow-ellipsis">
-  {contact.chat_pic_full ? (
-    <img src={contact.chat_pic_full} className="w-8 h-8 rounded-full object-cover mr-3" />
-  ) : (
-    <div className="w-8 h-8 mr-3 border-2 border-gray-500 rounded-full flex items-center justify-center">
-      <Lucide icon="User" className="w-6 h-6 rounded-full text-gray-500" />
-    </div>
-  )}
-  {contact.contactName ? (contact.lastName ? `${contact.contactName}` : contact.contactName) : contact.phone}
-</td>
-
-                      <td className="px-6 py-4">{contact.phone ?? contact.source}</td>
-                      <td className="px-6 py-4 whitespace-nowrap dark:text-white">
-                        {employeeTags.length > 0 ? (
-                          employeeTags.map((tag, index) => (
-                            <div key={index} className="flex items-center mr-2">
-                              <span className="mr-1">{tag}</span>
-                              <button
-                                className="p-1"
-                                onClick={() => handleRemoveTag(contact.id!, tag)}
-                              >
-                                <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700" />
-                              </button>
-                            </div>
-                          ))
-                        ) : (
-                          'Unassigned'
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap dark:text-white">
-                        {otherTags.length > 0 ? (
-                          otherTags.map((tag, index) => (
-                            <div key={index} className="flex items-center mr-2">
-                              <span className="mr-1">{tag}</span>
-                              <button
-                                className="p-1"
-                                onClick={() => handleRemoveTag(contact.id!, tag)}
-                              >
-                                <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700" />
-                              </button>
-                            </div>
-                          ))
-                        ) : (
-                          ''
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <button className="p-2 m-1 !box" onClick={() => {
-                          setCurrentContact(contact);
-                          setEditContactModal(true);
-                        }}>
-                          <span className="flex items-center justify-center w-5 h-5">
-                            <Lucide icon="Eye" className="w-5 h-5" />
-                          </span>
-                        </button>
-                        <button className="p-2 m-1 !box text-primary" onClick={() => {
-                          handleClick(contact.phone)
-                        }}>
-                          <span className="flex items-center justify-center w-5 h-5">
-                            <Lucide icon="MessageSquare" className="w-5 h-5" />
-                          </span>
-                        </button>
-                        <button className="p-2 m-1 !box text-red-500" onClick={() => {
-                          setCurrentContact(contact);
-                          setDeleteConfirmationModal(true);
-                        }}>
-                          <span className="flex items-center justify-center w-5 h-5">
-                            <Lucide icon="Trash" className="w-5 h-5" />
-                          </span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
+                      )}
+                      {contact.contactName ? (contact.lastName ? `${contact.contactName}` : contact.contactName) : contact.phone}
+                    </td>
+                    <td className="px-6 py-4">{contact.phone ?? contact.source}</td>
+                    <td className="px-6 py-4 whitespace-nowrap dark:text-white">
+                      {employeeTags.length > 0 ? (
+                        employeeTags.map((tag, index) => (
+                          <div key={index} className="flex items-center mr-2">
+                            <span className="mr-1">{tag}</span>
+                            <button
+                              className="p-1"
+                              onClick={() => handleRemoveTag(contact.id!, tag)}
+                            >
+                              <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700" />
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        'Unassigned'
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap dark:text-white">
+                      {otherTags.length > 0 ? (
+                        otherTags.map((tag, index) => (
+                          <div key={index} className="flex items-center mr-2">
+                            <span className="mr-1">{tag}</span>
+                            <button
+                              className="p-1"
+                              onClick={() => handleRemoveTag(contact.id!, tag)}
+                            >
+                              <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700" />
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        ''
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button className="p-2 m-1 !box" onClick={() => {
+                        setCurrentContact(contact);
+                        setEditContactModal(true);
+                      }}>
+                        <span className="flex items-center justify-center w-5 h-5">
+                          <Lucide icon="Eye" className="w-5 h-5" />
+                        </span>
+                      </button>
+                      <button className="p-2 m-1 !box text-primary" onClick={() => {
+                        handleClick(contact.phone)
+                      }}>
+                        <span className="flex items-center justify-center w-5 h-5">
+                          <Lucide icon="MessageSquare" className="w-5 h-5" />
+                        </span>
+                      </button>
+                      <button className="p-2 m-1 !box text-red-500" onClick={() => {
+                        setCurrentContact(contact);
+                        setDeleteConfirmationModal(true);
+                      }}>
+                        <span className="flex items-center justify-center w-5 h-5">
+                          <Lucide icon="Trash" className="w-5 h-5" />
+                        </span>
+                      </button>
+                    </td>
+                  </tr>
+                );
                 })}
               </tbody>
             </table>
