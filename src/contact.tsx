@@ -109,7 +109,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         }
     
         // Pagination settings
-        const batchSize = 500;
+        const batchSize = 1000;
         let lastVisible: QueryDocumentSnapshot<DocumentData> | undefined = undefined;
         const phoneSet = new Set<string>();
         let allContacts: Contact[] = [];

@@ -473,13 +473,13 @@ setLoading(true);
       setContacts(prevContacts =>
         prevContacts.map(contact =>
           contact.id === contactId
-            ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+            ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName) }
             : contact
         )
       );
       const updatedContacts = contacts.map((contact: Contact) =>
         contact.id === contactId
-          ? { ...contact, tags: contact.tags.filter((tag: string) => tag !== tagName) }
+          ? { ...contact, tags: contact.tags!.filter((tag: string) => tag !== tagName) }
           : contact
       )
       localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
@@ -515,73 +515,6 @@ setLoading(true);
     }
     const companyData = docSnapshot.data();
   
-<<<<<<< Updated upstream
-    const tagName = selectedEmployee.toLowerCase();
-    const updatedContacts = selectedContacts.map(contact => ({
-        ...contact,
-        tags: [...new Set([...(contact.tags || []), tagName])]
-    }));
-    const tagSessionMap: { [key: string]: number } = {
-      '1 session': 1,
-      '10 sessions': 10,
-      '20 sessions': 20,
-      '20 session': 20,
-      '4 sessions': 4,
-      'invoice duo 1 session': 1,
-      'invoice duo 10 sessions': 10,
-      'invoice duo 20 sessions': 20,
-      'invoice duo 4 sessions': 4,
-      'invoice private 1 session': 1,
-      'invoice private 10 sessions': 10,
-      // Add more mappings as needed
-    };
-    try {
-      for (const contact of updatedContacts) {
-        const success = await updateContactTags(contact.id, accessToken, contact.tags);
-        if (!success) {
-          console.error(`Failed to add tag "${tagName}" to contact with ID ${contact.id}`);
-        } else {
-          console.log(`Tag "${tagName}" added to contact with ID ${contact.id}`);
-
-          if(companyId === "008")
-          {
-  // Determine the number of sessions based on the tag
-  const sessionCount = tagSessionMap[tagName] || 0;
-  const id =contact.id;
-  if (sessionCount > 0) {
-    // Fetch session data from the company collection
-    const sessionDocRef = doc(firestore, `companies/${companyId}/session`, );
-    const sessionDocSnapshot = await getDoc(sessionDocRef);
-    
-    if (sessionDocSnapshot.exists()) {
-      const sessionData = sessionDocSnapshot.data();
-      const currentSessionCount = sessionData.session || 0;
-
-      // Update session count in the company collection
-      const newSessionCount = currentSessionCount + sessionCount;
-      await updateDoc(sessionDocRef, { session: newSessionCount });
-      console.log(`Session count updated for contact ${contact.id} in company collection`);
-
-      // Update session count in the user collection
-      const appointmentsRef = collection(firestore, `user/${user?.email}/appointments`);
-      const appointmentsSnapshot = await getDocs(appointmentsRef);
-      appointmentsSnapshot.forEach(async (appointmentDoc) => {
-        const appointmentData = appointmentDoc.data();
-        const contactToUpdate = appointmentData.contacts.find((c: any) => c.id === contact.id);
-        if (contactToUpdate) {
-          contactToUpdate.session = newSessionCount;
-          await updateDoc(doc(firestore, `user/${user?.email}/appointments`, appointmentDoc.id), {
-            contacts: appointmentData.contacts
-          });
-          console.log(`Session count updated for contact ${contact.id} in user collection appointment ${appointmentDoc.id}`);
-        }
-      });
-    }
-  }
-          }
-        
-        }
-=======
     if (selectedEmployee) {
       const tagName = selectedEmployee;
       const updatedTags = [...new Set([...(contact.tags || []), tagName])];
@@ -589,7 +522,6 @@ setLoading(true);
       if (!contact.id) {
         console.error('Contact ID is missing');
         return;
->>>>>>> Stashed changes
       }
   
       const contactExists = await verifyContactIdExists(contact.id, companyData.ghl_accessToken);
@@ -677,7 +609,8 @@ setLoading(true);
       // Add new contacts to the Firebase subcollection
       const addPromises = allContacts.map(async (contact: any) => {
         try {
-          await addDoc(contactsCollectionRef, contact);
+          const contactDocRef = doc(contactsCollectionRef, contact.phone); // Use contact.phone as the document ID
+          await setDoc(contactDocRef, contact);
           console.log("Added contact to Firebase:", contact);
         } catch (error) {
           console.error('Error adding contact to Firebase:', error);
@@ -719,18 +652,14 @@ setLoading(true);
       setContacts(prevContacts =>
         prevContacts.map(contact =>
           contact.id === contactId
-<<<<<<< Updated upstream
-            ? { ...contact, tags: contact.tags!.filter((tag) => tag !== tagName) }
-=======
-            ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
->>>>>>> Stashed changes
+            ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName) }
             : contact
         )
       );
   
       const updatedContacts = contacts.map((contact: Contact) =>
         contact.id === contactId
-          ? { ...contact, tags: contact.tags.filter((tag: string) => tag !== tagName) }
+          ? { ...contact, tags: contact.tags!.filter((tag: string) => tag !== tagName) }
           : contact
       );
       const updatedSelectedContact = updatedContacts.find(contact => contact.id === contactId);
@@ -738,7 +667,7 @@ setLoading(true);
         setSelectedContacts(prevSelectedContacts => 
           prevSelectedContacts.map(contact =>
             contact.id === contactId
-              ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+              ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName) }
               : contact
           )
         );
@@ -779,14 +708,14 @@ setLoading(true);
       setContacts(prevContacts =>
         prevContacts.map(contact =>
           contact.id === contactId
-            ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+            ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName) }
             : contact
         )
       );
   
       const updatedContacts = contacts.map((contact: Contact) =>
         contact.id === contactId
-          ? { ...contact, tags: contact.tags.filter((tag: string) => tag !== tagName) }
+          ? { ...contact, tags: contact.tags!.filter((tag: string) => tag !== tagName) }
           : contact
       );
       const updatedSelectedContact = updatedContacts.find(contact => contact.id === contactId);
@@ -794,7 +723,7 @@ setLoading(true);
         setSelectedContacts(prevSelectedContacts => 
           prevSelectedContacts.map(contact =>
             contact.id === contactId
-              ? { ...contact, tags: contact.tags.filter(tag => tag !== tagName) }
+              ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName) }
               : contact
           )
         );
