@@ -350,7 +350,7 @@ const audioRef = useRef<HTMLAudioElement>(null);
 console.log(initialContacts);
 useEffect(() => {
   if (initialContacts.length > 1) {
-    setContacts(initialContacts.slice(0, 2000));
+    setContacts(initialContacts);
   
   }
 }, [initialContacts]);
