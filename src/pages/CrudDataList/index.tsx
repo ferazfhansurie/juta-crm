@@ -125,9 +125,10 @@ function Main() {
   const [contactsPerPage] = useState(10); // Adjust the number of contacts per page as needed
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
 const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+
 useEffect(() => {
   if (initialContacts.length > 1) {
-    setContacts(initialContacts.slice(0, 2000));
+    setContacts(initialContacts.slice(0, 200));
   }
 }, [initialContacts]);
 

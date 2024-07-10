@@ -346,14 +346,53 @@ const [isImageModalOpen2, setImageModalOpen2] = useState(false);
 const [pastedImageUrl, setPastedImageUrl] = useState('');
 const [notifications, setNotifications] = useState<Notification[]>([]);
 const audioRef = useRef<HTMLAudioElement>(null);
+const [currentPage, setCurrentPage] = useState(0);
+const contactsPerPage = 200;
+const contactListRef =useRef<HTMLDivElement>(null);
 
 console.log(initialContacts);
 useEffect(() => {
-  if (initialContacts.length > 1) {
-    setContacts(initialContacts);
-  
+  if (initialContacts.length > 0) {
+    loadMoreContacts();
   }
 }, [initialContacts]);
+
+useEffect(() => {
+  const handleScroll = () => {
+    if (
+      contactListRef.current &&
+      contactListRef.current.scrollTop + contactListRef.current.clientHeight >=
+        contactListRef.current.scrollHeight
+    ) {
+      loadMoreContacts();
+    }
+  };
+
+  if (contactListRef.current) {
+    contactListRef.current.addEventListener('scroll', handleScroll);
+  }
+
+  return () => {
+    if (contactListRef.current) {
+      contactListRef.current.removeEventListener('scroll', handleScroll);
+    }
+  };
+}, [contacts]);
+
+const loadMoreContacts = () => {
+  if (initialContacts.length <= contacts.length) return;
+
+
+  const nextPage = currentPage + 1;
+  const newContacts = initialContacts.slice(
+    contacts.length,
+    nextPage * contactsPerPage
+  );
+
+  setContacts((prevContacts) => [...prevContacts, ...newContacts]);
+  setCurrentPage(nextPage);
+ 
+};
 const handleEmojiClick = (emojiObject: EmojiClickData) => {
   setNewMessage(prevMessage => prevMessage + emojiObject.emoji);
 };
@@ -2579,7 +2618,7 @@ const handleForwardMessage = async () => {
           <div className="border-b border-gray-300 mt-4"></div>
        
         </div>
-  <div className="flex-1 overflow-y-auto">
+  <div className="flex-1 overflow-y-auto" ref={contactListRef}>
     
   {filteredContacts.map((contact, index) => (
   <React.Fragment key={contact.id || `${contact.phone}-${index}`}>
