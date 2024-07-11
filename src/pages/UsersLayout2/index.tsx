@@ -172,7 +172,7 @@ const fetchQRCode = async () => {
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-  
+      
     return;
     }
 

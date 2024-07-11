@@ -45,7 +45,7 @@ function Main() {
     if (contact) {
       setUserData({
         name: contact.name || "",
-        phoneNumber: contact.phoneNumber.split('+6')[1] || "",
+        phoneNumber: contact.phoneNumber ? contact.phoneNumber.split('+6')[1] ?? "" : "", // Handle nullable phone number
         email: contact.id || "",
         password: "",
         role: contact.role || "",

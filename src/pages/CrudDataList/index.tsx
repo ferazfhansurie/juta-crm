@@ -87,8 +87,6 @@ function Main() {
   const deleteButtonRef = useRef(null);
   const [isLoading, setLoading] = useState<boolean>(false);
   const [isFetching, setFetching] = useState<boolean>(false);
-  const { contacts: initialContacts,} = useContacts();
-  const [contacts, setContacts] = useState<Contact[]>([]);
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
@@ -106,6 +104,11 @@ function Main() {
   const [blastMessageModal, setBlastMessageModal] = useState(false);
   const [blastMessage, setBlastMessage] = useState("");
   const [progress, setProgress] = useState<number>(0);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const contactsPerPage = 200;
+  const contactListRef = useRef<HTMLDivElement>(null);
+  const { contacts: initialContacts } = useContacts();
   const [totalContacts, setTotalContacts] = useState(contacts.length);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
   const [newContact, setNewContact] = useState({
@@ -120,17 +123,49 @@ function Main() {
   const [total, setTotal] = useState(0);
   const [fetched, setFetched] = useState(0);
   const [allContactsLoaded, setAllContactsLoaded] = useState(false);
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [contactsPerPage] = useState(10); // Adjust the number of contacts per page as needed
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
 
-useEffect(() => {
-  if (initialContacts.length > 1) {
-    setContacts(initialContacts.slice(0, 200));
-  }
-}, [initialContacts]);
+  useEffect(() => {
+    if (initialContacts.length > 0) {
+      loadMoreContacts();
+    }
+  }, [initialContacts]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        contactListRef.current &&
+        contactListRef.current.scrollTop + contactListRef.current.clientHeight >=
+          contactListRef.current.scrollHeight
+      ) {
+        loadMoreContacts();
+      }
+    };
+
+    if (contactListRef.current) {
+      contactListRef.current.addEventListener('scroll', handleScroll);
+    }
+
+    return () => {
+      if (contactListRef.current) {
+        contactListRef.current.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [contacts]);
+
+  const loadMoreContacts = () => {
+    if (initialContacts.length <= contacts.length) return;
+
+    const nextPage = currentPage + 1;
+    const newContacts = initialContacts.slice(
+      contacts.length,
+      nextPage * contactsPerPage
+    );
+
+    setContacts((prevContacts) => [...prevContacts, ...newContacts]);
+    setCurrentPage(nextPage);
+  };
 
 const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
@@ -1315,7 +1350,7 @@ console.log(filteredContacts);
           </div>
         </div>
         <div className="max-w-full overflow-x-auto shadow-md sm:rounded-lg">
-          <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
+          <div className="max-h-[calc(100vh-200px)] overflow-y-auto" ref={contactListRef}>
             <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
               <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                 <tr>

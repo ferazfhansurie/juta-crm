@@ -337,18 +337,22 @@ function Main() {
   const [isDeletePopupOpen, setIsDeletePopupOpen] = useState(false);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [editedMessageText, setEditedMessageText] = useState<string>("");
-const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
-const [isPDFModalOpen, setPDFModalOpen] = useState(false);
-const [pdfUrl, setPdfUrl] = useState('');
-const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
-const [isEmojiPickerOpen, setEmojiPickerOpen] = useState(false);
-const [isImageModalOpen2, setImageModalOpen2] = useState(false);
-const [pastedImageUrl, setPastedImageUrl] = useState('');
-const [notifications, setNotifications] = useState<Notification[]>([]);
-const audioRef = useRef<HTMLAudioElement>(null);
-const [currentPage, setCurrentPage] = useState(0);
-const contactsPerPage = 200;
-const contactListRef =useRef<HTMLDivElement>(null);
+  const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
+  const [isPDFModalOpen, setPDFModalOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState('');
+  const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
+  const [isEmojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [isImageModalOpen2, setImageModalOpen2] = useState(false);
+  const [pastedImageUrl, setPastedImageUrl] = useState('');
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const contactsPerPage = 200;
+  const contactListRef =useRef<HTMLDivElement>(null);
+  const [response, setResponse] = useState<string>('');
+  const [qrCodeImage, setQrCodeImage] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [showQrCode, setShowQrCode] = useState<boolean>(false);
 
 console.log(initialContacts);
 useEffect(() => {
@@ -2420,6 +2424,62 @@ const handleForwardMessage = async () => {
     setLoading(false);
     //setImageModalOpen2(false);
   };
+
+  //fetch qrcode
+  const fetchQRCode = async () => {
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+    setError(null);
+    try {
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        
+      return;
+      }
+
+      const dataUser = docUserSnapshot.data();
+      companyId = dataUser.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+          
+      return;
+      }
+      const companyData = docSnapshot.data();
+      const healthresponse = await axios.get('https://gate.whapi.cloud/health?wakeup=true&channel_type=web', {
+        headers: {
+          'accept': 'application/json',
+          'authorization': `Bearer ${companyData.whapiToken}`,
+        },
+      });
+      console.log(healthresponse.data.status)
+      if(healthresponse.data.status.text === 'QR' || healthresponse.data.status.text === 'INIT'){
+        const QRresponse = await axios.get('https://gate.whapi.cloud/users/login/image?wakeup=true', {
+          headers: {
+            'accept': 'image/png',
+            'authorization': `Bearer ${companyData.whapiToken}`,
+            'content-type': 'application/json',
+          },data: {
+            'size': 264,
+            'width': 300,
+            'height': 300,
+            'color_dark': '#122e31',
+            'color_light': '#ffffff',
+          }, responseType: 'blob',
+        });
+
+        const qrCodeURL = URL.createObjectURL(QRresponse.data); // Create an object URL from the blob
+        console.log("qrCodeURL", qrCodeURL)
+        console.log("response", response)
+        setQrCodeImage(qrCodeURL);
+      }else{
+      }
+    } catch (error) {
+      setError('Failed to fetch QR code. Please try again.');
+      console.error("Error fetching QR code:", error);
+    }
+  };
   
   return (
     
@@ -2615,11 +2675,10 @@ const handleForwardMessage = async () => {
   </button> */}
 </div>
 </div>
-          <div className="border-b border-gray-300 mt-4"></div>
-       
-        </div>
+  <div className="border-b border-gray-300 mt-4"></div>
+
+</div>
   <div className="flex-1 overflow-y-auto" ref={contactListRef}>
-    
   {filteredContacts.map((contact, index) => (
   <React.Fragment key={contact.id || `${contact.phone}-${index}`}>
     <div

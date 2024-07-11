@@ -1,4 +1,4 @@
-import { Navigate, useRoutes } from "react-router-dom";
+import { Navigate, useLocation, useRoutes } from "react-router-dom";
 import DashboardOverview1 from "../pages/DashboardOverview1";
 import DashboardOverview2 from "../pages/DashboardOverview2";
 import DashboardOverview3 from "../pages/DashboardOverview3";
@@ -78,7 +78,7 @@ function Router() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const auth = getAuth();
   const { isLoading } = useContacts();
-
+  const location = useLocation();
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
@@ -170,7 +170,6 @@ function Router() {
     { path: "product-list", element: <ProductList /> },
     { path: "product-grid", element: <ProductGrid /> },
     { path: "/login", element: <Login /> },
-    { path: "/", element: <Login /> },
     { path: "/register", element: <Register /> },
     { path: "/error-page", element: <ErrorPage /> },
     { path: "*", element: <ErrorPage /> },
@@ -178,9 +177,7 @@ function Router() {
 if (isLoading) {
     return <LoadingIcon />;
   }
-if(!isLoggedIn){
-  return <Login /> ;
-}
+
 
 
   return useRoutes(routes);
