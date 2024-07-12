@@ -67,12 +67,9 @@ const firebaseConfig = {
                 <div className="my-auto">
                   <img
                     alt="Midone Tailwind HTML Admin Template"
-                    className="w-1/6 -mt-16 -intro-x"
+                    className="w-3/6 -mt-16 -intro-x"
                     src={logoUrl}
                   />
-                  <div className="mt-10 text-4xl font-medium leading-tight text-white -intro-x">
-                    Juta Software
-                  </div>
                 </div>
               </div>
               <div className="flex h-screen py-5 my-10 xl:h-auto xl:py-0 xl:my-0">

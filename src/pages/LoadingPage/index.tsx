@@ -32,9 +32,9 @@ function LoadingPage() {
 
   return (
     <div className="flex items-center justify-center h-screen">
-      <div className="flex flex-col items-center w-3/4 max-w-lg text-center">
-        <img alt="Logo" className="w-24 h-24" src={logoUrl} />
-        <LoadingIcon icon="spinning-circles" className="w-12 h-12"  />
+      <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
+        <img alt="Logo" className="w-24 h-24 p-15" src={logoUrl} />
+      
         <div className="mt-2 text-xs">
           Fetching Data...
         </div>
