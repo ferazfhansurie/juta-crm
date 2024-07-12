@@ -35,12 +35,14 @@ function LoadingPage() {
       <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
         <img alt="Logo" className="w-24 h-24 p-15" src={logoUrl} />
       
-        <div className="mt-2 text-xs">
+        <div className="mt-2 text-xs p-15">
           Fetching Data...
         </div>
+        <LoadingIcon icon="spinning-circles" className="w-20 h-20 p-4" />
       </div>
     </div>
   );
+  
 }
 
 export default LoadingPage;

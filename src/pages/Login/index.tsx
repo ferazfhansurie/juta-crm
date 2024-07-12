@@ -110,6 +110,16 @@ const firebaseConfig = {
                       Login
                     </Button>
                   </div>
+                  <div className="mt-5 text-center intro-x xl:mt-8 xl:text-left">
+                  <Link to="/register" >
+                  <Button
+                   className="w-full px-4 py-3 align-top xl:mr-3"
+                 >
+                   Register
+                 </Button>
+              </Link>
+                    
+                  </div>
                   {signInResult && (
                     <div className="mt-5 text-center text-red-500">{signInResult}</div>
                   )}

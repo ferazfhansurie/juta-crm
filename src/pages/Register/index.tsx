@@ -120,9 +120,7 @@ function Main() {
                   A few more clicks to <br />
                   sign up to your account.
                 </div>
-                <div className="mt-5 text-lg text-white -intro-x text-opacity-70 dark:text-slate-400">
-                  A.I For All
-                </div>
+             
               </div>
             </div>
             {/* END: Register Info */}

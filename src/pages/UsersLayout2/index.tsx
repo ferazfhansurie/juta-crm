@@ -184,6 +184,7 @@ const fetchQRCode = async () => {
         
     return;
     }
+    
     const companyData = docSnapshot.data();
     const healthresponse = await axios.get('https://gate.whapi.cloud/health?wakeup=true&channel_type=web', {
       headers: {
@@ -192,7 +193,7 @@ const fetchQRCode = async () => {
       },
     });
     console.log(healthresponse.data.status)
-    if(healthresponse.data.status.text === 'QR' || healthresponse.data.status.text === 'INIT'){
+    if(healthresponse.data.status.text === 'QR' || healthresponse.data.status.text === 'INIT' || healthresponse.data.status.text === 'LAUNCH'){
       const QRresponse = await axios.get('https://gate.whapi.cloud/users/login/image?wakeup=true', {
         headers: {
           'accept': 'image/png',
