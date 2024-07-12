@@ -65,9 +65,12 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const firestore = getFirestore(app);
 const filteredNotifications = notifications.filter((notification) => {
+  const fromName = notification.from_name ? notification.from_name.toLowerCase() : "";
+  const textBody = notification.text && notification.text.body ? notification.text.body.toLowerCase() : "";
+
   return (
-    notification.from_name.toLowerCase().includes(searchQuery) ||
-    (notification.text && notification.text.body.toLowerCase().includes(searchQuery))
+    fromName.includes(searchQuery) ||
+    textBody.includes(searchQuery)
   );
 });
 

@@ -69,8 +69,8 @@ function Main() {
         role: "1",
       });
 
-      const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/channel/create/${newCompanyId}`);
-      console.log(response);
+      const response2 = await axios.post(`https://buds-359313.et.r.appspot.com//api/channel/create/${newCompanyId}`);
+      console.log(response2);
 
       toast.success("User registered successfully!");
       navigate("/login");

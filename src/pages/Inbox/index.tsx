@@ -25,8 +25,8 @@ const MessageList = () => {
     { id: 1, from_me: true, type: 'text', text: { body: 'Hello!' }, createdAt: '2024-05-29T10:00:00Z' },
     { id: 2, from_me: false, type: 'text', text: { body: 'Hi there!' }, createdAt: '2024-05-29T10:01:00Z' }
   ];
-  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-4 bg-blue-500 text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-right";
-  const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-2 self-start text-left";
+  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-[#dcf8c6] text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
+  const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
   return (
     <div className="flex flex-col w-full h-full bg-white relative">
       <div className="flex items-center justify-between p-2 border-b border-gray-300 bg-gray-100">
@@ -113,7 +113,7 @@ function Main() {
   };
 
   return (
-    <div className="flex"   style={{ height: '88vh' }}>
+    <div className="flex"   style={{ height: '100vh' }}>
       <div className="w-1/2 p-6 h-full overflow-auto ">
         <div className="flex flex-col mb-4">
           {assistantInfo && (
