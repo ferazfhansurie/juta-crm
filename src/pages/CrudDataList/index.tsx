@@ -217,58 +217,37 @@ const handleSaveNewContact = async () => {
 
     const userData = docUserSnapshot.data();
     const companyId = userData.companyId;
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      console.log('No such document for company!');
-      return;
-    }
+    const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
 
-    const companyData = docSnapshot.data();
-    const accessToken = companyData.ghl_accessToken;
-    newContact.locationId = companyData.ghl_location;
-    
-    const options = {
-      method: 'POST',
-      url: 'https://services.leadconnectorhq.com/contacts/',
-      data: {
-        firstName: newContact.firstName,
-        name: newContact.firstName,
-        locationId: newContact.locationId,
-        phone: newContact.phone,
-      },
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Version: '2021-07-28',
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      }
-    };
+    // Add new contact to Firebase
+    await addDoc(contactsCollectionRef, {
+      firstName: newContact.firstName,
+      lastName: newContact.lastName,
+      email: newContact.email,
+      phone: newContact.phone,
+      address1: newContact.address1,
+      companyName: newContact.companyName,
+      locationId: newContact.locationId,
+      dateAdded: new Date().toISOString()
+    });
 
-    const response = await axios.request(options);
-    if (response.status === 201) {
-      toast.success("Contact added successfully!");
-      setAddContactModal(false);
-      setContacts(prevContacts => [...prevContacts, response.data.contact]);
-      setNewContact({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        address1: '',
-        companyName: '',
-        locationId: '',
-      });
-    } else {
-      console.error('Failed to add contact:', response.statusText);
-      toast.error("Failed to add contact." + response.statusText);
-    }
+    toast.success("Contact added successfully!");
+    setAddContactModal(false);
+    setContacts(prevContacts => [...prevContacts, newContact]);
+    setNewContact({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      address1: '',
+      companyName: '',
+      locationId: '',
+    });
   } catch (error) {
     console.error('Error adding contact:', error);
     toast.error("An error occurred while adding the contact." + error);
   }
 };
-
 const handleSaveNewTag = async () => {
   try {
     const user = auth.currentUser;
@@ -917,59 +896,47 @@ const handleSaveContact = async () => {
       }
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
+      const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
+
+      if (!currentContact.phone) {
+        console.error('Contact phone is missing');
         return;
       }
-      const companyData = docSnapshot.data();
-      const accessToken = companyData.ghl_accessToken;
-      const apiUrl = `https://services.leadconnectorhq.com/contacts/${currentContact.id}`;
+      
+      const contactDocRef = doc(contactsCollectionRef, currentContact.phone);
 
-      const options = {
-        method: 'PUT',
-        url: apiUrl,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Version: '2021-07-28',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          firstName: currentContact.firstName,
-          lastName: currentContact.lastName,
-          email: currentContact.email,
-          phone: currentContact.phone,
-          address1: currentContact.address1,
-          city: currentContact.city,
-          state: currentContact.state,
-          postalCode: currentContact.postalCode,
-          website: currentContact.website,
-          dnd: currentContact.dnd,
-          dndSettings: currentContact.dndSettings,
-          tags: currentContact.tags,
-          customFields: currentContact.customFields,
-          source: currentContact.source,
-          country: currentContact.country
-        }
-      };
+      // Update contact in Firebase
+      await updateDoc(contactDocRef, {
+        firstName: currentContact.firstName,
+        lastName: currentContact.lastName,
+        email: currentContact.email,
+        phone: currentContact.phone,
+        address1: currentContact.address1,
+        city: currentContact.city,
+        state: currentContact.state,
+        postalCode: currentContact.postalCode,
+        website: currentContact.website,
+        dnd: currentContact.dnd,
+        dndSettings: currentContact.dndSettings,
+        tags: currentContact.tags,
+        customFields: currentContact.customFields,
+        source: currentContact.source,
+        country: currentContact.country,
+        dateUpdated: new Date().toISOString()
+      });
 
-      const response = await axios.request(options);
-      if (response.status === 200) {
-        setContacts(contacts.map(contact => (contact.id === currentContact.id ? response.data.contact : contact)));
-        setEditContactModal(false);
-        setCurrentContact(null);
-        toast.success("Contact updated successfully!");
-      } else {
-        console.error('Failed to update contact:', response.statusText);
-        toast.error("Failed to update contact.");
-      }
+      setContacts(contacts.map(contact => (contact.phone === currentContact.phone ? currentContact : contact)));
+      setEditContactModal(false);
+      setCurrentContact(null);
+      toast.success("Contact updated successfully!");
     } catch (error) {
       console.error('Error saving contact:', error);
       toast.error("Failed to update contact.");
     }
   }
 };
+
+
 
   useEffect(() => {
     fetchCompanyData();

@@ -118,9 +118,11 @@ interface Item {
   type: string;
   unreadCount: number;
   website: string | null;
-  notes?: string; // Add this line
-  
+  notes?: string;
+  isCalled?: boolean; // Add this line
+  callCount?: number; // Add this line
 }
+
 
 interface Column {
   id: string;
@@ -152,16 +154,13 @@ function LoadingPage() {
     setIsAddOpportunityModalOpen(true);
   };
 
-  const handleSaveSelectedContacts = async (selectedContacts: any[]) => {
+  const handleSaveSelectedContacts = async (selectedContacts: any[], selectedPipelineId: string) => {
     const user = auth.currentUser;
     if (!user) return;
-
-    // Add selected contacts to the default pipeline or a selected pipeline
-    const defaultPipelineId = Object.keys(columns).find(key => columns[key].sort === 1);
-    if (!defaultPipelineId) return;
-
-    const defaultPipelineRef = collection(firestore, `user/${user.email}/pipeline/${defaultPipelineId}/leads`);
+  
+    const pipelineRef = collection(firestore, `user/${selectedEmployeeEmail}/pipeline/${selectedPipelineId}/leads`);
     for (const contact of selectedContacts) {
+      console.log(contact);
       const leadData = {
         name: contact.contactName || '',
         source: contact.phone || '',
@@ -184,7 +183,7 @@ function LoadingPage() {
         dnd: contact.dnd || false,
         dndSettings: contact.dndSettings || {},
         email: contact.email || null,
-        firstName: contact.firstName || null,
+        firstName: contact.contactName || null,
         firstNameRaw: contact.firstNameRaw || null,
         followers: contact.followers || [],
         lastName: contact.lastName || null,
@@ -202,13 +201,13 @@ function LoadingPage() {
         website: contact.website || null,
         notes: contact.notes || null
       };
-      await addDoc(defaultPipelineRef, leadData);
+      await addDoc(pipelineRef, leadData);
     }
-
+  
     // Update local state
     setColumns(prevColumns => {
       const updatedColumns = { ...prevColumns };
-      updatedColumns[defaultPipelineId].items.push(...selectedContacts.map(contact => ({
+      updatedColumns[selectedPipelineId].items.push(...selectedContacts.map(contact => ({
         id: contact.id,
         name: contact.contactName || '',
         source: contact.phone || '',
@@ -231,7 +230,7 @@ function LoadingPage() {
         dnd: contact.dnd || false,
         dndSettings: contact.dndSettings || {},
         email: contact.email || null,
-        firstName: contact.firstName || null,
+        firstName: contact.contactName || null,
         firstNameRaw: contact.firstNameRaw || null,
         followers: contact.followers || [],
         lastName: contact.lastName || null,
@@ -264,7 +263,7 @@ function LoadingPage() {
     const user = auth.currentUser;
     if (!user) return;
 
-    const itemDocRef = doc(firestore, `user/${user.email}/pipeline/${pipelineId}/leads/${updatedItem.id}`);
+    const itemDocRef = doc(firestore, `user/${selectedEmployeeEmail}/pipeline/${pipelineId}/leads/${updatedItem.id}`);
     console.log(itemDocRef);
    
     // Convert updatedItem to a plain object and ensure notes is included
@@ -386,7 +385,9 @@ function LoadingPage() {
           type: doc.data().type || '',
           unreadCount: doc.data().unreadCount || 0,
           website: doc.data().website || null,
-          notes:doc.data().notes || null
+          notes:doc.data().notes || null,
+          isCalled: doc.data().isCalled || false, // Add this line
+          callCount: doc.data().callCount || 0 // Add this line
         }));
 
         fetchedColumns[pipelineDoc.id] = {
@@ -623,8 +624,8 @@ console.log(sortedColumns);
       const user = auth.currentUser;
       if (!user) return;
   
-      const sourceDocRef = doc(firestore, `user/${user.email}/pipeline/${source.droppableId}/leads/${removed.id}`);
-      const destCollectionRef = collection(firestore, `user/${user.email}/pipeline/${destination.droppableId}/leads`);
+      const sourceDocRef = doc(firestore, `user/${selectedEmployeeEmail}/pipeline/${source.droppableId}/leads/${removed.id}`);
+      const destCollectionRef = collection(firestore, `user/${selectedEmployeeEmail}/pipeline/${destination.droppableId}/leads`);
   
       try {
         await deleteDoc(sourceDocRef);
@@ -659,7 +660,43 @@ console.log(sortedColumns);
   const handleOpenModal = () => {
     setIsModalOpen(true);
   };
-
+  const handleCallStatusChange = async (event: React.ChangeEvent<HTMLInputElement>, pipelineId: string, item: Item) => {
+    const user = auth.currentUser;
+    if (!user) return;
+  
+    // Update item with new fields if they don't exist
+    const newItem = {
+      ...item,
+      isCalled: event.target.checked,
+      callCount: event.target.checked ? (item.callCount || 0) + 1 : (item.callCount || 0)
+    };
+  
+    const itemDocRef = doc(firestore, `user/${selectedEmployeeEmail}/pipeline/${pipelineId}/leads/${item.id}`);
+    try {
+      await updateDoc(itemDocRef, {
+        isCalled: newItem.isCalled,
+        callCount: newItem.callCount
+      });
+      console.log('Document successfully updated:', newItem);
+  
+      setColumns(prevColumns => {
+        const updatedColumns = { ...prevColumns };
+        const column = updatedColumns[pipelineId];
+        if (column) {
+          const itemIndex = column.items.findIndex(i => i.id === item.id);
+          if (itemIndex !== -1) {
+            column.items[itemIndex] = newItem;
+          }
+        }
+        return updatedColumns;
+      });
+    } catch (error) {
+      console.error('Error updating document:', error);
+    }
+  };
+  
+  
+  
   const handleSaveModal = async (data: Column[] | Column) => {
     const user = auth.currentUser;
     if (!user) return;
@@ -676,7 +713,7 @@ console.log(sortedColumns);
 
       // Update Firestore
       for (const pipeline of data) {
-        const pipelineDocRef = doc(firestore, `user/${user.email}/pipeline/${pipeline.id}`);
+        const pipelineDocRef = doc(firestore, `user/${selectedEmployeeEmail}/pipeline/${pipeline.id}`);
         await updateDoc(pipelineDocRef, { sort: pipeline.sort });
       }
     } else {
@@ -687,7 +724,7 @@ console.log(sortedColumns);
       }));
 
       // Update Firestore
-      const pipelineDocRef = doc(firestore, `user/${user.email}/pipeline/${data.id}`);
+      const pipelineDocRef = doc(firestore, `user/${selectedEmployeeEmail}/pipeline/${data.id}`);
       await updateDoc(pipelineDocRef, { name: data.name, sort: data.sort });
     }
     setIsModalOpen(false);
@@ -696,7 +733,7 @@ console.log(sortedColumns);
     const user = auth.currentUser;
     if (!user) return;
   
-    const itemDocRef = doc(firestore, `user/${user.email}/pipeline/${pipelineId}/leads/${itemId}`);
+    const itemDocRef = doc(firestore, `user/${selectedEmployeeEmail}/pipeline/${pipelineId}/leads/${itemId}`);
     
     try {
       await deleteDoc(itemDocRef);
@@ -734,6 +771,7 @@ console.log(sortedColumns);
     {Object.entries(columns).map(([columnId, column], index) => {
       const borderColor = columnColors[index % columnColors.length];
       const filteredItemsWithIndexes = filterItemsWithIndexes(column.items, searchQuery); // Use updated filter function
+      const leadCount = column.items.length;
       console.log(filteredItemsWithIndexes);
       return (
         <Droppable droppableId={columnId} key={columnId}>
@@ -744,51 +782,62 @@ console.log(sortedColumns);
               className={`flex-shrink-0 flex flex-col items-center rounded-lg w-1/5 border-t-4 ${borderColor} overflow-hidden`}
             >
               <div className="w-full mb-4 p-4 bg-white shadow rounded-lg border">
-                <h2 className="text-base font-bold text-primary">{column.name}</h2>
+                <h2 className="text-base font-bold text-primary">{column.name} ({leadCount})</h2>
               </div>
               <div
                 className={`p-4 rounded-lg w-full h-full overflow-y-auto ${snapshot.isDraggingOver ? 'bg-slate-300' : 'bg-slate-100'}`}
               >
                 {filteredItemsWithIndexes.map(({ item, originalIndex }) => (
                   <Draggable key={item.id} draggableId={item.id} index={originalIndex}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        className={`user-select-none p-4 mb-4 rounded-lg shadow-md border bg-white text-gray-800 ${snapshot.isDragging ? 'bg-slate-400' : 'bg-white'}`}
-                        onClick={() => handleItemClick(column.id, item)}
-                      >
-                        <div className="flex items-center mb-2">
-                          {item.chat_pic_full ? (
-                            <img
-                              src={item.chat_pic_full}
-                              className="w-8 h-8 rounded-full mr-3 object-cover"
-                              alt="Profile"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 flex items-center justify-center bg-gray-300 rounded-full mr-3 text-white">
-                              {item.firstName ? item.firstName.charAt(0).toUpperCase() : "?"}
-                            </div>
-                          )}
-                          <p className="font-medium text-primary">{item.firstName || ""}</p>
-                        </div>
-                        <p className="font-semibold">{item.source}</p>
-                        <p className="text-sm font-medium">{item.value}</p>
-                        <p className="text-sm text-gray-700">{item.notes}</p>
-                        <div className="flex flex-wrap mt-2">
-                          {item.tags && item.tags.length > 0 && (
-                            <Tippy content={item.tags.join(', ')}>
-                              <span className="bg-blue-200 text-blue-800 text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
-                                <Lucide icon="Tag" className="w-4 h-4 inline-block" />
-                                <span className="ml-1">{item.tags.length}</span>
-                              </span>
-                            </Tippy>
-                          )}
-                        </div>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                      className={`user-select-none p-4 mb-4 rounded-lg shadow-md border bg-white text-gray-800 ${snapshot.isDragging ? 'bg-slate-400' : 'bg-white'}`}
+                      onClick={() => handleItemClick(column.id, item)}
+                    >
+                      <div className="flex items-center mb-2">
+                        {item.chat_pic_full ? (
+                          <img
+                            src={item.chat_pic_full}
+                            className="w-8 h-8 rounded-full mr-3 object-cover"
+                            alt="Profile"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 flex items-center justify-center bg-gray-300 rounded-full mr-3 text-white">
+                            {item.firstName ? item.firstName.charAt(0).toUpperCase() : "?"}
+                          </div>
+                        )}
+                        <p className="font-medium text-primary">{item.firstName || ""}</p>
                       </div>
-                    )}
-                  </Draggable>
+                      <p className="font-semibold">{item.source}</p>
+                      <p className="font-semibold">{item.companyName}</p>
+                      <p className="text-sm font-medium">{item.value}</p>
+                      <p className="text-sm text-gray-700">{item.notes}</p>
+                      <div className="flex items-center mt-2">
+                        <input
+                          type="checkbox"
+                          checked={item.isCalled || false}
+                          onChange={(e) => handleCallStatusChange(e, column.id, item)}
+                          className="mr-2"
+                        />
+                        <span>{item.callCount || 0} calls</span>
+                      </div>
+                      <div className="flex flex-wrap mt-2">
+                        {item.tags && item.tags.length > 0 && (
+                          <Tippy content={item.tags.join(', ')}>
+                            <span className="bg-blue-200 text-blue-800 text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
+                              <Lucide icon="Tag" className="w-4 h-4 inline-block" />
+                              <span className="ml-1">{item.tags.length}</span>
+                            </span>
+                          </Tippy>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </Draggable>
+                
                 ))}
                 {provided.placeholder}
               </div>
@@ -800,7 +849,12 @@ console.log(sortedColumns);
   </div>
 </DragDropContext>
 {isAddOpportunityModalOpen && (
-        <AddOpportunityModal contacts={contacts} onClose={() => setIsAddOpportunityModalOpen(false)} onSave={handleSaveSelectedContacts} />
+        <AddOpportunityModal
+          contacts={contacts}
+          onClose={() => setIsAddOpportunityModalOpen(false)}
+          onSave={handleSaveSelectedContacts}
+          pipelines={Object.values(columns)} // Pass the pipelines
+        />
       )}
 {isModalOpen2 && selectedItem && selectedItemPipelineId && (
   <div className="fixed top-0 left-0 z-50 w-full h-full flex items-center justify-center bg-black bg-opacity-50">
@@ -1074,21 +1128,22 @@ function EditItemModal({ pipelineId, item, onClose, onSave, onDelete }: EditItem
 interface AddOpportunityModalProps {
   contacts: any[];
   onClose: () => void;
-  onSave: (selectedContacts: any[]) => void;
+  onSave: (selectedContacts: any[], selectedPipelineId: string) => void; // Modify the onSave function
+  pipelines: Column[]; // Add pipelines prop
 }
-function AddOpportunityModal({ contacts, onClose, onSave }: AddOpportunityModalProps) {
+function AddOpportunityModal({ contacts, onClose, onSave, pipelines }: AddOpportunityModalProps) {
   const [selectedContacts, setSelectedContacts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filteredContacts, setFilteredContacts] = useState<any[]>(contacts);
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string>(pipelines.length > 0 ? pipelines[0].id : '');
 
   useEffect(() => {
-    console.log('Initial Contacts:', contacts);
     setFilteredContacts(
       contacts.filter(contact =>
-        contact.contactName?.toLowerCase().includes(searchTerm.toLowerCase())
+        contact.contactName?.toLowerCase().includes(searchTerm.toLowerCase())||
+        contact.phone?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     );
-    console.log('Filtered Contacts after useEffect:', filteredContacts);
   }, [searchTerm, contacts]);
 
   const handleContactSelect = (contact: any) => {
@@ -1102,75 +1157,83 @@ function AddOpportunityModal({ contacts, onClose, onSave }: AddOpportunityModalP
   };
 
   const handleSave = () => {
-    onSave(selectedContacts);
+    onSave(selectedContacts, selectedPipelineId); // Pass the selectedPipelineId
     onClose();
   };
 
-  console.log('Search Term:', searchTerm);
-  console.log('Filtered Contacts:', filteredContacts);
-
   return (
     <Dialog open onClose={onClose}>
-    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">Select Contacts</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <Lucide icon="X" className="w-6 h-6" />
-          </button>
-        </div>
-        <input
-          type="text"
-          placeholder="Search contacts..."
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          className="w-full px-3 py-2 mb-4 border rounded-md"
-        />
-        <div className="mt-4 space-y-2 max-h-[70vh] overflow-y-auto">
-          {filteredContacts.length > 0 ? (
-            filteredContacts.map((contact, index) => (
-              <div
-                key={contact.id || `${contact.phone}-${index}`}
-                className="flex items-center p-2 border-b border-gray-200 hover:bg-gray-100"
-              >
-                <input
-                  type="checkbox"
-                  className="mr-3"
-                  checked={selectedContacts.includes(contact)}
-                  onChange={() => handleContactSelect(contact)}
-                />
-                <div className="flex items-center">
-                  <div className="w-8 h-8 flex items-center justify-center bg-gray-300 rounded-full mr-3 text-white">
-                    {contact.chat_pic_full ? (
-                      <img
-                        src={contact.chat_pic_full}
-                        className="w-full h-full rounded-full object-cover"
-                      />
-                    ) : (
-                      contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"
-                    )}
-                  </div>
-                  <div className="flex-grow">
-                    <div className="font-semibold capitalize">{contact.contactName || contact.firstName || contact.phone}</div>
+      <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Select Contacts</h2>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+              <Lucide icon="X" className="w-6 h-6" />
+            </button>
+          </div>
+          <input
+            type="text"
+            placeholder="Search contacts..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full px-3 py-2 mb-4 border rounded-md"
+          />
+          <select
+            className="w-full px-3 py-2 mb-4 border rounded-md"
+            value={selectedPipelineId}
+            onChange={(e) => setSelectedPipelineId(e.target.value)}
+          >
+            {pipelines.map(pipeline => (
+              <option key={pipeline.id} value={pipeline.id}>
+                {pipeline.name}
+              </option>
+            ))}
+          </select>
+          <div className="mt-4 space-y-2 max-h-[70vh] overflow-y-auto">
+            {filteredContacts.length > 0 ? (
+              filteredContacts.map((contact, index) => (
+                <div
+                  key={contact.id || `${contact.phone}-${index}`}
+                  className="flex items-center p-2 border-b border-gray-200 hover:bg-gray-100"
+                >
+                  <input
+                    type="checkbox"
+                    className="mr-3"
+                    checked={selectedContacts.includes(contact)}
+                    onChange={() => handleContactSelect(contact)}
+                  />
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 flex items-center justify-center bg-gray-300 rounded-full mr-3 text-white">
+                      {contact.chat_pic_full ? (
+                        <img
+                          src={contact.chat_pic_full}
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        contact.firstName ? contact.firstName.charAt(0).toUpperCase() : "?"
+                      )}
+                    </div>
+                    <div className="flex-grow">
+                      <div className="font-semibold capitalize">{contact.name || contact.firstName || contact.phone}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-gray-500">No contacts found</p>
-          )}
-        </div>
-        <div className="flex justify-end mt-4">
-          <button onClick={onClose} className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
-            Cancel
-          </button>
-          <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700">
-            Save
-          </button>
-        </div>
-      </Dialog.Panel>
-    </div>
-  </Dialog>
+              ))
+            ) : (
+              <p className="text-gray-500">No contacts found</p>
+            )}
+          </div>
+          <div className="flex justify-end mt-4">
+            <button onClick={onClose} className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
+              Cancel
+            </button>
+            <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700">
+              Save
+            </button>
+          </div>
+        </Dialog.Panel>
+      </div>
+    </Dialog>
   );
 }
 
