@@ -1,6 +1,27 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Button from "@/components/Base/Button";
+import { getAuth } from "firebase/auth";
+import { initializeApp } from "firebase/app";
+import { DocumentReference, updateDoc, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
+
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
+  authDomain: "onboarding-a5fcb.firebaseapp.com",
+  databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "onboarding-a5fcb",
+  storageBucket: "onboarding-a5fcb.appspot.com",
+  messagingSenderId: "334607574757",
+  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
+  measurementId: "G-2C9J1RY67L"
+};
+
+let companyId = "001"; // Adjust the companyId as needed
+
+const app = initializeApp(firebaseConfig);
+const firestore = getFirestore(app);
 
 interface ChatMessage {
   from_me: boolean;
@@ -9,19 +30,25 @@ interface ChatMessage {
   createdAt: string;
 }
 
+interface InstructionField {
+  title: string;
+  content: string;
+}
+
 interface AssistantInfo {
   name: string;
   description: string;
-  instructions: string;
+  instructions: InstructionField[];
 }
 
 interface MessageListProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
   assistantName: string;
+  deleteThread: () => void;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assistantName }) => {
+const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assistantName, deleteThread }) => {
   const [newMessage, setNewMessage] = useState('');
 
   const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-[#dcf8c6] text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
@@ -46,11 +73,17 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
           </div>
           <div>
             <div className="font-semibold text-gray-800 capitalize">{assistantName}</div>
-            <div className="text-sm text-gray-600">+123456789</div>
           </div>
         </div>
+        <div>
+          <button 
+            onClick={deleteThread} 
+            className="px-4 py-2 bg-red-500 text-white rounded flex items-center">
+            Delete Thread
+          </button>
+        </div>
       </div>
-
+  
       <div className="flex-1 overflow-y-auto p-4" style={{ paddingBottom: "150px" }}>
         {messages.slice().reverse().map((message, index) => (
           <div
@@ -73,13 +106,13 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
           </div>
         ))}
       </div>
-
+  
       <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-300 py-2 px-2 mb-0 mt-2">
         <div className="flex items-center">
           <textarea
             className="flex-grow px-2 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-md mr-2 ml-2 resize-none bg-gray-100 text-gray-800"
             placeholder="Type a message"
-            value={newMessage}
+            value={newMessage || ""}
             onChange={(e) => setNewMessage(e.target.value)}
             rows={3}
             style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
@@ -92,48 +125,140 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
 };
 
 const Main: React.FC = () => {
-  const [assistantInfo, setAssistantInfo] = useState<AssistantInfo | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { from_me: true, type: 'text', text: 'Hello!', createdAt: '2024-05-29T10:00:00Z' },
-    { from_me: false, type: 'text', text: 'Hi there!', createdAt: '2024-05-29T10:01:00Z' }
-  ]);
+  const [assistantInfo, setAssistantInfo] = useState<AssistantInfo>({
+    name: '',
+    description: '',
+    instructions: [],
+  });
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
-
+  const [apiKey, setApiKey] = useState<string>('');
+  const [assistantId, setAssistantId] = useState<string>('');
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [response, setResponse] = useState<string>('');
+  
   useEffect(() => {
-    fetchAssistantInfo();
+    fetchCompanyId();
   }, []);
 
-  const fetchAssistantInfo = async () => {
+  useEffect(() => {
+    if (companyId) {
+      fetchFirebaseConfig(companyId);
+    }
+  }, [companyId]);
+
+  const fetchCompanyId = async () => {
+    const user = getAuth().currentUser;
+    if (!user) {
+      console.error("No user is logged in");
+      setError("No user is logged in");
+      return;
+    }
+
     try {
-      const response = await axios.get('https://api.openai.com/v1/assistants/asst_bFQpgPcgRiP8jaKihKwkhQAn', {
+      const docUserRef = doc(firestore, 'user', user.email!);
+      console.log(user.email);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error("User document does not exist");
+        setError("User document does not exist");
+        return;
+      }
+
+      const dataUser = docUserSnapshot.data();
+      setCompanyId(dataUser.companyId);
+    } catch (error) {
+      console.error("Error fetching company ID:", error);
+      setError("Failed to fetch company ID");
+    }
+  };
+
+  const fetchFirebaseConfig = async (companyId: string) => {
+    try {
+      const companyDoc = await getDoc(doc(firestore, "companies", companyId));
+      const tokenDoc = await getDoc(doc(firestore, "setting", "token"));
+      if (companyDoc.exists() && tokenDoc.exists()) {
+        const companyData = companyDoc.data();
+        const tokenData = tokenDoc.data();
+        
+        console.log("Company Data:", companyData); // Log company data
+        console.log("Token Data:", tokenData); // Log token data
+  
+        setAssistantId(companyData.assistantId);
+        setApiKey(tokenData.openai);
+  
+        console.log("Fetched Assistant ID:", companyData.assistantId);
+        console.log("Fetched API Key:", tokenData.openai);
+      } else {
+        console.error("Company or token document does not exist");
+      }
+    } catch (error) {
+      console.error("Error fetching Firebase config:", error);
+      setError("Failed to fetch Firebase config");
+    }
+  };
+
+  const handleInstructionChange = (index: number, field: string, value: string) => {
+    const newInstructions = [...assistantInfo.instructions];
+    newInstructions[index] = { ...newInstructions[index], [field]: value };
+    setAssistantInfo({ ...assistantInfo, instructions: newInstructions });
+  };
+  
+  const addInstructionField = () => {
+    setAssistantInfo(prevState => ({
+      ...prevState,
+      instructions: [...prevState.instructions, { title: '', content: '' }]
+    }));
+  };
+  
+  const deleteInstructionField = (index: number) => {
+    setAssistantInfo(prevState => ({
+      ...prevState,
+      instructions: prevState.instructions.filter((_, i) => i !== index)
+    }));
+  };
+  
+  const getCombinedInstructions = () => {
+    return assistantInfo.instructions.map(inst => `# ${inst.title}\n${inst.content}`).join('\n\n');
+  };
+
+  const fetchAssistantInfo = async (assistantId: string, apiKey: string) => {
+    console.log("Fetching assistant info with ID:", assistantId);
+    try {
+      const response = await axios.get(`https://api.openai.com/v1/assistants/${assistantId}`, {
         headers: {
-          'Authorization': `Bearer YOUR_API_KEY`,
+          'Authorization': `Bearer ${apiKey}`,
           'OpenAI-Beta': 'assistants=v2'
         }
       });
       const { name, description = "", instructions = "" } = response.data;
-      setAssistantInfo({ name, description, instructions });
+      const parsedInstructions = instructions ? instructions.split('\n\n').map((inst: { split: (arg0: string) => [any, ...any[]]; }) => {
+        const [title, ...content] = inst.split('\n');
+        return { title: title.replace('# ', ''), content: content.join('\n') };
+      }) : [];
+      setAssistantInfo({ name, description, instructions: parsedInstructions });
     } catch (error) {
       console.error("Error fetching assistant information:", error);
       setError("Failed to fetch assistant information");
     }
   };
-
+  
   const updateAssistantInfo = async () => {
-    if (!assistantInfo) return;
+    if (!assistantInfo || !assistantId || !apiKey) return;
+    console.log("Updating assistant info with ID:", assistantId);
     try {
-      const response = await axios.post('https://api.openai.com/v1/assistants/asst_bFQpgPcgRiP8jaKihKwkhQAn', {
+      const response = await axios.post(`https://api.openai.com/v1/assistants/${assistantId}`, {
         name: assistantInfo.name,
         description: assistantInfo.description,
-        instructions: assistantInfo.instructions
+        instructions: getCombinedInstructions()
       }, {
         headers: {
-          'Authorization': `Bearer YOUR_API_KEY`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
           'OpenAI-Beta': 'assistants=v2'
         }
       });
-      setAssistantInfo(response.data);
+      //setAssistantInfo(response.data);
     } catch (error) {
       console.error("Error updating assistant information:", error);
       setError("Failed to update assistant information");
@@ -147,38 +272,102 @@ const Main: React.FC = () => {
       text: messageText,
       createdAt: new Date().toISOString(),
     };
-
+  
     // Clear dummy messages if they are present
-    if (messages.some(message => message.createdAt === '2024-05-29T10:00:00Z' || message.createdAt === '2024-05-29T10:01:00Z')) {
-      setMessages([newMessage]);
-    } else {
-      setMessages([newMessage, ...messages]);
-    }
-
+    setMessages(prevMessages => {
+      if (prevMessages.some(message => message.createdAt === '2024-05-29T10:00:00Z' || message.createdAt === '2024-05-29T10:01:00Z')) {
+        return [newMessage];
+      } else {
+        return [newMessage, ...prevMessages];
+      }
+    });
+  
+    console.log("Sending message with Assistant ID:", assistantId); // Log assistantId
+  
     try {
-      const response = await axios.post('https://api.openai.com/v1/assistants/asst_bFQpgPcgRiP8jaKihKwkhQAn/messages', {
-        message: messageText,
-      }, {
-        headers: {
-          'Authorization': `Bearer YOUR_API_KEY`,
-          'Content-Type': 'application/json',
-          'OpenAI-Beta': 'assistants=v2'
-        }
+      const user = getAuth().currentUser;
+      if (!user) {
+        console.error("User not authenticated");
+        setError("User not authenticated");
+        return;
+      }
+  
+      const res = await axios.get(`https://buds-359313.et.r.appspot.com/api/assistant-test/`, {
+        params: {
+          message: messageText,
+          email: user.email!,
+          assistantid: assistantId
+        },
       });
-
+      const data = res.data;
+      console.log(data);
+      setResponse(data.answer);
+  
       const assistantResponse: ChatMessage = {
         from_me: false,
         type: 'text',
-        text: response.data.text,
+        text: data.answer,
         createdAt: new Date().toISOString(),
       };
-
-      setMessages([assistantResponse, ...messages]);
-
+  
+      setMessages(prevMessages => [assistantResponse, ...prevMessages]);
+  
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error('Error:', error);
+      setResponse('Error calling API');
       setError("Failed to send message");
     }
+  };
+
+  useEffect(() => {
+    if (assistantId && apiKey) {
+      fetchAssistantInfo(assistantId, apiKey);
+    }
+  }, [assistantId, apiKey]);
+
+  const deleteThread = async () => {
+    const user = getAuth().currentUser;
+    if (!user) {
+      console.error("No user is logged in");
+      setError("No user is logged in");
+      return;
+    }
+  
+    try {
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error("User document does not exist");
+        setError("User document does not exist");
+        return;
+      }
+  
+      const dataUser = docUserSnapshot.data();
+      const threadId = dataUser.threadid;
+  
+      if (threadId) {
+        await updateDoc(docUserRef, { threadid: '' });
+        console.log(`Thread ID set to empty string successfully.`);
+        // Clear the messages state
+        setMessages([]);
+      } else {
+        console.error("Thread ID not found in user document");
+        setError("Have a chat with our bot!");
+      }
+    } catch (error) {
+      console.error("Error updating thread ID:", error);
+      setError("Failed to update thread ID");
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setError(null);
+    const { name, value } = e.target;
+    setAssistantInfo({ ...assistantInfo!, [name]: value });
+  };
+  
+  const handleFocus = () => {
+    setError(null);
   };
 
   return (
@@ -201,7 +390,8 @@ const Main: React.FC = () => {
             className="w-full p-2 border border-gray-300 rounded text-sm"
             placeholder="Name your assistant"
             value={assistantInfo ? assistantInfo.name : ''}
-            onChange={(e) => setAssistantInfo({ ...assistantInfo!, name: e.target.value })}
+            onChange={handleInputChange}
+            onFocus={handleFocus}
           />
         </div>
         <div className="mb-4">
@@ -213,28 +403,70 @@ const Main: React.FC = () => {
             className="w-full p-2 border border-gray-300 rounded h-32 text-sm"
             placeholder="Add a short description of what this assistant does"
             value={assistantInfo ? assistantInfo.description : ''}
-            onChange={(e) => setAssistantInfo({ ...assistantInfo!, description: e.target.value })}
+            onChange={handleInputChange}
+            onFocus={handleFocus}
           />
         </div>
         <div className="mb-4">
           <label className="mb-2 text-md font-semibold" htmlFor="instructions">
             Instructions
           </label>
-          <textarea
-            id="instructions"
-            className="w-full p-2 border border-gray-300 rounded h-32 text-sm"
-            placeholder="What does your assistant do?"
-            value={assistantInfo ? assistantInfo.instructions : ''}
-            onChange={(e) => setAssistantInfo({ ...assistantInfo!, instructions: e.target.value })}
-          />
+          {assistantInfo.instructions.map((instruction, index) => (
+            <div key={index} className="mb-2 flex items-center">
+              <div className="flex-grow">
+                <input
+                  type="text"
+                  className="w-full p-2 border border-gray-300 rounded mb-1 text-sm"
+                  placeholder="Title"
+                  value={instruction.title}
+                  onChange={(e) => handleInstructionChange(index, 'title', e.target.value)}
+                  onFocus={handleFocus}
+                />
+                <textarea
+                  className="w-full p-2 border border-gray-300 rounded h-24 text-sm"
+                  placeholder="Content"
+                  value={instruction.content}
+                  onChange={(e) => handleInstructionChange(index, 'content', e.target.value)}
+                  onFocus={handleFocus}
+                />
+              </div>
+              <button
+                onClick={() => deleteInstructionField(index)}
+                className="ml-2 text-red-500 hover:text-red-700"
+                onFocus={handleFocus}
+              >
+                ✖
+              </button>
+            </div>
+          ))}
+          <button 
+            onClick={addInstructionField} 
+            className="px-4 py-2 bg-primary text-white rounded"
+            onFocus={handleFocus}>
+            Add Instruction
+          </button>
         </div>
-        <button onClick={updateAssistantInfo} className="px-4 py-2 bg-primary text-white rounded">
+        <button 
+          onClick={updateAssistantInfo} 
+          className="px-4 py-2 bg-primary text-white rounded"
+          onFocus={handleFocus}>
           Update Assistant
         </button>
         {error && <div className="mt-4 text-red-500">{error}</div>}
       </div>
       <div className="w-1/2 border-l border-gray-300 h-full">
-        <MessageList messages={messages} onSendMessage={sendMessageToAssistant} assistantName={assistantInfo?.name || 'Juta Assistant'} />
+      <MessageList 
+        messages={messages} 
+        onSendMessage={sendMessageToAssistant} 
+        assistantName={assistantInfo?.name || 'Juta Assistant'} 
+        deleteThread={deleteThread} 
+      />
+        {response && (
+          <div className="p-4">
+            <h4 className="font-semibold">Assistant Response:</h4>
+            <p>{response}</p>
+          </div>
+        )}
       </div>
     </div>
   );
