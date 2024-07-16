@@ -188,7 +188,7 @@ const Main: React.FC = () => {
         setApiKey(tokenData.openai);
   
         console.log("Fetched Assistant ID:", companyData.assistantId);
-        console.log("Fetched API Key:", tokenData.openai);
+        // console.log("Fetched API Key:", tokenData.openai);
       } else {
         console.error("Company or token document does not exist");
       }
