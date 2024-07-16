@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
 import Button from "@/components/Base/Button";
 import { getAuth } from "firebase/auth";
@@ -79,7 +79,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
         <div>
           <button 
             onClick={deleteThread} 
-            className={`px-4 py-2 text-white rounded flex items-center ${!threadId ? 'bg-gray-500 cursor-not-allowed' : 'bg-red-500'}`}
+            className={`px-4 py-2 text-white rounded flex items-center ${!threadId ? 'bg-gray-500 cursor-not-allowed' : 'bg-red-500'} active:scale-95`}
             disabled={!threadId}
           >
             Delete Thread
@@ -140,6 +140,9 @@ const Main: React.FC = () => {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [response, setResponse] = useState<string>('');
   const [threadId, setThreadId] = useState<string>('');
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState<boolean>(false);
+  const updateButtonRef = useRef<HTMLButtonElement>(null);
+  const [isFloating, setIsFloating] = useState(true);
   
   useEffect(() => {
     fetchCompanyId();
@@ -368,6 +371,20 @@ const Main: React.FC = () => {
     setError(null);
   };
 
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrolledToBottom = (window.innerHeight + window.scrollY) >= document.body.offsetHeight;
+      setIsFloating(!scrolledToBottom);
+    };
+  
+    window.addEventListener('scroll', handleScroll);
+    handleScroll(); // Initialize on mount
+  
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
   return (
     <div className="flex" style={{ height: '100vh' }}>
       <div className="w-1/2 p-6 h-full overflow-auto">
@@ -439,15 +456,17 @@ const Main: React.FC = () => {
           ))}
           <button 
             onClick={addInstructionField} 
-            className="px-4 py-2 bg-primary text-white rounded"
+            className="px-4 py-2 bg-primary text-white rounded active:scale-95"
             onFocus={handleFocus}>
             Add Instruction
           </button>
         </div>
         <button 
+          ref={updateButtonRef}
           onClick={updateAssistantInfo} 
-          className="px-4 py-2 bg-primary text-white rounded"
-          onFocus={handleFocus}>
+          className={`px-4 py-2 bg-primary text-white rounded transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95`}
+          onFocus={handleFocus}
+        >
           Update Assistant
         </button>
         {error && <div className="mt-4 text-red-500">{error}</div>}
