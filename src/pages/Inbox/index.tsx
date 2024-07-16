@@ -46,9 +46,10 @@ interface MessageListProps {
   onSendMessage: (message: string) => void;
   assistantName: string;
   deleteThread: () => void;
+  threadId: string; // Add this line
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assistantName, deleteThread }) => {
+const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assistantName, deleteThread, threadId }) => {
   const [newMessage, setNewMessage] = useState('');
 
   const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-[#dcf8c6] text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
@@ -78,12 +79,14 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
         <div>
           <button 
             onClick={deleteThread} 
-            className="px-4 py-2 bg-red-500 text-white rounded flex items-center">
+            className={`px-4 py-2 text-white rounded flex items-center ${!threadId ? 'bg-gray-500 cursor-not-allowed' : 'bg-red-500'}`}
+            disabled={!threadId}
+          >
             Delete Thread
           </button>
         </div>
       </div>
-  
+
       <div className="flex-1 overflow-y-auto p-4" style={{ paddingBottom: "150px" }}>
         {messages.slice().reverse().map((message, index) => (
           <div
@@ -106,7 +109,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
           </div>
         ))}
       </div>
-  
+
       <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-300 py-2 px-2 mb-0 mt-2">
         <div className="flex items-center">
           <textarea
@@ -136,6 +139,7 @@ const Main: React.FC = () => {
   const [assistantId, setAssistantId] = useState<string>('');
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [response, setResponse] = useState<string>('');
+  const [threadId, setThreadId] = useState<string>('');
   
   useEffect(() => {
     fetchCompanyId();
@@ -154,19 +158,19 @@ const Main: React.FC = () => {
       setError("No user is logged in");
       return;
     }
-
+  
     try {
       const docUserRef = doc(firestore, 'user', user.email!);
-      console.log(user.email);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
         console.error("User document does not exist");
         setError("User document does not exist");
         return;
       }
-
+  
       const dataUser = docUserSnapshot.data();
       setCompanyId(dataUser.companyId);
+      setThreadId(dataUser.threadid); // Set threadId here
     } catch (error) {
       console.error("Error fetching company ID:", error);
       setError("Failed to fetch company ID");
@@ -311,6 +315,7 @@ const Main: React.FC = () => {
       };
   
       setMessages(prevMessages => [assistantResponse, ...prevMessages]);
+      setThreadId(user.email!); // Update the threadId to user email as a placeholder
   
     } catch (error) {
       console.error('Error:', error);
@@ -342,18 +347,11 @@ const Main: React.FC = () => {
         return;
       }
   
-      const dataUser = docUserSnapshot.data();
-      const threadId = dataUser.threadid;
-  
-      if (threadId) {
-        await updateDoc(docUserRef, { threadid: '' });
-        console.log(`Thread ID set to empty string successfully.`);
-        // Clear the messages state
-        setMessages([]);
-      } else {
-        console.error("Thread ID not found in user document");
-        setError("Have a chat with our bot!");
-      }
+      await updateDoc(docUserRef, { threadid: '' });
+      setThreadId(''); // Clear threadId in state
+      console.log(`Thread ID set to empty string successfully.`);
+      // Clear the messages state
+      setMessages([]);
     } catch (error) {
       console.error("Error updating thread ID:", error);
       setError("Failed to update thread ID");
@@ -460,6 +458,7 @@ const Main: React.FC = () => {
         onSendMessage={sendMessageToAssistant} 
         assistantName={assistantInfo?.name || 'Juta Assistant'} 
         deleteThread={deleteThread} 
+        threadId={threadId} // Pass threadId to MessageList
       />
         {response && (
           <div className="p-4">
