@@ -182,7 +182,7 @@ const Main: React.FC = () => {
         const tokenData = tokenDoc.data();
         
         console.log("Company Data:", companyData); // Log company data
-        console.log("Token Data:", tokenData); // Log token data
+        // console.log("Token Data:", tokenData); // Log token data
   
         setAssistantId(companyData.assistantId);
         setApiKey(tokenData.openai);
