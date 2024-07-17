@@ -2486,6 +2486,9 @@ const handleForwardMessage = async () => {
     <div className="flex overflow-hidden bg-gray-100 text-gray-800" style={{ height: '100vh' }}>
        <audio ref={audioRef} src={noti} />
     <div className="flex flex-col min-w-[35%] max-w-[35%] bg-gray-100 border-r border-gray-300">
+    <div className="pl-2 pt-4 text-start text-lg font-bold capitalize">
+          Company ID : {userData?.companyId}
+    </div>
     <div className="relative hidden sm:block p-2">
     <div className="flex items-center space-x-2">
     {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
@@ -2777,7 +2780,7 @@ const handleForwardMessage = async () => {
               checked={contact.tags?.includes("stop bot")}
               onChange={() => toggleStopBotLabel(contact, index)}
             />
-            <div className="mt-1 ml-0 relative w-11 h-6 bg-gray-400 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-primary">
+            <div className="mt-1 ml-0 relative w-11 h-6 bg-primary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:-translate-x-full rtl:peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:end-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-gray-400">
             </div>
           </label>
         </div>

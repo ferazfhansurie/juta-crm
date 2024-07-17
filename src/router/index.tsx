@@ -96,6 +96,7 @@ function Router() {
       path: "/",
       element: <Layout />,
       children: [
+        { path: "/", element: <Chat /> },
         { path: "chat", element: <Chat /> },
         { path: "/dashboard", element: <DashboardOverview1 /> },
         { path: "dashboard-overview-3", element: <DashboardOverview3 /> },
