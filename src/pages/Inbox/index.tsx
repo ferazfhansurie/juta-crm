@@ -454,21 +454,25 @@ const Main: React.FC = () => {
               </button>
             </div>
           ))}
+        </div>
+        <div>
           <button 
             onClick={addInstructionField} 
-            className="px-4 py-2 bg-primary text-white rounded active:scale-95"
+            className="px-4 py-2 m-2 bg-primary text-white rounded active:scale-95"
             onFocus={handleFocus}>
             Add Instruction
           </button>
         </div>
-        <button 
-          ref={updateButtonRef}
-          onClick={updateAssistantInfo} 
-          className={`px-4 py-2 bg-primary text-white rounded transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95`}
-          onFocus={handleFocus}
-        >
-          Update Assistant
-        </button>
+        <div>
+          <button 
+            ref={updateButtonRef}
+            onClick={updateAssistantInfo} 
+            className={`px-4 py-2 m-2 bg-primary text-white rounded transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95`}
+            onFocus={handleFocus}
+          >
+            Update Assistant
+          </button>
+        </div>
         {error && <div className="mt-4 text-red-500">{error}</div>}
       </div>
       <div className="w-1/2 border-l border-gray-300 h-full">

@@ -45,7 +45,7 @@ const menu: Array<Menu | "divider"> = [
     {
       icon: "Users",
       title: "Users",
-      pathname: "users-layout-2",
+      pathname: "/users-layout-2",
     },
   /* {
       icon: "Trello",
