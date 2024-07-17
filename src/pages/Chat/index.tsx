@@ -1094,7 +1094,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
 
     console.log("all");
     console.log(allContacts);
-    setContacts(allContacts);
+    setContacts(allContacts.slice(0, 200));
     localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
     sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
   } catch (error) {
