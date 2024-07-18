@@ -249,26 +249,44 @@ const Main: React.FC = () => {
       setError("Failed to fetch assistant information");
     }
   };
-  
+
   const updateAssistantInfo = async () => {
-    if (!assistantInfo || !assistantId || !apiKey) return;
+    if (!assistantInfo || !assistantId || !apiKey) {
+      console.error("Assistant info, assistant ID, or API key is missing.");
+      setError("Assistant info, assistant ID, or API key is missing.");
+      return;
+    }
+
     console.log("Updating assistant info with ID:", assistantId);
+
+    const payload = {
+      name: assistantInfo.name || '',
+      description: assistantInfo.description || '',
+      instructions: getCombinedInstructions()
+    };
+
+    console.log("Payload being sent:", payload);
+
     try {
-      const response = await axios.post(`https://api.openai.com/v1/assistants/${assistantId}`, {
-        name: assistantInfo.name,
-        description: assistantInfo.description,
-        instructions: getCombinedInstructions()
-      }, {
+      const response = await axios.post(`https://api.openai.com/v1/assistants/${assistantId}`, payload, {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
           'OpenAI-Beta': 'assistants=v2'
         }
       });
-      //setAssistantInfo(response.data);
+
+      console.log('Assistant info updated successfully:', response.data);
     } catch (error) {
-      console.error("Error updating assistant information:", error);
-      setError("Failed to update assistant information");
+      if (axios.isAxiosError(error)) {
+        // Error is an AxiosError
+        console.error('Error updating assistant information:', error.response?.data);
+        setError(`Failed to update assistant information: ${error.response?.data.error.message}`);
+      } else {
+        // Generic error handling
+        console.error('Error updating assistant information:', error);
+        setError('Failed to update assistant information');
+      }
     }
   };
 
