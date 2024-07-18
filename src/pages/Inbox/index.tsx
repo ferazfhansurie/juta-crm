@@ -5,6 +5,10 @@ import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { DocumentReference, updateDoc, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import logoUrl from "@/assets/images/logo_black.png";
+import LoadingIcon from "@/components/Base/LoadingIcon";
 
 
 const firebaseConfig = {
@@ -143,6 +147,7 @@ const Main: React.FC = () => {
   const [isScrolledToBottom, setIsScrolledToBottom] = useState<boolean>(false);
   const updateButtonRef = useRef<HTMLButtonElement>(null);
   const [isFloating, setIsFloating] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   
   useEffect(() => {
     fetchCompanyId();
@@ -231,6 +236,7 @@ const Main: React.FC = () => {
 
   const fetchAssistantInfo = async (assistantId: string, apiKey: string) => {
     console.log("Fetching assistant info with ID:", assistantId);
+    setLoading(true); // Add this line
     try {
       const response = await axios.get(`https://api.openai.com/v1/assistants/${assistantId}`, {
         headers: {
@@ -247,6 +253,8 @@ const Main: React.FC = () => {
     } catch (error) {
       console.error("Error fetching assistant information:", error);
       setError("Failed to fetch assistant information");
+    } finally {
+      setLoading(false); // Add this line
     }
   };
 
@@ -277,6 +285,7 @@ const Main: React.FC = () => {
       });
 
       console.log('Assistant info updated successfully:', response.data);
+      toast.success('Assistant updated successfully');
     } catch (error) {
       if (axios.isAxiosError(error)) {
         // Error is an AxiosError
@@ -406,101 +415,113 @@ const Main: React.FC = () => {
   return (
     <div className="flex" style={{ height: '100vh' }}>
       <div className="w-1/2 p-6 h-full overflow-auto">
-        <div className="flex flex-col mb-4">
-          {assistantInfo && (
-            <>
-              <div className="mb-2 text-lg font-semibold capitalize">{assistantInfo.name}</div>
-            </>
-          )}
-        </div>
-        <div className="mb-4">
-          <label className="mb-2 text-md font-semibold capitalize" htmlFor="name">
-            Name
-          </label>
-          <input
-            id="name"
-            type="text"
-            className="w-full p-2 border border-gray-300 rounded text-sm"
-            placeholder="Name your assistant"
-            value={assistantInfo ? assistantInfo.name : ''}
-            onChange={handleInputChange}
-            onFocus={handleFocus}
-          />
-        </div>
-        <div className="mb-4">
-          <label className="mb-2 text-md font-semibold" htmlFor="description">
-            Description
-          </label>
-          <textarea
-            id="description"
-            className="w-full p-2 border border-gray-300 rounded h-32 text-sm"
-            placeholder="Add a short description of what this assistant does"
-            value={assistantInfo ? assistantInfo.description : ''}
-            onChange={handleInputChange}
-            onFocus={handleFocus}
-          />
-        </div>
-        <div className="mb-4">
-          <label className="mb-2 text-md font-semibold" htmlFor="instructions">
-            Instructions
-          </label>
-          {assistantInfo.instructions.map((instruction, index) => (
-            <div key={index} className="mb-2 flex items-center">
-              <div className="flex-grow">
-                <input
-                  type="text"
-                  className="w-full p-2 border border-gray-300 rounded mb-1 text-sm"
-                  placeholder="Title"
-                  value={instruction.title}
-                  onChange={(e) => handleInstructionChange(index, 'title', e.target.value)}
-                  onFocus={handleFocus}
-                />
-                <textarea
-                  className="w-full p-2 border border-gray-300 rounded h-24 text-sm"
-                  placeholder="Content"
-                  value={instruction.content}
-                  onChange={(e) => handleInstructionChange(index, 'content', e.target.value)}
-                  onFocus={handleFocus}
-                />
-              </div>
-              <button
-                onClick={() => deleteInstructionField(index)}
-                className="ml-2 text-red-500 hover:text-red-700"
+        {loading ? (
+          <div className="flex items-center justify-center h-screen">
+            <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
+              <img alt="Logo" className="w-24 h-24 p-15" src={logoUrl} />
+              <div className="mt-2 text-xs p-15">Fetching Data...</div>
+              <LoadingIcon icon="spinning-circles" className="w-20 h-20 p-4" />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col mb-4">
+              {assistantInfo && (
+                <>
+                  <div className="mb-2 text-lg font-semibold capitalize">{assistantInfo.name}</div>
+                </>
+              )}
+            </div>
+            <div className="mb-4">
+              <label className="mb-2 text-md font-semibold capitalize" htmlFor="name">
+                Name
+              </label>
+              <input
+                id="name"
+                type="text"
+                className="w-full p-2 border border-gray-300 rounded text-sm"
+                placeholder="Name your assistant"
+                value={assistantInfo ? assistantInfo.name : ''}
+                onChange={handleInputChange}
                 onFocus={handleFocus}
-              >
-                ✖
+              />
+            </div>
+            <div className="mb-4">
+              <label className="mb-2 text-md font-semibold" htmlFor="description">
+                Description
+              </label>
+              <textarea
+                id="description"
+                className="w-full p-2 border border-gray-300 rounded h-32 text-sm"
+                placeholder="Add a short description of what this assistant does"
+                value={assistantInfo ? assistantInfo.description : ''}
+                onChange={handleInputChange}
+                onFocus={handleFocus}
+              />
+            </div>
+            <div className="mb-4">
+              <label className="mb-2 text-md font-semibold" htmlFor="instructions">
+                Instructions
+              </label>
+              {assistantInfo.instructions.map((instruction, index) => (
+                <div key={index} className="mb-2 flex items-center">
+                  <div className="flex-grow">
+                    <input
+                      type="text"
+                      className="w-full p-2 border border-gray-300 rounded mb-1 text-sm"
+                      placeholder="Title"
+                      value={instruction.title}
+                      onChange={(e) => handleInstructionChange(index, 'title', e.target.value)}
+                      onFocus={handleFocus}
+                    />
+                    <textarea
+                      className="w-full p-2 border border-gray-300 rounded h-24 text-sm"
+                      placeholder="Content"
+                      value={instruction.content}
+                      onChange={(e) => handleInstructionChange(index, 'content', e.target.value)}
+                      onFocus={handleFocus}
+                    />
+                  </div>
+                  <button
+                    onClick={() => deleteInstructionField(index)}
+                    className="ml-2 text-red-500 hover:text-red-700"
+                    onFocus={handleFocus}
+                  >
+                    ✖
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div>
+              <button 
+                onClick={addInstructionField} 
+                className="px-4 py-2 m-2 bg-primary text-white rounded active:scale-95"
+                onFocus={handleFocus}>
+                Add Instruction
               </button>
             </div>
-          ))}
-        </div>
-        <div>
-          <button 
-            onClick={addInstructionField} 
-            className="px-4 py-2 m-2 bg-primary text-white rounded active:scale-95"
-            onFocus={handleFocus}>
-            Add Instruction
-          </button>
-        </div>
-        <div>
-          <button 
-            ref={updateButtonRef}
-            onClick={updateAssistantInfo} 
-            className={`px-4 py-2 m-2 bg-primary text-white rounded transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95`}
-            onFocus={handleFocus}
-          >
-            Update Assistant
-          </button>
-        </div>
-        {error && <div className="mt-4 text-red-500">{error}</div>}
+            <div>
+              <button 
+                ref={updateButtonRef}
+                onClick={updateAssistantInfo} 
+                className={`px-4 py-2 m-2 bg-primary text-white rounded transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95`}
+                onFocus={handleFocus}
+              >
+                Update Assistant
+              </button>
+            </div>
+            {error && <div className="mt-4 text-red-500">{error}</div>}
+          </>
+        )}
       </div>
       <div className="w-1/2 border-l border-gray-300 h-full">
-      <MessageList 
-        messages={messages} 
-        onSendMessage={sendMessageToAssistant} 
-        assistantName={assistantInfo?.name || 'Juta Assistant'} 
-        deleteThread={deleteThread} 
-        threadId={threadId} // Pass threadId to MessageList
-      />
+        <MessageList 
+          messages={messages} 
+          onSendMessage={sendMessageToAssistant} 
+          assistantName={assistantInfo?.name || 'Juta Assistant'} 
+          deleteThread={deleteThread} 
+          threadId={threadId} // Pass threadId to MessageList
+        />
         {response && (
           <div className="p-4">
             <h4 className="font-semibold">Assistant Response:</h4>
@@ -508,6 +529,7 @@ const Main: React.FC = () => {
           </div>
         )}
       </div>
+      <ToastContainer />
     </div>
   );
 }
