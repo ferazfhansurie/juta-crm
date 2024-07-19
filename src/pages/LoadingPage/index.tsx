@@ -62,8 +62,10 @@ function LoadingPage() {
         return;
       }
       //http://jutaserver.ddns.net:8443/api/bot-status
+      console.log('test');
+      const botStatusResponse = await axios.get(`https://mighty-dane-newly.ngrok-free.app/api/bot-status/${companyId}`);
 
-      const botStatusResponse = await axios.get(`https://0d97-115-134-151-35.ngrok-free.app/api/bot-status/${companyId}`);
+      console.log(botStatusResponse.data);
       if (botStatusResponse.status !== 200) {
         throw new Error(`Unexpected response status: ${botStatusResponse.status}`);
       }
