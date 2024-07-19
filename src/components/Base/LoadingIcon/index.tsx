@@ -33,7 +33,7 @@ function LoadingIcon(props: LoadingIconProps) {
         return (
           <svg
             width="15"
-            viewBox="0 0 55 80"
+            viewBox="0 0 105 80"
             xmlns="http://www.w3.org/2000/svg"
             fill={iconColor}
             className="w-full h-full"
@@ -75,6 +75,36 @@ function LoadingIcon(props: LoadingIconProps) {
                   begin="0s"
                   dur="2s"
                   values="30;45;13;80;56;72;45;76;34;23;67;30"
+                  calcMode="linear"
+                  repeatCount="indefinite"
+                />
+              </rect>
+              <rect x="60" width="10" height="40" rx="3">
+                <animate
+                  attributeName="height"
+                  begin="0s"
+                  dur="3s"
+                  values="40;60;20;70;50;80;30;10;50;30;70;40"
+                  calcMode="linear"
+                  repeatCount="indefinite"
+                />
+              </rect>
+              <rect x="75" width="10" height="60" rx="3">
+                <animate
+                  attributeName="height"
+                  begin="0s"
+                  dur="2.5s"
+                  values="60;80;40;20;60;80;30;50;70;30;50;60"
+                  calcMode="linear"
+                  repeatCount="indefinite"
+                />
+              </rect>
+              <rect x="90" width="10" height="70" rx="3">
+                <animate
+                  attributeName="height"
+                  begin="0s"
+                  dur="1.8s"
+                  values="70;30;80;40;60;20;50;70;30;80;20;70"
                   calcMode="linear"
                   repeatCount="indefinite"
                 />
@@ -228,6 +258,54 @@ function LoadingIcon(props: LoadingIconProps) {
             </g>
           </svg>
         );
+        case "three-dots":
+          return (
+            <svg
+              width="60"
+              height="40"
+              viewBox="0 0 120 40"
+              xmlns="http://www.w3.org/2000/svg"
+              fill={iconColor}
+              className="w-full h-full"
+            >
+              <circle cx="15" cy="20" r="10">
+                <animate
+                  attributeName="cy"
+                  from="20"
+                  to="0"
+                  begin="0s"
+                  dur="0.8s"
+                  values="20;0;20;40;20"
+                  calcMode="linear"
+                  repeatCount="indefinite"
+                />
+              </circle>
+              <circle cx="60" cy="20" r="10">
+                <animate
+                  attributeName="cy"
+                  from="20"
+                  to="0"
+                  begin="0.1s"
+                  dur="0.8s"
+                  values="20;0;20;40;20"
+                  calcMode="linear"
+                  repeatCount="indefinite"
+                />
+              </circle>
+              <circle cx="105" cy="20" r="10">
+                <animate
+                  attributeName="cy"
+                  from="20"
+                  to="0"
+                  begin="0.2s"
+                  dur="0.8s"
+                  values="20;0;20;40;20"
+                  calcMode="linear"
+                  repeatCount="indefinite"
+                />
+              </circle>
+            </svg>
+          );
       // Add other cases here...
       default:
         return null;

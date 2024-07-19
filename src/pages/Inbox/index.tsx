@@ -419,8 +419,8 @@ const Main: React.FC = () => {
           <div className="flex items-center justify-center h-screen">
             <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
               <img alt="Logo" className="w-24 h-24 p-15" src={logoUrl} />
-              <div className="mt-2 text-xs p-15">Fetching Data...</div>
-              <LoadingIcon icon="spinning-circles" className="w-20 h-20 p-4" />
+              <div className="mt-2 text-xs p-15">Fetching Assistant...</div>
+              <LoadingIcon icon="three-dots" className="w-20 h-20 p-4" />
             </div>
           </div>
         ) : (
@@ -452,7 +452,7 @@ const Main: React.FC = () => {
               </label>
               <textarea
                 id="description"
-                className="w-full p-2 border border-gray-300 rounded h-32 text-sm"
+                className="w-full p-2 border border-gray-300 rounded h-16 text-sm"
                 placeholder="Add a short description of what this assistant does"
                 value={assistantInfo ? assistantInfo.description : ''}
                 onChange={handleInputChange}
@@ -475,7 +475,7 @@ const Main: React.FC = () => {
                       onFocus={handleFocus}
                     />
                     <textarea
-                      className="w-full p-2 border border-gray-300 rounded h-24 text-sm"
+                      className="w-full p-2 border border-gray-300 rounded h-32 text-sm"
                       placeholder="Content"
                       value={instruction.content}
                       onChange={(e) => handleInstructionChange(index, 'content', e.target.value)}
