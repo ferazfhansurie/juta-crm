@@ -63,7 +63,7 @@ function LoadingPage() {
       }
       //http://jutaserver.ddns.net:8443/api/bot-status
 
-      const botStatusResponse = await axios.get(`http://jutaserver.ddns.net/api/bot-status/${companyId}`);
+      const botStatusResponse = await axios.get(`http://115.134.151.35:8443/api/bot-status/${companyId}`);
       if (botStatusResponse.status !== 200) {
         throw new Error(`Unexpected response status: ${botStatusResponse.status}`);
       }
