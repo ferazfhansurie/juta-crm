@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import logoUrl from "@/assets/images/logo_black.png";
 import { useNavigate } from "react-router-dom";
 import { useContacts } from "../../contact";
@@ -31,6 +31,8 @@ function LoadingPage() {
   const [error, setError] = useState<string | null>(null);
   const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
   const [botStatus, setBotStatus] = useState<string | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  const ws = useRef<WebSocket | null>(null);
   const navigate = useNavigate();
   const { isLoading: contactsLoading } = useContacts();
   const { config: initialContacts } = useConfig();
@@ -95,6 +97,43 @@ function LoadingPage() {
   useEffect(() => {
     fetchQRCode();
   }, []);
+
+  useEffect(() => {
+    if (botStatus === 'qr' && !wsConnected) {
+      const auth = getAuth(app);
+      const user = auth.currentUser;
+      
+      ws.current = new WebSocket(`wss://mighty-dane-newly.ngrok-free.app/ws/${user?.email}`);
+      
+      ws.current.onopen = () => {
+        console.log('WebSocket connected');
+        setWsConnected(true);
+      };
+      
+      ws.current.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.status === 'authenticated') {
+          navigate('/chat');
+        }
+      };
+      
+      ws.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setError('WebSocket connection error. Please try again.');
+      };
+      
+      ws.current.onclose = () => {
+        console.log('WebSocket disconnected');
+        setWsConnected(false);
+      };
+    }
+
+    return () => {
+      if (ws.current) {
+        ws.current.close();
+      }
+    };
+  }, [botStatus]);
 
   useEffect(() => {
     let progressInterval: string | number | NodeJS.Timeout | undefined;

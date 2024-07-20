@@ -117,7 +117,7 @@ interface Message {
   createdAt: number;
   type?: string;
   from:string;
-  image?: { link?: string; caption?: string };
+  image?: { link?: string; caption?: string;url?:string };
   video?: { link?: string; caption?: string };
   gif?: { link?: string; caption?: string };
   audio?: { link?: string; caption?: string };
@@ -1156,6 +1156,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
   useEffect(() => {
     if (selectedChatId) {
       console.log(selectedContact);
+      console.log(selectedChatId);
       fetchMessages(selectedChatId, whapiToken!);
     }
   }, [selectedChatId]);
@@ -1166,164 +1167,186 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     const user = auth.currentUser;
     
     try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      
-      companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-      const data2 = docSnapshot.data();
-      
-      setToken(data2.whapiToken);
-      
-      let messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken, dataUser?.email);
-  
-      // If no messages, try with whapiToken2
-      if ( data2.whapiToken2) {
-        messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken2, dataUser?.email);
-      }
-  
-      const formattedMessages: any[] = [];
-      const reactionsMap: Record<string, any[]> = {};
-  
-      messages.forEach(async (message: any) => {
-        if (message.type === 'action' && message.action.type === 'reaction') {
-          const targetMessageId = message.action.target;
-          if (!reactionsMap[targetMessageId]) {
-            reactionsMap[targetMessageId] = [];
-          }
-          reactionsMap[targetMessageId].push({
-            emoji: message.action.emoji,
-            from_name: message.from_name
-          });
+        const docUserRef = doc(firestore, 'user', user?.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        
+        if (!docUserSnapshot.exists()) {
+            console.log('No such document!');
+            return;
+        }
+        const dataUser = docUserSnapshot.data();
+        
+        const companyId = dataUser.companyId;
+        const docRef = doc(firestore, 'companies', companyId);
+        const docSnapshot = await getDoc(docRef);
+        if (!docSnapshot.exists()) {
+            console.log('No such document!');
+            return;
+        }
+        const data2 = docSnapshot.data();
+        
+        setToken(data2.whapiToken);
+        
+        let messages;
+        if (data2.v2) {
+            messages = await fetchMessagesFromFirebase(companyId, selectedChatId);
+            console.log('messages');
+            console.log(messages);
         } else {
-          const formattedMessage: any = {
-            id: message.id,
-            from_me: message.from_me,
-            from_name: message.from_name,
-            from: message.from,
-            chat_id: message.chat_id,
-            createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
-            type: message.type,
-            name: message.name
-          };
-  
-          // Include message-specific content
-          switch (message.type) {
-            case 'text':
-              formattedMessage.text = {
-                body: message.text ? message.text.body : '', // Include the message body
-                context: message.context ? message.context : '' // Include the context
-              };
-              break;
-            case 'image':
-              formattedMessage.image = message.image ? message.image : undefined;
-              break;
-            case 'video':
-              formattedMessage.video = message.video ? message.video : undefined;
-              break;
-            case 'gif':
-              formattedMessage.gif = message.gif ? message.gif : undefined;
-              break;
-            case 'audio':
-              formattedMessage.audio = message.audio ? message.audio : undefined;
-              break;
-            case 'voice':
-              formattedMessage.voice = message.voice ? message.voice : undefined;
-              break;
-            case 'document':
-              formattedMessage.document = message.document ? message.document : undefined;
-              break;
-            case 'link_preview':
-              formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
-              break;
-            case 'sticker':
-              formattedMessage.sticker = message.sticker ? message.sticker : undefined;
-              break;
-            case 'location':
-              formattedMessage.location = message.location ? message.location : undefined;
-              break;
-            case 'live_location':
-              formattedMessage.live_location = message.live_location ? message.live_location : undefined;
-              break;
-            case 'contact':
-              formattedMessage.contact = message.contact ? message.contact : undefined;
-              break;
-            case 'contact_list':
-              formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
-              break;
-            case 'interactive':
-              formattedMessage.interactive = message.interactive ? message.interactive : undefined;
-              break;
-            case 'poll':
-              formattedMessage.poll = message.poll ? message.poll : undefined;
-              break;
-            case 'hsm':
-              formattedMessage.hsm = message.hsm ? message.hsm : undefined;
-              break;
-            case 'system':
-              formattedMessage.system = message.system ? message.system : undefined;
-              break;
-            case 'order':
-              formattedMessage.order = message.order ? message.order : undefined;
-              break;
-            case 'group_invite':
-              formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
-              break;
-            case 'admin_invite':
-              formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
-              break;
-            case 'product':
-              formattedMessage.product = message.product ? message.product : undefined;
-              break;
-            case 'catalog':
-              formattedMessage.catalog = message.catalog ? message.catalog : undefined;
-              break;
-            case 'product_items':
-              formattedMessage.product_items = message.product_items ? message.product_items : undefined;
-              break;
-            case 'action':
-              formattedMessage.action = message.action ? message.action : undefined;
-              break;
-            case 'context':
-              formattedMessage.context = message.context ? message.context : undefined;
-              break;
-            case 'reactions':
-              formattedMessage.reactions = message.reactions ? message.reactions : undefined;
-              break;
-            default:
-              console.warn(`Unknown message type: ${message.type}`);
-          }
-  
-          formattedMessages.push(formattedMessage);
+            messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken, dataUser?.email);
+            // If no messages, try with whapiToken2
+            if (!messages.length && data2.whapiToken2) {
+                messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken2, dataUser?.email);
+            }
         }
-      });
-  
-      // Add reactions to the respective messages
-      formattedMessages.forEach(message => {
-        if (reactionsMap[message.id]) {
-          message.reactions = reactionsMap[message.id];
-        }
-      });
-  
-      setMessages(formattedMessages);
-  
+        
+        const formattedMessages: any[] = [];
+        const reactionsMap: Record<string, any[]> = {};
+
+        messages.forEach(async (message: any) => {
+            if (message.type === 'action' && message.action.type === 'reaction') {
+                const targetMessageId = message.action.target;
+                if (!reactionsMap[targetMessageId]) {
+                    reactionsMap[targetMessageId] = [];
+                }
+                reactionsMap[targetMessageId].push({
+                    emoji: message.action.emoji,
+                    from_name: message.from_name
+                });
+            } else {
+                const formattedMessage: any = {
+                    id: message.id,
+                    from_me: message.from_me,
+                    from_name: message.from_name,
+                    from: message.from,
+                    chat_id: message.chat_id,
+                    createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
+                    type: message.type,
+                    name: message.name
+                };
+        
+                // Include message-specific content
+                switch (message.type) {
+                    case 'text':
+                        formattedMessage.text = {
+                            body: message.text ? message.text.body : '', // Include the message body
+                            context: message.context ? message.context : '' // Include the context
+                        };
+                        break;
+                    case 'image':
+                        formattedMessage.image = message.image ? message.image : undefined;
+                        break;
+                    case 'video':
+                        formattedMessage.video = message.video ? message.video : undefined;
+                        break;
+                    case 'gif':
+                        formattedMessage.gif = message.gif ? message.gif : undefined;
+                        break;
+                    case 'audio':
+                        formattedMessage.audio = message.audio ? message.audio : undefined;
+                        break;
+                    case 'voice':
+                        formattedMessage.voice = message.voice ? message.voice : undefined;
+                        break;
+                    case 'document':
+                        formattedMessage.document = message.document ? message.document : undefined;
+                        break;
+                    case 'link_preview':
+                        formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
+                        break;
+                    case 'sticker':
+                        formattedMessage.sticker = message.sticker ? message.sticker : undefined;
+                        break;
+                    case 'location':
+                        formattedMessage.location = message.location ? message.location : undefined;
+                        break;
+                    case 'live_location':
+                        formattedMessage.live_location = message.live_location ? message.live_location : undefined;
+                        break;
+                    case 'contact':
+                        formattedMessage.contact = message.contact ? message.contact : undefined;
+                        break;
+                    case 'contact_list':
+                        formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
+                        break;
+                    case 'interactive':
+                        formattedMessage.interactive = message.interactive ? message.interactive : undefined;
+                        break;
+                    case 'poll':
+                        formattedMessage.poll = message.poll ? message.poll : undefined;
+                        break;
+                    case 'hsm':
+                        formattedMessage.hsm = message.hsm ? message.hsm : undefined;
+                        break;
+                    case 'system':
+                        formattedMessage.system = message.system ? message.system : undefined;
+                        break;
+                    case 'order':
+                        formattedMessage.order = message.order ? message.order : undefined;
+                        break;
+                    case 'group_invite':
+                        formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
+                        break;
+                    case 'admin_invite':
+                        formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
+                        break;
+                    case 'product':
+                        formattedMessage.product = message.product ? message.product : undefined;
+                        break;
+                    case 'catalog':
+                        formattedMessage.catalog = message.catalog ? message.catalog : undefined;
+                        break;
+                    case 'product_items':
+                        formattedMessage.product_items = message.product_items ? message.product_items : undefined;
+                        break;
+                    case 'action':
+                        formattedMessage.action = message.action ? message.action : undefined;
+                        break;
+                    case 'context':
+                        formattedMessage.context = message.context ? message.context : undefined;
+                        break;
+                    case 'reactions':
+                        formattedMessage.reactions = message.reactions ? message.reactions : undefined;
+                        break;
+                    default:
+                        console.warn(`Unknown message type: ${message.type}`);
+                }
+        
+                formattedMessages.push(formattedMessage);
+            }
+        });
+        
+        // Add reactions to the respective messages
+        formattedMessages.forEach(message => {
+            if (reactionsMap[message.id]) {
+                message.reactions = reactionsMap[message.id];
+            }
+        });
+        
+        setMessages(formattedMessages);
+        
     } catch (error) {
-      console.error('Failed to fetch messages:', error);
+        console.error('Failed to fetch messages:', error);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  }
+}
+
+async function fetchMessagesFromFirebase(companyId: string, chatId: string): Promise<any[]> {
+  const number = '+' + chatId.split('@')[0];
+  const messagesRef = collection(firestore, `companies/${companyId}/contacts/${number}/messages`);
+  const messagesSnapshot = await getDocs(messagesRef);
+  
+  const messages = messagesSnapshot.docs.map(doc => doc.data());
+
+  // Sort messages by timestamp in descending order (latest first)
+  return messages.sort((a, b) => {
+    const timestampA = a.timestamp?.seconds || a.timestamp || 0;
+    const timestampB = b.timestamp?.seconds || b.timestamp || 0;
+    return timestampB - timestampA;
+  });
+}
+
   
   async function fetchMessagesFromApi(chatId: string, token: string, userEmail: string) {
     const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${chatId}/${token}/${userEmail}`);
@@ -2939,18 +2962,22 @@ const handleForwardMessage = async () => {
                   {formatText(message.text?.body || '')}
                 </div>
               )}
-              {message.type === 'image' && message.image && (
-                <div className="p-0 message-content image-message">
-                  <img
-                    src={message.image.link}
-                    alt="Image"
-                    className="rounded-lg message-image cursor-pointer"
-                    style={{ maxWidth: '300px' }}
-                    onClick={() => openImageModal(message.image?.link || '')}
-                  />
-                  <div className="caption">{message.image.caption}</div>
-                </div>
-              )}
+            {message.type === 'image' && message.image && (
+  <div className="p-0 message-content image-message">
+    <img
+      src={message.image.link || `https://mighty-dane-newly.ngrok-free.app${message.image.url}` || ''}
+      alt="Image"
+      className="rounded-lg message-image cursor-pointer"
+      style={{ maxWidth: '300px' }}
+      onClick={() => openImageModal(message.image?.link || `https://mighty-dane-newly.ngrok-free.app${message?.image?.url}`|| '')}
+      onError={(e) => {
+        console.error("Error loading image:", e.currentTarget.src);
+        e.currentTarget.src = 'path/to/fallback/image.jpg'; // Replace with your fallback image path
+      }}
+    />
+    <div className="caption">{message.image.caption}</div>
+  </div>
+)}
               {message.type === 'video' && message.video && (
                 <div className="video-content p-0 message-content image-message">
                   <video
