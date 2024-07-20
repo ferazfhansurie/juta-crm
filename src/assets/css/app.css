@@ -44,6 +44,57 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: #CBD5E0 #F1F5F9;
+  }
 
- 
+  html::-webkit-scrollbar {
+    width: 12px;
+  }
 
+  html::-webkit-scrollbar-track {
+    background: #F1F5F9;
+  }
+
+  html::-webkit-scrollbar-thumb {
+    background-color: #CBD5E0;
+    border-radius: 20px;
+    border: 3px solid #F1F5F9;
+  }
+
+  html.dark {
+    scrollbar-color: #4B5563 #1F2937;
+  }
+
+  html.dark::-webkit-scrollbar-track {
+    background: #1F2937;
+  }
+
+  html.dark::-webkit-scrollbar-thumb {
+    background-color: #4B5563;
+    border: 3px solid #1F2937;
+  }
+
+  /* Keep the existing .dark-scrollbar styles for other elements */
+  .dark-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #4B5563 #1F2937;
+  }
+
+  .dark-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .dark-scrollbar::-webkit-scrollbar-track {
+    background: #1F2937;
+  }
+
+  .dark-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #4B5563;
+    border-radius: 20px;
+    border: 2px solid #1F2937;
+  }
+}

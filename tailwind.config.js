@@ -39,6 +39,7 @@ module.exports = {
           800: "rgb(var(--color-darkmode-800) / <alpha-value>)",
           900: "rgb(var(--color-darkmode-900) / <alpha-value>)",
         },
+        'custom-gray': '#E4E4E4',
       },
       fontFamily: {
         roboto: ["Roboto"],

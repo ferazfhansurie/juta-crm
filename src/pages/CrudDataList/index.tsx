@@ -1309,7 +1309,7 @@ console.log(filteredContacts);
                   </>
                 )}
               </div>
-              <div className="text-lg font-semibold text-gray-700">
+              <div className="text-lg font-semibold text-gray-700 dark:text-gray-400">
                 Total Contacts: {initialContacts.length}
                 {selectedTagFilter && <span> (Filtered by: {selectedTagFilter})</span>}
               </div>

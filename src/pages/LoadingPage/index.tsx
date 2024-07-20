@@ -147,27 +147,27 @@ function LoadingPage() {
   }, [contactsLoading, isLoading, botStatus]);
 
   return (
-    <div className="flex items-center justify-center h-screen">
+    <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-900">
       <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
         <img alt="Logo" className="w-40 h-40 p-15" src={logoUrl} />
         {botStatus === 'qr' ? (
           <>
-            <div className="mt-2 text-md p-15">
+            <div className="mt-2 text-md p-15 text-gray-800 dark:text-gray-200">
               Please use your WhatsApp QR scanner to scan the code and proceed.
             </div>
-            {error && <div className="text-red-500">{error}</div>}
+            {error && <div className="text-red-500 dark:text-red-400">{error}</div>}
             {qrCodeImage && (
-              <div>
+              <div className="bg-white p-4 rounded-lg">
                 <img src={qrCodeImage} alt="QR Code" />
               </div>
             )}
           </>
         ) : (
           <>
-            <div className="mt-2 text-xs p-15">
+            <div className="mt-2 text-xs p-15 text-gray-800 dark:text-gray-200">
               Fetching Data...
             </div>
-            <LoadingIcon icon="three-dots" className="w-20 h-20 p-4" />
+            <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
           </>
         )}
       </div>

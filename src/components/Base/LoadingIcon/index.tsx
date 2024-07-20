@@ -1,3 +1,5 @@
+
+
 import { useMemo } from "react";
 import { selectDarkMode } from "@/stores/darkModeSlice";
 import { useAppSelector } from "@/stores/hooks";
@@ -17,15 +19,16 @@ interface LoadingIconProps extends React.ComponentPropsWithoutRef<"span"> {
     | "tail-spin"
     | "three-dots";
   color?: string;
+  darkModeColor?: string;
 }
 
 function LoadingIcon(props: LoadingIconProps) {
   const darkMode = useAppSelector(selectDarkMode);
   const iconColor = useMemo(() => {
-    return darkMode ? props.color  : props.color ;
-  }, [darkMode]);
+    return darkMode ? props.darkModeColor || "#ffffff" : props.color || "#2d3748";
+  }, [darkMode, props.color, props.darkModeColor]);
 
-  const { icon, color, ...computedProps } = props;
+  const { icon, color, darkModeColor, ...computedProps } = props;
 
   const iconSvg = useMemo(() => {
     switch (icon) {
@@ -318,6 +321,8 @@ function LoadingIcon(props: LoadingIconProps) {
 LoadingIcon.defaultProps = {
   icon: "",
   color: "#2d3748",
+  darkModeColor: "#ffffff",
 };
 
 export default LoadingIcon;
+

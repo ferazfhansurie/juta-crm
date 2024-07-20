@@ -187,9 +187,9 @@ console.log(notifications);
   return (
     <div className="tinker">
       <MobileMenu />
-      <div className="flex mt-[5rem] pl-1 bg-slate-300 md:mt-0 overflow-hidden">
+      <div className="flex mt-[5rem] pl-1 bg-slate-300 dark:bg-gray-800 md:mt-0 overflow-hidden">
         {/* BEGIN: Simple Menu */}
-        <nav className="pt-5 mb-0 pl-1 pr-2 item-center side-nav side-nav--simple hidden md:flex flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300">
+        <nav className="pt-5 mb-0 pl-1 pr-2 item-center side-nav side-nav--simple hidden md:flex flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300 dark:bg-gray-800">
           <ul className="space-y-2 flex-grow">
             {/* BEGIN: First Child */}
             {formattedMenu.map((menu, menuKey) =>
@@ -210,12 +210,12 @@ console.log(notifications);
                       setFormattedMenu([...formattedMenu]);
                     }}
                     className={clsx([
-                      "flex items-center p-2 rounded hover:bg-slate-400",
-                      menu.active ? "bg-slate-400 text-slate-200 font-medium" : "",
+                      "flex items-center p-2 rounded hover:bg-slate-400 dark:hover:bg-gray-700",
+                      menu.active ? "bg-slate-400 dark:bg-gray-700 text-slate-200 dark:text-gray-200 font-medium" : "",
                     ])}
                   >
                     <div className="text-left w-10 h-6 m-0 flex items-center justify-between">
-                      <Lucide icon={menu.icon} className="text-slate-900 hover:text-slate-900" />
+                      <Lucide icon={menu.icon} className="text-slate-900 dark:text-gray-200 hover:text-slate-900 dark:hover:text-gray-200" />
                     </div>
                   </Tippy>
                   {/* BEGIN: Second Child */}
@@ -246,12 +246,12 @@ console.log(notifications);
                                 setFormattedMenu([...formattedMenu]);
                               }}
                               className={clsx([
-                                "flex items-center p-1 my-1 rounded hover:bg-slate-400",
-                                subMenu.active ? "bg-slate-400" : "",
+                                "flex items-center p-1 my-1 rounded hover:bg-slate-400 dark:hover:bg-gray-700",
+                                subMenu.active ? "bg-slate-400 dark:bg-gray-700" : "",
                               ])}
                             >
                               <div className="w-4 h-4 flex items-center justify-center">
-                                <Lucide icon={subMenu.icon} className="text-slate-900" />
+                                <Lucide icon={subMenu.icon} className="text-slate-900 dark:text-gray-200" />
                               </div>
                             </Tippy>
                             {/* BEGIN: Third Child */}
@@ -286,12 +286,12 @@ console.log(notifications);
                                           ]);
                                         }}
                                         className={clsx([
-                                          "flex items-center p-1 my-1 rounded hover:bg-slate-400",
-                                          lastSubMenu.active ? "bg-slate-400" : "",
+                                          "flex items-center p-1 my-1 rounded hover:bg-slate-400 dark:hover:bg-gray-700",
+                                          lastSubMenu.active ? "bg-slate-400 dark:bg-gray-700" : "",
                                         ])}
                                       >
                                         <div className="w-10 h-10 flex items-center justify-center">
-                                          <Lucide icon={lastSubMenu.icon} className="text-slate-900" />
+                                          <Lucide icon={lastSubMenu.icon} className="text-slate-900 dark:text-gray-200" />
                                         </div>
                                       </Tippy>
                                     </li>
@@ -313,7 +313,7 @@ console.log(notifications);
             <div>
             {companyName !== "Infinity Pilates & Physiotherapy" && (
               <Menu>
-                <Menu.Button className="z-50 block w-10 h-10 overflow rounded-md text-slate-900 hover:bg-slate-400 hover:text-slate-900 font-medium flex items-center justify-center">
+                <Menu.Button className="z-50 block w-10 h-10 overflow rounded-md text-slate-900 dark:text-gray-200 hover:bg-slate-400 dark:hover:bg-gray-700 hover:text-slate-900 dark:hover:text-gray-200 font-medium flex items-center justify-center">
                   <Lucide icon="Bell" className="w-5 h-5" />
                   {uniqueNotifications.length > 0 && (
                     <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1 py-0.5 text-[8px] z-10 transform translate-x-1/2 -translate-y-1/2">
@@ -321,28 +321,28 @@ console.log(notifications);
                     </span>
                   )}
                 </Menu.Button>
-                <Menu.Items className="absolute left-0 w-auto mt-0 mr-4 text-slate-900 bg-slate-400" style={{ width: '400px' }}>
+                <Menu.Items className="absolute left-0 w-auto mt-0 mr-4 text-slate-900 dark:text-gray-200 bg-slate-400 dark:bg-gray-700" style={{ width: '400px' }}>
                   <Menu.Header className="font-normal">
                     <div className="font-medium text-lg">Notifications</div>
                   </Menu.Header>
-                  <div className="mt-2 pl-2 pr-2 h-64 overflow-y-auto">
+                  <div className="mt-2 pl-2 pr-2 h-64 overflow-y-auto dark:dark-scrollbar">
                     {uniqueNotifications.length > 0 ? (
                       uniqueNotifications
                         .sort((a, b) => b.timestamp - a.timestamp)
                         .map((notification, key) => (
                           <div key={key} className="w-full">
                             <div
-                              className="flex items-center mb-2 box hover:bg-blue-100 cursor-pointer"
+                              className="flex items-center mb-2 box hover:bg-blue-100 dark:hover:bg-gray-600 cursor-pointer"
                               onClick={() => handleNotificationClick(notification.chat_id)}
                             >
                               <div className="p-2 pl-1 ml-2 w-full">
-                                <div className="text-s font-medium text-slate-800 truncate capitalize">
+                                <div className="text-s font-medium text-slate-800 dark:text-gray-200 truncate capitalize">
                                   {notification.chat_id.split('@')[0]}
                                 </div>
-                                <div className="text-base text-xs text-slate-500">
+                                <div className="text-base text-xs text-slate-500 dark:text-gray-400">
                                   {notification.text ? notification.text.body : ''}
                                 </div>
-                                <div className="text-slate-500 text-xs mt-0.5">
+                                <div className="text-slate-500 dark:text-gray-400 text-xs mt-0.5">
                                   {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
                                     hour: 'numeric',
                                     minute: 'numeric',
@@ -357,7 +357,7 @@ console.log(notifications);
                           </div>
                         ))
                     ) : (
-                      <div className="text-center text-slate-500">No messages available</div>
+                      <div className="text-center text-slate-500 dark:text-gray-400">No messages available</div>
                     )}
                   </div>
                 </Menu.Items>
@@ -378,7 +378,7 @@ console.log(notifications);
        
         {/* END: Simple Menu */}
         {/* BEGIN: Content */}
-        <div className="min-h-screen max-w-full md:max-w-none bg-slate-100 flex-1 pb-2 px-2 md:px-2 relative  dark:bg-darkmode-700 before:content-[''] before:w-full before:h-px before:block after:content-[''] after:z-[-1] after:rounded-[40px_0px_0px_0px] after:w-full after:inset-y-0 after:absolute after:left-0 after:bg-white/10 after:mt-8 after:-ml-4 after:dark:bg-darkmode-400/50 after:hidden md:after:block">
+        <div className="min-h-screen max-w-full md:max-w-none bg-slate-100 dark:bg-gray-900 flex-1 pb-2 px-2 md:px-2 relative before:content-[''] before:w-full before:h-px before:block after:content-[''] after:z-[-1] after:rounded-[40px_0px_0px_0px] after:w-full after:inset-y-0 after:absolute after:left-0 after:bg-white/10 after:mt-8 after:-ml-4 after:dark:bg-darkmode-400/50 after:hidden md:after:block dark:dark-scrollbar">
           <Outlet />
         </div>
         {/* END: Content */}

@@ -10,13 +10,22 @@ import { ConfigProvider } from "./config";
 
 import { useEffect } from "react";
 import { selectColorScheme } from "@/stores/colorSchemeSlice";
+import { selectDarkMode } from "@/stores/darkModeSlice";
+import { selectTheme } from "@/stores/themeSlice";
 
-const ColorSchemeProvider = ({ children }: { children: React.ReactNode }) => {
+const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const colorScheme = useSelector((state: RootState) => selectColorScheme(state));
+  const darkMode = useSelector((state: RootState) => selectDarkMode(state));
+  const theme = useSelector((state: RootState) => selectTheme(state));
 
   useEffect(() => {
     document.body.className = colorScheme;
-  }, [colorScheme]);
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [colorScheme, darkMode, theme]);
 
   return <>{children}</>;
 };
@@ -27,9 +36,9 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <ConfigProvider>
         <ContactsProvider>
           <ScrollToTop />
-          <ColorSchemeProvider>
+          <ThemeProvider>
             <Router />
-          </ColorSchemeProvider>
+          </ThemeProvider>
         </ContactsProvider>
       </ConfigProvider>
     </Provider>

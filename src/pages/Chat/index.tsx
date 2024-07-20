@@ -2506,10 +2506,10 @@ const handleForwardMessage = async () => {
   
   return (
     
-    <div className="flex overflow-hidden bg-gray-100 text-gray-800" style={{ height: '100vh' }}>
+    <div className="flex overflow-hidden bg-gray-100 text-gray-00" style={{ height: '100vh' }}>
        <audio ref={audioRef} src={noti} />
-    <div className="flex flex-col min-w-[35%] max-w-[35%] bg-gray-100 border-r border-gray-300">
-    <div className="pl-2 pt-4 text-start text-lg font-bold capitalize">
+    <div className="flex flex-col min-w-[35%] max-w-[35%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300">
+    <div className="pl-2 pt-4 text-start text-lg font-bold capitalize text-gray-800 dark:text-gray-200">
           Company ID : {userData?.companyId}
     </div>
     <div className="relative hidden sm:block p-2">
@@ -2619,26 +2619,26 @@ const handleForwardMessage = async () => {
   </div>
 )} {isFetching && (
   <div className="w-full">
-    <div className="bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 relative">
+    <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 relative">
       <div className="bg-primary h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
     </div>
     <div className="text-right mt-1">
-      <span className="font-semibold truncate">{progress.toFixed(2)}%</span>
+      <span className="font-semibold truncate text-gray-800 dark:text-gray-200">{progress.toFixed(2)}%</span>
     </div>
   </div>
 )}
 {!isFetching && (
- <div className="relative flex-grow">
+ <div className="bg-gray-100 dark:bg-gray-800 relative flex-grow">
  <input
    type="text"
-   className="!box w-full py-1 pl-10 pr-4 bg-gray-100 text-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
+   className="!box w-full py-1 pl-10 pr-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
    placeholder="Search..."
    value={searchQuery}
    onChange={handleSearchChange}
  />
  <Lucide
    icon="Search"
-   className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500"
+   className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
  />
 </div>
 )}
@@ -2647,21 +2647,21 @@ const handleForwardMessage = async () => {
     <div className="flex items-right space-x-3">
       <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
         <span className="flex items-center justify-center w-5 h-5">
-          <Lucide icon="Filter" className="w-5 h-5" />
+          <Lucide icon="Filter" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
         </span>
       </Menu.Button>
     </div>
-    <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+    <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
       {tagList.map((tag) => (
         <Menu.Item key={tag.id}>
           <button
-            className={`flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md ${
-              activeTags.includes(tag.name) ? 'bg-gray-200' : ''
+            className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
+              activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
             }`}
             onClick={() => filterTagContact(tag.name)}
           >
-            <Lucide icon="Tag" className="w-4 h-4 mr-2" />
-            {tag.name}
+            <Lucide icon="Tag" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+            <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
           </button>
         </Menu.Item>
       ))}
@@ -2671,106 +2671,99 @@ const handleForwardMessage = async () => {
     <div className="flex items-right space-x-3">
       <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
         <span className="flex items-center justify-center w-5 h-5">
-          <Lucide icon="Users" className="w-5 h-5" />
+          <Lucide icon="Users" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
         </span>
       </Menu.Button>
     </div>
-    <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+    <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
       {employeeList.map((tag) => (
         <Menu.Item key={tag.id}>
           <button
-            className={`flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md ${
-              activeTags.includes(tag.name) ? 'bg-gray-200' : ''
+            className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
+              activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
             }`}
             onClick={() => filterTagContact(tag.name.toLowerCase())}
           >
-            <Lucide icon="User" className="w-4 h-4 mr-2" />
-            {tag.name}
+            <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+            <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
           </button>
         </Menu.Item>
       ))}
     </Menu.Items>
   </Menu>
-  {/* <button 
-    className={`p-2 !box m-0`} 
-    onClick={() => setIsGroupFilterActive(!isGroupFilterActive)}
-  >
-    <span className="flex items-center justify-center w-5 h-5">
-      <Lucide icon={isGroupFilterActive ? "X" : "Users"} className="w-5 h-5" />
-    </span>
-  </button> */}
 </div>
 </div>
-  <div className="border-b border-gray-300 mt-4"></div>
+  <div className="border-b border-gray-300 dark:border-gray-700 mt-4"></div>
 
 </div>
-  <div className="flex-1 overflow-y-auto" ref={contactListRef}>
+  <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-auto" ref={contactListRef}>
   {filteredContacts.map((contact, index) => (
   <React.Fragment key={contact.id || `${contact.phone}-${index}`}>
     <div
       className={`m-2 pl-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 group ${
         contact.chat_id !== undefined
           ? selectedChatId === contact.chat_id
-            ? 'bg-gray-700 text-white'
-            : 'hover:bg-gray-300'
+            ? 'bg-slate-300 text-white dark:bg-gray-800 dark:text-gray-200'
+            : 'hover:bg-gray-300 dark:hover:bg-gray-700'
           : selectedChatId === contact.phone
-          ? 'bg-gray-700 text-white'
-          : 'hover:bg-gray-300'
+          ? 'bg-slate-300 text-white dark:bg-gray-800 dark:text-gray-200'
+          : 'hover:bg-gray-300 dark:hover:bg-gray-700'
       }`}
       onClick={() => selectChat(contact.chat_id!, contact.id!)}
     >
-      <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
-      {contact && contact.chat_pic_full ? (
-  <img src={contact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
-) : (
-  contact && contact.chat_id && contact.chat_id.includes('@g.us') ? (
-    <Lucide icon="Users" className="w-6 h-6 text-white" />
-  ) : (
-    <Lucide icon="User" className="w-6 h-6 text-white" />
-  )
-)}
+      <div className="w-12 h-12 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl">
+        {contact && contact.chat_pic_full ? (
+          <img src={contact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
+        ) : (
+          contact && contact.chat_id && contact.chat_id.includes('@g.us') ? (
+            <Lucide icon="Users" className="w-6 h-6 text-white dark:text-gray-200" />
+          ) : (
+            <Lucide icon="User" className="w-6 h-6 text-white dark:text-gray-200" />
+          )
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center">
-        <span className="font-semibold capitalize truncate w-36">{contact.contactName ?? contact.firstName ?? contact.phone}</span>
+          <span className="font-semibold capitalize truncate w-36 text-gray-800 dark:text-gray-200">
+            {contact.contactName ?? contact.firstName ?? contact.phone}
+          </span>
+          <span className="text-xs flex items-center space-x-2 text-gray-600 dark:text-gray-400">
+            <div className="ml-2 flex flex-wrap">
+              {(() => {
+                const employeeTags = contact.tags?.filter(tag =>
+                  employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+                ) || [];
 
-          <span className="text-xs flex items-center space-x-2">
-          <div className="ml-2 flex flex-wrap">
-  {(() => {
-    const employeeTags = contact.tags?.filter(tag =>
-      employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
-    ) || [];
+                const otherTags = contact.tags?.filter(tag =>
+                  !employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+                ) || [];
 
-    const otherTags = contact.tags?.filter(tag =>
-      !employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
-    ) || [];
-
-    return (
-      <>
-        {employeeTags.length > 0 && (
-          <Tippy content={employeeTags.join(', ')}>
-            <span className="bg-green-100 text-green-800 text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
-              <Lucide icon="User" className="w-4 h-4 inline-block" />
-              <span className="ml-1">{employeeTags.length}</span>
-            </span>
-          </Tippy>
-        )}
-        {otherTags.length > 0 && (
-          <Tippy content={otherTags.join(', ')}>
-            <span className="bg-green-100 text-primary text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
-              <Lucide icon="Tag" className="w-4 h-4 inline-block" />
-              <span className="ml-1">{otherTags.length}</span>
-            </span>
-          </Tippy>
-        )}
-      </>
-    );
-  })()}
-</div>
+                return (
+                  <>
+                    {employeeTags.length > 0 && (
+                      <Tippy content={employeeTags.join(', ')}>
+                        <span className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200 text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
+                          <Lucide icon="User" className="w-4 h-4 inline-block" />
+                          <span className="ml-1">{employeeTags.length}</span>
+                        </span>
+                      </Tippy>
+                    )}
+                    {otherTags.length > 0 && (
+                      <Tippy content={otherTags.join(', ')}>
+                        <span className="bg-green-100 text-primary dark:bg-blue-800 dark:text-blue-200 text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
+                          <Lucide icon="Tag" className="w-4 h-4 inline-block" />
+                          <span className="ml-1">{otherTags.length}</span>
+                        </span>
+                      </Tippy>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
 
             <button
               className={`text-md font-medium mr-2 ${
-                contact.pinned ? 'text-blue-500' : 'text-gray-500 group-hover:text-blue-500'
+                contact.pinned ? 'text-blue-500 dark:text-blue-400' : 'text-gray-500 group-hover:text-blue-500 dark:text-gray-400 dark:group-hover:text-blue-400'
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -2778,7 +2771,7 @@ const handleForwardMessage = async () => {
               }}
             >
               {contact.pinned ? (
-                <Pin size={16} color="#2D2D2D" strokeWidth={1.25} absoluteStrokeWidth fill="#2D2D2D" />
+                <Pin size={16} color="#2D2D2D" strokeWidth={1.25} absoluteStrokeWidth fill="#2D2D2D" className="dark:text-gray-200" />
               ) : (
                 <PinOff size={16} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
               )}
@@ -2789,11 +2782,11 @@ const handleForwardMessage = async () => {
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-sm truncate" style={{ width: '200px' }}>
+          <span className="text-sm truncate text-gray-600 dark:text-gray-400" style={{ width: '200px' }}>
             {(contact.last_message?.type === "text") ? contact.last_message?.text?.body ?? "No Messages" : "Photo"}
           </span>
           {contact.unreadCount! > 0 && (
-            <span className="bg-primary text-white text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
+            <span className="bg-primary text-white dark:bg-blue-600 dark:text-gray-200 text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
           )}
           <label className="inline-flex items-center cursor-pointer">
             <input
@@ -2803,20 +2796,20 @@ const handleForwardMessage = async () => {
               checked={contact.tags?.includes("stop bot")}
               onChange={() => toggleStopBotLabel(contact, index)}
             />
-            <div className="mt-1 ml-0 relative w-11 h-6 bg-primary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:-translate-x-full rtl:peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:end-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-gray-400">
+            <div className="mt-1 ml-0 relative w-11 h-6 bg-primary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-blue-700 peer-checked:after:-translate-x-full rtl:peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:end-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-gray-400">
             </div>
           </label>
         </div>
       </div>
     </div>
-    {index < filteredContacts.length - 1 && <hr className="my-2 border-gray-300" />}
+    {index < filteredContacts.length - 1 && <hr className="my-2 border-gray-300 dark:border-gray-700" />}
   </React.Fragment>
 ))}
   </div>
 </div>
-      <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 relative">
+      <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 dark:bg-gray-900 relative">
       {selectedContact && (
-  <div className="flex items-center justify-between p-1 border-b border-gray-300 bg-gray-100">
+  <div className="flex items-center justify-between p-1 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
     <div className="flex items-center">
       <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3 ml-2">
         {selectedContact.chat_pic_full ? (
@@ -2826,28 +2819,28 @@ const handleForwardMessage = async () => {
         )}
       </div>
       <div>
-        <div className="font-semibold text-gray-800 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
-        <div className="text-sm text-gray-600">{selectedContact.phone}</div>
+        <div className="font-semibold text-gray-800 dark:text-gray-200 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
+        <div className="text-sm text-gray-600 dark:text-gray-400">{selectedContact.phone}</div>
       </div>
     </div>
     <div className="flex items-center space-x-3">
       <Menu as="div" className="relative inline-block text-left">
         <Menu.Button as={Button} className="p-2 !box m-0">
           <span className="flex items-center justify-center w-5 h-5">
-            <Lucide icon="Users" className="w-5 h-5" />
+            <Lucide icon="Users" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
           </span>
         </Menu.Button>
-        <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+        <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
           {employeeList.map((tag) => (
             <Menu.Item key={tag.id}>
               <button
-                className={`flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md ${
-                  activeTags.includes(tag.name) ? 'bg-gray-200' : ''
+                className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
+                  activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
                 }`}
                 onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
               >
-                <Lucide icon="User" className="w-4 h-4 mr-2" />
-                {tag.name}
+                <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+                <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
               </button>
             </Menu.Item>
           ))}
@@ -2856,20 +2849,20 @@ const handleForwardMessage = async () => {
       <Menu as="div" className="relative inline-block text-left">
         <Menu.Button as={Button} className="p-2 !box m-0">
           <span className="flex items-center justify-center w-5 h-5">
-            <Lucide icon="Tag" className="w-5 h-5" />
+            <Lucide icon="Tag" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
           </span>
         </Menu.Button>
-        <Menu.Items className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+        <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
           {tagList.map((tag) => (
             <Menu.Item key={tag.id}>
               <button
-                className={`flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md ${
-                  activeTags.includes(tag.name) ? 'bg-gray-200' : ''
+                className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
+                  activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
                 }`}
                 onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
               >
-                <Lucide icon="User" className="w-4 h-4 mr-2" />
-                {tag.name}
+                <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+                <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
               </button>
             </Menu.Item>
           ))}
@@ -2877,7 +2870,7 @@ const handleForwardMessage = async () => {
       </Menu>
       <button className="p-2 m-0 !box" onClick={handleEyeClick}>
         <span className="flex items-center justify-center w-5 h-5">
-          <Lucide icon={isTabOpen ? "X" : "Eye"} className="w-5 h-5" />
+          <Lucide icon={isTabOpen ? "X" : "Eye"} className="w-5 h-5 text-gray-800 dark:text-gray-200" />
         </span>
       </button>
     </div>
@@ -2887,10 +2880,8 @@ const handleForwardMessage = async () => {
         <div className="flex-1 overflow-y-auto p-4" 
        style={{
         paddingBottom: "150px",
-        backgroundImage: selectedContact 
-          ? 'url(https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/wallpaper_1.png?alt=media&token=0391060c-fcb4-4760-8172-d8f341127ea6)' 
-          : 'none',
-        backgroundColor: selectedContact ? 'transparent' : 'bg-slate-400',
+
+        backgroundColor: selectedContact ? 'transparent' : 'bg-slate-400 dark:bg-gray-800',
         backgroundSize: 'cover',
         backgroundRepeat: 'no-repeat',
       }}
@@ -2898,11 +2889,11 @@ const handleForwardMessage = async () => {
            
         {isLoading2 && (
                 <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
-                  <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white p-4 rounded-md shadow-lg">
+                  <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white dark:bg-gray-800 p-4 rounded-md shadow-lg">
                     <div role="status">
                     <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
-          <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
-          <div className="mt-2 text-xs text-center">Fetching Data...</div>
+                    <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
+          <div className="mt-2 text-xs text-center text-gray-800 dark:text-gray-200">Fetching Data...</div>
         </div>
                     </div>
                   </div>
@@ -2925,7 +2916,7 @@ const handleForwardMessage = async () => {
           <React.Fragment key={message.id}>
            {showDateHeader && (
           <div className="flex justify-center my-4">
-            <div className="inline-block bg-white text-gray-800 font-bold py-1 px-4 rounded-lg shadow-md">
+            <div className="inline-block bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold py-1 px-4 rounded-lg shadow-md">
               {formatDateHeader(message.createdAt || message.dateAdded)}
             </div>
           </div>
@@ -2949,16 +2940,16 @@ const handleForwardMessage = async () => {
               onMouseLeave={() => setHoveredMessageId(null)}
             >
               {message.chat_id.includes('@g.us') && (
-                <div className="pb-1 text-gray-400  font-medium">{message.from_name||'+'+message.from}</div>
+                <div className="pb-1 text-gray-600 font-medium">{message.from_name||'+'+message.from}</div>
               )}
               {message.type === 'text' && message.text?.context && (
-                <div className="p-2 mb-2 rounded bg-gray-300">
-                  <div className="text-sm font-medium">{message.text.context.quoted_author || ''}</div>
-                  <div className="text-sm">{message.text.context.quoted_content?.body || ''}</div>
+                <div className="p-2 mb-2 rounded bg-gray-300 dark:bg-gray-700">
+                  <div className="text-sm font-medium text-gray-800 ">{message.text.context.quoted_author || ''}</div>
+                  <div className="text-sm text-gray-800 ">{message.text.context.quoted_content?.body || ''}</div>
                 </div>
               )}
               {message.type === 'text' && (
-                <div className="whitespace-pre-wrap break-words text-black">
+                <div className="whitespace-pre-wrap break-words text-black ">
                   {formatText(message.text?.body || '')}
                 </div>
               )}
@@ -2975,7 +2966,7 @@ const handleForwardMessage = async () => {
         e.currentTarget.src = 'path/to/fallback/image.jpg'; // Replace with your fallback image path
       }}
     />
-    <div className="caption">{message.image.caption}</div>
+    <div className="caption text-gray-800 ">{message.image.caption}</div>
   </div>
 )}
               {message.type === 'video' && message.video && (
@@ -2986,7 +2977,7 @@ const handleForwardMessage = async () => {
                     className="rounded-lg message-image cursor-pointer"
                     style={{ maxWidth: '300px' }}
                   />
-                  <div className="caption text-black">{message.video.caption}</div>
+                  <div className="caption text-gray-800 dark:text-gray-200">{message.video.caption}</div>
                 </div>
               )}
               {message.type === 'gif' && message.gif && (
@@ -2998,7 +2989,7 @@ const handleForwardMessage = async () => {
                     style={{ maxWidth: '300px' }}
                     onClick={() => openImageModal(message.gif?.link || '')}
                   />
-                  <div className="caption text-black">{message.gif.caption}</div>
+                  <div className="caption text-gray-800 dark:text-gray-200">{message.gif.caption}</div>
                 </div>
               )}
               {message.type === 'audio' && message.audio && (
@@ -3012,7 +3003,7 @@ const handleForwardMessage = async () => {
                 </div>
               )}
               {message.type === 'document' && message.document && (
-                <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md">
+                <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
                   <iframe
                     src={message.document.link}
                     width="100%"
@@ -3022,8 +3013,8 @@ const handleForwardMessage = async () => {
                     onClick={() => openPDFModal(message.document?.link || '')}
                   />
                   <div className="flex-1 text-justify mt-3">
-                    <div className="font-semibold text-black">{message.document.file_name}</div>
-                    <div>
+                    <div className="font-semibold text-gray-800 dark:text-gray-200">{message.document.file_name}</div>
+                    <div className="text-gray-600 dark:text-gray-400">
                       {message.document.page_count} page
                       {message.document.page_count > 1 ? 's' : ''} • PDF •{' '}
                       {(message.document.file_size / 1024).toFixed(2)} kB
@@ -3033,12 +3024,12 @@ const handleForwardMessage = async () => {
                     onClick={() => openPDFModal(message.document!.link)}
                     className="mt-3"
                   >
-                    <Lucide icon="ExternalLink" className="w-6 h-6 text-white-700" />
+                    <Lucide icon="ExternalLink" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
                   </button>
                 </div>
               )}
               {message.type === 'link_preview' && message.link_preview && (
-                <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden text-black">
+                <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden text-gray-800 dark:text-gray-200">
                   <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
                     <img
                       src={message.link_preview.preview}
@@ -3047,7 +3038,7 @@ const handleForwardMessage = async () => {
                     />
                     <div className="p-2">
                       <div className="font-bold text-lg">{message.link_preview.title}</div>
-                      <div className="text-sm text-black">{message.link_preview.description}</div>
+                      <div className="text-sm text-gray-800 dark:text-gray-200">{message.link_preview.description}</div>
                       <div className="text-blue-500 mt-1">{message.link_preview.body}</div>
                     </div>
                   </a>
@@ -3066,36 +3057,36 @@ const handleForwardMessage = async () => {
               )}
               {message.type === 'location' && message.location && (
                 <div className="location-content p-0 message-content image-message">
-                  <div className="text-sm">Location: {message.location.latitude}, {message.location.longitude}</div>
+                  <div className="text-sm text-gray-800 dark:text-gray-200">Location: {message.location.latitude}, {message.location.longitude}</div>
                 </div>
               )}
               {message.type === 'poll' && message.poll && (
                 <div className="poll-content p-0 message-content image-message">
-                  <div className="text-sm">Poll: {message.poll.title}</div>
+                  <div className="text-sm text-gray-800 dark:text-gray-200">Poll: {message.poll.title}</div>
                 </div>
               )}
               {message.type === 'hsm' && message.hsm && (
                 <div className="hsm-content p-0 message-content image-message">
-                  <div className="text-sm">HSM: {message.hsm.title}</div>
+                  <div className="text-sm text-gray-800 dark:text-gray-200">HSM: {message.hsm.title}</div>
                 </div>
               )}
               {message.type === 'action' && message.action && (
-                <div className="action-content flex flex-col p-4 rounded-md shadow-md">
+                <div className="action-content flex flex-col p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
                   {message.action.type === 'delete' ? (
-                    <div className="text-gray-400">This message was deleted</div>
+                    <div className="text-gray-400 dark:text-gray-600">This message was deleted</div>
                   ) : (
                     /* Handle other action types */
-                    <div>{message.action.emoji}</div>
+                    <div className="text-gray-800 dark:text-gray-200">{message.action.emoji}</div>
                   )}
                 </div>
               )}
               {message.reactions && message.reactions.length > 0 && (
                 <div className="flex items-center space-x-2 mt-1">
                   {message.reactions.map((reaction, index) => (
-                    <div key={index} className="text-gray-500 text-sm flex items-center space-x-1">
+                    <div key={index} className="text-gray-500 dark:text-gray-400 text-sm flex items-center space-x-1">
                       <span
-                        className="inline-flex items-center justify-center border border-white rounded-full"
-                        style={{ padding: '10px', backgroundColor: '#F0F0F0' }}
+                        className="inline-flex items-center justify-center border border-white rounded-full bg-gray-200 dark:bg-gray-700"
+                        style={{ padding: '10px' }}
                       >
                         {reaction.emoji}
                       </span>
@@ -3105,10 +3096,10 @@ const handleForwardMessage = async () => {
                 </div>
               )}
 
-        <div className="message-timestamp text-xs text-black mt-1">
+        <div className="message-timestamp text-xs text-gray-800 mt-1">
           {formatTimestamp(message.createdAt || message.dateAdded)}
           {message.name && (
-    <span className="ml-2 text-gray-400">{message.name}</span>
+    <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>
   )}
           {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
             <div className="flex items-center">
@@ -3119,14 +3110,14 @@ const handleForwardMessage = async () => {
                 onChange={() => handleSelectMessage(message)}
               />
            <button
-                  className="ml-2 text-blue-500 hover:text-gray-400 fill-current"
+                  className="ml-2 text-blue-500 hover:text-gray-400 dark:text-blue-400 dark:hover:text-gray-600 fill-current"
                   onClick={() => setReplyToMessage(message)}
                 >
                   <Lucide icon="MessageSquare" className="w-5 h-5" />
                 </button>
                {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && (
                 <button
-                  className="ml-2 text-white hover:text-gray-400 fill-current"
+                  className="ml-2 text-white hover:text-gray-400 dark:text-gray-200 dark:hover:text-gray-400 fill-current"
                   onClick={() => openEditMessage(message)}
                 >
                   <Lucide icon="Pencil" className="w-5 h-5" />
@@ -3145,9 +3136,9 @@ const handleForwardMessage = async () => {
 
         <div className="absolute bottom-0 left-0 w-500px !box m-1 py-1 px-2">
         {replyToMessage && (
-    <div className="p-2 mb-2 rounded bg-gray-200 flex items-center justify-between">
+    <div className="p-2 mb-2 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-between">
       <div>
-        <div className="font-semibold">{replyToMessage.from_name}</div>
+        <div className="font-semibold text-gray-800 dark:text-gray-200">{replyToMessage.from_name}</div>
         <div>
           {replyToMessage.type === 'text' && replyToMessage.text?.body}
           {replyToMessage.type === 'link_preview' && replyToMessage.link_preview?.body}
@@ -3159,36 +3150,36 @@ const handleForwardMessage = async () => {
           {replyToMessage.type === 'document' && <iframe src={replyToMessage.document?.link} width="100%" height="200px" />}
           {replyToMessage.type === 'sticker' && <img src={replyToMessage.sticker?.link} alt="Sticker" style={{ maxWidth: '150px' }} />}
           {replyToMessage.type === 'location' && (
-            <div>
+            <div className="text-gray-800 dark:text-gray-200">
               Location: {replyToMessage.location?.latitude}, {replyToMessage.location?.longitude}
             </div>
           )}
-          {replyToMessage.type === 'poll' && <div>Poll: {replyToMessage.poll?.title}</div>}
-          {replyToMessage.type === 'hsm' && <div>HSM: {replyToMessage.hsm?.title}</div>}
+          {replyToMessage.type === 'poll' && <div className="text-gray-800 dark:text-gray-200">Poll: {replyToMessage.poll?.title}</div>}
+          {replyToMessage.type === 'hsm' && <div className="text-gray-800 dark:text-gray-200">HSM: {replyToMessage.hsm?.title}</div>}
         </div>
       </div>
       <button onClick={() => setReplyToMessage(null)}>
-        <Lucide icon="X" className="w-5 h-5" />
+        <Lucide icon="X" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
       </button>
     </div>
   )}
 <div className="flex items-center w-full">
   <button className="p-2 m-0 !box" onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}>
     <span className="flex items-center justify-center w-5 h-5">
-      <Lucide icon="Smile" className="w-5 h-5" />
+      <Lucide icon="Smile" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
     </span>
   </button>
   <Menu as="div" className="relative inline-block text-left p-2">
     <div className="flex items-center space-x-3">
       <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
         <span className="flex items-center justify-center w-5 h-5">
-          <Lucide icon="Paperclip" className="w-5 h-5" />
+          <Lucide icon="Paperclip" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
         </span>
       </Menu.Button>
     </div>
-    <Menu.Items className="absolute left-0 bottom-full mb-2 w-40 bg-white shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-      <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
-        <label htmlFor="imageUpload" className="flex items-center cursor-pointer">
+    <Menu.Items className="absolute left-0 bottom-full mb-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+      <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
+        <label htmlFor="imageUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200">
           <Lucide icon="Image" className="w-4 h-4 mr-2" />
           Image
           <input
@@ -3201,8 +3192,8 @@ const handleForwardMessage = async () => {
           />
         </label>
       </button>
-      <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 rounded-md">
-        <label htmlFor="documentUpload" className="flex items-center cursor-pointer">
+      <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
+        <label htmlFor="documentUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200">
           <Lucide icon="File" className="w-4 h-4 mr-2" />
           Document
           <input
@@ -3219,12 +3210,12 @@ const handleForwardMessage = async () => {
   </Menu>
   <button className="p-2 m-0 !box" onClick={handleQR}>
     <span className="flex items-center justify-center w-5 h-5">
-      <Lucide icon='Zap' className="w-5 h-5" />
+      <Lucide icon='Zap' className="w-5 h-5 text-gray-800 dark:text-gray-200" />
     </span>
   </button>
   <textarea
   ref={textareaRef}
-  className="flex-grow h-10 px-2 py-1.5 m-1 ml-2 border border-gray-300 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
+  className="flex-grow h-10 px-2 py-1.5 m-1 ml-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
   placeholder="Type a message"
   value={newMessage}
   onChange={(e) => {
@@ -3300,18 +3291,18 @@ const handleForwardMessage = async () => {
       {selectedMessages.length > 0 && (
       <div className="fixed bottom-20 right-10 space-x-4">
         <button
-          className="bg-blue-800 text-white px-4 py-3 rounded-xl shadow-lg"
+          className="bg-blue-800 dark:bg-blue-600 text-white px-4 py-3 rounded-xl shadow-lg"
           onClick={() => setIsForwardDialogOpen(true)}>
           Forward
         </button>
 
         <button
-      className="bg-red-800 text-white px-4 py-3 rounded-xl shadow-lg"
+      className="bg-red-800 dark:bg-red-600 text-white px-4 py-3 rounded-xl shadow-lg"
       onClick={openDeletePopup}>
       Delete
     </button>
         <button
-          className="bg-gray-700 text-white px-4 py-3 rounded-xl shadow-lg"
+          className="bg-gray-700 dark:bg-gray-600 text-white px-4 py-3 rounded-xl shadow-lg"
           onClick={() => setSelectedMessages([])}
           onKeyDown={handleKeyDown}>
           Cancel
@@ -3319,9 +3310,9 @@ const handleForwardMessage = async () => {
       </div>
     )}
 {isTabOpen && (
-  <div className="absolute top-0 right-0 h-full w-full md:w-1/3 bg-white border-l border-gray-300 overflow-y-auto z-50">
+  <div className="absolute top-0 right-0 h-full w-full md:w-1/3 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-700 overflow-y-auto z-50">
     <div className="p-6">
-      <div className="flex items-center justify-between p-4 border-b border-gray-300 bg-gray-100">
+      <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
         <div className="flex items-center">
           <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
           {selectedContact.chat_pic_full ? (
@@ -3331,29 +3322,29 @@ const handleForwardMessage = async () => {
         )}
           </div>
           <div>
-            <div className="font-semibold text-gray-800 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
-            <div className="text-sm text-gray-600">{selectedContact.phone}</div>
+            <div className="font-semibold text-gray-800 dark:text-gray-200 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">{selectedContact.phone}</div>
           </div>
         </div>
-        <button onClick={handleEyeClick} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300 focus:outline-none">
-          <Lucide icon="X" className="w-6 h-6 text-gray-800" />
+        <button onClick={handleEyeClick} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none">
+          <Lucide icon="X" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
         </button>
       </div>
       <div className="mt-6">
-        <p className="font-semibold text-lg mb-4">Contact Info</p>
-        <div className="space-y-2 text-gray-700">
+        <p className="font-semibold text-lg mb-4 text-gray-800 dark:text-gray-200">Contact Info</p>
+        <div className="space-y-2 text-gray-700 dark:text-gray-300">
         <p>
-  <span className="font-semibold text-blue-600">Tags:</span>
+  <span className="font-semibold text-blue-600 dark:text-blue-400">Tags:</span>
   <div className="flex flex-wrap mt-2">
     {selectedContact.tags.length > 0 ? (
       selectedContact.tags.map((tag: string, index: number) => (
         <div key={index} className="flex items-center mr-2 mb-2">
-          <span className="inline-block bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded border border-blue-400 mr-1">{tag}</span>
+          <span className="inline-block bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-sm font-semibold px-3 py-1 rounded border border-blue-400 dark:border-blue-600 mr-1">{tag}</span>
           <button
             className="p-1"
             onClick={() => handleRemoveTag( selectedContact.id, tag)}
           >
-            <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700" />
+            <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600" />
           </button>
         </div>
       ))
@@ -3362,13 +3353,13 @@ const handleForwardMessage = async () => {
     )}
   </div>
 </p>
-          <p><span className="font-semibold text-blue-600">Phone:</span> {selectedContact.phone}</p>
-          <p><span className="font-semibold text-blue-600">Email:</span> {selectedContact.email || 'N/A'}</p>
-          <p><span className="font-semibold text-blue-600">Company:</span> {selectedContact.companyName || 'N/A'}</p>
-          <p><span className="font-semibold text-blue-600">Address:</span> {selectedContact.address1 || 'N/A'}</p>
-          <p><span className="font-semibold text-blue-600">First Name:</span> {selectedContact.contactName ?? selectedContact.firstName}</p>
-          <p><span className="font-semibold text-blue-600">Last Name:</span> {selectedContact.lastName}</p>
-          <p><span className="font-semibold text-blue-600">Website:</span> {selectedContact.website || 'N/A'}</p>
+          <p><span className="font-semibold text-blue-600 dark:text-blue-400">Phone:</span> {selectedContact.phone}</p>
+          <p><span className="font-semibold text-blue-600 dark:text-blue-400">Email:</span> {selectedContact.email || 'N/A'}</p>
+          <p><span className="font-semibold text-blue-600 dark:text-blue-400">Company:</span> {selectedContact.companyName || 'N/A'}</p>
+          <p><span className="font-semibold text-blue-600 dark:text-blue-400">Address:</span> {selectedContact.address1 || 'N/A'}</p>
+          <p><span className="font-semibold text-blue-600 dark:text-blue-400">First Name:</span> {selectedContact.contactName ?? selectedContact.firstName}</p>
+          <p><span className="font-semibold text-blue-600 dark:text-blue-400">Last Name:</span> {selectedContact.lastName}</p>
+          <p><span className="font-semibold text-blue-600 dark:text-blue-400">Website:</span> {selectedContact.website || 'N/A'}</p>
           {/* Add more fields as necessary */}
         </div>
       </div>
@@ -3376,10 +3367,10 @@ const handleForwardMessage = async () => {
   </div>
 )}
  {isQuickRepliesOpen && (
-  <div className="absolute bottom-20 left-2 w-full max-w-md bg-gray-100 p-2 rounded-md shadow-lg mt-2">
+  <div className="absolute bottom-20 left-2 w-full max-w-md bg-gray-100 dark:bg-gray-800 p-2 rounded-md shadow-lg mt-2">
     <div className="flex items-center mb-4">
       <textarea
-        className="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
         placeholder="Add new quick reply"
         value={newQuickReply}
         onChange={(e) => setNewQuickReply(e.target.value)}
@@ -3388,31 +3379,31 @@ const handleForwardMessage = async () => {
       />
       <button className="p-2 m-1 !box" onClick={addQuickReply}>
         <span className="flex items-center justify-center w-5 h-5">
-          <Lucide icon="Plus" className="w-5 h-5" />
+          <Lucide icon="Plus" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
         </span>
       </button>
     </div>
     <div className="max-h-60 overflow-y-auto">
       {quickReplies.map(reply => (
-        <div key={reply.id} className="flex items-center justify-between mb-2 bg-gray-50">
+        <div key={reply.id} className="flex items-center justify-between mb-2 bg-gray-50 dark:bg-gray-700">
           {editingReply?.id === reply.id ? (
             <>
               <textarea
-                className="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
                 value={editingReply.text}
                 onChange={(e) => setEditingReply({ ...editingReply, text: e.target.value })}
                 style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
               />
               <button className="p-2 m-1 !box" onClick={() => updateQuickReply(reply.id, editingReply.text)}>
                 <span className="flex items-center justify-center w-5 h-5">
-                  <Lucide icon="Save" className="w-5 h-5" />
+                  <Lucide icon="Save" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
                 </span>
               </button>
             </>
           ) : (
             <>
               <span
-                className="px-4 py-2 flex-grow text-lg cursor-pointer"
+                className="px-4 py-2 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
                 onClick={() => handleQRClick(reply.text)}
                 style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
               >
@@ -3421,10 +3412,10 @@ const handleForwardMessage = async () => {
               <div>
                 <button className="p-2 m-1 !box" onClick={() => setEditingReply(reply)}>
                   <span className="flex items-center justify-center w-5 h-5">
-                    <Lucide icon="Eye" className="w-5 h-5" />
+                    <Lucide icon="Eye" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
                   </span>
                 </button>
-                <button className="p-2 m-1 !box text-red-500" onClick={() => deleteQuickReply(reply.id)}>
+                <button className="p-2 m-1 !box text-red-500 dark:text-red-400" onClick={() => deleteQuickReply(reply.id)}>
                   <span className="flex items-center justify-center w-5 h-5">
                     <Lucide icon="Trash" className="w-5 h-5" />
                   </span>
@@ -3468,18 +3459,18 @@ const ImageModal2: React.FC<ImageModalProps2> = ({ isOpen, onClose, imageUrl, on
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-400 bg-opacity-75" onClick={onClose}>
       <div
-        className="relative bg-slate-400 rounded-lg shadow-lg w-[800px] h-[600px] p-4"
+        className="relative bg-slate-400 dark:bg-gray-800 rounded-lg shadow-lg w-[800px] h-[600px] p-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
           <button
-            className="text-black hover:text-gray-800"
+            className="text-black hover:text-gray-800 dark:text-gray-200 dark:hover:text-gray-400"
             onClick={onClose}
           >
             <Lucide icon="X" className="w-6 h-6" />
           </button>
         </div>
-        <div className="bg-slate-400 p-4 rounded-lg mb-4 flex justify-center items-center" style={{ height: '70%' }}>
+        <div className="bg-slate-400 dark:bg-gray-800 p-4 rounded-lg mb-4 flex justify-center items-center" style={{ height: '70%' }}>
           <img
             src={imageUrl}
             alt="Modal Content"
@@ -3487,16 +3478,16 @@ const ImageModal2: React.FC<ImageModalProps2> = ({ isOpen, onClose, imageUrl, on
             style={{ maxWidth: '100%', maxHeight: '100%' }}
           />
         </div>
-        <div className="flex items-center bg-slate-500 rounded-lg p-2">
+        <div className="flex items-center bg-slate-500 dark:bg-gray-700 rounded-lg p-2">
           <input
             type="text"
             placeholder="Add a caption"
-            className="flex-grow bg-white text-gray-800 p-2 rounded-lg focus:outline-none"
+            className="flex-grow bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-2 rounded-lg focus:outline-none"
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
           />
           <button
-            className="ml-2 bg-primary text-white p-2 rounded-lg"
+            className="ml-2 bg-primary dark:bg-blue-600 text-white p-2 rounded-lg"
             onClick={handleSendClick}
           >
             <Lucide icon="Send" className="w-5 h-5" />
@@ -3521,23 +3512,23 @@ const NotificationPopup: React.FC<{ notifications: any[] }> = ({ notifications: 
   return (
     <div className="fixed top-5 right-10 z-50">
       {notifications.map((notification, index) => (
-        <div key={index} className="relative bg-white rounded-lg shadow-lg mb-2 px-4 py-2" style={{ width: '250px' }}>
+        <div key={index} className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-2 px-4 py-2" style={{ width: '250px' }}>
          <button
-            className="absolute top-1 left-1 text-black hover:text-gray-800 p-2"
+            className="absolute top-1 left-1 text-black hover:text-gray-800 dark:text-gray-200 dark:hover:text-gray-400 p-2"
             onClick={() => handleDelete(index)}
           >
             <Lucide icon="X" className="w-4 h-4" />
           </button>
           <div className="flex justify-between items-center ">
             <div className="flex-grow px-10">
-              <div className="font-semibold text-primary">{notification.from_name}</div>
-              <div className="text-gray-700">{notification.text.body}</div>
+              <div className="font-semibold text-primary dark:text-blue-400">{notification.from_name}</div>
+              <div className="text-gray-700 dark:text-gray-300">{notification.text.body}</div>
             </div>
             <div className="mx-2 h-full flex items-center">
-              <div className="border-l border-gray-300 h-12"></div>
+              <div className="border-l border-gray-300 dark:border-gray-700 h-12"></div>
             </div>
             <button 
-            className="bg-primary text-white py-1 px-4 rounded"
+            className="bg-primary dark:bg-blue-600 text-white py-1 px-4 rounded"
             onClick={() => handleNotificationClick(notification.chat_id,index)}
             >
               Show</button>

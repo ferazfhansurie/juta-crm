@@ -33,7 +33,7 @@
                 align-items: center;
                 width: 100%;
                 margin-left: theme("spacing.3");
-                @media screen(xl) {
+                @media screen and (min-width: theme("screens.xl")) {
                     display: flex;
                 }
                 .side-menu__sub-icon {
@@ -45,7 +45,7 @@
                     margin-left: auto;
                     margin-right: theme("spacing.5");
                     display: none;
-                    @media screen(xl) {
+                    @media screen and (min-width: theme("screens.xl")) {
                         display: block;
                     }
                     svg {
@@ -125,7 +125,7 @@
                     }
                     &:hover {
                         &:not(.side-menu--active):not(.side-menu--open) {
-                            background-color: theme("colors.theme.1" / 60%);
+                            background-color: theme("colors.info");
                             &:before {
                                 content: "";
                                 display: block;
