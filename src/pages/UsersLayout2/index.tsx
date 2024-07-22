@@ -245,11 +245,6 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
     <>
       <h2 className="mt-10 text-lg font-medium intro-y">Users Layout</h2>
       <div className="grid grid-cols-12 gap-6 mt-5">
-        <div className="col-span-12 mt-2 intro-y">
-          {isLoading && <p>Loading QR code...</p>}
-          {error && <p className="text-red-500">{error}</p>}
-          {qrCodeImage && <img src={qrCodeImage} alt="QR Code" />}
-        </div>
         <div className="flex flex-wrap items-center col-span-12 mt-2 intro-y sm:flex-nowrap">
           <Link to="crud-form">
             {showAddUserButton && (

@@ -310,10 +310,10 @@ function Main() {
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
-  const otherMessageClass = "bg-white text-black rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
+  const myMessageClass = "flex flex-col max-w-[320px] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
+  const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
   const myMessageTextClass = "text-white"
-  const otherMessageTextClass = "text-black"
+  const otherMessageTextClass = "text-white"
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [ghlConfig, setGhlConfig] = useState<GhlConfig | null>(null);
@@ -2942,7 +2942,7 @@ const handleForwardMessage = async () => {
                     ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
                     : '100'
                 }px`,
-                minWidth: '150px',
+                minWidth: '70px',
               }}
               onMouseEnter={() => setHoveredMessageId(message.id)}
               onMouseLeave={() => setHoveredMessageId(null)}
@@ -2962,21 +2962,21 @@ const handleForwardMessage = async () => {
                 </div>
               )}
             {message.type === 'image' && message.image && (
-  <div className="p-0 message-content image-message">
-    <img
-      src={message.image.link || `https://mighty-dane-newly.ngrok-free.app${message.image.url}` || ''}
-      alt="Image"
-      className="rounded-lg message-image cursor-pointer"
-      style={{ maxWidth: '300px' }}
-      onClick={() => openImageModal(message.image?.link || `https://mighty-dane-newly.ngrok-free.app${message?.image?.url}`|| '')}
-      onError={(e) => {
-        console.error("Error loading image:", e.currentTarget.src);
-        e.currentTarget.src = 'path/to/fallback/image.jpg'; // Replace with your fallback image path
-      }}
-    />
-    <div className="caption text-gray-800 ">{message.image.caption}</div>
-  </div>
-)}
+            <div className="p-0 message-content image-message">
+              <img
+                src={message.image.link || `https://mighty-dane-newly.ngrok-free.app${message.image.url}` || ''}
+                alt="Image"
+                className="rounded-lg message-image cursor-pointer"
+                style={{ maxWidth: '300px' }}
+                onClick={() => openImageModal(message.image?.link || `https://mighty-dane-newly.ngrok-free.app${message?.image?.url}`|| '')}
+                onError={(e) => {
+                  console.error("Error loading image:", e.currentTarget.src);
+                  e.currentTarget.src = 'path/to/fallback/image.jpg'; // Replace with your fallback image path
+                }}
+              />
+              <div className="caption text-gray-800 ">{message.image.caption}</div>
+            </div>
+          )}
               {message.type === 'video' && message.video && (
                 <div className="video-content p-0 message-content image-message">
                   <video
@@ -3107,8 +3107,8 @@ const handleForwardMessage = async () => {
         <div className={`message-timestamp text-xs ${message.from_me ? myMessageTextClass : otherMessageTextClass} mt-1`}>
           {formatTimestamp(message.createdAt || message.dateAdded)}
           {message.name && (
-    <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>
-  )}
+            <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>
+          )}
           {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
             <div className="flex items-center">
               <input

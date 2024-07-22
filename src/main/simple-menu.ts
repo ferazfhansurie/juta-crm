@@ -56,7 +56,6 @@ const menu: Array<Menu | "divider"> = [
     ,
   */
   "divider",
-
 ];
 
 export default menu;

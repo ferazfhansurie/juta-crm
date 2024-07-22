@@ -25,6 +25,7 @@ setPersistence(auth, browserLocalPersistence);
 interface ConfigContextProps {
   config: any;
   isLoading: boolean;
+  role: string | null;
 }
 
 const ConfigContext = createContext<ConfigContextProps | undefined>(undefined);
@@ -32,6 +33,7 @@ const ConfigContext = createContext<ConfigContextProps | undefined>(undefined);
 export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   const [config, setConfig] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [role, setRole] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -75,6 +77,13 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
+        const role = dataUser?.role;
+        if (!role) {
+          setIsLoading(false);
+          return;
+        }
+        setRole(role);
+
         const docRef = doc(firestore, 'companies', companyId);
         const docSnapshot = await getDoc(docRef);
         if (!docSnapshot.exists()) {
@@ -117,7 +126,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <ConfigContext.Provider value={{ config, isLoading }}>
+    <ConfigContext.Provider value={{ config, isLoading, role }}>
       {children}
     </ConfigContext.Provider>
   );

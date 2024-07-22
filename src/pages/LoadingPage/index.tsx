@@ -60,7 +60,11 @@ function LoadingPage() {
       const companyData = docSnapshot.data();
       if (!companyData.v2) {
         // If "v2" is not present or is false, navigate to the next page
-        navigate('/chat');
+        if (initialContacts.name === "Infinity Pilates & Physiotherapy") {
+          navigate('/calendar');
+        } else {
+          navigate('/chat');
+        }
         return;
       }
       //http://jutaserver.ddns.net:8443/api/bot-status
@@ -77,14 +81,20 @@ function LoadingPage() {
       if (status === 'qr') {
         setQrCodeImage(qrCode);
         console.log({companyId});
+      } else if (status === 'authenticated' || status === 'ready') {
+        navigate('/chat');
       } else {
-        navigate(status === 'authenticated' || status === 'ready' ? '/calendar' : '/chat');
+        navigate('/calendar');
       }
       setIsLoading(false);
     } catch (error) {
       setIsLoading(false);
       if (axios.isAxiosError(error)) {
-        setError(error.response?.data || 'Failed to fetch QR code. Please try again.');
+        if (error.code === 'ERR_NETWORK') {
+          setError('Network error. Please check your internet connection and try again.');
+        } else {
+          setError(error.response?.data || 'Failed to fetch QR code. Please try again.');
+        }
       } else if (error instanceof Error) {
         setError(error.message);
       } else {
@@ -112,7 +122,8 @@ function LoadingPage() {
       
       ws.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data.status === 'authenticated') {
+        if (data.status === 'authenticated' || data.status === 'ready') {
+          setBotStatus(data.status);
           navigate('/chat');
         }
       };
@@ -165,7 +176,9 @@ function LoadingPage() {
         ) : (
           <>
             <div className="mt-2 text-xs p-15 text-gray-800 dark:text-gray-200">
-              Fetching Data...
+              {botStatus === 'authenticated' || botStatus === 'ready' 
+                ? 'Authentication successful. Redirecting...' 
+                : 'Fetching Data...'}
             </div>
             <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
           </>

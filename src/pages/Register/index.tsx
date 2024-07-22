@@ -11,6 +11,7 @@ import { useState, useEffect } from "react";
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axios from "axios";
+import { loadStripe } from '@stripe/stripe-js';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -27,6 +28,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const firestore = getFirestore(app);
+
+const stripePromise = loadStripe('your_publishable_key');
 
 function Main() {
   const [name, setName] = useState("");
@@ -73,9 +76,36 @@ function Main() {
       console.log(response2);
 
       toast.success("User registered successfully!");
-      navigate("/login");
+
+      // Stripe integration
+      const stripe = await stripePromise;
+      if (!stripe) {
+        throw new Error('Stripe failed to initialize');
+      }
+
+      // Create a Stripe Checkout Session
+      const response = await axios.post('http://localhost:3001/create-checkout-session', {
+        userId: user.uid,
+        email: user.email,
+      });
+      console.log('Checkout session created:', response.data);
+
+      const session = response.data;
+
+      // Redirect to Stripe Checkout
+      const result = await stripe.redirectToCheckout({
+        sessionId: session.id,
+      });
+
+      if (result.error) {
+        toast.error("Failed to process payment: " + result.error.message);
+      }
+
     } catch (error) {
-      if (error instanceof Error) {
+      if (axios.isAxiosError(error)) {
+        console.error("Axios error:", error.response?.data || error.message);
+        toast.error(`Registration failed: ${error.response?.data?.message || error.message}`);
+      } else if (error instanceof Error) {
         console.error("Error registering user:", error);
         setRegisterResult(error.message);
         toast.error("Failed to register user: " + error.message);
