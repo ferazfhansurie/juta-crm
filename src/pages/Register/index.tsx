@@ -11,7 +11,6 @@ import { useState, useEffect } from "react";
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axios from "axios";
-import { loadStripe } from '@stripe/stripe-js';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -28,8 +27,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const firestore = getFirestore(app);
-
-const stripePromise = loadStripe('your_publishable_key');
 
 function Main() {
   const [name, setName] = useState("");
@@ -77,29 +74,8 @@ function Main() {
 
       toast.success("User registered successfully!");
 
-      // Stripe integration
-      const stripe = await stripePromise;
-      if (!stripe) {
-        throw new Error('Stripe failed to initialize');
-      }
-
-      // Create a Stripe Checkout Session
-      const response = await axios.post('http://localhost:3001/create-checkout-session', {
-        userId: user.uid,
-        email: user.email,
-      });
-      console.log('Checkout session created:', response.data);
-
-      const session = response.data;
-
-      // Redirect to Stripe Checkout
-      const result = await stripe.redirectToCheckout({
-        sessionId: session.id,
-      });
-
-      if (result.error) {
-        toast.error("Failed to process payment: " + result.error.message);
-      }
+      // You might want to add a navigation to a success page or dashboard
+      navigate('/login');
 
     } catch (error) {
       if (axios.isAxiosError(error)) {
