@@ -310,8 +310,10 @@ function Main() {
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-[#dcf8c6] text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
+  const myMessageClass = "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
   const otherMessageClass = "bg-white text-black rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
+  const myMessageTextClass = "text-white"
+  const otherMessageTextClass = "text-black"
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [ghlConfig, setGhlConfig] = useState<GhlConfig | null>(null);
@@ -2509,9 +2511,9 @@ const handleForwardMessage = async () => {
     <div className="flex overflow-hidden bg-gray-100 text-gray-00" style={{ height: '100vh' }}>
        <audio ref={audioRef} src={noti} />
     <div className="flex flex-col min-w-[35%] max-w-[35%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300">
-    <div className="pl-2 pt-4 text-start text-lg font-bold capitalize text-gray-800 dark:text-gray-200">
-          Company ID : {userData?.companyId}
-    </div>
+    <div className="pl-4 pt-6 text-start text-2xl font-bold capitalize text-gray-800 dark:text-gray-200">
+  {userData?.company}
+</div>
     <div className="relative hidden sm:block p-2">
     <div className="flex items-center space-x-2">
     {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
@@ -2770,11 +2772,17 @@ const handleForwardMessage = async () => {
                 togglePinConversation(contact.chat_id!);
               }}
             >
-              {contact.pinned ? (
-                <Pin size={16} color="#2D2D2D" strokeWidth={1.25} absoluteStrokeWidth fill="#2D2D2D" className="dark:text-gray-200" />
-              ) : (
-                <PinOff size={16} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
-              )}
+             {contact.pinned ? (
+   <Pin 
+   size={16} 
+   color="currentColor" 
+   strokeWidth={1.25} 
+   absoluteStrokeWidth 
+   className="text-gray-800 dark:text-blue-400 fill-current"
+ />
+) : (
+  <PinOff size={16} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
+)}
             </button>
             {contact.last_message?.createdAt || contact.last_message?.timestamp
               ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
@@ -2949,7 +2957,7 @@ const handleForwardMessage = async () => {
                 </div>
               )}
               {message.type === 'text' && (
-                <div className="whitespace-pre-wrap break-words text-black ">
+                <div className={`whitespace-pre-wrap break-words${message.from_me ? myMessageTextClass : otherMessageTextClass}`}>
                   {formatText(message.text?.body || '')}
                 </div>
               )}
@@ -3096,7 +3104,7 @@ const handleForwardMessage = async () => {
                 </div>
               )}
 
-        <div className="message-timestamp text-xs text-gray-800 mt-1">
+        <div className={`message-timestamp text-xs ${message.from_me ? myMessageTextClass : otherMessageTextClass} mt-1`}>
           {formatTimestamp(message.createdAt || message.dateAdded)}
           {message.name && (
     <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>
