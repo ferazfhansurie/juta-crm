@@ -50,10 +50,12 @@ export const selectMenu = (layout: Themes["layout"]) => (state: RootState) => {
       return simpleMenu3;
     }
     else {
-      if(role === "2"){
+      if(role === "1"){
+        return simpleMenu;
+      } else if(role === "2"){
         return simpleMenuRole2;
       } else {
-        return simpleMenu2;
+        return simpleMenuRole2;
       }
     }
   }
