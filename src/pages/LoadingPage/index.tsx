@@ -83,8 +83,6 @@ function LoadingPage() {
         console.log({companyId});
       } else if (status === 'authenticated' || status === 'ready') {
         navigate('/chat');
-      } else {
-        navigate('/calendar');
       }
       setIsLoading(false);
     } catch (error) {
