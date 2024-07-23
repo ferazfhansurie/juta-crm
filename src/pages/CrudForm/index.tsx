@@ -112,7 +112,7 @@ if (contactId) {
     company:company
 };
 
-  const response = await fetch('https://buds-359313.et.r.appspot.com/api/update-user', {
+  const response = await fetch('https://mighty-dane-newly.ngrok-free.app/api/update-user', {
     method: 'PUT',
     headers: {
         'Content-Type': 'application/json'
@@ -146,7 +146,7 @@ setSuccessMessage("User updated successfully");
     company: company
     // Add any other required fields here
   };
-  const response = await fetch(`https://buds-359313.et.r.appspot.com/api/create-user/${userData.email}/${formatPhoneNumber(userData.phoneNumber)}/${userData.password}`, {
+  const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/create-user/${userData.email}/${formatPhoneNumber(userData.phoneNumber)}/${userData.password}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'

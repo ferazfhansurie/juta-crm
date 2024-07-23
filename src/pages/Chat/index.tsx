@@ -1351,175 +1351,176 @@ async function fetchMessagesFromFirebase(companyId: string, chatId: string): Pro
 
   
   async function fetchMessagesFromApi(chatId: string, token: string, userEmail: string) {
-    const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${chatId}/${token}/${userEmail}`);
+    const response = await axios.get(`https://mighty-dane-newly.ngrok-free.app/api/messages/${chatId}/${token}/${userEmail}`);
     return response.data.messages;
   }
-async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
-
-  setSelectedIcon('ws');
-  const auth = getAuth(app);
-  const user = auth.currentUser;
-  try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
+  async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
+    setSelectedIcon('ws');
+    const auth = getAuth(app);
+    const user = auth.currentUser;
     
-      if (!docUserSnapshot.exists()) {
-          console.log('No such document!');
-          return;
-      }
-      const dataUser = docUserSnapshot.data();
- 
+    try {
+        const docUserRef = doc(firestore, 'user', user?.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        
+        if (!docUserSnapshot.exists()) {
+            console.log('No such document!');
+            return;
+        }
+        const dataUser = docUserSnapshot.data();
+        
+        const companyId = dataUser.companyId;
+        const docRef = doc(firestore, 'companies', companyId);
+        const docSnapshot = await getDoc(docRef);
+        if (!docSnapshot.exists()) {
+            console.log('No such document!');
+            return;
+        }
+        const data2 = docSnapshot.data();
+        
+        setToken(data2.whapiToken);
+        
+        let messages;
+        if (data2.v2) {
+            messages = await fetchMessagesFromFirebase(companyId, selectedChatId);
+            console.log('messages');
+            console.log(messages);
+        } else {
+            messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken, dataUser?.email);
+            // If no messages, try with whapiToken2
+            if (!messages.length && data2.whapiToken2) {
+                messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken2, dataUser?.email);
+            }
+        }
+        
+        const formattedMessages: any[] = [];
+        const reactionsMap: Record<string, any[]> = {};
 
-      companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-          console.log('No such document!');
-          return;
-      }
-      const data2 = docSnapshot.data();
-
-      setToken(data2.whapiToken);
-
-
-          const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}/${user?.email}`);
-      
-          const data = response.data;
-          console.log("pure");
-          console.log(data);
-          const formattedMessages: any[] = [];
-          const reactionsMap: Record<string, any[]> = {};
-
-          data.messages.forEach(async (message: any) => {
-     
-              if (message.type === 'action' && message.action.type === 'reaction') {
-                  const targetMessageId = message.action.target;
-                  if (!reactionsMap[targetMessageId]) {
-                      reactionsMap[targetMessageId] = [];
-                  }
-                  reactionsMap[targetMessageId].push({
-                      emoji: message.action.emoji,
-                      from_name: message.from_name
-                  });
-              } else {
-            
-               
-                  const formattedMessage: any = {
-                      id: message.id,
-                      from_me: message.from_me,
-                      from_name: message.from_name,
-                      from:message.from,
-                      chat_id: message.chat_id,
-                      createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
-                      type: message.type,
-                      name:message.name 
-                  };
-
-                  // Include message-specific content
-                  switch (message.type) {
-                      case 'text':
-                          formattedMessage.text = {
-                              body: message.text ? message.text.body : '', // Include the message body
-                              context: message.context ? message.context : '' // Include the context
-                          };
-                          break;
-                      case 'image':
-                          formattedMessage.image = message.image ? message.image : undefined;
-                          break;
-                      case 'video':
-                          formattedMessage.video = message.video ? message.video : undefined;
-                          break;
-                      case 'gif':
-                          formattedMessage.gif = message.gif ? message.gif : undefined;
-                          break;
-                      case 'audio':
-                          formattedMessage.audio = message.audio ? message.audio : undefined;
-                          break;
-                      case 'voice':
-                          formattedMessage.voice = message.voice ? message.voice : undefined;
-                          break;
-                      case 'document':
-                          formattedMessage.document = message.document ? message.document : undefined;
-                          break;
-                      case 'link_preview':
-                          formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
-                          break;
-                      case 'sticker':
-                          formattedMessage.sticker = message.sticker ? message.sticker : undefined;
-                          break;
-                      case 'location':
-                          formattedMessage.location = message.location ? message.location : undefined;
-                          break;
-                      case 'live_location':
-                          formattedMessage.live_location = message.live_location ? message.live_location : undefined;
-                          break;
-                      case 'contact':
-                          formattedMessage.contact = message.contact ? message.contact : undefined;
-                          break;
-                      case 'contact_list':
-                          formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
-                          break;
-                      case 'interactive':
-                          formattedMessage.interactive = message.interactive ? message.interactive : undefined;
-                          break;
-                      case 'poll':
-                          formattedMessage.poll = message.poll ? message.poll : undefined;
-                          break;
-                      case 'hsm':
-                          formattedMessage.hsm = message.hsm ? message.hsm : undefined;
-                          break;
-                      case 'system':
-                          formattedMessage.system = message.system ? message.system : undefined;
-                          break;
-                      case 'order':
-                          formattedMessage.order = message.order ? message.order : undefined;
-                          break;
-                      case 'group_invite':
-                          formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
-                          break;
-                      case 'admin_invite':
-                          formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
-                          break;
-                      case 'product':
-                          formattedMessage.product = message.product ? message.product : undefined;
-                          break;
-                      case 'catalog':
-                          formattedMessage.catalog = message.catalog ? message.catalog : undefined;
-                          break;
-                      case 'product_items':
-                          formattedMessage.product_items = message.product_items ? message.product_items : undefined;
-                          break;
-                      case 'action':
-                          formattedMessage.action = message.action ? message.action : undefined;
-                          break;
-                      case 'context':
-                          formattedMessage.context = message.context ? message.context : undefined;
-                          break;
-                      case 'reactions':
-                          formattedMessage.reactions = message.reactions ? message.reactions : undefined;
-                          break;
-                      default:
-                          console.warn(`Unknown message type: ${message.type}`);
-                  }
-
-                  formattedMessages.push(formattedMessage);
-              }
-          });
-
-          // Add reactions to the respective messages
-          formattedMessages.forEach(message => {
-              if (reactionsMap[message.id]) {
-                  message.reactions = reactionsMap[message.id];
-              }
-          });
-       
-          setMessages(formattedMessages);
-   
-  } catch (error) {
-      console.error('Failed to fetch messages:', error);
-  } finally {
-   
-  }
+        messages.forEach(async (message: any) => {
+            if (message.type === 'action' && message.action.type === 'reaction') {
+                const targetMessageId = message.action.target;
+                if (!reactionsMap[targetMessageId]) {
+                    reactionsMap[targetMessageId] = [];
+                }
+                reactionsMap[targetMessageId].push({
+                    emoji: message.action.emoji,
+                    from_name: message.from_name
+                });
+            } else {
+                const formattedMessage: any = {
+                    id: message.id,
+                    from_me: message.from_me,
+                    from_name: message.from_name,
+                    from: message.from,
+                    chat_id: message.chat_id,
+                    createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
+                    type: message.type,
+                    name: message.name
+                };
+        
+                // Include message-specific content
+                switch (message.type) {
+                    case 'text':
+                        formattedMessage.text = {
+                            body: message.text ? message.text.body : '', // Include the message body
+                            context: message.context ? message.context : '' // Include the context
+                        };
+                        break;
+                    case 'image':
+                        formattedMessage.image = message.image ? message.image : undefined;
+                        break;
+                    case 'video':
+                        formattedMessage.video = message.video ? message.video : undefined;
+                        break;
+                    case 'gif':
+                        formattedMessage.gif = message.gif ? message.gif : undefined;
+                        break;
+                    case 'audio':
+                        formattedMessage.audio = message.audio ? message.audio : undefined;
+                        break;
+                    case 'voice':
+                        formattedMessage.voice = message.voice ? message.voice : undefined;
+                        break;
+                    case 'document':
+                        formattedMessage.document = message.document ? message.document : undefined;
+                        break;
+                    case 'link_preview':
+                        formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
+                        break;
+                    case 'sticker':
+                        formattedMessage.sticker = message.sticker ? message.sticker : undefined;
+                        break;
+                    case 'location':
+                        formattedMessage.location = message.location ? message.location : undefined;
+                        break;
+                    case 'live_location':
+                        formattedMessage.live_location = message.live_location ? message.live_location : undefined;
+                        break;
+                    case 'contact':
+                        formattedMessage.contact = message.contact ? message.contact : undefined;
+                        break;
+                    case 'contact_list':
+                        formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
+                        break;
+                    case 'interactive':
+                        formattedMessage.interactive = message.interactive ? message.interactive : undefined;
+                        break;
+                    case 'poll':
+                        formattedMessage.poll = message.poll ? message.poll : undefined;
+                        break;
+                    case 'hsm':
+                        formattedMessage.hsm = message.hsm ? message.hsm : undefined;
+                        break;
+                    case 'system':
+                        formattedMessage.system = message.system ? message.system : undefined;
+                        break;
+                    case 'order':
+                        formattedMessage.order = message.order ? message.order : undefined;
+                        break;
+                    case 'group_invite':
+                        formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
+                        break;
+                    case 'admin_invite':
+                        formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
+                        break;
+                    case 'product':
+                        formattedMessage.product = message.product ? message.product : undefined;
+                        break;
+                    case 'catalog':
+                        formattedMessage.catalog = message.catalog ? message.catalog : undefined;
+                        break;
+                    case 'product_items':
+                        formattedMessage.product_items = message.product_items ? message.product_items : undefined;
+                        break;
+                    case 'action':
+                        formattedMessage.action = message.action ? message.action : undefined;
+                        break;
+                    case 'context':
+                        formattedMessage.context = message.context ? message.context : undefined;
+                        break;
+                    case 'reactions':
+                        formattedMessage.reactions = message.reactions ? message.reactions : undefined;
+                        break;
+                    default:
+                        console.warn(`Unknown message type: ${message.type}`);
+                }
+        
+                formattedMessages.push(formattedMessage);
+            }
+        });
+        
+        // Add reactions to the respective messages
+        formattedMessages.forEach(message => {
+            if (reactionsMap[message.id]) {
+                message.reactions = reactionsMap[message.id];
+            }
+        });
+        
+        setMessages(formattedMessages);
+        
+    } catch (error) {
+        console.error('Failed to fetch messages:', error);
+    }
 }
   async function sendTextMessage(selectedChatId: string, newMessage: string,contact:any): Promise<void> {
     if (!newMessage.trim() || !selectedChatId) return;
@@ -1594,37 +1595,68 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
     const data2 = docSnapshot.data();
   
-    setToken(data2.whapiToken);
-    try {
-      const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${selectedChatId!}/${data2.whapiToken}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: newMessage,
-          quotedMessageId: replyToMessage?.id || null // Add the quotedMessageId here
-        }),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to send message');
+    // Check if v2 is true
+    if (data2.v2 === true) {
+      console.log("v2 is true");
+      // Use the new API
+      try {
+        const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${selectedChatId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: newMessage,
+            quotedMessageId: replyToMessage?.id || null
+          }),
+        });
+        if (!response.ok) {
+          throw new Error('Failed to send message');
+        }
+        const data = await response.json();
+        console.log('Message sent successfully:', data);
+        toast.success("Message sent successfully!");
+        fetchMessagesBackground(selectedChatId!, data2.apiToken);
+      } catch (error) {
+        console.error('Error sending message:', error);
+        toast.error("Failed to send message");
       }
-     
-      const data = await response.json();
-      console.log(data.message);
-    const messagesCollectionRef = collection(firestore, 'companies',  companyId, 'messages');
-try {
-  await setDoc(doc(messagesCollectionRef, data.message.id), {
-    message: data.message,
-    from:dataUser.name,
-  });
-} catch (error) {
-  console.error('Error adding message: ', error);
-}
-      toast.success("Message sent successfully!");
-      fetchMessagesBackground(selectedChatId!, whapiToken!);
-      setReplyToMessage(null); // Clear the replyToMessage state after sending the message
-    } catch (error) {
-      console.error('Error sending message:', error);
+    } else {
+      // Use the original method
+      setToken(data2.whapiToken);
+      console.log("v2 is false");
+      try {
+        const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/text/${selectedChatId!}/${data2.whapiToken}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: newMessage,
+            quotedMessageId: replyToMessage?.id || null
+          }),
+        });
+        if (!response.ok) {
+          throw new Error('Failed to send message');
+        }
+       
+        const data = await response.json();
+        console.log(data.message);
+        const messagesCollectionRef = collection(firestore, 'companies',  companyId, 'messages');
+        try {
+          await setDoc(doc(messagesCollectionRef, data.message.id), {
+            message: data.message,
+            from: dataUser.name,
+          });
+        } catch (error) {
+          console.error('Error adding message: ', error);
+        }
+        toast.success("Message sent successfully!");
+        fetchMessagesBackground(selectedChatId!, whapiToken!);
+      } catch (error) {
+        console.error('Error sending message:', error);
+        toast.error("Failed to send message");
+      }
     }
+  
+    setNewMessage('');
+    setReplyToMessage(null);
   };
 
   const toggleStopBotLabel = async (contact: Contact, index: number) => {
@@ -1928,7 +1960,7 @@ const handleForwardMessage = async () => {
           for (const message of selectedMessages) {
               let response;
               if (message.type === 'image') {
-                  response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/image/${whapiToken}`, {
+                  response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/image/${whapiToken}`, {
                       method: 'POST',
                       headers: {
                           'Content-Type': 'application/json',
@@ -1940,7 +1972,7 @@ const handleForwardMessage = async () => {
                       }),
                   });
               } else if (message.type === 'document') {
-                  response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/document/${whapiToken}`, {
+                  response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/document/${whapiToken}`, {
                       method: 'POST',
                       headers: {
                           'Content-Type': 'application/json',
@@ -1954,7 +1986,7 @@ const handleForwardMessage = async () => {
                   });
               } else {
                 const message_string = message!.text?.body!;
-                  response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/text/${contact.chat_id}/${whapiToken}`, {
+                  response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/text/${contact.chat_id}/${whapiToken}`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -2093,7 +2125,7 @@ const handleForwardMessage = async () => {
         return;
       }
       const companyData = docSnapshot.data();
-      const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/image/${companyData.whapiToken}`, {
+      const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/image/${companyData.whapiToken}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2136,7 +2168,7 @@ const handleForwardMessage = async () => {
         return;
       }
       const companyData = docSnapshot.data();
-      const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/document/${companyData.whapiToken}`, {
+      const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/document/${companyData.whapiToken}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2951,7 +2983,7 @@ const handleForwardMessage = async () => {
                 <div className="pb-1 text-gray-600 font-medium">{message.from_name||'+'+message.from}</div>
               )}
               {message.type === 'text' && message.text?.context && (
-                <div className="p-2 mb-2 rounded bg-gray-300 dark:bg-gray-700">
+                <div className="p-2 mb-2 rounded bg-gray-300 dark:bg-gray-300">
                   <div className="text-sm font-medium text-gray-800 ">{message.text.context.quoted_author || ''}</div>
                   <div className="text-sm text-gray-800 ">{message.text.context.quoted_content?.body || ''}</div>
                 </div>
@@ -3520,23 +3552,25 @@ const NotificationPopup: React.FC<{ notifications: any[] }> = ({ notifications: 
   return (
     <div className="fixed top-5 right-10 z-50">
       {notifications.map((notification, index) => (
-        <div key={index} className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-2 px-4 py-2" style={{ width: '250px' }}>
+        <div key={index} className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-2 px-4 py-2" style={{ width: '300px', maxWidth: '80vw' }}>
          <button
             className="absolute top-1 left-1 text-black hover:text-gray-800 dark:text-gray-200 dark:hover:text-gray-400 p-2"
             onClick={() => handleDelete(index)}
           >
             <Lucide icon="X" className="w-4 h-4" />
           </button>
-          <div className="flex justify-between items-center ">
-            <div className="flex-grow px-10">
-              <div className="font-semibold text-primary dark:text-blue-400">{notification.from_name}</div>
-              <div className="text-gray-700 dark:text-gray-300">{notification.text.body}</div>
+          <div className="flex justify-between items-center">
+            <div className="flex-grow px-10 overflow-hidden">
+              <div className="font-semibold text-primary dark:text-blue-400 truncate capitalize">{notification.from_name}</div>
+              <div className="text-gray-700 dark:text-gray-300 truncate" style={{ maxWidth: '200px' }}>
+                {notification.text.body.length > 30 ? `${notification.text.body.substring(0, 30)}...` : notification.text.body}
+              </div>
             </div>
             <div className="mx-2 h-full flex items-center">
               <div className="border-l border-gray-300 dark:border-gray-700 h-12"></div>
             </div>
             <button 
-            className="bg-primary dark:bg-blue-600 text-white py-1 px-4 rounded"
+            className="bg-primary dark:bg-blue-600 text-white py-1 px-4 rounded whitespace-nowrap"
             onClick={() => handleNotificationClick(notification.chat_id,index)}
             >
               Show</button>

@@ -332,7 +332,7 @@ const Main: React.FC = () => {
         return;
       }
   
-      const res = await axios.get(`https://buds-359313.et.r.appspot.com/api/assistant-test/`, {
+      const res = await axios.get(`https://mighty-dane-newly.ngrok-free.app/api/assistant-test/`, {
         params: {
           message: messageText,
           email: user.email!,

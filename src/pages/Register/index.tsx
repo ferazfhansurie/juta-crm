@@ -69,7 +69,7 @@ function Main() {
         role: "1",
       });
 
-      const response2 = await axios.post(`https://buds-359313.et.r.appspot.com//api/channel/create/${newCompanyId}`);
+      const response2 = await axios.post(`https://mighty-dane-newly.ngrok-free.app//api/channel/create/${newCompanyId}`);
       console.log(response2);
 
       toast.success("User registered successfully!");

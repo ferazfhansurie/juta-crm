@@ -21,6 +21,8 @@ import LoadingIcon from "@/components/Base/LoadingIcon";
 import { useContacts } from "@/contact";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import LZString from 'lz-string';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -125,6 +127,10 @@ function Main() {
   const [allContactsLoaded, setAllContactsLoaded] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+  const [blastStartTime, setBlastStartTime] = useState<Date | null>(null);
+  const [batchQuantity, setBatchQuantity] = useState<number>(10);
+  const [repeatInterval, setRepeatInterval] = useState<number>(0);
+  const [repeatUnit, setRepeatUnit] = useState<'minutes' | 'hours' | 'days'>('days');
 
   useEffect(() => {
     if (initialContacts.length > 0) {
@@ -970,33 +976,116 @@ console.log(filteredContacts);
       return;
     }
   
+    if (!blastStartTime) {
+      toast.error("Please select a start time for the blast message.");
+      return;
+    }
+
     try {
       let imageUrl = '';
       let documentUrl = '';
       if (selectedImage) {
         imageUrl = await uploadFile(selectedImage);
-        console.log(imageUrl);
       }
       if (selectedDocument) {
         documentUrl = await uploadFile(selectedDocument);
       }
-      setBlastMessageModal(false);
-      toast.success("Messages sent successfully!");
-      setBlastMessage("");
+
+      const user = auth.currentUser;
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const companyData = docSnapshot.data();
+
+      let successCount = 0;
+      let failureCount = 0;
+
       for (const contact of selectedContacts) {
-        if (imageUrl != '') {
-          await sendImageMessage(contact.phone!, imageUrl, blastMessage);
-        } else if (documentUrl != '') {
-          const mimeType = selectedDocument!.type;
-          const fileName = selectedDocument!.name;
-          await sendDocumentMessage(contact.phone!, documentUrl, mimeType, fileName, blastMessage);
-        } else if (!imageUrl && !documentUrl) {
-          await sendTextMessage(contact.phone!, blastMessage, contact);
+        const phoneNumber = contact.phone?.replace(/\D/g, ''); // Remove non-digit characters
+        if (!phoneNumber) {
+          console.error(`Invalid phone number for contact: ${contact.id}`);
+          failureCount++;
+          continue;
+        }
+        const chat_id = phoneNumber + "@s.whatsapp.net";
+        
+        try {
+          let response;
+          const apiUrl = companyData.v2 === true
+            ? `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${companyId}/${chat_id}`
+            : `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chat_id}/${companyData.whapiToken}`;
+
+          response = await axios.post(
+            apiUrl,
+            {
+              message: blastMessage,
+              imageUrl,
+              documentUrl,
+              startTime: blastStartTime.toISOString(),
+              batchQuantity,
+              repeatInterval,
+              repeatUnit,
+              additionalInfo: { ...contact },
+            },
+            {
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+
+          if (response.status === 200) {
+            successCount++;
+            console.log(`Message scheduled successfully for ${contact.phone}`);
+          } else {
+            failureCount++;
+            console.error(`Failed to schedule message for ${contact.phone}:`, response.statusText);
+          }
+        } catch (error) {
+          failureCount++;
+          if (axios.isAxiosError(error)) {
+            console.error(`Error scheduling message for ${contact.phone}:`, error.response?.data || error.message);
+          } else {
+            console.error(`Error scheduling message for ${contact.phone}:`, error);
+          }
         }
       }
+
+      // Log summary of blast message information
+      console.log('Blast Message Summary:', {
+        totalContacts: selectedContacts.length,
+        successfulSchedules: successCount,
+        failedSchedules: failureCount,
+        message: blastMessage,
+        imageAttached: !!imageUrl,
+        documentAttached: !!documentUrl,
+        scheduledStartTime: blastStartTime.toISOString(),
+        batchQuantity,
+        repeatInterval,
+        repeatUnit
+      });
+
+      setBlastMessageModal(false);
+      toast.success(`Blast messages scheduled successfully! ${successCount} scheduled, ${failureCount} failed.`);
+      setBlastMessage("");
+      setBlastStartTime(null);
+      setBatchQuantity(10);
+      setRepeatInterval(0);
+      setRepeatUnit('days');
+      setSelectedImage(null);
+      setSelectedDocument(null);
     } catch (error) {
-      console.error('Error sending blast message:', error);
-      toast.error("Failed to send messages.");
+      console.error('Error scheduling blast messages:', error);
+      toast.error("An error occurred while scheduling blast messages. Please try again.");
     }
   };
   
@@ -1022,7 +1111,7 @@ console.log(filteredContacts);
       const phoneNumber = id.split('+')[1];
       const chat_id = phoneNumber+"@s.whatsapp.net"
       const companyData = docSnapshot.data();
-      const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/image/${companyData.whapiToken}`, {
+      const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/image/${companyData.whapiToken}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1067,7 +1156,7 @@ console.log(filteredContacts);
       const phoneNumber = id.split('+')[1];
       const chat_id = phoneNumber+"@s.whatsapp.net"
       const companyData = docSnapshot.data();
-      const response = await fetch(`https://buds-359313.et.r.appspot.com/api/messages/document/${companyData.whapiToken}`, {
+      const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/document/${companyData.whapiToken}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1122,7 +1211,7 @@ console.log(filteredContacts);
       const chat_id = phoneNumber+"@s.whatsapp.net"
       console.log(chat_id);
       const response = await axios.post(
-        `https://buds-359313.et.r.appspot.com/api/messages/text/${chat_id!}/${companyData.whapiToken}`, // This URL should be your API endpoint for sending messages
+        `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chat_id!}/${companyData.whapiToken}`, // This URL should be your API endpoint for sending messages
         {
           
           contactId: id,
@@ -1615,46 +1704,87 @@ console.log(filteredContacts);
         </Dialog>
      
         <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
-  <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-    <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-40">
-      <div className="mb-4 text-lg font-semibold">Send Blast Message</div>
-      <textarea
-        className="w-full p-2 border rounded"
-        placeholder="Type your message here..."
-        value={blastMessage}
-        onChange={(e) => setBlastMessage(e.target.value)}
-        rows={3}
-        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-      ></textarea>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700">Attach Image</label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => handleImageUpload(e)}
-          className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-        />
-      </div>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700">Attach Document</label>
-        <input
-          type="file"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-          onChange={(e) => handleDocumentUpload(e)}
-          className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-        />
-      </div>
-      <div className="flex justify-end mt-4">
-        <button
-          className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
-          onClick={sendBlastMessage}
-        >
-          Send Message
-        </button>
-      </div>
-    </Dialog.Panel>
-  </div>
-</Dialog>
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-gray-800 rounded-md mt-40 text-white">
+              <div className="mb-4 text-lg font-semibold">Schedule Blast Message</div>
+              <textarea
+                className="w-full p-2 border rounded bg-gray-700 text-white"
+                placeholder="Type your message here..."
+                value={blastMessage}
+                onChange={(e) => setBlastMessage(e.target.value)}
+                rows={3}
+                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+              ></textarea>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-300">Attach Image</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e)}
+                  className="block w-full mt-1 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-300">Attach Document</label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                  onChange={(e) => handleDocumentUpload(e)}
+                  className="block w-full mt-1 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-300">Start Time</label>
+                <DatePicker
+                  selected={blastStartTime}
+                  onChange={(date: Date) => setBlastStartTime(date)}
+                  showTimeSelect
+                  dateFormat="MMMM d, yyyy h:mm aa"
+                  className="block w-full mt-1 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-300">Batch Quantity</label>
+                <input
+                  type="number"
+                  value={batchQuantity}
+                  onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
+                  min={1}
+                  className="block w-full mt-1 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                />
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-300">Repeat Every</label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    value={repeatInterval}
+                    onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
+                    min={0}
+                    className="w-20 mr-2 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                  />
+                  <select
+                    value={repeatUnit}
+                    onChange={(e) => setRepeatUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+                    className="border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                  >
+                    <option value="minutes">Minutes</option>
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end mt-4">
+                <button
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                  onClick={sendBlastMessage}
+                >
+                  Schedule Message
+                </button>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
 
         {showAddTagModal && (
           <Dialog open={showAddTagModal} onClose={() => setShowAddTagModal(false)}>

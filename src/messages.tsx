@@ -76,7 +76,7 @@ export const MessagesProvider = ({ children }: { children: ReactNode }) => {
         const data2 = docSnapshot.data();
   
         if (selectedChatId.includes('@')) {
-          const response = await axios.get(`https://buds-359313.et.r.appspot.com/api/messages/${selectedChatId}/${data2.whapiToken}`);
+          const response = await axios.get(`https://mighty-dane-newly.ngrok-free.app/api/messages/${selectedChatId}/${data2.whapiToken}`);
           const data = response.data;
        console.log(data);
           setMessages(
