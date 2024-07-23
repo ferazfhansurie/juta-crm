@@ -33,6 +33,7 @@ function Main() {
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [registerResult, setRegisterResult] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -59,7 +60,8 @@ function Main() {
         company: companyName,
         email: user.email!,
         role: "1",
-        companyId: newCompanyId
+        companyId: newCompanyId,
+        phoneNumber: phoneNumber // Add phone number to user data
       });
 
       // Save user data under the new company's employee collection
@@ -67,9 +69,10 @@ function Main() {
         name: name,
         email: user.email!,
         role: "1",
+        phoneNumber: phoneNumber // Add phone number to employee data
       });
 
-      const response2 = await axios.post(`https://mighty-dane-newly.ngrok-free.app//api/channel/create/${newCompanyId}`);
+      const response2 = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/channel/create/${newCompanyId}`);
       console.log(response2);
 
       toast.success("User registered successfully!");
@@ -171,6 +174,14 @@ function Main() {
                     placeholder="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                  />
+                  <FormInput
+                    type="tel"
+                    className="block px-4 py-3 mt-4 intro-x min-w-full xl:min-w-[350px]"
+                    placeholder="Phone Number"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
                     onKeyDown={handleKeyDown}
                   />
                 </div>
