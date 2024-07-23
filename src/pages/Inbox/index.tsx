@@ -108,7 +108,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
               </div>
             )}
             <div className="message-timestamp text-xs text-gray-500 dark:text-gray-300 mt-1">
-              {new Date(message.createdAt).toLocaleTimeString()}
+              {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>
         ))}
@@ -127,7 +127,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
           />
           <button
             onClick={() => onSendMessage(newMessage)}
-            className="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none"
+            className="px-4 py-2 m-1 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none active:scale-95"
           >
             Send
           </button>

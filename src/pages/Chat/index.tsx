@@ -2957,7 +2957,7 @@ const handleForwardMessage = async () => {
                 </div>
               )}
               {message.type === 'text' && (
-                <div className={`whitespace-pre-wrap break-words${message.from_me ? myMessageTextClass : otherMessageTextClass}`}>
+                <div className={`whitespace-pre-wrap break-words overflow-hidden ${message.from_me ? myMessageTextClass : otherMessageTextClass}`} style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                   {formatText(message.text?.body || '')}
                 </div>
               )}
@@ -3020,12 +3020,12 @@ const handleForwardMessage = async () => {
                     className="border rounded cursor-pointer"
                     onClick={() => openPDFModal(message.document?.link || '')}
                   />
-                  <div className="flex-1 text-justify mt-3">
-                    <div className="font-semibold text-gray-800 dark:text-gray-200">{message.document.file_name}</div>
+                  <div className="flex-1 text-justify mt-3 w-full">
+                    <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">{message.document.file_name}</div>
                     <div className="text-gray-600 dark:text-gray-400">
                       {message.document.page_count} page
                       {message.document.page_count > 1 ? 's' : ''} • PDF •{' '}
-                      {(message.document.file_size / 1024).toFixed(2)} kB
+                      {(message.document.file_size / (1024 * 1024)).toFixed(2)} MB
                     </div>
                   </div>
                   <button
