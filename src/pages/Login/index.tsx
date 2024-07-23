@@ -64,12 +64,13 @@ const firebaseConfig = {
           <div className="container relative z-10 sm:px-10">
             <div className="block grid-cols-2 gap-4 xl:grid">
               <div className="flex-col hidden min-h-screen xl:flex">
-                <div className="my-auto">
+                <div className="my-auto flex flex-col items-left w-full">
                   <img
-                    alt="Midone Tailwind HTML Admin Template"
-                    className="w-3/6 -mt-16 -intro-x"
+                    alt="Juta Software Logo"
+                    className="w-2/4 -mt-16"
                     src={logoUrl}
                   />
+                  <span className="mt-3 text-6xl font-bold text-white self-center -ml-[50%]">Juta</span>
                 </div>
               </div>
               <div className="flex h-screen py-5 my-10 xl:h-auto xl:py-0 xl:my-0">

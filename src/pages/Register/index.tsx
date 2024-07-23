@@ -122,7 +122,7 @@ function Main() {
                   className="w-6"
                   src={logoUrl}
                 />
-                <span className="ml-3 text-lg text-white"> Juta Software</span>
+                <span className="ml-3 text-lg text-white"> Juta</span>
               </a>
               <div className="my-auto">
                 <div className="mt-10 text-4xl font-medium leading-tight text-white -intro-x">

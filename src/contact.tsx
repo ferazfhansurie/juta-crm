@@ -76,6 +76,12 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     const shouldFetchContacts = !sessionStorage.getItem('contactsFetched');
 
     if (shouldFetchContacts) {
+      const currentPath = window.location.pathname;
+      if (currentPath === '/login') {
+        navigate('/login'); 
+      }else{
+        navigate('/loading'); 
+      }
       fetchContactsOnAuthChange();
     } else {
       const storedContacts = localStorage.getItem('contacts');

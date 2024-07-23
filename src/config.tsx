@@ -114,8 +114,10 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
         const currentPath = window.location.pathname;
         if (currentPath === '/register') {
           navigate('/register');  // Redirect to registration page if not authenticated and not already on the register or login page
-        }else{
+        }else  if (currentPath === '/login') {
           navigate('/login'); 
+        }else{
+          navigate('/loading'); 
         }
        
         setIsLoading(false);

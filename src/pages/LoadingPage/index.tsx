@@ -9,7 +9,7 @@ import { doc, getDoc } from "firebase/firestore";
 import axios from "axios";
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-
+import { signOut } from "firebase/auth";
 // Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -24,6 +24,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
+
+
 
 function LoadingPage() {
   const [progress, setProgress] = useState(0);
@@ -102,6 +104,10 @@ function LoadingPage() {
     }
   };
 
+  const handleRefresh = () => {
+    fetchQRCode();
+  };
+
   useEffect(() => {
     fetchQRCode();
   }, []);
@@ -155,19 +161,31 @@ function LoadingPage() {
     return () => clearInterval(progressInterval);
   }, [contactsLoading, isLoading, botStatus]);
 
+  const handleLogout = async () => {
+    const auth = getAuth(app);
+    try {
+      await signOut(auth);
+      navigate('/login'); // Adjust this to your login route
+    } catch (error) {
+      console.error("Error signing out: ", error);
+      setError('Failed to log out. Please try again.');
+    }
+  };
+
   return (
     <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-900">
       <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
-        <img alt="Logo" className="w-40 h-40 p-15" src={logoUrl} />
+        <img alt="Logo" className="w-40 h-40 p-25" src={logoUrl} />
         {botStatus === 'qr' ? (
           <>
-            <div className="mt-2 text-md p-15 text-gray-800 dark:text-gray-200">
+            <div className="mt-2 text-md p-25 text-gray-800 dark:text-gray-200">
               Please use your WhatsApp QR scanner to scan the code and proceed.
             </div>
-            {error && <div className="text-red-500 dark:text-red-400">{error}</div>}
+            <hr className="w-full my-4 border-t border-gray-300 dark:border-gray-700" />
+            {error && <div className="text-red-500 dark:text-red-400 mt-2">{error}</div>}
             {qrCodeImage && (
-              <div className="bg-white p-4 rounded-lg">
-                <img src={qrCodeImage} alt="QR Code" />
+              <div className="bg-white p-4 rounded-lg mt-4">
+                <img src={qrCodeImage} alt="QR Code" className="max-w-full h-auto" />
               </div>
             )}
           </>
@@ -176,11 +194,33 @@ function LoadingPage() {
             <div className="mt-2 text-xs p-15 text-gray-800 dark:text-gray-200">
               {botStatus === 'authenticated' || botStatus === 'ready' 
                 ? 'Authentication successful. Redirecting...' 
-                : 'Fetching Data...'}
+                : botStatus === 'initializing'
+                  ? 'Initializing WhatsApp connection...'
+                  : 'Fetching Data...'}
             </div>
-            <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
+            <div className="mt-4">
+              <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
+            </div>
           </>
         )}
+        
+        <hr className="w-full my-4 border-t border-gray-300 dark:border-gray-700 p-15" />
+        
+        <button
+          onClick={handleRefresh}
+          className="mt-4 px-6 py-3 bg-primary text-white text-lg font-semibold rounded hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 w-40"
+        >
+          Refresh
+        </button>
+        
+        <button
+          onClick={handleLogout}
+          className="mt-4 px-6 py-3 bg-red-500 text-white text-lg font-semibold rounded hover:bg-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 w-40"
+        >
+          Logout
+        </button>
+        
+        {error && <div className="mt-2 text-red-500 dark:text-red-400">{error}</div>}
       </div>
     </div>
   );
