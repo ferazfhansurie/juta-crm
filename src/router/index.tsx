@@ -79,13 +79,10 @@ function Router() {
   const auth = getAuth();
   const { isLoading } = useContacts();
   const location = useLocation();
+
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setIsLoggedIn(true);
-      } else {
-        setIsLoggedIn(false);
-      }
+      setIsLoggedIn(!!user);
     });
 
     return () => unsubscribe();
@@ -94,7 +91,7 @@ function Router() {
   const routes = [
     {
       path: "/",
-      element: <Layout />,
+      element: isLoggedIn ? <Layout /> : <Navigate to="/login" />,
       children: [
         { path: "/", element: <Chat /> },
         { path: "chat", element: <Chat /> },
@@ -167,19 +164,18 @@ function Router() {
     },
     { path: "notification", element: <Notification /> },
     { path: "dashboard-overview-2", element: <DashboardOverview2 /> },
-    { path: "loading", element: <LoadingIcon /> },
+    { path: "loading", element: isLoggedIn ? <LoadingIcon /> : <Navigate to="/login" /> },
     { path: "product-list", element: <ProductList /> },
     { path: "product-grid", element: <ProductGrid /> },
-    { path: "/login", element: <Login /> },
-    { path: "/register", element: <Register /> },
+    { path: "/login", element: isLoggedIn ? <Navigate to="/loading" /> : <Login /> },
+    { path: "/register", element: isLoggedIn ? <Navigate to="/loading" /> : <Register /> },
     { path: "/error-page", element: <ErrorPage /> },
     { path: "*", element: <ErrorPage /> },
   ];
-if (isLoading) {
+
+  if (isLoading) {
     return <LoadingIcon />;
   }
-
-
 
   return useRoutes(routes);
 }

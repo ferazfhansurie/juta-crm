@@ -38,10 +38,12 @@ function LoadingPage() {
   const navigate = useNavigate();
   const { isLoading: contactsLoading } = useContacts();
   const { config: initialContacts } = useConfig();
+  const [v2, setV2] = useState<boolean | undefined>(undefined);
 
   const fetchQRCode = async () => {
     const auth = getAuth(app);
     const user = auth.currentUser;
+    let v2;
     setIsLoading(true);
     setError(null);
     try {
@@ -60,7 +62,9 @@ function LoadingPage() {
       }
 
       const companyData = docSnapshot.data();
-      if (!companyData.v2) {
+      v2 = companyData.v2;
+      setV2(v2);
+      if (!v2) {
         // If "v2" is not present or is false, navigate to the next page
         if (initialContacts.name === "Infinity Pilates & Physiotherapy") {
           navigate('/calendar');
@@ -69,8 +73,8 @@ function LoadingPage() {
         }
         return;
       }
-      //http://jutaserver.ddns.net:8443/api/bot-status
-      console.log('test');
+
+      // Only proceed with QR code and bot status if v2 exists
       const botStatusResponse = await axios.get(`https://mighty-dane-newly.ngrok-free.app/api/bot-status/${companyId}`);
 
       console.log(botStatusResponse.data);
@@ -113,11 +117,11 @@ function LoadingPage() {
   }, []);
 
   useEffect(() => {
-    if (botStatus === 'qr' && !wsConnected) {
+    if (!wsConnected) {
       const auth = getAuth(app);
       const user = auth.currentUser;
       
-      ws.current = new WebSocket(`wss://mighty-dane-newly.ngrok-free.app/ws/${user?.email}`);
+      ws.current = new WebSocket(`wss://https://mighty-dane-newly.ngrok-free.app/ws/${user?.email}`);
       
       ws.current.onopen = () => {
         console.log('WebSocket connected');
@@ -126,6 +130,11 @@ function LoadingPage() {
       
       ws.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        if (data.status === 'qr') {
+          setBotStatus(data.status);
+          console.log('refreshing');
+          handleRefresh();
+        }
         if (data.status === 'authenticated' || data.status === 'ready') {
           setBotStatus(data.status);
           navigate('/chat');
@@ -144,9 +153,7 @@ function LoadingPage() {
     }
 
     return () => {
-      if (ws.current) {
-        ws.current.close();
-      }
+      
     };
   }, [botStatus]);
 
@@ -176,51 +183,59 @@ function LoadingPage() {
     <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-900">
       <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
         <img alt="Logo" className="w-40 h-40 p-25" src={logoUrl} />
-        {botStatus === 'qr' ? (
+        {v2 ? (
           <>
-            <div className="mt-2 text-md p-25 text-gray-800 dark:text-gray-200">
-              Please use your WhatsApp QR scanner to scan the code and proceed.
-            </div>
-            <hr className="w-full my-4 border-t border-gray-300 dark:border-gray-700" />
-            {error && <div className="text-red-500 dark:text-red-400 mt-2">{error}</div>}
-            {qrCodeImage && (
-              <div className="bg-white p-4 rounded-lg mt-4">
-                <img src={qrCodeImage} alt="QR Code" className="max-w-full h-auto" />
-              </div>
+            {botStatus === 'qr' ? (
+              <>
+                <div className="mt-2 text-md p-25 text-gray-800 dark:text-gray-200">
+                  Please use your WhatsApp QR scanner to scan the code and proceed.
+                </div>
+                <hr className="w-full my-4 border-t border-gray-300 dark:border-gray-700" />
+                {error && <div className="text-red-500 dark:text-red-400 mt-2">{error}</div>}
+                {qrCodeImage && (
+                  <div className="bg-white p-4 rounded-lg mt-4">
+                    <img src={qrCodeImage} alt="QR Code" className="max-w-full h-auto" />
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="mt-2 text-xs p-15 text-gray-800 dark:text-gray-200">
+                  {botStatus === 'authenticated' || botStatus === 'ready' 
+                    ? 'Authentication successful. Redirecting...' 
+                    : botStatus === 'initializing'
+                      ? 'Initializing WhatsApp connection...'
+                      : 'Fetching Data...'}
+                </div>
+                <div className="mt-4">
+                  <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
+                </div>
+              </>
             )}
+            
+            <hr className="w-full my-4 border-t border-gray-300 dark:border-gray-700 p-15" />
+            
+            <button
+              onClick={handleRefresh}
+              className="mt-4 px-6 py-3 bg-primary text-white text-lg font-semibold rounded hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 w-full"
+            >
+              Refresh
+            </button>
+            
+            <button
+              onClick={handleLogout}
+              className="mt-4 px-6 py-3 bg-red-500 text-white text-lg font-semibold rounded hover:bg-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 w-full"
+            >
+              Logout
+            </button>
+            
+            {error && <div className="mt-2 text-red-500 dark:text-red-400">{error}</div>}
           </>
         ) : (
-          <>
-            <div className="mt-2 text-xs p-15 text-gray-800 dark:text-gray-200">
-              {botStatus === 'authenticated' || botStatus === 'ready' 
-                ? 'Authentication successful. Redirecting...' 
-                : botStatus === 'initializing'
-                  ? 'Initializing WhatsApp connection...'
-                  : 'Fetching Data...'}
-            </div>
-            <div className="mt-4">
-              <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
-            </div>
-          </>
+          <div className="mt-4">
+                  <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
+                </div>
         )}
-        
-        <hr className="w-full my-4 border-t border-gray-300 dark:border-gray-700 p-15" />
-        
-        <button
-          onClick={handleRefresh}
-          className="mt-4 px-6 py-3 bg-primary text-white text-lg font-semibold rounded hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 w-40"
-        >
-          Refresh
-        </button>
-        
-        <button
-          onClick={handleLogout}
-          className="mt-4 px-6 py-3 bg-red-500 text-white text-lg font-semibold rounded hover:bg-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 w-40"
-        >
-          Logout
-        </button>
-        
-        {error && <div className="mt-2 text-red-500 dark:text-red-400">{error}</div>}
       </div>
     </div>
   );

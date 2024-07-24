@@ -5,7 +5,7 @@ import Button from "@/components/Base/Button";
 import clsx from "clsx";
 import { Link, useNavigate } from "react-router-dom";
 import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, doc, setDoc, collection, getDocs, addDoc } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import { toast, ToastContainer } from 'react-toastify';
@@ -39,9 +39,11 @@ function Main() {
 
   const handleRegister = async () => {
     try {
+
+ 
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-
+      await signInWithEmailAndPassword(auth, email, password);  
       // Fetch the current number of companies to generate a new company ID
       const querySnapshot = await getDocs(collection(firestore, "companies"));
       const companyCount = querySnapshot.size;
@@ -61,7 +63,7 @@ function Main() {
         email: user.email!,
         role: "1",
         companyId: newCompanyId,
-        phoneNumber: phoneNumber // Add phone number to user data
+        phoneNumber: phoneNumber // Add phone number
       });
 
       // Save user data under the new company's employee collection
@@ -69,16 +71,20 @@ function Main() {
         name: name,
         email: user.email!,
         role: "1",
-        phoneNumber: phoneNumber // Add phone number to employee data
+        phoneNumber: phoneNumber // Add phone number
       });
 
       const response2 = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/channel/create/${newCompanyId}`);
+
       console.log(response2);
 
-      toast.success("User registered successfully!");
+      // Sign in the user after successful registration
+      navigate('/loading');
 
-      // You might want to add a navigation to a success page or dashboard
-      navigate('/login');
+      // Navigate to the dashboard or home page
+   
+
+      toast.success("Registration successful!");
 
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -122,7 +128,7 @@ function Main() {
                   className="w-6"
                   src={logoUrl}
                 />
-                <span className="ml-3 text-lg text-white"> Juta</span>
+                <span className="ml-3 text-lg text-white"> Juta Software</span>
               </a>
               <div className="my-auto">
                 <div className="mt-10 text-4xl font-medium leading-tight text-white -intro-x">
@@ -160,6 +166,14 @@ function Main() {
                     onChange={(e) => setCompanyName(e.target.value)}
                     onKeyDown={handleKeyDown}
                   />
+                      <FormInput
+                    type="tel"
+                    className="block px-4 py-3 mt-4 intro-x min-w-full xl:min-w-[350px]"
+                    placeholder="Phone Number"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                  />
                   <FormInput
                     type="text"
                     className="block px-4 py-3 mt-4 intro-x min-w-full xl:min-w-[350px]"
@@ -168,6 +182,7 @@ function Main() {
                     onChange={(e) => setEmail(e.target.value)}
                     onKeyDown={handleKeyDown}
                   />
+                
                   <FormInput
                     type="password"
                     className="block px-4 py-3 mt-4 intro-x min-w-full xl:min-w-[350px]"
@@ -176,14 +191,7 @@ function Main() {
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={handleKeyDown}
                   />
-                  <FormInput
-                    type="tel"
-                    className="block px-4 py-3 mt-4 intro-x min-w-full xl:min-w-[350px]"
-                    placeholder="Phone Number"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                  />
+                
                 </div>
                 <div className="mt-5 text-center intro-x xl:mt-8 xl:text-left">
                   <Button
