@@ -149,7 +149,7 @@ function Main() {
   const [total, setTotal] = useState(0);
   const [fetched, setFetched] = useState(0);
   const [allContactsLoaded, setAllContactsLoaded] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
   const [blastStartTime, setBlastStartTime] = useState<Date | null>(null);
   const [batchQuantity, setBatchQuantity] = useState<number>(10);
@@ -197,10 +197,10 @@ function Main() {
     setCurrentPage(nextPage);
   };
 
-const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (file) {
-    setSelectedImage(file);
+    setSelectedMedia(file);
   }
 };
 
@@ -1018,12 +1018,12 @@ console.log(filteredContacts);
     }
 
     try {
-      let imageUrl = '';
+      let mediaUrl = '';
       let documentUrl = '';
-      if (selectedImage) {
-        console.log('Uploading image...');
-        imageUrl = await uploadFile(selectedImage);
-        console.log(`Image uploaded. URL: ${imageUrl}`);
+      if (selectedMedia) {
+        console.log('Uploading media...');
+        mediaUrl = await uploadFile(selectedMedia);
+        console.log(`Media uploaded. URL: ${mediaUrl}`);
       }
       if (selectedDocument) {
         console.log('Uploading document...');
@@ -1070,9 +1070,9 @@ console.log(filteredContacts);
           createdAt: Timestamp.now(),
           documentUrl: documentUrl || "",
           fileName: selectedDocument ? selectedDocument.name : null,
-          imageUrl: imageUrl || "",
+          mediaUrl: mediaUrl || "",
           message: blastMessage,
-          mimeType: selectedDocument ? selectedDocument.type : null,
+          mimeType: selectedMedia ? selectedMedia.type : (selectedDocument ? selectedDocument.type : null),
           repeatInterval: repeatInterval,
           repeatUnit: repeatUnit,
           scheduledTime: Timestamp.fromDate(scheduledTime),
@@ -1080,6 +1080,8 @@ console.log(filteredContacts);
           v2: isV2,
           whapiToken: isV2 ? null : whapiToken,
         };
+
+        console.log(scheduledTime);
 
         // Make API call to schedule the message
         const response = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}`, scheduledMessageData);
@@ -1098,7 +1100,7 @@ console.log(filteredContacts);
       setBatchQuantity(10);
       setRepeatInterval(0);
       setRepeatUnit('days');
-      setSelectedImage(null);
+      setSelectedMedia(null);
       setSelectedDocument(null);
 
     } catch (error) {
@@ -1346,18 +1348,17 @@ console.log(filteredContacts);
                       <span className="ml-2">Add Tag</span>
                     </Menu.Button>
                   )}
-                  <Menu.Items className="w-150">
-                  <div>
-                    <button className="flex items-center p-2 font-medium" onClick={() => setShowAddTagModal(true)}>
-                      <Lucide icon="Plus" className="w-4 h-4 mr-1" />
-                      Add
-                    </button>
-                  </div>
-                  {tagList.map((tag) => (
-                    <div key={tag.id} className="flex flex-col items-start">
-                      <span className="flex items-center w-full rounded hover:bg-gray-300">
+                  <Menu.Items className="w-150 bg-gray-800 text-white rounded-md mt-1">
+                    <div className="p-2">
+                      <button className="flex items-center p-2 font-medium hover:bg-gray-700 w-full rounded-md" onClick={() => setShowAddTagModal(true)}>
+                        <Lucide icon="Plus" className="w-4 h-4 mr-2" />
+                        Add
+                      </button>
+                    </div>
+                    {tagList.map((tag) => (
+                      <div key={tag.id} className="flex items-center justify-between w-full hover:bg-gray-700 p-1  rounded-md">
                         <button
-                          className="flex items-center p-2 text-sm"
+                          className="flex-grow p-2 text-sm text-left"
                           onClick={() => {
                             selectedContacts.forEach(contact => {
                               handleAddTagToSelectedContacts(tag.name, contact);
@@ -1366,16 +1367,18 @@ console.log(filteredContacts);
                         >
                           {tag.name}
                         </button>
-                        <button className="flex items-center p-2 m-2 text-sm" onClick={() => {
-                          setTagToDelete(tag);
-                          setShowDeleteTagModal(true);
-                        }}>
-                          <Lucide icon="Trash" className="w-4 h-4 mr-1 text-red-500" />
+                        <button 
+                          className="p-2 text-sm"
+                          onClick={() => {
+                            setTagToDelete(tag);
+                            setShowDeleteTagModal(true);
+                          }}
+                        >
+                          <Lucide icon="Trash" className="w-4 h-4 text-red-400" />
                         </button>
-                      </span>
-                    </div>
-                  ))}
-                </Menu.Items>
+                      </div>
+                    ))}
+                  </Menu.Items>
                 </Menu>
                 <Menu>
                   <Menu.Button as={Button} className="p-2 m-2 !box">
@@ -1448,15 +1451,15 @@ console.log(filteredContacts);
                   </>
                 )}
               </div>
-              <div className="text-lg font-semibold text-gray-700 dark:text-gray-400">
-                Total Contacts: {initialContacts.length}
-                {selectedTagFilter && <span> (Filtered by: {selectedTagFilter})</span>}
+              <div className="flex items-center text-lg font-semibold text-gray-700 dark:text-gray-400">
+                <span>Total Contacts: {initialContacts.length}</span>
+                {selectedTagFilter && <span className="m-2">(Filtered by: {selectedTagFilter})</span>}
+                {selectedContacts.length > 0 && (
+                  <div className="inline-flex items-center p-2 m-2 bg-gray-800 rounded-md">
+                    <span className="text-xs text-white whitespace-nowrap">Selected: {selectedContacts.length}</span>
+                  </div>
+                )}
               </div>
-              {selectedContacts.length > 0 && (
-                <div className="inline-flex items-center p-2 m-2 bg-gray-800 rounded-md">
-                  <span className="text-small text-white whitespace-nowrap">Selected: {selectedContacts.length}</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -1589,66 +1592,66 @@ console.log(filteredContacts);
         </div>
         <Dialog open={addContactModal} onClose={() => setAddContactModal(false)}>
           <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
-              <div className="flex items-center p-4 border-b">
-                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-gray-800 rounded-md mt-10 text-white">
+              <div className="flex items-center p-4 border-b border-gray-700">
+                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-600 flex items-center justify-center text-white mr-4">
                   <Lucide icon="User" className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-xl">{'Add New User'}</span>
+                  <span className="text-xl text-white">Add New User</span>
                 </div>
               </div>
               <div className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">First Name</label>
+                  <label className="block text-sm font-medium text-gray-300">First Name</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
                     value={newContact.firstName}
                     onChange={(e) => setNewContact({ ...newContact, firstName: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                  <label className="block text-sm font-medium text-gray-300">Last Name</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
                     value={newContact.lastName}
                     onChange={(e) => setNewContact({ ...newContact, lastName: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <label className="block text-sm font-medium text-gray-300">Email</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
                     value={newContact.email}
                     onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Phone</label>
+                  <label className="block text-sm font-medium text-gray-300">Phone</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
                     value={newContact.phone}
                     onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Address</label>
+                  <label className="block text-sm font-medium text-gray-300">Address</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
                     value={newContact.address1}
                     onChange={(e) => setNewContact({ ...newContact, address1: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Company</label>
+                  <label className="block text-sm font-medium text-gray-300">Company</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
                     value={newContact.companyName}
                     onChange={(e) => setNewContact({ ...newContact, companyName: e.target.value })}
                   />
@@ -1656,13 +1659,13 @@ console.log(filteredContacts);
               </div>
               <div className="flex justify-end mt-6">
                 <button
-                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600"
                   onClick={() => setAddContactModal(false)}
                 >
                   Cancel
                 </button>
                 <button
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md "
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
                   onClick={handleSaveNewContact}
                 >
                   Save
@@ -1674,67 +1677,67 @@ console.log(filteredContacts);
       
         <Dialog open={editContactModal} onClose={() => setEditContactModal(false)}>
           <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
-              <div className="flex items-center p-4 border-b  ">
-                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-gray-800 rounded-md mt-10 text-white">
+              <div className="flex items-center p-4 border-b border-gray-700">
+                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-600 flex items-center justify-center text-white mr-4">
                   <span className="text-xl">{(currentContact?.firstName) ? currentContact?.firstName.charAt(0).toUpperCase() : ""}</span>
                 </div>
                 <div>
-                  <div className="font-semibold text-gray-800">{currentContact?.firstName} {currentContact?.lastName}</div>
-                  <div className="text-sm text-gray-600">{currentContact?.phone}</div>
+                  <div className="font-semibold text-white">{currentContact?.firstName} {currentContact?.lastName}</div>
+                  <div className="text-sm text-gray-400">{currentContact?.phone}</div>
                 </div>
               </div>
               <div className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">First Name</label>
+                  <label className="block text-sm font-medium text-gray-300">First Name</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
                     value={currentContact?.firstName || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, firstName: e.target.value } as Contact)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                  <label className="block text-sm font-medium text-gray-300">Last Name</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
                     value={currentContact?.lastName || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, lastName: e.target.value } as Contact)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <label className="block text-sm font-medium text-gray-300">Email</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
                     value={currentContact?.email || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, email: e.target.value } as Contact)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Phone</label>
+                  <label className="block text-sm font-medium text-gray-300">Phone</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
                     value={currentContact?.phone || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, phone: e.target.value } as Contact)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Address</label>
+                  <label className="block text-sm font-medium text-gray-300">Address</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
                     value={currentContact?.address1 || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, address1: e.target.value } as Contact)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Company</label>
+                  <label className="block text-sm font-medium text-gray-300">Company</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
                     value={currentContact?.companyName || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, companyName: e.target.value } as Contact)}
                   />
@@ -1742,13 +1745,13 @@ console.log(filteredContacts);
               </div>
               <div className="flex justify-end mt-6">
                 <button
-                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600"
                   onClick={() => setEditContactModal(false)}
                 >
                   Cancel
                 </button>
                 <button
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
                   onClick={handleSaveContact}
                 >
                   Save
@@ -1771,11 +1774,11 @@ console.log(filteredContacts);
                 style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
               ></textarea>
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-300">Attach Image</label>
+                <label className="block text-sm font-medium text-gray-300">Attach Media (Image or Video)</label>
                 <input
                   type="file"
-                  accept="image/*"
-                  onChange={(e) => handleImageUpload(e)}
+                  accept="image/*,video/*"
+                  onChange={(e) => handleMediaUpload(e)}
                   className="block w-full mt-1 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
                 />
               </div>
