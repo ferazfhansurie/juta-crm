@@ -134,7 +134,7 @@ function Main() {
   const [currentPage, setCurrentPage] = useState(0);
   const contactsPerPage = 200;
   const contactListRef = useRef<HTMLDivElement>(null);
-  const { contacts: initialContacts } = useContacts();
+  const { contacts: initialContacts, refetchContacts } = useContacts();
   const [totalContacts, setTotalContacts] = useState(contacts.length);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
   const [newContact, setNewContact] = useState({
@@ -155,6 +155,9 @@ function Main() {
   const [batchQuantity, setBatchQuantity] = useState<number>(10);
   const [repeatInterval, setRepeatInterval] = useState<number>(0);
   const [repeatUnit, setRepeatUnit] = useState<'minutes' | 'hours' | 'days'>('days');
+  const [showCsvImportModal, setShowCsvImportModal] = useState(false);
+  const [selectedCsvFile, setSelectedCsvFile] = useState<File | null>(null);
+  const [showSyncConfirmationModal, setShowSyncConfirmationModal] = useState(false);
 
   useEffect(() => {
     if (initialContacts.length > 0) {
@@ -581,6 +584,15 @@ setLoading(true);
     }
   };
 
+  const handleSyncConfirmation = () => {
+    setShowSyncConfirmationModal(true);
+  };
+
+  const handleConfirmSync = async () => {
+    setShowSyncConfirmationModal(false);
+    await handleSyncContact();
+  };
+
   const handleSyncContact = async () => {
     try {
       setFetching(true);
@@ -621,7 +633,7 @@ setLoading(true);
       const dataCompany = docSnapshot.data();
       console.log(dataCompany);
   
-      const url = `http://localhost:8443/api/chats/${dataCompany?.whapiToken}/${dataCompany?.ghl_location}/${dataCompany?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}/${dataUser.companyId}`;
+      const url = `https://mighty-dane-newly.ngrok-free.app/api/chats/${dataCompany?.whapiToken}/${dataCompany?.ghl_location}/${dataCompany?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}/${dataUser.companyId}`;
       const response = await axios.get(url);
       let allContacts = response.data.contacts;
       console.log(allContacts.length);
@@ -1203,6 +1215,69 @@ console.log(filteredContacts);
       console.error('Error sending image message:', error);
     }
   };
+
+  const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedCsvFile(file);
+    }
+  };
+
+  const handleCsvImport = async () => {
+    if (!selectedCsvFile) {
+      toast.error("Please select a CSV file to import.");
+      return;
+    }
+  
+    try {
+      setLoading(true);
+      // Upload CSV file to Firebase Storage
+      const storage = getStorage();
+      const storageRef = ref(storage, `csv_imports/${selectedCsvFile.name}`);
+      await uploadBytes(storageRef, selectedCsvFile);
+      const csvUrl = await getDownloadURL(storageRef);
+  
+      // Get company ID
+      const user = auth.currentUser;
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        throw new Error('No such document for user!');
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      console.log(`Sending request to: https://mighty-dane-newly.ngrok-free.app/api/import-csv/${companyId}`);
+      console.log('CSV URL:', csvUrl);
+
+      // Call server API to process CSV
+      const response = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/import-csv/${companyId}`, { csvUrl });
+
+      console.log('Server response:', response);
+
+      if (response.status === 200) {
+        toast.success("CSV imported successfully!");
+        setShowCsvImportModal(false);
+        setSelectedCsvFile(null);
+        
+        // Fetch updated contacts and store them in local storage
+        await refetchContacts();
+        
+        toast.info("Contacts updated and stored in local storage.");
+      } else {
+        throw new Error(`Failed to import CSV: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error importing CSV:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Axios error details:', error.response?.data);
+      }
+      toast.error("An error occurred while importing the CSV.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   async function sendTextMessage(id: string, blastMessage: string, contact: Contact): Promise<void> {
     if (!blastMessage.trim()) {
       console.error('Blast message is empty');
@@ -1415,11 +1490,17 @@ console.log(filteredContacts);
                   </span>
                   <span className="ml-2 font-medium">Send Blast Message</span>
                 </button>
-                <button className="flex inline p-2 m-2 !box" onClick={() => handleSyncContact()}>
+                <button className="flex inline p-2 m-2 !box" onClick={handleSyncConfirmation}>
                   <span className="flex items-center justify-center w-5 h-5">
                     <Lucide icon="FolderSync" className="w-5 h-5" />
                   </span>
                   <span className="ml-2 font-medium">Sync Database</span>
+                </button>
+                <button className="flex inline p-2 m-2 !box" onClick={() => setShowCsvImportModal(true)}>
+                  <span className="flex items-center justify-center w-5 h-5">
+                    <Lucide icon="Upload" className="w-5 h-5" />
+                  </span>
+                  <span className="ml-2 font-medium">Import CSV</span>
                 </button>
                 {/* Add this new element to display the number of selected contacts */}
               </div>
@@ -1949,6 +2030,61 @@ console.log(filteredContacts);
               </div>
             </div>
           </Dialog.Panel>
+        </Dialog>
+        <Dialog open={showCsvImportModal} onClose={() => setShowCsvImportModal(false)}>
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-gray-800 rounded-md mt-10 text-white">
+              <div className="mb-4 text-lg font-semibold">Import CSV</div>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleCsvFileSelect}
+                className="block w-full mt-1 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+              />
+              <div className="flex justify-end mt-4">
+                <button
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600"
+                  onClick={() => setShowCsvImportModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                  onClick={handleCsvImport}
+                  disabled={!selectedCsvFile || isLoading}
+                >
+                  {isLoading ? 'Importing...' : 'Import'}
+                </button>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+        <Dialog open={showSyncConfirmationModal} onClose={() => setShowSyncConfirmationModal(false)}>
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-gray-800 rounded-md text-white mt-20">
+              <div className="p-5 text-center">
+                <Lucide icon="AlertTriangle" className="w-16 h-16 mx-auto mt-3 text-warning" />
+                <div className="mt-5 text-3xl">Are you sure?</div>
+                <div className="mt-2 text-slate-500">
+                  Do you really want to sync the database? This action may take some time and affect your current data.
+                </div>
+              </div>
+              <div className="px-5 pb-8 text-center">
+                <button
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600"
+                  onClick={() => setShowSyncConfirmationModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                  onClick={handleConfirmSync}
+                >
+                  Confirm Sync
+                </button>
+              </div>
+            </Dialog.Panel>
+          </div>
         </Dialog>
         <ToastContainer
           position="top-right"
