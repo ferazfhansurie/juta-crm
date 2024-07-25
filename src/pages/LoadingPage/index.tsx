@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import logoUrl from "@/assets/images/logo_black.png";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { useConfig } from '../../config';
 import { getAuth } from "firebase/auth";
@@ -73,6 +73,7 @@ function LoadingPage() {
   const [contactsFetched, setContactsFetched] = useState(false);
   const auth = getAuth(app);
   const [shouldFetchContacts, setShouldFetchContacts] = useState(false);
+  const location = useLocation();
 
   const fetchQRCode = async () => {
     const auth = getAuth(app);
@@ -101,10 +102,12 @@ function LoadingPage() {
       setV2(v2);
       if (!v2) {
         // If "v2" is not present or is false, navigate to the next page
-        if (initialContacts.name === "Infinity Pilates & Physiotherapy") {
-          navigate('/calendar');
-        } else {
-          navigate('/chat');
+        if (location.pathname === '/loading') {
+          if (initialContacts.name === "Infinity Pilates & Physiotherapy") {
+            navigate('/calendar');
+          } else {
+            navigate('/chat');
+          }
         }
         return;
       }

@@ -482,7 +482,7 @@ setLoading(true);
       setEmployeeList(employeeListData);
       const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
      
-      if (!companyData.v2) {
+      if (companyData.v2 !== true) {
         await fetchTags(companyData.ghl_accessToken, companyData.ghl_location, employeeNames);
       } else {
         console.log('v2');
