@@ -10,7 +10,7 @@ import Tippy from "@/components/Base/Tippy";
 import { Dialog, Menu } from "@/components/Base/Headless";
 import Table from "@/components/Base/Table";
 import { getAuth } from 'firebase/auth';
-import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc,updateDoc,addDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc,updateDoc,addDoc, arrayUnion, arrayRemove, Timestamp, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { initializeApp } from "firebase/app";
 import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
@@ -83,6 +83,30 @@ function Main() {
   interface TagsState {
     [key: string]: string[];
   }
+
+  interface ScheduledMessage {
+    chatId: string;
+    message: string;
+    imageUrl?: string;
+    documentUrl?: string;
+    mimeType?: string;
+    fileName?: string;
+    scheduledTime: Timestamp;
+    batchQuantity: number;
+    repeatInterval: number;
+    repeatUnit: 'minutes' | 'hours' | 'days';
+    additionalInfo: {
+      contactName?: string;
+      phone?: string;
+      email?: string;
+      // ... any other contact fields you want to include
+    };
+    status: 'scheduled' | 'sent' | 'failed';
+    createdAt: Timestamp;
+    sentAt?: Timestamp;
+    error?: string;
+  }
+  
   const [deleteConfirmationModal, setDeleteConfirmationModal] = useState(false);
   const [editContactModal, setEditContactModal] = useState(false);
   const [viewContactModal, setViewContactModal] = useState(false);
@@ -550,8 +574,7 @@ setLoading(true);
         localStorage.setItem('contacts', LZString.compress(JSON.stringify((prevContacts: any[]) =>
           prevContacts.map(c =>
             c.id === contact.id ? { ...c, tags: updatedTags } : c
-          )
-        )));
+          ))));
         sessionStorage.setItem('contactsFetched', 'true');
         toast.success("Tag added successfully!");
       }
@@ -971,13 +994,26 @@ console.log(filteredContacts);
   const currentContacts = filteredContacts.slice(indexOfFirstContact, indexOfLastContact);
 
   const sendBlastMessage = async () => {
+    console.log('Starting sendBlastMessage function');
+
     if (selectedContacts.length === 0) {
+      console.log('No contacts selected');
       toast.error("No contacts selected!");
       return;
     }
-  
+
     if (!blastStartTime) {
+      console.log('No start time selected');
       toast.error("Please select a start time for the blast message.");
+      return;
+    }
+
+    const now = new Date();
+    const scheduledTime = new Date(blastStartTime);
+
+    if (scheduledTime <= now) {
+      console.log('Selected time is in the past');
+      toast.error("Please select a future time for the blast message.");
       return;
     }
 
@@ -985,13 +1021,19 @@ console.log(filteredContacts);
       let imageUrl = '';
       let documentUrl = '';
       if (selectedImage) {
+        console.log('Uploading image...');
         imageUrl = await uploadFile(selectedImage);
+        console.log(`Image uploaded. URL: ${imageUrl}`);
       }
       if (selectedDocument) {
+        console.log('Uploading document...');
         documentUrl = await uploadFile(selectedDocument);
+        console.log(`Document uploaded. URL: ${documentUrl}`);
       }
 
       const user = auth.currentUser;
+      console.log(`Current user: ${user?.email}`);
+
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
@@ -1000,82 +1042,57 @@ console.log(filteredContacts);
       }
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
+      console.log(`Company ID: ${companyId}`);
+
+      const companyRef = doc(firestore, 'companies', companyId);
+      const companySnapshot = await getDoc(companyRef);
+      if (!companySnapshot.exists()) {
         console.log('No such document for company!');
         return;
       }
-      const companyData = docSnapshot.data();
-
-      let successCount = 0;
-      let failureCount = 0;
+      const companyData = companySnapshot.data();
+      const isV2 = companyData.v2 || false;
+      const whapiToken = companyData.whapiToken || '';
 
       for (const contact of selectedContacts) {
-        const phoneNumber = contact.phone?.replace(/\D/g, ''); // Remove non-digit characters
+        const phoneNumber = contact.phone?.replace(/\D/g, '');
         if (!phoneNumber) {
           console.error(`Invalid phone number for contact: ${contact.id}`);
-          failureCount++;
           continue;
         }
         const chat_id = phoneNumber + "@s.whatsapp.net";
+        console.log(`Scheduling message for chat_id: ${chat_id}`);
         
-        try {
-          let response;
-          const apiUrl = companyData.v2 === true
-            ? `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${companyId}/${chat_id}`
-            : `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chat_id}/${companyData.whapiToken}`;
+        const scheduledMessageData = {
+          batchQuantity: batchQuantity,
+          chatId: chat_id,
+          companyId: companyId,
+          createdAt: Timestamp.now(),
+          documentUrl: documentUrl || "",
+          fileName: selectedDocument ? selectedDocument.name : null,
+          imageUrl: imageUrl || "",
+          message: blastMessage,
+          mimeType: selectedDocument ? selectedDocument.type : null,
+          repeatInterval: repeatInterval,
+          repeatUnit: repeatUnit,
+          scheduledTime: Timestamp.fromDate(scheduledTime),
+          status: "scheduled",
+          v2: isV2,
+          whapiToken: isV2 ? null : whapiToken,
+        };
 
-          response = await axios.post(
-            apiUrl,
-            {
-              message: blastMessage,
-              imageUrl,
-              documentUrl,
-              startTime: blastStartTime.toISOString(),
-              batchQuantity,
-              repeatInterval,
-              repeatUnit,
-              additionalInfo: { ...contact },
-            },
-            {
-              headers: { 'Content-Type': 'application/json' }
-            }
-          );
+        // Make API call to schedule the message
+        const response = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}`, scheduledMessageData);
 
-          if (response.status === 200) {
-            successCount++;
-            console.log(`Message scheduled successfully for ${contact.phone}`);
-          } else {
-            failureCount++;
-            console.error(`Failed to schedule message for ${contact.phone}:`, response.statusText);
-          }
-        } catch (error) {
-          failureCount++;
-          if (axios.isAxiosError(error)) {
-            console.error(`Error scheduling message for ${contact.phone}:`, error.response?.data || error.message);
-          } else {
-            console.error(`Error scheduling message for ${contact.phone}:`, error);
-          }
-        }
+        console.log(`Scheduled message added. Document ID: ${response.data.id}`);
       }
 
-      // Log summary of blast message information
-      console.log('Blast Message Summary:', {
-        totalContacts: selectedContacts.length,
-        successfulSchedules: successCount,
-        failedSchedules: failureCount,
-        message: blastMessage,
-        imageAttached: !!imageUrl,
-        documentAttached: !!documentUrl,
-        scheduledStartTime: blastStartTime.toISOString(),
-        batchQuantity,
-        repeatInterval,
-        repeatUnit
-      });
+      // Show success toast
+      toast.success(`Blast messages scheduled successfully for ${selectedContacts.length} contacts.`);
+      toast.info(`Messages will be sent at: ${scheduledTime.toLocaleString()} (local time)`);
 
+      // Close the modal and reset state
       setBlastMessageModal(false);
-      toast.success(`Blast messages scheduled successfully! ${successCount} scheduled, ${failureCount} failed.`);
       setBlastMessage("");
       setBlastStartTime(null);
       setBatchQuantity(10);
@@ -1083,10 +1100,13 @@ console.log(filteredContacts);
       setRepeatUnit('days');
       setSelectedImage(null);
       setSelectedDocument(null);
+
     } catch (error) {
       console.error('Error scheduling blast messages:', error);
       toast.error("An error occurred while scheduling blast messages. Please try again.");
     }
+
+    console.log('sendBlastMessage function completed');
   };
   
 
@@ -1206,40 +1226,69 @@ console.log(filteredContacts);
       }
   
       const companyData = docSnapshot.data();
-      const accessToken = companyData.ghl_accessToken; // Assuming you store access token in company data
+      const accessToken = companyData.ghl_accessToken;
+      const whapiToken = companyData.whapiToken;
       const phoneNumber = id.split('+')[1];
-      const chat_id = phoneNumber+"@s.whatsapp.net"
+      const chat_id = phoneNumber + "@s.whatsapp.net";
       console.log(chat_id);
-      const response = await axios.post(
-        `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chat_id!}/${companyData.whapiToken}`, // This URL should be your API endpoint for sending messages
-        {
-          
-          contactId: id,
+
+      if (companyData.v2) {
+        // Handle v2 users
+        const messagesRef = collection(firestore, `companies/${companyId}/contacts/${contact.phone}/messages`);
+        await addDoc(messagesRef, {
           message: blastMessage,
-          additionalInfo: { ...contact },
-          method: 'POST',
-          body: JSON.stringify({
-            message: blastMessage,
-          }),
-          headers: { 'Content-Type': 'application/json' } // You can pass additional data if needed
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      console.log(response.data);
-      
-  
-      if (response.status === 200) {
-        console.log('Message sent successfully');
+          timestamp: new Date(),
+          from_me: true,
+          chat_id: chat_id,
+          type: 'chat',
+          // Add any other necessary fields
+        });
+
+        console.log("Message added to Firestore for v2 user");
       } else {
-        console.error('Failed to send message:', response.statusText);
+        // Handle non-v2 users
+        const response = await axios.post(
+          `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chat_id}/${whapiToken}`,
+          {
+            contactId: id,
+            message: blastMessage,
+            additionalInfo: { ...contact },
+            method: 'POST',
+            body: JSON.stringify({
+              message: blastMessage,
+            }),
+            headers: { 'Content-Type': 'application/json' }
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (response.data && response.data.message) {
+          // Store the message in Firebase for non-v2 users
+          const messagesCollectionRef = collection(firestore, 'companies', companyId, 'messages');
+          await setDoc(doc(messagesCollectionRef, response.data.message.id), {
+            message: response.data.message,
+            from: userData.name,
+            timestamp: new Date(),
+            whapiToken: whapiToken,
+            chat_id: chat_id,
+            type: 'chat',
+            from_me: true,
+            text: { body: blastMessage },
+          });
+        }
+
+        console.log("Message sent and stored for non-v2 user");
       }
+
+      console.log('Message sent successfully');
     } catch (error) {
       console.error('Error sending message:', error);
+      throw error;
     }
   }
 
@@ -1369,6 +1418,7 @@ console.log(filteredContacts);
                   </span>
                   <span className="ml-2 font-medium">Sync Database</span>
                 </button>
+                {/* Add this new element to display the number of selected contacts */}
               </div>
               <div className="relative w-full text-slate-500 p-2 mb-3">
                 {isFetching ? (
@@ -1401,6 +1451,9 @@ console.log(filteredContacts);
               <div className="text-lg font-semibold text-gray-700 dark:text-gray-400">
                 Total Contacts: {initialContacts.length}
                 {selectedTagFilter && <span> (Filtered by: {selectedTagFilter})</span>}
+              </div>
+              <div className="inline-flex items-center p-2 m-2 bg-gray-800 rounded-md">
+                <span className="text-small text-white whitespace-nowrap">Selected: {selectedContacts.length}</span>
               </div>
             </div>
           </div>
@@ -1892,7 +1945,17 @@ console.log(filteredContacts);
             </div>
           </Dialog.Panel>
         </Dialog>
-   
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
       </div>
     </div>
   );
