@@ -1452,9 +1452,11 @@ console.log(filteredContacts);
                 Total Contacts: {initialContacts.length}
                 {selectedTagFilter && <span> (Filtered by: {selectedTagFilter})</span>}
               </div>
-              <div className="inline-flex items-center p-2 m-2 bg-gray-800 rounded-md">
-                <span className="text-small text-white whitespace-nowrap">Selected: {selectedContacts.length}</span>
-              </div>
+              {selectedContacts.length > 0 && (
+                <div className="inline-flex items-center p-2 m-2 bg-gray-800 rounded-md">
+                  <span className="text-small text-white whitespace-nowrap">Selected: {selectedContacts.length}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1508,9 +1510,9 @@ console.log(filteredContacts);
                         </label>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-medium capitalize text-gray-900 whitespace-nowrap dark:text-white flex items-center w-44 overflow-hidden overflow-ellipsis">
+                    <td className="px-6 py-6 font-medium capitalize text-gray-900 whitespace-nowrap dark:text-white flex items-center w-44 overflow-hidden overflow-ellipsis">
                       {contact.chat_pic_full ? (
-                        <img src={contact.chat_pic_full} className="w-8 h-8 rounded-full object-cover mr-3" />
+                        <img src={contact.chat_pic_full ?? ''} className="w-8 h-8 rounded-full object-cover mr-3" />
                       ) : (
                         <div className="w-8 h-8 mr-3 border-2 border-gray-500 rounded-full flex items-center justify-center">
                           <Lucide icon="User" className="w-6 h-6 rounded-full text-gray-500" />
