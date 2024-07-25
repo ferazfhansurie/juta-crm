@@ -468,11 +468,9 @@ setLoading(true);
         return;
       }
       const companyData = docSnapshot.data();
-     
-      await setDoc(doc(firestore, 'companies', companyId), {
-        ghl_accessToken: companyData.ghl_accessToken,
-        ghl_refreshToken: companyData.ghl_refreshToken,
-      }, { merge: true });
+      console.log(companyData.tags);
+      console.log('tags');
+ 
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
 
@@ -483,7 +481,33 @@ setLoading(true);
      console.log(employeeListData);
       setEmployeeList(employeeListData);
       const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
-      await fetchTags(companyData.ghl_accessToken,companyData.ghl_location,employeeNames);
+     
+      if (!companyData.v2) {
+        await fetchTags(companyData.ghl_accessToken, companyData.ghl_location, employeeNames);
+      } else {
+        console.log('v2');
+            if (companyData.tags) {
+        let tagsArray: Tag[] = [];
+        
+        if (Array.isArray(companyData.tags)) {
+          tagsArray = companyData.tags.map((tag: any) => ({
+            id: tag.id.toString(),
+            name: tag.name
+          }));
+        } else if (typeof companyData.tags === 'object') {
+          tagsArray = Object.entries(companyData.tags).map(([id, name]) => ({
+            id: id.toString(),
+            name: name as string
+          }));
+        }
+        
+        setTagList(tagsArray);
+        console.log('Tags set:', tagsArray);
+      } else {
+        setTagList([]);
+        console.log('No tags found, setting empty array');
+      }
+      }
       setLoading(false);
      // await searchContacts(companyData.ghl_accessToken, companyData.ghl_location);
 
