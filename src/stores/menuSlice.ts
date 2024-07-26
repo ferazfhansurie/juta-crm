@@ -34,9 +34,9 @@ export const menuSlice = createSlice({
 });
 
 export const selectMenu = (layout: Themes["layout"]) => (state: RootState) => {
-  const { config: initialContacts, role } = useConfig();
+  const { config: initialContacts,} = useConfig();
   console.log(initialContacts.name);
-  console.log(role);
+
   if (layout == "top-menu") {
     return topMenu;
   }
@@ -50,13 +50,7 @@ export const selectMenu = (layout: Themes["layout"]) => (state: RootState) => {
       return simpleMenu3;
     }
     else {
-      if(role === "1"){
-        return simpleMenu;
-      } else if(role === "2"){
-        return simpleMenuRole2;
-      } else {
-        return simpleMenuRole2;
-      }
+      return simpleMenuRole2;
     }
   }
 
