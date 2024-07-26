@@ -39,6 +39,21 @@ interface Contact {
   pinned?: boolean;
   tags: string[];
   unreadCount: number;
+  additionalEmails?: string[];
+  address1?: string | null;
+  assignedTo?: string | null;
+  businessId?: string | null;
+  chat?: {
+    contact_id: string;
+    id: string;
+  };
+  name?: string;
+  not_spam?: boolean;
+  timestamp?: number;
+  type?: string;
+  city?: string | null;
+  companyName?: string | null;
+  threadid?: string;
 }
 
 const app = initializeApp(firebaseConfig);
@@ -96,7 +111,25 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         }
     
         const contactsSnapshot = await getDocs(queryRef);
-        const contactsBatch: Contact[] = contactsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Contact));
+        const contactsBatch: Contact[] = contactsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            ...data,
+            id: doc.id,
+            additionalEmails: data.additionalEmails || [],
+            address1: data.address1 || null,
+            assignedTo: data.assignedTo || null,
+            businessId: data.businessId || null,
+            chat: data.chat || {},
+            name: data.name || '',
+            not_spam: data.not_spam || false,
+            timestamp: data.timestamp || 0,
+            type: data.type || '',
+            city: data.city || null,
+            companyName: data.companyName || null,
+            threadid: data.threadid || '',
+          } as Contact;
+        });
     
         if (contactsBatch.length === 0) break; // Exit if no more documents
     
@@ -106,7 +139,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
             allContacts.push(contact);
           }
         });
-    
+    console.log(allContacts);
         lastVisible = contactsSnapshot.docs[contactsSnapshot.docs.length - 1];
       }
     

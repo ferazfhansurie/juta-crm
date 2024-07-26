@@ -657,7 +657,7 @@ setLoading(true);
       const dataCompany = docSnapshot.data();
       console.log(dataCompany);
   
-      const url = `https://mighty-dane-newly.ngrok-free.app/api/chats/${dataCompany?.whapiToken}/${dataCompany?.ghl_location}/${dataCompany?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}/${dataUser.companyId}`;
+      const url = `http://localhost:8444/api/chats/${dataCompany?.whapiToken}/${dataCompany?.ghl_location}/${dataCompany?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}/${dataUser.companyId}`;
       const response = await axios.get(url);
       let allContacts = response.data.contacts;
       console.log(allContacts.length);

@@ -102,16 +102,8 @@ function LoadingPage() {
       setV2(v2);
       if (!v2) {
         // If "v2" is not present or is false, navigate to the next page
-        if (location.pathname === '/loading') {
-          if (initialContacts.name === "Infinity Pilates & Physiotherapy") {
-            navigate('/calendar');
-          } else {
-            navigate('/chat');
-          }
-        }
-        return;
-      }
-
+     
+      }else{
       // Only proceed with QR code and bot status if v2 exists
       const botStatusResponse = await axios.get(`https://mighty-dane-newly.ngrok-free.app/api/bot-status/${companyId}`);
 
@@ -129,7 +121,55 @@ function LoadingPage() {
         console.log("Bot authenticated, preparing to fetch contacts");
         setShouldFetchContacts(true);
       }
+      }
+
+
       setIsLoading(false);
+      if (!wsConnected) {
+        const auth = getAuth(app);
+        const user = auth.currentUser;
+        
+        ws.current = new WebSocket(`wss://mighty-dane-newly.ngrok-free.app/ws/${user?.email}`);
+        
+        ws.current.onopen = () => {
+          console.log('WebSocket connected');
+          setWsConnected(true);
+        };
+        
+        ws.current.onmessage = async (event) => {
+          const data = JSON.parse(event.data);
+          console.log('WebSocket message received:', data);
+  
+          if (data.type === 'auth_status') {
+            console.log(`Bot status: ${data.status}`);
+            setBotStatus(data.status);
+            if (data.status === 'qr') {
+              setQrCodeImage(data.qrCode);
+              handleRefresh();
+            } else if (data.status === 'authenticated' || data.status === 'ready') {
+              setIsProcessingChats(true);
+            }
+          } else if (data.type === 'progress') {
+            setCurrentAction(data.action);
+            setFetchedChats(data.fetchedChats);
+            setTotalChats(data.totalChats);
+  
+            if (data.action === 'done_process') {
+              setProcessingComplete(true);
+            }
+          }
+        };
+        
+        ws.current.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          setError('WebSocket connection error. Please try again.');
+        };
+        
+        ws.current.onclose = () => {
+          console.log('WebSocket disconnected');
+          setWsConnected(false);
+        };
+      }
     } catch (error) {
       setIsLoading(false);
       if (axios.isAxiosError(error)) {
@@ -155,53 +195,7 @@ function LoadingPage() {
     fetchQRCode();
   }, []);
 
-  useEffect(() => {
-    if (!wsConnected) {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      
-      ws.current = new WebSocket(`wss://mighty-dane-newly.ngrok-free.app/ws/${user?.email}`);
-      
-      ws.current.onopen = () => {
-        console.log('WebSocket connected');
-        setWsConnected(true);
-      };
-      
-      ws.current.onmessage = async (event) => {
-        const data = JSON.parse(event.data);
-        console.log('WebSocket message received:', data);
 
-        if (data.type === 'auth_status') {
-          console.log(`Bot status: ${data.status}`);
-          setBotStatus(data.status);
-          if (data.status === 'qr') {
-            setQrCodeImage(data.qrCode);
-            handleRefresh();
-          } else if (data.status === 'authenticated' || data.status === 'ready') {
-            setIsProcessingChats(true);
-          }
-        } else if (data.type === 'progress') {
-          setCurrentAction(data.action);
-          setFetchedChats(data.fetchedChats);
-          setTotalChats(data.totalChats);
-
-          if (data.action === 'done_process') {
-            setProcessingComplete(true);
-          }
-        }
-      };
-      
-      ws.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        setError('WebSocket connection error. Please try again.');
-      };
-      
-      ws.current.onclose = () => {
-        console.log('WebSocket disconnected');
-        setWsConnected(false);
-      };
-    }
-  }, []);
 
   // New useEffect for WebSocket cleanup
   useEffect(() => {
@@ -221,13 +215,7 @@ function LoadingPage() {
     }
   }, [shouldFetchContacts, isLoading]);
 
-  useEffect(() => {
-    console.log("Contact state changed. contactsFetched:", contactsFetched, "contacts length:", contacts.length);
-    if (contactsFetched && contacts.length > 0) {
-      console.log('Contacts fetched and loaded, navigating to chat');
-      navigate('/chat');
-    }
-  }, [contactsFetched, contacts, navigate]);
+
 
   const fetchContacts = async () => {
     console.log("fetchContacts function called");
@@ -323,6 +311,14 @@ function LoadingPage() {
       localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
       sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
       setContactsFetched(true);
+         if (location.pathname === '/loading') {
+          if (initialContacts.name === "Infinity Pilates & Physiotherapy") {
+            navigate('/calendar');
+          } else {
+            navigate('/chat');
+          }
+        }
+        return;
     } catch (error) {
       console.error('Error fetching contacts:', error);
       setError('Failed to fetch contacts. Please try again.');
@@ -358,6 +354,12 @@ function LoadingPage() {
       setError('Failed to log out. Please try again.');
     }
   };
+
+  useEffect(() => {
+    if (!isLoading) {
+      navigate('/chat');
+    }
+  }, [isLoading, navigate]);
 
   return (
     <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-900">
