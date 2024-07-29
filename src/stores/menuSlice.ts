@@ -34,23 +34,27 @@ export const menuSlice = createSlice({
 });
 
 export const selectMenu = (layout: Themes["layout"]) => (state: RootState) => {
-  const { config: initialContacts,} = useConfig();
-  console.log(initialContacts.name);
+  const { config: initialContacts, userRole } = useConfig();
+
 
   if (layout == "top-menu") {
     return topMenu;
   }
 
   if (layout == "simple-menu") {
-    if(initialContacts.name === "Infinity Pilates & Physiotherapy")
-    {
+    if (initialContacts.name === "Infinity Pilates & Physiotherapy") {
       return simpleMenu2;
-    } else if(initialContacts.name === "Tatapies")
-    {
+    } else if (initialContacts.name === "Tatapies") {
       return simpleMenu3;
-    }
-    else {
-      return simpleMenuRole2;
+    } else {
+      switch (userRole) {
+        case "1":
+          return simpleMenu;
+        case "2":
+          return simpleMenuRole2;
+        default:
+          return simpleMenu;
+      }
     }
   }
 

@@ -88,7 +88,7 @@ function Main() {
  
  useEffect(() => {
     fetchEmployees();
-    fetchQRCode();
+
   }, []);
 
   

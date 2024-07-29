@@ -25,6 +25,7 @@ setPersistence(auth, browserLocalPersistence);
 interface ConfigContextProps {
   config: any;
   isLoading: boolean;
+  userRole: string | null;
 }
 
 const ConfigContext = createContext<ConfigContextProps | undefined>(undefined);
@@ -32,6 +33,7 @@ const ConfigContext = createContext<ConfigContextProps | undefined>(undefined);
 export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   const [config, setConfig] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -70,6 +72,12 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
 
         const dataUser = docUserSnapshot.data();
         const companyId = dataUser?.companyId;
+        const role = dataUser?.role; // Get the user role
+        console.log(dataUser);
+        console.log(companyId);
+        console.log('test')
+        setUserRole(role); // Set the user role
+
         if (!companyId) {
           setIsLoading(false);
           return;
@@ -117,7 +125,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <ConfigContext.Provider value={{ config, isLoading }}>
+    <ConfigContext.Provider value={{ config, isLoading, userRole }}>
       {children}
     </ConfigContext.Provider>
   );

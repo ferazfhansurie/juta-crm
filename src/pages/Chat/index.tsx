@@ -1352,6 +1352,7 @@ async function fetchMessagesFromFirebase(companyId: string, chatId: string): Pro
   
   async function fetchMessagesFromApi(chatId: string, token: string, userEmail: string) {
     const response = await axios.get(`https://mighty-dane-newly.ngrok-free.app/api/messages/${chatId}/${token}/${userEmail}`);
+    console.log(response);
     return response.data.messages;
   }
   async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
