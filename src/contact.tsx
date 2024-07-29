@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { getAuth, User, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getFirestore, doc, getDoc, collection, getDocs,setDoc,query, startAfter, limit, QueryDocumentSnapshot, DocumentData ,Query,CollectionReference} from "firebase/firestore";
 import { initializeApp } from "firebase/app";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import LZString from 'lz-string';
 
 const firebaseConfig = {
@@ -73,7 +73,9 @@ const ContactsContext = createContext<ContactsContextProps | undefined>(undefine
 export const ContactsProvider = ({ children }: { children: ReactNode }) => {
   const [contacts, setContacts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [v2, setV2] = useState<boolean | undefined>(undefined);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const fetchContacts = async (user: User) => {
     try {
@@ -91,6 +93,19 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
       if (!companyId) {
         setIsLoading(false);
         return;
+      }
+
+      // Check for v2
+      const companyDocRef = doc(firestore, 'companies', companyId);
+      const companyDocSnapshot = await getDoc(companyDocRef);
+      if (companyDocSnapshot.exists()) {
+        const companyData = companyDocSnapshot.data();
+        setV2(companyData.v2 || false);
+        if (companyData.v2) {
+          // If v2 is true, navigate to loading page and return
+          navigate('/loading');
+          return;
+        }
       }
     
       // Pagination settings
@@ -227,12 +242,19 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [navigate]);
 
+  useEffect(() => {
+    if (!isLoading && v2 === false && location.pathname === '/loading') {
+      navigate('/chat');
+    }
+  }, [isLoading, v2, location.pathname, navigate]);
+
   const fetchContactsOnAuthChange = () => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         fetchContacts(user);
       } else {
         setIsLoading(false);
+        setV2(undefined);
       }
     });
 
