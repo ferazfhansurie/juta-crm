@@ -70,7 +70,6 @@ const firebaseConfig = {
                     className="w-2/4 -mt-16"
                     src={logoUrl}
                   />
-                  <span className="mt-3 text-6xl font-bold text-white self-center -ml-[50%]">Juta</span>
                 </div>
               </div>
               <div className="flex h-screen py-5 my-10 xl:h-auto xl:py-0 xl:my-0">

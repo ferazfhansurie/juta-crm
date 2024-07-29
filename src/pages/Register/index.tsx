@@ -122,22 +122,14 @@ function Main() {
           <div className="block grid-cols-2 gap-4 xl:grid">
             {/* BEGIN: Register Info */}
             <div className="flex-col hidden min-h-screen xl:flex">
-              <a href="" className="flex items-center pt-5 -intro-x">
-                <img
-                  alt="Midone Tailwind HTML Admin Template"
-                  className="w-6"
-                  src={logoUrl}
-                />
-                <span className="ml-3 text-lg text-white"> Juta Software</span>
-              </a>
-              <div className="my-auto">
-                <div className="mt-10 text-4xl font-medium leading-tight text-white -intro-x">
-                  A few more clicks to <br />
-                  sign up to your account.
+                <div className="my-auto flex flex-col items-left w-full">
+                  <img
+                    alt="Juta Software Logo"
+                    className="w-2/4 -mt-16"
+                    src={logoUrl}
+                  />
                 </div>
-             
               </div>
-            </div>
             {/* END: Register Info */}
             {/* BEGIN: Register Form */}
             <div className="flex h-screen py-5 my-10 xl:h-auto xl:py-0 xl:my-0">
