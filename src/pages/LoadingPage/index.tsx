@@ -102,7 +102,7 @@ function LoadingPage() {
       setV2(v2);
       if (!v2) {
         // If "v2" is not present or is false, navigate to the next page
-     
+        setIsLoading(false);
       }else{
       // Only proceed with QR code and bot status if v2 exists
       const botStatusResponse = await axios.get(`https://mighty-dane-newly.ngrok-free.app/api/bot-status/${companyId}`);
@@ -124,7 +124,7 @@ function LoadingPage() {
       }
 
 
-      setIsLoading(false);
+    
       if (!wsConnected) {
         const auth = getAuth(app);
         const user = auth.currentUser;
