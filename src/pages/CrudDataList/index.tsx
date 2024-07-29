@@ -165,6 +165,8 @@ function Main() {
   const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([]);
   const [editScheduledMessageModal, setEditScheduledMessageModal] = useState(false);
   const [currentScheduledMessage, setCurrentScheduledMessage] = useState<ScheduledMessage | null>(null);
+  const [editMediaFile, setEditMediaFile] = useState<File | null>(null);
+  const [editDocumentFile, setEditDocumentFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (initialContacts.length > 0) {
@@ -1150,6 +1152,9 @@ console.log(filteredContacts);
       toast.success(`Blast messages scheduled successfully for ${chatIds.length} contacts.`);
       toast.info(`Messages will be sent at: ${scheduledTime.toLocaleString()} (local time)`);
 
+      // Refresh the scheduled messages list
+      await fetchScheduledMessages();
+
       // Close the modal and reset state
       setBlastMessageModal(false);
       setBlastMessage("");
@@ -1448,6 +1453,9 @@ console.log(filteredContacts);
         } as ScheduledMessage);
       });
 
+      // Sort messages by scheduledTime
+      messages.sort((a, b) => a.scheduledTime.toDate().getTime() - b.scheduledTime.toDate().getTime());
+
       setScheduledMessages(messages);
     } catch (error) {
       console.error("Error fetching scheduled messages:", error);
@@ -1480,6 +1488,18 @@ console.log(filteredContacts);
     }
   };
 
+  const handleEditMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setEditMediaFile(e.target.files[0]);
+    }
+  };
+
+  const handleEditDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setEditDocumentFile(e.target.files[0]);
+    }
+  };
+
   const handleSaveScheduledMessage = async () => {
     if (!currentScheduledMessage) return;
 
@@ -1494,19 +1514,48 @@ console.log(filteredContacts);
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
 
-      await updateDoc(doc(firestore, `companies/${companyId}/scheduledMessages`, currentScheduledMessage.id!), {
-        message: currentScheduledMessage.message,
-        scheduledTime: currentScheduledMessage.scheduledTime,
-        chatIds: currentScheduledMessage.chatIds, // Update chatIds array
-        // Update other fields as needed
-      });
+      // Upload new media file if selected
+      let newMediaUrl = currentScheduledMessage.mediaUrl;
+      if (editMediaFile) {
+        newMediaUrl = await uploadFile(editMediaFile);
+      }
 
-      setScheduledMessages(scheduledMessages.map(msg => 
-        msg.id === currentScheduledMessage.id ? currentScheduledMessage : msg
-      ));
+      // Upload new document file if selected
+      let newDocumentUrl = currentScheduledMessage.documentUrl;
+      let newFileName = currentScheduledMessage.fileName;
+      if (editDocumentFile) {
+        newDocumentUrl = await uploadFile(editDocumentFile);
+        newFileName = editDocumentFile.name;
+      }
 
-      setEditScheduledMessageModal(false);
-      toast.success("Scheduled message updated successfully!");
+      // Prepare the updated message data
+      const updatedMessageData = {
+        ...currentScheduledMessage,
+        scheduledTime: Timestamp.fromDate(currentScheduledMessage.scheduledTime.toDate()),
+        mediaUrl: newMediaUrl,
+        documentUrl: newDocumentUrl,
+        fileName: newFileName,
+      };
+
+      // Send PUT request to update the scheduled message
+      const response = await axios.put(
+        `https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}/${currentScheduledMessage.id}`,
+        updatedMessageData
+      );
+
+      if (response.status === 200) {
+        // Update the local state
+        setScheduledMessages(scheduledMessages.map(msg => 
+          msg.id === currentScheduledMessage.id ? updatedMessageData : msg
+        ));
+
+        setEditScheduledMessageModal(false);
+        setEditMediaFile(null);
+        setEditDocumentFile(null);
+        toast.success("Scheduled message updated successfully!");
+      } else {
+        throw new Error("Failed to update scheduled message");
+      }
     } catch (error) {
       console.error("Error updating scheduled message:", error);
       toast.error("Failed to update scheduled message.");
@@ -1680,57 +1729,64 @@ console.log(filteredContacts);
                 )}
               </div>
               {/* Scheduled Messages Section */}
-              <div className="mt-5 mb-5">
-                <h2 className="text-xl font-semibold mb-3 text-gray-700 dark:text-gray-300">Scheduled Messages</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {combineScheduledMessages(scheduledMessages).map((message) => (
-                    <div key={message.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col h-full">
-                      <div className="p-4 flex-grow">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                            {message.status === 'scheduled' ? 'Scheduled' : message.status}
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {formatDate(message.scheduledTime.toDate())}
-                          </span>
-                        </div>
-                        <p className="text-gray-800 dark:text-gray-200 mb-2 font-medium text-md line-clamp-2">{message.message}</p>
-                        <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
-                          <Lucide icon="Users" className="w-4 h-4 mr-1" />
-                          <span>{message.chatIds.length} recipient{message.chatIds.length !== 1 ? 's' : ''}</span>
-                        </div>
-                        {message.mediaUrl && (
-                          <div className="flex items-center text-xs text-gray-600 dark:text-gray-400 mt-1">
-                            <Lucide icon="Image" className="w-4 h-4 mr-1" />
-                            <span>Media attached</span>
+              <div className="mt-3 mb-5">
+                <h2 className="z-10 text-xl font-semibold mb-1 text-gray-700 dark:text-gray-300">Scheduled Messages</h2>
+                {scheduledMessages.length > 0 ? (
+                  <div className="z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {combineScheduledMessages(scheduledMessages).map((message) => (
+                      <div key={message.id} className="z-10 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col h-full">
+                        <div className="z-10 p-4 flex-grow">
+                          <div className="z-10 flex justify-between items-center mb-2">
+                            <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                              {message.status === 'scheduled' ? 'Scheduled' : message.status}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {formatDate(message.scheduledTime.toDate())}
+                            </span>
                           </div>
-                        )}
-                        {message.documentUrl && (
-                          <div className="flex items-center text-xs text-gray-600 dark:text-gray-400 mt-1">
-                            <Lucide icon="File" className="w-4 h-4 mr-1" />
-                            <span>{message.fileName || 'Document attached'}</span>
+                          <p className="text-gray-800 dark:text-gray-200 mb-2 font-medium text-md line-clamp-2">{message.message}</p>
+                          <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
+                            <Lucide icon="Users" className="w-4 h-4 mr-1" />
+                            <span>{message.chatIds.length} recipient{message.chatIds.length !== 1 ? 's' : ''}</span>
                           </div>
-                        )}
+                          {message.mediaUrl && (
+                            <div className="flex items-center text-xs text-gray-600 dark:text-gray-400 mt-1">
+                              <Lucide icon="Image" className="w-4 h-4 mr-1" />
+                              <span>Media attached</span>
+                            </div>
+                          )}
+                          {message.documentUrl && (
+                            <div className="flex items-center text-xs text-gray-600 dark:text-gray-400 mt-1">
+                              <Lucide icon="File" className="w-4 h-4 mr-1" />
+                              <span>{message.fileName || 'Document attached'}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 flex justify-end mt-auto">
+                          <button
+                            onClick={() => handleEditScheduledMessage(message)}
+                            className="text-sm bg-white dark:bg-gray-600 hover:bg-gray-50 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200 mr-2"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteScheduledMessage(message.id!)}
+                            className="text-sm bg-red-600 hover:bg-red-700 text-white font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
-                      <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 flex justify-end mt-auto">
-                        {/* <button
-                          onClick={() => handleEditScheduledMessage(message)}
-                          className="text-sm bg-white dark:bg-gray-600 hover:bg-gray-50 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200 mr-2"
-                        >
-                          Edit
-                        </button> */}
-                        <button
-                          onClick={() => handleDeleteScheduledMessage(message.id!)}
-                          className="text-sm bg-red-600 hover:bg-red-700 text-white font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="z-1 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-center">
+                    <Lucide icon="Calendar" className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-600 mb-4" />
+                    <p className="text-lg font-medium text-gray-700 dark:text-gray-300">No scheduled messages yet</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">When you schedule messages, they will appear here.</p>
+                  </div>
+                )}
               </div>
-
               {/* Edit Scheduled Message Modal */}
               <Dialog open={editScheduledMessageModal} onClose={() => setEditScheduledMessageModal(false)}>
                 <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
@@ -1752,6 +1808,24 @@ console.log(filteredContacts);
                         className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Media (Image or Video)</label>
+                      <input
+                        type="file"
+                        accept="image/*,video/*"
+                        onChange={(e) => handleEditMediaUpload(e)}
+                        className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Document</label>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                        onChange={(e) => handleEditDocumentUpload(e)}
+                        className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
                     <div className="flex justify-end mt-4">
                       <button
                         className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -1769,17 +1843,17 @@ console.log(filteredContacts);
                   </Dialog.Panel>
                 </div>
               </Dialog>
-              <div className="flex items-center text-lg font-semibold text-gray-700 dark:text-gray-300">
-                <span>Total Contacts: {initialContacts.length}</span>
-                {selectedTagFilter && <span className="m-2">(Filtered by: {selectedTagFilter})</span>}
-                {selectedContacts.length > 0 && (
-                  <div className="inline-flex items-center p-2 m-2 bg-gray-200 dark:bg-gray-700 rounded-md">
-                    <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">Selected: {selectedContacts.length}</span>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
+        </div>
+        <div className="flex items-center text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          <span>Total Contacts: {initialContacts.length}</span>
+          {selectedTagFilter && <span className="m-2">(Filtered by: {selectedTagFilter})</span>}
+          {selectedContacts.length > 0 && (
+            <div className="inline-flex items-center p-2 m-2 bg-gray-200 dark:bg-gray-700 rounded-md">
+              <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">Selected: {selectedContacts.length}</span>
+            </div>
+          )}
         </div>
         <div className="max-w-full overflow-x-auto shadow-md sm:rounded-lg">
           <div className="max-h-[calc(100vh-200px)] overflow-y-auto" ref={contactListRef}>

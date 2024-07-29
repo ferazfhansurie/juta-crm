@@ -312,7 +312,7 @@ console.log(notifications);
             {/* END: First Child */}
             <div>
             {companyName !== "Infinity Pilates & Physiotherapy" && (
-              <Menu>
+              <Menu className="!z-[9999]">
                 <Menu.Button className="z-50 block w-10 h-10 overflow rounded-md text-slate-900 dark:text-gray-200 hover:bg-slate-400 dark:hover:bg-gray-700 hover:text-slate-900 dark:hover:text-gray-200 font-medium flex items-center justify-center">
                   <Lucide icon="Bell" className="w-5 h-5" />
                   {uniqueNotifications.length > 0 && (
