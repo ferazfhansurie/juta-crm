@@ -1396,7 +1396,7 @@ console.log(filteredContacts);
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
   
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
       <div className="flex-grow overflow-y-auto">
         <div className="grid grid-cols-12 mt-5">
           <div className="flex items-center col-span-12 intro-y sm:flex-nowrap">
@@ -1404,7 +1404,7 @@ console.log(filteredContacts);
               <div className="flex">
             
                 {/* Add Contact Button */}
-                <button className="flex inline p-2 m-2 !box" onClick={() => setAddContactModal(true)}>
+                <button className="flex inline p-2 m-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setAddContactModal(true)}>
                   <span className="flex items-center justify-center w-5 h-5">
                     <Lucide icon="Plus" className="w-5 h-5" />
                   </span>
@@ -1413,14 +1413,14 @@ console.log(filteredContacts);
                 {/* Other buttons and menus */}
                 <Menu className="flex">
                   {showAddUserButton && (
-                    <Menu.Button as={Button} className="p-2 m-2 !box">
+                    <Menu.Button as={Button} className="p-2 m-2 !box bg-white text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                       <span className="flex items-center justify-center w-5 h-5">
                         <Lucide icon="User" className="w-5 h-5" />
                       </span>
                       <span className="ml-2">Assign User</span>
                     </Menu.Button>
                   )}
-                  <Menu.Items className="w-150">
+                  <Menu.Items className="w-150 bg-white text-gray-800 dark:text-gray-200">
                     {employeeList.map((employee) => (
                       <Menu.Item key={employee.id}>
                         <span
@@ -1440,22 +1440,22 @@ console.log(filteredContacts);
                 </Menu>
                 <Menu>
                   {showAddUserButton && (
-                    <Menu.Button as={Button} className="p-2 m-2 !box">
+                    <Menu.Button as={Button} className="p-2 m-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                       <span className="flex items-center justify-center w-5 h-5">
                         <Lucide icon="Tag" className="w-5 h-5" />
                       </span>
                       <span className="ml-2">Add Tag</span>
                     </Menu.Button>
                   )}
-                  <Menu.Items className="w-150 bg-gray-800 text-white rounded-md mt-1">
+                  <Menu.Items className="w-150 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-md mt-1 shadow-lg">
                     <div className="p-2">
-                      <button className="flex items-center p-2 font-medium hover:bg-gray-700 w-full rounded-md" onClick={() => setShowAddTagModal(true)}>
+                      <button className="flex items-center p-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 w-full rounded-md" onClick={() => setShowAddTagModal(true)}>
                         <Lucide icon="Plus" className="w-4 h-4 mr-2" />
                         Add
                       </button>
                     </div>
                     {tagList.map((tag) => (
-                      <div key={tag.id} className="flex items-center justify-between w-full hover:bg-gray-700 p-1  rounded-md">
+                      <div key={tag.id} className="flex items-center justify-between w-full hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded-md">
                         <button
                           className="flex-grow p-2 text-sm text-left"
                           onClick={() => {
@@ -1473,23 +1473,23 @@ console.log(filteredContacts);
                             setShowDeleteTagModal(true);
                           }}
                         >
-                          <Lucide icon="Trash" className="w-4 h-4 text-red-400" />
+                          <Lucide icon="Trash" className="w-4 h-4 text-red-400 hover:text-red-600" />
                         </button>
                       </div>
                     ))}
                   </Menu.Items>
                 </Menu>
                 <Menu>
-                  <Menu.Button as={Button} className="p-2 m-2 !box">
+                  <Menu.Button as={Button} className="p-2 m-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                     <span className="flex items-center justify-center w-5 h-5">
                       <Lucide icon="Filter" className="w-5 h-5" />
                     </span>
                     <span className="ml-2">Filter by Tag</span>
                   </Menu.Button>
-                  <Menu.Items className="w-150">
+                  <Menu.Items className="w-150 bg-white text-gray-800 dark:text-gray-200">
                     <div>
                       <button
-                        className="flex items-center p-2 font-medium"
+                        className="flex items-center p-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 w-full rounded-md"
                         onClick={() => handleTagFilterChange("")}
                       >
                         <Lucide icon="X" className="w-4 h-4 mr-1" />
@@ -1499,7 +1499,7 @@ console.log(filteredContacts);
                     {tagList.map((tag) => (
                       <Menu.Item key={tag.id}>
                         <span
-                          className="flex items-center p-2 text-sm"
+                          className="flex items-center p-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 w-full rounded-md"
                           onClick={() => handleTagFilterChange(tag.name)}
                         >
                           {tag.name}
@@ -1508,19 +1508,19 @@ console.log(filteredContacts);
                     ))}
                   </Menu.Items>
                 </Menu>
-                <button className="flex inline p-2 m-2 !box"   onClick={() => setBlastMessageModal(true)}>
+                <button className="flex inline p-2 m-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"   onClick={() => setBlastMessageModal(true)}>
                   <span className="flex items-center justify-center w-5 h-5">
                     <Lucide icon="Send" className="w-5 h-5" />
                   </span>
                   <span className="ml-2 font-medium">Send Blast Message</span>
                 </button>
-                <button className="flex inline p-2 m-2 !box" onClick={handleSyncConfirmation}>
+                <button className="flex inline p-2 m-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={handleSyncConfirmation}>
                   <span className="flex items-center justify-center w-5 h-5">
                     <Lucide icon="FolderSync" className="w-5 h-5" />
                   </span>
                   <span className="ml-2 font-medium">Sync Database</span>
                 </button>
-                <button className="flex inline p-2 m-2 !box" onClick={() => setShowCsvImportModal(true)}>
+                <button className="flex inline p-2 m-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setShowCsvImportModal(true)}>
                   <span className="flex items-center justify-center w-5 h-5">
                     <Lucide icon="Upload" className="w-5 h-5" />
                   </span>
@@ -1530,12 +1530,12 @@ console.log(filteredContacts);
               </div>
               <div className="relative w-full text-slate-500 p-2 mb-3">
                 {isFetching ? (
-                <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
-                  <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white p-4 rounded-md shadow-lg">
+                <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-white dark:bg-gray-900 bg-opacity-50">
+                  <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white dark:bg-gray-800 p-4 rounded-md shadow-lg">
                     <div role="status">
                     <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
           <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
-          <div className="mt-2 text-xs text-center">Fetching Data...</div>
+          <div className="mt-2 text-xs text-center text-gray-600 dark:text-gray-400">Fetching Data...</div>
         </div>
                     </div>
                   </div>
@@ -1544,24 +1544,24 @@ console.log(filteredContacts);
                   <>
                     <FormInput
                       type="text"
-                      className="relative w-full h-[40px] pr-10 !box text-lg"
+                      className="relative w-full h-[40px] pr-10 !box text-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                       placeholder="Search..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
                     <Lucide
                       icon="Search"
-                      className="absolute inset-y-0 right-5 w-5 h-5 my-auto"
+                      className="absolute inset-y-0 right-5 w-5 h-5 my-auto text-gray-500 dark:text-gray-400"
                     />
                   </>
                 )}
               </div>
-              <div className="flex items-center text-lg font-semibold text-gray-700 dark:text-gray-400">
+              <div className="flex items-center text-lg font-semibold text-gray-700 dark:text-gray-300">
                 <span>Total Contacts: {initialContacts.length}</span>
                 {selectedTagFilter && <span className="m-2">(Filtered by: {selectedTagFilter})</span>}
                 {selectedContacts.length > 0 && (
-                  <div className="inline-flex items-center p-2 m-2 bg-gray-800 rounded-md">
-                    <span className="text-xs text-white whitespace-nowrap">Selected: {selectedContacts.length}</span>
+                  <div className="inline-flex items-center p-2 m-2 bg-gray-200 dark:bg-gray-700 rounded-md">
+                    <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">Selected: {selectedContacts.length}</span>
                   </div>
                 )}
               </div>
@@ -1602,7 +1602,7 @@ console.log(filteredContacts);
                 return (
                   <tr
                     key={index}
-                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600`}
+                    className={`${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'} border-b dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600`}
                   >
                     <td className="w-4 p-4">
                       <div className="flex items-center">
@@ -1618,12 +1618,12 @@ console.log(filteredContacts);
                         </label>
                       </div>
                     </td>
-                    <td className="px-6 py-6 font-medium capitalize text-gray-900 whitespace-nowrap dark:text-white flex items-center w-44 overflow-hidden overflow-ellipsis">
+                    <td className="px-6 py-6 font-medium capitalize text-gray-900 dark:text-white whitespace-nowrap flex items-center w-44 overflow-hidden overflow-ellipsis">
                       {contact.chat_pic_full ? (
                         <img src={contact.chat_pic_full ?? ''} className="w-8 h-8 rounded-full object-cover mr-3" />
                       ) : (
-                        <div className="w-8 h-8 mr-3 border-2 border-gray-500 rounded-full flex items-center justify-center">
-                          <Lucide icon="User" className="w-6 h-6 rounded-full text-gray-500" />
+                        <div className="w-8 h-8 mr-3 border-2 border-gray-500 dark:border-gray-400 rounded-full flex items-center justify-center">
+                          <Lucide icon="User" className="w-6 h-6 rounded-full text-gray-500 dark:text-gray-400" />
                         </div>
                       )}
                       {contact.contactName ? (contact.lastName ? `${contact.contactName}` : contact.contactName) : contact.phone}
@@ -1664,7 +1664,7 @@ console.log(filteredContacts);
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <button className="p-2 m-1 !box" onClick={() => {
+                      <button className="p-2 m-1 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => {
                         setCurrentContact(contact);
                         setEditContactModal(true);
                       }}>
@@ -1672,14 +1672,14 @@ console.log(filteredContacts);
                           <Lucide icon="Eye" className="w-5 h-5" />
                         </span>
                       </button>
-                      <button className="p-2 m-1 !box text-primary" onClick={() => {
+                      <button className="p-2 m-1 !box text-primary bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => {
                         handleClick(contact.phone)
                       }}>
                         <span className="flex items-center justify-center w-5 h-5">
                           <Lucide icon="MessageSquare" className="w-5 h-5" />
                         </span>
                       </button>
-                      <button className="p-2 m-1 !box text-red-500" onClick={() => {
+                      <button className="p-2 m-1 !box text-red-500 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => {
                         setCurrentContact(contact);
                         setDeleteConfirmationModal(true);
                       }}>
@@ -1697,66 +1697,66 @@ console.log(filteredContacts);
         </div>
         <Dialog open={addContactModal} onClose={() => setAddContactModal(false)}>
           <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <Dialog.Panel className="w-full max-w-md p-6 bg-gray-800 rounded-md mt-10 text-white">
-              <div className="flex items-center p-4 border-b border-gray-700">
-                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-600 flex items-center justify-center text-white mr-4">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-10 text-gray-900 dark:text-white">
+              <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-white mr-4">
                   <Lucide icon="User" className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-xl text-white">Add New User</span>
+                  <span className="text-xl text-gray-900 dark:text-white">Add New User</span>
                 </div>
               </div>
               <div className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">First Name</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">First Name</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={newContact.firstName}
                     onChange={(e) => setNewContact({ ...newContact, firstName: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">Last Name</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Last Name</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={newContact.lastName}
                     onChange={(e) => setNewContact({ ...newContact, lastName: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">Email</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={newContact.email}
                     onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">Phone</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={newContact.phone}
                     onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">Address</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={newContact.address1}
                     onChange={(e) => setNewContact({ ...newContact, address1: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">Company</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Company</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={newContact.companyName}
                     onChange={(e) => setNewContact({ ...newContact, companyName: e.target.value })}
                   />
@@ -1764,7 +1764,7 @@ console.log(filteredContacts);
               </div>
               <div className="flex justify-end mt-6">
                 <button
-                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600"
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
                   onClick={() => setAddContactModal(false)}
                 >
                   Cancel
@@ -1782,67 +1782,67 @@ console.log(filteredContacts);
       
         <Dialog open={editContactModal} onClose={() => setEditContactModal(false)}>
           <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <Dialog.Panel className="w-full max-w-md p-6 bg-gray-800 rounded-md mt-10 text-white">
-              <div className="flex items-center p-4 border-b border-gray-700">
-                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-600 flex items-center justify-center text-white mr-4">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-10 text-gray-900 dark:text-white">
+              <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-white mr-4">
                   <span className="text-xl">{(currentContact?.firstName) ? currentContact?.firstName.charAt(0).toUpperCase() : ""}</span>
                 </div>
                 <div>
-                  <div className="font-semibold text-white">{currentContact?.firstName} {currentContact?.lastName}</div>
-                  <div className="text-sm text-gray-400">{currentContact?.phone}</div>
+                  <div className="font-semibold text-gray-900 dark:text-white">{currentContact?.firstName} {currentContact?.lastName}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{currentContact?.phone}</div>
                 </div>
               </div>
               <div className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">First Name</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">First Name</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={currentContact?.firstName || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, firstName: e.target.value } as Contact)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">Last Name</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Last Name</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={currentContact?.lastName || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, lastName: e.target.value } as Contact)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">Email</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={currentContact?.email || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, email: e.target.value } as Contact)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">Phone</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={currentContact?.phone || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, phone: e.target.value } as Contact)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">Address</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={currentContact?.address1 || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, address1: e.target.value } as Contact)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">Company</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Company</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-white"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={currentContact?.companyName || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, companyName: e.target.value } as Contact)}
                   />
@@ -1850,7 +1850,7 @@ console.log(filteredContacts);
               </div>
               <div className="flex justify-end mt-6">
                 <button
-                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600"
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
                   onClick={() => setEditContactModal(false)}
                 >
                   Cancel
@@ -1868,10 +1868,10 @@ console.log(filteredContacts);
      
         <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
           <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <Dialog.Panel className="w-full max-w-md p-6 bg-gray-800 rounded-md mt-40 text-white">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-40 text-gray-900 dark:text-white">
               <div className="mb-4 text-lg font-semibold">Schedule Blast Message</div>
               <textarea
-                className="w-full p-2 border rounded bg-gray-700 text-white"
+                className="w-full p-2 border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 placeholder="Type your message here..."
                 value={blastMessage}
                 onChange={(e) => setBlastMessage(e.target.value)}
@@ -1879,57 +1879,57 @@ console.log(filteredContacts);
                 style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
               ></textarea>
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-300">Attach Media (Image or Video)</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Media (Image or Video)</label>
                 <input
                   type="file"
                   accept="image/*,video/*"
                   onChange={(e) => handleMediaUpload(e)}
-                  className="block w-full mt-1 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                  className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-300">Attach Document</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Document</label>
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
                   onChange={(e) => handleDocumentUpload(e)}
-                  className="block w-full mt-1 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                  className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-300">Start Time</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Time</label>
                 <DatePicker
                   selected={blastStartTime}
                   onChange={(date: Date) => setBlastStartTime(date)}
                   showTimeSelect
                   dateFormat="MMMM d, yyyy h:mm aa"
-                  className="block w-full mt-1 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                  className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-300">Batch Quantity</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Quantity</label>
                 <input
                   type="number"
                   value={batchQuantity}
                   onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
                   min={1}
-                  className="block w-full mt-1 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                  className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-300">Repeat Every</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Repeat Every</label>
                 <div className="flex items-center">
                   <input
                     type="number"
                     value={repeatInterval}
                     onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
                     min={0}
-                    className="w-20 mr-2 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                    className="w-20 mr-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                   <select
                     value={repeatUnit}
                     onChange={(e) => setRepeatUnit(e.target.value as 'minutes' | 'hours' | 'days')}
-                    className="border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                    className="border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="minutes">Minutes</option>
                     <option value="hours">Hours</option>
@@ -1952,21 +1952,21 @@ console.log(filteredContacts);
         {showAddTagModal && (
           <Dialog open={showAddTagModal} onClose={() => setShowAddTagModal(false)}>
             <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-              <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-40">
-                <div className="flex items-center p-4 border-b">
-                  <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+              <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-40 text-gray-900 dark:text-white">
+                <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-white mr-4">
                     <Lucide icon="Plus" className="w-6 h-6" />
                   </div>
                   <div>
-                    <span className="text-xl">Add New Tag</span>
+                    <span className="text-xl text-gray-900 dark:text-white">Add New Tag</span>
                   </div>
                 </div>
                 <div className="mt-6 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Tag Name</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tag Name</label>
                     <input
                       type="text"
-                      className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                      className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       value={newTag}
                       onChange={(e) => setNewTag(e.target.value)}
                     />
@@ -1974,13 +1974,13 @@ console.log(filteredContacts);
                 </div>
                 <div className="flex justify-end mt-6">
                   <button
-                    className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                    className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
                     onClick={() => setShowAddTagModal(false)}
                   >
                     Cancel
                   </button>
                   <button
-                    className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
+                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
                     onClick={handleSaveNewTag}
                   >
                     Save
@@ -1993,11 +1993,11 @@ console.log(filteredContacts);
         {showDeleteTagModal && (
           <Dialog open={showDeleteTagModal} onClose={() => setShowDeleteTagModal(false)}>
             <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-              <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md">
+              <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-white">
                 <div className="p-5 text-center">
                   <Lucide icon="XCircle" className="w-16 h-16 mx-auto mt-3 text-danger" />
-                  <div className="mt-5 text-3xl">Are you sure?</div>
-                  <div className="mt-2 text-slate-500">
+                  <div className="mt-5 text-3xl text-gray-900 dark:text-white">Are you sure?</div>
+                  <div className="mt-2 text-gray-600 dark:text-gray-400">
                     Do you really want to delete this tag? <br />
                     This process cannot be undone.
                   </div>
@@ -2007,7 +2007,7 @@ console.log(filteredContacts);
                     variant="outline-secondary"
                     type="button"
                     onClick={() => setShowDeleteTagModal(false)}
-                    className="w-24 mr-1"
+                    className="w-24 mr-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
                   >
                     Cancel
                   </Button>
@@ -2015,7 +2015,7 @@ console.log(filteredContacts);
                     variant="danger"
                     type="button"
                     onClick={handleConfirmDeleteTag}
-                    className="w-24"
+                    className="w-24 bg-red-600 text-white hover:bg-red-700"
                   >
                     Delete
                   </Button>
@@ -2029,15 +2029,17 @@ console.log(filteredContacts);
           onClose={() => setDeleteConfirmationModal(false)}
           initialFocus={deleteButtonRef}
         >
-          <Dialog.Panel>
-            <div className="p-5 text-center">
-              <Lucide icon="XCircle" className="w-16 h-16 mx-auto mt-3 text-danger" />
-              <div className="mt-5 text-3xl">Are you sure?</div>
-              <div className="mt-2 text-slate-500">
-                Do you really want to delete this contact? <br />
-                This process cannot be undone.
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-white">
+              <div className="p-5 text-center">
+                <Lucide icon="XCircle" className="w-16 h-16 mx-auto mt-3 text-danger" />
+                <div className="mt-5 text-3xl text-gray-900 dark:text-white">Are you sure?</div>
+                <div className="mt-2 text-gray-600 dark:text-gray-400">
+                  Do you really want to delete this contact? <br />
+                  This process cannot be undone.
+                </div>
               </div>
-              <div className="flex justify-center mt-4">
+              <div className="px-5 pb-8 text-center">
                 <button
                   ref={deleteButtonRef}
                   className="px-4 py-2 mr-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
@@ -2046,28 +2048,28 @@ console.log(filteredContacts);
                   Delete
                 </button>
                 <button
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
                   onClick={() => setDeleteConfirmationModal(false)}
                 >
                   Cancel
                 </button>
               </div>
-            </div>
-          </Dialog.Panel>
+            </Dialog.Panel>
+          </div>
         </Dialog>
         <Dialog open={showCsvImportModal} onClose={() => setShowCsvImportModal(false)}>
           <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <Dialog.Panel className="w-full max-w-md p-6 bg-gray-800 rounded-md mt-10 text-white">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-10 text-gray-900 dark:text-white">
               <div className="mb-4 text-lg font-semibold">Import CSV</div>
               <input
                 type="file"
                 accept=".csv"
                 onChange={handleCsvFileSelect}
-                className="block w-full mt-1 border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-gray-700 text-white"
+                className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
               <div className="flex justify-end mt-4">
                 <button
-                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600"
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
                   onClick={() => setShowCsvImportModal(false)}
                 >
                   Cancel
@@ -2085,17 +2087,17 @@ console.log(filteredContacts);
         </Dialog>
         <Dialog open={showSyncConfirmationModal} onClose={() => setShowSyncConfirmationModal(false)}>
           <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <Dialog.Panel className="w-full max-w-md p-6 bg-gray-800 rounded-md text-white mt-20">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-white mt-20">
               <div className="p-5 text-center">
                 <Lucide icon="AlertTriangle" className="w-16 h-16 mx-auto mt-3 text-warning" />
-                <div className="mt-5 text-3xl">Are you sure?</div>
-                <div className="mt-2 text-slate-500">
+                <div className="mt-5 text-3xl text-gray-900 dark:text-white">Are you sure?</div>
+                <div className="mt-2 text-gray-600 dark:text-gray-400">
                   Do you really want to sync the database? This action may take some time and affect your current data.
                 </div>
               </div>
               <div className="px-5 pb-8 text-center">
                 <button
-                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600"
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
                   onClick={() => setShowSyncConfirmationModal(false)}
                 >
                   Cancel
