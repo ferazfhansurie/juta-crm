@@ -167,6 +167,7 @@ function Main() {
   const [currentScheduledMessage, setCurrentScheduledMessage] = useState<ScheduledMessage | null>(null);
   const [editMediaFile, setEditMediaFile] = useState<File | null>(null);
   const [editDocumentFile, setEditDocumentFile] = useState<File | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     if (initialContacts.length > 0) {
@@ -618,7 +619,9 @@ setLoading(true);
   };
 
   const handleSyncConfirmation = () => {
-    setShowSyncConfirmationModal(true);
+    if (!isSyncing) {
+      setShowSyncConfirmationModal(true);
+    }
   };
 
   const handleConfirmSync = async () => {
@@ -628,69 +631,53 @@ setLoading(true);
 
   const handleSyncContact = async () => {
     try {
+      console.log('Starting contact synchronization process');
       setFetching(true);
       const user = auth.currentUser;
       if (!user) {
+        console.log('User not authenticated');
         setFetching(false);
+        toast.error("User not authenticated");
         return;
       }
-  
+
+      console.log('Fetching user document');
       const docUserRef = doc(firestore, 'user', user.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
+        console.log('User document not found');
         setFetching(false);
+        toast.error("User document not found");
         return;
       }
-  
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser?.companyId;
+
+      const userData = docUserSnapshot.data();
+      const companyId = userData?.companyId;
       if (!companyId) {
+        console.log('Company ID not found');
         setFetching(false);
+        toast.error("Company ID not found");
         return;
       }
-  
-      const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
-      const contactsSnapshot = await getDocs(contactsCollectionRef);
-  
-      // Delete existing documents in the collection
-      const deletePromises = contactsSnapshot.docs.map(doc => deleteDoc(doc.ref));
-      await Promise.all(deletePromises);
-  
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        setFetching(false);
-        return;
+
+      console.log(`Initiating sync for company ID: ${companyId}`);
+      // Call the new API endpoint
+      const response = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/sync-contacts/${companyId}`);
+
+      if (response.status === 200 && response.data.success) {
+        console.log('Contact synchronization started successfully');
+        toast.success("Contact synchronization started successfully");
+        // You might want to add some UI indication that sync is in progress
+      } else {
+        console.error('Failed to start contact synchronization:', response.data.error);
+        throw new Error(response.data.error || "Failed to start contact synchronization");
       }
-  
-      const dataCompany = docSnapshot.data();
-      console.log(dataCompany);
-  
-      const url = `http://localhost:8444/api/chats/${dataCompany?.whapiToken}/${dataCompany?.ghl_location}/${dataCompany?.ghl_accessToken}/${dataUser.name}/${dataUser.role}/${dataUser.email}/${dataUser.companyId}`;
-      const response = await axios.get(url);
-      let allContacts = response.data.contacts;
-      console.log(allContacts.length);
-  
-      setContacts(allContacts);
-      localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
-      sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
-  
-      // Add new contacts to the Firebase subcollection
-      const addPromises = allContacts.map(async (contact: any) => {
-        try {
-          const contactDocRef = doc(contactsCollectionRef, contact.phone); // Use contact.phone as the document ID
-          await setDoc(contactDocRef, contact);
-          console.log("Added contact to Firebase:", contact);
-        } catch (error) {
-          console.error('Error adding contact to Firebase:', error);
-        }
-      });
-  
-      await Promise.all(addPromises);
-  
+
     } catch (error) {
-      console.error('Error fetching contacts:', error);
+      console.error('Error syncing contacts:', error);
+      toast.error("An error occurred while syncing contacts: " + (error instanceof Error ? error.message : String(error)));
     } finally {
+      console.log('Contact synchronization process completed');
       setFetching(false);
     }
   };
@@ -1574,7 +1561,6 @@ console.log(filteredContacts);
           <div className="flex items-center col-span-12 intro-y sm:flex-nowrap">
             <div className="w-full sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
               <div className="flex">
-            
                 {/* Add Contact Button */}
                 <button className="flex inline p-2 m-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setAddContactModal(true)}>
                   <span className="flex items-center justify-center w-5 h-5">
@@ -1686,11 +1672,21 @@ console.log(filteredContacts);
                   </span>
                   <span className="ml-2 font-medium">Send Blast Message</span>
                 </button>
-                <button className="flex inline p-2 m-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={handleSyncConfirmation}>
+                <button 
+                  className={`flex inline p-2 m-2 !box ${
+                    isSyncing 
+                      ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed' 
+                      : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  } text-gray-700 dark:text-gray-300`}
+                  onClick={handleSyncConfirmation}
+                  disabled={isSyncing}
+                >
                   <span className="flex items-center justify-center w-5 h-5">
                     <Lucide icon="FolderSync" className="w-5 h-5" />
                   </span>
-                  <span className="ml-2 font-medium">Sync Database</span>
+                  <span className="ml-2 font-medium">
+                    {isSyncing ? 'Syncing...' : 'Sync Database'}
+                  </span>
                 </button>
                 <button className="flex inline p-2 m-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setShowCsvImportModal(true)}>
                   <span className="flex items-center justify-center w-5 h-5">
@@ -1706,9 +1702,9 @@ console.log(filteredContacts);
                   <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white dark:bg-gray-800 p-4 rounded-md shadow-lg">
                     <div role="status">
                     <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
-          <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
-          <div className="mt-2 text-xs text-center text-gray-600 dark:text-gray-400">Fetching Data...</div>
-        </div>
+                      <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
+                      <div className="mt-2 text-xs text-center text-gray-600 dark:text-gray-400">Fetching Data...</div>
+                    </div>
                     </div>
                   </div>
                 </div>

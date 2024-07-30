@@ -75,6 +75,7 @@ function LoadingPage() {
   const [shouldFetchContacts, setShouldFetchContacts] = useState(false);
   const location = useLocation();
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [isFetchingChats, setIsFetchingChats] = useState(false);
   
   const fetchQRCode = async () => {
     const auth = getAuth(app);
@@ -234,12 +235,12 @@ function LoadingPage() {
   }, [shouldFetchContacts, isLoading]);
 
   useEffect(() => {
-    console.log("Contact state changed. contactsFetched:", contactsFetched, "contacts length:", contacts.length);
-    if (contactsFetched && contacts.length > 0) {
-      console.log('Contacts fetched and loaded, navigating to chat');
+    console.log("Contact state changed. contactsFetched:", contactsFetched, "fetchedChats:", fetchedChats, "totalChats:", totalChats, "contacts length:", contacts.length);
+    if (contactsFetched && fetchedChats === totalChats && contacts.length > 0) {
+      console.log('Contacts and chats fetched and loaded, navigating to chat');
       navigate('/chat');
     }
-  }, [contactsFetched, contacts, navigate]);
+  }, [contactsFetched, fetchedChats, totalChats, contacts, navigate]);
 
   const fetchContacts = async () => {
     console.log("fetchContacts function called");
@@ -335,11 +336,33 @@ function LoadingPage() {
       localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
       sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
       setContactsFetched(true);
+
+      // After fetching contacts, fetch chats
+      await fetchChatsData();
+
     } catch (error) {
       console.error('Error fetching contacts:', error);
       setError('Failed to fetch contacts. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchChatsData = async () => {
+    setIsFetchingChats(true);
+    try {
+      // Assuming the existing WebSocket connection handles chat fetching
+      // You might need to send a message to the WebSocket to start fetching chats
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify({ action: 'fetch_chats' }));
+      } else {
+        throw new Error('WebSocket is not connected');
+      }
+    } catch (error) {
+      console.error('Error initiating chat fetch:', error);
+      setError('Failed to fetch chats. Please try again.');
+    } finally {
+      setIsFetchingChats(false);
     }
   };
 
@@ -412,14 +435,14 @@ function LoadingPage() {
                     <div className="text-sm text-gray-600 dark:text-gray-400">
                       {processingComplete 
                         ? contactsFetched
-                          ? "Contacts loaded. Preparing to navigate..."
+                          ? "Chats loaded. Preparing to navigate..."
                           : "Processing complete. Loading contacts..."
                         : `Processing ${fetchedChats} of ${totalChats} chats`
                       }
                     </div>
                   </div>
                 )}
-                {(isLoading || !processingComplete) && (
+                {(isLoading || !processingComplete || isFetchingChats) && (
                   <div className="mt-4">
                     <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
                   </div>
