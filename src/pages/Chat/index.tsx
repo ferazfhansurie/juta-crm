@@ -3051,7 +3051,7 @@ const handleForwardMessage = async () => {
               onMouseLeave={() => setHoveredMessageId(null)}
             >
               {message.chat_id.includes('@g.us') && (
-                <div className="pb-1 text-gray-600 font-medium">{message.from_name||'+'+message.from}</div>
+                <div className="pb-1 text-gray-400 dark:text-gray-200 font-medium">{message.from_name||'+'+message.from}</div>
               )}
               {message.type === 'text' && message.text?.context && (
                 <div className="p-2 mb-2 rounded bg-gray-300 dark:bg-gray-300">
