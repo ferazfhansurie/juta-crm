@@ -2601,9 +2601,9 @@ const handleForwardMessage = async () => {
   
   return (
     
-    <div className="flex overflow-hidden bg-gray-100 text-gray-00" style={{ height: '100vh' }}>
+    <div className="flex flex-col md:flex-row overflow-hidden bg-gray-100 text-gray-00" style={{ height: '100svh' }}>
       <audio ref={audioRef} src={noti} />
-      <div className="flex flex-col min-w-[35%] max-w-[35%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300">
+      <div className={`flex flex-col w-full md:min-w-[35%] md:max-w-[35%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300 ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
         <div className="flex justify-between items-center pl-4 pr-4 pt-6 pb-4">
           <div className="text-start text-2xl font-bold capitalize text-gray-800 dark:text-gray-200">
             {userData?.company}
@@ -3290,7 +3290,7 @@ const handleForwardMessage = async () => {
     </div>
     <Menu.Items className="absolute left-0 bottom-full mb-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
       <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-        <label htmlFor="imageUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200">
+        <label htmlFor="imageUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full">
           <Lucide icon="Image" className="w-4 h-4 mr-2" />
           Image
           <input
@@ -3304,7 +3304,7 @@ const handleForwardMessage = async () => {
         </label>
       </button>
       <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-        <label htmlFor="documentUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200">
+        <label htmlFor="documentUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full">
           <Lucide icon="File" className="w-4 h-4 mr-2" />
           Document
           <input
@@ -3392,7 +3392,7 @@ const handleForwardMessage = async () => {
 </div>
 
           {isEmojiPickerOpen && (
-         <div className="absolute bottom-20 left-2">
+         <div className="absolute bottom-20 left-2 z-10">
        <EmojiPicker onEmojiClick={handleEmojiClick} />
                         </div>
                       )}
@@ -3400,20 +3400,20 @@ const handleForwardMessage = async () => {
                   </div>
     
       {selectedMessages.length > 0 && (
-      <div className="fixed bottom-20 right-10 space-x-4">
+      <div className="fixed bottom-20 right-2 md:right-10 space-y-2 md:space-y-0 md:space-x-4 flex flex-col md:flex-row">
                       <button
-          className="bg-blue-800 dark:bg-blue-600 text-white px-4 py-3 rounded-xl shadow-lg"
+          className="bg-blue-800 dark:bg-blue-600 text-white px-4 py-3 rounded-xl shadow-lg w-full md:w-auto"
           onClick={() => setIsForwardDialogOpen(true)}>
           Forward
         </button>
 
         <button
-      className="bg-red-800 dark:bg-red-600 text-white px-4 py-3 rounded-xl shadow-lg"
+      className="bg-red-800 dark:bg-red-600 text-white px-4 py-3 rounded-xl shadow-lg w-full md:w-auto"
       onClick={openDeletePopup}>
       Delete
     </button>
         <button
-          className="bg-gray-700 dark:bg-gray-600 text-white px-4 py-3 rounded-xl shadow-lg"
+          className="bg-gray-700 dark:bg-gray-600 text-white px-4 py-3 rounded-xl shadow-lg w-full md:w-auto"
           onClick={() => setSelectedMessages([])}
           onKeyDown={handleKeyDown}>
           Cancel
@@ -3478,7 +3478,7 @@ const handleForwardMessage = async () => {
   </div>
 )}
  {isQuickRepliesOpen && (
-  <div className="absolute bottom-20 left-2 w-full max-w-md bg-gray-100 dark:bg-gray-800 p-2 rounded-md shadow-lg mt-2">
+  <div className="absolute bottom-20 left-2 w-full max-w-md bg-gray-100 dark:bg-gray-800 p-2 rounded-md shadow-lg mt-2 z-10">
     <div className="flex items-center mb-4">
       <textarea
         className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
@@ -3570,7 +3570,7 @@ const ImageModal2: React.FC<ImageModalProps2> = ({ isOpen, onClose, imageUrl, on
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-400 bg-opacity-75" onClick={onClose}>
       <div
-        className="relative bg-slate-400 dark:bg-gray-800 rounded-lg shadow-lg w-[800px] h-[600px] p-4"
+        className="relative bg-slate-400 dark:bg-gray-800 rounded-lg shadow-lg w-full md:w-[800px] h-[90vh] md:h-[600px] p-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
