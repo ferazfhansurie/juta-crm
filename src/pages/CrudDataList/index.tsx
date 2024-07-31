@@ -10,7 +10,7 @@ import Tippy from "@/components/Base/Tippy";
 import { Dialog, Menu } from "@/components/Base/Headless";
 import Table from "@/components/Base/Table";
 import { getAuth } from 'firebase/auth';
-import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc,updateDoc,addDoc, arrayUnion, arrayRemove, Timestamp, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc,updateDoc,addDoc, arrayUnion, arrayRemove, Timestamp, query, where, onSnapshot, orderBy, limit, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { initializeApp } from "firebase/app";
 import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
@@ -294,7 +294,12 @@ const handleSaveNewContact = async () => {
 const handleSaveNewTag = async () => {
   try {
     const user = auth.currentUser;
-    const docUserRef = doc(firestore, 'user', user?.email!);
+    if (!user) {
+      console.log('No authenticated user');
+      return;
+    }
+
+    const docUserRef = doc(firestore, 'user', user.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
       console.log('No such document for user!');
@@ -302,38 +307,63 @@ const handleSaveNewTag = async () => {
     }
     const userData = docUserSnapshot.data();
     const companyId = userData.companyId;
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
+
+    const companyRef = doc(firestore, 'companies', companyId);
+    const companySnapshot = await getDoc(companyRef);
+    if (!companySnapshot.exists()) {
       console.log('No such document for company!');
       return;
     }
-    const companyData = docSnapshot.data();
-    const accessToken = companyData.ghl_accessToken;
-    const locationId = companyData.ghl_location;
+    const companyData = companySnapshot.data();
+    
+    if (companyData.v2) {
+      // For v2 users, add tag to Firestore under the company's tags collection
+      const tagsCollectionRef = collection(firestore, `companies/${companyId}/tags`);
+      const newTagRef = await addDoc(tagsCollectionRef, {
+        name: newTag,
+        createdAt: serverTimestamp()
+      });
 
-    const apiUrl = `https://services.leadconnectorhq.com/locations/${locationId}/tags`;
-    const options = {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Version: '2021-07-28',
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
-      },
-      data: {
-        name: newTag
+      setTagList([...tagList, { id: newTagRef.id, name: newTag }]);
+    } else {
+      // Existing code for non-v2 users (using GHL API)
+      const accessToken = companyData.ghl_accessToken;
+      if (!accessToken) {
+        console.error('Access token not found in company data');
+        toast.error("Access token not found. Please check your configuration.");
+        return;
       }
-    };
+      const locationId = companyData.ghl_location;
+      if (!locationId) {
+        console.error('Location ID not found in company data');
+        toast.error("Location ID not found. Please check your configuration.");
+        return;
+      }
 
-    const response = await axios(apiUrl, options);
-    console.log(response.data);
-    setTagList([...tagList, response.data.tag]);
+      const apiUrl = `https://services.leadconnectorhq.com/locations/${locationId}/tags`;
+      const response = await axios.post(apiUrl, 
+        { name: newTag },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Version: '2021-07-28',
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          }
+        }
+      );
+      console.log(response.data);
+      setTagList([...tagList, response.data.tag]);
+    }
+
     setShowAddTagModal(false);
     setNewTag("");
     toast.success("Tag added successfully!");
   } catch (error) {
     console.error('Error adding tag:', error);
+    if (axios.isAxiosError(error)) {
+      console.error('Error details:', error.response?.data);
+    }
     toast.error("An error occurred while adding the tag.");
   }
 };
@@ -343,47 +373,52 @@ const handleConfirmDeleteTag = async () => {
 
   try {
     const user = auth.currentUser;
-    const docUserRef = doc(firestore, 'user', user?.email!);
+    if (!user) {
+      console.error('No authenticated user');
+      return;
+    }
+
+    const docUserRef = doc(firestore, 'user', user.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
-      console.log('No such document for user!');
+      console.error('No such document for user!');
       return;
     }
     const userData = docUserSnapshot.data();
     const companyId = userData.companyId;
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      console.log('No such document for company!');
-      return;
-    }
-    const companyData = docSnapshot.data();
-    const accessToken = companyData.ghl_accessToken;
-    const locationId = companyData.ghl_location;
 
-    const apiUrl = `https://services.leadconnectorhq.com/locations/${locationId}/tags/${tagToDelete.id}`;
-    const options = {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Version: '2021-07-28',
-        Accept: 'application/json'
+    // Delete the tag from the tags collection
+    const tagRef = doc(firestore, `companies/${companyId}/tags`, tagToDelete.id);
+    await deleteDoc(tagRef);
+
+    // Remove the tag from all contacts
+    const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+    const contactsSnapshot = await getDocs(contactsRef);
+    const batch = writeBatch(firestore);
+
+    contactsSnapshot.forEach((doc) => {
+      const contactData = doc.data();
+      if (contactData.tags && contactData.tags.includes(tagToDelete.name)) {
+        const updatedTags = contactData.tags.filter((tag: string) => tag !== tagToDelete.name);
+        batch.update(doc.ref, { tags: updatedTags });
       }
-    };
+    });
 
-    const response = await axios(apiUrl, options);
-    if (response.status === 200) {
-      setTagList(tagList.filter(tag => tag.id !== tagToDelete.id));
-      setShowDeleteTagModal(false);
-      setTagToDelete(null);
-      toast.success("Tag deleted successfully!");
-    } else {
-      console.error('Failed to delete tag:', response.statusText);
-      toast.error("Failed to delete tag.");
-    }
+    await batch.commit();
+
+    // Update local state
+    setTagList(tagList.filter(tag => tag.id !== tagToDelete.id));
+    setContacts(contacts.map(contact => ({
+      ...contact,
+      tags: contact.tags ? contact.tags.filter(tag => tag !== tagToDelete.name) : []
+    })));
+
+    setShowDeleteTagModal(false);
+    setTagToDelete(null);
+    toast.success("Tag deleted successfully!");
   } catch (error) {
     console.error('Error deleting tag:', error);
-    toast.error("An error occurred while deleting the tag.");
+    toast.error("Failed to delete tag.");
   }
 };
 
@@ -496,27 +531,13 @@ setLoading(true);
         await fetchTags(companyData.ghl_accessToken, companyData.ghl_location, employeeNames);
       } else {
         console.log('v2');
-            if (companyData.tags) {
-        let tagsArray: Tag[] = [];
-        
-        if (Array.isArray(companyData.tags)) {
-          tagsArray = companyData.tags.map((tag: any) => ({
-            id: tag.id.toString(),
-            name: tag.name
-          }));
-        } else if (typeof companyData.tags === 'object') {
-          tagsArray = Object.entries(companyData.tags).map(([id, name]) => ({
-            id: id.toString(),
-            name: name as string
-          }));
-        }
-        
+        const tagsCollectionRef = collection(firestore, `companies/${companyId}/tags`);
+        const tagsSnapshot = await getDocs(tagsCollectionRef);
+        const tagsArray = tagsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name
+        }));
         setTagList(tagsArray);
-        console.log('Tags set:', tagsArray);
-      } else {
-        setTagList([]);
-        console.log('No tags found, setting empty array');
-      }
       }
       setLoading(false);
      // await searchContacts(companyData.ghl_accessToken, companyData.ghl_location);
@@ -554,67 +575,53 @@ setLoading(true);
   };
 
   
-  const handleAddTagToSelectedContacts = async (selectedEmployee: string, contact: Contact) => {
-    const user = auth.currentUser;
-    if (!user) {
-      console.log('No authenticated user');
-      return;
-    }
+  const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.log('No authenticated user');
+        return;
+      }
   
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.log('No such document for user!');
-      return;
-    }
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      console.log('No such document for company!');
-      return;
-    }
-    const companyData = docSnapshot.data();
-  
-    if (selectedEmployee) {
-      const tagName = selectedEmployee;
-      const updatedTags = [...new Set([...(contact.tags || []), tagName])];
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
   
       if (!contact.id) {
         console.error('Contact ID is missing');
         return;
       }
   
-      const contactExists = await verifyContactIdExists(contact.id, companyData.ghl_accessToken);
-      if (!contactExists) {
-        console.error(`Contact with ID ${contact.id} not found`);
-        toast.error(`Contact with ID ${contact.id} not found`);
-        return;
+      const contactRef = doc(firestore, `companies/${companyId}/contacts`, contact.id);
+      
+      // Add the new tag to the contact's tags array
+      await updateDoc(contactRef, {
+        tags: arrayUnion(tagName)
+      });
+  
+      // Update local state
+      setContacts(prevContacts =>
+        prevContacts.map(c =>
+          c.id === contact.id ? { ...c, tags: [...(c.tags || []), tagName] } : c
+        )
+      );
+  
+      if (currentContact?.id === contact.id) {
+        setCurrentContact((prevContact: any) => ({
+          ...prevContact,
+          tags: [...(prevContact.tags || []), tagName],
+        }));
       }
   
-      const success = await updateContactTags(contact.id, companyData.ghl_accessToken, updatedTags, tagName);
-      if (success) {
-        setContacts(prevContacts =>
-          prevContacts.map(c =>
-            c.id === contact.id ? { ...c, tags: updatedTags } : c
-          )
-        );
-  
-        if (currentContact?.id === contact.id) {
-          setCurrentContact((prevContact: any) => ({
-            ...prevContact,
-            tags: updatedTags,
-          }));
-        }
-  
-        localStorage.setItem('contacts', LZString.compress(JSON.stringify((prevContacts: any[]) =>
-          prevContacts.map(c =>
-            c.id === contact.id ? { ...c, tags: updatedTags } : c
-          ))));
-        sessionStorage.setItem('contactsFetched', 'true');
-        toast.success("Tag added successfully!");
-      }
+      toast.success(`Tag "${tagName}" added successfully to ${contact.contactName ? contact.contactName : contact.phone}!`);
+    } catch (error) {
+      console.error('Error adding tag:', error);
+      toast.error("An error occurred while adding the tag.");
     }
   };
 
@@ -685,56 +692,39 @@ setLoading(true);
   const handleRemoveTag = async (contactId: string, tagName: string) => {
     try {
       const user = auth.currentUser;
-      const docUserRef = doc(firestore, 'user', user?.email!);
+      if (!user) return;
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
       const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
-        return;
-      }
+      if (!docUserSnapshot.exists()) return;
+  
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
-        return;
-      }
-      const companyData = docSnapshot.data();
   
-      await updateDoc(doc(firestore, `companies/${companyId}/contacts`, contactId), {
+      const contactRef = doc(firestore, `companies/${companyId}/contacts`, contactId);
+      
+      // Remove the tag from the contact's tags array
+      await updateDoc(contactRef, {
         tags: arrayRemove(tagName)
       });
   
-      // Update state
+      // Update local state
       setContacts(prevContacts =>
         prevContacts.map(contact =>
           contact.id === contactId
-            ? { ...contact, tags: (contact.tags ?? []).filter(tag => tag !== tagName) }
+            ? { ...contact, tags: contact.tags?.filter(tag => tag !== tagName) }
             : contact
         )
       );
   
-      const updatedContacts = contacts.map((contact: Contact) =>
-        contact.id === contactId
-          ? { ...contact, tags: (contact.tags ?? []).filter((tag: string) => tag !== tagName) }
-          : contact
-      );
-  
-      const updatedSelectedContact = updatedContacts.find(contact => contact.id === contactId);
-      if (updatedSelectedContact) {
-        setSelectedContacts(prevSelectedContacts =>
-          prevSelectedContacts.map(contact =>
-            contact.id === contactId
-              ? { ...contact, tags: (contact.tags ?? []).filter(tag => tag !== tagName) }
-              : contact
-          )
-        );
+      if (currentContact?.id === contactId) {
+        setCurrentContact((prevContact: any) => ({
+          ...prevContact,
+          tags: prevContact.tags?.filter((tag: string) => tag !== tagName),
+        }));
       }
   
-      localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
-      sessionStorage.setItem('contactsFetched', 'true');
-  
-      toast.success('Tag removed successfully!');
+      toast.success(`Tag "${tagName}" removed successfully!`);
     } catch (error) {
       console.error('Error removing tag:', error);
       toast.error('Failed to remove tag.');
@@ -1929,21 +1919,21 @@ console.log(filteredContacts);
                         'Unassigned'
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap dark:text-white">
-                      {otherTags.length > 0 ? (
-                        otherTags.map((tag, index) => (
-                          <div key={index} className="flex items-center mr-2">
-                            <span className="mr-1">{tag}</span>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">
+                      {contact.tags && contact.tags.length > 0 ? (
+                        contact.tags.map((tag, index) => (
+                          <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-100 mr-2">
+                            {tag}
                             <button
-                              className="p-1"
+                              className="ml-1 text-blue-400 hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-100"
                               onClick={() => handleRemoveTag(contact.id!, tag)}
                             >
-                              <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700" />
+                              <Lucide icon="X" className="w-3 h-3" />
                             </button>
-                          </div>
+                          </span>
                         ))
                       ) : (
-                        ''
+                        <span className="text-gray-500 dark:text-gray-400">No tags</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
