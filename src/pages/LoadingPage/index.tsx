@@ -333,6 +333,9 @@ function LoadingPage() {
     
       console.log("Contacts fetched:", allContacts.length);
       setContacts(allContacts);
+      if(allContacts.length === 0){
+        navigate('/chat');
+      }
       localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
       sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
       setContactsFetched(true);

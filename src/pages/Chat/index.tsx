@@ -354,6 +354,10 @@ function Main() {
   const [error, setError] = useState<string | null>(null);
   const [showQrCode, setShowQrCode] = useState<boolean>(false);
   const [isAllBotsEnabled, setIsAllBotsEnabled] = useState(true);
+  const [pinnedTags, setPinnedTags] = useState<string[]>([]);
+  const [employeeTags, setEmployeeTags] = useState<string[]>([]);
+  const [otherTags, setOtherTags] = useState<string[]>([]);
+  const [tagsError, setTagsError] = useState<boolean>(false);
 
 console.log(initialContacts);
 useEffect(() => {
@@ -383,6 +387,26 @@ useEffect(() => {
     }
   };
 }, [contacts]);
+
+useEffect(() => {
+  try {
+    const pinned = activeTags.filter(tag => tag === 'pinned');
+    const employees = activeTags.filter(tag => 
+      employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+    );
+    const others = activeTags.filter(tag => 
+      tag !== 'pinned' && !employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+    );
+
+    setPinnedTags(pinned);
+    setEmployeeTags(employees);
+    setOtherTags(others);
+    setTagsError(false);
+  } catch (error) {
+    console.error("Error processing tags:", error);
+    setTagsError(true);
+  }
+}, [activeTags, employeeList]);
 
 const loadMoreContacts = () => {
   if (initialContacts.length <= contacts.length) return;
@@ -2608,16 +2632,41 @@ const handleForwardMessage = async () => {
           <div className="text-start text-2xl font-bold capitalize text-gray-800 dark:text-gray-200">
             {userData?.company}
           </div>
-          <Button
+          {/* <Button
             onClick={toggleAllBots}
             className={`${
               isAllBotsEnabled ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700'
             } px-4 py-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
           >
             {isAllBotsEnabled ? 'Turn on all bots' : 'Turn off all bots'}
-          </Button>
+          </Button> */}
         </div>
         <div className="relative hidden sm:block p-2">
+          {/* <div className="mb-2 flex flex-wrap gap-2">
+            {tagsError || (pinnedTags.length === 0 && employeeTags.length === 0 && otherTags.length === 0) ? (
+              <div className="w-shrink text-center py-2 px-4 bg-gray-200 dark:bg-gray-700 rounded-md">
+                <span className="text-gray-600 dark:text-gray-400">No tags available</span>
+              </div>
+            ) : (
+              <>
+                {pinnedTags.map(tag => (
+                  <span key={tag} className="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
+                    📌 {tag}
+                  </span>
+                ))}
+                {employeeTags.map(tag => (
+                  <span key={tag} className="bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
+                    👤 {tag}
+                  </span>
+                ))}
+                {otherTags.map(tag => (
+                  <span key={tag} className="bg-gray-100 text-gray-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300">
+                    🏷️ {tag}
+                  </span>
+                ))}
+              </>
+            )}
+          </div> */}
           <div className="flex items-center space-x-2">
             {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
             {isDeletePopupOpen && <DeleteConfirmationPopup />}
@@ -2677,6 +2726,23 @@ const handleForwardMessage = async () => {
                             icon="Search"
                             className="absolute top-2 right-3 w-5 h-5 text-gray-500"
                           />
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {pinnedTags.map(tag => (
+                            <span key={tag} className="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
+                              📌 {tag}
+                            </span>
+                          ))}
+                          {employeeTags.map(tag => (
+                            <span key={tag} className="bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
+                              👤 {tag}
+                            </span>
+                          ))}
+                          {otherTags.map(tag => (
+                            <span key={tag} className="bg-gray-100 text-gray-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300">
+                              🏷️ {tag}
+                            </span>
+                          ))}
                         </div>
                         <div className="max-h-60 overflow-y-auto">
                           {filteredContactsForForwarding.map((contact, index) => (
@@ -2803,7 +2869,7 @@ const handleForwardMessage = async () => {
 </div>
   <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-auto" ref={contactListRef}>
   {filteredContacts.map((contact, index) => (
-  <React.Fragment key={contact.id || `${contact.phone}-${index}`}>
+    <React.Fragment key={contact.id || `${contact.phone}-${index}`}>
     <div
       className={`m-2 pl-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 group ${
         contact.chat_id !== undefined
@@ -2918,10 +2984,16 @@ const handleForwardMessage = async () => {
 ))}
               </div>
         </div>
-      <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 dark:bg-gray-900 relative">
+      <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 dark:bg-gray-900 relative flext-1 overflow-hidden">
           {selectedContact && (
   <div className="flex items-center justify-between p-1 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
-                <div className="flex items-center">
+    <button 
+      className="md:hidden p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+      onClick={() => setSelectedChatId(null)}
+    >
+      <Lucide icon="ChevronLeft" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
+    </button>
+      <div className="flex items-center">
       <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3 ml-2">
         {selectedContact.chat_pic_full ? (
           <img src={selectedContact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
@@ -2989,14 +3061,13 @@ const handleForwardMessage = async () => {
 )}
            
         <div className="flex-1 overflow-y-auto p-4" 
-       style={{
-        paddingBottom: "150px",
-
-        backgroundColor: selectedContact ? 'transparent' : 'bg-slate-400 dark:bg-gray-800',
-        backgroundSize: 'cover',
-        backgroundRepeat: 'no-repeat',
-      }}
-    ref={messageListRef}>
+              style={{
+                paddingBottom: "150px",
+                backgroundColor: selectedContact ? 'transparent' : 'bg-slate-400 dark:bg-gray-800',
+                backgroundSize: 'cover',
+                backgroundRepeat: 'no-repeat',
+              }}
+              ref={messageListRef}>
            
         {isLoading2 && (
                 <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">

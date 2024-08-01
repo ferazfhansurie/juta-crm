@@ -447,49 +447,87 @@ const handleConfirmDeleteTag = async () => {
       setSelectedContacts([]);
     }
   };
-  const fetchTags = async (token:string, location:string, employeeList: string[]) => {
-    const maxRetries = 5; // Maximum number of retries
-    const baseDelay = 1000; // Initial delay in milliseconds
-setLoading(true);
-    const fetchData = async (url: string, retries: number = 0): Promise<any> => {
-        const options = {
+  const fetchTags = async (token: string, location: string, employeeList: string[]) => {
+    setLoading(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.log('No authenticated user');
+        setLoading(false);
+        return;
+      }
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        setLoading(false);
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+      const companyRef = doc(firestore, 'companies', companyId);
+      const companySnapshot = await getDoc(companyRef);
+      if (!companySnapshot.exists()) {
+        console.log('No such document for company!');
+        setLoading(false);
+        return;
+      }
+      const companyData = companySnapshot.data();
+
+      let tags: Tag[] = [];
+
+      if (companyData.v2) {
+        // For v2 users, fetch tags from Firestore
+        const tagsCollectionRef = collection(firestore, `companies/${companyId}/tags`);
+        const tagsSnapshot = await getDocs(tagsCollectionRef);
+        tags = tagsSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+      } else {
+        // For non-v2 users, fetch tags from GHL API
+        const maxRetries = 5;
+        const baseDelay = 1000;
+
+        const fetchData = async (url: string, retries: number = 0): Promise<any> => {
+          const options = {
             method: 'GET',
             url: url,
             headers: {
-                Authorization: `Bearer ${token}`,
-                Version: '2021-07-28',
+              Authorization: `Bearer ${token}`,
+              Version: '2021-07-28',
             },
-        };
-        await rateLimiter(); // Ensure rate limit is respected before making the request
-        try {
+          };
+          await rateLimiter();
+          try {
             const response = await axios.request(options);
             return response;
-        } catch (error: any) {
+          } catch (error: any) {
             if (error.response && error.response.status === 429 && retries < maxRetries) {
-                const delay = baseDelay * Math.pow(2, retries);
-                console.warn(`Rate limit hit, retrying in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                return fetchData(url, retries + 1);
+              const delay = baseDelay * Math.pow(2, retries);
+              console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              return fetchData(url, retries + 1);
             } else {
-                throw error;
+              throw error;
             }
-        }
-    };
+          }
+        };
 
-    try {
         const url = `https://services.leadconnectorhq.com/locations/${location}/tags`;
         const response = await fetchData(url);
-            // Filter out tags that match with employeeList
-      const filteredTags = response.data.tags.filter((tag: Tag) => !employeeList.includes(tag.name));
-      
+        tags = response.data.tags;
+      }
+
+      // Filter out tags that match with employeeList
+      const filteredTags = tags.filter((tag: Tag) => !employeeList.includes(tag.name));
+
       setTagList(filteredTags);
-      setLoading(true);
+      setLoading(false);
     } catch (error) {
-        console.error('Error fetching tags:', error);
-        setLoading(true);
-        return [];
+      console.error('Error fetching tags:', error);
+      setLoading(false);
     }
-};
+  };
   async function fetchCompanyData() {
     const user = auth.currentUser;
     try {
