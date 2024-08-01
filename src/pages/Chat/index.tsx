@@ -94,6 +94,7 @@ interface GhlConfig {
   ghl_accessToken: string;
   ghl_location: string;
   whapiToken: string;
+  v2?: boolean;
 }
 interface Chat {
   id?: string;
@@ -358,6 +359,9 @@ function Main() {
   const [employeeTags, setEmployeeTags] = useState<string[]>([]);
   const [otherTags, setOtherTags] = useState<string[]>([]);
   const [tagsError, setTagsError] = useState<boolean>(false);
+  const [tags, setTags] = useState<string[]>([]);
+  const [isV2User, setIsV2User] = useState(false);
+
 
 console.log(initialContacts);
 useEffect(() => {
@@ -407,6 +411,8 @@ useEffect(() => {
     setTagsError(true);
   }
 }, [activeTags, employeeList]);
+
+
 
 const loadMoreContacts = () => {
   if (initialContacts.length <= contacts.length) return;
@@ -517,7 +523,10 @@ const closePDFModal = () => {
   }, [selectedChatId, messages]);
 
   useEffect(() => {
-   fetchConfigFromDatabase();
+   fetchConfigFromDatabase().catch(error => {
+     console.error('Error in fetchConfigFromDatabase:', error);
+     // Handle the error appropriately (e.g., show an error message to the user)
+   });
     fetchQuickReplies();
     
   }, []);
@@ -621,6 +630,7 @@ const closePDFModal = () => {
               ghl_accessToken: data.ghl_accessToken,
               ghl_location: data.ghl_location,
               whapiToken: data.whapiToken,
+              v2: data.v2,
             });
             const user_name = dataUser.name;
          fetchContactsBackground(
@@ -696,90 +706,110 @@ const closePDFModal = () => {
   
     fetchContact();
   }, [chatId]);
-  async function fetchConfigFromDatabase() {
-    const user = auth.currentUser;
-  
-    if (!user) {
-      console.error('No user is authenticated');
+async function fetchConfigFromDatabase() {
+  const user = auth.currentUser;
+
+  if (!user) {
+    console.error('No user is authenticated');
+    return;
+  }
+
+  try {
+    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.error('No such document for user!');
       return;
     }
-  
-    try {
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
-        return;
-      }
-      const dataUser = docUserSnapshot.data() as UserData;
-  
-      if (!dataUser || !dataUser.companyId) {
-        console.error('Invalid user data or companyId');
-        return;
-      }
-  
-      setUserData(dataUser);
-      user_role = dataUser.role;
-      companyId = dataUser.companyId;
-  
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.error('No such document for company!');
-        return;
-      }
-      const data = docSnapshot.data();
-  
-      if (!data) {
-        console.error('Invalid company data');
-        return;
-      }
-  
-      setGhlConfig({
-        ghl_id: data.ghl_id,
-        ghl_secret: data.ghl_secret,
-        refresh_token: data.refresh_token,
-        ghl_accessToken: data.ghl_accessToken,
-        ghl_location: data.ghl_location,
-        whapiToken: data.whapiToken,
-      });
-  
-      setToken(data.whapiToken);
-      user_name = dataUser.name;
-  
-      // Set wallpaper URL if available
-      if (dataUser.wallpaper_url) {
-        setWallpaperUrl(dataUser.wallpaper_url);
-      }
-  //
-  const employeeRef = collection(firestore, `companies/${companyId}/employee`);
-  const employeeSnapshot = await getDocs(employeeRef);
+    const dataUser = docUserSnapshot.data() as UserData;
 
-  const employeeListData: Employee[] = [];
-  employeeSnapshot.forEach((doc) => {
-    employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
-  });
- 
-  setEmployeeList(employeeListData);
-  console.log(employeeListData);
-  const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
-      await fetchTags(data.ghl_accessToken, data.ghl_location, employeeNames);
-  
-      if (chatId) {
-        setLoading(true);
-        const phone = "+" + chatId.split('@')[0];
-        const contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
-        setSelectedContact(contact);
-        console.log(contact);
-        console.log(selectedContact);
-        setSelectedChatId(chatId);
-        setLoading(false);
-      }
-     
-    } catch (error) {
-      console.error('Error fetching config:', error);
+    if (!dataUser || !dataUser.companyId) {
+      console.error('Invalid user data or companyId');
+      return;
     }
+
+    setUserData(dataUser);
+    user_role = dataUser.role;
+    companyId = dataUser.companyId;
+
+    console.log('Company ID:', companyId);
+
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) {
+      console.error('No such document for company!');
+      return;
+    }
+    const data = docSnapshot.data();
+
+    console.log('Company Data:', data);
+
+    if (!data) {
+      console.error('Company data is missing');
+      return;
+    }
+
+    setGhlConfig({
+      ghl_id: data.ghl_id,
+      ghl_secret: data.ghl_secret,
+      refresh_token: data.refresh_token,
+      ghl_accessToken: data.ghl_accessToken,
+      ghl_location: data.ghl_location,
+      whapiToken: data.whapiToken,
+      v2: data.v2,
+    });
+
+    console.log('Tags:', data.tags);
+
+    setToken(data.whapiToken);
+    user_name = dataUser.name;
+
+    // Set wallpaper URL if available
+    if (dataUser.wallpaper_url) {
+      setWallpaperUrl(dataUser.wallpaper_url);
+    }
+
+    const employeeRef = collection(firestore, `companies/${companyId}/employee`);
+    const employeeSnapshot = await getDocs(employeeRef);
+
+    const employeeListData: Employee[] = [];
+    employeeSnapshot.forEach((doc) => {
+      employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
+    });
+
+    setEmployeeList(employeeListData);
+    console.log('Employee List:', employeeListData);
+    const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
+
+    // Check if the company is using v2
+    if (data.v2) {
+      console.log('Company is using v2, fetching tags from Firebase');
+      // For v2, fetch tags from Firebase
+      const tagsRef = collection(firestore, `companies/${companyId}/tags`);
+      const tagsSnapshot = await getDocs(tagsRef);
+      const tags = tagsSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+      const filteredTags = tags.filter((tag: Tag) => !employeeNames.includes(tag.name.toLowerCase()));
+      console.log('Fetched Tags:', filteredTags);
+      setTagList(filteredTags);
+    } else {
+      console.log('Company is not using v2, fetching tags from GHL');
+      // For non-v2, fetch from GHL API
+      await fetchTags(data.ghl_accessToken, data.ghl_location, employeeNames);
+    }
+
+    if (chatId) {
+      setLoading(true);
+      const phone = "+" + chatId.split('@')[0];
+      const contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
+      setSelectedContact(contact);
+      console.log('Selected Contact:', contact);
+      setSelectedChatId(chatId);
+      setLoading(false);
+    }
+  } catch (error) {
+    console.error('Error fetching config:', error);
   }
+}
   const updateConversation = async (conversationId: string, token: string, locationId: string,) => {
     const url = `https://services.leadconnectorhq.com/conversations/${conversationId}`;
     const options = {
@@ -869,44 +899,55 @@ const closePDFModal = () => {
     }
   };
   const fetchTags = async (token: string, location: string, employeeList: string[]) => {
-    const maxRetries = 5; // Maximum number of retries
-    const baseDelay = 1000; // Initial delay in milliseconds
+    const maxRetries = 5;
+    const baseDelay = 1000;
 
     const fetchData = async (url: string, retries: number = 0): Promise<any> => {
-        const options = {
-            method: 'GET',
-            url: url,
-            headers: {
-                Authorization: `Bearer ${token}`,
-                Version: '2021-07-28',
-            },
-        };
-        await rateLimiter(); // Ensure rate limit is respected before making the request
-        try {
-            const response = await axios.request(options);
-            return response;
-        } catch (error: any) {
-            if (error.response && error.response.status === 429 && retries < maxRetries) {
-                const delay = baseDelay * Math.pow(2, retries);
-                console.warn(`Rate limit hit, retrying in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                return fetchData(url, retries + 1);
-            } else {
-                throw error;
-            }
+      const options = {
+        method: 'GET',
+        url: url,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Version: '2021-07-28',
+        },
+      };
+      await rateLimiter();
+      try {
+        const response = await axios.request(options);
+        return response;
+      } catch (error: any) {
+        if (error.response && error.response.status === 429 && retries < maxRetries) {
+          const delay = baseDelay * Math.pow(2, retries);
+          console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return fetchData(url, retries + 1);
+        } else {
+          throw error;
         }
+      }
     };
 
     try {
-        const url = `https://services.leadconnectorhq.com/locations/${location}/tags`;
-        const response = await fetchData(url);
-        const filteredTags = response.data.tags.filter((tag: Tag) => !employeeList.includes(tag.name));
-        setTagList(filteredTags);
+      const url = `https://services.leadconnectorhq.com/locations/${location}/tags`;
+      const response = await fetchData(url);
+      const filteredTags = response.data.tags.filter((tag: Tag) => !employeeList.includes(tag.name));
+      setTagList(filteredTags);
+
+      // Store tags in Firebase
+      const batch = writeBatch(firestore);
+      const tagsRef = collection(firestore, `companies/${companyId}/tags`);
+      filteredTags.forEach((tag: Tag) => {
+        const tagRef = doc(tagsRef);
+        batch.set(tagRef, { name: tag.name });
+      });
+      await batch.commit();
+
+      return filteredTags;
     } catch (error) {
-        console.error('Error fetching tags:', error);
-        return [];
+      console.error('Error fetching tags:', error);
+      return [];
     }
-};
+  };
 async function createContact(name: string, number: string): Promise<Contact> {
   const options = {
     method: 'POST',
@@ -970,28 +1011,27 @@ async function createContact(name: string, number: string): Promise<Contact> {
   }
 }
 const fetchDuplicateContact = async (phone: string, locationId: string, accessToken: string) => {
-  const url = `https://services.leadconnectorhq.com/contacts/search/duplicate?locationId=${locationId}${phone ? `&number=${phone}` : ''}`;
+  const url = `https://services.leadconnectorhq.com/contacts/search/duplicate?locationId=${locationId}&number=${phone}`;
   try {
-      const response = await axios.get(url, {
-          headers: {
-              Authorization: `Bearer ${accessToken}`,
-              Version: '2021-07-28',
-              Accept: 'application/json',
-          },
-      });
-      return response.data.contact;
+    const response = await axios.get(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Version: '2021-07-28',
+        Accept: 'application/json',
+      },
+    });
+    return response.data.contact;
   } catch (err) {
-      const error = err as AxiosError;
-      if (error.response && error.response.status === 429) {
-        
-          // Handle rate limit error gracefully
-          return null;
-      } else if (axios.isCancel(error)) {
-          console.warn('Fetch cancelled:', error.message);
-      } else {
-          console.error('Error fetching duplicate contact:', error);
-          throw error;
-      }
+    const error = err as AxiosError;
+    if (error.response && error.response.status === 429) {
+      // Handle rate limit error gracefully
+      return null;
+    } else if (axios.isCancel(error)) {
+      console.warn('Fetch cancelled:', error.message);
+    } else {
+      console.error('Error fetching duplicate contact:', error);
+      throw error;
+    }
   }
 };
 
@@ -1949,11 +1989,22 @@ const openEditMessage = (message: Message) => {
   };
 
   const filterTagContact = (tag: string) => {
-    setIsTagged(!isTagged);
     setActiveTags((prevTags) =>
       prevTags.includes(tag) ? prevTags.filter((t) => t !== tag) : [...prevTags, tag]
     );
   };
+  
+  useEffect(() => {
+    let filteredContacts = contacts;
+    if (activeTags.length > 0) {
+      filteredContacts = filteredContacts.filter((contact) =>
+        activeTags.every((tag) => contact.tags?.includes(tag))
+      );
+    }
+    // Apply other existing filters here
+    setFilteredContacts(filteredContacts);
+  }, [contacts, searchQuery, activeTags]);
+
   const handleSelectMessage = (message: Message) => {
     setSelectedMessages(prevSelectedMessages =>
         prevSelectedMessages.includes(message)
@@ -2623,50 +2674,25 @@ const handleForwardMessage = async () => {
     }
   };
   
+  {/* <Button
+    onClick={toggleAllBots}
+    className={`${
+      isAllBotsEnabled ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700'
+    } px-4 py-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
+  >
+    {isAllBotsEnabled ? 'Turn on all bots' : 'Turn off all bots'}
+  </Button> */}
   return (
-    
-    <div className="flex flex-col md:flex-row overflow-hidden bg-gray-100 text-gray-00" style={{ height: '100svh' }}>
+    <div className="flex flex-col md:flex-row overflow-hidden bg-gray-100 text-gray-00" style={{ height: '100vh' }}>
       <audio ref={audioRef} src={noti} />
-      <div className={`flex flex-col w-full md:min-w-[35%] md:max-w-[35%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300 ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`flex flex-col w-full md:min-w-[35%] md:max-w-[35%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300 ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
         <div className="flex justify-between items-center pl-4 pr-4 pt-6 pb-4">
           <div className="text-start text-2xl font-bold capitalize text-gray-800 dark:text-gray-200">
             {userData?.company}
           </div>
-          {/* <Button
-            onClick={toggleAllBots}
-            className={`${
-              isAllBotsEnabled ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700'
-            } px-4 py-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
-          >
-            {isAllBotsEnabled ? 'Turn on all bots' : 'Turn off all bots'}
-          </Button> */}
+          
         </div>
         <div className="relative hidden sm:block p-2">
-          {/* <div className="mb-2 flex flex-wrap gap-2">
-            {tagsError || (pinnedTags.length === 0 && employeeTags.length === 0 && otherTags.length === 0) ? (
-              <div className="w-shrink text-center py-2 px-4 bg-gray-200 dark:bg-gray-700 rounded-md">
-                <span className="text-gray-600 dark:text-gray-400">No tags available</span>
-              </div>
-            ) : (
-              <>
-                {pinnedTags.map(tag => (
-                  <span key={tag} className="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
-                    📌 {tag}
-                  </span>
-                ))}
-                {employeeTags.map(tag => (
-                  <span key={tag} className="bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
-                    👤 {tag}
-                  </span>
-                ))}
-                {otherTags.map(tag => (
-                  <span key={tag} className="bg-gray-100 text-gray-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300">
-                    🏷️ {tag}
-                  </span>
-                ))}
-              </>
-            )}
-          </div> */}
           <div className="flex items-center space-x-2">
             {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
             {isDeletePopupOpen && <DeleteConfirmationPopup />}
@@ -2727,23 +2753,7 @@ const handleForwardMessage = async () => {
                             className="absolute top-2 right-3 w-5 h-5 text-gray-500"
                           />
                         </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {pinnedTags.map(tag => (
-                            <span key={tag} className="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
-                              📌 {tag}
-                            </span>
-                          ))}
-                          {employeeTags.map(tag => (
-                            <span key={tag} className="bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
-                              👤 {tag}
-                            </span>
-                          ))}
-                          {otherTags.map(tag => (
-                            <span key={tag} className="bg-gray-100 text-gray-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300">
-                              🏷️ {tag}
-                            </span>
-                          ))}
-                        </div>
+                        {/* filter spot */}
                         <div className="max-h-60 overflow-y-auto">
                           {filteredContactsForForwarding.map((contact, index) => (
                             <div
@@ -2765,6 +2775,21 @@ const handleForwardMessage = async () => {
                                 </div>
                               </div>
                             </div>
+                          ))}
+                        </div>
+                        <div className="mt-4 mb-2 flex flex-wrap gap-2 px-1">
+                          {tagList.map((tag) => (
+                            <button
+                              key={tag.id}
+                              onClick={() => filterTagContact(tag.name)}
+                              className={`px-2 py-1 rounded-full text-sm ${
+                                activeTags.includes(tag.name)
+                                  ? 'bg-primary text-white'
+                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              }`}
+                            >
+                              {tag.name}
+                            </button>
                           ))}
                         </div>
                       </div>
@@ -2867,6 +2892,21 @@ const handleForwardMessage = async () => {
   <div className="border-b border-gray-300 dark:border-gray-700 mt-4"></div>
 
 </div>
+<div className="mt-4 mb-2 flex flex-wrap gap-2 px-4">
+  {tagList.map((tag) => (
+    <button
+      key={tag.id}
+      onClick={() => filterTagContact(tag.name)}
+      className={`px-3 py-1 rounded-full text-sm ${
+        activeTags.includes(tag.name)
+          ? 'bg-primary text-white dark:bg-primary dark:text-white'
+          : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+      } transition-colors duration-200`}
+    >
+      {tag.name}
+    </button>
+  ))}
+</div>
   <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-auto" ref={contactListRef}>
   {filteredContacts.map((contact, index) => (
     <React.Fragment key={contact.id || `${contact.phone}-${index}`}>
@@ -2882,6 +2922,12 @@ const handleForwardMessage = async () => {
       }`}
       onClick={() => selectChat(contact.chat_id!, contact.id!)}
     >
+    <div
+      key={contact.id}
+      className="hidden md:block cursor-pointer p-4 border-b border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700"
+      onClick={() => selectChat(contact.chat_id!, contact.id!)}
+    >
+    </div>
       <div className="w-12 h-12 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl">
         {contact && contact.chat_pic_full ? (
           <img src={contact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
@@ -2985,523 +3031,519 @@ const handleForwardMessage = async () => {
               </div>
         </div>
       <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 dark:bg-gray-900 relative flext-1 overflow-hidden">
-          {selectedContact && (
-  <div className="flex items-center justify-between p-1 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
-    <button 
-      className="md:hidden p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
-      onClick={() => setSelectedChatId(null)}
-    >
-      <Lucide icon="ChevronLeft" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
-    </button>
-      <div className="flex items-center">
-      <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3 ml-2">
-        {selectedContact.chat_pic_full ? (
-          <img src={selectedContact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
-        ) : (
-          selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"
-        )}
-                  </div>
-                  <div>
-        <div className="font-semibold text-gray-800 dark:text-gray-200 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
-        <div className="text-sm text-gray-600 dark:text-gray-400">{selectedContact.phone}</div>
-                    </div>
-                  </div>
-    <div className="flex items-center space-x-3">
-      <Menu as="div" className="relative inline-block text-left">
-        <Menu.Button as={Button} className="p-2 !box m-0">
-          <span className="flex items-center justify-center w-5 h-5">
-            <Lucide icon="Users" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-          </span>
-        </Menu.Button>
-        <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-          {employeeList.map((tag) => (
-            <Menu.Item key={tag.id}>
-                    <button
-                className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
-                  activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
-                }`}
-                onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
-              >
-                <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
-                <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
-                    </button>
-            </Menu.Item>
-          ))}
-        </Menu.Items>
-      </Menu>
-      <Menu as="div" className="relative inline-block text-left">
-        <Menu.Button as={Button} className="p-2 !box m-0">
-          <span className="flex items-center justify-center w-5 h-5">
-            <Lucide icon="Tag" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-          </span>
-        </Menu.Button>
-        <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-          {tagList.map((tag) => (
-            <Menu.Item key={tag.id}>
-                    <button
-                className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
-                  activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
-                }`}
-                onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
-              >
-                <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
-                <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
-                    </button>
-            </Menu.Item>
-          ))}
-        </Menu.Items>
-      </Menu>
-      <button className="p-2 m-0 !box" onClick={handleEyeClick}>
-        <span className="flex items-center justify-center w-5 h-5">
-          <Lucide icon={isTabOpen ? "X" : "Eye"} className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-        </span>
-                    </button>
+  {selectedContact ? (
+    <>
+      <div className="flex items-center justify-between p-1 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
+        <button 
+          className="md:hidden p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+          onClick={() => setSelectedChatId(null)}
+        >
+          <Lucide icon="ChevronLeft" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
+        </button>
+        <div className="flex items-center">
+          <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3 ml-2">
+            {selectedContact.chat_pic_full ? (
+              <img src={selectedContact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
+            ) : (
+              selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"
+            )}
+          </div>
+          <div>
+            <div className="font-semibold text-gray-800 dark:text-gray-200 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">{selectedContact.phone}</div>
+          </div>
+        </div>
+        <div className="flex items-center space-x-3">
+          <Menu as="div" className="relative inline-block text-left">
+            <Menu.Button as={Button} className="p-2 !box m-0">
+              <span className="flex items-center justify-center w-5 h-5">
+                <Lucide icon="Users" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+              </span>
+            </Menu.Button>
+            <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+              {employeeList.map((tag) => (
+                <Menu.Item key={tag.id}>
+                  <button
+                    className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
+                      activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
+                    }`}
+                    onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
+                  >
+                    <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+                    <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
+                  </button>
+                </Menu.Item>
+              ))}
+            </Menu.Items>
+          </Menu>
+          <Menu as="div" className="relative inline-block text-left">
+            <Menu.Button as={Button} className="p-2 !box m-0">
+              <span className="flex items-center justify-center w-5 h-5">
+                <Lucide icon="Tag" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+              </span>
+            </Menu.Button>
+            <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+              {tagList.map((tag) => (
+                <Menu.Item key={tag.id}>
+                  <button
+                    className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
+                      activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
+                    }`}
+                    onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
+                  >
+                    <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+                    <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
+                  </button>
+                </Menu.Item>
+              ))}
+            </Menu.Items>
+          </Menu>
+          <button className="p-2 m-0 !box" onClick={handleEyeClick}>
+            <span className="flex items-center justify-center w-5 h-5">
+              <Lucide icon={isTabOpen ? "X" : "Eye"} className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+            </span>
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4" 
+        style={{
+          paddingBottom: "150px",
+          backgroundColor: selectedContact ? 'transparent' : 'bg-slate-400 dark:bg-gray-800',
+          backgroundSize: 'cover',
+          backgroundRepeat: 'no-repeat',
+        }}
+        ref={messageListRef}>
+        {isLoading2 && (
+          <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
+            <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white dark:bg-gray-800 p-4 rounded-md shadow-lg">
+              <div role="status">
+                <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
+                  <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
+                  <div className="mt-2 text-xs text-center text-gray-800 dark:text-gray-200">Fetching Data...</div>
                 </div>
               </div>
-)}
-           
-        <div className="flex-1 overflow-y-auto p-4" 
-              style={{
-                paddingBottom: "150px",
-                backgroundColor: selectedContact ? 'transparent' : 'bg-slate-400 dark:bg-gray-800',
-                backgroundSize: 'cover',
-                backgroundRepeat: 'no-repeat',
-              }}
-              ref={messageListRef}>
-           
-        {isLoading2 && (
-                <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50">
-                  <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white dark:bg-gray-800 p-4 rounded-md shadow-lg">
-                    <div role="status">
-                    <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
-                    <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
-          <div className="mt-2 text-xs text-center text-gray-800 dark:text-gray-200">Fetching Data...</div>
-        </div>
-                    </div>
-                  </div>
-                  </div>
-                )}
-  {selectedChatId && (
-    messages
-      .filter((message) => message.type !== 'action') // Filter out action type messages
-      .slice()
-      .reverse()
-      .map((message, index,array) => {
-        const previousMessage = messages[index - 1];
-        const showDateHeader =
-          index === 0 ||
-          !isSameDay(
-            new Date(array[index - 1]?.createdAt || array[index - 1]?.dateAdded),
-            new Date(message.createdAt || message.dateAdded)
-                    );
-                  return (
-          <React.Fragment key={message.id}>
-           {showDateHeader && (
-          <div className="flex justify-center my-4">
-            <div className="inline-block bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold py-1 px-4 rounded-lg shadow-md">
-              {formatDateHeader(message.createdAt || message.dateAdded)}
-                          </div>
-                        </div>
-                      )}
-                      <div
-              className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
-              style={{
-                maxWidth: message.type === 'document' ? '90%' : '70%',
-                width: `${
-                  message.type === 'document'
-                    ? '400'
-                    : message.type !== 'text'
-                    ? '320'
-                    : message.text?.body
-                    ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
-                    : '100'
-                }px`,
-                minWidth: '70px',
-              }}
-              onMouseEnter={() => setHoveredMessageId(message.id)}
-              onMouseLeave={() => setHoveredMessageId(null)}
-            >
-              {message.chat_id.includes('@g.us') && (
-                <div className="pb-1 text-gray-400 dark:text-gray-200 font-medium">{message.from_name||'+'+message.from}</div>
-              )}
-              {message.type === 'text' && message.text?.context && (
-                <div className="p-2 mb-2 rounded bg-gray-300 dark:bg-gray-300">
-                  <div className="text-sm font-medium text-gray-800 ">{message.text.context.quoted_author || ''}</div>
-                  <div className="text-sm text-gray-800 ">{message.text.context.quoted_content?.body || ''}</div>
-                          </div>
-                        )}
-                          {message.type === 'text' && (
-                <div className={`whitespace-pre-wrap break-words overflow-hidden ${message.from_me ? myMessageTextClass : otherMessageTextClass}`} style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                  {formatText(message.text?.body || '')}
-                                </div>
-                              )}
-            {message.type === 'image' && message.image && (
-            <div className="p-0 message-content image-message">
-              <img
-                src={message.image.link || `https://mighty-dane-newly.ngrok-free.app${message.image.url}` || ''}
-                alt="Image"
-                className="rounded-lg message-image cursor-pointer"
-                style={{ maxWidth: '300px' }}
-                onClick={() => openImageModal(message.image?.link || `https://mighty-dane-newly.ngrok-free.app${message?.image?.url}`|| '')}
-                onError={(e) => {
-                  console.error("Error loading image:", e.currentTarget.src);
-                  e.currentTarget.src = 'path/to/fallback/image.jpg'; // Replace with your fallback image path
-                }}
-              />
-              <div className="caption text-gray-800 ">{message.image.caption}</div>
-                            </div>
-                          )}
-              {message.type === 'video' && message.video && (
-                <div className="video-content p-0 message-content image-message">
-                  <video
-                    controls
-                    src={message.video.link}
-                    className="rounded-lg message-image cursor-pointer"
-                    style={{ maxWidth: '300px' }}
-                  />
-                  <div className="caption text-gray-800 dark:text-gray-200">{message.video.caption}</div>
-                </div>
-              )}
-              {message.type === 'gif' && message.gif && (
-                <div className="gif-content p-0 message-content image-message">
-                  <img
-                    src={message.gif.link}
-                    alt="GIF"
-                    className="rounded-lg message-image cursor-pointer"
-                    style={{ maxWidth: '300px' }}
-                    onClick={() => openImageModal(message.gif?.link || '')}
-                  />
-                  <div className="caption text-gray-800 dark:text-gray-200">{message.gif.caption}</div>
-                                </div>
-                              )}
-              {message.type === 'audio' && message.audio && (
-                <div className="audio-content p-0 message-content image-message">
-                  <audio controls src={message.audio.link} className="rounded-lg message-image cursor-pointer" />
-                </div>
-              )}
-              {message.type === 'voice' && message.voice && (
-                <div className="voice-content p-0 message-content image-message">
-                  <audio controls src={message.voice.link} className="rounded-lg message-image cursor-pointer" />
-                </div>
-              )}
-              {message.type === 'document' && message.document && (
-                <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
-                  <iframe
-                    src={message.document.link}
-                    width="100%"
-                    height="500px"
-                    title="PDF Document"
-                    className="border rounded cursor-pointer"
-                    onClick={() => openPDFModal(message.document?.link || '')}
-                  />
-                  <div className="flex-1 text-justify mt-3 w-full">
-                    <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">{message.document.file_name}</div>
-                    <div className="text-gray-600 dark:text-gray-400">
-                      {message.document.page_count} page
-                      {message.document.page_count > 1 ? 's' : ''} • PDF •{' '}
-                      {(message.document.file_size / (1024 * 1024)).toFixed(2)} MB
-                    </div>
-                  </div>
-                                    <button
-                    onClick={() => openPDFModal(message.document!.link)}
-                    className="mt-3"
-                                    >
-                    <Lucide icon="ExternalLink" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
-                                    </button>
-                                </div>
-                              )}
-              {message.type === 'link_preview' && message.link_preview && (
-                <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden text-gray-800 dark:text-gray-200">
-                  <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
-                    <img
-                      src={message.link_preview.preview}
-                      alt="Preview"
-                      className="w-full"
-                    />
-                    <div className="p-2">
-                      <div className="font-bold text-lg">{message.link_preview.title}</div>
-                      <div className="text-sm text-gray-800 dark:text-gray-200">{message.link_preview.description}</div>
-                      <div className="text-blue-500 mt-1">{message.link_preview.body}</div>
-                    </div>
-                  </a>
-                            </div>
-                          )}
-              {message.type === 'sticker' && message.sticker && (
-                <div className="sticker-content p-0 message-content image-message">
-                  <img
-                    src={message.sticker.link}
-                    alt="Sticker"
-                    className="rounded-lg message-image cursor-pointer"
-                    style={{ maxWidth: '150px' }}
-                    onClick={() => openImageModal(message.sticker?.link || '')}
-                  />
-                </div>
-              )}
-              {message.type === 'location' && message.location && (
-                <div className="location-content p-0 message-content image-message">
-                  <div className="text-sm text-gray-800 dark:text-gray-200">Location: {message.location.latitude}, {message.location.longitude}</div>
-                </div>
-              )}
-              {message.type === 'poll' && message.poll && (
-                <div className="poll-content p-0 message-content image-message">
-                  <div className="text-sm text-gray-800 dark:text-gray-200">Poll: {message.poll.title}</div>
-                </div>
-              )}
-              {message.type === 'hsm' && message.hsm && (
-                <div className="hsm-content p-0 message-content image-message">
-                  <div className="text-sm text-gray-800 dark:text-gray-200">HSM: {message.hsm.title}</div>
-                </div>
-              )}
-              {message.type === 'action' && message.action && (
-                <div className="action-content flex flex-col p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
-                  {message.action.type === 'delete' ? (
-                    <div className="text-gray-400 dark:text-gray-600">This message was deleted</div>
-                  ) : (
-                    /* Handle other action types */
-                    <div className="text-gray-800 dark:text-gray-200">{message.action.emoji}</div>
-                  )}
-                </div>
-              )}
-              {message.reactions && message.reactions.length > 0 && (
-                <div className="flex items-center space-x-2 mt-1">
-                  {message.reactions.map((reaction, index) => (
-                    <div key={index} className="text-gray-500 dark:text-gray-400 text-sm flex items-center space-x-1">
-                      <span
-                        className="inline-flex items-center justify-center border border-white rounded-full bg-gray-200 dark:bg-gray-700"
-                        style={{ padding: '10px' }}
-                      >
-                        {reaction.emoji}
-                      </span>
-                    
-                    </div>
-                  ))}
-                </div>
-              )}
-
-        <div className={`message-timestamp text-xs ${message.from_me ? myMessageTextClass : otherMessageTextClass} mt-1`}>
-          {formatTimestamp(message.createdAt || message.dateAdded)}
-          {message.name && (
-            <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>
-          )}
-          {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
-                checked={selectedMessages.includes(message)}
-                onChange={() => handleSelectMessage(message)}
-              />
-                                    <button
-                  className="ml-2 text-blue-500 hover:text-gray-400 dark:text-blue-400 dark:hover:text-gray-600 fill-current"
-                  onClick={() => setReplyToMessage(message)}
-                                    >
-                  <Lucide icon="MessageSquare" className="w-5 h-5" />
-                                    </button>
-               {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && (
-                <button
-                  className="ml-2 text-white hover:text-gray-400 dark:text-gray-200 dark:hover:text-gray-400 fill-current"
-                  onClick={() => openEditMessage(message)}
-                >
-                  <Lucide icon="Pencil" className="w-5 h-5" />
-                </button>
-              )}
-         
-                                </div>
-                              )}
-                            </div>
             </div>
-          </React.Fragment>
-        );
-      })
-                          )}
-                        </div>
-
-        <div className="absolute bottom-0 left-0 w-500px !box m-1 py-1 px-2">
-        {replyToMessage && (
-    <div className="p-2 mb-2 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-between">
-      <div>
-        <div className="font-semibold text-gray-800 dark:text-gray-200">{replyToMessage.from_name}</div>
-        <div>
-          {replyToMessage.type === 'text' && replyToMessage.text?.body}
-          {replyToMessage.type === 'link_preview' && replyToMessage.link_preview?.body}
-          {replyToMessage.type === 'image' && <img src={replyToMessage.image?.link} alt="Image" style={{ maxWidth: '200px' }} />}
-          {replyToMessage.type === 'video' && <video controls src={replyToMessage.video?.link} style={{ maxWidth: '200px' }} />}
-          {replyToMessage.type === 'gif' && <img src={replyToMessage.gif?.link} alt="GIF" style={{ maxWidth: '200px' }} />}
-          {replyToMessage.type === 'audio' && <audio controls src={replyToMessage.audio?.link} />}
-          {replyToMessage.type === 'voice' && <audio controls src={replyToMessage.voice?.link} />}
-          {replyToMessage.type === 'document' && <iframe src={replyToMessage.document?.link} width="100%" height="200px" />}
-          {replyToMessage.type === 'sticker' && <img src={replyToMessage.sticker?.link} alt="Sticker" style={{ maxWidth: '150px' }} />}
-          {replyToMessage.type === 'location' && (
-            <div className="text-gray-800 dark:text-gray-200">
-              Location: {replyToMessage.location?.latitude}, {replyToMessage.location?.longitude}
-                          </div>
-                        )}
-          {replyToMessage.type === 'poll' && <div className="text-gray-800 dark:text-gray-200">Poll: {replyToMessage.poll?.title}</div>}
-          {replyToMessage.type === 'hsm' && <div className="text-gray-800 dark:text-gray-200">HSM: {replyToMessage.hsm?.title}</div>}
+          </div>
+        )}
+        {selectedChatId && (
+          messages
+            .filter((message) => message.type !== 'action') // Filter out action type messages
+            .slice()
+            .reverse()
+            .map((message, index,array) => {
+              const previousMessage = messages[index - 1];
+              const showDateHeader =
+                index === 0 ||
+                !isSameDay(
+                  new Date(array[index - 1]?.createdAt || array[index - 1]?.dateAdded),
+                  new Date(message.createdAt || message.dateAdded)
+                );
+              return (
+                <React.Fragment key={message.id}>
+                  {showDateHeader && (
+                    <div className="flex justify-center my-4">
+                      <div className="inline-block bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold py-1 px-4 rounded-lg shadow-md">
+                        {formatDateHeader(message.createdAt || message.dateAdded)}
                       </div>
                     </div>
-      <button onClick={() => setReplyToMessage(null)}>
-        <Lucide icon="X" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-      </button>
-              </div>
-  )}
-<div className="flex items-center w-full">
-  <button className="p-2 m-0 !box" onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}>
-    <span className="flex items-center justify-center w-5 h-5">
-      <Lucide icon="Smile" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-    </span>
-  </button>
-  <Menu as="div" className="relative inline-block text-left p-2">
-    <div className="flex items-center space-x-3">
-      <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
-        <span className="flex items-center justify-center w-5 h-5">
-          <Lucide icon="Paperclip" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-        </span>
-      </Menu.Button>
-    </div>
-    <Menu.Items className="absolute left-0 bottom-full mb-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-      <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-        <label htmlFor="imageUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full">
-          <Lucide icon="Image" className="w-4 h-4 mr-2" />
-          Image
-          <input
-            type="file"
-            id="imageUpload"
-            accept="image/*"
-            className="hidden"
-            onChange={handleImageUpload}
-            multiple
-          />
-        </label>
-      </button>
-      <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-        <label htmlFor="documentUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full">
-          <Lucide icon="File" className="w-4 h-4 mr-2" />
-          Document
-          <input
-            type="file"
-            id="documentUpload"
-            accept="application/pdf"
-            className="hidden"
-            onChange={handleDocumentUpload}
-            multiple
-          />
-        </label>
-      </button>
-    </Menu.Items>
-  </Menu>
-  <button className="p-2 m-0 !box" onClick={handleQR}>
-    <span className="flex items-center justify-center w-5 h-5">
-      <Lucide icon='Zap' className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-    </span>
-  </button>
-                      <textarea
-                        ref={textareaRef}
-  className="flex-grow h-10 px-2 py-1.5 m-1 ml-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-  placeholder="Type a message"
-                        value={newMessage}
-  onChange={(e) => {
-    setNewMessage(e.target.value);
-    adjustHeight(e.target);
-  }}
-  rows={1}
-  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-  onKeyDown={(e) => {
-    const target = e.target as HTMLTextAreaElement;
-    if (e.key === 'Enter') {
-      if (e.shiftKey) {
-        e.preventDefault();
-        setNewMessage((prev) => prev + '\n');
-      } else {
-        e.preventDefault();
-        if (selectedIcon === 'ws') {
-          handleSendMessage();
-        } else {
-          sendTextMessage(selectedContact.id, newMessage, selectedContact);
-        }
-        setNewMessage('');
-        adjustHeight(target, true); // Reset height after sending message
-      }
-    }
-  }}
-  onPaste={(e) => {
-    const items = e.clipboardData?.items;
-    if (items) {
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          const blob = item.getAsFile();
-          if (blob) {
-            const url = URL.createObjectURL(blob);
-            setPastedImageUrl(url);
-            setImageModalOpen2(true);
-          }
-          break;
-        }
-      }
-    }
-  }}
-  onDragOver={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }}
-  onDrop={async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      const file = files[0];
-      const url = URL.createObjectURL(file);
-      setPastedImageUrl(url);
-      setImageModalOpen2(true);
-    }
-  }}
-/>
-
-
-
-</div>
-
-          {isEmojiPickerOpen && (
-         <div className="absolute bottom-20 left-2 z-10">
-       <EmojiPicker onEmojiClick={handleEmojiClick} />
+                  )}
+                  <div
+                    className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+                    style={{
+                      maxWidth: message.type === 'document' ? '90%' : '70%',
+                      width: `${
+                        message.type === 'document'
+                          ? '400'
+                          : message.type !== 'text'
+                          ? '320'
+                          : message.text?.body
+                          ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
+                          : '100'
+                      }px`,
+                      minWidth: '70px',
+                    }}
+                    onMouseEnter={() => setHoveredMessageId(message.id)}
+                    onMouseLeave={() => setHoveredMessageId(null)}
+                  >
+                    {message.chat_id.includes('@g.us') && (
+                      <div className="pb-1 text-gray-400 dark:text-gray-200 font-medium">{message.from_name||'+'+message.from}</div>
+                    )}
+                    {message.type === 'text' && message.text?.context && (
+                      <div className="p-2 mb-2 rounded bg-gray-300 dark:bg-gray-300">
+                        <div className="text-sm font-medium text-gray-800 ">{message.text.context.quoted_author || ''}</div>
+                        <div className="text-sm text-gray-800 ">{message.text.context.quoted_content?.body || ''}</div>
+                      </div>
+                    )}
+                    {message.type === 'text' && (
+                      <div className={`whitespace-pre-wrap break-words overflow-hidden ${message.from_me ? myMessageTextClass : otherMessageTextClass}`} style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                        {formatText(message.text?.body || '')}
+                      </div>
+                    )}
+                    {message.type === 'image' && message.image && (
+                      <div className="p-0 message-content image-message">
+                        <img
+                          src={message.image.link || `https://mighty-dane-newly.ngrok-free.app${message.image.url}` || ''}
+                          alt="Image"
+                          className="rounded-lg message-image cursor-pointer"
+                          style={{ maxWidth: '300px' }}
+                          onClick={() => openImageModal(message.image?.link || `https://mighty-dane-newly.ngrok-free.app${message?.image?.url}`|| '')}
+                          onError={(e) => {
+                            console.error("Error loading image:", e.currentTarget.src);
+                            e.currentTarget.src = 'path/to/fallback/image.jpg'; // Replace with your fallback image path
+                          }}
+                        />
+                        <div className="caption text-gray-800 ">{message.image.caption}</div>
+                      </div>
+                    )}
+                    {message.type === 'video' && message.video && (
+                      <div className="video-content p-0 message-content image-message">
+                        <video
+                          controls
+                          src={message.video.link}
+                          className="rounded-lg message-image cursor-pointer"
+                          style={{ maxWidth: '300px' }}
+                        />
+                        <div className="caption text-gray-800 dark:text-gray-200">{message.video.caption}</div>
+                      </div>
+                    )}
+                    {message.type === 'gif' && message.gif && (
+                      <div className="gif-content p-0 message-content image-message">
+                        <img
+                          src={message.gif.link}
+                          alt="GIF"
+                          className="rounded-lg message-image cursor-pointer"
+                          style={{ maxWidth: '300px' }}
+                          onClick={() => openImageModal(message.gif?.link || '')}
+                        />
+                        <div className="caption text-gray-800 dark:text-gray-200">{message.gif.caption}</div>
+                      </div>
+                    )}
+                    {message.type === 'audio' && message.audio && (
+                      <div className="audio-content p-0 message-content image-message">
+                        <audio controls src={message.audio.link} className="rounded-lg message-image cursor-pointer" />
+                      </div>
+                    )}
+                    {message.type === 'voice' && message.voice && (
+                      <div className="voice-content p-0 message-content image-message">
+                        <audio controls src={message.voice.link} className="rounded-lg message-image cursor-pointer" />
+                      </div>
+                    )}
+                    {message.type === 'document' && message.document && (
+                      <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
+                        <iframe
+                          src={message.document.link}
+                          width="100%"
+                          height="500px"
+                          title="PDF Document"
+                          className="border rounded cursor-pointer"
+                          onClick={() => openPDFModal(message.document?.link || '')}
+                        />
+                        <div className="flex-1 text-justify mt-3 w-full">
+                          <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">{message.document.file_name}</div>
+                          <div className="text-gray-600 dark:text-gray-400">
+                            {message.document.page_count} page
+                            {message.document.page_count > 1 ? 's' : ''} • PDF •{' '}
+                            {(message.document.file_size / (1024 * 1024)).toFixed(2)} MB
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => openPDFModal(message.document!.link)}
+                          className="mt-3"
+                        >
+                          <Lucide icon="ExternalLink" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
+                        </button>
+                      </div>
+                    )}
+                    {message.type === 'link_preview' && message.link_preview && (
+                      <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden text-gray-800 dark:text-gray-200">
+                        <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
+                          <img
+                            src={message.link_preview.preview}
+                            alt="Preview"
+                            className="w-full"
+                          />
+                          <div className="p-2">
+                            <div className="font-bold text-lg">{message.link_preview.title}</div>
+                            <div className="text-sm text-gray-800 dark:text-gray-200">{message.link_preview.description}</div>
+                            <div className="text-blue-500 mt-1">{message.link_preview.body}</div>
+                          </div>
+                        </a>
+                      </div>
+                    )}
+                    {message.type === 'sticker' && message.sticker && (
+                      <div className="sticker-content p-0 message-content image-message">
+                        <img
+                          src={message.sticker.link}
+                          alt="Sticker"
+                          className="rounded-lg message-image cursor-pointer"
+                          style={{ maxWidth: '150px' }}
+                          onClick={() => openImageModal(message.sticker?.link || '')}
+                        />
+                      </div>
+                    )}
+                    {message.type === 'location' && message.location && (
+                      <div className="location-content p-0 message-content image-message">
+                        <div className="text-sm text-gray-800 dark:text-gray-200">Location: {message.location.latitude}, {message.location.longitude}</div>
+                      </div>
+                    )}
+                    {message.type === 'poll' && message.poll && (
+                      <div className="poll-content p-0 message-content image-message">
+                        <div className="text-sm text-gray-800 dark:text-gray-200">Poll: {message.poll.title}</div>
+                      </div>
+                    )}
+                    {message.type === 'hsm' && message.hsm && (
+                      <div className="hsm-content p-0 message-content image-message">
+                        <div className="text-sm text-gray-800 dark:text-gray-200">HSM: {message.hsm.title}</div>
+                      </div>
+                    )}
+                    {message.type === 'action' && message.action && (
+                      <div className="action-content flex flex-col p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
+                        {message.action.type === 'delete' ? (
+                          <div className="text-gray-400 dark:text-gray-600">This message was deleted</div>
+                        ) : (
+                          /* Handle other action types */
+                          <div className="text-gray-800 dark:text-gray-200">{message.action.emoji}</div>
+                        )}
+                      </div>
+                    )}
+                    {message.reactions && message.reactions.length > 0 && (
+                      <div className="flex items-center space-x-2 mt-1">
+                        {message.reactions.map((reaction, index) => (
+                          <div key={index} className="text-gray-500 dark:text-gray-400 text-sm flex items-center space-x-1">
+                            <span
+                              className="inline-flex items-center justify-center border border-white rounded-full bg-gray-200 dark:bg-gray-700"
+                              style={{ padding: '10px' }}
+                            >
+                              {reaction.emoji}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className={`message-timestamp text-xs ${message.from_me ? myMessageTextClass : otherMessageTextClass} mt-1`}>
+                      {formatTimestamp(message.createdAt || message.dateAdded)}
+                      {message.name && (
+                        <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>
+                      )}
+                      {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
+                            checked={selectedMessages.includes(message)}
+                            onChange={() => handleSelectMessage(message)}
+                          />
+                          <button
+                            className="ml-2 text-blue-500 hover:text-gray-400 dark:text-blue-400 dark:hover:text-gray-600 fill-current"
+                            onClick={() => setReplyToMessage(message)}
+                          >
+                            <Lucide icon="MessageSquare" className="w-5 h-5" />
+                          </button>
+                          {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && (
+                            <button
+                              className="ml-2 text-white hover:text-gray-400 dark:text-gray-200 dark:hover:text-gray-400 fill-current"
+                              onClick={() => openEditMessage(message)}
+                            >
+                              <Lucide icon="Pencil" className="w-5 h-5" />
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
                   </div>
-    
-      {selectedMessages.length > 0 && (
-      <div className="fixed bottom-20 right-2 md:right-10 space-y-2 md:space-y-0 md:space-x-4 flex flex-col md:flex-row">
-                      <button
-          className="bg-blue-800 dark:bg-blue-600 text-white px-4 py-3 rounded-xl shadow-lg w-full md:w-auto"
-          onClick={() => setIsForwardDialogOpen(true)}>
-          Forward
-        </button>
+                </React.Fragment>
+              );
+            })
+        )}
+      </div>
+      <div className="absolute bottom-0 left-0 w-500px !box m-1 py-1 px-2">
+        {replyToMessage && (
+          <div className="p-2 mb-2 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-between">
+            <div>
+              <div className="font-semibold text-gray-800 dark:text-gray-200">{replyToMessage.from_name}</div>
+              <div>
+                {replyToMessage.type === 'text' && replyToMessage.text?.body}
+                {replyToMessage.type === 'link_preview' && replyToMessage.link_preview?.body}
+                {replyToMessage.type === 'image' && <img src={replyToMessage.image?.link} alt="Image" style={{ maxWidth: '200px' }} />}
+                {replyToMessage.type === 'video' && <video controls src={replyToMessage.video?.link} style={{ maxWidth: '200px' }} />}
+                {replyToMessage.type === 'gif' && <img src={replyToMessage.gif?.link} alt="GIF" style={{ maxWidth: '200px' }} />}
+                {replyToMessage.type === 'audio' && <audio controls src={replyToMessage.audio?.link} />}
+                {replyToMessage.type === 'voice' && <audio controls src={replyToMessage.voice?.link} />}
+                {replyToMessage.type === 'document' && <iframe src={replyToMessage.document?.link} width="100%" height="200px" />}
+                {replyToMessage.type === 'sticker' && <img src={replyToMessage.sticker?.link} alt="Sticker" style={{ maxWidth: '150px' }} />}
+                {replyToMessage.type === 'location' && (
+                  <div className="text-gray-800 dark:text-gray-200">
+                    Location: {replyToMessage.location?.latitude}, {replyToMessage.location?.longitude}
+                  </div>
+                )}
+                {replyToMessage.type === 'poll' && <div className="text-gray-800 dark:text-gray-200">Poll: {replyToMessage.poll?.title}</div>}
+                {replyToMessage.type === 'hsm' && <div className="text-gray-800 dark:text-gray-200">HSM: {replyToMessage.hsm?.title}</div>}
+              </div>
+            </div>
+            <button onClick={() => setReplyToMessage(null)}>
+              <Lucide icon="X" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+            </button>
+          </div>
+        )}
+        <div className="flex items-center w-full">
+          <button className="p-2 m-0 !box" onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}>
+            <span className="flex items-center justify-center w-5 h-5">
+              <Lucide icon="Smile" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+            </span>
+          </button>
+          <Menu as="div" className="relative inline-block text-left p-2">
+            <div className="flex items-center space-x-3">
+              <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
+                <span className="flex items-center justify-center w-5 h-5">
+                  <Lucide icon="Paperclip" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                </span>
+              </Menu.Button>
+            </div>
+            <Menu.Items className="absolute left-0 bottom-full mb-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+              <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
+                <label htmlFor="imageUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full">
+                  <Lucide icon="Image" className="w-4 h-4 mr-2" />
+                  Image
+                  <input
+                    type="file"
+                    id="imageUpload"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    multiple
+                  />
+                </label>
+              </button>
+              <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
+                <label htmlFor="documentUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full">
+                  <Lucide icon="File" className="w-4 h-4 mr-2" />
+                  Document
+                  <input
+                    type="file"
+                    id="documentUpload"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={handleDocumentUpload}
+                    multiple
+                  />
+                </label>
+              </button>
+            </Menu.Items>
+          </Menu>
+          <button className="p-2 m-0 !box" onClick={handleQR}>
+            <span className="flex items-center justify-center w-5 h-5">
+              <Lucide icon='Zap' className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+            </span>
+          </button>
+          <textarea
+            ref={textareaRef}
+            className="flex-grow h-10 px-2 py-1.5 m-1 ml-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+            placeholder="Type a message"
+            value={newMessage}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+              adjustHeight(e.target);
+            }}
+            rows={1}
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+            onKeyDown={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              if (e.key === 'Enter') {
+                if (e.shiftKey) {
+                  e.preventDefault();
+                  setNewMessage((prev) => prev + '\n');
+                } else {
+                  e.preventDefault();
+                  if (selectedIcon === 'ws') {
+                    handleSendMessage();
+                  } else {
+                    sendTextMessage(selectedContact.id, newMessage, selectedContact);
+                  }
+                  setNewMessage('');
+                  adjustHeight(target, true); // Reset height after sending message
+                }
+              }
+            }}
+            onPaste={(e) => {
+              const items = e.clipboardData?.items;
+              if (items) {
+                for (const item of items) {
+                  if (item.type.startsWith('image/')) {
+                    const blob = item.getAsFile();
+                    if (blob) {
+                      const url = URL.createObjectURL(blob);
+                      setPastedImageUrl(url);
+                      setImageModalOpen2(true);
+                    }
+                    break;
+                  }
+                }
+              }
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
 
-        <button
+              const files = e.dataTransfer.files;
+              if (files.length > 0) {
+                const file = files[0];
+                const url = URL.createObjectURL(file);
+                setPastedImageUrl(url);
+                setImageModalOpen2(true);
+              }
+            }}
+          />
+        </div>
+        {isEmojiPickerOpen && (
+          <div className="absolute bottom-20 left-2 z-10">
+            <EmojiPicker onEmojiClick={handleEmojiClick} />
+          </div>
+        )}
+      </div>
+    </>
+  ) : (
+    <div className="flex items-center justify-center h-full">
+      <p className="text-gray-500 dark:text-gray-400 text-lg">Select a chat to start messaging</p>
+    </div>
+  )}
+</div>
+
+{selectedMessages.length > 0 && (
+  <div className="fixed bottom-20 right-2 md:right-10 space-y-2 md:space-y-0 md:space-x-4 flex flex-col md:flex-row">
+    <button
+      className="bg-blue-800 dark:bg-blue-600 text-white px-4 py-3 rounded-xl shadow-lg w-full md:w-auto"
+      onClick={() => setIsForwardDialogOpen(true)}>
+      Forward
+    </button>
+    <button
       className="bg-red-800 dark:bg-red-600 text-white px-4 py-3 rounded-xl shadow-lg w-full md:w-auto"
       onClick={openDeletePopup}>
       Delete
     </button>
-        <button
-          className="bg-gray-700 dark:bg-gray-600 text-white px-4 py-3 rounded-xl shadow-lg w-full md:w-auto"
-          onClick={() => setSelectedMessages([])}
-          onKeyDown={handleKeyDown}>
-          Cancel
-        </button>
-      </div>
-    )}
+    <button
+      className="bg-gray-700 dark:bg-gray-600 text-white px-4 py-3 rounded-xl shadow-lg w-full md:w-auto"
+      onClick={() => setSelectedMessages([])}
+      onKeyDown={handleKeyDown}>
+      Cancel
+    </button>
+  </div>
+)}
+
 {isTabOpen && (
   <div className="absolute top-0 right-0 h-full w-full md:w-1/3 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-700 overflow-y-auto z-50">
     <div className="p-6">
       <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
         <div className="flex items-center">
           <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-          {selectedContact.chat_pic_full ? (
-          <img src={selectedContact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
-        ) : (
-          selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"
-        )}
+            {selectedContact.chat_pic_full ? (
+              <img src={selectedContact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
+            ) : (
+              selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"
+            )}
           </div>
           <div>
             <div className="font-semibold text-gray-800 dark:text-gray-200 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
@@ -3515,26 +3557,26 @@ const handleForwardMessage = async () => {
       <div className="mt-6">
         <p className="font-semibold text-lg mb-4 text-gray-800 dark:text-gray-200">Contact Info</p>
         <div className="space-y-2 text-gray-700 dark:text-gray-300">
-        <p>
-  <span className="font-semibold text-blue-600 dark:text-blue-400">Tags:</span>
-  <div className="flex flex-wrap mt-2">
-    {selectedContact.tags.length > 0 ? (
-      selectedContact.tags.map((tag: string, index: number) => (
-        <div key={index} className="flex items-center mr-2 mb-2">
-          <span className="inline-block bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-sm font-semibold px-3 py-1 rounded border border-blue-400 dark:border-blue-600 mr-1">{tag}</span>
-          <button
-            className="p-1"
-            onClick={() => handleRemoveTag( selectedContact.id, tag)}
-          >
-            <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600" />
-                      </button>
-        </div>
-      ))
-    ) : (
-      'Unassigned'
-    )}
-  </div>
-</p>
+          <p>
+            <span className="font-semibold text-blue-600 dark:text-blue-400">Tags:</span>
+            <div className="flex flex-wrap mt-2">
+              {selectedContact.tags.length > 0 ? (
+                selectedContact.tags.map((tag: string, index: number) => (
+                  <div key={index} className="flex items-center mr-2 mb-2">
+                    <span className="inline-block bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-sm font-semibold px-3 py-1 rounded border border-blue-400 dark:border-blue-600 mr-1">{tag}</span>
+                    <button
+                      className="p-1"
+                      onClick={() => handleRemoveTag(selectedContact.id, tag)}
+                    >
+                      <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600" />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                'Unassigned'
+              )}
+            </div>
+          </p>
           <p><span className="font-semibold text-blue-600 dark:text-blue-400">Phone:</span> {selectedContact.phone}</p>
           <p><span className="font-semibold text-blue-600 dark:text-blue-400">Email:</span> {selectedContact.email || 'N/A'}</p>
           <p><span className="font-semibold text-blue-600 dark:text-blue-400">Company:</span> {selectedContact.companyName || 'N/A'}</p>
