@@ -2907,7 +2907,7 @@ const handleForwardMessage = async () => {
     </button>
   ))}
 </div>
-  <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-auto" ref={contactListRef}>
+<div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
   {filteredContacts.map((contact, index) => (
     <React.Fragment key={contact.id || `${contact.phone}-${index}`}>
     <div
@@ -2924,7 +2924,7 @@ const handleForwardMessage = async () => {
     >
     <div
       key={contact.id}
-      className="hidden md:block cursor-pointer p-4 border-b border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700"
+      className="hidden cursor-pointer"
       onClick={() => selectChat(contact.chat_id!, contact.id!)}
     >
     </div>
@@ -2945,7 +2945,7 @@ const handleForwardMessage = async () => {
             {contact.contactName ?? contact.firstName ?? contact.phone}
           </span>
           <span className="text-xs flex items-center space-x-2 text-gray-600 dark:text-gray-400">
-            <div className="ml-2 flex flex-wrap">
+            <div className="ml-1 flex flex-grow">
               {(() => {
                 const employeeTags = contact.tags?.filter(tag =>
                   employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
@@ -2959,7 +2959,7 @@ const handleForwardMessage = async () => {
                   <>
                     {employeeTags.length > 0 && (
                       <Tippy content={employeeTags.join(', ')}>
-                        <span className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200 text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
+                        <span className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200 text-xs font-semibold mr-1 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
                           <Lucide icon="User" className="w-4 h-4 inline-block" />
                           <span className="ml-1">{employeeTags.length}</span>
                         </span>
@@ -2967,7 +2967,7 @@ const handleForwardMessage = async () => {
                     )}
                     {otherTags.length > 0 && (
                       <Tippy content={otherTags.join(', ')}>
-                        <span className="bg-green-100 text-primary dark:bg-blue-800 dark:text-blue-200 text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
+                        <span className="bg-green-100 text-primary dark:bg-blue-800 dark:text-blue-200 text-xs font-semibold mr-1 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
                           <Lucide icon="Tag" className="w-4 h-4 inline-block" />
                           <span className="ml-1">{otherTags.length}</span>
                         </span>
@@ -2989,14 +2989,14 @@ const handleForwardMessage = async () => {
             >
              {contact.pinned ? (
    <Pin 
-   size={16} 
+   size={14} 
    color="currentColor" 
    strokeWidth={1.25} 
    absoluteStrokeWidth 
    className="text-gray-800 dark:text-blue-400 fill-current"
  />
 ) : (
-  <PinOff size={16} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
+  <PinOff size={14} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
 )}
             </button>
             {contact.last_message?.createdAt || contact.last_message?.timestamp
