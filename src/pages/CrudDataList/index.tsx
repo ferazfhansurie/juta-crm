@@ -168,7 +168,7 @@ function Main() {
   const [editMediaFile, setEditMediaFile] = useState<File | null>(null);
   const [editDocumentFile, setEditDocumentFile] = useState<File | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-
+  const [stopbot, setStopbot] = useState(false);
   useEffect(() => {
     if (initialContacts.length > 0) {
       loadMoreContacts();
@@ -239,6 +239,7 @@ const uploadFile = async (file: any): Promise<string> => {
   
 let role = 1;
 let userName ='';
+
 useEffect(() => {
   setTotalContacts(contacts.length);
 }, [contacts]);
@@ -553,7 +554,9 @@ const handleConfirmDeleteTag = async () => {
       const companyData = docSnapshot.data();
       console.log(companyData.tags);
       console.log('tags');
- 
+      setStopbot(companyData.stopbot || false);
+      console.log(stopbot);
+      console.log('stopbot');
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
 
@@ -585,7 +588,29 @@ const handleConfirmDeleteTag = async () => {
       console.error('Error fetching company data:', error);
     }
   }
+  const toggleBot = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
 
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) return;
+
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+      const companyRef = doc(firestore, 'companies', companyId);
+      await updateDoc(companyRef, {
+        stopbot: !stopbot
+      });
+      setStopbot(!stopbot);
+      toast.success(`Bot ${stopbot ? 'activated' : 'deactivated'} successfully!`);
+    } catch (error) {
+      console.error('Error toggling bot:', error);
+      toast.error('Failed to toggle bot status.');
+    }
+  };
   const verifyContactIdExists = async (contactId: string, accessToken: string) => {
     try {
       const user = auth.currentUser;
@@ -1710,6 +1735,7 @@ console.log(filteredContacts);
                       <Lucide icon="Upload" className="w-5 h-5 mr-2" />
                       <span className="font-medium">Import CSV</span>
                     </button>
+              
                   </div>
                   
                   {/* Mobile view */}
@@ -1781,10 +1807,12 @@ console.log(filteredContacts);
                         {isSyncing ? 'Syncing...' : 'Sync DB'}
                       </span>
                     </button>
+                    
                     <button className="flex items-center justify-start p-2 w-full !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setShowCsvImportModal(true)}>
                       <Lucide icon="Upload" className="w-5 h-5 mr-2" />
                       <span className="font-medium">Import CSV</span>
                     </button>
+                  
                   </div>
                 </div>
                 {/* Add this new element to display the number of selected contacts */}
