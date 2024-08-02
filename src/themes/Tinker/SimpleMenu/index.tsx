@@ -16,6 +16,7 @@ import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
 import { initializeApp } from 'firebase/app';
 import { DocumentData, DocumentReference, getDoc, getDocs } from 'firebase/firestore';
 import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
+import { useMediaQuery } from 'react-responsive';
 
 type Notification = {
     chat_id: string;
@@ -180,9 +181,18 @@ console.log(notifications);
         console.error("Error signing out:", error);
       });
   };
+
+  const isMobile = useMediaQuery({ maxWidth: 767 });
+
   useEffect(() => {
-    setFormattedMenu(menu());
-  }, [menuStore, location.pathname]);
+    const filteredMenu = menu().filter((item) => {
+      if (isMobile) {
+        return item !== 'divider' && (item as FormattedMenu).title !== 'Assistants' && (item as FormattedMenu).title !== 'Opportunities';
+      }
+      return true;
+    });
+    setFormattedMenu(filteredMenu);
+  }, [menuStore, location.pathname, isMobile]);
 
   return (
     <div className="tinker">

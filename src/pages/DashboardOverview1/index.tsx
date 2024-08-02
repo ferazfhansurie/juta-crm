@@ -28,6 +28,7 @@ import LoadingIcon from "@/components/Base/LoadingIcon";
 import { Bar, Doughnut } from "react-chartjs-2";
 import { BarChart } from "lucide-react";
 import { useContacts } from "@/contact";
+import { User } from 'lucide-react'; // Add this import
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -79,6 +80,14 @@ function Main() {
     website: string | null;
   
   }
+
+  interface Employee {
+    id: string;
+    name: string;
+    role: string;
+    conversations?: number; // Add this line
+    // Add other properties as needed
+  }
   
   const [salesReportFilter, setSalesReportFilter] = useState<string>();
   const importantNotesRef = useRef<TinySliderElement>();
@@ -94,15 +103,13 @@ function Main() {
   const [numReplies, setReplies] = useState(0);
   const [abandoned, setAbandoned] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
     fetchCompanyData();
+    fetchEmployees();
   }, []);
   
-
-  const handleSearchChange = (e: { target: { value: string; }; }) => {
-    setSearchQuery(e.target.value.toLowerCase());
-  };
 
   const filteredNotifications = notifications.filter((notification) => {
     return (
@@ -130,15 +137,6 @@ function Main() {
     });
   };
 
-  const requestPermission = async (id: string) => {
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      
-      handleGetFirebaseToken(id);
-    } else {
-      console.error('Notification permission denied.');
-    }
-  };
 
   useEffect(() => {
     fetchConfigFromDatabase();
@@ -215,8 +213,6 @@ function Main() {
         
         return;
       }
-      
-      await requestPermission(userEmail);
 
       // Fetch notifications from the notifications subcollection
     const notificationsRef = collection(firestore, 'user', userEmail, 'notifications');
@@ -226,8 +222,6 @@ function Main() {
 
     setReplies(notifications.length);
   
-      await searchOpportunities( data.ghl_accessToken,data.ghl_location);
-      //await searchContacts(data.ghl_accessToken, data.ghl_location);
     } catch (error) {
       console.error('Error fetching config:', error);
       throw error;
@@ -268,52 +262,6 @@ function Main() {
       console.error('Error searching conversation:', error);
     }
   }
-
-  const searchOpportunities = async (ghlToken: any, locationId: any) => {
-
-    try {
-      let allOpportunities: any[] = [];
-      let page = 1;
-      let totalFetched = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        const response = await axios.get('https://services.leadconnectorhq.com/opportunities/search', {
-          headers: {
-            Authorization: `Bearer ${ghlToken}`,
-            Version: '2021-07-28',
-            Accept: 'application/json'
-          },
-          params: {
-            location_id: locationId,
-            limit: 100,
-            page: page
-          }
-        });
-
-        const opportunities = response.data.opportunities;
-        totalFetched = opportunities.length;
-        allOpportunities = [...opportunities, ...opportunities];
-
-        if (totalFetched < 100) {
-          hasMore = false;
-        } else {
-          page++;
-        }
-      }
-
-      const closedCount = allOpportunities.filter(opportunity => opportunity.status === 'won').length;
-      const unclosedCount = allOpportunities.filter(opportunity => opportunity.status === 'open').length;
-      const abandonedCount = allOpportunities.filter(opportunity => opportunity.status === 'abandoned').length;
-
-   
-      setClosed(closedCount);
-      setUnclosed(unclosedCount);
-      setAbandoned(abandonedCount)
-    } catch (error) {
-      console.error('Error searching opportunities:', error);
-    }
-  };
 
   const data = {
     labels: ['Total Contacts', 'Number Of Replies', 'Leads', 'Closed Leads', 'Abandoned'],
@@ -357,11 +305,7 @@ function Main() {
       return [];
     }
   }
-  const navigate = useNavigate(); // Initialize useNavigate
 
-  const handleNotificationClick = (chatId: any) => {
-    navigate(`/chat/?chatId=${chatId}`);
-  };
   useEffect(() => {
     fetchCompanyData();
   }, []);
@@ -400,124 +344,214 @@ function Main() {
 
   }
 
+  async function fetchEmployees() {
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+    try {
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        return;
+      }
+    
+      const dataUser = docUserSnapshot.data();
+      companyId = dataUser.companyId;
+
+      const employeeRef = collection(firestore, `companies/${companyId}/employee`);
+      const employeeSnapshot = await getDocs(employeeRef);
+
+      const employeeListData: Employee[] = [];
+      employeeSnapshot.forEach((doc) => {
+        employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
+      });
+
+      // Sort employees by number of conversations (descending order)
+      employeeListData.sort((a, b) => (b.conversations || 0) - (a.conversations || 0));
+
+      // Take top 4 employees
+      const topEmployees = employeeListData.slice(0, 4);
+      
+      setEmployees(topEmployees);
+    
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    }
+  }
+
   return (
     <div className="grid grid-cols-12 gap-6">
       <div className="col-span-12 2xl:col-span-9">
         <div className="grid grid-cols-12 gap-6">
-          {/* BEGIN: General Report */}
+          {/* BEGIN: Employee Leaderboard */}
           <div className="col-span-12 mt-8">
+            <div className="intro-y flex items-center h-10">
+              <h2 className="text-xl sm:text-2xl font-semibold truncate mr-5">Employee Leaderboard</h2>
+            </div>
+            <div className="intro-y mt-2">
+              {loading ? (
+                <div className="text-center">
+                  <LoadingIcon icon="spinning-circles" className="w-8 h-8 mx-auto" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {employees.map((employee) => (
+                    <div key={employee.id} className="intro-y">
+                      <div className="box p-3 zoom-in bg-white dark:bg-gray-800">
+                        <div className="flex items-center">
+                          <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
+                          <div>
+                            <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">
+                              {employee.conversations || 0} conversations
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          {/* END: Employee Leaderboard */}
+
+          {/* BEGIN: General Report */}
+          <div className="col-span-12">
             <div className="flex items-center h-10 intro-y">
-              <h2 className="mr-5 text-2xl font-bold truncate">
+              <h2 className="mr-5 text-2xl font-semibold truncate">
                 General Report
               </h2>
             </div>
-            <div className="flex flex-grow gap-4 ml-2 item-center">
-              <div className="col-span-4 sm:col-span-4 xl:col-span-4 intro-y" style={{ zIndex: 1 }}>
-                <div className="relative">
-                  <div className="p-2 box">
-                    <div className="flex justify-center">
-                      <Doughnut data={data} options={options}/>
-                    </div>
+            <div className="flex flex-col md:flex-row gap-6 mt-2">
+              <div className="w-full md:w-1/2 intro-y">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+                  <div className="relative aspect-w-16 aspect-h-9">
+                    <Doughnut 
+                      data={data} 
+                      options={{
+                        ...options,
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: 'right',
+                          },
+                        },
+                      }}
+                    />
                   </div>
                 </div>
               </div>
-              <div className="col-span-4 sm:col-span-4 xl:col-span-4 intro-y">
-                <div className="relative">
-                  <div className="p-2 box">
-                    <div className="flex justify-center">
-                      <Bar data={data}/>
-                    </div>
+              <div className="w-full md:w-1/2 intro-y">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+                  <div className="relative aspect-w-16 aspect-h-9">
+                    <Bar 
+                      data={data}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            ticks: {
+                              color: 'gray'
+                            }
+                          },
+                          x: {
+                            ticks: {
+                              color: 'gray'
+                            }
+                          }
+                        },
+                        plugins: {
+                          legend: {
+                            labels: {
+                              color: 'gray'
+                            }
+                          }
+                        }
+                      }}
+                    />
                   </div>
                 </div>
               </div>
             </div>
-            <div className="flex grid-cols-12 gap-4 ml-2 mt-5">
-              <div className="flex item-center justify-start col-span-3 intro-y">
-                <div>
-                  <div className="flex p-4 box text-right">
-                    <span className="">
-                      <Lucide
-                        icon="Contact"
-                        className="w-[56px] h-[56px] mb-0 text-blue-800 hover:text-blue-900"
-                      />
-                    </span>
-                    <div className="pl-5 text-5xl font-medium">
-                      {!loading && totalContacts}
-                      {loading && (
-                        <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
-                        <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+              <div className="intro-y">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                  <div className="flex items-center justify-between">
+                    <Lucide
+                      icon="Contact"
+                      className="w-12 h-12 text-blue-800 dark:text-blue-400"
+                    />
+                    <div className="text-right">
+                      <div className="text-5xl font-bold text-gray-800 dark:text-gray-200">
+                        {!loading ? totalContacts : (
+                          <LoadingIcon icon="spinning-circles" className="w-10 h-10 mx-auto" />
+                        )}
                       </div>
-                      )}
-                      <div className="mt-1 text-sm text-slate-400">
-                      Total Contacts
-                    </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex item-center col-span-3 intro-y">
-                <div>
-                  <div className="flex p-4 box text-right">
-                    <span className="">
-                      <Lucide
-                        icon="MessageCircleReply"
-                        className="w-[56px] h-[56px] text-blue-600 hover:text-blue-700"
-                      />
-                    </span>
-                    <div className="pl-5 text-5xl font-medium">
-                    {!loading && numReplies}
-                      {loading && (
-                        <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
-                        <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
-                        
-                      </div>)}
-                      <div className="mt-1 text-sm text-slate-400">
-                      Number Replies
+                      <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Total Contacts
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="flex item-center col-span-3 intro-y">
-                <div>
-                  <div className="flex p-4 box text-right">
-                    <span className="">
-                      <Lucide
-                        icon="Mail"
-                        className="w-[56px] h-[56px] text-blue-400 hover:text-blue-500"
-                      />
-                    </span>
-                    <div className="pl-5 text-5xl font-medium">
-                    {!loading && unclosed}
-                      {loading && (
-                        <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
-                        <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
-                    
-                      </div>)}
-                      <div className="mt-1 text-sm text-slate-400">
-                      Total Leads
+              <div className="intro-y">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                  <div className="flex items-center justify-between">
+                    <Lucide
+                      icon="MessageCircleReply"
+                      className="w-12 h-12 text-blue-600 dark:text-blue-300"
+                    />
+                    <div className="text-right">
+                      <div className="text-5xl font-bold text-gray-800 dark:text-gray-200">
+                        {!loading ? numReplies : (
+                          <LoadingIcon icon="spinning-circles" className="w-10 h-10 mx-auto" />
+                        )}
+                      </div>
+                      <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Number Replies
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="flex item-center col-span-3 intro-y">
-                <div>
-                  <div className="flex p-4 box text-right">
-                    <span className="">
-                      <Lucide
-                        icon="Check"
-                        className="w-[56px] h-[56px] text-blue-200 hover:text-blue-300"
-                      />
-                    </span>
-                    <div className="pl-5 text-5xl font-medium">
-                    {!loading && closed}
-                      {loading && (
-                        <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
-                        <LoadingIcon icon="spinning-circles" className="w-8 h-8" />
-                      </div>)}
-                      <div className="mt-1 text-sm text-slate-400">
-                      Closed Leads
+              <div className="intro-y">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                  <div className="flex items-center justify-between">
+                    <Lucide
+                      icon="Mail"
+                      className="w-12 h-12 text-blue-400 dark:text-blue-200"
+                    />
+                    <div className="text-right">
+                      <div className="text-5xl font-bold text-gray-800 dark:text-gray-200">
+                        {!loading ? unclosed : (
+                          <LoadingIcon icon="spinning-circles" className="w-10 h-10 mx-auto" />
+                        )}
+                      </div>
+                      <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Total Leads
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="intro-y">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                  <div className="flex items-center justify-between">
+                    <Lucide
+                      icon="Check"
+                      className="w-12 h-12 text-blue-200 dark:text-blue-100"
+                    />
+                    <div className="text-right">
+                      <div className="text-5xl font-bold text-gray-800 dark:text-gray-200">
+                        {!loading ? closed : (
+                          <LoadingIcon icon="spinning-circles" className="w-10 h-10 mx-auto" />
+                        )}
+                      </div>
+                      <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Closed Leads
                       </div>
                     </div>
                   </div>
@@ -525,6 +559,7 @@ function Main() {
               </div>
             </div>
           </div>
+          {/* END: General Report */}
         </div>
       </div>
     </div>

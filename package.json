@@ -60,6 +60,7 @@
     "react-pdf": "^9.0.0",
     "react-pdf-viewer": "^0.1.0",
     "react-redux": "^9.0.4",
+    "react-responsive": "^10.0.0",
     "react-router-dom": "^6.21.1",
     "react-select": "^5.8.0",
     "react-time-picker": "^7.0.0",
