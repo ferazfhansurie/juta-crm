@@ -361,7 +361,28 @@ function Main() {
   const [tagsError, setTagsError] = useState<boolean>(false);
   const [tags, setTags] = useState<string[]>([]);
   const [isV2User, setIsV2User] = useState(false);
+  const [isTagsExpanded, setIsTagsExpanded] = useState(false);
+  const [visibleTags, setVisibleTags] = useState<typeof tagList>([]);
 
+  useEffect(() => {
+    updateVisibleTags();
+  }, [tagList, isTagsExpanded]);
+
+  const updateVisibleTags = () => {
+    if (isTagsExpanded) {
+      setVisibleTags(tagList);
+    } else {
+      const containerWidth = 300; // Adjust this based on your container width
+      const tagWidth = 100; // Approximate width of each tag button
+      const tagsPerRow = Math.floor(containerWidth / tagWidth);
+      const visibleTagsCount = tagsPerRow * 2; // Two rows
+      setVisibleTags(tagList.slice(0, visibleTagsCount));
+    }
+  };
+
+  const toggleTagsExpansion = () => {
+    setIsTagsExpanded(!isTagsExpanded);
+  };
 
 console.log(initialContacts);
 useEffect(() => {
@@ -2778,20 +2799,38 @@ const handleForwardMessage = async () => {
                           ))}
                         </div>
                         <div className="mt-4 mb-2 flex flex-wrap gap-2 px-1">
-                          {tagList.map((tag) => (
+                          {visibleTags.map((tag) => (
                             <button
                               key={tag.id}
                               onClick={() => filterTagContact(tag.name)}
-                              className={`px-2 py-1 rounded-full text-sm ${
+                              className={`px-3 py-1 rounded-full text-sm ${
                                 activeTags.includes(tag.name)
-                                  ? 'bg-primary text-white'
-                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                              }`}
+                                  ? 'bg-primary text-white dark:bg-primary dark:text-white'
+                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                              } transition-colors duration-200`}
                             >
                               {tag.name}
                             </button>
                           ))}
                         </div>
+                        {tagList.length > visibleTags.length && (
+                          <button
+                            onClick={toggleTagsExpansion}
+                            className="text-primary dark:text-blue-400 hover:underline focus:outline-none"
+                          >
+                            {isTagsExpanded ? (
+                              <>
+                                <Lucide icon="ChevronUp" className="w-4 h-4 inline-block mr-1" />
+                                Show Less
+                              </>
+                            ) : (
+                              <>
+                                <Lucide icon="ChevronDown" className="w-4 h-4 inline-block mr-1" />
+                                Show More
+                              </>
+                            )}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2893,7 +2932,7 @@ const handleForwardMessage = async () => {
 
 </div>
 <div className="mt-4 mb-2 flex flex-wrap gap-2 px-4">
-  {tagList.map((tag) => (
+  {visibleTags.map((tag) => (
     <button
       key={tag.id}
       onClick={() => filterTagContact(tag.name)}
@@ -2907,6 +2946,24 @@ const handleForwardMessage = async () => {
     </button>
   ))}
 </div>
+{tagList.length > visibleTags.length && (
+  <button
+    onClick={toggleTagsExpansion}
+    className="text-primary dark:text-blue-400 hover:underline focus:outline-none"
+  >
+    {isTagsExpanded ? (
+      <>
+        <Lucide icon="ChevronUp" className="w-4 h-4 inline-block mr-1" />
+        Show Less
+      </>
+    ) : (
+      <>
+        <Lucide icon="ChevronDown" className="w-4 h-4 inline-block mr-1" />
+        Show More
+      </>
+    )}
+  </button>
+)}
 <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
   {filteredContacts.map((contact, index) => (
     <React.Fragment key={contact.id || `${contact.phone}-${index}`}>
