@@ -383,6 +383,7 @@ function Main() {
   const toggleTagsExpansion = () => {
     setIsTagsExpanded(!isTagsExpanded);
   };
+  const [stopbot, setStopbot] = useState(false);
 
 console.log(initialContacts);
 useEffect(() => {
@@ -2694,7 +2695,29 @@ const handleForwardMessage = async () => {
       toast.error("Failed to toggle all bots");
     }
   };
-  
+  const toggleBot = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) return;
+
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+      const companyRef = doc(firestore, 'companies', companyId);
+      await updateDoc(companyRef, {
+        stopbot: !stopbot
+      });
+      setStopbot(!stopbot);
+      toast.success(`Bot ${stopbot ? 'activated' : 'deactivated'} successfully!`);
+    } catch (error) {
+      console.error('Error toggling bot:', error);
+      toast.error('Failed to toggle bot status.');
+    }
+  };
   {/* <Button
     onClick={toggleAllBots}
     className={`${
@@ -2878,6 +2901,19 @@ const handleForwardMessage = async () => {
             </div>
 )}
   <div className="flex justify-end space-x-3">
+<button 
+  className={`flex items-center justify-start p-2 !box ${
+    stopbot ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
+  }`} 
+  onClick={toggleBot}
+>
+  <Lucide 
+    icon={stopbot ? 'PowerOff' : 'Power'} 
+    className={`w-5 h-5 ${
+      stopbot ? 'text-red-500' : 'text-green-500'
+    }`}
+  />                
+</button>
   <Menu as="div" className="relative inline-block text-left">
     <div className="flex items-right space-x-3">
       <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
@@ -2904,6 +2940,7 @@ const handleForwardMessage = async () => {
   </Menu>
   <Menu as="div" className="relative inline-block text-left">
     <div className="flex items-right space-x-3">
+
       <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
         <span className="flex items-center justify-center w-5 h-5">
           <Lucide icon="Users" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
