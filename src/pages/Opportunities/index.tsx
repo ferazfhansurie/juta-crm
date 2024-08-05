@@ -11,6 +11,7 @@ import LoadingIcon from "@/components/Base/LoadingIcon";
 import Tippy from "@/components/Base/Tippy";
 import TippyContent from "@/components/Base/TippyContent";
 import Dialog from "@/components/Base/Headless/Dialog";
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 const firebaseConfig = {
     apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -38,11 +39,11 @@ interface ToolbarProps {
 
 function Toolbar({ onOpenModal, onOpenAddOpportunityModal, employees, onEmployeeChange, userRole, onSearchChange }: ToolbarProps) {
   return (
-    <div className="flex items-center justify-between w-full p-4 shadow-sm rounded-lg mb-4 bg-white dark:bg-gray-800">
-      <div className="flex items-center space-x-4">
+    <div className="flex flex-col w-full p-4 shadow-sm rounded-lg mb-4 bg-white dark:bg-gray-800 space-y-4">
+      <div className="flex flex-col space-y-4 w-full">
         {userRole == 1 && (
           <select 
-            className="px-3 py-2 border rounded-lg w-48 bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600" 
+            className="px-3 py-2 border rounded-lg w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600" 
             onChange={(e) => onEmployeeChange(e.target.value)}
           >
             {employees.map((employee, index) => (
@@ -53,20 +54,20 @@ function Toolbar({ onOpenModal, onOpenAddOpportunityModal, employees, onEmployee
         <input
           type="text"
           placeholder="Search Opportunities"
-          className="px-3 py-2 border rounded-lg w-64 bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
+          className="px-3 py-2 border rounded-lg w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
           onChange={onSearchChange}
         />
       </div>
-      <div className="flex items-center space-x-4">
-        <Button variant="outline-secondary" className="px-4 py-2 dark:border-gray-600 dark:text-gray-300">
+      <div className="flex flex-wrap justify-start items-center gap-2">
+        {/* <Button variant="outline-secondary" className="px-4 py-2 dark:border-gray-600 dark:text-gray-300">
           Sort By
         </Button>
-        <Button variant="outline-secondary" className="px-3 py-2 dark:border-gray-600 dark:text-gray-300">
+        <Button variant="outline-secondary" className="p-2 dark:border-gray-600 dark:text-gray-300">
           <Lucide icon="Filter" className="w-5 h-5" />
         </Button>
-        <Button variant="outline-secondary" className="px-3 py-2 dark:border-gray-600 dark:text-gray-300">
+        <Button variant="outline-secondary" className="p-2 dark:border-gray-600 dark:text-gray-300">
           <Lucide icon="MoreHorizontal" className="w-5 h-5" />
-        </Button>
+        </Button> */}
         {userRole == 1 && (
           <>
             <Button variant="primary" className="px-4 py-2 text-white" onClick={onOpenModal}>
@@ -153,8 +154,36 @@ function LoadingPage() {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [selectedItemPipelineId, setSelectedItemPipelineId] = useState<string | null>(null);
   const [isAddOpportunityModalOpen, setIsAddOpportunityModalOpen] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [expandedPipelines, setExpandedPipelines] = useState<Set<string>>(new Set());
+
   const handleOpenAddOpportunityModal = () => {
     setIsAddOpportunityModalOpen(true);
+  };
+
+  const toggleItemExpansion = (itemId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent triggering the card click event
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const togglePipelineExpansion = (pipelineId: string) => {
+    setExpandedPipelines(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(pipelineId)) {
+        newSet.delete(pipelineId);
+      } else {
+        newSet.add(pipelineId);
+      }
+      return newSet;
+    });
   };
 
   const handleSaveSelectedContacts = async (selectedContacts: any[], selectedPipelineId: string) => {
@@ -755,8 +784,15 @@ console.log(sortedColumns);
     }
   };
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-100 dark:bg-gray-900 p-4 overflow-hidden dark:dark-scrollbar">
-      <Toolbar onOpenModal={handleOpenModal} onOpenAddOpportunityModal={handleOpenAddOpportunityModal} employees={employees} onEmployeeChange={handleEmployeeChange} userRole={userRole} onSearchChange={handleSearchChange} />
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-100 dark:bg-gray-900 p-2 sm:p-4 overflow-hidden dark:dark-scrollbar">
+      <Toolbar 
+        onOpenModal={handleOpenModal} 
+        onOpenAddOpportunityModal={handleOpenAddOpportunityModal} 
+        employees={employees} 
+        onEmployeeChange={handleEmployeeChange} 
+        userRole={userRole} 
+        onSearchChange={handleSearchChange} 
+      />
       {isLoading && (
         <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-opacity-50 dark:bg-opacity-70">
           <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white dark:bg-gray-800 p-4 rounded-md shadow-lg">
@@ -770,81 +806,121 @@ console.log(sortedColumns);
         </div>
       )}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex w-full space-x-4 h-[calc(100vh-160px)] overflow-x-auto dark:dark-scrollbar">
+        <div className="flex flex-col w-full space-y-4 h-[calc(100vh-180px)] sm:h-[calc(100vh-160px)] overflow-y-auto dark:dark-scrollbar">
           {Object.entries(columns).map(([columnId, column], index) => {
             const borderColor = columnColors[index % columnColors.length];
             const filteredItemsWithIndexes = filterItemsWithIndexes(column.items, searchQuery);
             const leadCount = column.items.length;
+            const isPipelineExpanded = expandedPipelines.has(columnId);
+
             return (
-              <Droppable droppableId={columnId} key={columnId}>
-                {(provided, snapshot) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className={`flex-shrink-0 flex flex-col items-center rounded-lg w-1/5 border-t-4 ${borderColor} overflow-hidden`}
-                  >
-                    <div className="w-full mb-4 p-4 bg-white dark:bg-gray-800 shadow rounded-lg border dark:border-gray-700">
-                      <h2 className="text-base font-bold text-primary dark:text-blue-400">{column.name} ({leadCount})</h2>
-                    </div>
-                    <div
-                      className={`p-4 rounded-lg w-full h-full overflow-y-auto dark:dark-scrollbar ${snapshot.isDraggingOver ? 'bg-slate-300 dark:bg-gray-700' : 'bg-slate-100 dark:bg-gray-800'}`}
-                    >
-                      {filteredItemsWithIndexes.map(({ item, originalIndex }) => (
-                        <Draggable key={item.id} draggableId={item.id} index={originalIndex}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={`user-select-none p-4 mb-4 rounded-lg shadow-md border bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 ${snapshot.isDragging ? 'bg-slate-400 dark:bg-gray-600' : 'bg-white dark:bg-gray-700'}`}
-                              onClick={() => handleItemClick(column.id, item)}
-                            >
-                              <div className="flex items-center mb-2">
-                                {item.chat_pic_full ? (
-                                  <img
-                                    src={item.chat_pic_full}
-                                    className="w-8 h-8 rounded-full mr-3 object-cover"
-                                    alt="Profile"
-                                  />
-                                ) : (
-                                  <div className="w-8 h-8 flex items-center justify-center bg-gray-300 dark:bg-gray-600 rounded-full mr-3 text-white">
-                                    {item.firstName ? item.firstName.charAt(0).toUpperCase() : "?"}
-                                  </div>
-                                )}
-                                <p className="font-medium text-primary dark:text-blue-400">{item.firstName || ""}</p>
-                              </div>
-                              <p className="font-semibold">{item.source}</p>
-                              <p className="font-semibold">{item.companyName}</p>
-                              <p className="text-sm font-medium">{item.value}</p>
-                              <p className="text-sm text-gray-700 dark:text-gray-300">{item.notes}</p>
-                              <div className="flex items-center mt-2">
-                                <input
-                                  type="checkbox"
-                                  checked={item.isCalled || false}
-                                  onChange={(e) => handleCallStatusChange(e, column.id, item)}
-                                  className="mr-2"
-                                />
-                                <span>{item.callCount || 0} calls</span>
-                              </div>
-                              <div className="flex flex-wrap mt-2">
-                                {item.tags && item.tags.length > 0 && (
-                                  <Tippy content={item.tags.join(', ')}>
-                                    <span className="bg-blue-200 text-blue-800 dark:bg-blue-700 dark:text-blue-200 text-xs font-semibold mr-2 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
-                                      <Lucide icon="Tag" className="w-4 h-4 inline-block" />
-                                      <span className="ml-1">{item.tags.length}</span>
-                                    </span>
-                                  </Tippy>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
+              <div key={columnId} className={`flex-shrink-0 flex flex-col w-full border-t-4 ${borderColor} overflow-hidden`}>
+                <div 
+                  className="w-full mb-4 p-4 bg-white dark:bg-gray-800 shadow rounded-lg border dark:border-gray-700 cursor-pointer"
+                  onClick={() => togglePipelineExpansion(columnId)}
+                >
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-base font-bold text-primary dark:text-blue-400">{column.name} ({leadCount})</h2>
+                    <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                      <Lucide icon={isPipelineExpanded ? "ChevronUp" : "ChevronDown"} className="w-5 h-5" />
+                    </button>
                   </div>
+                </div>
+                {isPipelineExpanded && (
+                  <Droppable droppableId={columnId}>
+                    {(provided, snapshot) => (
+                      <div
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className={`p-4 rounded-lg w-full flex-grow overflow-y-auto ${
+                          snapshot.isDraggingOver ? 'bg-slate-300 dark:bg-gray-700' : 'bg-slate-100 dark:bg-gray-800'
+                        }`}
+                      >
+                        {filteredItemsWithIndexes.map(({ item, originalIndex }) => (
+                          <Draggable key={item.id} draggableId={item.id} index={originalIndex}>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className={`user-select-none p-4 mb-4 rounded-lg shadow-md border ${
+                                  snapshot.isDragging ? 'bg-slate-200 dark:bg-gray-600' : 'bg-white dark:bg-gray-700'
+                                } text-gray-800 dark:text-gray-200 hover:shadow-lg transition-shadow duration-200`}
+                                onClick={() => handleItemClick(column.id, item)}
+                              >
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center">
+                                    {item.chat_pic_full ? (
+                                      <img
+                                        src={item.chat_pic_full}
+                                        className="w-10 h-10 rounded-full mr-3 object-cover border-2 border-gray-200 dark:border-gray-600"
+                                        alt={item.firstName || "Profile"}
+                                      />
+                                    ) : (
+                                      <div className="w-10 h-10 flex items-center justify-center bg-primary text-white rounded-full mr-3 font-semibold text-lg">
+                                        {item.firstName ? item.firstName.charAt(0).toUpperCase() : "?"}
+                                      </div>
+                                    )}
+                                    <div>
+                                      <p className="font-semibold text-lg text-primary dark:text-blue-400 capitalize">
+                                        {item.firstName || "Unknown"}
+                                      </p>
+                                      <p className="text-sm text-gray-600 dark:text-gray-400">{item.companyName || "No company"}</p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right flex items-center">
+                                    {/* <p className="font-medium text-gray-700 dark:text-gray-300 mr-2">{item.value || "$0"}</p> */}
+                                    <button
+                                      onClick={(e) => toggleItemExpansion(item.id, e)}
+                                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                    >
+                                      <Lucide icon={expandedItems.has(item.id) ? "ChevronUp" : "ChevronDown"} className="w-5 h-5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                
+                                {expandedItems.has(item.id) && (
+                                  <>
+                                    {item.notes && (
+                                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{item.notes}</p>
+                                    )}
+                                    
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div className="flex items-center">
+                                        <input
+                                          type="checkbox"
+                                          checked={item.isCalled || false}
+                                          onChange={(e) => handleCallStatusChange(e, column.id, item)}
+                                          className="mr-2 rounded border-gray-300 text-primary focus:ring-primary dark:border-gray-600 dark:bg-gray-700"
+                                        />
+                                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                                          {item.callCount || 0} call{item.callCount !== 1 ? 's' : ''}
+                                        </span>
+                                      </div>
+                                      
+                                      {item.tags && item.tags.length > 0 && (
+                                        <Tippy content={item.tags.join(', ')}>
+                                          <span className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 text-xs font-medium px-2.5 py-0.5 rounded-full cursor-pointer">
+                                            <Lucide icon="Tag" className="w-3 h-3 inline-block mr-1" />
+                                            {item.tags.length}
+                                          </span>
+                                        </Tippy>
+                                      )}
+                                    </div>
+
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">{item.source || "No source"}</p>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
                 )}
-              </Droppable>
+              </div>
             );
           })}
         </div>
@@ -1189,7 +1265,7 @@ function AddOpportunityModal({ contacts, onClose, onSave, pipelines }: AddOpport
               </option>
             ))}
           </select>
-          <div className="mt-4 space-y-2 max-h-[70vh] overflow-y-auto dark:dark-scrollbar">
+          <div className="mt-4 space-y-2 max-h-[70vh] overflow-y-auto">
             {filteredContacts.length > 0 ? (
               filteredContacts.map((contact, index) => (
                 <div

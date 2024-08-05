@@ -2868,13 +2868,13 @@ const handleForwardMessage = async () => {
     <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
       <audio ref={audioRef} src={noti} />
         <div className={`flex flex-col w-full md:min-w-[35%] md:max-w-[35%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700 ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
-        <div className="flex justify-between items-center pl-4 pr-4 pt-6 pb-4 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
+        <div className="flex justify-between items-center pl-4 pr-4 pt-6 pb-7 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
           <div className="text-start text-2xl font-bold capitalize text-gray-800 dark:text-gray-200">
             {userData?.company}
           </div>
         </div>
         <div className="sticky top-20 z-10 bg-gray-100 dark:bg-gray-900 p-2">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
             {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
             {isDeletePopupOpen && <DeleteConfirmationPopup />}
             <PDFModal isOpen={isPDFModalOpen} onClose={closePDFModal} pdfUrl={pdfUrl} />
