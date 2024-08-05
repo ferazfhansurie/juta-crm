@@ -363,6 +363,10 @@ function Main() {
   const [isV2User, setIsV2User] = useState(false);
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
   const [visibleTags, setVisibleTags] = useState<typeof tagList>([]);
+  const [isFetchingContacts, setIsFetchingContacts] = useState(false);
+  const [contactsFetchProgress, setContactsFetchProgress] = useState(0);
+  const [totalContactsToFetch, setTotalContactsToFetch] = useState(0);
+  const [fetchedContactsCount, setFetchedContactsCount] = useState(0);
 
   useEffect(() => {
     updateVisibleTags();
@@ -1995,19 +1999,51 @@ const openEditMessage = (message: Message) => {
   }, [contacts, searchQuery, activeTags, isGroupFilterActive]);
   
   useEffect(() => {
-    let updatedContacts = contacts;
-    updatedContacts = contacts.filter(contact =>
-      contact.contactName?.toLowerCase().includes(searchQuery2.toLowerCase()) ||
-      contact.firstName?.toLowerCase().includes(searchQuery2.toLowerCase()) ||
-      contact.phone?.includes(searchQuery2)
-    );
-    setFilteredContactsForForwarding(updatedContacts);
-  }, [searchQuery2, contacts]);
-  const handleSearchChange = (e: { target: { value: React.SetStateAction<string>; }; }) => {
-    setSearchQuery(e.target.value);
+    if (contacts.length > 0) {
+      setFilteredContacts(contacts);
+    }
+  }, [contacts]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value.toLowerCase();
+    setSearchQuery(query);
+
+    if (query.trim() === '') {
+      setFilteredContacts(contacts);
+      return;
+    }
+
+    const filtered = contacts.filter((contact) => {
+      const name = contact.contactName?.toLowerCase() || '';
+      const firstName = contact.firstName?.toLowerCase() || '';
+      const lastName = contact.lastName?.toLowerCase() || '';
+      const phone = contact.phone?.toLowerCase() || '';
+      const tags = contact.tags?.map(tag => tag.toLowerCase()) || [];
+
+      return (
+        name.includes(query) ||
+        firstName.includes(query) ||
+        lastName.includes(query) ||
+        phone.includes(query) ||
+        tags.some(tag => tag.includes(query))
+      );
+    });
+
+    setFilteredContacts(filtered);
   };
-  const handleSearchChange2 = (e: { target: { value: React.SetStateAction<string>; }; }) => {
-    setSearchQuery2(e.target.value);
+  const handleSearchChange2 = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value.toLowerCase();
+    setSearchQuery2(query);
+  
+    const filtered = contacts.filter((contact) => {
+      const name = (contact.contactName || contact.firstName || contact.phone || '').toLowerCase();
+      const phone = (contact.phone || '').toLowerCase();
+      const tags = (contact.tags || []).join(' ').toLowerCase();
+  
+      return name.includes(query) || phone.includes(query) || tags.includes(query);
+    });
+  
+    setFilteredContactsForForwarding(filtered);
   };
 
   const filterTagContact = (tag: string) => {
@@ -2018,12 +2054,33 @@ const openEditMessage = (message: Message) => {
   
   useEffect(() => {
     let filteredContacts = contacts;
+
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
+      filteredContacts = filteredContacts.filter((contact) => {
+        const name = contact.contactName?.toLowerCase() || '';
+        const firstName = contact.firstName?.toLowerCase() || '';
+        const lastName = contact.lastName?.toLowerCase() || '';
+        const phone = contact.phone?.toLowerCase() || '';
+        const tags = contact.tags?.map(tag => tag.toLowerCase()) || [];
+
+        return (
+          name.includes(searchQuery) ||
+          firstName.includes(searchQuery) ||
+          lastName.includes(searchQuery) ||
+          phone.includes(searchQuery) ||
+          tags.some(tag => tag.includes(searchQuery))
+        );
+      });
+    }
+
+    // Apply tag filter
     if (activeTags.length > 0) {
       filteredContacts = filteredContacts.filter((contact) =>
         activeTags.every((tag) => contact.tags?.includes(tag))
       );
     }
-    // Apply other existing filters here
+
     setFilteredContacts(filteredContacts);
   }, [contacts, searchQuery, activeTags]);
 
@@ -2718,38 +2775,118 @@ const handleForwardMessage = async () => {
       toast.error('Failed to toggle bot status.');
     }
   };
-  {/* <Button
-    onClick={toggleAllBots}
-    className={`${
-      isAllBotsEnabled ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700'
-    } px-4 py-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
-  >
-    {isAllBotsEnabled ? 'Turn on all bots' : 'Turn off all bots'}
-  </Button> */}
+
+  async function searchContacts(accessToken: string, locationId: string) {
+    setIsFetchingContacts(true);
+    setContactsFetchProgress(0);
+    try {
+      let allContacts: Contact[] = [];
+      let fetchMore = true;
+      let nextPageUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&limit=100`;
+
+      const maxRetries = 5;
+      const baseDelay = 5000;
+
+      const fetchData = async (url: string, retries: number = 0): Promise<any> => {
+        const options = {
+          method: 'GET',
+          url: url,
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Version: '2021-07-28',
+          },
+        };
+        try {
+          const response = await axios.request(options);
+          return response;
+        } catch (error: any) {
+          if (error.response && error.response.status === 429 && retries < maxRetries) {
+            const delay = baseDelay * Math.pow(2, retries);
+            console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return fetchData(url, retries + 1);
+          } else {
+            throw error;
+          }
+        }
+      };
+
+      let fetchedContacts = 0;
+      let totalContacts = 0;
+      while (fetchMore) {
+        const response = await fetchData(nextPageUrl);
+        const contacts = response.data.contacts;
+        totalContacts = response.data.meta.total;
+
+        if (contacts.length > 0) {
+          allContacts = [...allContacts, ...contacts];
+          if (userData?.role === '2') {
+            const filteredContacts = allContacts.filter(contact => 
+              contact.tags?.some((tag: string) => 
+                typeof tag === 'string' && tag.toLowerCase().includes(userData.name.toLowerCase())
+              )
+            );
+            setContacts(filteredContacts);
+          } else {
+            setContacts(allContacts);
+          }
+
+          fetchedContacts = allContacts.length;
+          setTotalContactsToFetch(totalContacts);
+          setFetchedContactsCount(fetchedContacts);
+          setContactsFetchProgress((fetchedContacts / totalContacts) * 100);
+        }
+
+        if (response.data.meta.nextPageUrl) {
+          nextPageUrl = response.data.meta.nextPageUrl;
+        } else {
+          fetchMore = false;
+        }
+      }
+
+      // Update local storage and session storage
+      localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
+      sessionStorage.setItem('contactsFetched', 'true');
+
+    } catch (error) {
+      console.error('Error searching contacts:', error);
+    } finally {
+      setIsFetchingContacts(false);
+    }
+  }
+
+  // Add this function to trigger the contact search
+  const handleSearchContacts = async () => {
+    if (!ghlConfig) {
+      console.error('GHL configuration is not available');
+      return;
+    }
+    await searchContacts(ghlConfig.ghl_accessToken, ghlConfig.ghl_location);
+  };
+
   return (
-    <div className="flex flex-col md:flex-row overflow-hidden bg-gray-100 text-gray-00" style={{ height: '100vh' }}>
+    <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
       <audio ref={audioRef} src={noti} />
-        <div className={`flex flex-col w-full md:min-w-[35%] md:max-w-[35%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300 ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
-        <div className="flex justify-between items-center pl-4 pr-4 pt-6 pb-4">
+        <div className={`flex flex-col w-full md:min-w-[35%] md:max-w-[35%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700 ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
+        <div className="flex justify-between items-center pl-4 pr-4 pt-6 pb-4 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
           <div className="text-start text-2xl font-bold capitalize text-gray-800 dark:text-gray-200">
             {userData?.company}
           </div>
-          
         </div>
-        <div className="relative hidden sm:block p-2">
+        <div className="sticky top-20 z-10 bg-gray-100 dark:bg-gray-900 p-2">
           <div className="flex items-center space-x-2">
             {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
             {isDeletePopupOpen && <DeleteConfirmationPopup />}
             <PDFModal isOpen={isPDFModalOpen} onClose={closePDFModal} pdfUrl={pdfUrl} />
             {editingMessage && (
               <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
-                  <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
+                  <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div className="sm:flex sm:items-start">
                       <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Edit message</h3>
+                        <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200 mb-4">Edit message</h3>
                         <textarea
-                          className="w-full h-24 px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 text-gray-800"
+                          className="w-full h-24 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                           placeholder="Edit your message"
                           value={editedMessageText}
                           onChange={(e) => setEditedMessageText(e.target.value)}
@@ -2758,7 +2895,7 @@ const handleForwardMessage = async () => {
                       </div>
                     </div>
                   </div>
-                  <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                     <Button
                       type="button"
                       className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-500 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
@@ -2768,7 +2905,7 @@ const handleForwardMessage = async () => {
                     </Button>
                     <Button
                       type="button"
-                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:w-auto sm:text-sm"
+                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:w-auto sm:text-sm"
                       onClick={cancelEditMessage}
                     >
                       Cancel
@@ -2779,30 +2916,48 @@ const handleForwardMessage = async () => {
             )}
             {isForwardDialogOpen && (
               <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
-                  <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
+                  <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div className="sm:flex sm:items-start">
                       <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Forward message to</h3>
+                        <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200 mb-4">Forward message to</h3>
                         <div className="relative mb-4">
                           <input
                             type="text"
-                            className="w-full py-2 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                             placeholder="Search..."
                             value={searchQuery2}
                             onChange={handleSearchChange2}
                           />
                           <Lucide
                             icon="Search"
-                            className="absolute top-2 right-3 w-5 h-5 text-gray-500"
+                            className="absolute top-2 right-3 w-5 h-5 text-gray-500 dark:text-gray-400"
                           />
                         </div>
-                        {/* filter spot */}
+                        <div className="sticky top-0 bg-white dark:bg-gray-800 z-20 w-full">
+                          <div className="overflow-x-auto whitespace-nowrap pb-2 sticky top-0 z-20">
+                            <div className="flex gap-2 sticky top-0" style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none', position: 'sticky', top: 0 }}>
+                              {visibleTags.map((tag) => (
+                                <button
+                                  key={tag.id}
+                                  onClick={() => filterTagContact(tag.name)}
+                                  className={`px-3 py-1 rounded-full text-sm flex-shrink-0 ${
+                                    activeTags.includes(tag.name)
+                                      ? 'bg-primary text-white dark:bg-primary dark:text-white'
+                                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                                  } transition-colors duration-200`}
+                                >
+                                  {tag.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                         <div className="max-h-60 overflow-y-auto">
                           {filteredContactsForForwarding.map((contact, index) => (
                             <div
                               key={contact.id || `${contact.phone}-${index}`}
-                              className="flex items-center p-2 border-b border-gray-200 hover:bg-gray-100"
+                              className="flex items-center p-2 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
                             >
                               <input
                                 type="checkbox"
@@ -2811,7 +2966,7 @@ const handleForwardMessage = async () => {
                                 onChange={() => handleSelectContactForForwarding(contact)}
                               />
                               <div className="flex items-center">
-                                <div className="w-8 h-8 flex items-center justify-center bg-gray-300 rounded-full mr-3 text-white">
+                                <div className="w-8 h-8 flex items-center justify-center bg-gray-300 dark:bg-gray-600 rounded-full mr-3 text-white">
                                   {contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"}
                                 </div>
                                 <div className="flex-grow">
@@ -2821,38 +2976,30 @@ const handleForwardMessage = async () => {
                             </div>
                           ))}
                         </div>
-                        <div className="mt-4 mb-2 flex flex-wrap gap-2 px-1">
-                          {visibleTags.map((tag) => (
-                            <button
-                              key={tag.id}
-                              onClick={() => filterTagContact(tag.name)}
-                              className={`px-3 py-1 rounded-full text-sm ${
-                                activeTags.includes(tag.name)
-                                  ? 'bg-primary text-white dark:bg-primary dark:text-white'
-                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-                              } transition-colors duration-200`}
-                            >
-                              {tag.name}
-                            </button>
-                          ))}
+                        <div className="mt-4 mb-2 px-1 h-40 overflow-y-auto">
+                          {/* Content goes here */}
                         </div>
-                        {tagList.length > visibleTags.length && (
-                          <button
-                            onClick={toggleTagsExpansion}
-                            className="text-primary dark:text-blue-400 hover:underline focus:outline-none"
-                          >
-                            {isTagsExpanded ? (
-                              <>
-                                <Lucide icon="ChevronUp" className="w-4 h-4 inline-block mr-1" />
-                                Show Less
-                              </>
-                            ) : (
-                              <>
-                                <Lucide icon="ChevronDown" className="w-4 h-4 inline-block mr-1" />
-                                Show More
-                              </>
-                            )}
-                          </button>
+                        {tagList.length > 5 && (
+                          <div className="sticky bottom-0 bg-white dark:bg-gray-800 py-2 z-10">
+                            <div className="flex justify-center">
+                              <button
+                                onClick={toggleTagsExpansion}
+                                className="text-primary dark:text-blue-400 hover:underline focus:outline-none flex items-center"
+                              >
+                                {isTagsExpanded ? (
+                                  <>
+                                    <Lucide icon="ChevronUp" className="w-4 h-4 mr-1" />
+                                    Show Less
+                                  </>
+                                ) : (
+                                  <>
+                                    <Lucide icon="ChevronDown" className="w-4 h-4 mr-1" />
+                                    Show More
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -2875,7 +3022,8 @@ const handleForwardMessage = async () => {
                   </div>
                 </div>
               </div>
-)} {isFetching && (
+)} 
+{isFetching && (
   <div className="w-full">
     <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 relative">
       <div className="bg-primary h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
@@ -2886,19 +3034,19 @@ const handleForwardMessage = async () => {
         </div>
 )}
 {!isFetching && (
- <div className="bg-gray-100 dark:bg-gray-800 relative flex-grow">
-              <input
-                type="text"
-   className="!box w-full py-1 pl-10 pr-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-              />
-              <Lucide
-                icon="Search"
-   className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
-              />
-            </div>
+  <div className="bg-gray-100 dark:bg-gray-800 relative flex-grow">
+    <input
+      type="text"
+      className="!box w-full py-1 pl-10 pr-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
+      placeholder="Search..."
+      value={searchQuery}
+      onChange={handleSearchChange}
+    />
+  <Lucide
+    icon="Search"
+    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
+  />
+</div>
 )}
   <div className="flex justify-end space-x-3">
 <button 
@@ -2986,18 +3134,18 @@ const handleForwardMessage = async () => {
 {tagList.length > visibleTags.length && (
   <button
     onClick={toggleTagsExpansion}
-    className="text-primary dark:text-blue-400 hover:underline focus:outline-none"
+    className="text-primary dark:text-blue-400 hover:underline focus:outline-none w-full text-center py-2 text-sm"
   >
     {isTagsExpanded ? (
-      <>
-        <Lucide icon="ChevronUp" className="w-4 h-4 inline-block mr-1" />
-        Show Less
-      </>
+      <div className="flex items-center justify-center">
+        <Lucide icon="ChevronUp" className="w-4 h-4 mr-1" />
+        <span>Show Less</span>
+      </div>
     ) : (
-      <>
-        <Lucide icon="ChevronDown" className="w-4 h-4 inline-block mr-1" />
-        Show More
-      </>
+      <div className="flex items-center justify-center">
+        <Lucide icon="ChevronDown" className="w-4 h-4 mr-1" />
+        <span>Show More</span>
+      </div>
     )}
   </button>
 )}

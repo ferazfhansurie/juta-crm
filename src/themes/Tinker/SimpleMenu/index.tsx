@@ -1,6 +1,6 @@
 import "@/assets/css/themes/tinker/side-nav.css";
 import { Transition } from "react-transition-group";
-import { useState, useEffect, ReactElement, JSXElementConstructor, ReactNode, ReactPortal, Key, } from "react";
+import { useState, useEffect, ReactElement, JSXElementConstructor, ReactNode, ReactPortal, Key, useCallback } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { selectMenu } from "@/stores/menuSlice";
 import { useAppSelector } from "@/stores/hooks";
@@ -41,6 +41,7 @@ function Main() {
   const [searchQuery, setSearchQuery] = useState("");
   const [uniqueNotifications, setUniqueNotifications] = useState<Notification[]>([]);
   const [company, setCompany] = useState("");
+  const [showMobileMenu, setShowMobileMenu] = useState(true);
 // Initialize Firebase app
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -184,6 +185,16 @@ console.log(notifications);
 
   const isMobile = useMediaQuery({ maxWidth: 767 });
 
+  const handleScroll = useCallback(() => {
+    const currentScrollPos = window.pageYOffset;
+    setShowMobileMenu(currentScrollPos < 50);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
+
   useEffect(() => {
     const filteredMenu = menu().filter((item) => {
       if (isMobile) {
@@ -196,7 +207,7 @@ console.log(notifications);
 
   return (
     <div className="tinker">
-      <MobileMenu />
+      {showMobileMenu && <MobileMenu />}
       <div className="flex mt-[5rem] pl-1 bg-slate-300 dark:bg-gray-800 md:mt-0 overflow-hidden">
         {/* BEGIN: Simple Menu */}
         <nav className="pt-5 mb-0 pl-1 pr-2 item-center side-nav side-nav--simple hidden md:flex flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300 dark:bg-gray-800">
