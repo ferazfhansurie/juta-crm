@@ -387,6 +387,7 @@ console.log(notifications);
         {/* END: Content */}
 
         {/* Floating menu button for mobile */}
+        {/* edits */}
         {isMobile && (
           <button
             onClick={toggleSideMenu}
