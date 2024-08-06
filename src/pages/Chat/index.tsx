@@ -309,8 +309,13 @@ function Main() {
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const myMessageClass = "flex flex-col max-w-[320px] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
-  const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
+  const myMessageClass = "flex flex-col max-w-[320px] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group";
+  const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left mt-1 group-first:mt-1";
+
+  // Add these new classes for consecutive messages from the same sender
+  const myConsecutiveMessageClass = "flex flex-col max-w-[320px] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-0.5 group";
+  const otherConsecutiveMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left mt-0.5 group-first:mt-0.5";
+
   const myMessageTextClass = "text-white"
   const otherMessageTextClass = "text-white"
   const [activeTags, setActiveTags] = useState<string[]>([]);
@@ -3151,7 +3156,7 @@ const handleForwardMessage = async () => {
 )}
 <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
   {filteredContacts.map((contact, index) => (
-    <React.Fragment key={contact.id || `${contact.phone}-${index}`}>
+    <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
     <div
       className={`m-2 pl-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 group ${
         contact.chat_id !== undefined
@@ -3373,7 +3378,7 @@ const handleForwardMessage = async () => {
             .filter((message) => message.type !== 'action') // Filter out action type messages
             .slice()
             .reverse()
-            .map((message, index,array) => {
+            .map((message, index, array) => {
               const previousMessage = messages[index - 1];
               const showDateHeader =
                 index === 0 ||
@@ -3381,6 +3386,11 @@ const handleForwardMessage = async () => {
                   new Date(array[index - 1]?.createdAt || array[index - 1]?.dateAdded),
                   new Date(message.createdAt || message.dateAdded)
                 );
+              const isConsecutive = index > 0 && messages[index - 1].from_me === message.from_me;
+              const messageClass = message.from_me
+                ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass)
+                : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass);
+
               return (
                 <React.Fragment key={message.id}>
                   {showDateHeader && (
@@ -3391,7 +3401,7 @@ const handleForwardMessage = async () => {
                     </div>
                   )}
                   <div
-                    className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+                    className={`p-2 mb-2 rounded ${messageClass}`}
                     style={{
                       maxWidth: message.type === 'document' ? '90%' : '70%',
                       width: `${
@@ -3432,7 +3442,7 @@ const handleForwardMessage = async () => {
                           onClick={() => openImageModal(message.image?.link || `https://mighty-dane-newly.ngrok-free.app${message?.image?.url}`|| '')}
                           onError={(e) => {
                             console.error("Error loading image:", e.currentTarget.src);
-                            e.currentTarget.src = 'path/to/fallback/image.jpg'; // Replace with your fallback image path
+                            e.currentTarget.src = 'src/assets/images/Fallback Image.png'; // Replace with your fallback image path
                           }}
                         />
                         <div className="caption text-gray-800 ">{message.image.caption}</div>
