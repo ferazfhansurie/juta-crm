@@ -9,8 +9,6 @@ import Lucide from "@/components/Base/Lucide";
 import Tippy from "@/components/Base/Tippy";
 import logoUrl from "@/assets/images/logo.png";
 import clsx from "clsx";
-import TopBar from "@/components/Themes/Tinker/TopBar";
-import MobileMenu from "@/components/MobileMenu";
 import { Menu, Popover } from "@/components/Base/Headless";
 import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
 import { initializeApp } from 'firebase/app';
@@ -41,7 +39,7 @@ function Main() {
   const [searchQuery, setSearchQuery] = useState("");
   const [uniqueNotifications, setUniqueNotifications] = useState<Notification[]>([]);
   const [company, setCompany] = useState("");
-  const [showMobileMenu, setShowMobileMenu] = useState(true);
+  const [showSideMenu, setShowSideMenu] = useState(false);
 // Initialize Firebase app
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -185,32 +183,20 @@ console.log(notifications);
 
   const isMobile = useMediaQuery({ maxWidth: 767 });
 
-  const handleScroll = useCallback(() => {
-    const currentScrollPos = window.pageYOffset;
-    setShowMobileMenu(currentScrollPos < 50);
-  }, []);
+  const toggleSideMenu = () => {
+    setShowSideMenu(!showSideMenu);
+  };
 
   useEffect(() => {
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
-
-  useEffect(() => {
-    const filteredMenu = menu().filter((item) => {
-      if (isMobile) {
-        return item !== 'divider' && (item as FormattedMenu).title !== 'Assistants' && (item as FormattedMenu).title !== 'Opportunities';
-      }
-      return true;
-    });
-    setFormattedMenu(filteredMenu);
-  }, [menuStore, location.pathname, isMobile]);
+    setFormattedMenu(menu());
+  }, [menuStore, location.pathname]);
 
   return (
-    <div className="tinker h-screen flex flex-col overflow-hidden">
+    <div className="tinker">
       {showMobileMenu && <MobileMenu />}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex mt-[5rem] pl-1 bg-slate-300 dark:bg-gray-800 md:mt-0 overflow-hidden">
         {/* BEGIN: Simple Menu */}
-        <nav className="pt-5 pl-1 pr-2 side-nav side-nav--simple hidden md:flex flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300 dark:bg-gray-800">
+        <nav className={`pt-5 mb-0 pl-1 pr-2 item-center side-nav side-nav--simple ${isMobile ? (showSideMenu ? 'block' : 'hidden') : 'flex'} flex-col justify-between w-16 z-100 bg-slate-300 dark:bg-gray-800`}>
           <ul className="space-y-2 flex-grow">
             {/* BEGIN: First Child */}
             {formattedMenu.map((menu, menuKey) =>
@@ -342,51 +328,48 @@ console.log(notifications);
                     </span>
                   )}
                 </Menu.Button>
-                <Menu.Items className="absolute left-0 w-auto mt-0 mr-4 text-slate-900 dark:text-gray-200 bg-slate-400 dark:bg-gray-700" style={{ width: '400px' }}>
-                  <Menu.Header className="font-normal">
-                    <div className="font-medium text-lg">Notifications</div>
-                  </Menu.Header>
-                  <div className="mt-2 pl-2 pr-2 h-64 overflow-y-auto dark:dark-scrollbar">
-                    {uniqueNotifications.length > 0 ? (
-                      uniqueNotifications
-                        .sort((a, b) => b.timestamp - a.timestamp)
-                        .map((notification, key) => (
-                          <div key={key} className="w-full">
-                            <div
-                              className="flex items-center mb-2 box hover:bg-blue-100 dark:hover:bg-gray-600 cursor-pointer"
-                              onClick={() => handleNotificationClick(notification.chat_id)}
-                            >
-                              <div className="p-2 pl-1 ml-2 w-full">
-                                <div className="text-s font-medium text-slate-800 dark:text-gray-200 truncate capitalize">
-                                  {notification.chat_id.split('@')[0]}
-                                </div>
-                                <div className="text-base text-xs text-slate-500 dark:text-gray-400">
-                                  {notification.text ? notification.text.body : ''}
-                                </div>
-                                <div className="text-slate-500 dark:text-gray-400 text-xs mt-0.5">
-                                  {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
-                                    hour: 'numeric',
-                                    minute: 'numeric',
-                                    hour12: true,
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                  })}
-                                </div>
+                <Menu.Items className="absolute left-0 w-64 md:w-80 mt-2 mr-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-lg overflow-hidden">
+                <Menu.Header className="font-normal border-b border-gray-200 dark:border-gray-700">
+                  <div className="font-medium text-lg p-3">Notifications</div>
+                </Menu.Header>
+                <div className="max-h-[40vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+                  {uniqueNotifications.length > 0 ? (
+                    uniqueNotifications
+                      .sort((a, b) => b.timestamp - a.timestamp)
+                      .map((notification, key) => (
+                        <div key={key} className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                          <div
+                            className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-lg transition-colors duration-150 ease-in-out p-2"
+                            onClick={() => handleNotificationClick(notification.chat_id)}
+                          >
+                            <div className="flex justify-between items-center mb-1">
+                              <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate capitalize">
+                                {notification.chat_id.split('@')[0]}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
+                                  hour: 'numeric',
+                                  minute: 'numeric',
+                                  hour12: true,
+                                })}
                               </div>
                             </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                              {notification.text ? notification.text.body : ''}
+                            </div>
                           </div>
-                        ))
-                    ) : (
-                      <div className="text-center text-slate-500 dark:text-gray-400">No messages available</div>
-                    )}
-                  </div>
-                </Menu.Items>
+                        </div>
+                      ))
+                  ) : (
+                    <div className="text-center text-gray-500 dark:text-gray-400 p-4">No messages available</div>
+                  )}
+                </div>
+              </Menu.Items>
               </Menu>
             )}
           </div>
       </ul>
-          <div className="mb-4">
+          <div className="mt-4 ml-1">
           <Menu>
             <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-red-700">
               <Link to="/login" onClick={handleSignOut}>
@@ -405,6 +388,16 @@ console.log(notifications);
           </div>
         </div>
         {/* END: Content */}
+
+        {/* Floating menu button for mobile */}
+        {isMobile && (
+          <button
+            onClick={toggleSideMenu}
+            className="fixed bottom-4 left-4 z-50 w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center shadow-lg"
+          >
+            <Lucide icon="Menu" className="w-8 h-8" />
+          </button>
+        )}
       </div>
     </div>
   );

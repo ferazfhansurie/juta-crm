@@ -92,7 +92,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 dark:bg-gray-900" style={{ paddingBottom: "150px" }}>
+      <div className="flex-1 overflow-y-auto p-4 dark:bg-gray-900">
         {messages.slice().reverse().map((message, index) => (
           <div
             className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
@@ -115,20 +115,18 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
         ))}
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-800 p-4 border-t border-gray-300 dark:border-gray-700">
+      <div className="p-4 border-t border-gray-300 dark:border-gray-700">
         <div className="flex items-center">
           <textarea
             className="w-full h-10 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 resize-none"
             placeholder="Type a message"
-            value={newMessage || ""}
+            value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            rows={3}
-            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
             onKeyDown={handleSendMessage}
           />
           <button
             onClick={() => onSendMessage(newMessage)}
-            className="px-4 py-2 m-1 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none active:scale-95"
+            className="px-4 py-2 ml-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none"
           >
             Send
           </button>
@@ -429,148 +427,43 @@ const Main: React.FC = () => {
   }, []);
 
   return (
-    <div className={`${isMobile ? 'flex flex-col' : 'flex'} h-screen`}>
-      {isMobile ? (
-        <Tab.Group as="div" className="flex flex-col h-full">
-          <Tab.List className="flex bg-gray-100 dark:bg-gray-900 p-2">
-            <Tab
-              className={({ selected }) =>
-                `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
-                  selected
-                    ? 'bg-white text-blue-600 dark:bg-gray-800 dark:text-blue-400'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                } transition-colors duration-200`
-              }
-            >
-              Chat
-            </Tab>
-            <Tab
-              className={({ selected }) =>
-                `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
-                  selected
-                    ? 'bg-white text-blue-600 dark:bg-gray-800 dark:text-blue-400'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                } transition-colors duration-200`
-              }
-            >
-              Assistant Config
-            </Tab>
-          </Tab.List>
-          <Tab.Panels className="flex-1 overflow-hidden">
-            <Tab.Panel className="h-full">
-              <MessageList 
-                messages={messages} 
-                onSendMessage={sendMessageToAssistant} 
-                assistantName={assistantInfo?.name || 'Juta Assistant'} 
-                deleteThread={deleteThread} 
-                threadId={threadId}
-              />
-            </Tab.Panel>
-            <Tab.Panel className="h-full overflow-auto p-4 dark:bg-gray-900">
-              {loading ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
-                    <img alt="Logo" className="w-24 h-24 p-15" src={logoUrl} />
-                    <div className="mt-2 text-xs p-15 dark:text-gray-200">Fetching Assistant...</div>
-                    <LoadingIcon icon="three-dots" className="w-20 h-20 p-4" />
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="flex flex-col mb-4">
-                    {assistantInfo && (
-                      <>
-                        <div className="mb-2 text-lg font-semibold capitalize dark:text-gray-200">{assistantInfo.name}</div>
-                      </>
-                    )}
-                  </div>
-                  <div className="mb-4">
-                    <label className="mb-2 text-md font-semibold capitalize dark:text-gray-200" htmlFor="name">
-                      Name
-                    </label>
-                    <input
-                      id="name"
-                      type="text"
-                      className="w-full p-2 border border-gray-300 rounded text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                      placeholder="Name your assistant"
-                      value={assistantInfo ? assistantInfo.name : ''}
-                      onChange={handleInputChange}
-                      onFocus={handleFocus}
-                    />
-                  </div>
-                  <div className="mb-4">
-                    <label className="mb-2 text-md font-semibold dark:text-gray-200" htmlFor="description">
-                      Description
-                    </label>
-                    <textarea
-                      id="description"
-                      className="w-full p-2 border border-gray-300 rounded h-16 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                      placeholder="Add a short description of what this assistant does"
-                      value={assistantInfo ? assistantInfo.description : ''}
-                      onChange={handleInputChange}
-                      onFocus={handleFocus}
-                    />
-                  </div>
-                  <div className="mb-4">
-                    <label className="mb-2 text-md font-semibold dark:text-gray-200" htmlFor="instructions">
-                      Instructions
-                    </label>
-                    {assistantInfo.instructions.map((instruction, index) => (
-                      <div key={index} className="mb-2 flex items-center">
-                        <div className="flex-grow">
-                          <input
-                            type="text"
-                            className="w-full p-2 border border-gray-300 rounded mb-1 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                            placeholder="Title"
-                            value={instruction.title}
-                            onChange={(e) => handleInstructionChange(index, 'title', e.target.value)}
-                            onFocus={handleFocus}
-                          />
-                          <textarea
-                            className="w-full p-2 border border-gray-300 rounded h-32 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                            placeholder="Content"
-                            value={instruction.content}
-                            onChange={(e) => handleInstructionChange(index, 'content', e.target.value)}
-                            onFocus={handleFocus}
-                          />
-                        </div>
-                        <button
-                          onClick={() => deleteInstructionField(index)}
-                          className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                          onFocus={handleFocus}
-                        >
-                          ✖
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div>
-                    <button 
-                      onClick={addInstructionField} 
-                      className="px-4 py-2 m-2 bg-primary text-white rounded active:scale-95"
-                      onFocus={handleFocus}>
-                      Add Instruction
-                    </button>
-                  </div>
-                  <div>
-                    <button 
-                      ref={updateButtonRef}
-                      onClick={updateAssistantInfo} 
-                      className={`px-4 py-2 m-2 bg-primary text-white rounded transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95`}
-                      onFocus={handleFocus}
-                    >
-                      Update Assistant
-                    </button>
-                  </div>
-                  {error && <div className="mt-4 text-red-500">{error}</div>}
-                </>
-              )}
-            </Tab.Panel>
-          </Tab.Panels>
-        </Tab.Group>
-      ) : (
-        <>
-          <div className="w-1/2 p-6 h-full overflow-auto dark:bg-gray-900">
+    <div className="flex h-screen">
+      <Tab.Group as="div" className="flex flex-col w-full h-full">
+        <Tab.List className="flex bg-gray-100 dark:bg-gray-900 p-2 sticky top-0 z-10">
+          <Tab
+            className={({ selected }) =>
+              `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
+                selected
+                  ? 'bg-white text-blue-600 dark:bg-gray-800 dark:text-blue-400'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+              } transition-colors duration-200`
+            }
+          >
+            Chat
+          </Tab>
+          <Tab
+            className={({ selected }) =>
+              `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
+                selected
+                  ? 'bg-white text-blue-600 dark:bg-gray-800 dark:text-blue-400'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+              } transition-colors duration-200`
+            }
+          >
+            Assistant Config
+          </Tab>
+        </Tab.List>
+        <Tab.Panels className="flex-1 overflow-hidden">
+          <Tab.Panel className="h-full flex flex-col">
+            <MessageList 
+              messages={messages} 
+              onSendMessage={sendMessageToAssistant} 
+              assistantName={assistantInfo?.name || 'Juta Assistant'} 
+              deleteThread={deleteThread} 
+              threadId={threadId}
+            />
+          </Tab.Panel>
+          <Tab.Panel className="h-full overflow-auto p-4 dark:bg-gray-900">
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
@@ -669,18 +562,9 @@ const Main: React.FC = () => {
                 {error && <div className="mt-4 text-red-500">{error}</div>}
               </>
             )}
-          </div>
-          <div className="w-1/2 border-l border-gray-300 dark:border-gray-700 h-full">
-            <MessageList 
-              messages={messages} 
-              onSendMessage={sendMessageToAssistant} 
-              assistantName={assistantInfo?.name || 'Juta Assistant'} 
-              deleteThread={deleteThread} 
-              threadId={threadId}
-            />
-          </div>
-        </>
-      )}
+          </Tab.Panel>
+        </Tab.Panels>
+      </Tab.Group>
       <ToastContainer />
     </div>
   );

@@ -5,14 +5,30 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { selectMenu } from "@/stores/menuSlice";
 import { useAppSelector } from "@/stores/hooks";
 import { FormattedMenu, linkTo, nestedMenu, enter, leave } from "./side-menu";
-import Tippy from "@/components/Base/Tippy";
 import Lucide from "@/components/Base/Lucide";
+import Tippy from "@/components/Base/Tippy";
 import logoUrl from "@/assets/images/logo.png";
 import clsx from "clsx";
 import TopBar from "@/components/Themes/Tinker/TopBar";
 import MobileMenu from "@/components/MobileMenu";
+import { Menu, Popover } from "@/components/Base/Headless";
+import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
+import { initializeApp } from 'firebase/app';
 
 function Main() {
+  // Initialize Firebase app
+  const firebaseConfig = {
+    apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
+    authDomain: "onboarding-a5fcb.firebaseapp.com",
+    databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "onboarding-a5fcb",
+    storageBucket: "onboarding-a5fcb.appspot.com",
+    messagingSenderId: "334607574757",
+    appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
+    measurementId: "G-2C9J1RY67L"
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
   const navigate = useNavigate();
   const location = useLocation();
   const [formattedMenu, setFormattedMenu] = useState<
@@ -22,6 +38,19 @@ function Main() {
   const sideMenu = () => nestedMenu(menuStore, location);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
+  const handleSignOut = () => {
+    signOut(auth)
+      .then(() => {
+        console.log("Sign-out successful.");
+        localStorage.removeItem('contacts'); // Clear contacts from localStorage
+        sessionStorage.removeItem('contactsFetched'); // Clear the session marker
+  
+      })
+      .catch((error) => {
+        console.error("Error signing out:", error);
+      });
+  };
+
   useEffect(() => {
     setFormattedMenu(sideMenu());
 
@@ -29,6 +58,7 @@ function Main() {
       setWindowWidth(window.innerWidth);
     });
   }, [menuStore, location.pathname]);
+  
 
   return (
     <div
@@ -216,6 +246,15 @@ function Main() {
             )}
             {/* END: First Child */}
           </ul>
+          <div className="mb-4">
+          <Menu>
+            <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-red-700 flex items-center justify-center text-white">
+              <Link to="/login" onClick={handleSignOut}>
+                <Lucide icon="LogOut" className="text-center justify-center w-4 h-4" />
+              </Link>
+            </Menu.Button>
+          </Menu>
+        </div>
         </nav>
         {/* END: Side Menu */}
         {/* BEGIN: Content */}

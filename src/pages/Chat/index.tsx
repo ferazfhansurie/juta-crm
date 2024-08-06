@@ -2915,8 +2915,8 @@ const handleForwardMessage = async () => {
                     >
                       Cancel
                     </Button>
-                  </div>
-                </div>
+              </div>
+              </div>
               </div>
             )}
             {isForwardDialogOpen && (
@@ -2996,18 +2996,18 @@ const handleForwardMessage = async () => {
                                     <Lucide icon="ChevronUp" className="w-4 h-4 mr-1" />
                                     Show Less
                                   </>
-                                ) : (
-                                  <>
+      ) : (
+        <>
                                     <Lucide icon="ChevronDown" className="w-4 h-4 mr-1" />
                                     Show More
                                   </>
                                 )}
                               </button>
-                            </div>
-                          </div>
+          </div>
+            </div>
                         )}
-                      </div>
-                    </div>
+            </div>
+          </div>
                   </div>
                   <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                     <Button
@@ -3250,7 +3250,7 @@ const handleForwardMessage = async () => {
               ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
               : 'No Messages'}
           </span>
-                  </div>
+    </div>
         <div className="flex justify-between items-center">
           <span className="text-sm truncate text-gray-600 dark:text-gray-400" style={{ width: '200px' }}>
             {(contact.last_message?.type === "text") ? contact.last_message?.text?.body ?? "No Messages" : "Photo"}
