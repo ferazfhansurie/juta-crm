@@ -1439,7 +1439,7 @@ async function fetchMessagesFromFirebase(companyId: string, chatId: string): Pro
 }
 
   
-  async function fetchMessagesFromApi(chatId: string, token: string, userEmail: string) {
+  async function  fetchMessagesFromApi(chatId: string, token: string, userEmail: string) {
     const response = await axios.get(`https://mighty-dane-newly.ngrok-free.app/api/messages/${chatId}/${token}/${userEmail}`);
     console.log(response);
     return response.data.messages;
@@ -1749,71 +1749,71 @@ async function fetchMessagesFromFirebase(companyId: string, chatId: string): Pro
     setReplyToMessage(null);
   };
 
-  const toggleStopBotLabel = async (contact: Contact, index: number) => {
-    console.log(contact);
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.log('No authenticated user');
-        return;
-      }
-  
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
-        return;
-      }
-      const userData = docUserSnapshot.data();
-       companyId = userData.companyId;
-       if (companyId && contact.id) {
-        const docRef = doc(firestore, 'companies', companyId, 'contacts', contact.id);
-        // Further code to use contactDocRef
-        const docSnapshot = await getDoc(docRef);
-        if (!docSnapshot.exists()) {
-          console.log('No such document for contact!');
-          return;
-        }
-        const hasLabel = contact.tags!.includes('stop bot');
-        if (hasLabel) {
-          await updateDoc(docRef, {
-            tags: arrayRemove('stop bot')
-          });
-        } else {
-          await updateDoc(docRef, {
-            tags: arrayUnion('stop bot')
-          });
-        }
-    
-        const updatedContacts = [...contacts];
-        const updatedContact = { ...updatedContacts[index] };
-    
-        if (hasLabel) {
-          updatedContact.tags = updatedContact.tags!.filter(tag => tag !== "stop bot");
-        } else {
-          updatedContact.tags = [...updatedContact.tags!, "stop bot"];
-        }
-    
-        updatedContacts[index] = updatedContact;
-        setContacts(updatedContacts);
-        localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
-      sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been updated in this session
-        const updatedState = [...stopBotLabelCheckedState];
-        updatedState[index] = !hasLabel;
-        setStopBotLabelCheckedState(updatedState);
-      } else {
-        console.error('companyId or contact.id is null or undefined');
-      }
-   
-     
-     
-  
-    
-  
-    } catch (error) {
-      console.error('Error toggling label:', error);
+const toggleStopBotLabel = async (contact: Contact, index: number, event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  event.preventDefault();
+  event.stopPropagation();
+  console.log('Toggling stop bot label for contact:', contact.id);
+ 
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      console.log('No authenticated user');
+      return;
     }
-  };
+
+    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.log('No such document for user!');
+      return;
+    }
+    const userData = docUserSnapshot.data();
+    const companyId = userData.companyId;
+    if (companyId && contact.id) {
+      const docRef = doc(firestore, 'companies', companyId, 'contacts', contact.id);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for contact!');
+        return;
+      }
+      const hasLabel = contact.tags?.includes('stop bot') || false;
+      const newHasLabel = !hasLabel; // Toggle the label
+      
+      // Update Firestore
+      await updateDoc(docRef, {
+        tags: newHasLabel ? arrayUnion('stop bot') : arrayRemove('stop bot')
+      });
+
+      // Update local state
+      setContacts(prevContacts => {
+        const newContacts = prevContacts.map((c, i) => {
+          if (i === index) {
+            const newTags = newHasLabel
+              ? [...(c.tags || []), "stop bot"]
+              : (c.tags || []).filter(tag => tag !== "stop bot");
+            return { ...c, tags: newTags };
+          }
+          return c;
+        });
+        
+        // Update localStorage
+        localStorage.setItem('contacts', LZString.compress(JSON.stringify(newContacts)));
+        
+        return newContacts;
+      });
+
+      sessionStorage.setItem('contactsFetched', 'true');
+
+      // Show a success toast
+      toast.success(`Bot ${newHasLabel ? 'disabled' : 'enabled'} for ${contact.contactName || contact.firstName || contact.phone}`);
+    } else {
+      console.error('companyId or contact.id is null or undefined');
+    }
+  } catch (error) {
+    console.error('Error toggling label:', error);
+    toast.error('Failed to toggle bot status');
+  }
+};
 
   const handleAddTagToSelectedContacts = async (selectedEmployee: string, contact: any) => {
     const user = auth.currentUser;
@@ -3253,17 +3253,18 @@ const handleForwardMessage = async () => {
           {contact.unreadCount! > 0 && (
             <span className="bg-primary text-white dark:bg-blue-600 dark:text-gray-200 text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
           )}
-          <label className="inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              value=""
-              className="sr-only peer"
-              checked={contact.tags?.includes("stop bot")}
-              onChange={() => toggleStopBotLabel(contact, index)}
-            />
-            <div className="mt-1 ml-0 relative w-11 h-6 bg-primary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-blue-700 peer-checked:after:-translate-x-full rtl:peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:end-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-gray-400">
-                    </div>
-          </label>
+          <div onClick={(e) => toggleStopBotLabel(contact, index, e)}>
+            <label className="inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={contact.tags?.includes("stop bot")}
+                readOnly
+              />
+              <div className="mt-1 ml-0 relative w-11 h-6 bg-primary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-blue-700 peer-checked:after:-translate-x-full rtl:peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:end-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-gray-400">
+              </div>
+            </label>
+          </div>
                   </div>
                   </div>
                 </div>

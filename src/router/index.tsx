@@ -91,7 +91,13 @@ function Router() {
   const routes = [
     {
       path: "/",
-      element: isLoggedIn ? <Layout /> : <Navigate to="/login" />,
+      element: isLoggedIn ? (
+        <div className="h-screen flex flex-col">
+          <Layout />
+        </div>
+      ) : (
+        <Navigate to="/login" />
+      ),
       children: [
         { path: "/", element: <Chat /> },
         { path: "chat", element: <Chat /> },

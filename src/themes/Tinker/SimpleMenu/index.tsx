@@ -206,11 +206,11 @@ console.log(notifications);
   }, [menuStore, location.pathname, isMobile]);
 
   return (
-    <div className="tinker">
+    <div className="tinker h-screen flex flex-col overflow-hidden">
       {showMobileMenu && <MobileMenu />}
-      <div className="flex mt-[5rem] pl-1 bg-slate-300 dark:bg-gray-800 md:mt-0 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden">
         {/* BEGIN: Simple Menu */}
-        <nav className="pt-5 mb-0 pl-1 pr-2 item-center side-nav side-nav--simple hidden md:flex flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300 dark:bg-gray-800">
+        <nav className="pt-5 pl-1 pr-2 side-nav side-nav--simple hidden md:flex flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300 dark:bg-gray-800">
           <ul className="space-y-2 flex-grow">
             {/* BEGIN: First Child */}
             {formattedMenu.map((menu, menuKey) =>
@@ -388,7 +388,7 @@ console.log(notifications);
       </ul>
           <div className="mb-4">
           <Menu>
-            <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-red-700 flex items-center justify-center text-white">
+            <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-red-700">
               <Link to="/login" onClick={handleSignOut}>
                 <Lucide icon="LogOut" className="text-center justify-center w-4 h-4" />
               </Link>
@@ -399,8 +399,10 @@ console.log(notifications);
        
         {/* END: Simple Menu */}
         {/* BEGIN: Content */}
-        <div className="min-h-screen max-w-full md:max-w-none bg-slate-100 dark:bg-gray-900 flex-1 pb-2 px-2 md:px-2 relative before:content-[''] before:w-full before:h-px before:block after:content-[''] after:z-[-1] after:rounded-[40px_0px_0px_0px] after:w-full after:inset-y-0 after:absolute after:left-0 after:bg-white/10 after:mt-8 after:-ml-4 after:dark:bg-darkmode-400/50 after:hidden md:after:block dark:dark-scrollbar">
-          <Outlet />
+        <div className="flex-1 overflow-hidden bg-slate-100 dark:bg-gray-900">
+          <div className="h-full pb-2 px-2 md:px-2 relative before:content-[''] before:w-full before:h-px before:block after:content-[''] after:z-[-1] after:rounded-[40px_0px_0px_0px] after:w-full after:inset-y-0 after:absolute after:left-0 after:bg-white/10 after:mt-8 after:-ml-4 after:dark:bg-darkmode-400/50 after:hidden md:after:block dark:dark-scrollbar">
+            <Outlet />
+          </div>
         </div>
         {/* END: Content */}
       </div>

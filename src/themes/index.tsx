@@ -26,8 +26,7 @@ function Main() {
   }, []);
 
   return (
-    <div>
-  
+    <div className="h-screen">
       <Component />
     </div>
   );
