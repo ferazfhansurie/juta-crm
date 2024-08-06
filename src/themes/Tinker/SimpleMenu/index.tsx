@@ -187,6 +187,14 @@ console.log(notifications);
     setShowSideMenu(!showSideMenu);
   };
 
+  const handleMenuItemClick = useCallback((menu: FormattedMenu) => {
+    linkTo(menu, navigate);
+    setFormattedMenu([...formattedMenu]);
+    if (isMobile) {
+      setShowSideMenu(false);
+    }
+  }, [isMobile, navigate, formattedMenu]);
+
   useEffect(() => {
     setFormattedMenu(menu());
   }, [menuStore, location.pathname]);
@@ -212,8 +220,7 @@ console.log(notifications);
                     href={menu.subMenu ? "#" : menu.pathname}
                     onClick={(event: React.MouseEvent) => {
                       event.preventDefault();
-                      linkTo(menu, navigate);
-                      setFormattedMenu([...formattedMenu]);
+                      handleMenuItemClick(menu);
                     }}
                     className={clsx([
                       "flex items-center p-2 rounded hover:bg-slate-400 dark:hover:bg-gray-700",
@@ -368,7 +375,7 @@ console.log(notifications);
             )}
           </div>
       </ul>
-          <div className="mt-4 ml-1">
+          <div className="mt-4 ml-1 mb-4">
           <Menu>
             <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-red-700 flex items-center justify-center text-white">
               <Link to="/login" onClick={handleSignOut}>
