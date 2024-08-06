@@ -9,6 +9,8 @@ import Lucide from "@/components/Base/Lucide";
 import Tippy from "@/components/Base/Tippy";
 import logoUrl from "@/assets/images/logo.png";
 import clsx from "clsx";
+import TopBar from "@/components/Themes/Tinker/TopBar";
+import MobileMenu from "@/components/MobileMenu";
 import { Menu, Popover } from "@/components/Base/Headless";
 import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
 import { initializeApp } from 'firebase/app';
@@ -39,6 +41,7 @@ function Main() {
   const [searchQuery, setSearchQuery] = useState("");
   const [uniqueNotifications, setUniqueNotifications] = useState<Notification[]>([]);
   const [company, setCompany] = useState("");
+  const [showMobileMenu, setShowMobileMenu] = useState(true);
   const [showSideMenu, setShowSideMenu] = useState(false);
 // Initialize Firebase app
 const firebaseConfig = {
@@ -196,15 +199,20 @@ console.log(notifications);
   }, [isMobile, navigate, formattedMenu]);
 
   useEffect(() => {
-    setFormattedMenu(menu());
-  }, [menuStore, location.pathname]);
+    const filteredMenu = menu().filter((item) => {
+      if (isMobile) {
+        return item !== 'divider' && (item as FormattedMenu).title !== 'Assistants' && (item as FormattedMenu).title !== 'Opportunities';
+      }
+      return true;
+    });
+    setFormattedMenu(filteredMenu);
+  }, [menuStore, location.pathname, isMobile]);
 
   return (
-    <div className="tinker">
-      {showMobileMenu && <MobileMenu />}
-      <div className="flex mt-[5rem] pl-1 bg-slate-300 dark:bg-gray-800 md:mt-0 overflow-hidden">
+    <div className="tinker h-screen flex flex-col overflow-hidden">
+      <div className="flex flex-1 overflow-hidden">
         {/* BEGIN: Simple Menu */}
-        <nav className={`pt-5 mb-0 pl-1 pr-2 item-center side-nav side-nav--simple ${isMobile ? (showSideMenu ? 'block' : 'hidden') : 'flex'} flex-col justify-between w-16 z-100 bg-slate-300 dark:bg-gray-800`}>
+        <nav className={`pt-5 pl-1 pr-2 side-nav side-nav--simple ${isMobile ? (showSideMenu ? 'block' : 'hidden') : 'flex md:flex'} flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300 dark:bg-gray-800`}>
           <ul className="space-y-2 flex-grow">
             {/* BEGIN: First Child */}
             {formattedMenu.map((menu, menuKey) =>
@@ -378,7 +386,7 @@ console.log(notifications);
       </ul>
           <div className="mt-4 ml-1 mb-4">
           <Menu>
-            <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-red-700">
+            <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-red-700 flex items-center justify-center text-white">
               <Link to="/login" onClick={handleSignOut}>
                 <Lucide icon="LogOut" className="text-center justify-center w-4 h-4" />
               </Link>
@@ -395,18 +403,17 @@ console.log(notifications);
           </div>
         </div>
         {/* END: Content */}
-
-        {/* Floating menu button for mobile */}
-        {/* edits */}
-        {isMobile && (
-          <button
-            onClick={toggleSideMenu}
-            className="fixed bottom-4 left-4 z-50 w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center shadow-lg"
-          >
-            <Lucide icon="Menu" className="w-8 h-8" />
-          </button>
-        )}
       </div>
+
+      {/* Floating menu button for mobile */}
+      {isMobile && (
+        <button
+          onClick={toggleSideMenu}
+          className="fixed bottom-4 left-4 z-50 w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center shadow-lg"
+        >
+          <Lucide icon={showSideMenu ? "X" : "Menu"} className="w-8 h-8" />
+        </button>
+      )}
     </div>
   );
 }
