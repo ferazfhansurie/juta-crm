@@ -3868,7 +3868,7 @@ const handleForwardMessage = async () => {
             {/* New section for private notes */}
             <div 
               ref={privateNoteRef}
-              className="absolute left-1 bottom-20 z-10 mb-2"
+              className="absolute left-1 bottom-16 z-10 mb-2"
             >
               <button
                 onClick={() => togglePrivateNotes()}
@@ -3963,7 +3963,7 @@ const handleForwardMessage = async () => {
             </button>
           </div>
         )}
-        <div className="flex items-center w-full bg-gray-100 dark:bg-gray-800 rounded-b-lg p-2">
+        <div className="flex items-center w-full bg-white dark:bg-gray-800 rounded-lg">
           <button className="p-2 m-0 !box" onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}>
             <span className="flex items-center justify-center w-5 h-5">
               <Lucide icon="Smile" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
