@@ -3867,36 +3867,37 @@ const handleForwardMessage = async () => {
             
             {/* New section for private notes */}
             <div 
-              ref={privateNoteRef}
-              className="absolute left-1 bottom-16 z-10 mb-2"
+            ref={privateNoteRef}
+            className="absolute left-1 bottom-16 z-10 mb-2"
+          >
+            <button
+              onClick={() => togglePrivateNotes()}
+              className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-lg shadow-lg flex items-center"
             >
-              <button
-                onClick={() => togglePrivateNotes()}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-lg shadow-lg flex items-center"
-              >
-                <Lucide icon="Lock" className="w-6 h-6 mr-2" />
-                <span>Private Notes</span>
-              </button>
-              <Transition
-                show={isPrivateNotesExpanded}
-                enter="transition ease-out duration-300 transform"
-                enterFrom="opacity-0 scale-95 translate-y-2"
-                enterTo="opacity-100 scale-100 translate-y-0"
-                leave="transition ease-in duration-200 transform"
-                leaveFrom="opacity-100 scale-100 translate-y-0"
-                leaveTo="opacity-0 scale-95 translate-y-2"
-              >
-                <div className="mt-2 bg-white dark:bg-gray-800 border border-yellow-500 rounded-lg shadow-lg w-80 max-h-96 overflow-y-auto">
-                  <div className="sticky top-0 bg-yellow-100 dark:bg-yellow-900 p-3 border-b border-yellow-300 dark:border-yellow-700">
-                    <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200">Private Notes</h3>
-                  </div>
-                  {privateNotes[selectedChatId]?.length > 0 ? (
-                    privateNotes[selectedChatId]?.map((note) => (
-                      <div key={note.id} className="p-4 border-b border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900 transition-colors duration-150">
-                        <p className="text-gray-800 dark:text-gray-200 text-sm whitespace-pre-wrap break-words">
-                          {note.text}
-                        </p>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex justify-between items-center">
+              <Lucide icon="Lock" className="w-6 h-6 mr-2" />
+              <span>Private Notes</span>
+            </button>
+            <Transition
+              show={isPrivateNotesExpanded}
+              enter="transition ease-out duration-300 transform"
+              enterFrom="opacity-0 scale-95 translate-y-full"
+              enterTo="opacity-100 scale-100 translate-y-0"
+              leave="transition ease-in duration-200 transform"
+              leaveFrom="opacity-100 scale-100 translate-y-0"
+              leaveTo="opacity-0 scale-95 translate-y-full"
+              className="transition-all duration-300 ease-in-out absolute bottom-full left-0 w-full"
+            >
+              <div className="absolute bottom-full mb-2 left-0 bg-white dark:bg-gray-800 border border-yellow-500 rounded-lg shadow-lg w-80 max-h-96 overflow-y-auto">
+                <div className="sticky top-0 bg-yellow-100 dark:bg-yellow-900 p-3 border-b border-yellow-300 dark:border-yellow-700">
+                  <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200">Private Notes</h3>
+                </div>
+                {privateNotes[selectedChatId]?.length > 0 ? (
+                  privateNotes[selectedChatId]?.map((note) => (
+                    <div key={note.id} className="p-4 border-b border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900 transition-colors duration-150">
+                      <p className="text-gray-800 dark:text-gray-200 text-sm whitespace-pre-wrap break-words">
+                        {note.text}
+                      </p>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex justify-between items-center">
                         <span>{new Date(note.timestamp).toLocaleString()}</span>
                         <button 
                           className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
@@ -3905,12 +3906,12 @@ const handleForwardMessage = async () => {
                           <Lucide icon="Trash2" className="w-4 h-4" />
                         </button>
                       </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-4 text-gray-500 dark:text-gray-400 text-sm italic">No private notes yet.</div>
-                  )}
-                  <div className="sticky bottom-0 bg-white dark:bg-gray-800 p-3 border-t border-yellow-300 dark:border-yellow-700">
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-4 text-gray-500 dark:text-gray-400 text-sm italic">No private notes yet.</div>
+                )}
+                <div className="sticky bottom-0 bg-white dark:bg-gray-800 p-3 border-t border-yellow-300 dark:border-yellow-700">
                   <textarea
                     className="w-full p-2 border border-yellow-300 dark:border-yellow-700 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 dark:bg-gray-700 dark:text-gray-200"
                     placeholder="Add a new private note..."
@@ -3928,9 +3929,9 @@ const handleForwardMessage = async () => {
                     Add Note
                   </button>
                 </div>
-                </div>
-              </Transition>
-            </div>
+              </div>
+            </Transition>
+          </div>
           </>
         )}
       </div>
