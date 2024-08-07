@@ -381,6 +381,7 @@ function Main() {
   const [privateNotes, setPrivateNotes] = useState<Record<string, Array<{ id: string; text: string; timestamp: number }>>>({});
   const [isPrivateNotesExpanded, setIsPrivateNotesExpanded] = useState(false);
   const privateNoteRef = useRef<HTMLDivElement>(null);
+  const [newPrivateNote, setNewPrivateNote] = useState('');
   const [activeTab, setActiveTab] = useState<'messages' | 'privateNotes'>('messages');
 
   useEffect(() => {
@@ -1798,49 +1799,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
   };
 
-// Add a private note
-const addPrivateNote = async (noteText: string) => {
-  const user = auth.currentUser;
-  if (!user || !selectedChatId) return;
 
-  try {
-    const companyDoc = await getDoc(doc(firestore, 'user', user.email!));
-    const companyId = companyDoc.data()?.companyId;
-
-    const privateNotesRef = collection(firestore, 'companies', companyId, 'contacts', selectedChatId, 'privateNotes');
-    
-    const newNote = {
-      text: noteText,
-      timestamp: serverTimestamp(),
-      userId: user.uid
-    };
-
-    const docRef = await addDoc(privateNotesRef, newNote);
-    console.log('Private note added with ID:', docRef.id);
-
-    // Update local state
-    setPrivateNotes(prevNotes => ({
-      ...prevNotes,
-      [selectedChatId]: [
-        ...(prevNotes[selectedChatId] || []),
-        { id: docRef.id, text: newNote.text, timestamp: Date.now() }
-      ]
-    }));
-
-  } catch (error) {
-    console.error('Error adding private note:', error);
-  }
-};
-
-
-
-  const getPrivateNotesForContact = async (companyId: string, contactId: string) => {
-    const privateNotesRef = collection(firestore, `companies/${companyId}/privateNotes`);
-    const q = query(privateNotesRef, where('contactId', '==', contactId), orderBy('createdAt', 'desc'));
-    const notesSnapshot = await getDocs(q);
-    
-    return notesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  };
 
   const handleAddPrivateNote = async (newMessage: string) => {
     if (!newMessage.trim() || !selectedChatId) return;
@@ -1911,6 +1870,51 @@ const addPrivateNote = async (noteText: string) => {
     } catch (error) {
       console.error('Error adding private note:', error);
       toast.error("Failed to add private note");
+    }
+  };
+
+  const deletePrivateNote = async (noteId: string) => {
+    if (!selectedChatId) {
+      console.error('No chat selected');
+      return;
+    }
+  
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('No authenticated user');
+      return;
+    }
+  
+    try {
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      // Convert selectedChatId to numericChatId
+      const numericChatId = '+' + selectedChatId.split('@')[0];
+  
+      const privateNoteRef = doc(firestore, 'companies', companyId, 'contacts', numericChatId, 'privateNotes', noteId);
+  
+      await deleteDoc(privateNoteRef);
+  
+      // Update local state
+      setPrivateNotes(prevNotes => ({
+        ...prevNotes,
+        [selectedChatId]: prevNotes[selectedChatId].filter(note => note.id !== noteId)
+      }));
+  
+      // Update messages state to remove the deleted note
+      setMessages(prevMessages => prevMessages.filter(message => message.id !== noteId));
+  
+      toast.success("Private note deleted successfully!");
+    } catch (error) {
+      console.error('Error deleting private note:', error);
+      toast.error("Failed to delete private note");
     }
   };
 
@@ -3864,39 +3868,66 @@ const handleForwardMessage = async () => {
             {/* New section for private notes */}
             <div 
               ref={privateNoteRef}
-              className="absolute right-4 bottom-20 w-80 z-10"
+              className="absolute left-1 bottom-20 z-10 mb-2"
             >
               <button
                 onClick={() => togglePrivateNotes()}
-                className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-t-lg flex justify-between items-center"
+                className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-lg shadow-lg flex items-center"
               >
+                <Lucide icon="Lock" className="w-6 h-6 mr-2" />
                 <span>Private Notes</span>
-                <Lucide icon={isPrivateNotesExpanded ? "ChevronDown" : "ChevronUp"} className="w-5 h-5" />
               </button>
               <Transition
                 show={isPrivateNotesExpanded}
-                enter="transition ease-out duration-100 transform"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="transition ease-in duration-75 transform"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
+                enter="transition ease-out duration-300 transform"
+                enterFrom="opacity-0 scale-95 translate-y-2"
+                enterTo="opacity-100 scale-100 translate-y-0"
+                leave="transition ease-in duration-200 transform"
+                leaveFrom="opacity-100 scale-100 translate-y-0"
+                leaveTo="opacity-0 scale-95 translate-y-2"
               >
-                <div className="bg-white dark:bg-gray-800 border border-yellow-500 rounded-b-lg shadow-lg max-h-96 overflow-y-auto">
+                <div className="mt-2 bg-white dark:bg-gray-800 border border-yellow-500 rounded-lg shadow-lg w-80 max-h-96 overflow-y-auto">
+                  <div className="sticky top-0 bg-yellow-100 dark:bg-yellow-900 p-3 border-b border-yellow-300 dark:border-yellow-700">
+                    <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200">Private Notes</h3>
+                  </div>
                   {privateNotes[selectedChatId]?.length > 0 ? (
                     privateNotes[selectedChatId]?.map((note) => (
-                      <div key={note.id} className="p-3 border-b border-yellow-200 dark:border-yellow-700">
-                        <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                      <div key={note.id} className="p-4 border-b border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900 transition-colors duration-150">
+                        <p className="text-gray-800 dark:text-gray-200 text-sm whitespace-pre-wrap break-words">
                           {note.text}
                         </p>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                          {new Date(note.timestamp).toLocaleString()}
-                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex justify-between items-center">
+                        <span>{new Date(note.timestamp).toLocaleString()}</span>
+                        <button 
+                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          onClick={() => deletePrivateNote(note.id)}
+                        >
+                          <Lucide icon="Trash2" className="w-4 h-4" />
+                        </button>
+                      </div>
                       </div>
                     ))
                   ) : (
-                    <div className="p-3 text-gray-500 dark:text-gray-400">No private notes yet.</div>
+                    <div className="p-4 text-gray-500 dark:text-gray-400 text-sm italic">No private notes yet.</div>
                   )}
+                  <div className="sticky bottom-0 bg-white dark:bg-gray-800 p-3 border-t border-yellow-300 dark:border-yellow-700">
+                  <textarea
+                    className="w-full p-2 border border-yellow-300 dark:border-yellow-700 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 dark:bg-gray-700 dark:text-gray-200"
+                    placeholder="Add a new private note..."
+                    rows={3}
+                    value={newPrivateNote}
+                    onChange={(e) => setNewPrivateNote(e.target.value)}
+                  ></textarea>
+                  <button 
+                    className="mt-2 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md transition-colors duration-150"
+                    onClick={() => {
+                      handleAddPrivateNote(newPrivateNote);
+                      setNewPrivateNote('');
+                    }}
+                  >
+                    Add Note
+                  </button>
+                </div>
                 </div>
               </Transition>
             </div>
@@ -3932,28 +3963,6 @@ const handleForwardMessage = async () => {
             </button>
           </div>
         )}
-        <div className="flex">
-          <button
-            className={`px-4 py-2 rounded-t-lg transition-colors duration-200 ${
-              !isPrivateNote
-                ? 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-b-2 border-primary dark:border-blue-500'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
-            }`}
-            onClick={() => setIsPrivateNote(false)}
-          >
-            Message
-          </button>
-          <button
-            className={`px-4 py-2 rounded-t-lg transition-colors duration-200 ${
-              isPrivateNote
-                ? 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-b-2 border-primary dark:border-blue-500'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
-            }`}
-            onClick={() => setIsPrivateNote(true)}
-          >
-            Private Note
-          </button>
-        </div>
         <div className="flex items-center w-full bg-gray-100 dark:bg-gray-800 rounded-b-lg p-2">
           <button className="p-2 m-0 !box" onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}>
             <span className="flex items-center justify-center w-5 h-5">
@@ -4070,16 +4079,6 @@ const handleForwardMessage = async () => {
               }
             }}
           />
-          <button 
-            onClick={handleSendMessage}
-            className={`p-2 m-0 !box ${
-              isPrivateNote ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-primary hover:bg-primary-dark'
-            }`}
-          >
-            <span className="flex items-center justify-center w-5 h-5">
-              <Lucide icon={isPrivateNote ? "Lock" : "Send"} className="w-5 h-5 text-white" />
-            </span>
-          </button>
         </div>
         {isEmojiPickerOpen && (
           <div className="absolute bottom-20 left-2 z-10">
