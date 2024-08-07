@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query ,arrayRemove,arrayUnion, writeBatch} from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp} from "firebase/firestore";
 import {QueryDocumentSnapshot, DocumentData ,Query,CollectionReference, startAfter,limit} from 'firebase/firestore'
 import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
@@ -30,6 +30,10 @@ import Tippy from "@/components/Base/Tippy";
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import {  useNavigate } from "react-router-dom";
 import noti from "../../assets/audio/noti.mp3";
+import { Lock, MessageCircle } from "lucide-react";
+import { Transition } from '@headlessui/react';
+
+// ... existing code ...
 
 
 interface Label {
@@ -152,6 +156,7 @@ interface Message {
   context?: any;
   reactions?: { emoji: string; from_name: string }[];
   name?:string;
+  isPrivateNote?: boolean;
 }interface Employee {
   id: string;
   name: string;
@@ -372,10 +377,28 @@ function Main() {
   const [contactsFetchProgress, setContactsFetchProgress] = useState(0);
   const [totalContactsToFetch, setTotalContactsToFetch] = useState(0);
   const [fetchedContactsCount, setFetchedContactsCount] = useState(0);
+  const [isPrivateNote, setIsPrivateNote] = useState(false);
+  const [privateNotes, setPrivateNotes] = useState<Record<string, Array<{ id: string; text: string; timestamp: number }>>>({});
+  const [isPrivateNotesExpanded, setIsPrivateNotesExpanded] = useState(false);
+  const privateNoteRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<'messages' | 'privateNotes'>('messages');
 
   useEffect(() => {
     updateVisibleTags();
   }, [tagList, isTagsExpanded]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (privateNoteRef.current && !privateNoteRef.current.contains(event.target as Node)) {
+        setIsPrivateNotesExpanded(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [privateNoteRef]);
 
   const updateVisibleTags = () => {
     if (isTagsExpanded) {
@@ -1169,8 +1192,6 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
 
     await Promise.all(updatePromises);
 
-   // await Promise.all(updatePromises);
-
     // Sort contactsData by pinned status and last_message timestamp
     allContacts.sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
@@ -1428,6 +1449,16 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     }
 }
 
+const togglePrivateNotes = () => {
+  const newExpandedState = !isPrivateNotesExpanded;
+  console.log('Toggling private notes. New state:', newExpandedState);
+  setIsPrivateNotesExpanded(newExpandedState);
+  if (newExpandedState) {
+    console.log('Expanding private notes, calling fetchPrivateNotes');
+    fetchPrivateNotes();
+  }
+};
+
 async function fetchMessagesFromFirebase(companyId: string, chatId: string): Promise<any[]> {
   const number = '+' + chatId.split('@')[0];
   const messagesRef = collection(firestore, `companies/${companyId}/contacts/${number}/messages`);
@@ -1449,173 +1480,198 @@ async function fetchMessagesFromFirebase(companyId: string, chatId: string): Pro
     console.log(response);
     return response.data.messages;
   }
-  async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
-    setSelectedIcon('ws');
-    const auth = getAuth(app);
-    const user = auth.currentUser;
+async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
+  setSelectedIcon('ws');
+  const auth = getAuth(app);
+  const user = auth.currentUser;
+  
+  try {
+    const docUserRef = doc(firestore, 'user', user?.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
     
-    try {
-        const docUserRef = doc(firestore, 'user', user?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        
-        if (!docUserSnapshot.exists()) {
-            console.log('No such document!');
-            return;
-        }
-        const dataUser = docUserSnapshot.data();
-        
-        const companyId = dataUser.companyId;
-        const docRef = doc(firestore, 'companies', companyId);
-        const docSnapshot = await getDoc(docRef);
-        if (!docSnapshot.exists()) {
-            console.log('No such document!');
-            return;
-        }
-        const data2 = docSnapshot.data();
-        
-        setToken(data2.whapiToken);
-        
-        let messages;
-        if (data2.v2) {
-            messages = await fetchMessagesFromFirebase(companyId, selectedChatId);
-            console.log('messages');
-            console.log(messages);
-        } else {
-            messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken, dataUser?.email);
-            // If no messages, try with whapiToken2
-            if (!messages.length && data2.whapiToken2) {
-                messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken2, dataUser?.email);
-            }
-        }
-        
-        const formattedMessages: any[] = [];
-        const reactionsMap: Record<string, any[]> = {};
-
-        messages.forEach(async (message: any) => {
-            if (message.type === 'action' && message.action.type === 'reaction') {
-                const targetMessageId = message.action.target;
-                if (!reactionsMap[targetMessageId]) {
-                    reactionsMap[targetMessageId] = [];
-                }
-                reactionsMap[targetMessageId].push({
-                    emoji: message.action.emoji,
-                    from_name: message.from_name
-                });
-            } else {
-                const formattedMessage: any = {
-                    id: message.id,
-                    from_me: message.from_me,
-                    from_name: message.from_name,
-                    from: message.from,
-                    chat_id: message.chat_id,
-                    createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
-                    type: message.type,
-                    name: message.name
-                };
-        
-                // Include message-specific content
-                switch (message.type) {
-                    case 'text':
-                        formattedMessage.text = {
-                            body: message.text ? message.text.body : '', // Include the message body
-                            context: message.context ? message.context : '' // Include the context
-                        };
-                        break;
-                    case 'image':
-                        formattedMessage.image = message.image ? message.image : undefined;
-                        break;
-                    case 'video':
-                        formattedMessage.video = message.video ? message.video : undefined;
-                        break;
-                    case 'gif':
-                        formattedMessage.gif = message.gif ? message.gif : undefined;
-                        break;
-                    case 'audio':
-                        formattedMessage.audio = message.audio ? message.audio : undefined;
-                        break;
-                    case 'voice':
-                        formattedMessage.voice = message.voice ? message.voice : undefined;
-                        break;
-                    case 'document':
-                        formattedMessage.document = message.document ? message.document : undefined;
-                        break;
-                    case 'link_preview':
-                        formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
-                        break;
-                    case 'sticker':
-                        formattedMessage.sticker = message.sticker ? message.sticker : undefined;
-                        break;
-                    case 'location':
-                        formattedMessage.location = message.location ? message.location : undefined;
-                        break;
-                    case 'live_location':
-                        formattedMessage.live_location = message.live_location ? message.live_location : undefined;
-                        break;
-                    case 'contact':
-                        formattedMessage.contact = message.contact ? message.contact : undefined;
-                        break;
-                    case 'contact_list':
-                        formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
-                        break;
-                    case 'interactive':
-                        formattedMessage.interactive = message.interactive ? message.interactive : undefined;
-                        break;
-                    case 'poll':
-                        formattedMessage.poll = message.poll ? message.poll : undefined;
-                        break;
-                    case 'hsm':
-                        formattedMessage.hsm = message.hsm ? message.hsm : undefined;
-                        break;
-                    case 'system':
-                        formattedMessage.system = message.system ? message.system : undefined;
-                        break;
-                    case 'order':
-                        formattedMessage.order = message.order ? message.order : undefined;
-                        break;
-                    case 'group_invite':
-                        formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
-                        break;
-                    case 'admin_invite':
-                        formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
-                        break;
-                    case 'product':
-                        formattedMessage.product = message.product ? message.product : undefined;
-                        break;
-                    case 'catalog':
-                        formattedMessage.catalog = message.catalog ? message.catalog : undefined;
-                        break;
-                    case 'product_items':
-                        formattedMessage.product_items = message.product_items ? message.product_items : undefined;
-                        break;
-                    case 'action':
-                        formattedMessage.action = message.action ? message.action : undefined;
-                        break;
-                    case 'context':
-                        formattedMessage.context = message.context ? message.context : undefined;
-                        break;
-                    case 'reactions':
-                        formattedMessage.reactions = message.reactions ? message.reactions : undefined;
-                        break;
-                    default:
-                        console.warn(`Unknown message type: ${message.type}`);
-                }
-        
-                formattedMessages.push(formattedMessage);
-            }
-        });
-        
-        // Add reactions to the respective messages
-        formattedMessages.forEach(message => {
-            if (reactionsMap[message.id]) {
-                message.reactions = reactionsMap[message.id];
-            }
-        });
-        
-        setMessages(formattedMessages);
-        
-    } catch (error) {
-        console.error('Failed to fetch messages:', error);
+    if (!docUserSnapshot.exists()) {
+      console.log('No such document!');
+      return;
     }
+    const dataUser = docUserSnapshot.data();
+    
+    const companyId = dataUser.companyId;
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) {
+      console.log('No such document!');
+      return;
+    }
+    const data2 = docSnapshot.data();
+    
+    setToken(data2.whapiToken);
+    
+    let messages;
+    if (data2.v2) {
+      messages = await fetchMessagesFromFirebase(companyId, selectedChatId);
+      console.log('messages');
+      console.log(messages);
+    } else {
+      messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken, dataUser?.email);
+      // If no messages, try with whapiToken2
+      if (!messages.length && data2.whapiToken2) {
+        messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken2, dataUser?.email);
+      }
+    }
+    
+    const formattedMessages: any[] = [];
+    const reactionsMap: Record<string, any[]> = {};
+
+    messages.forEach(async (message: any) => {
+      if (message.type === 'action' && message.action.type === 'reaction') {
+        const targetMessageId = message.action.target;
+        if (!reactionsMap[targetMessageId]) {
+          reactionsMap[targetMessageId] = [];
+        }
+        reactionsMap[targetMessageId].push({
+          emoji: message.action.emoji,
+          from_name: message.from_name
+        });
+      } else {
+        const formattedMessage: any = {
+          id: message.id,
+          from_me: message.from_me,
+          from_name: message.from_name,
+          from: message.from,
+          chat_id: message.chat_id,
+          createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
+          type: message.type,
+          name: message.name
+        };
+  
+        // Include message-specific content
+        switch (message.type) {
+          case 'text':
+            formattedMessage.text = {
+              body: message.text ? message.text.body : '', // Include the message body
+              context: message.context ? message.context : '' // Include the context
+            };
+            break;
+          case 'image':
+            formattedMessage.image = message.image ? message.image : undefined;
+            break;
+          case 'video':
+            formattedMessage.video = message.video ? message.video : undefined;
+            break;
+          case 'gif':
+            formattedMessage.gif = message.gif ? message.gif : undefined;
+            break;
+          case 'audio':
+            formattedMessage.audio = message.audio ? message.audio : undefined;
+            break;
+          case 'voice':
+            formattedMessage.voice = message.voice ? message.voice : undefined;
+            break;
+          case 'document':
+            formattedMessage.document = message.document ? message.document : undefined;
+            break;
+          case 'link_preview':
+            formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
+            break;
+          case 'sticker':
+            formattedMessage.sticker = message.sticker ? message.sticker : undefined;
+            break;
+          case 'location':
+            formattedMessage.location = message.location ? message.location : undefined;
+            break;
+          case 'live_location':
+            formattedMessage.live_location = message.live_location ? message.live_location : undefined;
+            break;
+          case 'contact':
+            formattedMessage.contact = message.contact ? message.contact : undefined;
+            break;
+          case 'contact_list':
+            formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
+            break;
+          case 'interactive':
+            formattedMessage.interactive = message.interactive ? message.interactive : undefined;
+            break;
+          case 'poll':
+            formattedMessage.poll = message.poll ? message.poll : undefined;
+            break;
+          case 'hsm':
+            formattedMessage.hsm = message.hsm ? message.hsm : undefined;
+            break;
+          case 'system':
+            formattedMessage.system = message.system ? message.system : undefined;
+            break;
+          case 'order':
+            formattedMessage.order = message.order ? message.order : undefined;
+            break;
+          case 'group_invite':
+            formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
+            break;
+          case 'admin_invite':
+            formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
+            break;
+          case 'product':
+            formattedMessage.product = message.product ? message.product : undefined;
+            break;
+          case 'catalog':
+            formattedMessage.catalog = message.catalog ? message.catalog : undefined;
+            break;
+          case 'product_items':
+            formattedMessage.product_items = message.product_items ? message.product_items : undefined;
+            break;
+          case 'action':
+            formattedMessage.action = message.action ? message.action : undefined;
+            break;
+          case 'context':
+            formattedMessage.context = message.context ? message.context : undefined;
+            break;
+          case 'reactions':
+            formattedMessage.reactions = message.reactions ? message.reactions : undefined;
+            break;
+          default:
+            console.warn(`Unknown message type: ${message.type}`);
+        }
+  
+        formattedMessages.push(formattedMessage);
+      }
+    });
+    
+    // Add reactions to the respective messages
+    formattedMessages.forEach(message => {
+      if (reactionsMap[message.id]) {
+        message.reactions = reactionsMap[message.id];
+      }
+    });
+
+    // Fetch private notes for the selected chat
+    const privateNotesRef = collection(firestore, 'companies', companyId, 'contacts', selectedChatId, 'privateNotes');
+    const privateNotesSnapshot = await getDocs(privateNotesRef);
+    const chatPrivateNotes = privateNotesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      timestamp: doc.data().timestamp.toDate().getTime(),
+      type: 'privateNote'
+    }));
+
+    // Combine regular messages and private notes
+    const allMessages = [...formattedMessages, ...chatPrivateNotes].sort((a, b) => 
+      a.timestamp - b.timestamp
+    );
+
+    setMessages(allMessages);
+    
+    // Update private notes state
+    setPrivateNotes(prevNotes => ({
+      ...prevNotes,
+      [selectedChatId]: chatPrivateNotes.map(note => ({
+        id: note.id,
+        text: 'text' in note && typeof note.text === 'string' ? note.text : '',
+        timestamp: note.timestamp
+      }))
+    }));
+    
+  } catch (error) {
+    console.error('Failed to fetch messages:', error);
+  }
 }
   async function sendTextMessage(selectedChatId: string, newMessage: string,contact:any): Promise<void> {
     if (!newMessage.trim() || !selectedChatId) return;
@@ -1671,6 +1727,193 @@ async function fetchMessagesFromFirebase(companyId: string, chatId: string): Pro
       console.error('Error sending message:', error);
     }
   }
+
+  const fetchPrivateNotes = async () => {
+    if (!selectedChatId) {
+      console.log('fetchPrivateNotes: Missing selectedChatId', { selectedChatId });
+      return;
+    }
+  
+    console.log('Fetching private notes for:', selectedChatId);
+  
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.log('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      if (!companyId) {
+        console.log('No companyId found for user');
+        return;
+      }
+  
+      // Convert selectedChatId to numericChatId
+      const numericChatId = '+' + selectedChatId.split('@')[0];
+      console.log('Numeric Chat ID:', numericChatId);
+      
+      const privateNotesRef = collection(firestore, 'companies', companyId, 'contacts', numericChatId, 'privateNotes');
+      console.log('Firestore path:', `companies/${companyId}/contacts/${numericChatId}/privateNotes`);
+  
+      const q = query(privateNotesRef, orderBy('timestamp', 'desc'));
+      const querySnapshot = await getDocs(q);
+  
+      console.log('Number of private notes fetched:', querySnapshot.size);
+  
+      const fetchedNotes = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('Note data:', data);
+        return {
+          id: doc.id,
+          text: data.text,
+          from: data.from,
+          timestamp: data.timestamp?.toDate().getTime(),
+          type: 'privateNote'
+        };
+      });
+  
+      console.log('Processed fetched notes:', fetchedNotes);
+  
+      setPrivateNotes(prevNotes => {
+        const updatedNotes = {
+          ...prevNotes,
+          [selectedChatId]: fetchedNotes
+        };
+        console.log('Updated privateNotes state:', updatedNotes);
+        return updatedNotes;
+      });
+  
+    } catch (error) {
+      console.error('Error fetching private notes:', error);
+      toast.error('Failed to fetch private notes');
+    }
+  };
+
+// Add a private note
+const addPrivateNote = async (noteText: string) => {
+  const user = auth.currentUser;
+  if (!user || !selectedChatId) return;
+
+  try {
+    const companyDoc = await getDoc(doc(firestore, 'user', user.email!));
+    const companyId = companyDoc.data()?.companyId;
+
+    const privateNotesRef = collection(firestore, 'companies', companyId, 'contacts', selectedChatId, 'privateNotes');
+    
+    const newNote = {
+      text: noteText,
+      timestamp: serverTimestamp(),
+      userId: user.uid
+    };
+
+    const docRef = await addDoc(privateNotesRef, newNote);
+    console.log('Private note added with ID:', docRef.id);
+
+    // Update local state
+    setPrivateNotes(prevNotes => ({
+      ...prevNotes,
+      [selectedChatId]: [
+        ...(prevNotes[selectedChatId] || []),
+        { id: docRef.id, text: newNote.text, timestamp: Date.now() }
+      ]
+    }));
+
+  } catch (error) {
+    console.error('Error adding private note:', error);
+  }
+};
+
+
+
+  const getPrivateNotesForContact = async (companyId: string, contactId: string) => {
+    const privateNotesRef = collection(firestore, `companies/${companyId}/privateNotes`);
+    const q = query(privateNotesRef, where('contactId', '==', contactId), orderBy('createdAt', 'desc'));
+    const notesSnapshot = await getDocs(q);
+    
+    return notesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  };
+
+  const handleAddPrivateNote = async (newMessage: string) => {
+    if (!newMessage.trim() || !selectedChatId) return;
+    
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('No authenticated user');
+      return;
+    }
+  
+    try {
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      
+      // Split selectedChatId to show numbers only and add '+' at the start
+      const numericChatId = '+' + selectedChatId.split('').filter(char => /\d/.test(char)).join('');
+      console.log('Numeric Chat ID:', numericChatId);
+
+      // Create a reference to the privateNotes subcollection
+      const privateNoteRef = collection(firestore, 'companies', companyId, 'contacts', numericChatId, 'privateNotes');
+      const newPrivateNote = {
+        text: newMessage,
+        from: userData.name,
+        timestamp: serverTimestamp(),
+        type: 'privateNote'
+      };
+  
+      // Add console.log statements to debug
+      console.log('Adding private note:', newPrivateNote);
+      console.log('Private note ref:', privateNoteRef);
+
+      const docRef = await addDoc(privateNoteRef, newPrivateNote);
+      console.log('Private note added with ID:', docRef.id);
+  
+      // Update the local state
+      setPrivateNotes(prevNotes => ({
+        ...prevNotes,
+        [selectedChatId]: [
+          ...(prevNotes[selectedChatId] || []),
+          { id: docRef.id, text: newMessage, timestamp: Date.now() }
+        ]
+      }));
+  
+      // Update the messages state to include the new private note
+      setMessages(prevMessages => [
+        ...prevMessages,
+        {
+          id: docRef.id,
+          text: { body: newMessage },
+          from: userData.name,
+          from_name: userData.name,
+          chat_id: selectedChatId,
+          createdAt: new Date().toISOString(),
+          dateAdded: new Date().getTime(), // Changed to number
+          timestamp: Date.now(),
+          type: 'privateNote'
+        } as unknown as Message // Added type assertion
+      ]);
+  
+      setNewMessage('');
+      toast.success("Private note added successfully!");
+    } catch (error) {
+      console.error('Error adding private note:', error);
+      toast.error("Failed to add private note");
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChatId) return;
     const user = auth.currentUser;
@@ -1689,23 +1932,59 @@ async function fetchMessagesFromFirebase(companyId: string, chatId: string): Pro
       return;
     }
     const data2 = docSnapshot.data();
-  
-    // Check if v2 is true
-    if (data2.v2 === true) {
-      console.log("v2 is true");
-      // Use the new API
+
+    if (isPrivateNote) {
+      const newNote = {
+        id: Date.now().toString(),
+        text: newMessage,
+        timestamp: Date.now(),
+      };
+      handleAddPrivateNote(newMessage);
+      setPrivateNotes(prevNotes => ({
+        ...prevNotes,
+        [selectedChatId]: [
+          ...(prevNotes[selectedChatId] || []),
+          { id: Date.now().toString(), text: newMessage, timestamp: Date.now() }
+        ]
+      }));
+      setNewMessage('');
+      adjustHeight(textareaRef.current!, true);
+    } else {
       try {
-        const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${selectedChatId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: newMessage,
-            quotedMessageId: replyToMessage?.id || null
-          }),
-        });
+        let response;
+        if (data2.v2 === true) {
+          console.log("v2 is true");
+          // Use the new API
+          response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${selectedChatId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: newMessage,
+              quotedMessageId: replyToMessage?.id || null
+            }),
+          });
+        } else {
+          // Use the original method
+          setToken(data2.whapiToken);
+          console.log("v2 is false");
+          response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/text/${selectedChatId!}/${data2.whapiToken}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: newMessage,
+              quotedMessageId: replyToMessage?.id || null
+            }),
+          });
+        }
+
+        await sendTextMessage(selectedChatId, newMessage, selectedContact);
+        setNewMessage('');
+        adjustHeight(textareaRef.current!, true);
+
         if (!response.ok) {
           throw new Error('Failed to send message');
         }
+        
         const data = await response.json();
         console.log('Message sent successfully:', data);
         toast.success("Message sent successfully!");
@@ -1714,42 +1993,8 @@ async function fetchMessagesFromFirebase(companyId: string, chatId: string): Pro
         console.error('Error sending message:', error);
         toast.error("Failed to send message");
       }
-    } else {
-      // Use the original method
-      setToken(data2.whapiToken);
-      console.log("v2 is false");
-      try {
-        const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/text/${selectedChatId!}/${data2.whapiToken}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: newMessage,
-            quotedMessageId: replyToMessage?.id || null
-          }),
-        });
-        if (!response.ok) {
-          throw new Error('Failed to send message');
-        }
-       
-        const data = await response.json();
-        console.log(data.message);
-        const messagesCollectionRef = collection(firestore, 'companies',  companyId, 'messages');
-        try {
-          await setDoc(doc(messagesCollectionRef, data.message.id), {
-            message: data.message,
-            from: dataUser.name,
-          });
-        } catch (error) {
-          console.error('Error adding message: ', error);
-        }
-        toast.success("Message sent successfully!");
-        fetchMessagesBackground(selectedChatId!, whapiToken!);
-      } catch (error) {
-        console.error('Error sending message:', error);
-        toast.error("Failed to send message");
-      }
     }
-  
+
     setNewMessage('');
     setReplyToMessage(null);
   };
@@ -3374,239 +3619,288 @@ const handleForwardMessage = async () => {
           </div>
         )}
         {selectedChatId && (
-          messages
-            .filter((message) => message.type !== 'action') // Filter out action type messages
-            .slice()
-            .reverse()
-            .map((message, index, array) => {
-              const previousMessage = messages[index - 1];
-              const showDateHeader =
-                index === 0 ||
-                !isSameDay(
-                  new Date(array[index - 1]?.createdAt || array[index - 1]?.dateAdded),
-                  new Date(message.createdAt || message.dateAdded)
-                );
-              const isConsecutive = index > 0 && messages[index - 1].from_me === message.from_me;
-              const messageClass = message.from_me
-                ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass)
-                : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass);
+          <>
+            {messages
+              .filter((message) => message.type !== 'action')
+              .slice()
+              .reverse()
+              .map((message, index, array) => {
+                const previousMessage = messages[index - 1];
+                const showDateHeader =
+                  index === 0 ||
+                  !isSameDay(
+                    new Date(array[index - 1]?.createdAt || array[index - 1]?.dateAdded),
+                    new Date(message.createdAt || message.dateAdded)
+                  );
+                const isConsecutive = index > 0 && messages[index - 1].from_me === message.from_me;
+                const messageClass = message.from_me
+                  ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass)
+                  : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass);
 
-              return (
-                <React.Fragment key={message.id}>
-                  {showDateHeader && (
-                    <div className="flex justify-center my-4">
-                      <div className="inline-block bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold py-1 px-4 rounded-lg shadow-md">
-                        {formatDateHeader(message.createdAt || message.dateAdded)}
-                      </div>
-                    </div>
-                  )}
-                  <div
-                    className={`p-2 mb-2 rounded ${messageClass}`}
-                    style={{
-                      maxWidth: message.type === 'document' ? '90%' : '70%',
-                      width: `${
-                        message.type === 'document'
-                          ? '400'
-                          : message.type !== 'text'
-                          ? '320'
-                          : message.text?.body
-                          ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
-                          : '100'
-                      }px`,
-                      minWidth: '70px',
-                    }}
-                    onMouseEnter={() => setHoveredMessageId(message.id)}
-                    onMouseLeave={() => setHoveredMessageId(null)}
-                  >
-                    {message.chat_id.includes('@g.us') && (
-                      <div className="pb-1 text-gray-400 dark:text-gray-200 font-medium">{message.from_name||'+'+message.from}</div>
-                    )}
-                    {message.type === 'text' && message.text?.context && (
-                      <div className="p-2 mb-2 rounded bg-gray-300 dark:bg-gray-300">
-                        <div className="text-sm font-medium text-gray-800 ">{message.text.context.quoted_author || ''}</div>
-                        <div className="text-sm text-gray-800 ">{message.text.context.quoted_content?.body || ''}</div>
-                      </div>
-                    )}
-                    {message.type === 'text' && (
-                      <div className={`whitespace-pre-wrap break-words overflow-hidden ${message.from_me ? myMessageTextClass : otherMessageTextClass}`} style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                        {formatText(message.text?.body || '')}
-                      </div>
-                    )}
-                    {message.type === 'image' && message.image && (
-                      <div className="p-0 message-content image-message">
-                        <img
-                          src={message.image.link || `https://mighty-dane-newly.ngrok-free.app${message.image.url}` || ''}
-                          alt="Image"
-                          className="rounded-lg message-image cursor-pointer"
-                          style={{ maxWidth: '300px' }}
-                          onClick={() => openImageModal(message.image?.link || `https://mighty-dane-newly.ngrok-free.app${message?.image?.url}`|| '')}
-                          onError={(e) => {
-                            console.error("Error loading image:", e.currentTarget.src);
-                            e.currentTarget.src = 'src/assets/images/Fallback Image.png'; // Replace with your fallback image path
-                          }}
-                        />
-                        <div className="caption text-gray-800 ">{message.image.caption}</div>
-                      </div>
-                    )}
-                    {message.type === 'video' && message.video && (
-                      <div className="video-content p-0 message-content image-message">
-                        <video
-                          controls
-                          src={message.video.link}
-                          className="rounded-lg message-image cursor-pointer"
-                          style={{ maxWidth: '300px' }}
-                        />
-                        <div className="caption text-gray-800 dark:text-gray-200">{message.video.caption}</div>
-                      </div>
-                    )}
-                    {message.type === 'gif' && message.gif && (
-                      <div className="gif-content p-0 message-content image-message">
-                        <img
-                          src={message.gif.link}
-                          alt="GIF"
-                          className="rounded-lg message-image cursor-pointer"
-                          style={{ maxWidth: '300px' }}
-                          onClick={() => openImageModal(message.gif?.link || '')}
-                        />
-                        <div className="caption text-gray-800 dark:text-gray-200">{message.gif.caption}</div>
-                      </div>
-                    )}
-                    {message.type === 'audio' && message.audio && (
-                      <div className="audio-content p-0 message-content image-message">
-                        <audio controls src={message.audio.link} className="rounded-lg message-image cursor-pointer" />
-                      </div>
-                    )}
-                    {message.type === 'voice' && message.voice && (
-                      <div className="voice-content p-0 message-content image-message">
-                        <audio controls src={message.voice.link} className="rounded-lg message-image cursor-pointer" />
-                      </div>
-                    )}
-                    {message.type === 'document' && message.document && (
-                      <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
-                        <iframe
-                          src={message.document.link}
-                          width="100%"
-                          height="500px"
-                          title="PDF Document"
-                          className="border rounded cursor-pointer"
-                          onClick={() => openPDFModal(message.document?.link || '')}
-                        />
-                        <div className="flex-1 text-justify mt-3 w-full">
-                          <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">{message.document.file_name}</div>
-                          <div className="text-gray-600 dark:text-gray-400">
-                            {message.document.page_count} page
-                            {message.document.page_count > 1 ? 's' : ''} • PDF •{' '}
-                            {(message.document.file_size / (1024 * 1024)).toFixed(2)} MB
-                          </div>
+                return (
+                  <React.Fragment key={message.id}>
+                    {showDateHeader && (
+                      <div className="flex justify-center my-4">
+                        <div className="inline-block bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold py-1 px-4 rounded-lg shadow-md">
+                          {formatDateHeader(message.createdAt || message.dateAdded)}
                         </div>
-                        <button
-                          onClick={() => openPDFModal(message.document!.link)}
-                          className="mt-3"
-                        >
-                          <Lucide icon="ExternalLink" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
-                        </button>
                       </div>
                     )}
-                    {message.type === 'link_preview' && message.link_preview && (
-                      <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden text-gray-800 dark:text-gray-200">
-                        <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
-                          <img
-                            src={message.link_preview.preview}
-                            alt="Preview"
-                            className="w-full"
-                          />
-                          <div className="p-2">
-                            <div className="font-bold text-lg">{message.link_preview.title}</div>
-                            <div className="text-sm text-gray-800 dark:text-gray-200">{message.link_preview.description}</div>
-                            <div className="text-blue-500 mt-1">{message.link_preview.body}</div>
-                          </div>
-                        </a>
-                      </div>
-                    )}
-                    {message.type === 'sticker' && message.sticker && (
-                      <div className="sticker-content p-0 message-content image-message">
-                        <img
-                          src={message.sticker.link}
-                          alt="Sticker"
-                          className="rounded-lg message-image cursor-pointer"
-                          style={{ maxWidth: '150px' }}
-                          onClick={() => openImageModal(message.sticker?.link || '')}
-                        />
-                      </div>
-                    )}
-                    {message.type === 'location' && message.location && (
-                      <div className="location-content p-0 message-content image-message">
-                        <div className="text-sm text-gray-800 dark:text-gray-200">Location: {message.location.latitude}, {message.location.longitude}</div>
-                      </div>
-                    )}
-                    {message.type === 'poll' && message.poll && (
-                      <div className="poll-content p-0 message-content image-message">
-                        <div className="text-sm text-gray-800 dark:text-gray-200">Poll: {message.poll.title}</div>
-                      </div>
-                    )}
-                    {message.type === 'hsm' && message.hsm && (
-                      <div className="hsm-content p-0 message-content image-message">
-                        <div className="text-sm text-gray-800 dark:text-gray-200">HSM: {message.hsm.title}</div>
-                      </div>
-                    )}
-                    {message.type === 'action' && message.action && (
-                      <div className="action-content flex flex-col p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
-                        {message.action.type === 'delete' ? (
-                          <div className="text-gray-400 dark:text-gray-600">This message was deleted</div>
-                        ) : (
-                          /* Handle other action types */
-                          <div className="text-gray-800 dark:text-gray-200">{message.action.emoji}</div>
-                        )}
-                      </div>
-                    )}
-                    {message.reactions && message.reactions.length > 0 && (
-                      <div className="flex items-center space-x-2 mt-1">
-                        {message.reactions.map((reaction, index) => (
-                          <div key={index} className="text-gray-500 dark:text-gray-400 text-sm flex items-center space-x-1">
-                            <span
-                              className="inline-flex items-center justify-center border border-white rounded-full bg-gray-200 dark:bg-gray-700"
-                              style={{ padding: '10px' }}
-                            >
-                              {reaction.emoji}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className={`message-timestamp text-xs ${message.from_me ? myMessageTextClass : otherMessageTextClass} mt-1`}>
-                      {formatTimestamp(message.createdAt || message.dateAdded)}
-                      {message.name && (
-                        <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>
+                    <div
+                      className={`p-2 mb-2 rounded ${message.isPrivateNote ? "bg-yellow-200 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group" : message.from_me ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass) : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass)}`}
+                      style={{
+                        maxWidth: message.type === 'document' ? '90%' : '70%',
+                        width: `${
+                          message.type === 'document'
+                            ? '400'
+                            : message.type !== 'text'
+                            ? '320'
+                            : message.text?.body
+                            ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
+                            : '100'
+                        }px`,
+                        minWidth: '70px',
+                      }}
+                      onMouseEnter={() => setHoveredMessageId(message.id)}
+                      onMouseLeave={() => setHoveredMessageId(null)}
+                    >
+                      {message.isPrivateNote && (
+                        <div className="flex items-center mb-1">
+                          <Lock size={16} className="mr-1" />
+                          <span className="text-xs font-semibold">Private Note</span>
+                        </div>
                       )}
-                      {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
-                            checked={selectedMessages.includes(message)}
-                            onChange={() => handleSelectMessage(message)}
+                      {message.chat_id.includes('@g.us') && (
+                        <div className="pb-1 text-gray-400 dark:text-gray-200 font-medium">{message.from_name||'+'+message.from}</div>
+                      )}
+                      {message.type === 'text' && message.text?.context && (
+                        <div className="p-2 mb-2 rounded bg-gray-300 dark:bg-gray-300">
+                          <div className="text-sm font-medium text-gray-800 ">{message.text.context.quoted_author || ''}</div>
+                          <div className="text-sm text-gray-800 ">{message.text.context.quoted_content?.body || ''}</div>
+                        </div>
+                      )}
+                      {message.type === 'text' && (
+                        <div className={`whitespace-pre-wrap break-words overflow-hidden ${message.from_me ? myMessageTextClass : otherMessageTextClass}`} style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                          {formatText(message.text?.body || '')}
+                        </div>
+                      )}
+                      {message.type === 'image' && message.image && (
+                        <div className="p-0 message-content image-message">
+                          <img
+                            src={message.image.link || `https://mighty-dane-newly.ngrok-free.app${message.image.url}` || ''}
+                            alt="Image"
+                            className="rounded-lg message-image cursor-pointer"
+                            style={{ maxWidth: '300px' }}
+                            onClick={() => openImageModal(message.image?.link || `https://mighty-dane-newly.ngrok-free.app${message?.image?.url}`|| '')}
+                            onError={(e) => {
+                              console.error("Error loading image:", e.currentTarget.src);
+                              e.currentTarget.src = 'src/assets/images/Fallback Image.png'; // Replace with your fallback image path
+                            }}
                           />
+                          <div className="caption text-gray-800 ">{message.image.caption}</div>
+                        </div>
+                      )}
+                      {message.type === 'video' && message.video && (
+                        <div className="video-content p-0 message-content image-message">
+                          <video
+                            controls
+                            src={message.video.link}
+                            className="rounded-lg message-image cursor-pointer"
+                            style={{ maxWidth: '300px' }}
+                          />
+                          <div className="caption text-gray-800 dark:text-gray-200">{message.video.caption}</div>
+                        </div>
+                      )}
+                      {message.type === 'gif' && message.gif && (
+                        <div className="gif-content p-0 message-content image-message">
+                          <img
+                            src={message.gif.link}
+                            alt="GIF"
+                            className="rounded-lg message-image cursor-pointer"
+                            style={{ maxWidth: '300px' }}
+                            onClick={() => openImageModal(message.gif?.link || '')}
+                          />
+                          <div className="caption text-gray-800 dark:text-gray-200">{message.gif.caption}</div>
+                        </div>
+                      )}
+                      {message.type === 'audio' && message.audio && (
+                        <div className="audio-content p-0 message-content image-message">
+                          <audio controls src={message.audio.link} className="rounded-lg message-image cursor-pointer" />
+                        </div>
+                      )}
+                      {message.type === 'voice' && message.voice && (
+                        <div className="voice-content p-0 message-content image-message">
+                          <audio controls src={message.voice.link} className="rounded-lg message-image cursor-pointer" />
+                        </div>
+                      )}
+                      {message.type === 'document' && message.document && (
+                        <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
+                          <iframe
+                            src={message.document.link}
+                            width="100%"
+                            height="500px"
+                            title="PDF Document"
+                            className="border rounded cursor-pointer"
+                            onClick={() => openPDFModal(message.document?.link || '')}
+                          />
+                          <div className="flex-1 text-justify mt-3 w-full">
+                            <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">{message.document.file_name}</div>
+                            <div className="text-gray-600 dark:text-gray-400">
+                              {message.document.page_count} page
+                              {message.document.page_count > 1 ? 's' : ''} • PDF •{' '}
+                              {(message.document.file_size / (1024 * 1024)).toFixed(2)} MB
+                            </div>
+                          </div>
                           <button
-                            className="ml-2 text-blue-500 hover:text-gray-400 dark:text-blue-400 dark:hover:text-gray-600 fill-current"
-                            onClick={() => setReplyToMessage(message)}
+                            onClick={() => openPDFModal(message.document!.link)}
+                            className="mt-3"
                           >
-                            <Lucide icon="MessageSquare" className="w-5 h-5" />
+                            <Lucide icon="ExternalLink" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
                           </button>
-                          {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && (
-                            <button
-                              className="ml-2 text-white hover:text-gray-400 dark:text-gray-200 dark:hover:text-gray-400 fill-current"
-                              onClick={() => openEditMessage(message)}
-                            >
-                              <Lucide icon="Pencil" className="w-5 h-5" />
-                            </button>
+                        </div>
+                      )}
+                      {message.type === 'link_preview' && message.link_preview && (
+                        <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden text-gray-800 dark:text-gray-200">
+                          <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
+                            <img
+                              src={message.link_preview.preview}
+                              alt="Preview"
+                              className="w-full"
+                            />
+                            <div className="p-2">
+                              <div className="font-bold text-lg">{message.link_preview.title}</div>
+                              <div className="text-sm text-gray-800 dark:text-gray-200">{message.link_preview.description}</div>
+                              <div className="text-blue-500 mt-1">{message.link_preview.body}</div>
+                            </div>
+                          </a>
+                        </div>
+                      )}
+                      {message.type === 'sticker' && message.sticker && (
+                        <div className="sticker-content p-0 message-content image-message">
+                          <img
+                            src={message.sticker.link}
+                            alt="Sticker"
+                            className="rounded-lg message-image cursor-pointer"
+                            style={{ maxWidth: '150px' }}
+                            onClick={() => openImageModal(message.sticker?.link || '')}
+                          />
+                        </div>
+                      )}
+                      {message.type === 'location' && message.location && (
+                        <div className="location-content p-0 message-content image-message">
+                          <div className="text-sm text-gray-800 dark:text-gray-200">Location: {message.location.latitude}, {message.location.longitude}</div>
+                        </div>
+                      )}
+                      {message.type === 'poll' && message.poll && (
+                        <div className="poll-content p-0 message-content image-message">
+                          <div className="text-sm text-gray-800 dark:text-gray-200">Poll: {message.poll.title}</div>
+                        </div>
+                      )}
+                      {message.type === 'hsm' && message.hsm && (
+                        <div className="hsm-content p-0 message-content image-message">
+                          <div className="text-sm text-gray-800 dark:text-gray-200">HSM: {message.hsm.title}</div>
+                        </div>
+                      )}
+                      {message.type === 'action' && message.action && (
+                        <div className="action-content flex flex-col p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
+                          {message.action.type === 'delete' ? (
+                            <div className="text-gray-400 dark:text-gray-600">This message was deleted</div>
+                          ) : (
+                            /* Handle other action types */
+                            <div className="text-gray-800 dark:text-gray-200">{message.action.emoji}</div>
                           )}
                         </div>
                       )}
+                      {message.reactions && message.reactions.length > 0 && (
+                        <div className="flex items-center space-x-2 mt-1">
+                          {message.reactions.map((reaction, index) => (
+                            <div key={index} className="text-gray-500 dark:text-gray-400 text-sm flex items-center space-x-1">
+                              <span
+                                className="inline-flex items-center justify-center border border-white rounded-full bg-gray-200 dark:bg-gray-700"
+                                style={{ padding: '10px' }}
+                              >
+                                {reaction.emoji}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className={`message-timestamp text-xs ${message.from_me ? myMessageTextClass : otherMessageTextClass} mt-1`}>
+                        {formatTimestamp(message.createdAt || message.dateAdded)}
+                        {message.name && (
+                          <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>
+                        )}
+                        {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
+                              checked={selectedMessages.includes(message)}
+                              onChange={() => handleSelectMessage(message)}
+                            />
+                            <button
+                              className="ml-2 text-blue-500 hover:text-gray-400 dark:text-blue-400 dark:hover:text-gray-600 fill-current"
+                              onClick={() => setReplyToMessage(message)}
+                            >
+                              <Lucide icon="MessageSquare" className="w-5 h-5" />
+                            </button>
+                            {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && (
+                              <button
+                                className="ml-2 text-white hover:text-gray-400 dark:text-gray-200 dark:hover:text-gray-400 fill-current"
+                                onClick={() => openEditMessage(message)}
+                              >
+                                <Lucide icon="Pencil" className="w-5 h-5" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </React.Fragment>
-              );
-            })
+                  </React.Fragment>
+                );
+              })
+            }
+            
+            {/* New section for private notes */}
+            <div 
+              ref={privateNoteRef}
+              className="absolute right-4 bottom-20 w-80 z-10"
+            >
+              <button
+                onClick={() => togglePrivateNotes()}
+                className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-t-lg flex justify-between items-center"
+              >
+                <span>Private Notes</span>
+                <Lucide icon={isPrivateNotesExpanded ? "ChevronDown" : "ChevronUp"} className="w-5 h-5" />
+              </button>
+              <Transition
+                show={isPrivateNotesExpanded}
+                enter="transition ease-out duration-100 transform"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="transition ease-in duration-75 transform"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <div className="bg-white dark:bg-gray-800 border border-yellow-500 rounded-b-lg shadow-lg max-h-96 overflow-y-auto">
+                  {privateNotes[selectedChatId]?.length > 0 ? (
+                    privateNotes[selectedChatId]?.map((note) => (
+                      <div key={note.id} className="p-3 border-b border-yellow-200 dark:border-yellow-700">
+                        <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                          {note.text}
+                        </p>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          {new Date(note.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-3 text-gray-500 dark:text-gray-400">No private notes yet.</div>
+                  )}
+                </div>
+              </Transition>
+            </div>
+          </>
         )}
       </div>
       <div className="absolute bottom-0 left-0 w-500px !box m-1 py-1 px-2">
@@ -3638,7 +3932,29 @@ const handleForwardMessage = async () => {
             </button>
           </div>
         )}
-        <div className="flex items-center w-full">
+        <div className="flex">
+          <button
+            className={`px-4 py-2 rounded-t-lg transition-colors duration-200 ${
+              !isPrivateNote
+                ? 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-b-2 border-primary dark:border-blue-500'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
+            }`}
+            onClick={() => setIsPrivateNote(false)}
+          >
+            Message
+          </button>
+          <button
+            className={`px-4 py-2 rounded-t-lg transition-colors duration-200 ${
+              isPrivateNote
+                ? 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-b-2 border-primary dark:border-blue-500'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
+            }`}
+            onClick={() => setIsPrivateNote(true)}
+          >
+            Private Note
+          </button>
+        </div>
+        <div className="flex items-center w-full bg-gray-100 dark:bg-gray-800 rounded-b-lg p-2">
           <button className="p-2 m-0 !box" onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}>
             <span className="flex items-center justify-center w-5 h-5">
               <Lucide icon="Smile" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
@@ -3690,8 +4006,12 @@ const handleForwardMessage = async () => {
           </button>
           <textarea
             ref={textareaRef}
-            className="flex-grow h-10 px-2 py-1.5 m-1 ml-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-            placeholder="Type a message"
+            className={`flex-grow h-10 px-2 py-1.5 m-1 ml-2 border rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden ${
+              isPrivateNote 
+                ? 'bg-yellow-50 dark:bg-yellow-900 border-yellow-300 dark:border-yellow-700' 
+                : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700'
+            } text-gray-800 dark:text-gray-200`}
+            placeholder={isPrivateNote ? "Type a private note..." : "Type a message..."}
             value={newMessage}
             onChange={(e) => {
               setNewMessage(e.target.value);
@@ -3750,6 +4070,16 @@ const handleForwardMessage = async () => {
               }
             }}
           />
+          <button 
+            onClick={handleSendMessage}
+            className={`p-2 m-0 !box ${
+              isPrivateNote ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-primary hover:bg-primary-dark'
+            }`}
+          >
+            <span className="flex items-center justify-center w-5 h-5">
+              <Lucide icon={isPrivateNote ? "Lock" : "Send"} className="w-5 h-5 text-white" />
+            </span>
+          </button>
         </div>
         {isEmojiPickerOpen && (
           <div className="absolute bottom-20 left-2 z-10">
