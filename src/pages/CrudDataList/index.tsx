@@ -1831,17 +1831,31 @@ console.log(filteredContacts);
                 </div>
               ) : (
                   <>
-                    <FormInput
-                      type="text"
-                      className="relative w-full h-[40px] pr-10 !box text-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                      placeholder="Search..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    <Lucide
-                      icon="Search"
-                      className="absolute inset-y-0 right-5 w-5 h-5 my-auto text-gray-500 dark:text-gray-400"
-                    />
+                    <div className="relative">
+                      <FormInput
+                        type="text"
+                        className="relative w-full h-[40px] !box text-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                        placeholder="Search..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                      {searchQuery ? (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3"
+                        >
+                          <Lucide
+                            icon="X"
+                            className="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                          />
+                        </button>
+                      ) : (
+                        <Lucide
+                          icon="Search"
+                          className="absolute inset-y-0 right-0 items-center w-5 h-5 m-2 text-gray-500 dark:text-gray-400"
+                        />
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -1963,143 +1977,134 @@ console.log(filteredContacts);
             </div>
           </div>
         </div>
-        <div className="flex flex-col md:flex-row items-start md:items-center text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
-          <span className="mb-2 md:mb-0 text-left">Total Contacts: {initialContacts.length}</span>
-          {selectedTagFilter && <span className="mb-2 md:mb-0 md:ml-2 block md:inline text-left">(Filtered by: {selectedTagFilter})</span>}
-          {selectedContacts.length > 0 && (
-            <div className="inline-flex items-center p-2 mt-2 md:mt-0 md:ml-2 bg-gray-200 dark:bg-gray-700 rounded-md self-start md:self-auto">
-              <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">Selected: {selectedContacts.length}</span>
-            </div>
-          )}
-        </div>
-        <div className="w-full shadow-md sm:rounded-lg">
-          <div className="max-h-[calc(100vh-200px)] overflow-y-auto" ref={contactListRef}>
-            <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                <tr>
-                  <th scope="col" className="p-2 sm:p-4">
-                    <div className="flex items-center">
-                      <input
-                        id="checkbox-select-all"
-                        type="checkbox"
-                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                        checked={selectAll}
-                        onChange={toggleSelectAll}
-                      />
-                      <label htmlFor="checkbox-select-all" className="sr-only">
-                        Select All
-                      </label>
-                    </div>
-                  </th>
-                  <th scope="col" className="px-2 py-3 sm:px-6">Contact</th>
-                  <th scope="col" className="px-6 py-3 hidden md:table-cell">Phone Number</th>
-                  <th scope="col" className="px-6 py-3 hidden md:table-cell">Assigned To</th>
-                  <th scope="col" className="px-2 py-3 sm:px-6">Tags</th>
-                  <th scope="col" className="px-2 py-3 sm:px-6">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-              {filteredContacts.map((contact, index) => {
-                const employeeNames = employeeList.map(employee => employee.name.toLowerCase());
-                const employeeTags = (contact.tags ?? []).filter(tag => employeeNames.includes(tag.toLowerCase()));
-                const otherTags = (contact.tags ?? []).filter(tag => tagList.some(listTag => listTag.name === tag));
-                return (
-                  <tr
-                    key={index}
-                    className={`${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'} border-b dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600`}
+        <div className="flex flex-col">
+          <div className="sticky top-0 bg-white dark:bg-gray-900 z-10 py-2">
+            <div className="flex flex-col md:flex-row items-start md:items-center text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <span className="mb-2 md:mb-0 text-2xl text-left">Contacts</span>
+              {selectedTagFilter && (
+                <div 
+                  className="inline-flex items-center p-2 mt-2 md:mt-0 md:ml-2 bg-blue-100 dark:bg-blue-900 rounded-md self-start md:self-auto cursor-pointer"
+                  onClick={() => setSelectedTagFilter('')}
+                >
+                  <span className="text-xs text-blue-700 dark:text-blue-300 whitespace-nowrap font-medium">{selectedTagFilter}</span>
+                  <Lucide icon="X" className="w-4 h-4 ml-2 text-blue-700 dark:text-blue-300" />
+                </div>
+              )}
+              {selectedContacts.length > 0 && (
+                <div className="inline-flex items-center p-2 mt-2 md:mt-0 md:ml-2 bg-gray-200 dark:bg-gray-700 rounded-md self-start md:self-auto">
+                  <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">{selectedContacts.length} selected</span>
+                  <button
+                    onClick={() => setSelectedContacts([])}
+                    className="ml-2 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 focus:outline-none"
                   >
-                    <td className="p-2 sm:p-4">
-                      <div className="flex items-center">
-                        <input
-                          id={`checkbox-table-search-${index}`}
-                          type="checkbox"
-                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                          checked={selectedContacts.some((c) => c.phone === contact.phone)}
-                          onChange={() => toggleContactSelection(contact)}
-                        />
-                        <label htmlFor={`checkbox-table-search-${index}`} className="sr-only">
-                          checkbox
-                        </label>
-                      </div>
-                    </td>
-                    <td className="px-2 py-4 sm:px-6 sm:py-6 font-medium capitalize text-gray-900 dark:text-white whitespace-nowrap flex items-center max-w-[120px] sm:max-w-[200px] overflow-hidden">
-                      {contact.chat_pic_full ? (
-                        <img src={contact.chat_pic_full ?? ''} className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover mr-2 sm:mr-3 flex-shrink-0" />
-                      ) : (
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 mr-2 sm:mr-3 border-2 border-gray-500 dark:border-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Lucide icon="User" className="w-4 h-4 sm:w-6 sm:h-6 rounded-full text-gray-500 dark:text-gray-400" />
-                        </div>
-                      )}
-                      <span className="truncate">
-                        {contact.contactName ? (contact.lastName ? `${contact.contactName}` : contact.contactName) : contact.phone}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 hidden md:table-cell">{contact.phone ?? contact.source}</td>
-                    <td className="px-6 py-4 whitespace-nowrap dark:text-white hidden md:table-cell">
-                      {employeeTags.length > 0 ? (
-                        employeeTags.map((tag, index) => (
-                          <div key={index} className="flex items-center mr-2">
-                            <span className="mr-1 truncate">{tag}</span>
-                            <button
-                              className="p-1"
-                              onClick={() => handleRemoveTag(contact.id!, tag)}
-                            >
-                              <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700" />
-                            </button>
+                    <Lucide icon="X" className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="w-full flex-shrink">
+            <div className="h-[calc(150vh-200px)] overflow-y-auto" ref={contactListRef}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 m-1">
+                {filteredContacts.map((contact, index) => {
+                  const isSelected = selectedContacts.some((c) => c.phone === contact.phone);
+                  return (
+                    <div 
+                      key={index} 
+                      className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col cursor-pointer transition-all duration-200 ${
+                        isSelected ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''
+                      }`}
+                      onClick={() => toggleContactSelection(contact)}
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center overflow-hidden">
+                          {contact.chat_pic_full ? (
+                            <img src={contact.chat_pic_full ?? ''} className="w-10 h-10 rounded-full object-cover mr-3 flex-shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 mr-3 border-2 border-gray-500 dark:border-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Lucide icon="User" className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                            </div>
+                          )}
+                          <div className="overflow-hidden">
+                            <h3 className="font-medium text-lg text-gray-900 dark:text-white truncate">
+                              {contact.contactName ? (contact.lastName ? `${contact.contactName}` : contact.contactName) : contact.phone}
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{contact.phone ?? contact.source}</p>
                           </div>
-                        ))
-                      ) : (
-                        'Unassigned'
-                      )}
-                    </td>
-                    <td className="px-2 py-4 sm:px-6 whitespace-nowrap text-gray-900 dark:text-white">
-                      <div className="flex flex-wrap gap-1 max-w-[100px] sm:max-w-full overflow-hidden">
-                        {contact.tags && contact.tags.length > 0 ? (
-                          contact.tags.slice(0, 2).map((tag, index) => (
-                            <span key={index} className="inline-flex items-center px-1.5 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-100">
-                              <span className="truncate max-w-[50px] sm:max-w-[100px]">{tag}</span>
-                              <button
-                                className="ml-1 text-blue-400 hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-100"
-                                onClick={() => handleRemoveTag(contact.id!, tag)}
-                              >
-                                <Lucide icon="X" className="w-3 h-3" />
-                              </button>
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-gray-500 dark:text-gray-400">No tags</span>
-                        )}
-                        {contact.tags && contact.tags.length > 2 && (
-                          <span className="text-xs text-gray-500">+{contact.tags.length - 2}</span>
-                        )}
+                        </div>
+                        <Menu as="div" className="relative inline-block text-left ml-2">
+                          <Menu.Button className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 transition-colors duration-200">
+                            <Lucide icon="MoreVertical" className="w-4 h-4" />
+                          </Menu.Button>
+                          <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  className={`${active ? 'bg-gray-100 dark:bg-gray-700' : ''} group flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 transition-colors duration-200`}
+                                  onClick={() => {
+                                    setCurrentContact(contact);
+                                    setEditContactModal(true);
+                                  }}
+                                >
+                                  <Lucide icon="Eye" className="mr-3 h-5 w-5" />
+                                  View/Edit
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  className={`${active ? 'bg-gray-100 dark:bg-gray-700' : ''} group flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 transition-colors duration-200`}
+                                  onClick={() => handleClick(contact.phone)}
+                                >
+                                  <Lucide icon="MessageSquare" className="mr-3 h-5 w-5" />
+                                  Chat
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  className={`${active ? 'bg-gray-100 dark:bg-gray-700' : ''} group flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 transition-colors duration-200`}
+                                  onClick={() => {
+                                    setCurrentContact(contact);
+                                    setDeleteConfirmationModal(true);
+                                  }}
+                                >
+                                  <Lucide icon="Trash" className="mr-3 h-5 w-5" />
+                                  Delete
+                                </button>
+                              )}
+                            </Menu.Item>
+                          </Menu.Items>
+                        </Menu>
                       </div>
-                    </td>
-                    <td className="px-2 py-4 sm:px-6">
-                      <div className="flex flex-wrap gap-1 sm:gap-2">
-                        <button className="p-1 sm:p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-200" onClick={() => {
-                          setCurrentContact(contact);
-                          setEditContactModal(true);
-                        }}>
-                          <Lucide icon="Eye" className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </button>
-                        <button className="p-1 sm:p-2 rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors duration-200" onClick={() => {
-                          handleClick(contact.phone)
-                        }}>
-                          <Lucide icon="MessageSquare" className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </button>
-                        <button className="p-1 sm:p-2 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors duration-200" onClick={() => {
-                          setCurrentContact(contact);
-                          setDeleteConfirmationModal(true);
-                        }}>
-                          <Lucide icon="Trash" className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </button>
+                      <div className="flex items-center mt-1">
+                        <div className="flex-grow">
+                          <div className="flex flex-wrap gap-2">
+                            {contact.tags && contact.tags.length > 0 ? (
+                              contact.tags.map((tag, index) => (
+                                <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-100">
+                                  {tag}
+                                  <button
+                                    className="ml-1 text-blue-400 hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-100"
+                                    onClick={() => handleRemoveTag(contact.id!, tag)}
+                                  >
+                                    <Lucide icon="X" className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-sm text-gray-500 dark:text-gray-400">No tags</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </td>
-                  </tr>
-                );
+                    </div>
+                  );
                 })}
-              </tbody>
-            </table>
+              </div>
+            </div>
           </div>
         </div>
         <Dialog open={addContactModal} onClose={() => setAddContactModal(false)}>
