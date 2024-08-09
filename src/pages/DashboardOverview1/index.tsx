@@ -452,34 +452,6 @@ function Main() {
     <div className="flex flex-col min-h-screen overflow-x-hidden overflow-y-auto">
       <div className="flex-grow p-4">
         <div className="space-y-6">
-          {/* BEGIN: Employee Leaderboard */}
-          <div>
-            <h2 className="text-xl sm:text-2xl font-semibold mb-4">Employee Leaderboard</h2>
-            {loading ? (
-              <div className="text-center">
-                <LoadingIcon icon="spinning-circles" className="w-8 h-8 mx-auto" />
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                {employees.map((employee) => (
-                  <div key={employee.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                    <div className="flex items-center">
-                      <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
-                      <div>
-                        <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {employee.assignedContacts} assigned contacts
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          {/* END: Employee Leaderboard */}
-
-
           {/* BEGIN: Stats */}
           <h2 className="text-xl sm:text-2xl font-semibold mb-4">Key Performance Indicators</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -510,9 +482,33 @@ function Main() {
             ))}
           </div>
           {/* END: Stats */}
-          {/* BEGIN: Employee Bar Chart */}
+           {/* BEGIN: Employee Leaderboard */}
+           <div>
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4">Employee Leaderboard</h2>
+            {loading ? (
+              <div className="text-center">
+                <LoadingIcon icon="spinning-circles" className="w-8 h-8 mx-auto" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                {employees.map((employee) => (
+                  <div key={employee.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                    <div className="flex items-center">
+                      <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
+                      <div>
+                        <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {employee.assignedContacts} assigned contacts
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* END: Employee Leaderboard */}
           <div>
-            <h2 className="text-xl sm:text-2xl font-semibold mb-4">Employee Performance</h2>
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
               <div style={{ height: '50vh', minHeight: '300px' }}>
                 <Bar data={barChartData} options={barChartOptions} />
