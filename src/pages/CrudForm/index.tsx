@@ -251,7 +251,8 @@ setUserData({
 >
   <option value="1">Admin</option>
   <option value="2">Sales</option>
-  <option value="3">Others</option>
+  <option value="3">Observer</option>
+  <option value="4">Others</option>
 </select>
 
 </div>
