@@ -169,6 +169,8 @@ function Main() {
   const [editDocumentFile, setEditDocumentFile] = useState<File | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [stopbot, setStopbot] = useState(false);
+  const [userRole, setUserRole] = useState<string>("");
+
   useEffect(() => {
     if (initialContacts.length > 0) {
       loadMoreContacts();
@@ -248,6 +250,11 @@ const handleTagFilterChange = (tag: string) => {
 };
 
 const handleSaveNewContact = async () => {
+  if (userRole === "3") {
+    toast.error("You don't have permission to add contacts.");
+    return;
+  }
+
   try {
     console.log(newContact);
     
@@ -412,7 +419,7 @@ const handleConfirmDeleteTag = async () => {
     setContacts(contacts.map(contact => ({
       ...contact,
       tags: contact.tags ? contact.tags.filter(tag => tag !== tagToDelete.name) : []
-    })));
+    })))
 
     setShowDeleteTagModal(false);
     setTagToDelete(null);
@@ -544,6 +551,7 @@ const handleConfirmDeleteTag = async () => {
       role = userData.role;
       userName = userData.name;
       setShowAddUserButton(userData.role === "1");
+      setUserRole(userData.role); // Set the user's role
 
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
@@ -639,6 +647,10 @@ const handleConfirmDeleteTag = async () => {
 
   
   const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
+    if (userRole === "3") {
+      toast.error("You don't have permission to perform this action.");
+      return;
+    }
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -753,6 +765,10 @@ const handleConfirmDeleteTag = async () => {
   };
   
   const handleRemoveTag = async (contactId: string, tagName: string) => {
+    if (userRole === "3") {
+      toast.error("You don't have permission to perform this action.");
+      return;
+    }
     try {
       const user = auth.currentUser;
       if (!user) return;
@@ -947,6 +963,10 @@ const chatId = tempphone + "@c.us"
   };
 
   const handleDeleteContact = async () => {
+    if (userRole === "3") {
+      toast.error("You don't have permission to perform this action.");
+      return;
+    }
     if (currentContact) {
         try {
           const user = auth.currentUser;
@@ -1626,7 +1646,17 @@ console.log(filteredContacts);
                 <div className="w-full">
                   {/* Desktop view */}
                   <div className="hidden sm:flex sm:w-full sm:space-x-2">
-                    <button className="flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setAddContactModal(true)}>
+                    <button 
+                      className={`flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      onClick={() => {
+                        if (userRole !== "3") {
+                          setAddContactModal(true);
+                        } else {
+                          toast.error("You don't have permission to add contacts.");
+                        }
+                      }}
+                      disabled={userRole === "3"}
+                    >
                       <Lucide icon="Plus" className="w-5 h-5 mr-2" />
                       <span className="font-medium">Add Contact</span>
                     </button>
@@ -1721,28 +1751,59 @@ console.log(filteredContacts);
                         ))}
                       </Menu.Items>
                     </Menu>
-                    <button className="flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setBlastMessageModal(true)}>
+                    <button 
+                      className={`flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      onClick={() => {
+                        if (userRole !== "3") {
+                          setBlastMessageModal(true);
+                        } else {
+                          toast.error("You don't have permission to send blast messages.");
+                        }
+                      }}
+                      disabled={userRole === "3"}
+                    >
                       <Lucide icon="Send" className="w-5 h-5 mr-2" />
                       <span className="font-medium">Send Blast Message</span>
                     </button>
                     <button 
-                      className={`flex items-center justify-start p-2 !box ${
-                        isSyncing 
-                          ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed' 
-                          : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      } text-gray-700 dark:text-gray-300`}
-                      onClick={handleSyncConfirmation}
-                      disabled={isSyncing}
-                    >
-                      <Lucide icon="FolderSync" className="w-5 h-5 mr-2" />
-                      <span className="font-medium">
-                        {isSyncing ? 'Syncing...' : 'Sync Database'}
-                      </span>
-                    </button>
-                    <button className="flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setShowCsvImportModal(true)}>
-                      <Lucide icon="Upload" className="w-5 h-5 mr-2" />
-                      <span className="font-medium">Import CSV</span>
-                    </button>
+  className={`flex items-center justify-start p-2 !box ${
+    isSyncing || userRole === "3"
+      ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed' 
+      : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
+  } text-gray-700 dark:text-gray-300`}
+  onClick={() => {
+    if (userRole !== "3") {
+      handleSyncConfirmation();
+    } else {
+      toast.error("You don't have permission to sync the database.");
+    }
+  }}
+  disabled={isSyncing || userRole === "3"}
+>
+  <Lucide icon="FolderSync" className="w-5 h-5 mr-2" />
+  <span className="font-medium">
+    {isSyncing ? 'Syncing...' : 'Sync Database'}
+  </span>
+</button>
+
+<button 
+  className={`flex items-center justify-start p-2 !box ${
+    userRole === "3"
+      ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed' 
+      : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
+  } text-gray-700 dark:text-gray-300`}
+  onClick={() => {
+    if (userRole !== "3") {
+      setShowCsvImportModal(true);
+    } else {
+      toast.error("You don't have permission to import CSV files.");
+    }
+  }}
+  disabled={userRole === "3"}
+>
+  <Lucide icon="Upload" className="w-5 h-5 mr-2" />
+  <span className="font-medium">Import CSV</span>
+</button>
               
                   </div>
                   
@@ -2301,94 +2362,100 @@ console.log(filteredContacts);
         <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
           <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
             <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-40 text-gray-900 dark:text-white">
-              <div className="mb-4 text-lg font-semibold">Schedule Blast Message</div>
-              <textarea
-                className="w-full p-2 border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="Type your message here..."
-                value={blastMessage}
-                onChange={(e) => setBlastMessage(e.target.value)}
-                rows={3}
-                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-              ></textarea>
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Media (Image or Video)</label>
-                <input
-                  type="file"
-                  accept="image/*,video/*"
-                  onChange={(e) => handleMediaUpload(e)}
-                  className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Document</label>
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                  onChange={(e) => handleDocumentUpload(e)}
-                  className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Time</label>
-                <DatePicker
-                  selected={blastStartTime}
-                  onChange={(date: Date) => setBlastStartTime(date)}
-                  showTimeSelect
-                  dateFormat="MMMM d, yyyy h:mm aa"
-                  className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Quantity</label>
-                <input
-                  type="number"
-                  value={batchQuantity}
-                  onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
-                  min={1}
-                  className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Repeat Every</label>
-                <div className="flex items-center">
-                  <input
-                    type="number"
-                    value={repeatInterval}
-                    onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
-                    min={0}
-                    className="w-20 mr-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                  <select
-                    value={repeatUnit}
-                    onChange={(e) => setRepeatUnit(e.target.value as 'minutes' | 'hours' | 'days')}
-                    className="border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="minutes">Minutes</option>
-                    <option value="hours">Hours</option>
-                    <option value="days">Days</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex justify-end mt-4">
-              <button
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={sendBlastMessage}
-              disabled={isScheduling}
-            >
-              {isScheduling ? (
-                <div className="flex items-center">
-                  Scheduling...
-                </div>
+              <div className="mb-4 text-lg font-semibold">Send Blast Message</div>
+              {userRole === "3" ? (
+                <div className="text-red-500">You don't have permission to send blast messages.</div>
               ) : (
-                "Schedule Message"
+                <>
+                  <textarea
+                    className="w-full p-2 border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="Type your message here..."
+                    value={blastMessage}
+                    onChange={(e) => setBlastMessage(e.target.value)}
+                    rows={3}
+                    style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                  ></textarea>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Media (Image or Video)</label>
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      onChange={(e) => handleMediaUpload(e)}
+                      className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Document</label>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                      onChange={(e) => handleDocumentUpload(e)}
+                      className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Time</label>
+                    <DatePicker
+                      selected={blastStartTime}
+                      onChange={(date: Date) => setBlastStartTime(date)}
+                      showTimeSelect
+                      dateFormat="MMMM d, yyyy h:mm aa"
+                      className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Quantity</label>
+                    <input
+                      type="number"
+                      value={batchQuantity}
+                      onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
+                      min={1}
+                      className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Repeat Every</label>
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        value={repeatInterval}
+                        onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
+                        min={0}
+                        className="w-20 mr-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                      <select
+                        value={repeatUnit}
+                        onChange={(e) => setRepeatUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+                        className="border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="minutes">Minutes</option>
+                        <option value="hours">Hours</option>
+                        <option value="days">Days</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={sendBlastMessage}
+                      disabled={isScheduling}
+                    >
+                      {isScheduling ? (
+                        <div className="flex items-center">
+                          Scheduling...
+                        </div>
+                      ) : (
+                        "Send Blast Message"
+                      )}
+                    </button>
+                  </div>
+                  {isScheduling && (
+                    <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                      Please wait while we schedule your messages...
+                    </div>
+                  )}
+                </>
               )}
-            </button>
-          </div>
-          {isScheduling && (
-            <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
-              Please wait while we schedule your messages...
-            </div>
-          )}
             </Dialog.Panel>
           </div>
         </Dialog>

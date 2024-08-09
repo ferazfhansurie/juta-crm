@@ -23,6 +23,7 @@ const firebaseConfig = {
   measurementId: "G-2C9J1RY67L"
 };
 let companyId= "014";
+let role= "1";
 let ghlConfig ={
   ghl_id:'',
   ghl_secret:'',
@@ -48,10 +49,13 @@ function Main() {
   const [qrCodeImage, setQrCodeImage] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [canEdit, setCanEdit] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
   const [employeeIdToDelete, setEmployeeIdToDelete] = useState<string>('');
+  const [role, setRole] = useState<string>(""); // Added role state
+
   const toggleModal = (id?:string) => {
     setIsModalOpen(!isModalOpen);
     setEmployeeIdToDelete(id!)
@@ -104,7 +108,10 @@ async function fetchEmployees() {
     }
   
     const dataUser = docUserSnapshot.data();
-companyId = dataUser.companyId;
+    companyId = dataUser.companyId;
+    setRole(dataUser.role); // Use setRole here
+    setCanEdit(dataUser.role !== "3");  // Set editing permission based on role
+console.log(dataUser.role)
     const docRef = doc(firestore, 'companies', companyId);
           const docSnapshot = await getDoc(docRef);
           if (!docSnapshot.exists()) {
@@ -129,7 +136,7 @@ companyId = dataUser.companyId;
     setEmployeeList(employeeListData);
     
     // Check if user's role is 1
-    if (dataUser.role === "1") {
+    if (dataUser.role === "1" || dataUser.role === "3") {
       // If user's role is 1, set showAddUserButton to true
       setShowAddUserButton(true);
     } else {
@@ -247,7 +254,7 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
       <div className="grid grid-cols-12 gap-6 mt-5">
         <div className="flex flex-wrap items-center col-span-12 mt-2 intro-y sm:flex-nowrap">
           <Link to="crud-form">
-            {showAddUserButton && (
+            {showAddUserButton || role !== "3" && (
               <Button variant="primary" className="mr-2 shadow-md">
                 Add New User
               </Button>
@@ -278,25 +285,29 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
                         {contact.name}
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {contact.role === "2" ? 'Sales' : contact.role === "1" ? 'Admin' : "Other"}
+                      {contact.role === "1" ? 'Admin' : contact.role === "2" ? 'Sales' : contact.role === "3" ? 'Observer' : "Other"}
                       </p>
                     </div>
                     <div className="flex space-x-2">
-                      <button
-                        onClick={() => navigate(`crud-form`, { state: { contactId: contact.id, contact: contact, companyId: companyId || '' } })}
-                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-full transition-colors duration-300"
-                        aria-label="Edit"
-                      >
-                        <Lucide icon="Pencil" className="w-5 h-5" />
-                      </button>
-                      <button 
-                        onClick={() => toggleModal(contact.id)}
-                        className="p-2 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors duration-300"
-                        aria-label="Delete"
-                      >
-                        <Lucide icon="Trash" className="w-5 h-5" />
-                      </button>
-                    </div>
+  {canEdit && (
+    <>
+      <button
+        onClick={() => navigate(`crud-form`, { state: { contactId: contact.id, contact: contact, companyId: companyId || '' } })}
+        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-full transition-colors duration-300"
+        aria-label="Edit"
+      >
+        <Lucide icon="Pencil" className="w-5 h-5" />
+      </button>
+      <button 
+        onClick={() => toggleModal(contact.id)}
+        className="p-2 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors duration-300"
+        aria-label="Delete"
+      >
+        <Lucide icon="Trash" className="w-5 h-5" />
+      </button>
+    </>
+  )}
+</div>
                   </div>
                   {/* Add more employee details here if needed */}
                 </div>

@@ -434,7 +434,7 @@ function Main() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isChatActive, setIsChatActive] = useState(false);
-
+  const [userRole, setUserRole] = useState<string>("");
 
   useEffect(() => {
     // Check if a chat is active based on the URL
@@ -987,7 +987,7 @@ async function fetchConfigFromDatabase() {
       return;
     }
     const dataUser = docUserSnapshot.data() as UserData;
-
+    setUserRole(dataUser.role);
     if (!dataUser || !dataUser.companyId) {
       console.error('Invalid user data or companyId');
       return;
@@ -2226,10 +2226,14 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
   };
 
 const toggleStopBotLabel = async (contact: Contact, index: number, event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+
   event.preventDefault();
   event.stopPropagation();
   console.log('Toggling stop bot label for contact:', contact.id);
- 
+  if (userRole === "3") {
+    toast.error("You don't have permission to control the bot.");
+    return;
+  }
   try {
     const user = auth.currentUser;
     if (!user) {
@@ -3250,6 +3254,10 @@ const handleForwardMessage = async () => {
     }
   };
   const toggleBot = async () => {
+    if (userRole === "3") {
+      toast.error("You don't have permission to control the bot.");
+      return;
+    }
     try {
       const user = auth.currentUser;
       if (!user) return;
@@ -3549,8 +3557,9 @@ const handleForwardMessage = async () => {
 <button 
   className={`flex items-center justify-start p-2 !box ${
     stopbot ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
-  }`} 
+  } ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`} 
   onClick={toggleBot}
+  disabled={userRole === "3"}
 >
   <Lucide 
     icon={stopbot ? 'PowerOff' : 'Power'} 
@@ -4105,7 +4114,7 @@ const handleForwardMessage = async () => {
                             >
                               <Lucide icon="MessageSquare" className="w-5 h-5" />
                             </button>
-                            {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && (
+                            {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && userRole !== "3" && (
                               <button
                                 className="ml-2 text-white hover:text-gray-400 dark:text-gray-200 dark:hover:text-gray-400 fill-current"
                                 onClick={() => openEditMessage(message)}
@@ -4349,6 +4358,7 @@ const handleForwardMessage = async () => {
                 setImageModalOpen2(true);
               }
             }}
+            disabled={userRole === "3"}
           />
         </div>
         {isEmojiPickerOpen && (

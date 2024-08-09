@@ -153,6 +153,7 @@ const Main: React.FC = () => {
   const [isFloating, setIsFloating] = useState(true);
   const [loading, setLoading] = useState<boolean>(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [userRole, setUserRole] = useState<string>("");
 
   useEffect(() => {
     fetchCompanyId();
@@ -195,6 +196,7 @@ const Main: React.FC = () => {
       const dataUser = docUserSnapshot.data();
       setCompanyId(dataUser.companyId);
       setThreadId(dataUser.threadid); // Set threadId here
+      setUserRole(dataUser.role); // Set the user's role
     } catch (error) {
       console.error("Error fetching company ID:", error);
       setError("Failed to fetch company ID");
@@ -275,6 +277,11 @@ const Main: React.FC = () => {
   };
 
   const updateAssistantInfo = async () => {
+    if (userRole === "3") {
+      setError("You do not have permission to edit the assistant.");
+      return;
+    }
+
     if (!assistantInfo || !assistantId || !apiKey) {
       console.error("Assistant info, assistant ID, or API key is missing.");
       setError("Assistant info, assistant ID, or API key is missing.");
@@ -493,6 +500,7 @@ const Main: React.FC = () => {
                     value={assistantInfo ? assistantInfo.name : ''}
                     onChange={handleInputChange}
                     onFocus={handleFocus}
+                    disabled={userRole === "3"}
                   />
                 </div>
                 <div className="mb-4">
@@ -506,6 +514,7 @@ const Main: React.FC = () => {
                     value={assistantInfo ? assistantInfo.description : ''}
                     onChange={handleInputChange}
                     onFocus={handleFocus}
+                    disabled={userRole === "3"}
                   />
                 </div>
                 <div className="mb-4">
@@ -522,6 +531,7 @@ const Main: React.FC = () => {
                           value={instruction.title}
                           onChange={(e) => handleInstructionChange(index, 'title', e.target.value)}
                           onFocus={handleFocus}
+                          disabled={userRole === "3"}
                         />
                         <textarea
                           className="w-full p-2 border border-gray-300 rounded h-32 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
@@ -529,12 +539,14 @@ const Main: React.FC = () => {
                           value={instruction.content}
                           onChange={(e) => handleInstructionChange(index, 'content', e.target.value)}
                           onFocus={handleFocus}
+                          disabled={userRole === "3"}
                         />
                       </div>
                       <button
                         onClick={() => deleteInstructionField(index)}
                         className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                         onFocus={handleFocus}
+                        disabled={userRole === "3"}
                       >
                         ✖
                       </button>
@@ -545,7 +557,9 @@ const Main: React.FC = () => {
                   <button 
                     onClick={addInstructionField} 
                     className="px-4 py-2 m-2 bg-primary text-white rounded active:scale-95"
-                    onFocus={handleFocus}>
+                    onFocus={handleFocus}
+                    disabled={userRole === "3"}
+                  >
                     Add Instruction
                   </button>
                 </div>
@@ -553,8 +567,9 @@ const Main: React.FC = () => {
                   <button 
                     ref={updateButtonRef}
                     onClick={updateAssistantInfo} 
-                    className={`px-4 py-2 m-2 bg-primary text-white rounded transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95`}
+                    className={`px-4 py-2 m-2 bg-primary text-white rounded transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95 ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onFocus={handleFocus}
+                    disabled={userRole === "3"}
                   >
                     Update Assistant
                   </button>
