@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp} from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp, runTransaction } from "firebase/firestore";
 import {QueryDocumentSnapshot, DocumentData ,Query,CollectionReference, startAfter,limit} from 'firebase/firestore'
 import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
@@ -292,10 +292,47 @@ const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
 const auth = getAuth(app);
 
+// Add this new function after the existing function declarations and before the Main function
+const updateEmployeeAssignedContacts = async (employeeName: string, increment: boolean) => {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) return;
+
+    const userData = docUserSnapshot.data();
+    const companyId = userData.companyId;
+
+    const employeeCollectionRef = collection(firestore, `companies/${companyId}/employee`);
+    const q = query(employeeCollectionRef, where("name", "==", employeeName));
+    
+    await runTransaction(firestore, async (transaction) => {
+      const querySnapshot = await getDocs(q);
+      if (querySnapshot.empty) {
+        console.error(`No employee found with name ${employeeName}`);
+        return;
+      }
+
+      const employeeDoc = querySnapshot.docs[0];
+      const currentData = employeeDoc.data();
+      const currentCount = currentData.assignedContacts || 0;
+      const newCount = increment ? currentCount + 1 : Math.max(0, currentCount - 1);
+
+      transaction.update(employeeDoc.ref, { assignedContacts: newCount });
+      
+      console.log(`Total contacts assigned to ${employeeName}: ${newCount}`);
+    });
+
+  } catch (error) {
+    console.error('Error updating employee assigned contacts:', error);
+  }
+};
+
 function Main() {
   const { contacts: initialContacts, isLoading } = useContacts();
   const [contacts, setContacts] = useState<Contact[]>([]);
-
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
@@ -389,9 +426,41 @@ function Main() {
   const privateNoteRef = useRef<HTMLDivElement>(null);
   const [newPrivateNote, setNewPrivateNote] = useState('');
   const [isPrivateNotesMentionOpen, setIsPrivateNotesMentionOpen] = useState(false);
+  const [showAllContacts, setShowAllContacts] = useState(true);
+  const [showUnreadContacts, setShowUnreadContacts] = useState(false);
   const [activeTab, setActiveTab] = useState<'messages' | 'privateNotes'>('messages');
   const [showEmployeeList, setShowEmployeeList] = useState(false);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [isChatActive, setIsChatActive] = useState(false);
+
+
+  useEffect(() => {
+    // Check if a chat is active based on the URL
+    const params = new URLSearchParams(location.search);
+    const chatId = params.get("chatId");
+    setIsChatActive(!!chatId);
+    setSelectedChatId(chatId);
+    
+    if (chatId) {
+      setSelectedChatId(chatId);
+      // Fetch chat data and messages
+      fetchMessages(chatId, whapiToken!);
+    } else {
+      // Clear chat data when no chat is selected
+      setSelectedChatId(null);
+      setMessages([]);
+    }
+  }, [location]);
+
+  const handleBack = () => {
+    navigate("/"); // or wherever you want to navigate to
+    setIsChatActive(false);
+    setSelectedChatId(null);
+    setMessages([]);
+  };
+  
 
   useEffect(() => {
     updateVisibleTags();
@@ -411,14 +480,19 @@ function Main() {
   }, [privateNoteRef]);
 
   const updateVisibleTags = () => {
+    const allUnreadTags = [
+      { id: 'all', name: 'All' },
+      { id: 'unread', name: 'Unread' }
+    ];
+
     if (isTagsExpanded) {
-      setVisibleTags(tagList);
+      setVisibleTags([...allUnreadTags, ...tagList]);
     } else {
       const containerWidth = 300; // Adjust this based on your container width
       const tagWidth = 100; // Approximate width of each tag button
       const tagsPerRow = Math.floor(containerWidth / tagWidth);
-      const visibleTagsCount = tagsPerRow * 2; // Two rows
-      setVisibleTags(tagList.slice(0, visibleTagsCount));
+      const visibleTagsCount = tagsPerRow * 2 - 2; // Two rows, minus All and Unread
+      setVisibleTags([...allUnreadTags, ...tagList.slice(0, visibleTagsCount)]);
     }
   };
 
@@ -1058,6 +1132,11 @@ async function fetchConfigFromDatabase() {
     }
     setSelectedContact(contact);
     setSelectedChatId(chatId);
+
+    navigate(`?chatId=${chatId}`);
+    setIsChatActive(true);
+    setSelectedChatId(chatId);
+    
     try {
       const user = auth.currentUser;
       if (user) {
@@ -2212,76 +2291,62 @@ const toggleStopBotLabel = async (contact: Contact, index: number, event: React.
   }
 };
 
-  const handleAddTagToSelectedContacts = async (selectedEmployee: string, contact: any) => {
-    const user = auth.currentUser;
-    console.log(selectedEmployee);
-    if (!user) {
-      console.log('No authenticated user');
-      return;
-    }
-  
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.log('No such document for user!');
-      return;
-    }
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      console.log('No such document for company!');
-      return;
-    }
-    const companyData = docSnapshot.data();
-  
-    console.log(selectedEmployee);
-    if (selectedEmployee) {
-      const tagName = selectedEmployee;
-  
-      // Merge existing tags with the new tag
-      const updatedTags = [...new Set([...(contact.tags || []), tagName])];
-  
-      const success = await updateContactTags(contact.id, updatedTags, true);
-      if (success) {
-        // Update the selected contact's tags directly
-        setContacts(prevContacts =>
-          prevContacts.map(c =>
-            c.id === contact.id ? { ...c, tags: updatedTags } : c
-          )
-        );
-  
-        // Update the selected contact if it's the same as the one being updated
-        if (selectedContact?.id === contact.id) {
-          setSelectedContact((prevContact: any) => ({
-            ...prevContact,
-            tags: updatedTags,
-          }));
+  const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) return;
+
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+      const contactRef = doc(firestore, `companies/${companyId}/contacts`, contact.id!);
+
+      await runTransaction(firestore, async (transaction) => {
+        const contactDoc = await transaction.get(contactRef);
+        if (!contactDoc.exists()) {
+          console.error('Contact document does not exist');
+          return;
         }
-  
-        // Update local storage
-        let storedContacts = [];
-        try {
-          storedContacts = JSON.parse(LZString.decompress(localStorage.getItem('contacts') || '[]'));
-          if (!Array.isArray(storedContacts)) {
-            throw new Error('Parsed data is not an array');
+
+        const currentTags = contactDoc.data().tags || [];
+        const isEmployeeTag = employeeList.some(employee => employee.name.toLowerCase() === tagName.toLowerCase());
+
+        if (!currentTags.includes(tagName)) {
+          const updatedTags = [...currentTags, tagName];
+          transaction.update(contactRef, { tags: updatedTags });
+
+          if (isEmployeeTag) {
+            await updateEmployeeAssignedContacts(tagName, true);
           }
-        } catch (error) {
-          console.error('Error parsing contacts from local storage:', error);
-          storedContacts = [];
+        } else {
+          const updatedTags = currentTags.filter((tag: string) => tag !== tagName);
+          transaction.update(contactRef, { tags: updatedTags });
+
+          if (isEmployeeTag) {
+            await updateEmployeeAssignedContacts(tagName, false);
+          }
         }
-  
-        const updatedContacts = storedContacts.map((c: Contact) =>
+      });
+
+      // Update local state
+      setContacts(prevContacts =>
+        prevContacts.map(c =>
           c.id === contact.id
-            ? { ...c, tags: updatedTags }
+            ? { ...c, tags: c.tags?.includes(tagName) 
+                ? c.tags.filter(tag => tag !== tagName)
+                : [...(c.tags || []), tagName] }
             : c
-        );
-        localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
-  
-        sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been updated in this session
-        toast.success("Tag added successfully!");
-      }
+        )
+      );
+
+      toast.success('Contact updated successfully!');
+    } catch (error) {
+      console.error('Error updating contact:', error);
+      toast.error('Failed to update contact.');
     }
   };
   
@@ -2443,11 +2508,27 @@ const openEditMessage = (message: Message) => {
     setFilteredContactsForForwarding(filtered);
   };
 
-  const filterTagContact = (tag: string) => {
-    setActiveTags((prevTags) =>
-      prevTags.includes(tag) ? prevTags.filter((t) => t !== tag) : [...prevTags, tag]
-    );
+  const filterTagContact = (tagName: string) => {
+    if (tagName === 'All') {
+      setShowAllContacts(true);
+      setShowUnreadContacts(false);
+      setActiveTags([]);
+    } else if (tagName === 'Unread') {
+      setShowAllContacts(false);
+      setShowUnreadContacts(true);
+      setActiveTags(['Unread']);
+    } else {
+      setShowAllContacts(false);
+      setShowUnreadContacts(false);
+      if (activeTags.includes(tagName)) {
+        setActiveTags(activeTags.filter(tag => tag !== tagName));
+      } else {
+        setActiveTags([...activeTags, tagName]);
+      }
+    }
   };
+
+  
   
   useEffect(() => {
     let filteredContacts = contacts;
@@ -2460,13 +2541,14 @@ const openEditMessage = (message: Message) => {
         const lastName = contact.lastName?.toLowerCase() || '';
         const phone = contact.phone?.toLowerCase() || '';
         const tags = contact.tags?.map(tag => tag.toLowerCase()) || [];
+        const query = searchQuery.toLowerCase();
 
         return (
-          name.includes(searchQuery) ||
-          firstName.includes(searchQuery) ||
-          lastName.includes(searchQuery) ||
-          phone.includes(searchQuery) ||
-          tags.some(tag => tag.includes(searchQuery))
+          name.includes(query) ||
+          firstName.includes(query) ||
+          lastName.includes(query) ||
+          phone.includes(query) ||
+          tags.some(tag => tag.includes(query))
         );
       });
     }
@@ -2478,8 +2560,20 @@ const openEditMessage = (message: Message) => {
       );
     }
 
+    // Apply unread filter
+    if (showUnreadContacts) {
+      filteredContacts = filteredContacts.filter((contact) => (contact.unreadCount ?? 0) > 0);
+    }
+
+    // Apply pinned filter
+    filteredContacts.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return 0;
+    });
+
     setFilteredContacts(filteredContacts);
-  }, [contacts, searchQuery, activeTags]);
+  }, [contacts, searchQuery, activeTags, showUnreadContacts]);
 
   const handleSelectMessage = (message: Message) => {
     setSelectedMessages(prevSelectedMessages =>
@@ -2607,7 +2701,7 @@ const handleForwardMessage = async () => {
       if (event.key === "Escape") {
         console.log('escape');
         setSelectedContact(null);
-        setSelectedChatId(null);
+    setSelectedChatId(null);
       }
     };
   
@@ -2814,7 +2908,7 @@ const handleForwardMessage = async () => {
     }
   };
   const isSameDay = (date1: Date, date2: Date) => {
-    return (
+  return (
       date1.getFullYear() === date2.getFullYear() &&
       date1.getMonth() === date2.getMonth() &&
       date1.getDate() === date2.getDate()
@@ -2858,6 +2952,12 @@ const handleForwardMessage = async () => {
         tags: arrayRemove(tagName)
       });
   
+      // Check if the removed tag is an employee tag
+      const isEmployeeTag = employeeList.some(employee => employee.name.toLowerCase() === tagName.toLowerCase());
+      if (isEmployeeTag) {
+        await updateEmployeeAssignedContacts(tagName, false);
+      }
+
       // Update state
       setContacts(prevContacts =>
         prevContacts.map(contact =>
@@ -3346,9 +3446,9 @@ const handleForwardMessage = async () => {
                                 >
                                   {tag.name}
                                 </button>
-                              ))}
-                            </div>
-                          </div>
+          ))}
+        </div>
+      </div>
                         </div>
                         <div className="max-h-60 overflow-y-auto">
                           {filteredContactsForForwarding.map((contact, index) => (
@@ -3503,12 +3603,12 @@ const handleForwardMessage = async () => {
           >
             <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
             <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
-                </button>
+            </button>
         </Menu.Item>
       ))}
     </Menu.Items>
   </Menu>
-            </div>
+          </div>
           </div>
   <div className="border-b border-gray-300 dark:border-gray-700 mt-4"></div>
 
@@ -3519,6 +3619,8 @@ const handleForwardMessage = async () => {
       key={tag.id}
       onClick={() => filterTagContact(tag.name)}
       className={`px-3 py-1 rounded-full text-sm ${
+        (tag.name === 'All' && showAllContacts) ||
+        (tag.name === 'Unread' && showUnreadContacts) ||
         activeTags.includes(tag.name)
           ? 'bg-primary text-white dark:bg-primary dark:text-white'
           : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
@@ -3542,8 +3644,8 @@ const handleForwardMessage = async () => {
       <div className="flex items-center justify-center">
         <Lucide icon="ChevronDown" className="w-4 h-4 mr-1" />
         <span>Show More</span>
-      </div>
-    )}
+        </div>
+      )}
   </button>
 )}
 <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
@@ -3589,26 +3691,41 @@ const handleForwardMessage = async () => {
                 const employeeTags = contact.tags?.filter(tag =>
                   employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
                 ) || [];
-
+              
                 const otherTags = contact.tags?.filter(tag =>
                   !employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
                 ) || [];
-
+              
+                // Create a unique set of all tags
+                const uniqueTags = Array.from(new Set([...otherTags]));
+              
                 return (
                   <>
                     {employeeTags.length > 0 && (
-                      <Tippy content={employeeTags.join(', ')}>
+                      <Tippy
+                        content={employeeTags.join(', ')}
+                        options={{ 
+                          interactive: true,
+                          appendTo: () => document.body
+                        }}
+                      >
                         <span className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200 text-xs font-semibold mr-1 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
                           <Lucide icon="User" className="w-4 h-4 inline-block" />
                           <span className="ml-1">{employeeTags.length}</span>
                         </span>
                       </Tippy>
                     )}
-                    {otherTags.length > 0 && (
-                      <Tippy content={otherTags.join(', ')}>
-                        <span className="bg-green-100 text-primary dark:bg-blue-800 dark:text-blue-200 text-xs font-semibold mr-1 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
+                    {uniqueTags.length > 0 && (
+                      <Tippy
+                        content={uniqueTags.join(', ')}
+                        options={{ 
+                          interactive: true,
+                          appendTo: () => document.body
+                        }}
+                      >
+                        <span className="bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200 text-xs font-semibold mr-1 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
                           <Lucide icon="Tag" className="w-4 h-4 inline-block" />
-                          <span className="ml-1">{otherTags.length}</span>
+                          <span className="ml-1">{uniqueTags.length}</span>
                         </span>
                       </Tippy>
                     )}
@@ -3647,7 +3764,7 @@ const handleForwardMessage = async () => {
           <span className="text-sm truncate text-gray-600 dark:text-gray-400" style={{ width: '200px' }}>
             {(contact.last_message?.type === "text") ? contact.last_message?.text?.body ?? "No Messages" : "Photo"}
           </span>
-          {contact.unreadCount! > 0 && (
+          {(contact.unreadCount ?? 0) > 0 && (
             <span className="bg-primary text-white dark:bg-blue-600 dark:text-gray-200 text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
           )}
           <div onClick={(e) => toggleStopBotLabel(contact, index, e)}>
@@ -3671,16 +3788,13 @@ const handleForwardMessage = async () => {
               </div>
         </div>
       <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 dark:bg-gray-900 relative flext-1 overflow-hidden">
-  {selectedContact ? (
+  {selectedChatId ? (
     <>
-      <div className="flex items-center justify-between p-1 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
-        <button 
-          className="md:hidden p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
-          onClick={() => setSelectedChatId(null)}
-        >
-          <Lucide icon="ChevronLeft" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
-        </button>
+      <div className="flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
         <div className="flex items-center">
+        <button onClick={handleBack} className="back-button p-2 text-lg">
+            <Lucide icon="ChevronLeft" className="w-6 h-6" />
+          </button>
           <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3 ml-2">
             {selectedContact.chat_pic_full ? (
               <img src={selectedContact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
@@ -3784,7 +3898,7 @@ const handleForwardMessage = async () => {
                   ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass)
                   : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass);
 
-                return (
+  return (
                   <React.Fragment key={message.id}>
                     {showDateHeader && (
                       <div className="flex justify-center my-4">
@@ -3968,9 +4082,9 @@ const handleForwardMessage = async () => {
                               >
                                 {reaction.emoji}
                               </span>
-                            </div>
-                          ))}
-                        </div>
+            </div>
+          ))}
+        </div>
                       )}
                       <div className={`message-timestamp text-xs ${message.from_me ? myMessageTextClass : otherMessageTextClass} mt-1`}>
                         {formatTimestamp(message.createdAt || message.dateAdded)}
@@ -3999,7 +4113,7 @@ const handleForwardMessage = async () => {
                                 <Lucide icon="Pencil" className="w-5 h-5" />
                               </button>
                             )}
-                          </div>
+      </div>
                         )}
                       </div>
                     </div>
@@ -4033,7 +4147,7 @@ const handleForwardMessage = async () => {
               <div className="absolute bottom-full mb-2 left-0 bg-white dark:bg-gray-800 border border-yellow-500 rounded-lg shadow-lg w-80 max-h-96 overflow-y-auto">
                 <div className="sticky top-0 bg-yellow-100 dark:bg-yellow-900 p-3 border-b border-yellow-300 dark:border-yellow-700">
                   <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200">Private Notes</h3>
-                </div>
+          </div>
                 {privateNotes[selectedChatId]?.length > 0 ? (
                   privateNotes[selectedChatId]?.map((note) => (
                     <div key={note.id} className="p-4 border-b border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900 transition-colors duration-150">
@@ -4048,7 +4162,7 @@ const handleForwardMessage = async () => {
                         >
                           <Lucide icon="Trash2" className="w-4 h-4" />
                         </button>
-                      </div>
+        </div>
                     </div>
                   ))
                 ) : (
@@ -4245,8 +4359,11 @@ const handleForwardMessage = async () => {
       </div>
     </>
   ) : (
-    <div className="flex items-center justify-center h-full">
-      <p className="text-gray-500 dark:text-gray-400 text-lg">Select a chat to start messaging</p>
+    <div className="hidden md:flex flex-col w-full h-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 items-center justify-center">
+      <div className="flex flex-col items-center justify-center p-8 rounded-lg shadow-lg bg-gray-100 dark:bg-gray-700">
+        <Lucide icon="MessageSquare" className="w-16 h-16 text-blue-500 dark:text-blue-400 mb-4" />
+        <p className="text-gray-700 dark:text-gray-300 text-lg text-center">Select a chat to start messaging</p>
+      </div>
     </div>
   )}
 </div>

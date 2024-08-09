@@ -23,12 +23,16 @@ import { initializeApp } from "firebase/app";
 import { DocumentData, DocumentReference, getDoc, getDocs, onSnapshot } from 'firebase/firestore';
 import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import { onMessage } from "firebase/messaging";
-import { useNavigate } from "react-router-dom"; // Add this import
+import { useNavigate } from "react-router-dom";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { Bar, Doughnut } from "react-chartjs-2";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { BarChart } from "lucide-react";
 import { useContacts } from "@/contact";
-import { User } from 'lucide-react'; // Add this import
+import { User } from 'lucide-react';
+
+// Register ChartJS components
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -85,13 +89,12 @@ function Main() {
     id: string;
     name: string;
     role: string;
-    conversations?: number; // Add this line
+    uid: string;
+    assignedContacts?: number;
     // Add other properties as needed
   }
   
-  const [salesReportFilter, setSalesReportFilter] = useState<string>();
   const importantNotesRef = useRef<TinySliderElement>();
-  const [, setData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -117,6 +120,7 @@ function Main() {
       (notification.text && notification.text.body.toLowerCase().includes(searchQuery))
     );
   });
+
   const saveTokenToFirestore = async (userId: string, token: string) => {
     try {
       await setDoc(doc(firestore, "user", userId), {
@@ -356,210 +360,166 @@ function Main() {
     
       const dataUser = docUserSnapshot.data();
       companyId = dataUser.companyId;
-
+  
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
-
+  
       const employeeListData: Employee[] = [];
       employeeSnapshot.forEach((doc) => {
-        employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
+        const employeeData = doc.data() as Employee;
+        employeeListData.push({
+          ...employeeData,
+          id: doc.id,
+          assignedContacts: employeeData.assignedContacts || 0
+        });
       });
 
-      // Sort employees by number of conversations (descending order)
-      employeeListData.sort((a, b) => (b.conversations || 0) - (a.conversations || 0));
+      // Sort employees by number of assigned contacts (descending order)
+      employeeListData.sort((a, b) => (b.assignedContacts || 0) - (a.assignedContacts || 0));
 
-      // Take top 4 employees
-      const topEmployees = employeeListData.slice(0, 4);
+      // Take top 10 employees for the leaderboard
+      const topEmployees = employeeListData.slice(0, 10);
       
       setEmployees(topEmployees);
+
+      // Console.table the employees and their assignedContacts
+      console.table(topEmployees.map(({ id, name, assignedContacts }) => ({ id, name, assignedContacts })));
     
     } catch (error) {
-      console.error('Error fetching employees:', error);
+      console.error('Error fetching employees and chats:', error);
     }
   }
 
+  // Prepare data for the bar chart
+  const barChartData = {
+    labels: employees.map(employee => employee.name),
+    datasets: [
+      {
+        label: 'Assigned Contacts',
+        data: employees.map(employee => Math.round(employee.assignedContacts || 0)),
+        backgroundColor: employees.map(() => `rgba(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, 0.6)`),
+        barPercentage: 0.25, // Make bars slimmer
+        categoryPercentage: 0.8,
+      },
+    ],
+  };
+
+  const barChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Assigned Contacts',
+          color: 'rgb(75, 85, 99)', // text-gray-600
+        },
+        ticks: {
+          color: 'rgb(107, 114, 128)', // text-gray-500
+          stepSize: 1,
+          callback: function(value: number | string) {
+            if (Number.isInteger(Number(value))) {
+              return value;
+            }
+          }
+        },
+      },
+      x: {
+        title: {
+          display: true,
+          text: 'Employees',
+          color: 'rgb(75, 85, 99)', // text-gray-600
+        },
+        ticks: {
+          color: 'rgb(107, 114, 128)', // text-gray-500
+        },
+      },
+    },
+    plugins: {
+      legend: {
+        display: false,
+      },
+      title: {
+        display: true,
+        text: 'Employee Performance',
+        color: 'rgb(31, 41, 55)', // text-gray-800
+      },
+    },
+  } as const;
+
   return (
-    <div className="grid grid-cols-12 gap-6">
-      <div className="col-span-12 2xl:col-span-9">
-        <div className="grid grid-cols-12 gap-6">
+    <div className="flex flex-col min-h-screen overflow-x-hidden overflow-y-auto">
+      <div className="flex-grow p-4">
+        <div className="space-y-6">
           {/* BEGIN: Employee Leaderboard */}
-          <div className="col-span-12 mt-8">
-            <div className="intro-y flex items-center h-10">
-              <h2 className="text-xl sm:text-2xl font-semibold truncate mr-5">Employee Leaderboard</h2>
-            </div>
-            <div className="intro-y mt-2">
-              {loading ? (
-                <div className="text-center">
-                  <LoadingIcon icon="spinning-circles" className="w-8 h-8 mx-auto" />
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {employees.map((employee) => (
-                    <div key={employee.id} className="intro-y">
-                      <div className="box p-3 zoom-in bg-white dark:bg-gray-800">
-                        <div className="flex items-center">
-                          <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
-                          <div>
-                            <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400">
-                              {employee.conversations || 0} conversations
-                            </div>
-                          </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4">Employee Leaderboard</h2>
+            {loading ? (
+              <div className="text-center">
+                <LoadingIcon icon="spinning-circles" className="w-8 h-8 mx-auto" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                {employees.map((employee) => (
+                  <div key={employee.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                    <div className="flex items-center">
+                      <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
+                      <div>
+                        <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {employee.assignedContacts} assigned contacts
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           {/* END: Employee Leaderboard */}
 
-          {/* BEGIN: General Report */}
-          <div className="col-span-12">
-            <div className="flex items-center h-10 intro-y">
-              <h2 className="mr-5 text-2xl font-semibold truncate">
-                General Report
-              </h2>
-            </div>
-            <div className="flex flex-col md:flex-row gap-6 mt-2">
-              <div className="w-full md:w-1/2 intro-y">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-                  <div className="relative aspect-w-16 aspect-h-9">
-                    <Doughnut 
-                      data={data} 
-                      options={{
-                        ...options,
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            position: 'right',
-                          },
-                        },
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="w-full md:w-1/2 intro-y">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-                  <div className="relative aspect-w-16 aspect-h-9">
-                    <Bar 
-                      data={data}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                          y: {
-                            beginAtZero: true,
-                            ticks: {
-                              color: 'gray'
-                            }
-                          },
-                          x: {
-                            ticks: {
-                              color: 'gray'
-                            }
-                          }
-                        },
-                        plugins: {
-                          legend: {
-                            labels: {
-                              color: 'gray'
-                            }
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-              <div className="intro-y">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <Lucide
-                      icon="Contact"
-                      className="w-12 h-12 text-blue-800 dark:text-blue-400"
-                    />
-                    <div className="text-right">
-                      <div className="text-5xl font-bold text-gray-800 dark:text-gray-200">
-                        {!loading ? totalContacts : (
-                          <LoadingIcon icon="spinning-circles" className="w-10 h-10 mx-auto" />
-                        )}
-                      </div>
-                      <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        Total Contacts
-                      </div>
+
+          {/* BEGIN: Stats */}
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4">Key Performance Indicators</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {[
+              { icon: "Contact", label: "Total Contacts", value: totalContacts },
+              { icon: "MessageCircleReply", label: "Number Replies", value: numReplies },
+              { icon: "Mail", label: "Total Leads", value: unclosed },
+              { icon: "Check", label: "Closed Leads", value: closed },
+            ].map((stat, index) => (
+              <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div className="flex items-center justify-between">
+                  <Lucide
+                    icon={stat.icon as "Contact" | "MessageCircleReply" | "Mail" | "Check"}
+                    className="w-12 h-12 text-blue-500 dark:text-blue-400"
+                  />
+                  <div className="text-right">
+                    <div className="text-3xl font-bold text-gray-800 dark:text-gray-200">
+                      {!loading ? stat.value : (
+                        <LoadingIcon icon="spinning-circles" className="w-8 h-8 ml-auto" />
+                      )}
+                    </div>
+                    <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                      {stat.label}
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="intro-y">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <Lucide
-                      icon="MessageCircleReply"
-                      className="w-12 h-12 text-blue-600 dark:text-blue-300"
-                    />
-                    <div className="text-right">
-                      <div className="text-5xl font-bold text-gray-800 dark:text-gray-200">
-                        {!loading ? numReplies : (
-                          <LoadingIcon icon="spinning-circles" className="w-10 h-10 mx-auto" />
-                        )}
-                      </div>
-                      <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        Number Replies
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="intro-y">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <Lucide
-                      icon="Mail"
-                      className="w-12 h-12 text-blue-400 dark:text-blue-200"
-                    />
-                    <div className="text-right">
-                      <div className="text-5xl font-bold text-gray-800 dark:text-gray-200">
-                        {!loading ? unclosed : (
-                          <LoadingIcon icon="spinning-circles" className="w-10 h-10 mx-auto" />
-                        )}
-                      </div>
-                      <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        Total Leads
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="intro-y">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <Lucide
-                      icon="Check"
-                      className="w-12 h-12 text-blue-200 dark:text-blue-100"
-                    />
-                    <div className="text-right">
-                      <div className="text-5xl font-bold text-gray-800 dark:text-gray-200">
-                        {!loading ? closed : (
-                          <LoadingIcon icon="spinning-circles" className="w-10 h-10 mx-auto" />
-                        )}
-                      </div>
-                      <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        Closed Leads
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            ))}
+          </div>
+          {/* END: Stats */}
+          {/* BEGIN: Employee Bar Chart */}
+          <div>
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4">Employee Performance</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <div style={{ height: '50vh', minHeight: '300px' }}>
+                <Bar data={barChartData} options={barChartOptions} />
               </div>
             </div>
           </div>
-          {/* END: General Report */}
+          {/* END: Employee Bar Chart */}
         </div>
       </div>
     </div>
