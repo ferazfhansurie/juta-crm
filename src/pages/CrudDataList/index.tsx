@@ -1607,6 +1607,14 @@ console.log(filteredContacts);
     return format(date, "MMM d, yyyy 'at' h:mm a");
   };
 
+  const handleSelectAll = () => {
+    if (selectedContacts.length === filteredContacts.length) {
+      setSelectedContacts([]);
+    } else {
+      setSelectedContacts([...filteredContacts]);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
       <div className="flex-grow overflow-y-auto">
@@ -1978,9 +1986,21 @@ console.log(filteredContacts);
           </div>
         </div>
         <div className="flex flex-col">
-          <div className="sticky top-0 bg-white dark:bg-gray-900 z-10 py-2">
+          <div className="sticky top-0 bg-gray-100 dark:bg-gray-900 z-10 py-2">
             <div className="flex flex-col md:flex-row items-start md:items-center text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
               <span className="mb-2 md:mb-0 text-2xl text-left">Contacts</span>
+              <button
+                onClick={handleSelectAll}
+                className="inline-flex items-center p-2 m-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg cursor-pointer transition-colors duration-200"
+              >
+                <Lucide 
+                  icon={selectedContacts.length === filteredContacts.length ? "CheckSquare" : "Square"} 
+                  className="w-4 h-4 mr-1 text-gray-600 dark:text-gray-300" 
+                />
+                <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">
+                  Select All
+                </span>
+              </button>
               {selectedTagFilter && (
                 <div 
                   className="inline-flex items-center p-2 mt-2 md:mt-0 md:ml-2 bg-blue-100 dark:bg-blue-900 rounded-md self-start md:self-auto cursor-pointer"
