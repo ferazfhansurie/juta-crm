@@ -214,14 +214,20 @@ setUserData({
                 placeholder="Name"
               />
             </div>
-            <div className="mt-3">
-              <span className="ml-1">+60</span>
+            <div className="mt-3 flex shrink items-center">
+              <FormInput
+                type="text"
+                value="+6"
+                readOnly
+                className="w-12 mr-2"
+              />
               <FormInput
                 name="phoneNumber"
                 type="text"
                 value={userData.phoneNumber}
                 onChange={handleChange}
                 placeholder="Phone Number"
+                className="flex-grow"
               />
             </div>
             <div className="mt-3">
@@ -273,7 +279,16 @@ setUserData({
                 type="button"
                 variant="primary"
                 className="w-24"
-                onClick={saveUser}
+                onClick={async () => {
+                  try {
+                    await saveUser();
+                    toast.success("User saved successfully");
+                    handleGoBack();
+                  } catch (error) {
+                    console.error("Error saving user:", error);
+                    toast.error("Failed to save user");
+                  }
+                }}
                 disabled={isLoading}
               >
                 {isLoading ? "Saving..." : "Save"}

@@ -390,6 +390,8 @@ function Main() {
   const [newPrivateNote, setNewPrivateNote] = useState('');
   const [isPrivateNotesMentionOpen, setIsPrivateNotesMentionOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'messages' | 'privateNotes'>('messages');
+  const [showEmployeeList, setShowEmployeeList] = useState(false);
+  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
     updateVisibleTags();
@@ -436,6 +438,33 @@ function Main() {
     } else {
       setIsPrivateNotesMentionOpen(false);
     }
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setNewMessage(value);
+
+    // Check for @ symbol to trigger employee list
+    const lastAtSymbolIndex = value.lastIndexOf('@');
+    if (lastAtSymbolIndex !== -1) {
+      const query = value.slice(lastAtSymbolIndex + 1).toLowerCase();
+      const filtered = employeeList.filter(employee => 
+        employee.name.toLowerCase().includes(query)
+      );
+      setFilteredEmployees(filtered);
+      setShowEmployeeList(true);
+    } else {
+      setShowEmployeeList(false);
+    }
+
+    adjustHeight(e.target);
+  };
+
+  const handleEmployeeSelect = (employee: Employee) => {
+    const lastAtSymbolIndex = newMessage.lastIndexOf('@');
+    const newValue = newMessage.slice(0, lastAtSymbolIndex) + `@${employee.name} `;
+    setNewMessage(newValue);
+    setShowEmployeeList(false);
   };
 
   const handlePrivateNoteMentionSelect = (employee: Employee) => {
@@ -529,7 +558,8 @@ const handlereplyMessage = async () => {
 
 const detectMentions = (message: string) => {
   const mentionRegex = /@(\w+)/g;
-  return message.match(mentionRegex) || [];
+  const atSymbolRegex = /@$/;
+  return message.match(mentionRegex) || (message.match(atSymbolRegex) ? ['@'] : []);
 };
 
 const sendWhatsAppAlert = async (employeeName: string, chatId: string) => {
