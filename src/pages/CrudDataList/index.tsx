@@ -861,7 +861,7 @@ const handleConfirmDeleteTag = async () => {
   const navigate = useNavigate(); // Initialize useNavigate
   const handleClick = (phone: any) => {
 const tempphone = phone.split('+')[1];
-const chatId = tempphone + "@s.whatsapp.net"
+const chatId = tempphone + "@c.us"
     navigate(`/chat/?chatId=${chatId}`);
   };
   async function searchContacts(accessToken: string, locationId: string) {

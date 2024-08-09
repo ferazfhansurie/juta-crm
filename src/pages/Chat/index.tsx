@@ -33,8 +33,14 @@ import noti from "../../assets/audio/noti.mp3";
 import { Lock, MessageCircle } from "lucide-react";
 import { Transition } from '@headlessui/react';
 
-// ... existing code ...
-
+// Add this new component for the private note indicator
+const PrivateNoteIndicator = () => (
+  <div className="flex items-center justify-center my-2">
+    <div className="bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">
+      Private Note Added
+    </div>
+  </div>
+);
 
 interface Label {
   id: string;
@@ -382,6 +388,7 @@ function Main() {
   const [isPrivateNotesExpanded, setIsPrivateNotesExpanded] = useState(false);
   const privateNoteRef = useRef<HTMLDivElement>(null);
   const [newPrivateNote, setNewPrivateNote] = useState('');
+  const [isPrivateNotesMentionOpen, setIsPrivateNotesMentionOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'messages' | 'privateNotes'>('messages');
 
   useEffect(() => {
@@ -417,6 +424,26 @@ function Main() {
     setIsTagsExpanded(!isTagsExpanded);
   };
   const [stopbot, setStopbot] = useState(false);
+
+  const handlePrivateNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setNewPrivateNote(value);
+  
+    // Check for @ symbol to trigger mentions
+    const lastAtSymbolIndex = value.lastIndexOf('@');
+    if (lastAtSymbolIndex !== -1 && lastAtSymbolIndex === value.length - 1) {
+      setIsPrivateNotesMentionOpen(true);
+    } else {
+      setIsPrivateNotesMentionOpen(false);
+    }
+  };
+
+  const handlePrivateNoteMentionSelect = (employee: Employee) => {
+    const mentionText = `@${employee.name} `;
+    const newValue = newPrivateNote.replace(/@[^@]*$/, mentionText);
+    setNewPrivateNote(newValue);
+    setIsPrivateNotesMentionOpen(false);
+  };
 
 console.log(initialContacts);
 useEffect(() => {
@@ -498,6 +525,67 @@ const handlereplyMessage = async () => {
 
   // Clear the reply state after sending the message
   setReplyToMessage(null);
+};
+
+const detectMentions = (message: string) => {
+  const mentionRegex = /@(\w+)/g;
+  return message.match(mentionRegex) || [];
+};
+
+const sendWhatsAppAlert = async (employeeName: string, chatId: string) => {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) return;
+
+    const userData = docUserSnapshot.data();
+    const companyId = userData.companyId;
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) return;
+
+    const companyData = docSnapshot.data();
+
+    // Fetch employee's WhatsApp number
+    const employeesRef = collection(firestore, 'companies', companyId, 'employee');
+    const q = query(employeesRef, where("name", "==", employeeName));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      console.log(`No employee found with name ${employeeName}`);
+      return; 
+    }
+
+    const employeeData = querySnapshot.docs[0].data();
+    const employeePhone = employeeData.phoneNumber;
+    const temp = employeePhone.split('+')[1];
+    const employeeId = temp+`@c.us`;
+
+    console.log(employeeId);
+    console.log(selectedChatId);
+
+    // Send WhatsApp alert using the ngrok URL
+    const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${employeeId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: `You've been mentioned in a chat. Click here to view: https://web.jutasoftware.co/chat?chatId=${chatId}`,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to send WhatsApp alert: ${response.statusText}`);
+    }
+
+    console.log(`WhatsApp alert sent to ${employeeName}`);
+  } catch (error) {
+    console.error('Error sending WhatsApp alert:', error);
+  }
 };
 
 const openPDFModal = (url: string) => {
@@ -712,14 +800,17 @@ const closePDFModal = () => {
   if(location != undefined){
     params =new URLSearchParams(location.search);
     chatId =  params.get("chatId");
+    console.log(chatId);
   }
 
 
   useEffect(() => {
     const fetchContact = async () => {
+      const params = new URLSearchParams(location.search);
+      const chatIdFromUrl = params.get('chatId');
 
-      console.log(chatId);
-      if (chatId) {
+      console.log(chatIdFromUrl);
+      if (chatIdFromUrl) {
         setLoading(true);
         const user = auth.currentUser;
         if (!user) {
@@ -728,39 +819,54 @@ const closePDFModal = () => {
         }
         const docUserRef = doc(firestore, 'user', user.email!);
         const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.error('No such document for user!');
-      return;
-    }
-    const dataUser = docUserSnapshot.data() as UserData;
+        if (!docUserSnapshot.exists()) {
+          console.error('No such document for user!');
+          return;
+        }
+        const dataUser = docUserSnapshot.data() as UserData;
 
-    if (!dataUser || !dataUser.companyId) {
-      console.error('Invalid user data or companyId');
-      return;
-    }
+        if (!dataUser || !dataUser.companyId) {
+          console.error('Invalid user data or companyId');
+          return;
+        }
 
-    setUserData(dataUser);
-    user_role = dataUser.role;
-    companyId = dataUser.companyId;
+        setUserData(dataUser);
+        user_role = dataUser.role;
+        companyId = dataUser.companyId;
 
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      console.error('No such document for company!');
-      return;
-    }
-    const data = docSnapshot.data();
-        const phone = "+" + chatId.split('@')[0];
-        const contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
+        const docRef = doc(firestore, 'companies', companyId);
+        const docSnapshot = await getDoc(docRef);
+        if (!docSnapshot.exists()) {
+          console.error('No such document for company!');
+          return;
+        }
+        const data = docSnapshot.data();
+        const phone = "+" + chatIdFromUrl.split('@')[0];
+        let contact;
+        if (data.v2) {
+          // For v2, use initialContacts to find the contact
+          const phone = "+" + chatIdFromUrl.split('@')[0];
+          contact = initialContacts.find(c => c.phone === phone || c.chat_id === chatIdFromUrl);
+          if (!contact) {
+            console.error('Contact not found in initialContacts');
+            // Handle the case when contact is not found
+            setLoading(false);
+            return;
+          }
+        } else {
+          // For non-v2, use the existing fetchDuplicateContact function
+          const phone = "+" + chatIdFromUrl.split('@')[0];
+          contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
+        }
         setSelectedContact(contact);
-        console.log(selectedContact + " contact");
-        setSelectedChatId(chatId);
+        console.log(contact, " contact");
+        setSelectedChatId(chatIdFromUrl);
         setLoading(false);
       }
     };
   
     fetchContact();
-  }, [chatId]);
+  }, [location.search]);
 async function fetchConfigFromDatabase() {
   const user = auth.currentUser;
 
@@ -1839,6 +1945,13 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
 
       const docRef = await addDoc(privateNoteRef, newPrivateNote);
       console.log('Private note added with ID:', docRef.id);
+
+      const mentions = detectMentions(newMessage);
+      for (const mention of mentions) {
+        const employeeName = mention.slice(1); // Remove @ symbol
+        console.log(employeeName);
+        await sendWhatsAppAlert(employeeName, selectedChatId);
+      }
   
       // Update the local state
       setPrivateNotes(prevNotes => ({
@@ -3913,12 +4026,25 @@ const handleForwardMessage = async () => {
                 )}
                 <div className="sticky bottom-0 bg-white dark:bg-gray-800 p-3 border-t border-yellow-300 dark:border-yellow-700">
                   <textarea
-                    className="w-full p-2 border border-yellow-300 dark:border-yellow-700 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 dark:bg-gray-700 dark:text-gray-200"
-                    placeholder="Add a new private note..."
-                    rows={3}
+                    ref={textareaRef}
+                    className="chat__input form-control w-full min-h-[80px] resize-y bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md p-2"
+                    placeholder="Type a private note..."
                     value={newPrivateNote}
-                    onChange={(e) => setNewPrivateNote(e.target.value)}
-                  ></textarea>
+                    onChange={handlePrivateNoteChange}
+                  />
+                  {isPrivateNotesMentionOpen && (
+                    <div className="absolute bottom-full left-0 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                      {employeeList.map((employee) => (
+                        <div
+                          key={employee.id}
+                          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer text-gray-800 dark:text-gray-200"
+                          onClick={() => handlePrivateNoteMentionSelect(employee)}
+                        >
+                          {employee.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <button 
                     className="mt-2 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md transition-colors duration-150"
                     onClick={() => {

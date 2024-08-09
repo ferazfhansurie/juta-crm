@@ -103,8 +103,14 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         setV2(companyData.v2 || false);
         if (companyData.v2) {
           // If v2 is true, navigate to loading page and return
-          navigate('/loading');
-          return;
+          if (location.pathname.includes('/chat')) {
+            
+          }
+          else{
+            navigate('/loading');
+            return;
+          }
+       
         }
       }
     
