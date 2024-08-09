@@ -15,7 +15,7 @@ import { Menu, Popover } from "@/components/Base/Headless";
 import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
 import { initializeApp } from 'firebase/app';
 import { DocumentData, DocumentReference, getDoc, getDocs } from 'firebase/firestore';
-import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
+import { getFirestore, collection, doc, deleteDoc } from 'firebase/firestore';
 import { useMediaQuery } from 'react-responsive';
 
 type Notification = {
@@ -171,6 +171,25 @@ console.log(notifications);
     throw error;
   }
 }
+
+const clearAllNotifications = async () => {
+  const user = auth.currentUser;
+  if (!user || !user.email) return;
+
+  try {
+    const notificationsRef = collection(firestore, 'user', user.email, 'notifications');
+    const notificationsSnapshot = await getDocs(notificationsRef);
+    
+    const deletePromises = notificationsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+
+    setNotifications([]);
+    setUniqueNotifications([]);
+  } catch (error) {
+    console.error('Error clearing notifications:', error);
+  }
+};
+
   const handleSignOut = () => {
     signOut(auth)
       .then(() => {
@@ -345,7 +364,15 @@ console.log(notifications);
                 </Menu.Button>
                 <Menu.Items className="absolute left-0 w-64 md:w-80 mt-2 mr-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-lg overflow-hidden">
                 <Menu.Header className="font-normal border-b border-gray-200 dark:border-gray-700">
-                  <div className="font-medium text-lg p-3">Notifications</div>
+                <div className="flex justify-between items-center p-3">
+                  <div className="font-medium text-lg">Notifications</div>
+                  <button
+                    onClick={clearAllNotifications}
+                    className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    Clear All
+                  </button>
+                </div>
                 </Menu.Header>
                 <div className="max-h-[40vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
                   {uniqueNotifications.length > 0 ? (

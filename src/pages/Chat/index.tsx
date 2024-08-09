@@ -2295,64 +2295,54 @@ const toggleStopBotLabel = async (contact: Contact, index: number, event: React.
   }
 };
 
-  const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
+const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
+  console.log(`Adding tag "${tagName}" to contact:`, contact);
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
 
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
+    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) return;
 
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      const contactRef = doc(firestore, `companies/${companyId}/contacts`, contact.id!);
-
-      await runTransaction(firestore, async (transaction) => {
-        const contactDoc = await transaction.get(contactRef);
-        if (!contactDoc.exists()) {
-          console.error('Contact document does not exist');
-          return;
-        }
-
-        const currentTags = contactDoc.data().tags || [];
-        const isEmployeeTag = employeeList.some(employee => employee.name.toLowerCase() === tagName.toLowerCase());
-
-        if (!currentTags.includes(tagName)) {
-          const updatedTags = [...currentTags, tagName];
-          transaction.update(contactRef, { tags: updatedTags });
-
-          if (isEmployeeTag) {
-            await updateEmployeeAssignedContacts(tagName, true);
-          }
-        } else {
-          const updatedTags = currentTags.filter((tag: string) => tag !== tagName);
-          transaction.update(contactRef, { tags: updatedTags });
-
-          if (isEmployeeTag) {
-            await updateEmployeeAssignedContacts(tagName, false);
-          }
-        }
+    const userData = docUserSnapshot.data();
+    const companyId = userData.companyId;
+    // Update Firestore
+    if (companyId && contact.id) {
+      await updateDoc(doc(firestore, 'companies', companyId, 'contacts', contact.id), {
+        tags: arrayUnion(tagName)
       });
-
-      // Update local state
-      setContacts(prevContacts =>
-        prevContacts.map(c =>
-          c.id === contact.id
-            ? { ...c, tags: c.tags?.includes(tagName) 
-                ? c.tags.filter(tag => tag !== tagName)
-                : [...(c.tags || []), tagName] }
-            : c
-        )
-      );
-
-      toast.success('Contact updated successfully!');
-    } catch (error) {
-      console.error('Error updating contact:', error);
-      toast.error('Failed to update contact.');
+    } else {
+      console.error('companyId or contact.id is null or undefined');
+      throw new Error('Unable to update Firestore: companyId or contact.id is missing');
     }
-  };
+
+    // Update local state
+    setContacts(prevContacts =>
+      prevContacts.map(c =>
+        c.id === contact.id
+          ? { ...c, tags: Array.from(new Set([...(c.tags || []), tagName])) }
+          : c
+      )
+    );
+    // Update selected contact if it's the one being modified
+    setSelectedContact((prevContact: Contact | null) => {
+      if (prevContact && prevContact.id === contact.id) {
+        return {
+          ...prevContact,
+          tags: Array.from(new Set([...(prevContact.tags || []), tagName]))
+        };
+      }
+      return prevContact;
+    });
+
+    console.log(`Tag "${tagName}" added successfully to contact:`, contact.id);
+    toast.success(`Tag "${tagName}" added to contact successfully!`);
+  } catch (error) {
+    console.error('Error adding tag to contact:', error);
+    toast.error('Failed to add tag to contact.');
+  }
+};
   
   async function updateContactTags(contactId: string, tags: string[], addTag: boolean) {
     try {
@@ -3493,18 +3483,18 @@ const handleForwardMessage = async () => {
                               >
                                 {isTagsExpanded ? (
                                   <>
-                                    <Lucide icon="ChevronUp" className="w-4 h-4 mr-1" />
+                                    <Lucide icon="ChevronUp" className="z-99 w-4 h-4 mr-1" />
                                     Show Less
                                   </>
-      ) : (
-        <>
+                                ) : (
+                                  <>
                                     <Lucide icon="ChevronDown" className="w-4 h-4 mr-1" />
                                     Show More
                                   </>
                                 )}
                               </button>
-          </div>
-            </div>
+                            </div>
+                          </div>
                         )}
             </div>
           </div>
@@ -3570,30 +3560,6 @@ const handleForwardMessage = async () => {
 </button>
   <Menu as="div" className="relative inline-block text-left">
     <div className="flex items-right space-x-3">
-      <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
-        <span className="flex items-center justify-center w-5 h-5">
-          <Lucide icon="Filter" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-        </span>
-      </Menu.Button>
-    </div>
-    <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-      {tagList.map((tag) => (
-        <Menu.Item key={tag.id}>
-                <button
-            className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
-              activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
-            }`}
-            onClick={() => filterTagContact(tag.name)}
-          >
-            <Lucide icon="Tag" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
-            <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
-                </button>
-        </Menu.Item>
-      ))}
-    </Menu.Items>
-  </Menu>
-  <Menu as="div" className="relative inline-block text-left">
-    <div className="flex items-right space-x-3">
 
       <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
         <span className="flex items-center justify-center w-5 h-5">
@@ -3617,45 +3583,73 @@ const handleForwardMessage = async () => {
       ))}
     </Menu.Items>
   </Menu>
+  <button
+    className="p-2 !box m-0 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+    onClick={toggleTagsExpansion}
+  >
+    <span className="flex items-center justify-center w-5 h-5">
+      <Lucide 
+        icon={isTagsExpanded ? "ChevronUp" : "ChevronDown"} 
+        className="w-5 h-5 text-gray-800 dark:text-gray-200" 
+      />
+    </span>
+  </button>
           </div>
           </div>
   <div className="border-b border-gray-300 dark:border-gray-700 mt-4"></div>
 
 </div>
-<div className="mt-4 mb-2 flex flex-wrap gap-2 px-4">
-  {visibleTags.map((tag) => (
-    <button
-      key={tag.id}
-      onClick={() => filterTagContact(tag.name)}
-      className={`px-3 py-1 rounded-full text-sm ${
-        (tag.name === 'All' && showAllContacts) ||
-        (tag.name === 'Unread' && showUnreadContacts) ||
-        activeTags.includes(tag.name)
-          ? 'bg-primary text-white dark:bg-primary dark:text-white'
-          : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-      } transition-colors duration-200`}
-    >
-      {tag.name}
-    </button>
-  ))}
+<div className="mt-4 mb-2 px-4 max-h-40 overflow-y-auto">
+  <div className="flex flex-wrap gap-2">
+    {visibleTags.map((tag) => (
+      <button
+        key={tag.id}
+        onClick={() => filterTagContact(tag.name)}
+        className={`px-3 py-1 rounded-full text-sm ${
+          (tag.name === 'All' && showAllContacts) ||
+          (tag.name === 'Unread' && showUnreadContacts) ||
+          activeTags.includes(tag.name)
+            ? 'bg-primary text-white dark:bg-primary dark:text-white'
+            : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+        } transition-colors duration-200`}
+      >
+        {tag.name}
+      </button>
+    ))}
+  </div>
 </div>
 {tagList.length > visibleTags.length && (
-  <button
-    onClick={toggleTagsExpansion}
-    className="text-primary dark:text-blue-400 hover:underline focus:outline-none w-full text-center py-2 text-sm"
-  >
-    {isTagsExpanded ? (
-      <div className="flex items-center justify-center">
-        <Lucide icon="ChevronUp" className="w-4 h-4 mr-1" />
-        <span>Show Less</span>
-      </div>
-    ) : (
-      <div className="flex items-center justify-center">
-        <Lucide icon="ChevronDown" className="w-4 h-4 mr-1" />
-        <span>Show More</span>
+  <div className="max-h-40 overflow-y-auto">
+    <button
+      onClick={toggleTagsExpansion}
+      className="text-primary dark:text-blue-400 hover:underline focus:outline-none w-full text-center py-2 text-sm"
+    >
+      {isTagsExpanded ? (
+        <div className="flex items-center justify-center">
+          <Lucide icon="ChevronUp" className="w-4 h-4 mr-1" />
+          <span>Show Less</span>
+        </div>
+      ) : (
+        <div className="flex items-center justify-center">
+          <Lucide icon="ChevronDown" className="w-4 h-4 mr-1" />
+          <span>Show More</span>
         </div>
       )}
-  </button>
+    </button>
+    {isTagsExpanded && (
+      <div className="mt-2 space-y-2">
+        {tagList.slice(visibleTags.length).map((tag) => (
+          <button
+            key={tag.id}
+            onClick={() => filterTagContact(tag.name)}
+            className="px-3 py-1 rounded-full text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 w-full text-left"
+          >
+            {tag.name}
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
 )}
 <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
   {filteredContacts.map((contact, index) => (
@@ -3824,16 +3818,14 @@ const handleForwardMessage = async () => {
               </span>
             </Menu.Button>
             <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-              {employeeList.map((tag) => (
-                <Menu.Item key={tag.id}>
+              {employeeList.map((employee) => (
+                <Menu.Item key={employee.id}>
                   <button
-                    className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
-                      activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
-                    }`}
-                    onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
+                    className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                    onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
                   >
                     <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
-                    <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
+                    <span className="text-gray-800 dark:text-gray-200">{employee.name}</span>
                   </button>
                 </Menu.Item>
               ))}
@@ -4426,7 +4418,7 @@ const handleForwardMessage = async () => {
           <p>
             <span className="font-semibold text-blue-600 dark:text-blue-400">Tags:</span>
             <div className="flex flex-wrap mt-2">
-              {selectedContact.tags.length > 0 ? (
+              {selectedContact && selectedContact.tags && selectedContact.tags.length > 0 ? (
                 selectedContact.tags.map((tag: string, index: number) => (
                   <div key={index} className="flex items-center mr-2 mb-2">
                     <span className="inline-block bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-sm font-semibold px-3 py-1 rounded border border-blue-400 dark:border-blue-600 mr-1">{tag}</span>
@@ -4439,7 +4431,7 @@ const handleForwardMessage = async () => {
                   </div>
                 ))
               ) : (
-                'Unassigned'
+                <span>Unassigned</span>
               )}
             </div>
           </p>
