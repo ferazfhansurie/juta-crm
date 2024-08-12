@@ -4922,7 +4922,7 @@ const updateEmployeeAssignedContacts = async () => {
 
     await Promise.all(employeeUpdates);
 
-    toast.success('Employee assigned contacts updated successfully!');
+    console.log('Employee assigned contacts updated successfully');
   } catch (error) {
     console.error('Error updating employee assigned contacts:', error);
     toast.error('Failed to update employee assigned contacts.');
