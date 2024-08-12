@@ -404,12 +404,16 @@ function Main() {
     ],
   };
 
+  const maxAssignedContacts = Math.max(...employees.map(employee => employee.assignedContacts || 0));
+  const yAxisMax = Math.ceil((maxAssignedContacts + 50) / 100) * 100; // Round up to nearest 100
+
   const barChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     scales: {
       y: {
         beginAtZero: true,
+        max: yAxisMax,
         title: {
           display: true,
           text: 'Assigned Contacts',
@@ -417,7 +421,7 @@ function Main() {
         },
         ticks: {
           color: 'rgb(107, 114, 128)', // text-gray-500
-          stepSize: 1,
+          stepSize: Math.max(1, Math.floor(yAxisMax / 10)), // Adjust step size based on max value
           callback: function(value: number | string) {
             if (Number.isInteger(Number(value))) {
               return value;

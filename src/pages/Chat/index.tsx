@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp, runTransaction } from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp, runTransaction, increment } from "firebase/firestore";
 import {QueryDocumentSnapshot, DocumentData ,Query,CollectionReference, startAfter,limit} from 'firebase/firestore'
 import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
@@ -292,43 +292,6 @@ const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
 const auth = getAuth(app);
 
-// Add this new function after the existing function declarations and before the Main function
-const updateEmployeeAssignedContacts = async (employeeName: string, increment: boolean) => {
-  try {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) return;
-
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-
-    const employeeCollectionRef = collection(firestore, `companies/${companyId}/employee`);
-    const q = query(employeeCollectionRef, where("name", "==", employeeName));
-    
-    await runTransaction(firestore, async (transaction) => {
-      const querySnapshot = await getDocs(q);
-      if (querySnapshot.empty) {
-        console.error(`No employee found with name ${employeeName}`);
-        return;
-      }
-
-      const employeeDoc = querySnapshot.docs[0];
-      const currentData = employeeDoc.data();
-      const currentCount = currentData.assignedContacts || 0;
-      const newCount = increment ? currentCount + 1 : Math.max(0, currentCount - 1);
-
-      transaction.update(employeeDoc.ref, { assignedContacts: newCount });
-      
-      console.log(`Total contacts assigned to ${employeeName}: ${newCount}`);
-    });
-
-  } catch (error) {
-    console.error('Error updating employee assigned contacts:', error);
-  }
-};
 
 function Main() {
   const { contacts: initialContacts, isLoading } = useContacts();
@@ -463,6 +426,10 @@ function Main() {
       setMessages([]);
     }
   }, [location]);
+
+  useEffect(() => {
+    updateEmployeeAssignedContacts();
+  }, []); 
 
   const handleBack = () => {
     navigate("/"); // or wherever you want to navigate to
@@ -2396,51 +2363,68 @@ const toggleStopBotLabel = async (contact: Contact, index: number, event: React.
 };
 
 const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
-  console.log(`Adding tag "${tagName}" to contact:`, contact);
   try {
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user) {
+      console.error('No authenticated user');
+      return;
+    }
 
     const docUserRef = doc(firestore, 'user', user.email!);
     const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) return;
-
+    if (!docUserSnapshot.exists()) {
+      console.error('No such document for user!');
+      return;
+    }
     const userData = docUserSnapshot.data();
     const companyId = userData.companyId;
-    // Update Firestore
-    if (companyId && contact.id) {
-      await updateDoc(doc(firestore, 'companies', companyId, 'contacts', contact.id), {
-        tags: arrayUnion(tagName)
-      });
-    } else {
-      console.error('companyId or contact.id is null or undefined');
-      throw new Error('Unable to update Firestore: companyId or contact.id is missing');
+
+    // Update contact's tags
+    const contactRef = doc(firestore, 'companies', companyId, 'contacts', contact.id!);
+    await updateDoc(contactRef, {
+      tags: arrayUnion(tagName)
+    });
+
+    // Check if the tag is an employee name
+    const isEmployeeTag = employeeList.some(employee => employee.name.toLowerCase() === tagName.toLowerCase());
+    
+    if (isEmployeeTag) {
+      // Find the correct employee document
+      const employeeQuerySnapshot = await getDocs(query(
+        collection(firestore, 'companies', companyId, 'employee'),
+        where('name', '==', tagName)
+      ));
+
+      if (!employeeQuerySnapshot.empty) {
+        const employeeDoc = employeeQuerySnapshot.docs[0];
+        // Update the employee's assignedContacts count
+        await updateDoc(employeeDoc.ref, {
+          assignedContacts: increment(1)
+        });
+      } else {
+        console.error(`Employee document for ${tagName} not found`);
+        toast.error(`Failed to update employee ${tagName}. Document not found.`);
+      }
     }
 
     // Update local state
     setContacts(prevContacts =>
       prevContacts.map(c =>
         c.id === contact.id
-          ? { ...c, tags: Array.from(new Set([...(c.tags || []), tagName])) }
+          ? { ...c, tags: [...(c.tags || []), tagName] }
           : c
       )
     );
-    // Update selected contact if it's the one being modified
-    setSelectedContact((prevContact: Contact | null) => {
-      if (prevContact && prevContact.id === contact.id) {
-        return {
-          ...prevContact,
-          tags: Array.from(new Set([...(prevContact.tags || []), tagName]))
-        };
-      }
-      return prevContact;
-    });
 
-    console.log(`Tag "${tagName}" added successfully to contact:`, contact.id);
-    toast.success(`Tag "${tagName}" added to contact successfully!`);
+    setSelectedContact((prevContact: Contact | null) => ({
+      ...prevContact!,
+      tags: [...(prevContact?.tags || []), tagName]
+    }));
+
+    toast.success('Tag added successfully!');
   } catch (error) {
-    console.error('Error adding tag to contact:', error);
-    toast.error('Failed to add tag to contact.');
+    console.error('Error adding tag:', error);
+    toast.error('Failed to add tag.');
   }
 };
   
@@ -2603,6 +2587,14 @@ const openEditMessage = (message: Message) => {
   };
 
   const filterTagContact = (tagName: string) => {
+    setActiveTags(prevTags => {
+      const lowercaseTagName = tagName.toLowerCase();
+      if (prevTags.includes(lowercaseTagName)) {
+        return prevTags.filter(tag => tag !== lowercaseTagName);
+      } else {
+        return [...prevTags, lowercaseTagName];
+      }
+    });
     if (tagName === 'All') {
       setShowAllContacts(true);
       setShowUnreadContacts(false);
@@ -2646,6 +2638,7 @@ const openEditMessage = (message: Message) => {
         );
       });
     }
+    
 
     // Apply tag filter
     if (activeTags.length > 0) {
@@ -3077,6 +3070,7 @@ const handleForwardMessage = async () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
   const handleRemoveTag = async (contactId: string, tagName: string) => {
     try {
       const user = auth.currentUser;
@@ -3088,25 +3082,35 @@ const handleForwardMessage = async () => {
       }
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
-        return;
-      }
-      const companyData = docSnapshot.data();
   
       // Update Firestore
-      await updateDoc(doc(firestore, 'companies', companyId, 'contacts', contactId), {
+      const contactRef = doc(firestore, 'companies', companyId, 'contacts', contactId);
+      await updateDoc(contactRef, {
         tags: arrayRemove(tagName)
       });
   
       // Check if the removed tag is an employee tag
       const isEmployeeTag = employeeList.some(employee => employee.name.toLowerCase() === tagName.toLowerCase());
       if (isEmployeeTag) {
-        await updateEmployeeAssignedContacts(tagName, false);
+        // Get the employee document reference
+        const employeeRef = doc(firestore, 'companies', companyId, 'employee', tagName);
+        
+        // Check if the document exists
+        const employeeDoc = await getDoc(employeeRef);
+        
+        if (employeeDoc.exists()) {
+          // Document exists, update it
+          await updateDoc(employeeRef, {
+            assignedContacts: increment(-1)
+          });
+        } else {
+          // Document doesn't exist, log an error
+          console.error(`Employee document for ${tagName} does not exist.`);
+          // Optionally, you can show a toast message to the user
+          toast.error(`Failed to update employee ${tagName}. Document not found.`);
+        }
       }
-
+  
       // Update state
       setContacts(prevContacts =>
         prevContacts.map(contact =>
@@ -3115,26 +3119,25 @@ const handleForwardMessage = async () => {
             : contact
         )
       );
-
+  
       const updatedContacts = contacts.map((contact: Contact) =>
         contact.id === contactId
           ? { ...contact, tags: contact.tags!.filter((tag: string) => tag !== tagName) }
           : contact
       );
-
+  
       const updatedSelectedContact = updatedContacts.find(contact => contact.id === contactId);
       if (updatedSelectedContact) {
         setSelectedContact(updatedSelectedContact);
       }
-      localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
-      sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been updated in this session
-    
+  
       toast.success('Tag removed successfully!');
     } catch (error) {
       console.error('Error removing tag:', error);
       toast.error('Failed to remove tag.');
     }
   };
+
   const adjustHeight = (textarea: HTMLTextAreaElement, reset = false) => {
     if (reset) {
       textarea.style.height = 'auto';
@@ -3715,25 +3718,37 @@ const handleForwardMessage = async () => {
 </button>
   <Menu as="div" className="relative inline-block text-left">
     <div className="flex items-right space-x-3">
-
       <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
         <span className="flex items-center justify-center w-5 h-5">
           <Lucide icon="Users" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
         </span>
       </Menu.Button>
     </div>
-    <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-      {employeeList.map((tag) => (
-        <Menu.Item key={tag.id}>
-                <button
-            className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
-              activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
-            }`}
-            onClick={() => filterTagContact(tag.name.toLowerCase())}
-          >
-            <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
-            <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
+    <Menu.Items className="absolute right-0 mt-2 w-40 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+      {employeeList.map((employee) => (
+        <Menu.Item key={employee.id}>
+          {({ active }) => (
+            <button
+              className={`flex items-center w-full text-left p-2 rounded-md ${
+                activeTags.includes(employee.name)
+                  ? 'bg-primary text-white dark:bg-primary dark:text-white'
+                  : active
+                  ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+                  : 'text-gray-700 dark:text-gray-200'
+              }`}
+              onClick={() => filterTagContact(employee.name)}
+            >
+              <Lucide 
+                icon="User" 
+                className={`w-4 h-4 mr-2 ${
+                  activeTags.includes(employee.name)
+                    ? 'text-white'
+                    : 'text-gray-800 dark:text-gray-200'
+                }`} 
+              />
+              <span>{employee.name}</span>
             </button>
+          )}
         </Menu.Item>
       ))}
     </Menu.Items>
@@ -4847,7 +4862,71 @@ const NotificationPopup: React.FC<{ notifications: any[] }> = ({ notifications: 
   );
 };
 
+const updateEmployeeAssignedContacts = async () => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('No authenticated user');
+      return;
+    }
 
+    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.error('No such document for user!');
+      return;
+    }
+    const userData = docUserSnapshot.data();
+    const companyId = userData.companyId;
 
+    // Get all contacts
+    const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+    const contactsSnapshot = await getDocs(contactsRef);
+
+    // Object to store employee assignment counts
+    const employeeAssignments: { [key: string]: number } = {};
+
+    const employeeRef = collection(firestore, `companies/${companyId}/employee`);
+    const employeeSnapshot = await getDocs(employeeRef);
+    const employeeList = employeeSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+
+    // Count assignments
+    contactsSnapshot.forEach((doc) => {
+      const contact = doc.data();
+      if (contact.tags) {
+        contact.tags.forEach((tag: string) => {
+          if (employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())) {
+            employeeAssignments[tag] = (employeeAssignments[tag] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    // Update employee documents
+    const employeeUpdates = Object.entries(employeeAssignments).map(async ([employeeName, count]) => {
+      const employeeQuerySnapshot = await getDocs(query(
+        collection(firestore, 'companies', companyId, 'employee'),
+        where('name', '==', employeeName)
+      ));
+
+      if (!employeeQuerySnapshot.empty) {
+        const employeeDoc = employeeQuerySnapshot.docs[0];
+        await updateDoc(employeeDoc.ref, {
+          assignedContacts: count
+        });
+        console.log(`Updated ${employeeName} with ${count} assigned contacts`);
+      } else {
+        console.error(`Employee document for ${employeeName} not found`);
+      }
+    });
+
+    await Promise.all(employeeUpdates);
+
+    toast.success('Employee assigned contacts updated successfully!');
+  } catch (error) {
+    console.error('Error updating employee assigned contacts:', error);
+    toast.error('Failed to update employee assigned contacts.');
+  }
+};
 
 export default Main;
