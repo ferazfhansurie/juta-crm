@@ -2617,50 +2617,29 @@ const openEditMessage = (message: Message) => {
   
   
   useEffect(() => {
-    let filteredContacts = contacts;
+    let filtered = contacts;
 
-    // Apply search filter
-    if (searchQuery.trim() !== '') {
-      filteredContacts = filteredContacts.filter((contact) => {
-        const name = contact.contactName?.toLowerCase() || '';
-        const firstName = contact.firstName?.toLowerCase() || '';
-        const lastName = contact.lastName?.toLowerCase() || '';
-        const phone = contact.phone?.toLowerCase() || '';
-        const tags = contact.tags?.map(tag => tag.toLowerCase()) || [];
-        const query = searchQuery.toLowerCase();
-
-        return (
-          name.includes(query) ||
-          firstName.includes(query) ||
-          lastName.includes(query) ||
-          phone.includes(query) ||
-          tags.some(tag => tag.includes(query))
-        );
-      });
-    }
-    
-
-    // Apply tag filter
-    if (activeTags.length > 0) {
-      filteredContacts = filteredContacts.filter((contact) =>
-        activeTags.every((tag) => contact.tags?.includes(tag))
+    if (searchQuery) {
+      filtered = filtered.filter((contact) =>
+        (contact.contactName || contact.firstName || contact.phone || '')
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())
       );
     }
 
-    // Apply unread filter
-    if (showUnreadContacts) {
-      filteredContacts = filteredContacts.filter((contact) => (contact.unreadCount ?? 0) > 0);
+    if (activeTags.length > 0) {
+      filtered = filtered.filter((contact) => {
+        if (activeTags.includes('Unread')) {
+          // Check for unread messages
+          return (contact.unreadCount && contact.unreadCount > 0) || 
+                 activeTags.some((tag) => contact.tags?.includes(tag));
+        }
+        return activeTags.some((tag) => contact.tags?.includes(tag));
+      });
     }
 
-    // Apply pinned filter
-    filteredContacts.sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-      return 0;
-    });
-
-    setFilteredContacts(filteredContacts);
-  }, [contacts, searchQuery, activeTags, showUnreadContacts]);
+    setFilteredContacts(filtered);
+  }, [contacts, searchQuery, activeTags]);
 
   const handleSelectMessage = (message: Message) => {
     setSelectedMessages(prevSelectedMessages =>
@@ -3842,17 +3821,24 @@ const handleForwardMessage = async () => {
       onClick={() => selectChat(contact.chat_id!, contact.id!)}
     >
     </div>
-      <div className="w-12 h-12 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl">
-        {contact && contact.chat_pic_full ? (
-          <img src={contact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
+    <div className="relative w-12 h-12">
+    <div className="w-12 h-12 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl">
+      {contact && contact.chat_pic_full ? (
+        <img src={contact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
+      ) : (
+        contact && contact.chat_id && contact.chat_id.includes('@g.us') ? (
+          <Lucide icon="Users" className="w-6 h-6 text-white dark:text-gray-200" />
         ) : (
-          contact && contact.chat_id && contact.chat_id.includes('@g.us') ? (
-            <Lucide icon="Users" className="w-6 h-6 text-white dark:text-gray-200" />
-          ) : (
-            <Lucide icon="User" className="w-6 h-6 text-white dark:text-gray-200" />
-          )
-        )}
-            </div>
+          <Lucide icon="User" className="w-6 h-6 text-white dark:text-gray-200" />
+        )
+      )}
+    </div>
+    {(contact.unreadCount ?? 0) > 0 && (
+      <span className="absolute -top-1 -right-1 bg-primary text-white dark:bg-blue-600 dark:text-gray-200 text-xs rounded-full px-2 py-1 min-w-[20px] h-[20px] flex items-center justify-center">
+        {contact.unreadCount}
+      </span>
+    )}
+  </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center">
           <span className="font-semibold capitalize truncate w-36 text-gray-800 dark:text-gray-200">
@@ -3937,9 +3923,6 @@ const handleForwardMessage = async () => {
           <span className="text-sm truncate text-gray-600 dark:text-gray-400" style={{ width: '200px' }}>
             {(contact.last_message?.type === "text") ? contact.last_message?.text?.body ?? "No Messages" : "Photo"}
           </span>
-          {(contact.unreadCount ?? 0) > 0 && (
-            <span className="bg-primary text-white dark:bg-blue-600 dark:text-gray-200 text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
-          )}
           <div onClick={(e) => toggleStopBotLabel(contact, index, e)}
           className="cursor-pointer">
             <label className="inline-flex items-center cursor-pointer">
