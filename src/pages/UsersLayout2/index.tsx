@@ -38,6 +38,7 @@ interface Employee {
   id: string;
   name: string;
   role: string;
+  groups?: string[];
   // Add other properties as needed
 }
 
@@ -129,7 +130,12 @@ console.log(dataUser.role)
 
     const employeeListData: Employee[] = [];
     employeeSnapshot.forEach((doc) => {
-      employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
+      const data = doc.data();
+      employeeListData.push({ 
+        id: doc.id, 
+        ...data,
+        groups: data.groups || [] // Ensure groups is always an array
+      } as Employee);
     });
 
     
@@ -150,85 +156,6 @@ console.log(dataUser.role)
   }
 }
 
-const handleUpdateContact = async (contactId: string, contact: any, companyId:any) => {
-  try {
-    const contactRef = doc(firestore, `companies/${companyId}/employee/${contactId}`);  // Adjust to your Firestore collection path
-    const docSnap = await getDoc(contactRef);
-
-    if (docSnap.exists()){
-    await updateDoc(contactRef, contact);
-    setResponse('Contact updated successfully');
-    
-    } else {
-    setResponse('No document to update');
-    
-    } 
-  } catch (error) {
-    setResponse('Failed to update contact');
-    console.error("Error updating contact:", error);
-  }
-};
-
-//fetch qrcode
-const fetchQRCode = async () => {
-  const auth = getAuth(app);
-  const user = auth.currentUser;
-  setIsLoading(true);
-  setError(null);
-  try {
-    const docUserRef = doc(firestore, 'user', user?.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      
-    return;
-    }
-
-    const dataUser = docUserSnapshot.data();
-    companyId = dataUser.companyId;
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-        
-    return;
-    }
-    
-    const companyData = docSnapshot.data();
-    const healthresponse = await axios.get('https://gate.whapi.cloud/health?wakeup=true&channel_type=web', {
-      headers: {
-        'accept': 'application/json',
-        'authorization': `Bearer ${companyData.whapiToken}`,
-      },
-    });
-    console.log(healthresponse.data.status)
-    if(healthresponse.data.status.text === 'QR' || healthresponse.data.status.text === 'INIT' || healthresponse.data.status.text === 'LAUNCH'){
-      const QRresponse = await axios.get('https://gate.whapi.cloud/users/login/image?wakeup=true', {
-        headers: {
-          'accept': 'image/png',
-          'authorization': `Bearer ${companyData.whapiToken}`,
-          'content-type': 'application/json',
-        },data: {
-          'size': 264,
-          'width': 300,
-          'height': 300,
-          'color_dark': '#122e31',
-          'color_light': '#ffffff',
-        }, responseType: 'blob',
-      });
-
-      const qrCodeURL = URL.createObjectURL(QRresponse.data); // Create an object URL from the blob
-      console.log("qrCodeURL", qrCodeURL)
-      console.log("response", response)
-      setQrCodeImage(qrCodeURL);
-      setIsLoading(false);
-    }else{
-      setIsLoading(false);
-    }
-  } catch (error) {
-    setIsLoading(false);
-    setError('Failed to fetch QR code. Please try again.');
-    console.error("Error fetching QR code:", error);
-  }
-};
 
 
 const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
@@ -254,7 +181,7 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
       <div className="grid grid-cols-12 gap-6 mt-5">
         <div className="flex flex-wrap items-center col-span-12 mt-2 intro-y sm:flex-nowrap">
           <Link to="crud-form">
-            {showAddUserButton || role !== "3" && (
+            {showAddUserButton && role !== "3" && (
               <Button variant="primary" className="mr-2 shadow-md">
                 Add New User
               </Button>

@@ -4,11 +4,12 @@ import React, { useState, useEffect } from "react";
 import Button from "@/components/Base/Button";
 import { getAuth, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { useLocation } from 'react-router-dom';
 import { FormInput, FormLabel } from "@/components/Base/Form";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -28,9 +29,43 @@ function Main() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [categories, setCategories] = useState(["1"]);
+  const [groups, setGroups] = useState<string[]>([]);
   const location = useLocation();
-  const { contactId, contact, companyId } = location.state ?? [];
+  const { contactId, contact } = location.state ?? {};
 
+  const [companyId, setCompanyId] = useState("");
+  const [isAddingNewGroup, setIsAddingNewGroup] = useState(false);
+  const [newGroup, setNewGroup] = useState("");
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userDocRef = doc(firestore, 'user', user.email!);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            setCompanyId(userData.companyId);
+            console.log("Fetched companyId:", userData.companyId);
+          } else {
+            console.log("No user document found");
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
+      } else {
+        console.log("No user signed in");
+      }
+    });
+
+    return () => unsubscribe();
+  }, [auth, firestore]);
+
+  useEffect(() => {
+    if (companyId) {
+      fetchGroups();
+    }
+  }, [companyId]);
 
   const [userData, setUserData] = useState({
     name: "",
@@ -38,38 +73,75 @@ function Main() {
     email: "",
     password: "",
     role: "",
-    companyId: ""
+    companyId: "",
+    group: ""
   });
 
   useEffect(() => {
     if (contact) {
       setUserData({
         name: contact.name || "",
-        phoneNumber: contact.phoneNumber ? contact.phoneNumber.split('+6')[1] ?? "" : "", // Handle nullable phone number
+        phoneNumber: contact.phoneNumber ? contact.phoneNumber.split('+6')[1] ?? "" : "",
         email: contact.id || "",
         password: "",
         role: contact.role || "",
-        companyId: companyId || ""
+        companyId: companyId || "",
+        group: contact.group || ""
       });
       setCategories([contact.role]);
+      fetchGroups();
+    } else {
+      fetchGroups();
     }
   }, [contact, companyId]);
 
-  const handleChange = (e: { target: { name: any; value: any; }; }) => {
-    const { name, value } = e.target;
-    if (name === 'role') {
-      setCategories([value]);
-      setUserData((prevUserData) => ({
-        ...prevUserData,
-        role: value
-      }));
-    } else {
-      setUserData((prevUserData) => ({
-        ...prevUserData,
-        [name]: value
-      }));
+  const fetchGroups = async () => {
+    if (!companyId) {
+      console.log("No companyId available");
+      return;
+    }
+    console.log("Fetching groups for company:", companyId);
+    try {
+      const employeeCollectionRef = collection(firestore, `companies/${companyId}/employee`);
+      const employeeSnapshot = await getDocs(employeeCollectionRef);
+      const uniqueGroups = new Set<string>();
+      employeeSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.group) {
+          uniqueGroups.add(data.group);
+        }
+      });
+      const groupsArray = Array.from(uniqueGroups);
+      console.log("Fetched groups:", groupsArray);
+      setGroups(groupsArray);
+    } catch (error) {
+      console.error("Error fetching groups:", error);
     }
   };
+
+  const handleChange = (e: { target: { name: any; value: any; }; }) => {
+    const { name, value } = e.target;
+    setUserData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddNewGroup = () => {
+    setIsAddingNewGroup(true);
+  };
+
+  const handleCancelNewGroup = () => {
+    setIsAddingNewGroup(false);
+    setNewGroup("");
+  };
+
+  const handleSaveNewGroup = () => {
+    if (newGroup.trim()) {
+      setGroups(prev => [...prev, newGroup.trim()]);
+      setUserData(prev => ({ ...prev, group: newGroup.trim() }));
+      setIsAddingNewGroup(false);
+      setNewGroup("");
+    }
+  };
+
   const handleGoBack = () => {
     window.history.back();
   };
@@ -85,20 +157,16 @@ function Main() {
     const companyId = dataUser!.companyId;
     const company = dataUser!.company;
         if (!userOri || !userOri.email) {
-            
             return;
         }
 
         const formatPhoneNumber = (phoneNumber: string) => {
-            // Ensure phone number is in E.164 format
             if (phoneNumber && !phoneNumber.startsWith('+')) {
                phoneNumber = "+6"+phoneNumber;
             }
             return phoneNumber;
         };
     
-        // Prepare user data
-     
    
 if (contactId) {
   const userDataToSend = {
@@ -107,9 +175,10 @@ if (contactId) {
     phoneNumber: formatPhoneNumber(userData.phoneNumber),
     password: userData.password,
     name: userData.name,
-    role:userData.role,
-    companyId:userData.companyId,
-    company:company
+    role: userData.role,
+    companyId: userData.companyId,
+    company: company,
+    group: userData.group // Save the chosen group
 };
 
   const response = await fetch('https://mighty-dane-newly.ngrok-free.app/api/update-user', {
@@ -132,19 +201,19 @@ console.log(response.body);
     password: userData.password,
     role: userData.role,
     companyId: userData.companyId,
+    group: userData.group
 });
 setSuccessMessage("User updated successfully");
 } else {
 
-  // Prepare user data to be sent to the server
   const userDataToSend = {
     name: userData.name,
     phoneNumber: userData.phoneNumber,
     email: userData.email,
     role: categories.toString(),
     companyId: companyId,
-    company: company
-    // Add any other required fields here
+    company: company,
+    group: userData.group // Save the chosen group
   };
   const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/create-user/${userData.email}/${formatPhoneNumber(userData.phoneNumber)}/${userData.password}`, {
     method: 'POST',
@@ -168,7 +237,8 @@ setUserData({
     email: "",
     password: "",
     role: "",
-    companyId: ""
+    companyId: "",
+    group: ""
 });
 
   }else{
@@ -237,25 +307,90 @@ setUserData({
                 value={userData.email}
                 onChange={handleChange}
                 placeholder="Email"
-                readOnly={!!contactId} // Make email read-only if updating a contact
+                readOnly={!!contactId}
               />
             </div>
             <div className="mt-3">
-  <FormLabel htmlFor="crud-form-2">Role</FormLabel>
-  <select
-  id="crud-form-2"
-  name="role"
-  value={categories[0]} // Ensure value is correctly set
-  onChange={handleChange}
-  className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm w-full"
->
-  <option value="1">Admin</option>
-  <option value="2">Sales</option>
-  <option value="3">Observer</option>
-  <option value="4">Others</option>
-</select>
+            <FormLabel htmlFor="group">Group</FormLabel>
+            {isAddingNewGroup ? (
+              <div className="flex items-center">
+                <FormInput
+                  type="text"
+                  value={newGroup}
+                  onChange={(e) => setNewGroup(e.target.value)}
+                  placeholder="Enter new group name"
+                  className="w-full mr-2"
+                />
+                <Button
+                  type="button"
+                  variant="outline-secondary"
+                  className="mr-2"
+                  onClick={handleCancelNewGroup}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleSaveNewGroup}
+                >
+                  Save
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <select
+                  id="group"
+                  name="group"
+                  value={userData.group}
+                  onChange={handleChange}
+                  className="flex-grow text-sm font-medium rounded-lg p-2.5
+                    dark:bg-gray-700 dark:border-gray-600 dark:text-white
+                    light:bg-white light:border-gray-300 light:text-gray-900
+                    focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-500
+                    transition-colors duration-200"
+                >
+                  <option value="">Select a group</option>
+                  {groups.map((group) => (
+                    <option key={group} value={group}>{group}</option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  variant="outline-secondary"
+                  onClick={handleAddNewGroup}
+                  className="flex items-center px-4 py-2 text-sm font-medium rounded-lg
+                    dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700
+                    light:bg-white light:text-gray-700 light:border-gray-300 light:hover:bg-gray-100
+                    transition-colors duration-200"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  </svg>
+                  Add New Group
+                </Button>
+              </div>
+            )}
+          </div>
+            <div className="mt-3">
+            <FormLabel htmlFor="crud-form-2">Role</FormLabel>
+              <select
+              id="crud-form-2"
+              name="role"
+              value={userData.role}
+              onChange={(e) => {
+                handleChange(e);
+                setCategories([e.target.value]);
+              }}
+              className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm w-full"
+            >
+              <option value="1">Admin</option>
+              <option value="2">Sales</option>
+              <option value="3">Observer</option>
+              <option value="4">Others</option>
+            </select>
 
-</div>
+            </div>
             <div className="mt-3">
               <FormInput
                 name="password"
