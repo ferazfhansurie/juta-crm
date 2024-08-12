@@ -2944,7 +2944,7 @@ const handleForwardMessage = async () => {
       });
   
       // Update local state
-      setSelectedContact(prevContact => ({
+      setSelectedContact((prevContact: any) => ({
         ...prevContact,
         contactName: editedName
       }));
