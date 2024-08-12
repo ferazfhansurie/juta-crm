@@ -149,6 +149,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
             city: data.city || null,
             companyName: data.companyName || null,
             threadid: data.threadid || '',
+            unreadCount:data.unreadCount ||0,
           } as Contact;
         });
     

@@ -1130,10 +1130,30 @@ async function fetchConfigFromDatabase() {
         console.error('Failed to create contact:', error);
       }
     }
+
+    if (contact) {
+      // Update unreadCount in Firebase
+      try {
+        const user = auth.currentUser;
+        if (user) {
+          const docUserRef = doc(firestore, 'user', user.email!);
+          const docUserSnapshot = await getDoc(docUserRef);
+          if (docUserSnapshot.exists()) {
+            const userData = docUserSnapshot.data();
+            const companyId = userData.companyId;
+            
+            const contactRef = doc(firestore, `companies/${companyId}/contacts`, contact.id!);
+            await updateDoc(contactRef, { unreadCount: 0 });
+            console.log('Updated unreadCount in Firebase for contact:', contact.id);
+          }
+        }
+      } catch (error) {
+        console.error('Error updating unreadCount in Firebase:', error);
+      }
+    }
+
     setSelectedContact(contact);
     setSelectedChatId(chatId);
-
-    navigate(`?chatId=${chatId}`);
     setIsChatActive(true);
     setSelectedChatId(chatId);
     
