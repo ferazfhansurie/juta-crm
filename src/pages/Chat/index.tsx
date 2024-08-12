@@ -437,11 +437,15 @@ function Main() {
   const [userRole, setUserRole] = useState<string>("");
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState('');
+  const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
+  const [newContactNumber, setNewContactNumber] = useState('');
+
   useEffect(() => {
     if (selectedContact) {
       setEditedName(selectedContact.contactName || selectedContact.firstName || '');
     }
   }, [selectedContact]);
+
   useEffect(() => {
     // Check if a chat is active based on the URL
     const params = new URLSearchParams(location.search);
@@ -2249,6 +2253,70 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
 
     setNewMessage('');
     setReplyToMessage(null);
+  };
+
+  const openNewChatModal = () => {
+    setIsNewChatModalOpen(true);
+  };
+
+  const closeNewChatModal = () => {
+    setIsNewChatModalOpen(false);
+    setNewContactNumber('');
+  };
+
+
+  const handleCreateNewChat = async () => {
+    if (!newContactNumber) return;
+  
+    try {
+      const chatId = `${newContactNumber}@c.us`;
+      const contactId = `+${newContactNumber}`; // This will be used as the document ID
+      const newContact = {
+        id: contactId,
+        chat_id: chatId,
+        contactName: newContactNumber,
+        phone: newContactNumber,
+        tags: [],
+        unreadCount: 0,
+      };
+  
+      // Add the new contact to Firestore
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      // Use setDoc with merge option to add or update the document with the specified ID
+      await setDoc(doc(firestore, 'companies', companyId, 'contacts', contactId), newContact, { merge: true });
+  
+      // Update local state
+      setContacts(prevContacts => {
+        const updatedContacts = [...prevContacts, newContact];
+        // Update local storage
+        localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
+        return updatedContacts;
+      });
+  
+      // Close the modal and reset the input
+      closeNewChatModal();
+  
+      // Select the new chat
+      selectChat(chatId, newContactNumber, newContact);
+  
+    } catch (error) {
+      console.error('Error creating new chat:', error);
+      toast.error('Failed to create new chat');
+    }
   };
   const actionPerformedRef = useRef(false);
 const toggleStopBotLabel = async (contact: Contact, index: number, event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
@@ -4452,7 +4520,13 @@ const handleForwardMessage = async () => {
     <div className="hidden md:flex flex-col w-full h-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 items-center justify-center">
       <div className="flex flex-col items-center justify-center p-8 rounded-lg shadow-lg bg-gray-100 dark:bg-gray-700">
         <Lucide icon="MessageSquare" className="w-16 h-16 text-blue-500 dark:text-blue-400 mb-4" />
-        <p className="text-gray-700 dark:text-gray-300 text-lg text-center">Select a chat to start messaging</p>
+        <p className="text-gray-700 dark:text-gray-300 text-lg text-center mb-6">Select a chat to start messaging</p>
+        <button
+          onClick={openNewChatModal}
+          className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded transition duration-200"
+        >
+          Start New Chat
+        </button>
       </div>
     </div>
   )}
@@ -4478,7 +4552,46 @@ const handleForwardMessage = async () => {
     </button>
   </div>
 )}
-
+{isNewChatModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl">
+      <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Start New Chat</h2>
+      <div className="mb-4">
+        <label htmlFor="newContactNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Enter contact number (include country code)
+        </label>
+        <div className="relative">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-600 dark:text-gray-400">
+            +
+          </span>
+          <input
+            type="text"
+            id="newContactNumber"
+            value={newContactNumber}
+            onChange={(e) => setNewContactNumber(e.target.value)}
+            placeholder="1234567890"
+            className="w-full p-2 pl-6 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700"
+          />
+        </div>
+      
+      </div>
+      <div className="flex justify-end space-x-2">
+        <button
+          onClick={closeNewChatModal}
+          className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition duration-200"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleCreateNewChat}
+          className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded transition duration-200"
+        >
+          Start Chat
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 {isTabOpen && (
   <div className="absolute top-0 right-0 h-full w-full md:w-1/3 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-700 overflow-y-auto z-50">
     <div className="p-6">
