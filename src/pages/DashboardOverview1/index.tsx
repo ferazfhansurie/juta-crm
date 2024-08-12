@@ -398,14 +398,11 @@ function Main() {
         label: 'Assigned Contacts',
         data: employees.map(employee => Math.round(employee.assignedContacts || 0)),
         backgroundColor: employees.map(() => `rgba(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, 0.6)`),
-        barPercentage: 0.25, // Make bars slimmer
+        barPercentage: 0.5, // Make bars slimmer
         categoryPercentage: 0.8,
       },
     ],
   };
-
-  const maxAssignedContacts = Math.max(...employees.map(employee => employee.assignedContacts || 0));
-  const yAxisMax = Math.ceil((maxAssignedContacts + 50) / 100) * 100; // Round up to nearest 100
 
   const barChartOptions = {
     responsive: true,
@@ -413,7 +410,6 @@ function Main() {
     scales: {
       y: {
         beginAtZero: true,
-        max: yAxisMax,
         title: {
           display: true,
           text: 'Assigned Contacts',
@@ -421,7 +417,7 @@ function Main() {
         },
         ticks: {
           color: 'rgb(107, 114, 128)', // text-gray-500
-          stepSize: Math.max(1, Math.floor(yAxisMax / 10)), // Adjust step size based on max value
+          stepSize: 1,
           callback: function(value: number | string) {
             if (Number.isInteger(Number(value))) {
               return value;
@@ -453,10 +449,10 @@ function Main() {
   } as const;
 
   return (
-    <div className="flex flex-col min-h-screen overflow-x-hidden overflow-y-auto">
-      <div className="flex-grow p-4">
-        <div className="space-y-6">
-          {/* BEGIN: Stats */}
+    <div className="flex flex-col w-full h-full overflow-x-hidden overflow-y-auto">
+      <div className="flex-grow p-4 space-y-6">
+        {/* BEGIN: Stats */}
+        <div>
           <h2 className="text-xl sm:text-2xl font-semibold mb-4">Key Performance Indicators</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             {[
@@ -485,42 +481,42 @@ function Main() {
               </div>
             ))}
           </div>
-          {/* END: Stats */}
-           {/* BEGIN: Employee Leaderboard */}
-           <div>
-            <h2 className="text-xl sm:text-2xl font-semibold mb-4">Employee Leaderboard</h2>
-            {loading ? (
-              <div className="text-center">
-                <LoadingIcon icon="spinning-circles" className="w-8 h-8 mx-auto" />
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                {employees.map((employee) => (
-                  <div key={employee.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                    <div className="flex items-center">
-                      <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
-                      <div>
-                        <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {employee.assignedContacts} assigned contacts
-                        </div>
+        </div>
+        {/* END: Stats */}
+         {/* BEGIN: Employee Leaderboard */}
+        <div>
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4">Employee Leaderboard</h2>
+          {loading ? (
+            <div className="text-center">
+              <LoadingIcon icon="spinning-circles" className="w-8 h-8 mx-auto" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {employees.map((employee) => (
+                <div key={employee.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                  <div className="flex items-center">
+                    <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
+                    <div>
+                      <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                        {employee.assignedContacts} assigned contacts
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-          {/* END: Employee Leaderboard */}
-          <div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-              <div style={{ height: '50vh', minHeight: '300px' }}>
-                <Bar data={barChartData} options={barChartOptions} />
-              </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* END: Employee Leaderboard */}
+        <div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div style={{ height: '400px' }}>
+              <Bar data={barChartData} options={barChartOptions} />
             </div>
           </div>
-          {/* END: Employee Bar Chart */}
         </div>
+        {/* END: Employee Bar Chart */}
       </div>
     </div>
   );
