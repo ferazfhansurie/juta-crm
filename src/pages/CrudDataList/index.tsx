@@ -249,6 +249,22 @@ const handleTagFilterChange = (tag: string) => {
   setSelectedTagFilter(tag);
 };
 
+const formatPhoneNumber = (phone: string): string => {
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, '');
+  
+  // If the number starts with '0', replace it with '60'
+  // Otherwise, ensure it starts with '60'
+  const formattedNumber = digits.startsWith('0')
+    ? `60${digits.slice(1)}`
+    : digits.startsWith('60')
+    ? digits
+    : `60${digits}`;
+  
+  // Add the '+' at the beginning
+  return `+${formattedNumber}`;
+};
+
 const handleSaveNewContact = async () => {
   if (userRole === "3") {
     toast.error("You don't have permission to add contacts.");
@@ -256,8 +272,14 @@ const handleSaveNewContact = async () => {
   }
 
   try {
-    console.log(newContact);
-    
+    if (!newContact.phone) {
+      toast.error("Phone number is required.");
+      return;
+    }
+
+    // Format the phone number
+    const formattedPhone = formatPhoneNumber(newContact.phone);
+
     const user = auth.currentUser;
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
@@ -270,21 +292,37 @@ const handleSaveNewContact = async () => {
     const companyId = userData.companyId;
     const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
 
-    // Add new contact to Firebase
-    await addDoc(contactsCollectionRef, {
+    // Use the formatted phone number as the document ID
+    const contactDocRef = doc(contactsCollectionRef, formattedPhone);
+
+    // Check if a contact with this phone number already exists
+    const existingContact = await getDoc(contactDocRef);
+    if (existingContact.exists()) {
+      toast.error("A contact with this phone number already exists.");
+      return;
+    }
+    const chat_id = formattedPhone.split('+')[1]+"@c.us";
+    // Prepare the contact data with the formatted phone number
+    const contactData = {
+      id: formattedPhone,
+      chat_id:chat_id,
       firstName: newContact.firstName,
       lastName: newContact.lastName,
       email: newContact.email,
-      phone: newContact.phone,
+      phone: formattedPhone,
       address1: newContact.address1,
       companyName: newContact.companyName,
       locationId: newContact.locationId,
-      dateAdded: new Date().toISOString()
-    });
+      dateAdded: new Date().toISOString(),
+      unreadCount: 0
+    };
+
+    // Add new contact to Firebase
+    await setDoc(contactDocRef, contactData);
 
     toast.success("Contact added successfully!");
     setAddContactModal(false);
-    setContacts(prevContacts => [...prevContacts, newContact]);
+    setContacts(prevContacts => [...prevContacts, contactData]);
     setNewContact({
       firstName: '',
       lastName: '',
@@ -296,7 +334,7 @@ const handleSaveNewContact = async () => {
     });
   } catch (error) {
     console.error('Error adding contact:', error);
-    toast.error("An error occurred while adding the contact." + error);
+    toast.error("An error occurred while adding the contact: " + error);
   }
 };
 const handleSaveNewTag = async () => {
@@ -2108,7 +2146,7 @@ console.log(filteredContacts);
                           )}
                           <div className="overflow-hidden">
                             <h3 className="font-medium text-lg text-gray-900 dark:text-white truncate">
-                              {contact.contactName ? (contact.lastName ? `${contact.contactName}` : contact.contactName) : contact.phone}
+                            {contact.firstName ? (contact.lastName ? `${contact.firstName} ${contact.lastName}` : contact.firstName) : (contact.contactName || contact.phone)}
                             </h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{contact.phone ?? contact.source}</p>
                           </div>

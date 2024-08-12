@@ -359,7 +359,7 @@ function Main() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const myMessageClass = "flex flex-col max-w-[320px] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group";
   const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left mt-1 group-first:mt-1";
-
+  
   // Add these new classes for consecutive messages from the same sender
   const myConsecutiveMessageClass = "flex flex-col max-w-[320px] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-0.5 group";
   const otherConsecutiveMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left mt-0.5 group-first:mt-0.5";
@@ -435,7 +435,13 @@ function Main() {
   const location = useLocation();
   const [isChatActive, setIsChatActive] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
-
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedName, setEditedName] = useState('');
+  useEffect(() => {
+    if (selectedContact) {
+      setEditedName(selectedContact.contactName || selectedContact.firstName || '');
+    }
+  }, [selectedContact]);
   useEffect(() => {
     // Check if a chat is active based on the URL
     const params = new URLSearchParams(location.search);
@@ -1539,7 +1545,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
         const data2 = docSnapshot.data();
         
         setToken(data2.whapiToken);
-        
+        console.log('fetching messages');
         let messages;
         if (data2.v2) {
             messages = await fetchMessagesFromFirebase(companyId, selectedChatId);
@@ -2244,11 +2250,14 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     setNewMessage('');
     setReplyToMessage(null);
   };
-
+  const actionPerformedRef = useRef(false);
 const toggleStopBotLabel = async (contact: Contact, index: number, event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
 
   event.preventDefault();
   event.stopPropagation();
+
+  if (actionPerformedRef.current) return; // If action already performed, return early
+  actionPerformedRef.current = true;
   console.log('Toggling stop bot label for contact:', contact.id);
   if (userRole === "3") {
     toast.error("You don't have permission to control the bot.");
@@ -2278,7 +2287,7 @@ const toggleStopBotLabel = async (contact: Contact, index: number, event: React.
       }
       const hasLabel = contact.tags?.includes('stop bot') || false;
       const newHasLabel = !hasLabel; // Toggle the label
-      
+      console.log('newHasLabel', newHasLabel);
       // Update Firestore
       await updateDoc(docRef, {
         tags: newHasLabel ? arrayUnion('stop bot') : arrayRemove('stop bot')
@@ -2306,6 +2315,9 @@ const toggleStopBotLabel = async (contact: Contact, index: number, event: React.
 
       // Show a success toast
       toast.success(`Bot ${newHasLabel ? 'disabled' : 'enabled'} for ${contact.contactName || contact.firstName || contact.phone}`);
+      setTimeout(() => {
+        actionPerformedRef.current = false; // Reset the ref after a short delay
+      }, 100);
     } else {
       console.error('companyId or contact.id is null or undefined');
     }
@@ -2909,7 +2921,62 @@ const handleForwardMessage = async () => {
     setModalImageUrl(imageUrl);
     setImageModalOpen(true);
   };
-
+  const handleSave = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.log('No authenticated user!');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      // Update Firestore
+      await updateDoc(doc(firestore, 'companies', companyId, 'contacts', selectedContact.id), {
+        contactName: editedName
+      });
+  
+      // Update local state
+      setSelectedContact(prevContact => ({
+        ...prevContact,
+        contactName: editedName
+      }));
+  
+      // Update contacts in state
+      setContacts(prevContacts => 
+        prevContacts.map(contact => 
+          contact.id === selectedContact.id 
+            ? { ...contact, contactName: editedName } 
+            : contact
+        )
+      );
+  
+      // Update localStorage
+      const storedContacts = localStorage.getItem('contacts');
+      if (storedContacts) {
+        const decompressedContacts = JSON.parse(LZString.decompress(storedContacts));
+        const updatedContacts = decompressedContacts.map((contact: any) => 
+          contact.id === selectedContact.id 
+            ? { ...contact, contactName: editedName } 
+            : contact
+        );
+        localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
+      }
+  
+      setIsEditing(false);
+      toast.success('Contact name updated successfully!');
+    } catch (error) {
+      console.error('Error updating contact name:', error);
+      toast.error('Failed to update contact name.');
+    }
+  };
   const closeImageModal = () => {
     setImageModalOpen(false);
     setModalImageUrl('');
@@ -3790,7 +3857,8 @@ const handleForwardMessage = async () => {
           {(contact.unreadCount ?? 0) > 0 && (
             <span className="bg-primary text-white dark:bg-blue-600 dark:text-gray-200 text-xs rounded-full px-2 py-1 ml-2">{contact.unreadCount}</span>
           )}
-          <div onClick={(e) => toggleStopBotLabel(contact, index, e)}>
+          <div onClick={(e) => toggleStopBotLabel(contact, index, e)}
+          className="cursor-pointer">
             <label className="inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
@@ -4423,10 +4491,33 @@ const handleForwardMessage = async () => {
               selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"
             )}
           </div>
-          <div>
-            <div className="font-semibold text-gray-800 dark:text-gray-200 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">{selectedContact.phone}</div>
-          </div>
+          <div className="flex items-center">
+  {isEditing ? (
+    <div className="flex items-center">
+      <input
+        type="text"
+        value={editedName}
+        onChange={(e) => setEditedName(e.target.value)}
+        className="font-semibold bg-transparent text-gray-800 dark:text-gray-200 capitalize border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-primary dark:focus:border-primary mr-2"
+        onKeyPress={(e) => e.key === 'Enter' && handleSave()}
+      />
+      <button
+        onClick={handleSave}
+        className="p-1 bg-primary hover:bg-primary-dark text-white rounded-md transition-colors duration-200"
+      >
+        <Lucide icon="Save" className="w-4 h-4" />
+      </button>
+    </div>
+  ) : (
+    <div 
+      className="font-semibold text-gray-800 dark:text-gray-200 capitalize cursor-pointer hover:text-primary dark:hover:text-primary-400 transition-colors duration-200 flex items-center"
+      onClick={() => setIsEditing(true)}
+    >
+      <span>{selectedContact?.contactName || selectedContact?.firstName || selectedContact?.phone || ''}</span>
+      <Lucide icon="Pencil" className="w-4 h-4 ml-2 text-gray-500 dark:text-gray-400" />
+    </div>
+  )}
+</div>
         </div>
         <button onClick={handleEyeClick} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none">
           <Lucide icon="X" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
