@@ -2470,6 +2470,10 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
     // Check if the tag is an employee name
     const isEmployeeTag = employeeList.some(employee => employee.name.toLowerCase() === tagName.toLowerCase());
     
+    if (employeeList.some(emp => emp.name.toLowerCase() === tagName.toLowerCase())) {
+      await sendAssignmentNotification(tagName, contact);
+    }
+    
     if (isEmployeeTag) {
       const employeeRef = doc(firestore, 'companies', companyId, 'employee', tagName);
       const employeeDoc = await getDoc(employeeRef);
@@ -2579,39 +2583,43 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
     }
 
     console.log('Sending request to:', url);
-    console.log('Request body:', JSON.stringify(requestBody));
+      console.log('Request body:', JSON.stringify(requestBody));
 
-    // Send WhatsApp message to the employee
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
+      // Send WhatsApp message to the employee
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response:', response.status, errorText);
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', response.status, errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      }
+
+      const responseData = await response.json();
+      console.log('Assignment notification response:', responseData);
+      console.log('Sent to phone number:', employeePhone);
+
+      // Mark notification as sent
+      await setDoc(notificationRef, {
+        sentAt: serverTimestamp(),
+        employeeName: assignedEmployeeName,
+        contactId: contact.id
+      });
+
+      toast.success("Assignment notification sent successfully!");
+    } catch (error) {
+      console.error('Error sending assignment notification:', error);
+      toast.error('Failed to send assignment notification. Please try again.');
+      // Log additional information that might be helpful
+      console.log('Assigned Employee Name:', assignedEmployeeName);
+      console.log('Contact:', contact);
+      console.log('Employee List:', employeeList);
+      console.log('Company ID:', companyId);
     }
-
-    const responseData = await response.json();
-    console.log('Assignment notification response:', responseData);
-    console.log('Sent to phone number:', employeePhone);
-
-    // Mark notification as sent
-    await setDoc(notificationRef, {
-      sentAt: serverTimestamp(),
-      employeeName: assignedEmployeeName,
-      contactId: contact.id
-    });
-
-
-    toast.success("Assignment notification sent successfully!");
-  } catch (error) {
-    console.error('Error sending assignment notification:', error);
-    toast.error('Failed to send assignment notification. Please try again.');
-  }
-};
+  };
 
 // ... rest of the code ...
   
