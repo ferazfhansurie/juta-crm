@@ -329,7 +329,7 @@ function Main() {
 
   const myMessageTextClass = "text-white"
   const otherMessageTextClass = "text-white"
-  const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [activeTags, setActiveTags] = useState<string[]>(['mine']);
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [ghlConfig, setGhlConfig] = useState<GhlConfig | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -389,7 +389,7 @@ function Main() {
   const privateNoteRef = useRef<HTMLDivElement>(null);
   const [newPrivateNote, setNewPrivateNote] = useState('');
   const [isPrivateNotesMentionOpen, setIsPrivateNotesMentionOpen] = useState(false);
-  const [showAllContacts, setShowAllContacts] = useState(true);
+  const [showAllContacts, setShowAllContacts] = useState(false);
   const [showUnreadContacts, setShowUnreadContacts] = useState(false);
   const [activeTab, setActiveTab] = useState<'messages' | 'privateNotes'>('messages');
   const [showEmployeeList, setShowEmployeeList] = useState(false);
@@ -402,6 +402,11 @@ function Main() {
   const [editedName, setEditedName] = useState('');
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [newContactNumber, setNewContactNumber] = useState('');
+  const [showMineContacts, setShowMineContacts] = useState(true);
+  const [showUnassignedContacts, setShowUnassignedContacts] = useState(false);
+
+
+  const currentUserName = userData?.name || '';
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
   const [messageSearchResults, setMessageSearchResults] = useState<any[]>([]);
@@ -472,6 +477,7 @@ function Main() {
 
   useEffect(() => {
     updateEmployeeAssignedContacts();
+    filterTagContact('mine');
   }, []); 
 
   const handleBack = () => {
@@ -574,6 +580,19 @@ useEffect(() => {
     loadMoreContacts();
   }
 }, [initialContacts]);
+
+useEffect(() => {
+  if (contacts.length > 0) {
+    let filtered = contacts;
+    
+    // Apply 'Mine' filter by default
+    filtered = filtered.filter((contact) => 
+      contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase())
+    );
+
+    setFilteredContacts(filtered);
+  }
+}, [contacts, currentUserName]);
 
 useEffect(() => {
   const handleScroll = () => {
@@ -2630,38 +2649,19 @@ const openEditMessage = (message: Message) => {
   };
 
   const filterTagContact = (tagName: string) => {
-    setActiveTags(prevTags => {
-      const lowercaseTagName = tagName.toLowerCase();
-      if (prevTags.includes(lowercaseTagName)) {
-        return prevTags.filter(tag => tag !== lowercaseTagName);
-      } else {
-        return [...prevTags, lowercaseTagName];
-      }
-    });
-    if (tagName === 'All') {
-      setShowAllContacts(true);
-      setShowUnreadContacts(false);
-      setActiveTags([]);
-    } else if (tagName === 'Unread') {
-      setShowAllContacts(false);
-      setShowUnreadContacts(true);
-      setActiveTags(['Unread']);
-    } else {
-      setShowAllContacts(false);
-      setShowUnreadContacts(false);
-      if (activeTags.includes(tagName)) {
-        setActiveTags(activeTags.filter(tag => tag !== tagName));
-      } else {
-        setActiveTags([...activeTags, tagName]);
-      }
-    }
-  };
-
+    const lowercaseTagName = tagName.toLowerCase();
+    
+    setActiveTags([lowercaseTagName]);
   
+    setShowAllContacts(lowercaseTagName === 'all');
+    setShowUnreadContacts(lowercaseTagName === 'unread');
+    setShowMineContacts(lowercaseTagName === 'mine');
+    setShowUnassignedContacts(lowercaseTagName === 'unassigned');
+  };
   
   useEffect(() => {
     let filtered = contacts;
-
+  
     if (searchQuery) {
       filtered = filtered.filter((contact) =>
         (contact.contactName || contact.firstName || contact.phone || '')
@@ -2669,20 +2669,42 @@ const openEditMessage = (message: Message) => {
           .includes(searchQuery.toLowerCase())
       );
     }
-
+  
     if (activeTags.length > 0) {
       filtered = filtered.filter((contact) => {
-        if (activeTags.includes('Unread')) {
-          // Check for unread messages
-          return (contact.unreadCount && contact.unreadCount > 0) || 
-                 activeTags.some((tag) => contact.tags?.includes(tag));
-        }
-        return activeTags.some((tag) => contact.tags?.includes(tag));
+        const contactTags = contact.tags?.map(tag => tag.toLowerCase()) || [];
+        return activeTags.every(tag => {
+          switch (tag) {
+            case 'mine':
+              return contactTags.includes(currentUserName.toLowerCase());
+            case 'all':
+              return true;
+            case 'unread':
+              return contact.unreadCount && contact.unreadCount > 0;
+            case 'unassigned':
+              return !contactTags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag));
+            default:
+              return contactTags.includes(tag);
+          }
+        });
       });
+    } else if (showAllContacts) {
+      // No additional filtering needed
+    } else if (showUnreadContacts) {
+      filtered = filtered.filter((contact) => contact.unreadCount && contact.unreadCount > 0);
+    } else if (showMineContacts) {
+      filtered = filtered.filter((contact) => 
+        contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase())
+      );
+    } else if (showUnassignedContacts) {
+      filtered = filtered.filter((contact) => 
+        !contact.tags || !contact.tags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()))
+      );
     }
-
+  
     setFilteredContacts(filtered);
-  }, [contacts, searchQuery, activeTags]);
+  }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, currentUserName, employeeList]);
+  
 
   const handleSelectMessage = (message: Message) => {
     setSelectedMessages(prevSelectedMessages =>
@@ -3615,7 +3637,7 @@ const handleForwardMessage = async () => {
                               {visibleTags.map((tag) => (
                                 <button
                                   key={tag.id}
-                                  onClick={() => filterTagContact(tag.name)}
+                                  onClick={() => filterTagContact('mine')}
                                   className={`px-3 py-1 rounded-full text-sm flex-shrink-0 ${
                                     activeTags.includes(tag.name)
                                       ? 'bg-primary text-white dark:bg-primary dark:text-white'
@@ -3792,24 +3814,24 @@ const handleForwardMessage = async () => {
 
 </div>
 <div className="mt-4 mb-2 px-4 max-h-40 overflow-y-auto">
-  <div className="flex flex-wrap gap-2">
-    {visibleTags.map((tag) => (
-      <button
-        key={tag.id}
-        onClick={() => filterTagContact(tag.name)}
-        className={`px-3 py-1 rounded-full text-sm ${
-          (tag.name === 'All' && showAllContacts) ||
-          (tag.name === 'Unread' && showUnreadContacts) ||
-          activeTags.includes(tag.name)
-            ? 'bg-primary text-white dark:bg-primary dark:text-white'
-            : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-        } transition-colors duration-200`}
-      >
-        {tag.name}
-      </button>
-    ))}
-  </div>
+   <div className="flex flex-wrap gap-2">
+      {['Mine', 'All', 'Unread', 'Unassigned', ...visibleTags.filter(tag => !['All', 'Unread', 'Mine', 'Unassigned'].includes(tag.name))].map((tag) => (
+        <button
+          key={typeof tag === 'string' ? tag : tag.id}
+          onClick={() => filterTagContact(typeof tag === 'string' ? tag : tag.name)}
+          className={`px-3 py-1 rounded-full text-sm ${
+            (typeof tag === 'string' && tag.toLowerCase() === activeTags[0]) ||
+            (typeof tag !== 'string' && activeTags.includes(tag.name.toLowerCase()))
+              ? 'bg-primary text-white dark:bg-primary dark:text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+          } transition-colors duration-200`}
+        >
+          {typeof tag === 'string' ? tag : tag.name}
+        </button>
+      ))}
+    </div>
 </div>
+
 {tagList.length > visibleTags.length && (
   <div className="max-h-40 overflow-y-auto">
     <button
