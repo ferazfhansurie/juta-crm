@@ -171,6 +171,7 @@ interface Message {
   id: string;
   name: string;
   role: string;
+  phoneNumber?: string;
   // Add other properties as needed
 }
 interface Tag {
@@ -2452,29 +2453,7 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
       tags: arrayUnion(tagName)
     });
 
-    // Check if the tag is an employee name
-    const isEmployeeTag = employeeList.some(employee => employee.name.toLowerCase() === tagName.toLowerCase());
-    
-    if (isEmployeeTag) {
-      // Find the correct employee document
-      const employeeQuerySnapshot = await getDocs(query(
-        collection(firestore, 'companies', companyId, 'employee'),
-        where('name', '==', tagName)
-      ));
-
-      if (!employeeQuerySnapshot.empty) {
-        const employeeDoc = employeeQuerySnapshot.docs[0];
-        // Update the employee's assignedContacts count
-        await updateDoc(employeeDoc.ref, {
-          assignedContacts: increment(1)
-        });
-      } else {
-        console.error(`Employee document for ${tagName} not found`);
-        toast.error(`Failed to update employee ${tagName}. Document not found.`);
-      }
-    }
-
-    // Update local state
+    // Update state
     setContacts(prevContacts =>
       prevContacts.map(c =>
         c.id === contact.id
@@ -2483,10 +2462,39 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
       )
     );
 
-    setSelectedContact((prevContact: Contact | null) => ({
-      ...prevContact!,
-      tags: [...(prevContact?.tags || []), tagName]
+    setSelectedContact((prevContact: Contact) => ({
+      ...prevContact,
+      tags: [...(prevContact.tags || []), tagName]
     }));
+
+    // Check if the tag is an employee name
+    const isEmployeeTag = employeeList.some(employee => employee.name.toLowerCase() === tagName.toLowerCase());
+    
+    if (isEmployeeTag) {
+      const employeeRef = doc(firestore, 'companies', companyId, 'employee', tagName);
+      const employeeDoc = await getDoc(employeeRef);
+
+      // Send notification to the assigned employee
+      await sendAssignmentNotification(tagName, contact);
+      
+      if (!employeeDoc.exists()) {
+        // Create the employee document
+        await setDoc(employeeRef, {
+          name: tagName,
+          assignedContacts: 1,
+          phone: contact.phone,
+          // Add other default fields as needed
+        });
+        console.log(`Created new employee document for ${tagName}`);
+      } else {
+        // Update existing employee document
+        await updateDoc(employeeRef, {
+          assignedContacts: increment(1)
+        });
+      }
+
+      await sendAssignmentNotification(tagName, contact);
+    }
 
     toast.success('Tag added successfully!');
   } catch (error) {
@@ -2494,6 +2502,118 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
     toast.error('Failed to add tag.');
   }
 };
+
+const sendAssignmentNotification = async (assignedEmployeeName: string, contact: Contact) => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('No authenticated user');
+      return;
+    }
+
+    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.error('No user document found');
+      return;
+    }
+
+    const userData = docUserSnapshot.data();
+    const companyId = userData.companyId;
+
+    if (!companyId) {
+      console.error('No companyId found');
+      return;
+    }
+
+    // Check if notification has already been sent
+    const notificationRef = doc(firestore, 'companies', companyId, 'assignmentNotifications', `${contact.id}_${assignedEmployeeName}`);
+    const notificationSnapshot = await getDoc(notificationRef);
+    
+    if (notificationSnapshot.exists()) {
+      console.log('Notification already sent for this assignment');
+      return;
+    }
+
+    // Find the employee in the employee list
+    const assignedEmployee = employeeList.find(emp => emp.name.toLowerCase() === assignedEmployeeName.toLowerCase());
+    if (!assignedEmployee) {
+      console.error(`Employee not found: ${assignedEmployeeName}`);
+      toast.error(`Failed to send assignment notification: Employee ${assignedEmployeeName} not found`);
+      return;
+    }
+
+    if (!assignedEmployee.phoneNumber) {
+      console.error(`Phone number missing for employee: ${assignedEmployeeName}`);
+      toast.error(`Failed to send assignment notification: Phone number missing for ${assignedEmployeeName}`);
+      return;
+    }
+
+    // Log the original employee phone number
+    console.log('Original employee phone number:', assignedEmployee.phoneNumber);
+
+    // Ensure the phone number is in the correct format for WhatsApp
+    const employeePhone = assignedEmployee.phoneNumber.replace(/[^\d]/g, '') + '@c.us';
+    console.log('Formatted employee phone number:', employeePhone);
+
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) {
+      console.error('No company document found');
+      return;
+    }
+    const companyData = docSnapshot.data();
+
+    const message = `Hello ${assignedEmployee.name}, a new contact has been assigned to you:\n\nName: ${contact.contactName || contact.firstName || 'N/A'}\nPhone: ${contact.phone}\n\nPlease follow up with them as soon as possible.`;
+
+    let url;
+    let requestBody;
+    if (companyData.v2 === true) {
+      console.log("v2 is true");
+      url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${employeePhone}`;
+      requestBody = { message };
+    } else {
+      console.log("v2 is false");
+      url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${employeePhone}/${companyData.whapiToken}`;
+      requestBody = { message };
+    }
+
+    console.log('Sending request to:', url);
+    console.log('Request body:', JSON.stringify(requestBody));
+
+    // Send WhatsApp message to the employee
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response:', response.status, errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+
+    const responseData = await response.json();
+    console.log('Assignment notification response:', responseData);
+    console.log('Sent to phone number:', employeePhone);
+
+    // Mark notification as sent
+    await setDoc(notificationRef, {
+      sentAt: serverTimestamp(),
+      employeeName: assignedEmployeeName,
+      contactId: contact.id
+    });
+
+
+    toast.success("Assignment notification sent successfully!");
+  } catch (error) {
+    console.error('Error sending assignment notification:', error);
+    toast.error('Failed to send assignment notification. Please try again.');
+  }
+};
+
+// ... rest of the code ...
   
   async function updateContactTags(contactId: string, tags: string[], addTag: boolean) {
     try {
@@ -3242,8 +3362,6 @@ const handleForwardMessage = async () => {
         } else {
           // Document doesn't exist, log an error
           console.error(`Employee document for ${tagName} does not exist.`);
-          // Optionally, you can show a toast message to the user
-          toast.error(`Failed to update employee ${tagName}. Document not found.`);
         }
       }
   
@@ -5083,63 +5201,15 @@ const reminderMessage = `*Reminder for contact: *${selectedContact.contactName |
       <ImageModal2 isOpen={isImageModalOpen2} onClose={() => setImageModalOpen2(false)} imageUrl={pastedImageUrl} onSend={sendImage} />
 
       <ToastContainer />
-      <ContextMenu id="contact-context-menu">
-  <Item onClick={({ props }) => markAsUnread(props.contact)}>
-    Mark as Unread
-  </Item>
-  <Separator />
-  <Item 
-    onClick={({ props }) => props.isSnooze ? props.onUnsnooze(props.contact) : props.onSnooze(props.contact)}
-  >
-    Snooze/Unsnooze
-  </Item>
-</ContextMenu>
-      {isReminderModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl">
-      <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Set Reminder</h2>
-      <textarea
-        placeholder="Enter reminder message..."
-        className="w-full md:w-96 lg:w-120 p-2 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700 mb-4"
-        rows={3}
-        onChange={(e) => setReminderText(e.target.value)}
-        value={reminderText}
-      />
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Reminder Date and Time
-        </label>
-        <DatePicker
-          selected={reminderDate}
-          onChange={(date: Date) => setReminderDate(date)}
-          showTimeSelect
-          timeFormat="HH:mm"
-          timeIntervals={15}
-          dateFormat="MMMM d, yyyy h:mm aa"
-          className="w-full md:w-96 lg:w-120 p-2 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700"
-          placeholderText="Select date and time"
-        />
-      </div>
-      <div className="flex justify-end space-x-2 mt-4">
-        <button
-          onClick={() => {
-            setIsReminderModalOpen(false);
-            setReminderText('');
-          }}
-          className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition duration-200"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={() => handleSetReminder(reminderText)}
-          className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded transition duration-200"
-        >
-          Set Reminder
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+
+      <ContextMenu id="contact-context-menu" className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+        <Item onClick={({ props }) => markAsUnread(props.contact)} className="hover:bg-gray-100 dark:hover:bg-gray-700">
+          <span className="flex iitems-center text-gray-800 dark:text-gray-200">
+            <Lucide icon="Mail" className="w-4 h-4 mr-2" />
+            Mark as Unread
+          </span>
+        </Item>
+      </ContextMenu>
 
     </div>
   );
