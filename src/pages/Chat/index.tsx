@@ -3896,7 +3896,7 @@ const handleForwardMessage = async () => {
       const phone = userData.phoneNumber.split('+')[1];
       const chatId = phone + "@c.us"; // The specific number you want to send the reminder to
 console.log(chatId)
-const reminderMessage = `*Reminder for contact: *${selectedContact.contactName || selectedContact.firstName || selectedContact.phone}\n\n${text}`;
+const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName || selectedContact.firstName || selectedContact.phone}\n\n${text}`;
 
       const scheduledMessageData = {
         batchQuantity: 1,
