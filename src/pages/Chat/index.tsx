@@ -2678,23 +2678,26 @@ const openEditMessage = (message: Message) => {
   setEditedMessageText(message.text?.body || "");
 };
 
-  function formatDate(timestamp: string | number | Date) {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-  
-    const isToday = date.toDateString() === now.toDateString();
-    const isYesterday = date.toDateString() === yesterday.toDateString();
-  
-    if (isToday) {
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    } else if (isYesterday) {
-      return 'Yesterday';
-    } else {
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    }
+function formatDate(timestamp: string | number | Date) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 60) {
+    return 'Just now';
+  } else if (diffInSeconds < 3600) {
+    const minutes = Math.floor(diffInSeconds / 60);
+    return `${minutes}m ago`;
+  } else if (diffInSeconds < 86400) {
+    const hours = Math.floor(diffInSeconds / 3600);
+    return `${hours}h ago`;
+  } else if (diffInSeconds < 604800) {
+    const days = Math.floor(diffInSeconds / 86400);
+    return `${days}d ago`;
+  } else {
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   }
+}
   const handleEyeClick = () => {
     setIsTabOpen(!isTabOpen);
   };
@@ -4275,7 +4278,7 @@ const reminderMessage = `*Reminder for contact: *${selectedContact.contactName |
   </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center">
-          <span className="font-semibold capitalize truncate w-36 text-gray-800 dark:text-gray-200">
+          <span className="font-semibold capitalize truncate w-25 text-gray-800 dark:text-gray-200">
             {contact.contactName ?? contact.firstName ?? contact.phone}
           </span>
           <span className="text-xs flex items-center space-x-2 text-gray-600 dark:text-gray-400">
@@ -4298,13 +4301,12 @@ const reminderMessage = `*Reminder for contact: *${selectedContact.contactName |
                       <Tippy
                         content={employeeTags.join(', ')}
                         options={{ 
-                          interactive: true,
+                          interactive: true,  
                           appendTo: () => document.body
                         }}
                       >
                         <span className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200 text-xs font-semibold mr-1 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
-                          <Lucide icon="User" className="w-4 h-4 inline-block" />
-                          <span className="ml-1">{employeeTags.length}</span>
+                          <span className="ml-1 text-xxs">{employeeTags[0]}</span>
                         </span>
                       </Tippy>
                     )}
@@ -4328,8 +4330,8 @@ const reminderMessage = `*Reminder for contact: *${selectedContact.contactName |
                     </div>
 
             <button
-              className={`text-md font-medium mr-2 ${
-                contact.pinned ? 'text-blue-500 dark:text-blue-400' : 'text-gray-500 group-hover:text-blue-500 dark:text-gray-400 dark:group-hover:text-blue-400'
+              className={`text-md mr-2 ${
+                contact.pinned ? 'text-blue-500 dark:text-blue-400 font-bold' : 'text-gray-500 group-hover:text-blue-500 dark:text-gray-400 dark:group-hover:text-blue-400 group-hover:font-bold dark:group-hover:font-bold'
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -4348,11 +4350,15 @@ const reminderMessage = `*Reminder for contact: *${selectedContact.contactName |
   <PinOff size={14} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
 )}
             </button>
-            <span className={`${contact.unreadCount && contact.unreadCount > 0 ? 'text-blue-500' : ''}`}>
-              {contact.last_message?.createdAt || contact.last_message?.timestamp
-                ? formatDate(contact.last_message.createdAt || (contact.last_message.timestamp && contact.last_message.timestamp * 1000))
-                : 'No Messages'}
-            </span>
+            <span className={`${
+  contact.unreadCount && contact.unreadCount > 0 
+    ? 'text-blue-500 font-bold' 
+    : ''
+}`}>
+  {contact.last_message?.createdAt || contact.last_message?.timestamp
+    ? formatDate(contact.last_message.createdAt || (contact.last_message.timestamp && contact.last_message.timestamp * 1000))
+    : 'No Messages'}
+</span>
           </span>
     </div>
         <div className="flex justify-between items-center">
@@ -5210,15 +5216,63 @@ const reminderMessage = `*Reminder for contact: *${selectedContact.contactName |
 
       <ToastContainer />
 
-      <ContextMenu id="contact-context-menu" className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-        <Item onClick={({ props }) => markAsUnread(props.contact)} className="hover:bg-gray-100 dark:hover:bg-gray-700">
-          <span className="flex iitems-center text-gray-800 dark:text-gray-200">
-            <Lucide icon="Mail" className="w-4 h-4 mr-2" />
-            Mark as Unread
-          </span>
-        </Item>
-      </ContextMenu>
-
+      <ContextMenu id="contact-context-menu">
+  <Item onClick={({ props }) => markAsUnread(props.contact)}>
+    Mark as Unread
+  </Item>
+  <Separator />
+  <Item 
+    onClick={({ props }) => props.isSnooze ? props.onUnsnooze(props.contact) : props.onSnooze(props.contact)}
+  >
+    Snooze/Unsnooze
+  </Item>
+</ContextMenu>
+      {isReminderModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl">
+      <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Set Reminder</h2>
+      <textarea
+        placeholder="Enter reminder message..."
+        className="w-full md:w-96 lg:w-120 p-2 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700 mb-4"
+        rows={3}
+        onChange={(e) => setReminderText(e.target.value)}
+        value={reminderText}
+      />
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Reminder Date and Time
+        </label>
+        <DatePicker
+          selected={reminderDate}
+          onChange={(date: Date) => setReminderDate(date)}
+          showTimeSelect
+          timeFormat="HH:mm"
+          timeIntervals={15}
+          dateFormat="MMMM d, yyyy h:mm aa"
+          className="w-full md:w-96 lg:w-120 p-2 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700"
+          placeholderText="Select date and time"
+        />
+      </div>
+      <div className="flex justify-end space-x-2 mt-4">
+        <button
+          onClick={() => {
+            setIsReminderModalOpen(false);
+            setReminderText('');
+          }}
+          className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition duration-200"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => handleSetReminder(reminderText)}
+          className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded transition duration-200"
+        >
+          Set Reminder
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };
