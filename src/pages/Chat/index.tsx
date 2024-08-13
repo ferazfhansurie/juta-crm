@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp, runTransaction, increment } from "firebase/firestore";
+import { getFirestore,Timestamp,  collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp, runTransaction, increment } from "firebase/firestore";
 import {QueryDocumentSnapshot, DocumentData ,Query,CollectionReference, startAfter,limit} from 'firebase/firestore'
 import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
@@ -34,6 +34,8 @@ import { Lock, MessageCircle } from "lucide-react";
 import { Transition } from '@headlessui/react';
 import { Menu as ContextMenu, Item, useContextMenu } from 'react-contexify';
 import 'react-contexify/dist/ReactContexify.css';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 // Add this new component for the private note indicator
 const PrivateNoteIndicator = () => (
@@ -406,8 +408,9 @@ function Main() {
   const [newContactNumber, setNewContactNumber] = useState('');
   const [showMineContacts, setShowMineContacts] = useState(true);
   const [showUnassignedContacts, setShowUnassignedContacts] = useState(false);
-
-
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [reminderDate, setReminderDate] = useState<Date | null>(null);
+  const [reminderText, setReminderText] = useState('');
   const currentUserName = userData?.name || '';
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
@@ -3624,6 +3627,93 @@ const handleForwardMessage = async () => {
     }
   };
 
+  const handleReminderClick = () => {
+    setIsReminderModalOpen(true);
+  };
+
+  const handleSetReminder = async  (text: string)=> {
+    if (!reminderDate) {
+      toast.error('Please select a date and time for the reminder');
+      return;
+    }
+
+    if (!selectedContact) {
+      toast.error('No contact selected for the reminder');
+      return;
+    }
+
+    const now = new Date();
+    if (reminderDate <= now) {
+      toast.error("Please select a future time for the reminder.");
+      return;
+    }
+
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        toast.error("User not authenticated");
+        return;
+      }
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        toast.error("User document not found");
+        return;
+      }
+
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+      const companyRef = doc(firestore, 'companies', companyId);
+      const companySnapshot = await getDoc(companyRef);
+      if (!companySnapshot.exists()) {
+        toast.error("Company document not found");
+        return;
+      }
+
+      const companyData = companySnapshot.data();
+      const isV2 = companyData.v2 || false;
+      const whapiToken = companyData.whapiToken || '';
+      const phone = userData.phoneNumber.split('+')[1];
+      const chatId = phone + "@c.us"; // The specific number you want to send the reminder to
+console.log(chatId)
+const reminderMessage = `Reminder for contact: ${selectedContact.contactName || selectedContact.firstName || selectedContact.phone}\n${text}`;
+
+      const scheduledMessageData = {
+        batchQuantity: 1,
+        chatIds: [chatId],
+        companyId: companyId,
+        createdAt: Timestamp.now(),
+        documentUrl: "",
+        fileName: null,
+        mediaUrl: "",
+        message: reminderMessage,
+        mimeType: null,
+        repeatInterval: 0,
+        repeatUnit: 'days',
+        scheduledTime: Timestamp.fromDate(reminderDate),
+        status: "scheduled",
+        v2: isV2,
+        whapiToken: isV2 ? null : whapiToken,
+    
+      };
+
+      // Make API call to schedule the message
+      const response = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}`, scheduledMessageData);
+
+      console.log(`Reminder scheduled. Document ID: ${response.data.id}`);
+
+      toast.success('Reminder set successfully');
+      setIsReminderModalOpen(false);
+      setReminderDate(null);
+
+    } catch (error) {
+      console.error('Error setting reminder:', error);
+      toast.error("An error occurred while setting the reminder. Please try again.");
+    }
+  };
+
   return (
     <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
       <audio ref={audioRef} src={noti} />
@@ -4096,7 +4186,13 @@ const handleForwardMessage = async () => {
           </div>
         </div>
         <div className="flex items-center space-x-3">
+        <button className="p-2 m-0 !box" onClick={handleReminderClick}>
+        <span className="flex items-center justify-center w-5 h-5">
+          <Lucide icon="BellRing" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+        </span>
+      </button>
           <Menu as="div" className="relative inline-block text-left">
+        
             <Menu.Button as={Button} className="p-2 !box m-0">
               <span className="flex items-center justify-center w-5 h-5">
                 <Lucide icon="Users" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
@@ -4835,7 +4931,7 @@ const handleForwardMessage = async () => {
   <div className="absolute bottom-20 left-2 w-full max-w-md bg-gray-100 dark:bg-gray-800 p-2 rounded-md shadow-lg mt-2 z-10">
     <div className="flex items-center mb-4">
       <textarea
-        className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+        className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
         placeholder="Add new quick reply"
         value={newQuickReply}
         onChange={(e) => setNewQuickReply(e.target.value)}
@@ -4904,6 +5000,53 @@ const handleForwardMessage = async () => {
           Mark as Unread
         </Item>
       </ContextMenu>
+
+      {isReminderModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl">
+      <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Set Reminder</h2>
+      <textarea
+        placeholder="Enter reminder message..."
+        className="w-full md:w-96 lg:w-120 p-2 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700 mb-4"
+        rows={3}
+        onChange={(e) => setReminderText(e.target.value)}
+        value={reminderText}
+      />
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Reminder Date and Time
+        </label>
+        <DatePicker
+          selected={reminderDate}
+          onChange={(date: Date) => setReminderDate(date)}
+          showTimeSelect
+          timeFormat="HH:mm"
+          timeIntervals={15}
+          dateFormat="MMMM d, yyyy h:mm aa"
+          className="w-full md:w-96 lg:w-120 p-2 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700"
+          placeholderText="Select date and time"
+        />
+      </div>
+      <div className="flex justify-end space-x-2 mt-4">
+        <button
+          onClick={() => {
+            setIsReminderModalOpen(false);
+            setReminderText('');
+          }}
+          className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition duration-200"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => handleSetReminder(reminderText)}
+          className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded transition duration-200"
+        >
+          Set Reminder
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
     </div>
   );
