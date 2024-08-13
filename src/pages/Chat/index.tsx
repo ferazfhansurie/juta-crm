@@ -32,7 +32,7 @@ import {  useNavigate } from "react-router-dom";
 import noti from "../../assets/audio/noti.mp3";
 import { Lock, MessageCircle } from "lucide-react";
 import { Transition } from '@headlessui/react';
-import { Menu as ContextMenu, Item, useContextMenu } from 'react-contexify';
+import { Menu as ContextMenu, Item, Separator, useContextMenu } from 'react-contexify';
 import 'react-contexify/dist/ReactContexify.css';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -416,7 +416,7 @@ function Main() {
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
   const [messageSearchResults, setMessageSearchResults] = useState<any[]>([]);
   const messageSearchInputRef = useRef<HTMLInputElement>(null);
-
+  const [showSnoozedContacts, setShowSnoozedContacts] = useState(false);
   const handleMessageSearchClick = () => {
     setIsMessageSearchOpen(!isMessageSearchOpen);
     if (!isMessageSearchOpen) {
@@ -2662,6 +2662,7 @@ const openEditMessage = (message: Message) => {
     setShowUnreadContacts(lowercaseTagName === 'unread');
     setShowMineContacts(lowercaseTagName === 'mine');
     setShowUnassignedContacts(lowercaseTagName === 'unassigned');
+    setShowSnoozedContacts(lowercaseTagName === 'snooze');
   };
   
   useEffect(() => {
@@ -2681,36 +2682,122 @@ const openEditMessage = (message: Message) => {
         return activeTags.every(tag => {
           switch (tag) {
             case 'mine':
-              return contactTags.includes(currentUserName.toLowerCase());
+              return contactTags.includes(currentUserName.toLowerCase()) && !contactTags.includes('snooze');
             case 'all':
-              return true;
+              return !contactTags.includes('snooze'); // Exclude snoozed contacts from 'all'
             case 'unread':
-              return contact.unreadCount && contact.unreadCount > 0;
+              return contact.unreadCount && contact.unreadCount > 0 && !contactTags.includes('snooze');
             case 'unassigned':
-              return !contactTags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag));
+              return !contactTags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag)) && !contactTags.includes('snooze');
+            case 'snooze':
+              return contactTags.includes('snooze');
             default:
-              return contactTags.includes(tag);
+              return contactTags.includes(tag) && !contactTags.includes('snooze');
           }
         });
       });
     } else if (showAllContacts) {
-      // No additional filtering needed
+      filtered = filtered.filter(contact => !contact.tags?.includes('snooze'));
     } else if (showUnreadContacts) {
-      filtered = filtered.filter((contact) => contact.unreadCount && contact.unreadCount > 0);
+      filtered = filtered.filter((contact) => contact.unreadCount && contact.unreadCount > 0 && !contact.tags?.includes('snooze'));
     } else if (showMineContacts) {
       filtered = filtered.filter((contact) => 
-        contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase())
+        contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase()) && !contact.tags?.includes('snooze')
       );
     } else if (showUnassignedContacts) {
       filtered = filtered.filter((contact) => 
-        !contact.tags || !contact.tags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()))
+        (!contact.tags || !contact.tags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()))) &&
+        !contact.tags?.includes('snooze')
       );
+    } else if (showSnoozedContacts) {
+      filtered = filtered.filter((contact) => contact.tags?.includes('snooze'));
     }
   
     setFilteredContacts(filtered);
-  }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, currentUserName, employeeList]);
+  }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, currentUserName, employeeList]);
   
-
+  const handleSnoozeContact = async (contact: Contact) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      // Update Firestore
+      if (companyId && contact.id) {
+        const contactRef = doc(firestore, 'companies', companyId, 'contacts', contact.id);
+        await updateDoc(contactRef, {
+          tags: arrayUnion('snooze')
+        });
+      } else {
+        console.error('Invalid companyId or contact.id');
+      }
+      // Update local state
+      setContacts(prevContacts =>
+        prevContacts.map(c =>
+          c.id === contact.id
+            ? { ...c, tags: [...(c.tags || []), 'snooze'] }
+            : c
+        )
+      );
+  
+      toast.success('Contact snoozed successfully');
+    } catch (error) {
+      console.error('Error snoozing contact:', error);
+      toast.error('Failed to snooze contact');
+    }
+  };
+  const handleUnsnoozeContact = async (contact: Contact) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      // Update Firestore
+      if (companyId && contact.id) {
+        const contactRef = doc(firestore, 'companies', companyId, 'contacts', contact.id);
+        await updateDoc(contactRef, {
+          tags: arrayRemove('snooze')
+        });
+      } else {
+        console.error('Invalid companyId or contact.id');
+      }
+      // Update local state
+      setContacts(prevContacts =>
+        prevContacts.map(c =>
+          c.id === contact.id
+            ? { ...c, tags: c.tags?.filter(tag => tag !== 'snooze') }
+            : c
+        )
+      );
+  
+      toast.success('Contact unsnoozed successfully');
+    } catch (error) {
+      console.error('Error unsnoozing contact:', error);
+      toast.error('Failed to unsnooze contact');
+    }
+  };
   const handleSelectMessage = (message: Message) => {
     setSelectedMessages(prevSelectedMessages =>
         prevSelectedMessages.includes(message)
@@ -3576,10 +3663,12 @@ const handleForwardMessage = async () => {
       event,
       props: {
         contact,
+        onSnooze: () => handleSnoozeContact(contact),
+        onUnsnooze: () => handleUnsnoozeContact(contact),
+        isSnooze: contact.tags?.includes('snooze'),
       },
     });
   };
-
   const markAsUnread = async (contact: Contact) => {
     try {
       const user = auth.currentUser;
@@ -3678,7 +3767,7 @@ const handleForwardMessage = async () => {
       const phone = userData.phoneNumber.split('+')[1];
       const chatId = phone + "@c.us"; // The specific number you want to send the reminder to
 console.log(chatId)
-const reminderMessage = `Reminder for contact: ${selectedContact.contactName || selectedContact.firstName || selectedContact.phone}\n${text}`;
+const reminderMessage = `*Reminder for contact: *${selectedContact.contactName || selectedContact.firstName || selectedContact.phone}\n\n${text}`;
 
       const scheduledMessageData = {
         batchQuantity: 1,
@@ -3968,7 +4057,7 @@ const reminderMessage = `Reminder for contact: ${selectedContact.contactName || 
 </div>
 <div className="mt-4 mb-2 px-4 max-h-40 overflow-y-auto">
    <div className="flex flex-wrap gap-2">
-      {['Mine', 'All', 'Unread', 'Unassigned', ...visibleTags.filter(tag => !['All', 'Unread', 'Mine', 'Unassigned'].includes(tag.name))].map((tag) => (
+      {['Mine', 'All', 'Unread', 'Unassigned','Snooze' ,...visibleTags.filter(tag => !['All', 'Unread', 'Mine', 'Unassigned'].includes(tag.name))].map((tag) => (
         <button
           key={typeof tag === 'string' ? tag : tag.id}
           onClick={() => filterTagContact(typeof tag === 'string' ? tag : tag.name)}
@@ -4994,13 +5083,17 @@ const reminderMessage = `Reminder for contact: ${selectedContact.contactName || 
       <ImageModal2 isOpen={isImageModalOpen2} onClose={() => setImageModalOpen2(false)} imageUrl={pastedImageUrl} onSend={sendImage} />
 
       <ToastContainer />
-
       <ContextMenu id="contact-context-menu">
-        <Item onClick={({ props }) => markAsUnread(props.contact)}>
-          Mark as Unread
-        </Item>
-      </ContextMenu>
-
+  <Item onClick={({ props }) => markAsUnread(props.contact)}>
+    Mark as Unread
+  </Item>
+  <Separator />
+  <Item 
+    onClick={({ props }) => props.isSnooze ? props.onUnsnooze(props.contact) : props.onSnooze(props.contact)}
+  >
+    Snooze/Unsnooze
+  </Item>
+</ContextMenu>
       {isReminderModalOpen && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl">
