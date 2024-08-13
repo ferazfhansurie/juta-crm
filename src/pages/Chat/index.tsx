@@ -402,6 +402,49 @@ function Main() {
   const [editedName, setEditedName] = useState('');
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [newContactNumber, setNewContactNumber] = useState('');
+  const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
+  const [messageSearchQuery, setMessageSearchQuery] = useState('');
+  const [messageSearchResults, setMessageSearchResults] = useState<any[]>([]);
+  const messageSearchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMessageSearchClick = () => {
+    setIsMessageSearchOpen(!isMessageSearchOpen);
+    if (!isMessageSearchOpen) {
+      setTimeout(() => {
+        messageSearchInputRef.current?.focus();
+      }, 0);
+    }
+  };
+
+  const handleMessageSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessageSearchQuery(e.target.value);
+  };
+
+  useEffect(() => {
+    if (messageSearchQuery) {
+      const results = messages.filter(message => 
+        message.type === 'text' && 
+        message.text?.body.toLowerCase().includes(messageSearchQuery.toLowerCase())
+      );
+      setMessageSearchResults(results);
+    } else {
+      setMessageSearchResults([]);
+    }
+  }, [messageSearchQuery, messages]);
+
+  const scrollToMessage = (messageId: string) => {
+    if (messageListRef.current) {
+      const messageElement = messageListRef.current.querySelector(`[data-message-id="${messageId}"]`);
+      if (messageElement) {
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        messageElement.classList.add('highlight-message');
+        setTimeout(() => {
+          messageElement.classList.remove('highlight-message');
+        }, 2000);
+      }
+    }
+    setIsMessageSearchOpen(false); // Close the search panel after clicking a result
+  };
 
   useEffect(() => {
     if (selectedContact) {
@@ -4012,6 +4055,11 @@ const handleForwardMessage = async () => {
               <Lucide icon={isTabOpen ? "X" : "Eye"} className="w-5 h-5 text-gray-800 dark:text-gray-200" />
             </span>
           </button>
+        <button className="p-2 m-0 !box" onClick={handleMessageSearchClick}>
+    <span className="flex items-center justify-center w-5 h-5">
+      <Lucide icon={isMessageSearchOpen ? "X" : "Search"} className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+    </span>
+  </button>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4" 
@@ -4063,6 +4111,7 @@ const handleForwardMessage = async () => {
                       </div>
                     )}
                     <div
+                      data-message-id={message.id}
                       className={`p-2 mb-2 rounded ${message.isPrivateNote ? "bg-yellow-200 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group" : message.from_me ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass) : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass)}`}
                       style={{
                         maxWidth: message.type === 'document' ? '90%' : '70%',
@@ -4670,6 +4719,30 @@ const handleForwardMessage = async () => {
     </div>
   </div>
 )}
+ {isMessageSearchOpen && (
+    <div className="absolute top-16 right-0 w-full md:w-1/3 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-700 p-4 shadow-lg z-50">
+      <input
+        ref={messageSearchInputRef}
+        type="text"
+        placeholder="Search messages..."
+        value={messageSearchQuery}
+        onChange={handleMessageSearchChange}
+        className="w-full p-2 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700"
+      />
+      <div className="mt-4 max-h-96 overflow-y-auto">
+        {messageSearchResults.map((result) => (
+          <div 
+            key={result.id} 
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+            onClick={() => scrollToMessage(result.id)}
+          >
+            <p className="text-sm text-gray-600 dark:text-gray-400">{result.from_me ? 'You' : result.from.split('@')[0]}</p>
+            <p className="text-gray-800 dark:text-gray-200">{result.text.body}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
  {isQuickRepliesOpen && (
   <div className="absolute bottom-20 left-2 w-full max-w-md bg-gray-100 dark:bg-gray-800 p-2 rounded-md shadow-lg mt-2 z-10">
     <div className="flex items-center mb-4">
