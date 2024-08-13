@@ -32,6 +32,8 @@ import {  useNavigate } from "react-router-dom";
 import noti from "../../assets/audio/noti.mp3";
 import { Lock, MessageCircle } from "lucide-react";
 import { Transition } from '@headlessui/react';
+import { Menu as ContextMenu, Item, useContextMenu } from 'react-contexify';
+import 'react-contexify/dist/ReactContexify.css';
 
 // Add this new component for the private note indicator
 const PrivateNoteIndicator = () => (
@@ -3561,6 +3563,67 @@ const handleForwardMessage = async () => {
     await searchContacts(ghlConfig.ghl_accessToken, ghlConfig.ghl_location);
   };
 
+  const { show } = useContextMenu({
+    id: 'contact-context-menu',
+  });
+
+  const handleContextMenu = (event: React.MouseEvent, contact: Contact) => {
+    event.preventDefault();
+    show({
+      event,
+      props: {
+        contact,
+      },
+    });
+  };
+
+  const markAsUnread = async (contact: Contact) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      // Update Firebase
+      if (companyId && contact.id) {
+        const contactRef = doc(firestore, 'companies', companyId, 'contacts', contact.id);
+        await updateDoc(contactRef, {
+          unreadCount: increment(1),
+        });
+      } else {
+        console.error('Invalid companyId or contact.id');
+      }
+
+      // Update local state
+      setContacts(prevContacts =>
+        prevContacts.map(c =>
+          c.id === contact.id ? { ...c, unreadCount: (c.unreadCount || 0) + 1 } : c
+        )
+      );
+
+      // Update local storage
+      const storedContacts = JSON.parse(LZString.decompress(localStorage.getItem('contacts') || '') || '[]');
+      const updatedStoredContacts = storedContacts.map((c: Contact) =>
+        c.id === contact.id ? { ...c, unreadCount: (c.unreadCount || 0) + 1 } : c
+      );
+      localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedStoredContacts)));
+
+      toast.success('Marked as unread');
+    } catch (error) {
+      console.error('Error marking as unread:', error);
+      toast.error('Failed to mark as unread');
+    }
+  };
+
   return (
     <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
       <audio ref={audioRef} src={noti} />
@@ -3879,6 +3942,7 @@ const handleForwardMessage = async () => {
           : 'hover:bg-gray-300 dark:hover:bg-gray-700'
       }`}
       onClick={() => selectChat(contact.chat_id!, contact.id!)}
+      onContextMenu={(e) => handleContextMenu(e, contact)}
     >
     <div
       key={contact.id}
@@ -3979,9 +4043,11 @@ const handleForwardMessage = async () => {
   <PinOff size={14} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
 )}
             </button>
-            {contact.last_message?.createdAt || contact.last_message?.timestamp
-              ? formatDate(contact.last_message.createdAt || contact.last_message.timestamp * 1000)
-              : 'No Messages'}
+            <span className={`${contact.unreadCount && contact.unreadCount > 0 ? 'text-blue-500' : ''}`}>
+              {contact.last_message?.createdAt || contact.last_message?.timestamp
+                ? formatDate(contact.last_message.createdAt || (contact.last_message.timestamp && contact.last_message.timestamp * 1000))
+                : 'No Messages'}
+            </span>
           </span>
     </div>
         <div className="flex justify-between items-center">
@@ -4832,6 +4898,12 @@ const handleForwardMessage = async () => {
       <ImageModal2 isOpen={isImageModalOpen2} onClose={() => setImageModalOpen2(false)} imageUrl={pastedImageUrl} onSend={sendImage} />
 
       <ToastContainer />
+
+      <ContextMenu id="contact-context-menu">
+        <Item onClick={({ props }) => markAsUnread(props.contact)}>
+          Mark as Unread
+        </Item>
+      </ContextMenu>
 
     </div>
   );
