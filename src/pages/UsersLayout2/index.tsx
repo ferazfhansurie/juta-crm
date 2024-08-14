@@ -41,6 +41,7 @@ interface Employee {
   name: string;
   role: string;
   groups?: string[];
+  email?: string;
   // Add other properties as needed
 }
 
@@ -57,6 +58,7 @@ function Main() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
   const [employeeIdToDelete, setEmployeeIdToDelete] = useState<string>('');
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [role, setRole] = useState<string>(""); // Added role state
 
   const toggleModal = (id?:string) => {
@@ -95,68 +97,81 @@ function Main() {
  
  useEffect(() => {
     fetchEmployees();
+  }, []);
 
+  useEffect(() => {
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+    if (user) {
+      console.log("Current user:", user.email);
+      setCurrentUserEmail(user.email);
+      fetchEmployees();
+    } else {
+      console.log("No user is signed in.");
+      // Handle the case when no user is signed in
+    }
   }, []);
 
   
-async function fetchEmployees() {
-  const auth = getAuth(app);
-  const user = auth.currentUser;
-  try {
-    const docUserRef = doc(firestore, 'user', user?.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
+  async function fetchEmployees() {
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+    setCurrentUserEmail(user?.email || null);
+    try {
+      const docUserRef = doc(firestore, 'user', user?.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        return;
+      }
+    
+      const dataUser = docUserSnapshot.data();
+      companyId = dataUser.companyId;
+      setRole(dataUser.role);
+      setCanEdit(dataUser.role !== "3");
+      console.log("User role:", dataUser.role);
+
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        return;
+      }
+      const companyData = docSnapshot.data();
+
+      accessToken = companyData.ghl_accessToken;
+
+      const employeeRef = collection(firestore, `companies/${companyId}/employee`);
+      const employeeSnapshot = await getDocs(employeeRef);
+
+      const employeeListData: Employee[] = [];
+      employeeSnapshot.forEach((doc) => {
+        const data = doc.data();
+        employeeListData.push({ 
+          id: doc.id, 
+          ...data,
+          groups: data.groups || [],
+          email: data.email
+        } as Employee);
+      });
+
+      console.log("All employees:", employeeListData);
+      console.log("Current user email:", user?.email);
+
+      // Filter the employee list if the user is an observer
+      const filteredEmployeeList = dataUser.role === "3"
+        ? employeeListData.filter(employee => employee.email === user?.email)
+        : employeeListData;
       
-      return;
-    }
-  
-    const dataUser = docUserSnapshot.data();
-    companyId = dataUser.companyId;
-    setRole(dataUser.role); // Use setRole here
-    setCanEdit(dataUser.role !== "3");  // Set editing permission based on role
-console.log(dataUser.role)
-    const docRef = doc(firestore, 'companies', companyId);
-          const docSnapshot = await getDoc(docRef);
-          if (!docSnapshot.exists()) {
-            
-            return;
-          }
-          const companyData = docSnapshot.data();
-
-          accessToken = companyData.ghl_accessToken;
-
-          
-
-    const employeeRef = collection(firestore, `companies/${companyId}/employee`);
-    const employeeSnapshot = await getDocs(employeeRef);
-
-    const employeeListData: Employee[] = [];
-    employeeSnapshot.forEach((doc) => {
-      const data = doc.data();
-      employeeListData.push({ 
-        id: doc.id, 
-        ...data,
-        groups: data.groups || [] // Ensure groups is always an array
-      } as Employee);
-    });
-
+      console.log("Filtered employees:", filteredEmployeeList);
+      setEmployeeList(filteredEmployeeList);
+      
+      // Check if user's role is 1
+      setShowAddUserButton(dataUser.role === "1");
     
-    setEmployeeList(employeeListData);
-    
-    // Check if user's role is 1
-    if (dataUser.role === "1" || dataUser.role === "3") {
-      // If user's role is 1, set showAddUserButton to true
-      setShowAddUserButton(true);
-    } else {
-      // If user's role is not 1, set showAddUserButton to false
-      setShowAddUserButton(false);
+    } catch (error) {
+      console.error('Error fetching config:', error);
+      throw error;
     }
-  
-  } catch (error) {
-    console.error('Error fetching config:', error);
-    throw error;
   }
-}
 
 
 
@@ -203,47 +218,47 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
             </div>
           </div>
         </div>
-        {showAddUserButton && (
-          <div className="col-span-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {_.take(employeeList, 10).map((contact, index) => (
-              <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-                        {contact.name}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
+        <div className="col-span-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {employeeList.map((contact, index) => (
+            <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                      {contact.name}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {contact.email}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       {contact.role === "1" ? 'Admin' : contact.role === "2" ? 'Sales' : contact.role === "3" ? 'Observer' : "Other"}
-                      </p>
-                    </div>
-                    <div className="flex space-x-2">
-  {canEdit && (
-    <>
-      <button
-        onClick={() => navigate(`crud-form`, { state: { contactId: contact.id, contact: contact, companyId: companyId || '' } })}
-        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-full transition-colors duration-300"
-        aria-label="Edit"
-      >
-        <Lucide icon="Pencil" className="w-5 h-5" />
-      </button>
-      <button 
-        onClick={() => toggleModal(contact.id)}
-        className="p-2 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors duration-300"
-        aria-label="Delete"
-      >
-        <Lucide icon="Trash" className="w-5 h-5" />
-      </button>
-    </>
-  )}
-</div>
+                    </p>
                   </div>
-                  {/* Add more employee details here if needed */}
+                  <div className="flex space-x-2">
+                    {canEdit && (
+                      <>
+                        <button
+                          onClick={() => navigate(`crud-form`, { state: { contactId: contact.id, contact: contact, companyId: companyId || '' } })}
+                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-full transition-colors duration-300"
+                          aria-label="Edit"
+                        >
+                          <Lucide icon="Pencil" className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => toggleModal(contact.id)}
+                          className="p-2 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors duration-300"
+                          aria-label="Delete"
+                        >
+                          <Lucide icon="Trash" className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
       </div>
       {isModalOpen && (
         <div 

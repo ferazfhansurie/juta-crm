@@ -4383,14 +4383,17 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                   <>
                     {employeeTags.length > 0 && (
                       <Tippy
-                        content={employeeTags.join(', ')}
+                        content={employeeTags.length === 1 ? employeeTags[0] : employeeTags.join(', ')}
                         options={{ 
                           interactive: true,  
                           appendTo: () => document.body
                         }}
                       >
                         <span className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200 text-xs font-semibold mr-1 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
-                          <span className="ml-1 text-xxs">{employeeTags[0]}</span>
+                          <Lucide icon="Users" className="w-4 h-4 inline-block" />
+                          <span className="ml-1 text-xxs">
+                            {employeeTags.length === 1 ? employeeTags[0] : employeeTags.length}
+                          </span>
                         </span>
                       </Tippy>
                     )}
