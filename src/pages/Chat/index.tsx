@@ -4186,23 +4186,39 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
 </div>
 <div className="mt-4 mb-2 px-4 max-h-40 overflow-y-auto">
    <div className="flex flex-wrap gap-2">
-      {['Mine', 'All', 'Unread', 'Unassigned','Snooze' ,...visibleTags.filter(tag => !['All', 'Unread', 'Mine', 'Unassigned'].includes(tag.name))].map((tag) => (
-        <button
-          key={typeof tag === 'string' ? tag : tag.id}
-          onClick={() => filterTagContact(typeof tag === 'string' ? tag : tag.name)}
-          className={`px-3 py-1 rounded-full text-sm ${
-            (typeof tag === 'string' && tag.toLowerCase() === activeTags[0]) ||
-            (typeof tag !== 'string' && activeTags.includes(tag.name.toLowerCase()))
-              ? 'bg-primary text-white dark:bg-primary dark:text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-          } transition-colors duration-200`}
-        >
-          {typeof tag === 'string' ? tag : tag.name}
-        </button>
-      ))}
+      {['Mine', 'All', 'Unread', 'Unassigned', 'Snooze', ...(isTagsExpanded ? visibleTags.filter(tag => !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze'].includes(tag.name)) : [])].map((tag) => {
+        const tagName = typeof tag === 'string' ? tag : tag.name;
+        const tagLower = tagName.toLowerCase();
+        const unreadCount = contacts.filter(contact => {
+          const contactTags = contact.tags?.map(t => t.toLowerCase()) || [];
+          return (tagLower === 'all' ? true :
+                  tagLower === 'unread' ? contact.unreadCount && contact.unreadCount > 0 :
+                  tagLower === 'mine' ? contactTags.includes(currentUserName.toLowerCase()) :
+                  tagLower === 'unassigned' ? !contactTags.some(t => employeeList.some(e => e.name.toLowerCase() === t)) :
+                  tagLower === 'snooze' ? contactTags.includes('snooze') :
+                  contactTags.includes(tagLower)) && contact.unreadCount && contact.unreadCount > 0;
+        }).length;
+        return (
+          <button
+            key={typeof tag === 'string' ? tag : tag.id}
+            onClick={() => filterTagContact(tagName)}
+            className={`px-3 py-1 rounded-full text-sm flex items-center ${
+              (tagLower === activeTags[0])
+                ? 'bg-primary text-white dark:bg-primary dark:text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+            } transition-colors duration-200`}
+          >
+            <span>{tagName}</span>
+            {unreadCount > 0 && (
+              <span className="ml-2 px-1.5 py-0.5 rounded-full text-xs bg-primary text-white">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
 </div>
-
 {tagList.length > visibleTags.length && (
   <div className="max-h-40 overflow-y-auto">
     <button
@@ -4407,64 +4423,132 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
           </div>
         </div>
         <div className="flex items-center space-x-3">
-        <button className="p-2 m-0 !box" onClick={handleReminderClick}>
-        <span className="flex items-center justify-center w-5 h-5">
-          <Lucide icon="BellRing" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-        </span>
-      </button>
-          <Menu as="div" className="relative inline-block text-left">
-        
+          <div className="hidden sm:flex space-x-3">
+            <button className="p-2 m-0 !box" onClick={handleReminderClick}>
+              <span className="flex items-center justify-center w-5 h-5">
+                <Lucide icon="BellRing" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+              </span>
+            </button>
+            <Menu as="div" className="relative inline-block text-left">
+              <Menu.Button as={Button} className="p-2 !box m-0">
+                <span className="flex items-center justify-center w-5 h-5">
+                  <Lucide icon="Users" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                </span>
+              </Menu.Button>
+              <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+                {employeeList.map((employee) => (
+                  <Menu.Item key={employee.id}>
+                    <button
+                      className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                      onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
+                    >
+                      <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+                      <span className="text-gray-800 dark:text-gray-200">{employee.name}</span>
+                    </button>
+                  </Menu.Item>
+                ))}
+              </Menu.Items>
+            </Menu>
+            <Menu as="div" className="relative inline-block text-left">
+              <Menu.Button as={Button} className="p-2 !box m-0">
+                <span className="flex items-center justify-center w-5 h-5">
+                  <Lucide icon="Tag" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                </span>
+              </Menu.Button>
+              <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+                {tagList.map((tag) => (
+                  <Menu.Item key={tag.id}>
+                    <button
+                      className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
+                        activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
+                      }`}
+                      onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
+                    >
+                      <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+                      <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
+                    </button>
+                  </Menu.Item>
+                ))}
+              </Menu.Items>
+            </Menu>
+            <button className="p-2 m-0 !box" onClick={handleEyeClick}>
+              <span className="flex items-center justify-center w-5 h-5">
+                <Lucide icon={isTabOpen ? "X" : "Eye"} className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+              </span>
+            </button>
+            <button className="p-2 m-0 !box" onClick={handleMessageSearchClick}>
+              <span className="flex items-center justify-center w-5 h-5">
+                <Lucide icon={isMessageSearchOpen ? "X" : "Search"} className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+              </span>
+            </button>
+          </div>
+          <Menu as="div" className="sm:hidden relative inline-block text-left">
             <Menu.Button as={Button} className="p-2 !box m-0">
               <span className="flex items-center justify-center w-5 h-5">
-                <Lucide icon="Users" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                <Lucide icon="MoreVertical" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
               </span>
             </Menu.Button>
-            <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-              {employeeList.map((employee) => (
-                <Menu.Item key={employee.id}>
-                  <button
-                    className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                    onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
-                  >
-                    <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
-                    <span className="text-gray-800 dark:text-gray-200">{employee.name}</span>
-                  </button>
-                </Menu.Item>
-              ))}
+            <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10">
+              <Menu.Item>
+                <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md" onClick={handleReminderClick}>
+                  <Lucide icon="BellRing" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+                  <span className="text-gray-800 dark:text-gray-200">Reminder</span>
+                </button>
+              </Menu.Item>
+              <Menu.Item>
+                <Menu as="div" className="relative inline-block text-left w-full">
+                  <Menu.Button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
+                    <Lucide icon="Users" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+                    <span className="text-gray-800 dark:text-gray-200">Assign Employee</span>
+                  </Menu.Button>
+                  <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10">
+                    {employeeList.map((employee) => (
+                      <Menu.Item key={employee.id}>
+                        <button
+                          className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                          onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
+                        >
+                          <span className="text-gray-800 dark:text-gray-200">{employee.name}</span>
+                        </button>
+                      </Menu.Item>
+                    ))}
+                  </Menu.Items>
+                </Menu>
+              </Menu.Item>
+              <Menu.Item>
+                <Menu as="div" className="relative inline-block text-left w-full">
+                  <Menu.Button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
+                    <Lucide icon="Tag" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+                    <span className="text-gray-800 dark:text-gray-200">Add Tag</span>
+                  </Menu.Button>
+                  <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10">
+                    {tagList.map((tag) => (
+                      <Menu.Item key={tag.id}>
+                        <button
+                          className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                          onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
+                        >
+                          <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
+                        </button>
+                      </Menu.Item>
+                    ))}
+                  </Menu.Items>
+                </Menu>
+              </Menu.Item>
+              <Menu.Item>
+                <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md" onClick={handleEyeClick}>
+                  <Lucide icon={isTabOpen ? "X" : "Eye"} className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+                  <span className="text-gray-800 dark:text-gray-200">{isTabOpen ? "Close" : "View"} Details</span>
+                </button>
+              </Menu.Item>
+              <Menu.Item>
+                <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md" onClick={handleMessageSearchClick}>
+                  <Lucide icon={isMessageSearchOpen ? "X" : "Search"} className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+                  <span className="text-gray-800 dark:text-gray-200">{isMessageSearchOpen ? "Close" : "Open"} Search</span>
+                </button>
+              </Menu.Item>
             </Menu.Items>
           </Menu>
-          <Menu as="div" className="relative inline-block text-left">
-            <Menu.Button as={Button} className="p-2 !box m-0">
-              <span className="flex items-center justify-center w-5 h-5">
-                <Lucide icon="Tag" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-              </span>
-            </Menu.Button>
-            <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-              {tagList.map((tag) => (
-                <Menu.Item key={tag.id}>
-                  <button
-                    className={`flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
-                      activeTags.includes(tag.name) ? 'bg-gray-200 dark:bg-gray-700' : ''
-                    }`}
-                    onClick={() => handleAddTagToSelectedContacts(tag.name, selectedContact)}
-                  >
-                    <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
-                    <span className="text-gray-800 dark:text-gray-200">{tag.name}</span>
-                  </button>
-                </Menu.Item>
-              ))}
-            </Menu.Items>
-          </Menu>
-          <button className="p-2 m-0 !box" onClick={handleEyeClick}>
-            <span className="flex items-center justify-center w-5 h-5">
-              <Lucide icon={isTabOpen ? "X" : "Eye"} className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-            </span>
-          </button>
-        <button className="p-2 m-0 !box" onClick={handleMessageSearchClick}>
-    <span className="flex items-center justify-center w-5 h-5">
-      <Lucide icon={isMessageSearchOpen ? "X" : "Search"} className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-    </span>
-  </button>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4" 
@@ -4843,7 +4927,7 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
             </button>
           </div>
         )}
-        <div className="flex items-center w-full bg-white dark:bg-gray-800 rounded-lg">
+        <div className="flex items-center w-full bg-white dark:bg-gray-800 pl-2 pr-2 rounded-lg">
           <button className="p-2 m-0 !box" onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}>
             <span className="flex items-center justify-center w-5 h-5">
               <Lucide icon="Smile" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
@@ -4895,12 +4979,8 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
           </button>
           <textarea
             ref={textareaRef}
-            className={`flex-grow h-10 px-2 py-1.5 m-1 ml-2 border rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden ${
-              isPrivateNote 
-                ? 'bg-yellow-50 dark:bg-yellow-900 border-yellow-300 dark:border-yellow-700' 
-                : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700'
-            } text-gray-800 dark:text-gray-200`}
-            placeholder={isPrivateNote ? "Type a private note..." : "Type a message..."}
+            className="flex-grow h-10 px-2 py-1.5 m-1 ml-2 border rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200"
+            placeholder="Type a message..."
             value={newMessage}
             onChange={(e) => {
               setNewMessage(e.target.value);
@@ -5125,26 +5205,43 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
   </div>
 )}
  {isMessageSearchOpen && (
-    <div className="absolute top-16 right-0 w-full md:w-1/3 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-700 p-4 shadow-lg z-50">
-      <input
-        ref={messageSearchInputRef}
-        type="text"
-        placeholder="Search messages..."
-        value={messageSearchQuery}
-        onChange={handleMessageSearchChange}
-        className="w-full p-2 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700"
-      />
-      <div className="mt-4 max-h-96 overflow-y-auto">
-        {messageSearchResults.map((result) => (
-          <div 
-            key={result.id} 
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-            onClick={() => scrollToMessage(result.id)}
-          >
-            <p className="text-sm text-gray-600 dark:text-gray-400">{result.from_me ? 'You' : result.from.split('@')[0]}</p>
-            <p className="text-gray-800 dark:text-gray-200">{result.text.body}</p>
-          </div>
-        ))}
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 z-40"
+      onClick={() => {
+        setIsMessageSearchOpen(false);
+        setMessageSearchQuery('');
+      }}
+    >
+      <div 
+        className="absolute top-16 right-0 w-full md:w-1/3 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-700 p-4 shadow-lg z-50"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          ref={messageSearchInputRef}
+          type="text"
+          placeholder="Search messages..."
+          value={messageSearchQuery}
+          onChange={handleMessageSearchChange}
+          className="w-full border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400"
+        />
+        <div className="mt-4 max-h-96 overflow-y-auto">
+          {messageSearchResults.map((result) => (
+            <div 
+              key={result.id} 
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-200"
+              onClick={() => scrollToMessage(result.id)}
+            >
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {result.from_me ? 'You' : (selectedContact.contactName || selectedContact.firstName || result.from.split('@')[0])}
+              </p>
+              <p className="text-gray-800 dark:text-gray-200">
+                {result.text.body.length > 100 
+                  ? result.text.body.substring(0, 100) + '...' 
+                  : result.text.body}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )}
@@ -5228,8 +5325,8 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
   </Item>
 </ContextMenu>
       {isReminderModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl">
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsReminderModalOpen(false)}>
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
       <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Set Reminder</h2>
       <textarea
         placeholder="Enter reminder message..."
