@@ -5101,7 +5101,7 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
             id="newContactNumber"
             value={newContactNumber}
             onChange={(e) => setNewContactNumber(e.target.value)}
-            placeholder="1234567890"
+            placeholder="60123456789"
             className="w-full p-2 pl-6 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700"
           />
         </div>
@@ -5125,80 +5125,123 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
   </div>
 )}
 {isTabOpen && (
-  <div className="absolute top-0 right-0 h-full w-full md:w-1/3 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-700 overflow-y-auto z-50">
-    <div className="p-6">
-      <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
-        <div className="flex items-center">
-          <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+  <div className="absolute top-0 right-0 h-full w-full md:w-1/4 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-700 overflow-y-auto z-50 shadow-lg transition-all duration-300 ease-in-out">
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white">
             {selectedContact.chat_pic_full ? (
-              <img src={selectedContact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
+              <img src={selectedContact.chat_pic_full} alt="Contact" className="w-full h-full object-cover" />
             ) : (
-              selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"
+              <span className="text-2xl font-bold">
+                {selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}
+              </span>
             )}
           </div>
-          <div className="flex items-center">
-  {isEditing ? (
-    <div className="flex items-center">
-      <input
-        type="text"
-        value={editedName}
-        onChange={(e) => setEditedName(e.target.value)}
-        className="font-semibold bg-transparent text-gray-800 dark:text-gray-200 capitalize border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-primary dark:focus:border-primary mr-2"
-        onKeyPress={(e) => e.key === 'Enter' && handleSave()}
-      />
-      <button
-        onClick={handleSave}
-        className="p-1 bg-primary hover:bg-primary-dark text-white rounded-md transition-colors duration-200"
-      >
-        <Lucide icon="Save" className="w-4 h-4" />
-      </button>
-    </div>
-  ) : (
-    <div 
-      className="font-semibold text-gray-800 dark:text-gray-200 capitalize cursor-pointer hover:text-primary dark:hover:text-primary-400 transition-colors duration-200 flex items-center"
-      onClick={() => setIsEditing(true)}
-    >
-      <span>{selectedContact?.contactName || selectedContact?.firstName || selectedContact?.phone || ''}</span>
-      <Lucide icon="Pencil" className="w-4 h-4 ml-2 text-gray-500 dark:text-gray-400" />
-    </div>
-  )}
-</div>
+          <div className="flex flex-col">
+            {isEditing ? (
+              <div className="flex items-center">
+                <input
+                  type="text"
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  className="font-semibold bg-transparent text-gray-800 dark:text-gray-200 capitalize border-b-2 border-primary dark:border-primary-400 focus:outline-none focus:border-primary-600 dark:focus:border-primary-300 mr-2 px-1 py-0.5 transition-all duration-200"
+                  onKeyPress={(e) => e.key === 'Enter' && handleSave()}
+                />
+                <button
+                  onClick={handleSave}
+                  className="p-1 bg-primary hover:bg-primary-600 text-white rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-400"
+                >
+                  <Lucide icon="Save" className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div 
+                className="font-semibold text-gray-800 dark:text-gray-200 capitalize cursor-pointer hover:text-primary dark:hover:text-primary-400 transition-colors duration-200 flex items-center group"
+                onClick={() => setIsEditing(true)}
+              >
+                <span>{selectedContact?.contactName || selectedContact?.firstName || selectedContact?.phone || ''}</span>
+                <Lucide icon="Pencil" className="w-4 h-4 ml-2 text-gray-500 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+              </div>
+            )}
+            <span className="text-sm text-gray-500 dark:text-gray-400">{selectedContact.phone}</span>
+          </div>
         </div>
-        <button onClick={handleEyeClick} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none">
+        <button onClick={handleEyeClick} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-500 transition-all duration-200">
           <Lucide icon="X" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
         </button>
       </div>
-      <div className="mt-6">
-        <p className="font-semibold text-lg mb-4 text-gray-800 dark:text-gray-200">Contact Info</p>
-        <div className="space-y-2 text-gray-700 dark:text-gray-300">
-          <p>
-            <span className="font-semibold text-blue-600 dark:text-blue-400">Tags:</span>
-            <div className="flex flex-wrap mt-2">
+      <div className="flex-grow overflow-y-auto p-4 space-y-4">
+        <div className="bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden">
+          <div className="bg-blue-50 dark:bg-blue-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Contact Information</h3>
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: "First Name", value: selectedContact.contactName ?? selectedContact.firstName },
+                { label: "Last Name", value: selectedContact.lastName },
+                { label: "Email", value: selectedContact.email },
+                { label: "Company", value: selectedContact.companyName },
+                { label: "Address", value: selectedContact.address1 },
+                { label: "Website", value: selectedContact.website }
+              ].map((item, index) => (
+                <div key={index} className="col-span-1">
+                  <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{item.label}</p>
+                  <p className="text-gray-800 dark:text-gray-200">{item.value || 'N/A'}</p>
+                </div>
+              ))}      
+            </div>
+            <div className="border-t border-gray-200 dark:border-gray-600 mt-4 pt-4"></div>
+            {selectedContact.tags.some((tag: string) => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())) && (
+                    <div className="w-full">
+                      <h4 className="font-semibold text-gray-500 dark:text-gray-400 inline-block mr-2">Employees Assigned:</h4>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {selectedContact.tags
+                          .filter((tag: string) => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()))
+                          .map((employeeTag: string, index: number) => (
+                            <div key={index} className="inline-flex items-center bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 text-sm font-semibold px-3 py-1 rounded-full border border-green-400 dark:border-green-600">
+                              <span>{employeeTag}</span>
+                              <button
+                                className="ml-2 focus:outline-none"
+                                onClick={() => handleRemoveTag(selectedContact.id, employeeTag)}
+                              >
+                                <Lucide icon="X" className="w-4 h-4 text-green-600 hover:text-green-800 dark:text-green-300 dark:hover:text-green-100" />
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden">
+          <div className="bg-indigo-50 dark:bg-indigo-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Tags</h3>
+          </div>
+          <div className="p-4">
+            <div className="flex flex-wrap gap-2">
               {selectedContact && selectedContact.tags && selectedContact.tags.length > 0 ? (
-                selectedContact.tags.map((tag: string, index: number) => (
-                  <div key={index} className="flex items-center mr-2 mb-2">
-                    <span className="inline-block bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-sm font-semibold px-3 py-1 rounded border border-blue-400 dark:border-blue-600 mr-1">{tag}</span>
-                    <button
-                      className="p-1"
-                      onClick={() => handleRemoveTag(selectedContact.id, tag)}
-                    >
-                      <Lucide icon="Trash" className="w-4 h-4 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600" />
-                    </button>
-                  </div>
-                ))
+                <>
+                  {selectedContact.tags
+                    .filter((tag: string) => !employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()))
+                    .map((tag: string, index: number) => (
+                      <div key={index} className="inline-flex items-center bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-sm font-semibold px-3 py-1 rounded-full border border-blue-400 dark:border-blue-600">
+                        <span>{tag}</span>
+                        <button
+                          className="ml-2 focus:outline-none"
+                          onClick={() => handleRemoveTag(selectedContact.id, tag)}
+                        >
+                          <Lucide icon="X" className="w-4 h-4 text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-100" />
+                        </button>
+                      </div>
+                    ))}
+                </>
               ) : (
-                <span>Unassigned</span>
+                <span className="text-gray-500 dark:text-gray-400">No tags assigned</span>
               )}
             </div>
-          </p>
-          <p><span className="font-semibold text-blue-600 dark:text-blue-400">Phone:</span> {selectedContact.phone}</p>
-          <p><span className="font-semibold text-blue-600 dark:text-blue-400">Email:</span> {selectedContact.email || 'N/A'}</p>
-          <p><span className="font-semibold text-blue-600 dark:text-blue-400">Company:</span> {selectedContact.companyName || 'N/A'}</p>
-          <p><span className="font-semibold text-blue-600 dark:text-blue-400">Address:</span> {selectedContact.address1 || 'N/A'}</p>
-          <p><span className="font-semibold text-blue-600 dark:text-blue-400">First Name:</span> {selectedContact.contactName ?? selectedContact.firstName}</p>
-          <p><span className="font-semibold text-blue-600 dark:text-blue-400">Last Name:</span> {selectedContact.lastName}</p>
-          <p><span className="font-semibold text-blue-600 dark:text-blue-400">Website:</span> {selectedContact.website || 'N/A'}</p>
-          {/* Add more fields as necessary */}
+          </div>
         </div>
       </div>
     </div>
