@@ -130,7 +130,7 @@ interface Message {
   createdAt: number;
   type?: string;
   from:string;
-  image?: { link?: string; caption?: string;url?:string };
+  image?: { link?: string; caption?: string;url?:string ;data?:string;mimetype?:string};
   video?: { link?: string; caption?: string };
   gif?: { link?: string; caption?: string };
   audio?: { link?: string; caption?: string };
@@ -4638,22 +4638,24 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                           {formatText(message.text?.body || '')}
                         </div>
                       )}
-                      {message.type === 'image' && message.image && (
-                        <div className="p-0 message-content image-message">
-                          <img
-                            src={message.image.link || `https://mighty-dane-newly.ngrok-free.app${message.image.url}` || ''}
-                            alt="Image"
-                            className="rounded-lg message-image cursor-pointer"
-                            style={{ maxWidth: '300px' }}
-                            onClick={() => openImageModal(message.image?.link || `https://mighty-dane-newly.ngrok-free.app${message?.image?.url}`|| '')}
-                            onError={(e) => {
-                              console.error("Error loading image:", e.currentTarget.src);
-                              e.currentTarget.src = 'src/assets/images/Fallback Image.png'; // Replace with your fallback image path
-                            }}
-                          />
-                          <div className="caption text-gray-800 ">{message.image.caption}</div>
-                        </div>
-                      )}
+     {message.type === 'image' && message.image && (
+  <div className="p-0 message-content image-message">
+    <img
+      src={message.image.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image.link || ''}
+      alt="Image"
+      className="rounded-lg message-image cursor-pointer"
+      style={{ maxWidth: '300px', maxHeight: '300px', objectFit: 'contain' }}
+      onClick={() => openImageModal(message.image?.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image?.link || '')}
+      onError={(e) => {
+        console.error("Error loading image:", e.currentTarget.src);
+        e.currentTarget.src = 'src/assets/images/Fallback Image.png'; // Replace with your fallback image path
+      }}
+    />
+    {message.image.caption && (
+      <div className="caption text-gray-800 dark:text-gray-200 mt-2">{message.image.caption}</div>
+    )}
+  </div>
+)}
                       {message.type === 'video' && message.video && (
                         <div className="video-content p-0 message-content image-message">
                           <video
