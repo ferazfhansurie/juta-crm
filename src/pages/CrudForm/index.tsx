@@ -74,7 +74,8 @@ function Main() {
     password: "",
     role: "",
     companyId: "",
-    group: ""
+    group: "",
+    employeeId: "" // Add this new field
   });
 
   useEffect(() => {
@@ -86,7 +87,8 @@ function Main() {
         password: "",
         role: contact.role || "",
         companyId: companyId || "",
-        group: contact.group || ""
+        group: contact.group || "",
+        employeeId: contact.employeeId || "" // Add this new field
       });
       setCategories([contact.role]);
       fetchGroups();
@@ -201,7 +203,8 @@ console.log(response.body);
     password: userData.password,
     role: userData.role,
     companyId: userData.companyId,
-    group: userData.group
+    group: userData.group,
+    employeeId: userData.employeeId
 });
 setSuccessMessage("User updated successfully");
 } else {
@@ -238,7 +241,8 @@ setUserData({
     password: "",
     role: "",
     companyId: "",
-    group: ""
+    group: "",
+    employeeId: ""
 });
 
   }else{
@@ -398,6 +402,15 @@ setUserData({
                 value={userData.password}
                 onChange={handleChange}
                 placeholder="Password"
+              />
+            </div>
+            <div className="mt-3">
+              <FormInput
+                name="employeeId"
+                type="text"
+                value={userData.employeeId}
+                onChange={handleChange}
+                placeholder="Employee ID (Optional)"
               />
             </div>
             {errorMessage && <div className="text-red-500">{errorMessage}</div>}
