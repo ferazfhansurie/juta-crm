@@ -75,7 +75,7 @@ function Main() {
     role: "",
     companyId: "",
     group: "",
-    employeeId: "" // Add this new field
+    employeeId: ""
   });
 
   useEffect(() => {
@@ -88,13 +88,11 @@ function Main() {
         role: contact.role || "",
         companyId: companyId || "",
         group: contact.group || "",
-        employeeId: contact.employeeId || "" // Add this new field
+        employeeId: contact.employeeId || ""
       });
       setCategories([contact.role]);
-      fetchGroups();
-    } else {
-      fetchGroups();
     }
+    fetchGroups();
   }, [contact, companyId]);
 
   const fetchGroups = async () => {
@@ -150,116 +148,77 @@ function Main() {
 
   const saveUser = async () => {
     try {
-        setIsLoading(true);
-        const userOri = auth.currentUser;
-        const docUserRef = doc(firestore, 'user', userOri?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
+      setIsLoading(true);
+      const userOri = auth.currentUser;
+      if (!userOri || !userOri.email) {
+        throw new Error("No authenticated user found");
+      }
+
+      const docUserRef = doc(firestore, 'user', userOri.email);
+      const docUserSnapshot = await getDoc(docUserRef);
+      const dataUser = docUserSnapshot.data();
+      const companyId = dataUser!.companyId;
+      const company = dataUser!.company;
+
+      const formatPhoneNumber = (phoneNumber: string) => {
+        return phoneNumber && !phoneNumber.startsWith('+') ? "+6" + phoneNumber : phoneNumber;
+      };
+
+      const userDataToSend = {
+        name: userData.name,
+        phoneNumber: formatPhoneNumber(userData.phoneNumber),
+        email: userData.email,
+        role: userData.role,
+        companyId: companyId,
+        company: company,
+        group: userData.group,
+        employeeId: userData.employeeId || null
+      };
+
+      if (contactId) {
+        // Updating existing user
+        await updateDoc(doc(firestore, `companies/${companyId}/employee`, contactId), userDataToSend);
+        await updateDoc(doc(firestore, 'user', userData.email), userDataToSend);
+        toast.success("User updated successfully");
+      } else {
+        // Adding new user
+        const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/create-user/${userData.email}/${formatPhoneNumber(userData.phoneNumber)}/${userData.password}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+        });
+        const responseData = await response.json();
         
-    const dataUser = docUserSnapshot.data();
-    const companyId = dataUser!.companyId;
-    const company = dataUser!.company;
-        if (!userOri || !userOri.email) {
-            return;
+        if (responseData.message === 'User created successfully') {
+          await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
+          await setDoc(doc(firestore, `companies/${companyId}/employee`, userData.email), userDataToSend);
+          toast.success("User created successfully");
+          setUserData({
+            name: "",
+            phoneNumber: "",
+            email: "",
+            password: "",
+            role: "",
+            companyId: "",
+            group: "",
+            employeeId: ""
+          });
+        } else {
+          throw new Error(responseData.error);
         }
+      }
 
-        const formatPhoneNumber = (phoneNumber: string) => {
-            if (phoneNumber && !phoneNumber.startsWith('+')) {
-               phoneNumber = "+6"+phoneNumber;
-            }
-            return phoneNumber;
-        };
-    
-   
-if (contactId) {
-  const userDataToSend = {
-    uid: contact.id ,
-    email: userData.email,
-    phoneNumber: formatPhoneNumber(userData.phoneNumber),
-    password: userData.password,
-    name: userData.name,
-    role: userData.role,
-    companyId: userData.companyId,
-    company: company,
-    group: userData.group // Save the chosen group
-};
-
-  const response = await fetch('https://mighty-dane-newly.ngrok-free.app/api/update-user', {
-    method: 'PUT',
-    headers: {
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(userDataToSend)
-});
-console.log(response.body);
-
-  await updateDoc(doc(firestore, `companies/${companyId}/employee`, contactId), userDataToSend);
-  await updateDoc(doc(firestore, 'user', userData.email), userDataToSend);
-  
-  toast.success("User updated successfully");
-  setUserData({
-    name: userData.name,
-    phoneNumber: userData.phoneNumber,
-    email: userData.email,
-    password: userData.password,
-    role: userData.role,
-    companyId: userData.companyId,
-    group: userData.group,
-    employeeId: userData.employeeId
-});
-setSuccessMessage("User updated successfully");
-} else {
-
-  const userDataToSend = {
-    name: userData.name,
-    phoneNumber: userData.phoneNumber,
-    email: userData.email,
-    role: categories.toString(),
-    companyId: companyId,
-    company: company,
-    group: userData.group // Save the chosen group
-  };
-  const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/create-user/${userData.email}/${formatPhoneNumber(userData.phoneNumber)}/${userData.password}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-  });
-  const responseData = await response.json();
-  console.log(responseData.message);
-  if(responseData.message == 'User created successfully'){
-    toast.success("User created successfully");
- await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
- await setDoc(doc(firestore, `companies/${companyId}/employee`, userData.email), userDataToSend);
- setSuccessMessage('User created successfully');
-
-  setErrorMessage('');
- 
-setUserData({
-    name: "",
-    phoneNumber: "",
-    email: "",
-    password: "",
-    role: "",
-    companyId: "",
-    group: "",
-    employeeId: ""
-});
-
-  }else{
-    setErrorMessage(responseData.error);
-  }
-
-
-}
-      
-    
-        setIsLoading(false);
+      setSuccessMessage(contactId ? "User updated successfully" : "User created successfully");
+      setErrorMessage('');
+      setIsLoading(false);
     } catch (error) {
-        console.error("Error updating user:", error);
-        setErrorMessage('An error occurred while saving the user');
-        setIsLoading(false);
+      console.error("Error saving user:", error);
+      setErrorMessage('An error occurred while saving the user');
+      setIsLoading(false);
     }
-};
+  };
+
   const editorConfig = {
     toolbar: {
       items: ["bold", "italic", "link"],
@@ -342,17 +301,13 @@ setUserData({
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center">
                 <select
                   id="group"
                   name="group"
                   value={userData.group}
                   onChange={handleChange}
-                  className="flex-grow text-sm font-medium rounded-lg p-2.5
-                    dark:bg-gray-700 dark:border-gray-600 dark:text-white
-                    light:bg-white light:border-gray-300 light:text-gray-900
-                    focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-500
-                    transition-colors duration-200"
+                  className="text-black dark:text-white-dark border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full mr-2 p-2.5"
                 >
                   <option value="">Select a group</option>
                   {groups.map((group) => (
@@ -363,10 +318,7 @@ setUserData({
                   type="button"
                   variant="outline-secondary"
                   onClick={handleAddNewGroup}
-                  className="flex items-center px-4 py-2 text-sm font-medium rounded-lg
-                    dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700
-                    light:bg-white light:text-gray-700 light:border-gray-300 light:hover:bg-gray-100
-                    transition-colors duration-200"
+                  className="dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700 inline-flex items-center whitespace-nowrap"
                 >
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -377,7 +329,7 @@ setUserData({
             )}
           </div>
             <div className="mt-3">
-            <FormLabel htmlFor="crud-form-2">Role</FormLabel>
+            <FormLabel htmlFor="crud-form-2" className="dark:text-gray-200">Role</FormLabel>
               <select
               id="crud-form-2"
               name="role"
@@ -386,7 +338,7 @@ setUserData({
                 handleChange(e);
                 setCategories([e.target.value]);
               }}
-              className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm w-full"
+              className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
             >
               <option value="1">Admin</option>
               <option value="2">Sales</option>
@@ -410,7 +362,7 @@ setUserData({
                 type="text"
                 value={userData.employeeId}
                 onChange={handleChange}
-                placeholder="Employee ID (Optional)"
+                placeholder="Employee ID (optional)"
               />
             </div>
             {errorMessage && <div className="text-red-500">{errorMessage}</div>}

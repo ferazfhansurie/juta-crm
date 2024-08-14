@@ -12,6 +12,8 @@ import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebas
 import axios from "axios";
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { ToastContainer, toast } from 'react-toastify';
+
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
   authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -274,6 +276,7 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
           </div>
         </div>
       )}
+      <ToastContainer />
     </>
   );
 }

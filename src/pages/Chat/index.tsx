@@ -130,7 +130,7 @@ interface Message {
   createdAt: number;
   type?: string;
   from:string;
-  image?: { link?: string; caption?: string;url?:string ;data?:string;mimetype?:string};
+  image?: { link?: string; caption?: string;url?:string };
   video?: { link?: string; caption?: string };
   gif?: { link?: string; caption?: string };
   audio?: { link?: string; caption?: string };
@@ -408,6 +408,7 @@ function Main() {
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [newContactNumber, setNewContactNumber] = useState('');
   const [showMineContacts, setShowMineContacts] = useState(true);
+  const [showGroupContacts, setShowGroupContacts] = useState(false);
   const [showUnassignedContacts, setShowUnassignedContacts] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [reminderDate, setReminderDate] = useState<Date | null>(null);
@@ -496,7 +497,7 @@ function Main() {
 
   useEffect(() => {
     updateVisibleTags();
-  }, [tagList, isTagsExpanded]);
+  }, [contacts, tagList, isTagsExpanded]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -512,19 +513,38 @@ function Main() {
   }, [privateNoteRef]);
 
   const updateVisibleTags = () => {
+    const nonGroupContacts = contacts.filter(contact => 
+      contact.chat_id && !contact.chat_id.includes('@g.us')
+    );
+  
     const allUnreadTags = [
-      { id: 'all', name: 'All' },
-      { id: 'unread', name: 'Unread' }
+      { 
+        id: 'all', 
+        name: 'All', 
+        count: nonGroupContacts.length
+      },
+      { 
+        id: 'unread', 
+        name: 'Unread', 
+        count: nonGroupContacts.filter(contact => (contact.unreadCount || 0) > 0).length
+      },
     ];
-
+  
+    const updatedTagList = tagList.map(tag => ({
+      ...tag,
+      count: nonGroupContacts.filter(contact => 
+        contact.tags?.includes(tag.name) && (contact.unreadCount || 0) > 0
+      ).length
+    }));
+  
     if (isTagsExpanded) {
-      setVisibleTags([...allUnreadTags, ...tagList]);
+      setVisibleTags([...allUnreadTags, ...updatedTagList]);
     } else {
       const containerWidth = 300; // Adjust this based on your container width
       const tagWidth = 100; // Approximate width of each tag button
       const tagsPerRow = Math.floor(containerWidth / tagWidth);
-      const visibleTagsCount = tagsPerRow * 2 - 2; // Two rows, minus All and Unread
-      setVisibleTags([...allUnreadTags, ...tagList.slice(0, visibleTagsCount)]);
+      const visibleTagsCount = tagsPerRow * 2 - 3; // Two rows, minus All, Unread, and Group
+      setVisibleTags([...allUnreadTags, ...updatedTagList.slice(0, visibleTagsCount)]);
     }
   };
 
@@ -580,7 +600,8 @@ function Main() {
     setIsPrivateNotesMentionOpen(false);
   };
 
-console.log(initialContacts);
+console.log('Initial contacts:', initialContacts);
+
 useEffect(() => {
   if (initialContacts.length > 0) {
     loadMoreContacts();
@@ -591,14 +612,30 @@ useEffect(() => {
   if (contacts.length > 0) {
     let filtered = contacts;
     
-    // Apply 'Mine' filter by default
-    filtered = filtered.filter((contact) => 
-      contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase())
+    // Always exclude group chats, regardless of the active tag
+    filtered = filtered.filter(contact => 
+      contact.chat_id && !contact.chat_id.includes('@g.us')
     );
+
+    if (activeTags.includes('all')) {
+      console.log('All tag is active. Filtered contacts:', filtered);
+      console.log('Excluded group chats:', contacts.filter(contact => contact.chat_id && contact.chat_id.includes('@g.us')));
+      // No additional filtering needed for 'all'
+    } else if (activeTags.includes('unread')) {
+      filtered = filtered.filter(contact => (contact.unreadCount || 0) > 0);
+    } else if (activeTags.includes('mine')) {
+      filtered = filtered.filter((contact) => 
+        contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase())
+      );
+    } else {
+      filtered = filtered.filter(contact => 
+        activeTags.some(tag => contact.tags?.includes(tag))
+      );
+    }
 
     setFilteredContacts(filtered);
   }
-}, [contacts, currentUserName]);
+}, [contacts, currentUserName, activeTags]);
 
 useEffect(() => {
   const handleScroll = () => {
@@ -2705,10 +2742,6 @@ function formatDate(timestamp: string | number | Date) {
     let updatedContacts = [...contacts];
   
     try {
-      // Apply group filter if active
-      if (isGroupFilterActive) {
-        updatedContacts = updatedContacts.filter(contact => contact.chat_id?.includes('@g.us'));
-      }
     
       // Apply search query filter
       if (searchQuery) {
@@ -2784,21 +2817,40 @@ function formatDate(timestamp: string | number | Date) {
     setFilteredContactsForForwarding(filtered);
   };
 
-  const filterTagContact = (tagName: string) => {
-    const lowercaseTagName = tagName.toLowerCase();
+  const filterTagContact = (tag: string) => {
+    setActiveTags([tag.toLowerCase()]);
+    const filteredContacts = contacts.filter((contact) => {
+      const contactTags = contact.tags?.map((t) => t.toLowerCase()) || [];
+      const isGroup = contact.chat_id?.endsWith('@g.us');
     
-    setActiveTags([lowercaseTagName]);
-  
-    setShowAllContacts(lowercaseTagName === 'all');
-    setShowUnreadContacts(lowercaseTagName === 'unread');
-    setShowMineContacts(lowercaseTagName === 'mine');
-    setShowUnassignedContacts(lowercaseTagName === 'unassigned');
-    setShowSnoozedContacts(lowercaseTagName === 'snooze');
+      switch (tag.toLowerCase()) {
+        case 'all':
+          return !isGroup && !contactTags.includes('snooze');
+        case 'unread':
+          return contact.unreadCount && contact.unreadCount > 0;
+        case 'mine':
+          return contactTags.includes(currentUserName.toLowerCase());
+        case 'unassigned':
+          return !contactTags.some((t) => employeeList.some((e) => e.name.toLowerCase() === t));
+        case 'snooze':
+          return contactTags.includes('snooze');
+        case 'group':
+          return isGroup;
+        default:
+          return contactTags.includes(tag.toLowerCase());
+      }
+    });
+    
+    if (tag.toLowerCase() === 'group') {
+      console.log(`Number of groups: ${filteredContacts.length}`);
+    }
+    
+    setFilteredContacts(filteredContacts);
   };
   
   useEffect(() => {
     let filtered = contacts;
-  
+    
     if (searchQuery) {
       filtered = filtered.filter((contact) =>
         (contact.contactName || contact.firstName || contact.phone || '')
@@ -2806,18 +2858,22 @@ function formatDate(timestamp: string | number | Date) {
           .includes(searchQuery.toLowerCase())
       );
     }
-  
+    
     if (activeTags.length > 0) {
       filtered = filtered.filter((contact) => {
         const contactTags = contact.tags?.map(tag => tag.toLowerCase()) || [];
+        const isGroup = contact.chat_id?.endsWith('@g.us');
+        
         return activeTags.every(tag => {
           switch (tag) {
             case 'mine':
               return contactTags.includes(currentUserName.toLowerCase()) && !contactTags.includes('snooze');
             case 'all':
-              return !contactTags.includes('snooze'); // Exclude snoozed contacts from 'all'
+              return !isGroup && !contactTags.includes('snooze');
             case 'unread':
               return contact.unreadCount && contact.unreadCount > 0 && !contactTags.includes('snooze');
+            case 'group':
+              return isGroup;
             case 'unassigned':
               return !contactTags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag)) && !contactTags.includes('snooze');
             case 'snooze':
@@ -2828,7 +2884,10 @@ function formatDate(timestamp: string | number | Date) {
         });
       });
     } else if (showAllContacts) {
-      filtered = filtered.filter(contact => !contact.tags?.includes('snooze'));
+      filtered = filtered.filter(contact => 
+        !contact.tags?.includes('snooze') && 
+        !contact.chat_id?.endsWith('@g.us')
+      );
     } else if (showUnreadContacts) {
       filtered = filtered.filter((contact) => contact.unreadCount && contact.unreadCount > 0 && !contact.tags?.includes('snooze'));
     } else if (showMineContacts) {
@@ -2842,10 +2901,13 @@ function formatDate(timestamp: string | number | Date) {
       );
     } else if (showSnoozedContacts) {
       filtered = filtered.filter((contact) => contact.tags?.includes('snooze'));
+    } else if (showGroupContacts) {
+      filtered = filtered.filter((contact) => contact.chat_id?.endsWith('@g.us'));
+      console.log(`Number of groups: ${filtered.length}`);
     }
-  
+    
     setFilteredContacts(filtered);
-  }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, currentUserName, employeeList]);
+  }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList]);
   
   const handleSnoozeContact = async (contact: Contact) => {
     try {
@@ -4185,19 +4247,25 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
 
 </div>
 <div className="mt-4 mb-2 px-4 max-h-40 overflow-y-auto">
-   <div className="flex flex-wrap gap-2">
-      {['Mine', 'All', 'Unread', 'Unassigned', 'Snooze', ...(isTagsExpanded ? visibleTags.filter(tag => !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze'].includes(tag.name)) : [])].map((tag) => {
-        const tagName = typeof tag === 'string' ? tag : tag.name;
-        const tagLower = tagName.toLowerCase();
-        const unreadCount = contacts.filter(contact => {
-          const contactTags = contact.tags?.map(t => t.toLowerCase()) || [];
-          return (tagLower === 'all' ? true :
-                  tagLower === 'unread' ? contact.unreadCount && contact.unreadCount > 0 :
-                  tagLower === 'mine' ? contactTags.includes(currentUserName.toLowerCase()) :
-                  tagLower === 'unassigned' ? !contactTags.some(t => employeeList.some(e => e.name.toLowerCase() === t)) :
-                  tagLower === 'snooze' ? contactTags.includes('snooze') :
-                  contactTags.includes(tagLower)) && contact.unreadCount && contact.unreadCount > 0;
-        }).length;
+  <div className="flex flex-wrap gap-2">
+    {['Mine', 'All', 'Group', 'Unread', 'Unassigned', 'Snooze', ...(isTagsExpanded ? visibleTags.filter(tag => !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group'].includes(tag.name)) : [])].map((tag) => {
+      const tagName = typeof tag === 'string' ? tag : tag.name;
+      const tagLower = tagName.toLowerCase();
+      const unreadCount = contacts.filter(contact => {
+        const contactTags = contact.tags?.map(t => t.toLowerCase()) || [];
+        const isGroup = contact.chat_id?.endsWith('@g.us');
+        
+        return (
+          (tagLower === 'all' ? !isGroup : // Exclude groups from 'All' unread count
+          tagLower === 'unread' ? contact.unreadCount && contact.unreadCount > 0 :
+          tagLower === 'mine' ? contactTags.includes(currentUserName.toLowerCase()) :
+          tagLower === 'unassigned' ? !contactTags.some(t => employeeList.some(e => e.name.toLowerCase() === t)) :
+          tagLower === 'snooze' ? contactTags.includes('snooze') :
+          tagLower === 'group' ? isGroup :
+          contactTags.includes(tagLower)) &&
+          contact.unreadCount && contact.unreadCount > 0
+        );
+      }).length;
         return (
           <button
             key={typeof tag === 'string' ? tag : tag.id}
@@ -4638,24 +4706,22 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                           {formatText(message.text?.body || '')}
                         </div>
                       )}
-     {message.type === 'image' && message.image && (
-  <div className="p-0 message-content image-message">
-    <img
-      src={message.image.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image.link || ''}
-      alt="Image"
-      className="rounded-lg message-image cursor-pointer"
-      style={{ maxWidth: '300px', maxHeight: '300px', objectFit: 'contain' }}
-      onClick={() => openImageModal(message.image?.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image?.link || '')}
-      onError={(e) => {
-        console.error("Error loading image:", e.currentTarget.src);
-        e.currentTarget.src = 'src/assets/images/Fallback Image.png'; // Replace with your fallback image path
-      }}
-    />
-    {message.image.caption && (
-      <div className="caption text-gray-800 dark:text-gray-200 mt-2">{message.image.caption}</div>
-    )}
-  </div>
-)}
+                      {message.type === 'image' && message.image && (
+                        <div className="p-0 message-content image-message">
+                          <img
+                            src={message.image.link || `https://mighty-dane-newly.ngrok-free.app${message.image.url}` || ''}
+                            alt="Image"
+                            className="rounded-lg message-image cursor-pointer"
+                            style={{ maxWidth: '300px' }}
+                            onClick={() => openImageModal(message.image?.link || `https://mighty-dane-newly.ngrok-free.app${message?.image?.url}`|| '')}
+                            onError={(e) => {
+                              console.error("Error loading image:", e.currentTarget.src);
+                              e.currentTarget.src = 'src/assets/images/Fallback Image.png'; // Replace with your fallback image path
+                            }}
+                          />
+                          <div className="caption text-gray-800 ">{message.image.caption}</div>
+                        </div>
+                      )}
                       {message.type === 'video' && message.video && (
                         <div className="video-content p-0 message-content image-message">
                           <video
