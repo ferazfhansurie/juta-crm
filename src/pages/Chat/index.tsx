@@ -424,6 +424,15 @@ function Main() {
   const [messageSearchResults, setMessageSearchResults] = useState<any[]>([]);
   const messageSearchInputRef = useRef<HTMLInputElement>(null);
   const [showSnoozedContacts, setShowSnoozedContacts] = useState(false);
+  const [blastMessageModal, setBlastMessageModal] = useState(false);
+const [blastMessage, setBlastMessage] = useState("");
+const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
+const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+const [blastStartTime, setBlastStartTime] = useState<Date | null>(null);
+const [batchQuantity, setBatchQuantity] = useState<number>(10);
+const [repeatInterval, setRepeatInterval] = useState<number>(0);
+const [repeatUnit, setRepeatUnit] = useState<'minutes' | 'hours' | 'days'>('days');
+const [isScheduling, setIsScheduling] = useState(false);
   const handleMessageSearchClick = () => {
     setIsMessageSearchOpen(!isMessageSearchOpen);
     if (!isMessageSearchOpen) {
@@ -3962,7 +3971,96 @@ const handleForwardMessage = async () => {
       toast.error('Failed to mark as unread');
     }
   };
+  const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedMedia(file);
+    }
+  };
+  
 
+  
+  const sendBlastMessage = async () => {
+    setIsScheduling(true);
+    try {
+      let mediaUrl = "";
+      let documentUrl = "";
+  
+      if (selectedMedia) {
+        mediaUrl = await uploadFile(selectedMedia);
+      }
+  
+      if (selectedDocument) {
+        documentUrl = await uploadFile(selectedDocument);
+      }
+      const user = auth.currentUser;
+      if (!user) {
+        toast.error("User not authenticated");
+        return;
+      }
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        toast.error("User document not found");
+        return;
+      }
+
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+      const companyRef = doc(firestore, 'companies', companyId);
+      const companySnapshot = await getDoc(companyRef);
+      if (!companySnapshot.exists()) {
+        toast.error("Company document not found");
+        return;
+      }
+
+      const companyData = companySnapshot.data();
+      const isV2 = companyData.v2 || false;
+      const scheduledTime = blastStartTime || new Date();
+  
+      const scheduledMessageData = {
+        batchQuantity: batchQuantity,
+        chatIds: [selectedChatId], // Assuming you want to send to the current chat
+        companyId: companyId,
+        createdAt: Timestamp.now(),
+        documentUrl: documentUrl || "",
+        fileName: selectedDocument ? selectedDocument.name : null,
+        mediaUrl: mediaUrl || "",
+        message: blastMessage,
+        mimeType: selectedMedia ? selectedMedia.type : (selectedDocument ? selectedDocument.type : null),
+        repeatInterval: repeatInterval,
+        repeatUnit: repeatUnit,
+        scheduledTime: Timestamp.fromDate(scheduledTime),
+        status: "scheduled",
+        v2: isV2,
+        whapiToken: isV2 ? null : whapiToken,
+      };
+  
+      // Make API call to schedule the message
+      const response = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}`, scheduledMessageData);
+  
+      console.log(`Scheduled message added. Document ID: ${response.data.id}`);
+      toast.success(`Blast message scheduled successfully.`);
+      toast.info(`Message will be sent at: ${scheduledTime.toLocaleString()} (local time)`);
+  
+      // Close the modal and reset state
+      setBlastMessageModal(false);
+      setBlastMessage("");
+      setBlastStartTime(null);
+      setBatchQuantity(10);
+      setRepeatInterval(0);
+      setRepeatUnit('days');
+      setSelectedMedia(null);
+      setSelectedDocument(null);
+    } catch (error) {
+      console.error('Error scheduling blast message:', error);
+      toast.error("An error occurred while scheduling the blast message. Please try again.");
+    } finally {
+      setIsScheduling(false);
+    }
+  };
   const handleReminderClick = () => {
     setIsReminderModalOpen(true);
   };
@@ -4070,6 +4168,95 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
           <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
             {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
             {isDeletePopupOpen && <DeleteConfirmationPopup />}
+            <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
+  <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+    <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-40 text-gray-900 dark:text-white">
+      <div className="mb-4 text-lg font-semibold">Schedule Blast Message</div>
+      <textarea
+                    className="w-full p-2 border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="Type your message here..."
+                    value={blastMessage}
+                    onChange={(e) => setBlastMessage(e.target.value)}
+                    rows={3}
+                    style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                  ></textarea>
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Media (Image or Video)</label>
+        <input
+          type="file"
+          accept="image/*,video/*"
+          onChange={(e) => handleMediaUpload(e)}
+          className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        />
+      </div>
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Document</label>
+        <input
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+          onChange={(e) => handleDocumentUpload(e)}
+          className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        />
+      </div>
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Time</label>
+        <DatePicker
+          selected={blastStartTime}
+          onChange={(date: Date) => setBlastStartTime(date)}
+          showTimeSelect
+          dateFormat="MMMM d, yyyy h:mm aa"
+          className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        />
+      </div>
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Quantity</label>
+        <input
+          type="number"
+          value={batchQuantity}
+          onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
+          min={1}
+          className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        />
+      </div>
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Repeat Every</label>
+        <div className="flex items-center">
+          <input
+            type="number"
+            value={repeatInterval}
+            onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
+            min={0}
+            className="w-20 mr-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+          <select
+            value={repeatUnit}
+            onChange={(e) => setRepeatUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+            className="border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            <option value="minutes">Minutes</option>
+            <option value="hours">Hours</option>
+            <option value="days">Days</option>
+          </select>
+        </div>
+      </div>
+      <div className="flex justify-end mt-4">
+        <button
+          className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+          onClick={() => setBlastMessageModal(false)}
+        >
+          Cancel
+        </button>
+        <button
+          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={sendBlastMessage}
+          disabled={isScheduling}
+        >
+          {isScheduling ? "Scheduling..." : "Send Blast Message"}
+        </button>
+      </div>
+    </Dialog.Panel>
+  </div>
+</Dialog>
             <PDFModal isOpen={isPDFModalOpen} onClose={closePDFModal} pdfUrl={pdfUrl} />
             {editingMessage && (
               <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
@@ -4554,6 +4741,21 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
         </div>
         <div className="flex items-center space-x-3">
           <div className="hidden sm:flex space-x-3">
+          <button 
+  className="p-2 m-0 !box" 
+  onClick={() => {
+    if (userRole !== "3") {
+      setBlastMessageModal(true);
+    } else {
+      toast.error("You don't have permission to send blast messages.");
+    }
+  }}
+  disabled={userRole === "3"}
+>
+  <span className="flex items-center justify-center w-5 h-5">
+    <Lucide icon="Send" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+  </span>
+</button>
             <button className="p-2 m-0 !box" onClick={handleReminderClick}>
               <span className="flex items-center justify-center w-5 h-5">
                 <Lucide icon="BellRing" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
