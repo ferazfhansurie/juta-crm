@@ -141,11 +141,14 @@ interface Message {
     file_size: number;
     filename: string;
     id: string;
-    link: string;
+    link?: string;
     mime_type: string;
     page_count: number;
     preview: string;
     sha256: string;
+    data?:string;
+  mimetype?: string;
+  fileSize?: number;
   };
   link_preview?: { link: string; title: string; description: string ,body:string,preview:string};
   sticker?: { link: string; emoji: string };
@@ -4820,31 +4823,50 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                         </div>
                       )}
                       {message.type === 'document' && message.document && (
-                        <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
-                          <iframe
-                            src={message.document.link}
-                            width="100%"
-                            height="500px"
-                            title="PDF Document"
-                            className="border rounded cursor-pointer"
-                            onClick={() => openPDFModal(message.document?.link || '')}
-                          />
-                          <div className="flex-1 text-justify mt-3 w-full">
-                            <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">{message.document.file_name}</div>
-                            <div className="text-gray-600 dark:text-gray-400">
-                              {message.document.page_count} page
-                              {message.document.page_count > 1 ? 's' : ''} • PDF •{' '}
-                              {(message.document.file_size / (1024 * 1024)).toFixed(2)} MB
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => openPDFModal(message.document!.link)}
-                            className="mt-3"
-                          >
-                            <Lucide icon="ExternalLink" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
-                          </button>
-                        </div>
-                      )}
+  <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
+    {message.document.link ? (
+      <iframe
+        src={message.document.link}
+        width="100%"
+        height="500px"
+        title="PDF Document"
+        className="border rounded cursor-pointer"
+        onClick={() => openPDFModal(message.document?.link || '')}
+      />
+    ) : message.document.data ? (
+      <iframe
+        src={`data:${message.document.mimetype};base64,${message.document.data}`}
+        width="100%"
+        height="500px"
+        title="PDF Document"
+        className="border rounded cursor-pointer"
+        onClick={() => message.document && openPDFModal(`data:${message.document.mimetype};base64,${message.document.data}`)}
+      />
+    ) : (
+      <div className="text-gray-600 dark:text-gray-400">Document preview not available</div>
+    )}
+    <div className="flex-1 text-justify mt-3 w-full">
+      <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+        {message.document.file_name || message.document.filename || 'Document'}
+      </div>
+      <div className="text-gray-600 dark:text-gray-400">
+        {message.document.page_count && `${message.document.page_count} page${message.document.page_count > 1 ? 's' : ''} • `}
+        {message.document.mimetype || 'PDF'} •{' '}
+        {((message.document.file_size || message.document.fileSize || 0) / (1024 * 1024)).toFixed(2)} MB
+      </div>
+    </div>
+    <button
+      onClick={() => {
+        if (message.document) {
+          openPDFModal(message.document.link || `data:${message.document.mimetype};base64,${message.document.data}`);
+        }
+      }}
+      className="mt-3"
+    >
+      <Lucide icon="ExternalLink" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
+    </button>
+  </div>
+)}
                       {message.type === 'link_preview' && message.link_preview && (
                         <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden text-gray-800 dark:text-gray-200">
                           <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
