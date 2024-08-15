@@ -193,6 +193,7 @@ interface UserData {
 interface QuickReply {
   id: string;
   text: string;
+  type:string;
 }
 interface ImageModalProps {
   isOpen: boolean;
@@ -433,6 +434,9 @@ const [batchQuantity, setBatchQuantity] = useState<number>(10);
 const [repeatInterval, setRepeatInterval] = useState<number>(0);
 const [repeatUnit, setRepeatUnit] = useState<'minutes' | 'hours' | 'days'>('days');
 const [isScheduling, setIsScheduling] = useState(false);
+const [activeQuickReplyTab, setActiveQuickReplyTab] = useState<'all' | 'self'>('all');
+const [newQuickReplyType, setNewQuickReplyType] = useState<'all' | 'self'>('all');
+const quickRepliesRef = useRef<HTMLDivElement>(null);
   const handleMessageSearchClick = () => {
     setIsMessageSearchOpen(!isMessageSearchOpen);
     if (!isMessageSearchOpen) {
@@ -879,42 +883,147 @@ const closePDFModal = () => {
     
   }, []);
   const fetchQuickReplies = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    
-    const quickRepliesCollection = collection(firestore, `user/${user.email}/quickreplies`);
-    const quickRepliesSnapshot = await getDocs(quickRepliesCollection);
-    const quickRepliesList: QuickReply[] = quickRepliesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as QuickReply[];
-    setQuickReplies(quickRepliesList);
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      // Fetch company quick replies
+      const companyQuickReplyRef = collection(firestore, `companies/${companyId}/quickReplies`);
+      const companyQuery = query(companyQuickReplyRef, orderBy('createdAt', 'desc'));
+      const companySnapshot = await getDocs(companyQuery);
+  
+      // Fetch user's personal quick replies
+      const userQuickReplyRef = collection(firestore, `user/${user.email}/quickReplies`);
+      const userQuery = query(userQuickReplyRef, orderBy('createdAt', 'desc'));
+      const userSnapshot = await getDocs(userQuery);
+  
+      const fetchedQuickReplies: QuickReply[] = [
+        ...companySnapshot.docs.map(doc => ({
+          id: doc.id,
+          text: doc.data().text || '',
+          type: 'all',
+        })),
+        ...userSnapshot.docs.map(doc => ({
+          id: doc.id,
+          text: doc.data().text || '',
+          type: 'self',
+        }))
+      ];
+  
+      setQuickReplies(fetchedQuickReplies);
+    } catch (error) {
+      console.error('Error fetching quick replies:', error);
+    }
   };
   const addQuickReply = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const quickRepliesCollection = collection(firestore, `user/${user.email}/quickreplies`);
-    await addDoc(quickRepliesCollection, { text: newQuickReply });
-    setNewQuickReply('');
-    fetchQuickReplies(); // Refresh quick replies
+    if (newQuickReply.trim() === '') return;
+  
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      const newQuickReplyData = {
+        text: newQuickReply,
+        type: newQuickReplyType,
+        createdAt: serverTimestamp(),
+        createdBy: user.email,
+      };
+  
+      if (newQuickReplyType === 'self') {
+        // Add to user's personal quick replies
+        const userQuickReplyRef = collection(firestore, `user/${user.email}/quickReplies`);
+        await addDoc(userQuickReplyRef, newQuickReplyData);
+      } else {
+        // Add to company's quick replies
+        const companyQuickReplyRef = collection(firestore, `companies/${companyId}/quickReplies`);
+        await addDoc(companyQuickReplyRef, newQuickReplyData);
+      }
+  
+      setNewQuickReply('');
+      setNewQuickReplyType('all');
+      fetchQuickReplies();
+    } catch (error) {
+      console.error('Error adding quick reply:', error);
+    }
   };
-
- 
-  const updateQuickReply = async (id: string, text: string) => {
+  const updateQuickReply = async (id: string, text: string, type: 'all' | 'self') => {
     const user = auth.currentUser;
     if (!user) return;
-
-    const quickReplyDoc = doc(firestore, `user/${user.email}/quickreplies`, id);
-    await updateDoc(quickReplyDoc, { text });
-    setEditingReply(null);
-    fetchQuickReplies(); // Refresh quick replies
+  
+    try {
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      let quickReplyDoc;
+      if (type === 'self') {
+        quickReplyDoc = doc(firestore, `user/${user.email}/quickReplies`, id);
+      } else {
+        quickReplyDoc = doc(firestore, `companies/${companyId}/quickReplies`, id);
+      }
+  
+      await updateDoc(quickReplyDoc, { text });
+      setEditingReply(null);
+      fetchQuickReplies(); // Refresh quick replies
+    } catch (error) {
+      console.error('Error updating quick reply:', error);
+    }
   };
-
-  const deleteQuickReply = async (id: string) => {
+  const deleteQuickReply = async (id: string, type: 'all' | 'self') => {
     const user = auth.currentUser;
     if (!user) return;
-
-    const quickReplyDoc = doc(firestore, `user/${user.email}/quickreplies`, id);
-    await deleteDoc(quickReplyDoc);
-    fetchQuickReplies(); // Refresh quick replies
+  
+    try {
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      let quickReplyDoc;
+      if (type === 'self') {
+        quickReplyDoc = doc(firestore, `user/${user.email}/quickReplies`, id);
+      } else {
+        quickReplyDoc = doc(firestore, `companies/${companyId}/quickReplies`, id);
+      }
+  
+      await deleteDoc(quickReplyDoc);
+      fetchQuickReplies(); // Refresh quick replies
+    } catch (error) {
+      console.error('Error deleting quick reply:', error);
+    }
   };
   const handleQR = () => {
     setIsQuickRepliesOpen(!isQuickRepliesOpen);
@@ -3732,7 +3841,18 @@ const handleForwardMessage = async () => {
       console.error("Error fetching QR code:", error);
     }
   };
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (quickRepliesRef.current && !quickRepliesRef.current.contains(event.target as Node)) {
+        setIsQuickRepliesOpen(false);
+      }
+    };
 
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   // Add this new function to toggle all bots
   const toggleAllBots = async () => {
     setIsAllBotsEnabled(!isAllBotsEnabled);
@@ -5667,8 +5787,30 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
       </div>
     </div>
   )}
- {isQuickRepliesOpen && (
-  <div className="absolute bottom-20 left-2 w-full max-w-md bg-gray-100 dark:bg-gray-800 p-2 rounded-md shadow-lg mt-2 z-10">
+{isQuickRepliesOpen && (
+  <div ref={quickRepliesRef} className="absolute bottom-20 left-2 w-full max-w-md bg-gray-100 dark:bg-gray-800 p-2 rounded-md shadow-lg mt-2 z-10">
+    <div className="flex justify-between mb-4">
+      <button
+        className={`px-4 py-2 rounded-lg ${
+          activeQuickReplyTab === 'all'
+            ? 'bg-primary text-white'
+            : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+        }`}
+        onClick={() => setActiveQuickReplyTab('all')}
+      >
+        All
+      </button>
+      <button
+        className={`px-4 py-2 rounded-lg ${
+          activeQuickReplyTab === 'self'
+            ? 'bg-primary text-white'
+            : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+        }`}
+        onClick={() => setActiveQuickReplyTab('self')}
+      >
+        Self
+      </button>
+    </div>
     <div className="flex items-center mb-4">
       <textarea
         className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
@@ -5678,54 +5820,60 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
         rows={3}
         style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
       />
-      <button className="p-2 m-1 !box" onClick={addQuickReply}>
-        <span className="flex items-center justify-center w-5 h-5">
-          <Lucide icon="Plus" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-        </span>
-      </button>
-                        </div>
+      <div className="flex flex-col ml-2">
+       
+       
+        <button className="p-2 m-1 !box" onClick={addQuickReply}>
+          <span className="flex items-center justify-center w-5 h-5">
+            <Lucide icon="Plus" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+          </span>
+        </button>
+      </div>
+    </div>
     <div className="max-h-60 overflow-y-auto">
-      {quickReplies.map(reply => (
-        <div key={reply.id} className="flex items-center justify-between mb-2 bg-gray-50 dark:bg-gray-700">
-          {editingReply?.id === reply.id ? (
-            <>
-              <textarea
-                className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-                value={editingReply.text}
-                onChange={(e) => setEditingReply({ ...editingReply, text: e.target.value })}
-                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-              />
-              <button className="p-2 m-1 !box" onClick={() => updateQuickReply(reply.id, editingReply.text)}>
-                <span className="flex items-center justify-center w-5 h-5">
-                  <Lucide icon="Save" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+      {quickReplies
+        .filter(reply => activeQuickReplyTab === 'all' || reply.type === 'self')
+        .map(reply => (
+          <div key={reply.id} className="flex items-center justify-between mb-2 bg-gray-50 dark:bg-gray-700">
+            {editingReply?.id === reply.id ? (
+              <>
+                <textarea
+                  className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                  value={editingReply.text}
+                  onChange={(e) => setEditingReply({ ...editingReply, text: e.target.value })}
+                  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                />
+                <button className="p-2 m-1 !box" onClick={() => updateQuickReply(reply.id, editingReply.text, reply.type as "all" | "self")}>
+                  <span className="flex items-center justify-center w-5 h-5">
+                    <Lucide icon="Save" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                  </span>
+                </button>
+              </>
+            ) : (
+              <>
+                <span
+                  className="px-4 py-2 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
+                  onClick={() => handleQRClick(reply.text)}
+                  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                >
+                  {reply.text}
                 </span>
-              </button>
-            </>
-          ) : (
-            <>
-              <span
-                className="px-4 py-2 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
-                onClick={() => handleQRClick(reply.text)}
-                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-              >
-                {reply.text}
-              </span>
-              <div>
-                <button className="p-2 m-1 !box" onClick={() => setEditingReply(reply)}>
-                  <span className="flex items-center justify-center w-5 h-5">
-                    <Lucide icon="Eye" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-                  </span>
-                </button>
-                <button className="p-2 m-1 !box text-red-500 dark:text-red-400" onClick={() => deleteQuickReply(reply.id)}>
-                  <span className="flex items-center justify-center w-5 h-5">
-                    <Lucide icon="Trash" className="w-5 h-5" />
-                  </span>
-                </button>
-                        </div>
-            </>
-          )}
-        </div>
-      ))}
+                <div>
+                  <button className="p-2 m-1 !box" onClick={() => setEditingReply(reply)}>
+                    <span className="flex items-center justify-center w-5 h-5">
+                      <Lucide icon="Eye" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                    </span>
+                  </button>
+                  <button className="p-2 m-1 !box text-red-500 dark:text-red-400" onClick={() => deleteQuickReply(reply.id, reply.type as "all" | "self")}>
+                    <span className="flex items-center justify-center w-5 h-5">
+                      <Lucide icon="Trash" className="w-5 h-5" />
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
     </div>
   </div>
 )}
