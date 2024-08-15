@@ -24,6 +24,8 @@ import LZString from 'lz-string';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { format, compareAsc } from 'date-fns';
+import { saveAs } from 'file-saver';
+import Papa from 'papaparse';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -211,7 +213,36 @@ function Main() {
     setContacts((prevContacts) => [...prevContacts, ...newContacts]);
     setCurrentPage(nextPage);
   };
-
+  const handleExportContacts = () => {
+    if (userRole === "3") {
+      toast.error("You don't have permission to export contacts.");
+      return;
+    }
+  
+    // Prepare the data for CSV
+    const csvData = contacts.map(contact => ({
+      contactName: contact.contactName || '',
+      email: contact.email || '',
+      phone: contact.phone || '',
+      address: contact.address1 || '',
+      company: contact.companyName || '',
+      tags: (contact.tags || []).join(', ')
+    }));
+  
+    // Convert to CSV
+    const csv = Papa.unparse(csvData);
+  
+    // Create a Blob with the CSV data
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  
+    // Generate filename
+    const fileName = `contacts_export_${new Date().toISOString()}.csv`;
+  
+    // Trigger the download
+    saveAs(blob, fileName);
+  
+    toast.success("Contacts exported successfully!");
+  };
 const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (file) {
@@ -1841,6 +1872,18 @@ console.log(filteredContacts);
 >
   <Lucide icon="Upload" className="w-5 h-5 mr-2" />
   <span className="font-medium">Import CSV</span>
+</button>
+<button 
+  className={`flex items-center justify-start p-2 !box ${
+    userRole === "3"
+      ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed' 
+      : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
+  } text-gray-700 dark:text-gray-300`}
+  onClick={handleExportContacts}
+  disabled={userRole === "3"}
+>
+  <Lucide icon="FolderUp" className="w-5 h-5 mr-2" />
+  <span className="font-medium">Export Contacts</span>
 </button>
               
                   </div>
