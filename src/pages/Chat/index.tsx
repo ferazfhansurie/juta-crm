@@ -131,6 +131,7 @@ interface Message {
   createdAt: number;
   type?: string;
   from:string;
+  author?:string;
   image?: { link?: string; caption?: string;url?:string ;data?:string;mimetype?:string};
   video?: { link?: string; caption?: string; };
   gif?: { link?: string; caption?: string };
@@ -1683,6 +1684,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
                     chat_id: message.chat_id,
                     createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
                     type: message.type,
+                    author:message.author,
                     name: message.name
                 };
         
@@ -1888,6 +1890,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
           chat_id: message.chat_id,
           createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
           type: message.type,
+          author:message.author,
           name: message.name
         };
   
@@ -3987,7 +3990,14 @@ const handleForwardMessage = async () => {
   const handleReminderClick = () => {
     setIsReminderModalOpen(true);
   };
-
+  const authorColors = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', 
+    '#F06292', '#AED581', '#7986CB', '#4DB6AC', '#9575CD'
+  ];
+  function getAuthorColor(author: string) {
+    const index = author.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % authorColors.length;
+    return authorColors[index];
+  }
   const handleSetReminder = async  (text: string)=> {
     if (!reminderDate) {
       toast.error('Please select a date and time for the reminder');
@@ -4761,7 +4771,7 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                             ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
                             : '100'
                         }px`,
-                        minWidth: '70px',
+                        minWidth: '100px',
                       }}
                       onMouseEnter={() => setHoveredMessageId(message.id)}
                       onMouseLeave={() => setHoveredMessageId(null)}
@@ -4772,9 +4782,14 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                           <span className="text-xs font-semibold">Private Note</span>
                         </div>
                       )}
-                      {message.chat_id.includes('@g.us') && (
-                        <div className="pb-1 text-gray-400 dark:text-gray-200 font-medium">{message.from_name||'+'+message.from}</div>
-                      )}
+       {message.chat_id.includes('@g') && message.author && (
+  <div 
+    className="pb-0.5 text-xs font-medium" 
+    style={{ color: getAuthorColor(message.author.split('@')[0]) }}
+  >
+    {message.author.split('@')[0].toLowerCase()}
+  </div>
+)}
                       {message.type === 'text' && message.text?.context && (
                         <div className="p-2 mb-2 rounded bg-gray-300 dark:bg-gray-300">
                           <div className="text-sm font-medium text-gray-800 ">{message.text.context.quoted_author || ''}</div>
