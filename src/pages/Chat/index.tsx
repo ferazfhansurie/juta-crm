@@ -99,7 +99,6 @@ interface Contact {
   last_message?: Message | null;
   chat_id?: string | null;
   unreadCount?: number | null;
-  chat_pic_full?: string | null;
   pinned?: boolean | null;
 }
 interface GhlConfig {
@@ -470,23 +469,7 @@ function Main() {
     }
   }, [selectedContact]);
 
-  useEffect(() => {
-    // Check if a chat is active based on the URL
-    const params = new URLSearchParams(location.search);
-    const chatId = params.get("chatId");
-    setIsChatActive(!!chatId);
-    setSelectedChatId(chatId);
-    
-    if (chatId) {
-      setSelectedChatId(chatId);
-      // Fetch chat data and messages
-      fetchMessages(chatId, whapiToken!);
-    } else {
-      // Clear chat data when no chat is selected
-      setSelectedChatId(null);
-      setMessages([]);
-    }
-  }, [location]);
+
 
   useEffect(() => {
     updateEmployeeAssignedContacts();
@@ -1056,24 +1039,26 @@ const closePDFModal = () => {
         const data = docSnapshot.data();
         const phone = "+" + chatIdFromUrl.split('@')[0];
         let contact;
+        console.log(data.v2);
         if (data.v2) {
           // For v2, use initialContacts to find the contact
           const phone = "+" + chatIdFromUrl.split('@')[0];
           contact = initialContacts.find(c => c.phone === phone || c.chat_id === chatIdFromUrl);
+          console.log(contact, " contact");
           if (!contact) {
             console.error('Contact not found in initialContacts');
             // Handle the case when contact is not found
-            setLoading(false);
-            return;
           }
         } else {
           // For non-v2, use the existing fetchDuplicateContact function
           const phone = "+" + chatIdFromUrl.split('@')[0];
           contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
         }
+     
         setSelectedContact(contact);
-        console.log(contact, " contact");
         setSelectedChatId(chatIdFromUrl);
+        console.log(contact, " contact");
+    
         setLoading(false);
       }
     };
@@ -1171,15 +1156,7 @@ async function fetchConfigFromDatabase() {
       await fetchTags(data.ghl_accessToken, data.ghl_location, employeeNames);
     }
 
-    if (chatId) {
-      setLoading(true);
-      const phone = "+" + chatId.split('@')[0];
-      const contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
-      setSelectedContact(contact);
-      console.log('Selected Contact:', contact);
-      setSelectedChatId(chatId);
-      setLoading(false);
-    }
+   
   } catch (error) {
     console.error('Error fetching config:', error);
   }
@@ -1401,7 +1378,6 @@ async function createContact(name: string, number: string): Promise<Contact> {
       website: null,
       chat: [],
       last_message: null,
-      chat_pic_full: '',
       pinned: false,
     };
   } catch (error) {
@@ -4431,15 +4407,13 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
     </div>
     <div className="relative w-12 h-12">
     <div className="w-12 h-12 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl">
-      {contact && contact.chat_pic_full ? (
-        <img src={contact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
-      ) : (
+      {contact && (
         contact && contact.chat_id && contact.chat_id.includes('@g.us') ? (
           <Lucide icon="Users" className="w-6 h-6 text-white dark:text-gray-200" />
         ) : (
           <Lucide icon="User" className="w-6 h-6 text-white dark:text-gray-200" />
         )
-      )}
+      ) }
     </div>
     {(contact.unreadCount ?? 0) > 0 && (
       <span className="absolute -top-1 -right-1 bg-primary text-white dark:bg-blue-600 dark:text-gray-200 text-xs rounded-full px-2 py-1 min-w-[20px] h-[20px] flex items-center justify-center">
@@ -4569,9 +4543,7 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
             <Lucide icon="ChevronLeft" className="w-6 h-6" />
           </button>
           <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3 ml-2">
-            {selectedContact.chat_pic_full ? (
-              <img src={selectedContact.chat_pic_full} className="w-full h-full rounded-full object-cover" />
-            ) : (
+            {(
               selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"
             )}
           </div>
@@ -5337,9 +5309,7 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
       <div className="flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white">
-            {selectedContact.chat_pic_full ? (
-              <img src={selectedContact.chat_pic_full} alt="Contact" className="w-full h-full object-cover" />
-            ) : (
+            {(
               <span className="text-2xl font-bold">
                 {selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}
               </span>
