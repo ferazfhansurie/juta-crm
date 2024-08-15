@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore,Timestamp,  collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp, runTransaction, increment } from "firebase/firestore";
@@ -485,7 +485,28 @@ function Main() {
 
   useEffect(() => {
     updateEmployeeAssignedContacts();
-    filterTagContact('mine');
+    const initializeActiveTags = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        const docUserRef = doc(firestore, 'user', user.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (docUserSnapshot.exists()) {
+          const userData = docUserSnapshot.data();
+          const companyId = userData.companyId;
+  
+          if (companyId !== '042') {
+        
+            filterTagContact('all');
+          } else {
+            // Keep the existing logic for bot042
+          
+            filterTagContact('mine');
+          }
+        }
+      }
+    };
+  
+    initializeActiveTags();
   }, []); 
 
   const handleBack = () => {
@@ -2395,81 +2416,92 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
   };
   const actionPerformedRef = useRef(false);
-const toggleStopBotLabel = async (contact: Contact, index: number, event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-
-  event.preventDefault();
-  event.stopPropagation();
-
-  if (actionPerformedRef.current) return; // If action already performed, return early
-  actionPerformedRef.current = true;
-  console.log('Toggling stop bot label for contact:', contact.id);
-  if (userRole === "3") {
-    toast.error("You don't have permission to control the bot.");
-    return;
-  }
-  try {
-    const user = auth.currentUser;
-    if (!user) {
-      console.log('No authenticated user');
+  const toggleStopBotLabel = useCallback(async (contact: Contact, index: number, event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  
+    if (actionPerformedRef.current) return;
+    actionPerformedRef.current = true;
+  
+    console.log('Toggling stop bot label for contact:', contact.id);
+    if (userRole === "3") {
+      toast.error("You don't have permission to control the bot.");
       return;
     }
-
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.log('No such document for user!');
-      return;
-    }
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-    if (companyId && contact.id) {
-      const docRef = doc(firestore, 'companies', companyId, 'contacts', contact.id);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document for contact!');
+  
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.log('No authenticated user');
         return;
       }
-      const hasLabel = contact.tags?.includes('stop bot') || false;
-      const newHasLabel = !hasLabel; // Toggle the label
-      console.log('newHasLabel', newHasLabel);
-      // Update Firestore
-      await updateDoc(docRef, {
-        tags: newHasLabel ? arrayUnion('stop bot') : arrayRemove('stop bot')
-      });
-
-      // Update local state
-      setContacts(prevContacts => {
-        const newContacts = prevContacts.map((c, i) => {
-          if (i === index) {
-            const newTags = newHasLabel
-              ? [...(c.tags || []), "stop bot"]
-              : (c.tags || []).filter(tag => tag !== "stop bot");
-            return { ...c, tags: newTags };
-          }
-          return c;
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      if (companyId && contact.id) {
+        const docRef = doc(firestore, 'companies', companyId, 'contacts', contact.id);
+        const docSnapshot = await getDoc(docRef);
+        if (!docSnapshot.exists()) {
+          console.log('No such document for contact!');
+          return;
+        }
+  
+        const hasLabel = contact.tags?.includes('stop bot') || false;
+        const newHasLabel = !hasLabel;
+  
+        // Update Firestore
+        await updateDoc(docRef, {
+          tags: newHasLabel ? arrayUnion('stop bot') : arrayRemove('stop bot')
         });
-        
+  
+        // Update both contacts and filteredContacts states
+        const updateContactsList = (prevContacts: Contact[]) => 
+          prevContacts.map(c => 
+            c.id === contact.id
+              ? {
+                  ...c,
+                  tags: newHasLabel
+                    ? [...(c.tags || []), "stop bot"]
+                    : (c.tags || []).filter(tag => tag !== "stop bot")
+                }
+              : c
+          );
+  
+        setContacts(updateContactsList);
+        setFilteredContacts(updateContactsList);
+  
         // Update localStorage
-        localStorage.setItem('contacts', LZString.compress(JSON.stringify(newContacts)));
-        
-        return newContacts;
-      });
-
-      sessionStorage.setItem('contactsFetched', 'true');
-
-      // Show a success toast
-      toast.success(`Bot ${newHasLabel ? 'disabled' : 'enabled'} for ${contact.contactName || contact.firstName || contact.phone}`);
+        const updatedContacts = updateContactsList(contacts);
+        localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
+  
+        sessionStorage.setItem('contactsFetched', 'true');
+  
+        // Show a success toast
+        toast.success(`Bot ${newHasLabel ? 'disabled' : 'enabled'} for ${contact.contactName || contact.firstName || contact.phone}`);
+      } else {
+        console.error('companyId or contact.id is null or undefined');
+      }
+    } catch (error) {
+      console.error('Error toggling label:', error);
+      toast.error('Failed to toggle bot status');
+    } finally {
       setTimeout(() => {
-        actionPerformedRef.current = false; // Reset the ref after a short delay
+        actionPerformedRef.current = false;
       }, 100);
-    } else {
-      console.error('companyId or contact.id is null or undefined');
     }
-  } catch (error) {
-    console.error('Error toggling label:', error);
-    toast.error('Failed to toggle bot status');
-  }
-};
+  }, [contacts, userRole]);
+  
+  // Add this useEffect to update filteredContacts when contacts change
+  useEffect(() => {
+    setFilteredContacts(contacts);
+  }, [contacts]);
 
 const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
   try {
