@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore,Timestamp,  collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp, runTransaction, increment } from "firebase/firestore";
-import {QueryDocumentSnapshot, DocumentData ,Query,CollectionReference, startAfter,limit} from 'firebase/firestore'
+import {QueryDocumentSnapshot, DocumentData ,Query,CollectionReference, startAfter,limit, deleteField} from 'firebase/firestore'
 import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
 import Button from "@/components/Base/Button";
@@ -36,6 +36,7 @@ import { Menu as ContextMenu, Item, Separator, useContextMenu } from 'react-cont
 import 'react-contexify/dist/ReactContexify.css';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { updateMonthlyAssignments } from '../DashboardOverview1';
 
 // Add this new component for the private note indicator
 const PrivateNoteIndicator = () => (
@@ -2523,6 +2524,8 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
     const userData = docUserSnapshot.data();
     const companyId = userData.companyId;
 
+    console.log(`Adding tag: ${tagName} to contact: ${contact.id}`);
+
     // Update contact's tags
     const contactRef = doc(firestore, 'companies', companyId, 'contacts', contact.id!);
     await updateDoc(contactRef, {
@@ -2543,43 +2546,65 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
       tags: [...(prevContact.tags || []), tagName]
     }));
 
-    // Check if the tag is an employee name
-    const isEmployeeTag = employeeList.some(employee => employee.name.toLowerCase() === tagName.toLowerCase());
+    // Check if the tag matches an employee name
+    console.log('Current employeeList:', employeeList);
+    const matchingEmployee = employeeList.find(employee => employee.name.toLowerCase() === tagName.toLowerCase());
     
-    if (employeeList.some(emp => emp.name.toLowerCase() === tagName.toLowerCase())) {
-      await sendAssignmentNotification(tagName, contact);
-    }
-    
-    if (isEmployeeTag) {
-      const employeeRef = doc(firestore, 'companies', companyId, 'employee', tagName);
-      const employeeDoc = await getDoc(employeeRef);
-
-      // Send notification to the assigned employee
-      await sendAssignmentNotification(tagName, contact);
+    if (matchingEmployee) {
+      console.log(`Matching employee found: ${matchingEmployee.name}`);
       
-      if (!employeeDoc.exists()) {
-        // Create the employee document
-        await setDoc(employeeRef, {
-          name: tagName,
-          assignedContacts: 1,
-          phone: contact.phone,
-          // Add other default fields as needed
-        });
-        console.log(`Created new employee document for ${tagName}`);
-      } else {
-        // Update existing employee document
-        await updateDoc(employeeRef, {
-          assignedContacts: increment(1)
-        });
-      }
+      // Search for employee by name field
+      const employeeCollectionRef = collection(firestore, 'companies', companyId, 'employee');
+      const q = query(employeeCollectionRef, where('name', '==', matchingEmployee.name));
+      const querySnapshot = await getDocs(q);
 
-      await sendAssignmentNotification(tagName, contact);
+      if (!querySnapshot.empty) {
+        const employeeDoc = querySnapshot.docs[0];
+        console.log(`Employee document found for ${matchingEmployee.name}`);
+        
+        // Update existing employee document
+        await updateDoc(employeeDoc.ref, {
+          assignedContacts: arrayUnion(contact.id)
+        });
+
+        // Update monthly assignments
+        const currentDate = new Date();
+        const currentMonthKey = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}`;
+        const monthlyAssignmentRef = doc(employeeDoc.ref, 'monthlyAssignments', currentMonthKey);
+        
+        await setDoc(monthlyAssignmentRef, {
+          assignments: increment(1),
+          lastUpdated: serverTimestamp()
+        }, { merge: true });
+
+        // Update the contact document to reflect the assignment
+        await updateDoc(contactRef, {
+          assignedTo: matchingEmployee.name
+        });
+
+        await sendAssignmentNotification(tagName, contact);
+
+        toast.success(`Contact assigned to ${matchingEmployee.name} and monthly assignments updated.`);
+      } else {
+        console.error(`Employee document not found for ${matchingEmployee.name}`);
+        
+        // List all documents in the employee collection
+        const employeeSnapshot = await getDocs(employeeCollectionRef);
+        console.log('All employee documents:');
+        employeeSnapshot.forEach(doc => {
+          console.log(doc.id, '=>', doc.data());
+        });
+        
+        toast.error(`Failed to assign contact: Employee document not found for ${matchingEmployee.name}`);
+      }
+    } else {
+      console.log(`No matching employee found for tag: ${tagName}`);
+      toast.success('Tag added successfully.');
     }
 
-    toast.success('Tag added successfully!');
   } catch (error) {
-    console.error('Error adding tag:', error);
-    toast.error('Failed to add tag.');
+    console.error('Error adding tag and assigning contact:', error);
+    toast.error('Failed to add tag and assign contact.');
   }
 };
 
@@ -2629,11 +2654,8 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
       return;
     }
 
-    // Log the original employee phone number
-    console.log('Original employee phone number:', assignedEmployee.phoneNumber);
-
     // Ensure the phone number is in the correct format for WhatsApp
-    const employeePhone = assignedEmployee.phoneNumber.replace(/[^\d]/g, '') + '@c.us';
+    const employeePhone = assignedEmployee.phoneNumber.replace(/[^\d]/g, '');
     console.log('Formatted employee phone number:', employeePhone);
 
     const docRef = doc(firestore, 'companies', companyId);
@@ -2659,43 +2681,43 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
     }
 
     console.log('Sending request to:', url);
-      console.log('Request body:', JSON.stringify(requestBody));
+    console.log('Request body:', JSON.stringify(requestBody));
 
-      // Send WhatsApp message to the employee
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
+    // Send WhatsApp message to the employee
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response:', response.status, errorText);
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-      }
-
-      const responseData = await response.json();
-      console.log('Assignment notification response:', responseData);
-      console.log('Sent to phone number:', employeePhone);
-
-      // Mark notification as sent
-      await setDoc(notificationRef, {
-        sentAt: serverTimestamp(),
-        employeeName: assignedEmployeeName,
-        contactId: contact.id
-      });
-
-      toast.success("Assignment notification sent successfully!");
-    } catch (error) {
-      console.error('Error sending assignment notification:', error);
-      toast.error('Failed to send assignment notification. Please try again.');
-      // Log additional information that might be helpful
-      console.log('Assigned Employee Name:', assignedEmployeeName);
-      console.log('Contact:', contact);
-      console.log('Employee List:', employeeList);
-      console.log('Company ID:', companyId);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response:', response.status, errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
-  };
+
+    const responseData = await response.json();
+    console.log('Assignment notification response:', responseData);
+    console.log('Sent to phone number:', employeePhone);
+
+    // Mark notification as sent
+    await setDoc(notificationRef, {
+      sentAt: serverTimestamp(),
+      employeeName: assignedEmployeeName,
+      contactId: contact.id
+    });
+
+    toast.success("Assignment notification sent successfully!");
+  } catch (error) {
+    console.error('Error sending assignment notification:', error);
+    toast.error('Failed to send assignment notification. Please try again.');
+    // Log additional information that might be helpful
+    console.log('Assigned Employee Name:', assignedEmployeeName);
+    console.log('Contact:', contact);
+    console.log('Employee List:', employeeList);
+    console.log('Company ID:', companyId);
+  }
+};
 
 // ... rest of the code ...
   
@@ -3457,23 +3479,39 @@ const handleForwardMessage = async () => {
         tags: arrayRemove(tagName)
       });
   
-      // Check if the removed tag is an employee tag
+      // Check if the removed tag is an employee name
       const isEmployeeTag = employeeList.some(employee => employee.name.toLowerCase() === tagName.toLowerCase());
       if (isEmployeeTag) {
         // Get the employee document reference
         const employeeRef = doc(firestore, 'companies', companyId, 'employee', tagName);
         
+        console.log(`Attempting to access employee document: companies/${companyId}/employee/${tagName}`);
+        
         // Check if the document exists
         const employeeDoc = await getDoc(employeeRef);
         
         if (employeeDoc.exists()) {
+          console.log(`Employee document found for ${tagName}`);
           // Document exists, update it
           await updateDoc(employeeRef, {
-            assignedContacts: increment(-1)
+            assignedContacts: arrayRemove(contactId)
+          });
+  
+          // Update the contact document to remove the assignedTo field
+          await updateDoc(contactRef, {
+            assignedTo: deleteField()
           });
         } else {
-          // Document doesn't exist, log an error
           console.error(`Employee document for ${tagName} does not exist.`);
+          console.log('Current employeeList:', employeeList);
+          
+          // List all documents in the employee collection
+          const employeeCollectionRef = collection(firestore, 'companies', companyId, 'employee');
+          const employeeSnapshot = await getDocs(employeeCollectionRef);
+          console.log('All employee documents:');
+          employeeSnapshot.forEach(doc => {
+            console.log(doc.id, '=>', doc.data());
+          });
         }
       }
   
@@ -3481,14 +3519,14 @@ const handleForwardMessage = async () => {
       setContacts(prevContacts =>
         prevContacts.map(contact =>
           contact.id === contactId
-            ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName) }
+            ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName), assignedTo: undefined }
             : contact
         )
       );
   
       const updatedContacts = contacts.map((contact: Contact) =>
         contact.id === contactId
-          ? { ...contact, tags: contact.tags!.filter((tag: string) => tag !== tagName) }
+          ? { ...contact, tags: contact.tags!.filter((tag: string) => tag !== tagName), assignedTo: undefined }
           : contact
       );
   

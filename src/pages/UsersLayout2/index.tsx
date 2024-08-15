@@ -42,6 +42,7 @@ interface Employee {
   role: string;
   groups?: string[];
   email?: string;
+  assignedContacts?: number;
   // Add other properties as needed
 }
 

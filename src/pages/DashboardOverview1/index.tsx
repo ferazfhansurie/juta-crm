@@ -1,6 +1,6 @@
 import _ from "lodash";
 import clsx from "clsx";
-import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useEffect, useRef, useState } from "react";
+import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useEffect, useRef, useState, useMemo } from "react";
 import Button from "@/components/Base/Button";
 import Pagination from "@/components/Base/Pagination";
 import { FormInput, FormSelect } from "@/components/Base/Form";
@@ -20,19 +20,19 @@ import axios from 'axios';
 import { getFirebaseToken, messaging } from "../../firebaseconfig";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { DocumentData, DocumentReference, getDoc, getDocs, onSnapshot } from 'firebase/firestore';
-import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
+import { DocumentData, DocumentReference, getDoc, getDocs, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, setDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { onMessage } from "firebase/messaging";
 import { useNavigate } from "react-router-dom";
 import LoadingIcon from "@/components/Base/LoadingIcon";
-import { Bar, Doughnut } from "react-chartjs-2";
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import { Bar, Doughnut, Line } from "react-chartjs-2";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement } from 'chart.js';
 import { BarChart } from "lucide-react";
 import { useContacts } from "@/contact";
 import { User } from 'lucide-react';
 
 // Register ChartJS components
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement);
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -49,9 +49,58 @@ const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
 const auth = getAuth(app);
 
+export const updateMonthlyAssignments = async (employeeName: string, incrementValue: number) => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('No authenticated user');
+      return;
+    }
+
+    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.error('No such document for user!');
+      return;
+    }
+    const userData = docUserSnapshot.data();
+    const companyId = userData.companyId;
+
+    // Check if the employee exists
+    const employeeRef = doc(firestore, 'companies', companyId, 'employee', employeeName);
+    const employeeDoc = await getDoc(employeeRef);
+
+    if (!employeeDoc.exists()) {
+      console.error(`Employee ${employeeName} does not exist`);
+      return;
+    }
+
+    const currentDate = new Date();
+    const currentMonthKey = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}`;
+
+    // Update existing employee document
+    await updateDoc(employeeRef, {
+      assignedContacts: increment(incrementValue)
+    });
+
+    // Update or create the monthly assignment document
+    const monthlyAssignmentRef = doc(employeeRef, 'monthlyAssignments', currentMonthKey);
+    await setDoc(monthlyAssignmentRef, {
+      assignments: increment(incrementValue),
+      lastUpdated: serverTimestamp()
+    }, { merge: true });
+
+    console.log(`Updated monthly assignments for employee ${employeeName}`);
+  } catch (error) {
+    console.error('Error updating monthly assignments:', error);
+  }
+};
+
 let companyId = "";
 let total_contacts = 0;
 let role = 2;
+
+
 function Main() {
 
   interface Contact {
@@ -90,8 +139,12 @@ function Main() {
     name: string;
     role: string;
     uid: string;
-    assignedContacts?: number;
-    // Add other properties as needed
+    email: string;
+    assignedContacts: number;
+    company: string;
+    companyId: string;
+    phoneNumber: string;
+    monthlyAssignments?: { [key: string]: number };
   }
   
   const importantNotesRef = useRef<TinySliderElement>();
@@ -107,10 +160,13 @@ function Main() {
   const [abandoned, setAbandoned] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [currentUser, setCurrentUser] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
   useEffect(() => {
     fetchCompanyData();
     fetchEmployees();
+    fetchLeadsData();
   }, []);
   
 
@@ -166,154 +222,77 @@ function Main() {
     };
   }, []);
 
-  async function fetchConfigFromDatabase() {
-    const user = auth.currentUser;
-  
-    if (!user) {
-      console.error("No user is currently authenticated.");
-      return;
-    }
-  
-    const userEmail = user.email;
-  
-    if (!userEmail) {
-      console.error("Authenticated user has no email.");
-      return;
-    }
-  
-    try {
-      
-      const docUserRef = doc(firestore, 'user', userEmail);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      if (!dataUser) {
-        
-        return;
-      }
-  
-      companyId = dataUser.companyId;
-      role = dataUser.role;
-      setNotifications(dataUser.notifications || []);
-   
-      setReplies(dataUser.notifications.length);
-      
-      if (!companyId) {
-        
-        return;
-      }
-  
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        
-        return;
-      }
-      const data = docSnapshot.data();
-      if (!data) {
-        
-        return;
-      }
+async function fetchConfigFromDatabase() {
+  const user = auth.currentUser;
 
-      // Fetch notifications from the notifications subcollection
+  if (!user) {
+    console.error("No user is currently authenticated.");
+    return;
+  }
+
+  const userEmail = user.email;
+
+  if (!userEmail) {
+    console.error("Authenticated user has no email.");
+    return;
+  }
+
+  try {
+    const docUserRef = doc(firestore, 'user', userEmail);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) {
+      console.log('No such document for user!');
+      return;
+    }
+    const dataUser = docUserSnapshot.data();
+    if (!dataUser) {
+      console.log('User document exists but has no data!');
+      return;
+    }
+
+    companyId = dataUser.companyId;
+    role = dataUser.role;
+    
+    // Check if notifications exist before setting them
+    const userNotifications = dataUser.notifications || [];
+    setNotifications(userNotifications);
+    setReplies(userNotifications.length);
+
+    if (!companyId) {
+      console.log('No company ID found for user!');
+      return;
+    }
+
+    const docRef = doc(firestore, 'companies', companyId);
+    const docSnapshot = await getDoc(docRef);
+    if (!docSnapshot.exists()) {
+      console.log('No such document for company!');
+      return;
+    }
+    const data = docSnapshot.data();
+    if (!data) {
+      console.log('Company document exists but has no data!');
+      return;
+    }
+
+    // Fetch notifications from the notifications subcollection
     const notificationsRef = collection(firestore, 'user', userEmail, 'notifications');
     const notificationsSnapshot = await getDocs(notificationsRef);
-    const notifications = notificationsSnapshot.docs.map((doc: { data: () => DocumentData; }) => doc.data());
+    const notifications = notificationsSnapshot.docs.map((doc) => doc.data());
     console.log(notifications);
 
     setReplies(notifications.length);
-  
-    } catch (error) {
-      console.error('Error fetching config:', error);
-      throw error;
-    }
+
+  } catch (error) {
+    console.error('Error fetching config:', error);
+    throw error;
   }
-  async function searchContacts(accessToken: any, locationId: any) {
-    setLoading(true);
-    try {
-      let allContacts: any[] = [];
-      let page = 1;
-      while (true) {
-        const options = {
-          method: 'GET',
-          url: 'https://services.leadconnectorhq.com/contacts/',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Version: '2021-07-28',
-          },
-          params: {
-            locationId: locationId,
-            page: page,
-          }
-        };
-        const response = await axios.request(options);
-        
-        const contacts = response.data.contacts;
-        allContacts = [...allContacts, ...contacts];
-        if (contacts.length === 0) {
-          break;
-        }
-        page++;
-      }
-      const filteredContacts = allContacts.filter(contact => contact.phone !== null);
-      total_contacts = allContacts.length;
-      setLoading(false);
-      
-    } catch (error) {
-      console.error('Error searching conversation:', error);
-    }
-  }
-
-  const data = {
-    labels: ['Total Contacts', 'Number Of Replies', 'Leads', 'Closed Leads', 'Abandoned'],
-    datasets: [
-      {
-        data: [totalContacts, numReplies, unclosed, closed, abandoned],
-        backgroundColor: ['#4338CA', '#818CF8', '#2563EB', '#93C5FD', '#b375bd'],
-        hoverBackgroundColor: ['#312E81', '#4F46E5', '#1E40AF', '#3B82F6', '#b375bd']
-      }
-    ]
-  };
-
-  const options = {
-    cutout: '85%' // Adjust this value to decrease or increase the doughnut thickness
-  };
-
-  const prevImportantNotes = () => {
-    importantNotesRef.current?.tns.goTo("prev");
-  };
-
-  const nextImportantNotes = () => {
-    importantNotesRef.current?.tns.goTo("next");
-  };
-
-  async function fetchOpportunities(accessToken: any, locationId: any) {
-    try {
-      const options = {
-        method: 'GET',
-        url: `https://services.leadconnectorhq.com/opportunities/${locationId}`,  // Adjust the URL if necessary
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Version: '2021-07-28',
-        }
-      };
-
-      const response = await axios.request(options);
-      console.log('Fetch Opportunities Response:', response.data);
-      return response.data.opportunities;  // Make sure the key matches the API response
-    } catch (error) {
-      console.error('Error fetching opportunities:', error);
-      return [];
-    }
-  }
+}
 
   useEffect(() => {
     fetchCompanyData();
   }, []);
-  //requesting Opportunities (Contacts)
+
   async function fetchCompanyData() {
     const user = auth.currentUser;
  
@@ -374,6 +353,13 @@ function Main() {
         });
       });
 
+      // Find current user
+      const currentUserData = employeeListData.find(emp => emp.email === user?.email);
+      if (currentUserData) {
+        setCurrentUser(currentUserData);
+        setSelectedEmployee(currentUserData);
+      }
+
       // Sort employees by number of assigned contacts (descending order)
       employeeListData.sort((a, b) => (b.assignedContacts || 0) - (a.assignedContacts || 0));
 
@@ -381,72 +367,197 @@ function Main() {
       const topEmployees = employeeListData.slice(0, 10);
       
       setEmployees(topEmployees);
-
-      // Console.table the employees and their assignedContacts
-      console.table(topEmployees.map(({ id, name, assignedContacts }) => ({ id, name, assignedContacts })));
     
     } catch (error) {
       console.error('Error fetching employees and chats:', error);
     }
   }
 
-  // Prepare data for the bar chart
-  const barChartData = {
-    labels: employees.map(employee => employee.name),
-    datasets: [
-      {
-        label: 'Assigned Contacts',
-        data: employees.map(employee => Math.round(employee.assignedContacts || 0)),
-        backgroundColor: employees.map(() => `rgba(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, 0.6)`),
-        barPercentage: 0.5, // Make bars slimmer
-        categoryPercentage: 0.8,
-      },
-    ],
+  async function fetchEmployeeData(employeeId: string): Promise<Employee | null> {
+    try {
+      const employeeRef = doc(firestore, `companies/${companyId}/employee/${employeeId}`);
+      const employeeSnapshot = await getDoc(employeeRef);
+  
+      if (employeeSnapshot.exists()) {
+        const employeeData = employeeSnapshot.data() as Employee;
+        
+        // Fetch monthly assignments
+        const monthlyAssignmentsRef = collection(employeeRef, 'monthlyAssignments');
+        const monthlyAssignmentsSnapshot = await getDocs(monthlyAssignmentsRef);
+        
+        const monthlyAssignments: { [key: string]: number } = {};
+        monthlyAssignmentsSnapshot.forEach((doc) => {
+          monthlyAssignments[doc.id] = doc.data().assignments;
+        });
+
+        return {
+          ...employeeData,
+          id: employeeSnapshot.id,
+          monthlyAssignments: monthlyAssignments
+        };
+      } else {
+        console.log('No such employee!');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching employee data:', error);
+      return null;
+    }
+  }
+
+  // Add this useEffect to log the selected employee
+  useEffect(() => {
+    if (selectedEmployee) {
+      console.log("Selected Employee:", selectedEmployee);
+      console.log("Monthly Assignments:", selectedEmployee.monthlyAssignments);
+    }
+  }, [selectedEmployee]);
+
+  // Modify the existing useEffect for selectedEmployee
+  useEffect(() => {
+    if (selectedEmployee) {
+      const employeeRef = doc(firestore, `companies/${companyId}/employee/${selectedEmployee.id}`);
+      const monthlyAssignmentsRef = collection(employeeRef, 'monthlyAssignments');
+      
+      const unsubscribe = onSnapshot(monthlyAssignmentsRef, (snapshot) => {
+        const updatedMonthlyAssignments: { [key: string]: number } = {};
+        snapshot.forEach((doc) => {
+          updatedMonthlyAssignments[doc.id] = doc.data().assignments;
+        });
+        
+        setSelectedEmployee(prevState => ({
+          ...prevState!,
+          monthlyAssignments: updatedMonthlyAssignments
+        }));
+      });
+
+      return () => unsubscribe();
+    }
+  }, [selectedEmployee?.id, companyId]);
+  
+  // Usage in your component
+  useEffect(() => {
+    async function loadEmployeeData() {
+      if (currentUser) {
+        const employeeData = await fetchEmployeeData(currentUser.uid);
+        if (employeeData) {
+          setSelectedEmployee(employeeData);
+        }
+      }
+    }
+  
+    if (currentUser) {
+      loadEmployeeData();
+    }
+  }, [currentUser]);
+
+  const getLast12MonthsData = (monthlyAssignments: { [key: string]: number } = {}) => {
+    const last12Months = [];
+    const currentDate = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+      last12Months.unshift({
+        month: date.toLocaleString('default', { month: 'short' }),
+        year: date.getFullYear(),
+        assignments: monthlyAssignments[monthKey] || 0
+      });
+    }
+    return last12Months;
   };
 
-  const barChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      y: {
-        beginAtZero: true,
+  // Update the chartData useMemo with logging
+  const chartData = useMemo(() => {
+    if (!selectedEmployee) return null;
+    const last12MonthsData = getLast12MonthsData(selectedEmployee.monthlyAssignments);
+    console.log("Chart data calculated:", last12MonthsData);
+    return {
+      labels: last12MonthsData.map(d => `${d.month} ${d.year}`),
+      datasets: [{
+        label: 'Assigned Contacts',
+        data: last12MonthsData.map(d => d.assignments),
+        borderColor: 'rgb(75, 192, 192)',
+        tension: 0.1,
+        fill: false
+      }]
+    };
+  }, [selectedEmployee, selectedEmployee?.monthlyAssignments]);
+
+  const lineChartOptions = useMemo(() => {
+    // Generate a random color when the selected employee changes
+    const randomColor = `rgb(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)})`;
+
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Assigned Contacts',
+            color: 'rgb(75, 85, 99)',
+          },
+          ticks: {
+            color: 'rgb(107, 114, 128)',
+            stepSize: 1,
+          },
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Month',
+            color: 'rgb(75, 85, 99)',
+          },
+          ticks: {
+            color: 'rgb(107, 114, 128)',
+          },
+        },
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
         title: {
           display: true,
-          text: 'Assigned Contacts',
-          color: 'rgb(75, 85, 99)', // text-gray-600
-        },
-        ticks: {
-          color: 'rgb(107, 114, 128)', // text-gray-500
-          stepSize: 1,
-          callback: function(value: number | string) {
-            if (Number.isInteger(Number(value))) {
-              return value;
-            }
-          }
+          text: `Monthly Contact Assignments for ${selectedEmployee?.name || 'Employee'}`,
+          color: 'rgb(31, 41, 55)',
         },
       },
-      x: {
-        title: {
-          display: true,
-          text: 'Employees',
-          color: 'rgb(75, 85, 99)', // text-gray-600
+      elements: {
+        line: {
+          borderColor: randomColor,
+          backgroundColor: randomColor,
         },
-        ticks: {
-          color: 'rgb(107, 114, 128)', // text-gray-500
+        point: {
+          backgroundColor: randomColor,
+          borderColor: randomColor,
         },
       },
-    },
-    plugins: {
-      legend: {
-        display: false,
-      },
-      title: {
-        display: true,
-        text: 'Employee Performance',
-        color: 'rgb(31, 41, 55)', // text-gray-800
-      },
-    },
-  } as const;
+    } as const;
+  }, [selectedEmployee]);
+
+  async function fetchLeadsData() {
+    try {
+      const leadsRef = collection(firestore, `companies/${companyId}/leads`);
+      const leadsSnapshot = await getDocs(leadsRef);
+      
+      let totalLeads = 0;
+      let closedLeads = 0;
+
+      leadsSnapshot.forEach((doc) => {
+        totalLeads++;
+        if (doc.data().status === 'closed') {
+          closedLeads++;
+        }
+      });
+
+      setUnclosed(totalLeads);
+      setClosed(closedLeads);
+    } catch (error) {
+      console.error('Error fetching leads data:', error);
+    }
+  }
 
   return (
     <div className="flex flex-col w-full h-full overflow-x-hidden overflow-y-auto">
@@ -483,40 +594,72 @@ function Main() {
           </div>
         </div>
         {/* END: Stats */}
-         {/* BEGIN: Employee Leaderboard */}
+        {/* BEGIN: Employee Leaderboard and Chart */}
         <div>
-          <h2 className="text-xl sm:text-2xl font-semibold mb-4">Employee Leaderboard</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4">Employee Contact Assignments</h2>
           {loading ? (
             <div className="text-center">
               <LoadingIcon icon="spinning-circles" className="w-8 h-8 mx-auto" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-              {employees.map((employee) => (
-                <div key={employee.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+              <div className="lg:col-span-1 space-y-2">
+                {currentUser && (
+                  <div 
+                    key={currentUser.id} 
+                    className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
+                      selectedEmployee?.id === currentUser.id ? 'border-2 border-blue-500' : ''
+                    }`}
+                    onClick={() => setSelectedEmployee(currentUser)}
+                  >
+                    <div className="flex items-center">
+                      <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
+                      <div>
+                        <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{currentUser.name} (You)</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {currentUser.assignedContacts} currently assigned contacts
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {employees.filter(emp => emp.id !== currentUser?.id).map((employee) => (
+                <div 
+                  key={employee.id} 
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
+                    selectedEmployee?.id === employee.id ? 'border-2 border-blue-500' : ''
+                  }`}
+                  onClick={() => setSelectedEmployee(employee)}
+                >
                   <div className="flex items-center">
                     <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
                     <div>
                       <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
                       <div className="text-xs text-gray-600 dark:text-gray-400">
-                        {employee.assignedContacts} assigned contacts
+                        {employee.assignedContacts} currently assigned contacts
                       </div>
                     </div>
                   </div>
                 </div>
               ))}
+              </div>
+              <div className="lg:col-span-3">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                  <div style={{ height: '400px' }}>
+                    {chartData ? (
+                      <Line data={chartData} options={lineChartOptions} />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <p>Select an employee to view their data</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
-        {/* END: Employee Leaderboard */}
-        <div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div style={{ height: '400px' }}>
-              <Bar data={barChartData} options={barChartOptions} />
-            </div>
-          </div>
-        </div>
-        {/* END: Employee Bar Chart */}
+        {/* END: Employee Leaderboard and Chart */}
       </div>
     </div>
   );
