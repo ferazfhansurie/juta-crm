@@ -100,6 +100,7 @@ interface Contact {
   chat_id?: string | null;
   unreadCount?: number | null;
   pinned?: boolean | null;
+  profilePicUrl?:string;
 }
 interface GhlConfig {
   ghl_id: string;
@@ -4865,15 +4866,21 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
     >
     </div>
     <div className="relative w-12 h-12">
-    <div className="w-12 h-12 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl">
-      {contact && (
-        contact && contact.chat_id && contact.chat_id.includes('@g.us') ? (
-          <Lucide icon="Users" className="w-6 h-6 text-white dark:text-gray-200" />
-        ) : (
-          <Lucide icon="User" className="w-6 h-6 text-white dark:text-gray-200" />
-        )
-      ) }
-    </div>
+    <div className="w-12 h-12 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl overflow-hidden">
+  {contact && (
+    contact.chat_id && contact.chat_id.includes('@g.us') ? (
+      <Lucide icon="Users" className="w-6 h-6 text-white dark:text-gray-200" />
+    ) : contact.profilePicUrl ? (
+      <img 
+        src={contact.profilePicUrl} 
+        alt={contact.contactName || "Profile"} 
+        className="w-full h-full object-cover"
+      />
+    ) : (
+      <Lucide icon="User" className="w-6 h-6 text-white dark:text-gray-200" />
+    )
+  )}
+</div>
     {(contact.unreadCount ?? 0) > 0 && (
       <span className="absolute -top-1 -right-1 bg-primary text-white dark:bg-blue-600 dark:text-gray-200 text-xs rounded-full px-2 py-1 min-w-[20px] h-[20px] flex items-center justify-center">
         {contact.unreadCount}
@@ -5002,9 +5009,17 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
             <Lucide icon="ChevronLeft" className="w-6 h-6" />
           </button>
           <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3 ml-2">
-            {(
-              selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"
-            )}
+          {selectedContact.profilePicUrl ? (
+  <img 
+    src={selectedContact.profilePicUrl} 
+    alt={selectedContact.contactName || "Profile"} 
+    className="w-10 h-10 rounded-full object-cover"
+  />
+) : (
+  <span className="text-2xl font-bold">
+    {selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}
+  </span>
+)}
           </div>
           <div>
             <div className="font-semibold text-gray-800 dark:text-gray-200 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
@@ -5805,13 +5820,19 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white">
-            {(
-              <span className="text-2xl font-bold">
-                {selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}
-              </span>
-            )}
-          </div>
+        <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white">
+  {selectedContact.profilePicUrl ? (
+    <img 
+      src={selectedContact.profilePicUrl} 
+      alt={selectedContact.contactName || "Profile"} 
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <span className="text-2xl font-bold">
+      {selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}
+    </span>
+  )}
+</div>
           <div className="flex flex-col">
             {isEditing ? (
               <div className="flex items-center">
