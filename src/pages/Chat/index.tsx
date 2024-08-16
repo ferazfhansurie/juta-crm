@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
+import logoImage from '@/assets/images/placeholder.svg';
 import { getFirestore,Timestamp,  collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp, runTransaction, increment } from "firebase/firestore";
 import {QueryDocumentSnapshot, DocumentData ,Query,CollectionReference, startAfter,limit, deleteField} from 'firebase/firestore'
 import axios, { AxiosError } from "axios";
@@ -337,7 +338,8 @@ function Main() {
   // Add these new classes for consecutive messages from the same sender
   const myConsecutiveMessageClass = "flex flex-col max-w-[320px] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-0.5 group";
   const otherConsecutiveMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left mt-0.5 group-first:mt-0.5";
-
+  const [messageMode, setMessageMode] = useState<'reply' | 'privateNote'>('reply');
+  const [isEmployeeMentionOpen, setIsEmployeeMentionOpen] = useState(false);
   const myMessageTextClass = "text-white"
   const otherMessageTextClass = "text-white"
   const [activeTags, setActiveTags] = useState<string[]>(['mine']);
@@ -578,12 +580,13 @@ const quickRepliesRef = useRef<HTMLDivElement>(null);
 
   const handlePrivateNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
-    setNewPrivateNote(value);
+    setNewMessage(value);
   
     // Check for @ symbol to trigger mentions
     const lastAtSymbolIndex = value.lastIndexOf('@');
     if (lastAtSymbolIndex !== -1 && lastAtSymbolIndex === value.length - 1) {
       setIsPrivateNotesMentionOpen(true);
+      console.log('Private note mention open');
     } else {
       setIsPrivateNotesMentionOpen(false);
     }
@@ -618,8 +621,8 @@ const quickRepliesRef = useRef<HTMLDivElement>(null);
 
   const handlePrivateNoteMentionSelect = (employee: Employee) => {
     const mentionText = `@${employee.name} `;
-    const newValue = newPrivateNote.replace(/@[^@]*$/, mentionText);
-    setNewPrivateNote(newValue);
+    const newValue = newMessage.replace(/@[^@]*$/, mentionText);
+    setNewMessage(newValue);
     setIsPrivateNotesMentionOpen(false);
   };
 
@@ -1202,77 +1205,49 @@ const closePDFModal = () => {
     const fetchContact = async () => {
       const params = new URLSearchParams(location.search);
       const chatIdFromUrl = params.get('chatId');
-
-      console.log(chatIdFromUrl);
-      if (chatIdFromUrl) {
-        setLoading(true);
-        const user = auth.currentUser;
-        if (!user) {
-          console.error('No user is authenticated');
-          return;
-        }
-        const docUserRef = doc(firestore, 'user', user.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          console.error('No such document for user!');
-          return;
-        }
-        const dataUser = docUserSnapshot.data() as UserData;
-
-        if (!dataUser || !dataUser.companyId) {
-          console.error('Invalid user data or companyId');
-          return;
-        }
-
-        setUserData(dataUser);
-        user_role = dataUser.role;
-        companyId = dataUser.companyId;
-
-        const docRef = doc(firestore, 'companies', companyId);
-        const docSnapshot = await getDoc(docRef);
-        if (!docSnapshot.exists()) {
-          console.error('No such document for company!');
-          return;
-        }
-        const data = docSnapshot.data();
+  
+      if (!chatIdFromUrl || !auth.currentUser) return;
+  
+      setLoading(true);
+      try {
+        const userDocRef = doc(firestore, 'user', auth.currentUser.email!);
+        const userDocSnapshot = await getDoc(userDocRef);
+        if (!userDocSnapshot.exists()) throw new Error('No user document found');
+  
+        const userData = userDocSnapshot.data() as UserData;
+        if (!userData.companyId) throw new Error('Invalid user data or companyId');
+  
+        setUserData(userData);
+        user_role = userData.role;
+        companyId = userData.companyId;
+  
+        const companyDocRef = doc(firestore, 'companies', companyId);
+        const companyDocSnapshot = await getDoc(companyDocRef);
+        if (!companyDocSnapshot.exists()) throw new Error('No company document found');
+  
+        const companyData = companyDocSnapshot.data();
         const phone = "+" + chatIdFromUrl.split('@')[0];
+  
         let contact;
-        console.log(data.v2);
-        if (data.v2) {
-          // For v2, use initialContacts to find the contact
-          const phone = "+" + chatIdFromUrl.split('@')[0];
+        if (companyData.v2) {
           contact = initialContacts.find(c => c.phone === phone || c.chat_id === chatIdFromUrl);
-          console.log(contact, " contact");
-          if (!contact) {
-            console.error('Contact not found in initialContacts');
-            // Handle the case when contact is not found
-          }
+          if (!contact) throw new Error('Contact not found in initialContacts');
         } else {
-          // For non-v2, use the existing fetchDuplicateContact function
-          const phone = "+" + chatIdFromUrl.split('@')[0];
-          contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
+          contact = await fetchDuplicateContact(phone, companyData.ghl_location, companyData.ghl_accessToken);
         }
-        if (userData?.role === '3') {
-          const filteredContacts = contacts.filter((contact: any) => 
-            contact.tags?.some((tag: string) => 
-              typeof tag === 'string' && tag.toLowerCase() === userData.name.toLowerCase()
-            )
-          );
-          setContacts(filteredContacts);
-        } else {
-          setContacts(contacts);
-        }
-     
+  
         setSelectedContact(contact);
         setSelectedChatId(chatIdFromUrl);
-        console.log(contact, " contact");
-    
+      } catch (error) {
+        console.error('Error fetching contact:', error);
+        // Handle error (e.g., show error message to user)
+      } finally {
         setLoading(false);
       }
     };
   
     fetchContact();
-  }, [userData, location.search]);
+  }, [location.search]);
 async function fetchConfigFromDatabase() {
   const user = auth.currentUser;
 
@@ -2133,6 +2108,28 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
           author:message.author,
           name: message.name
         };
+        if (message.type === 'privateNote') {
+          // For private notes, parse the formatted string
+          if (typeof message.timestamp === 'string') {
+              const parsedDate = new Date(message.timestamp);
+              if (!isNaN(parsedDate.getTime())) {
+                  formattedMessage.createdAt = parsedDate.toISOString();
+              } else {
+                  console.warn('Invalid date string for private note:', message.timestamp);
+                  formattedMessage.createdAt = new Date().toISOString(); // Fallback to current date
+              }
+          } else if (message.timestamp instanceof Date) {
+              formattedMessage.createdAt = message.timestamp.toISOString();
+          } else if (typeof message.timestamp === 'number') {
+              formattedMessage.createdAt = new Date(message.timestamp).toISOString();
+          } else {
+              console.warn('Unexpected timestamp format for private note:', message.timestamp);
+              formattedMessage.createdAt = new Date().toISOString(); // Fallback to current date
+          }
+      } else {
+          // For regular messages, multiply timestamp by 1000
+          formattedMessage.createdAt = new Date(message.timestamp * 1000).toISOString();
+      }
   
         // Include message-specific content
         switch (message.type) {
@@ -2217,6 +2214,13 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
           case 'reactions':
             formattedMessage.reactions = message.reactions ? message.reactions : undefined;
             break;
+            case 'privateNote':
+              console.log('Private note data:', message);
+              formattedMessage.text = typeof message.text === 'string' ? message.text : message.text?.body || '';
+              console.log('Formatted private note text:', formattedMessage.text);
+              formattedMessage.from_me = true;
+              formattedMessage.from_name = message.from;
+              break;
           default:
             console.warn(`Unknown message type: ${message.type}`);
         }
@@ -2457,7 +2461,8 @@ console.log('Private note added to messages collection');
         console.log('Adding notification for:', employeeName);
         await addNotificationToUser(companyId, employeeName, {
         chat_id: selectedChatId,
-        from: selectedChatId,
+        from: userData.name,
+        timestamp: serverTimestamp(),
         from_me: false,
         text: {
           body: newMessage
@@ -5309,16 +5314,12 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                         </div>
                       </div>
                     )}
- {message.type === 'privateNote' && (
-                      <div className="flex justify-center my-4">
-                        <PrivateNoteIndicator />
-                      </div>
-                    )}
+
 
 
                     <div
                       data-message-id={message.id}
-                      className={`p-2 mb-2 rounded ${message.type === 'privateNote' ? "bg-yellow-500 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group" : message.from_me ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass) : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass)}`}
+                      className={`p-2 mb-2 rounded ${message.type === 'privateNote' ? "bg-yellow-800 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group" : message.from_me ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass) : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass)}`}
                       style={{
                         maxWidth: message.type === 'document' ? '90%' : '70%',
                         width: `${
@@ -5355,9 +5356,19 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                           <div className="text-sm text-gray-800 ">{message.text.context.quoted_content?.body || ''}</div>
                         </div>
                       )}
-    {message.type === 'privateNote' && (
+   {message.type === 'privateNote' && (
   <div className="whitespace-pre-wrap break-words overflow-hidden text-white">
-    {typeof message.text === 'string' ? message.text : message.text?.body || 'No content'}
+    {(() => {
+      const text = typeof message.text === 'string' ? message.text : message.text?.body || 'No content';
+      const parts = text.split(/(@\w+)/g);
+      return parts.map((part, index) => 
+        part.startsWith('@') ? (
+          <span key={index} className="underline">{part}</span>
+        ) : (
+          part
+        )
+      );
+    })()}
   </div>
 )}
                       {message.type === 'text' && (
@@ -5375,7 +5386,7 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
       onClick={() => openImageModal(message.image?.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image?.link || '')}
       onError={(e) => {
         console.error("Error loading image:", e.currentTarget.src);
-        e.currentTarget.src = 'src/assets/images/Fallback Image.png'; // Replace with your fallback image path
+        e.currentTarget.src = logoImage; // Replace with your fallback image path
       }}
     />
     {message.image.caption && (
@@ -5586,90 +5597,14 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
               })
             }
             
-            {/* New section for private notes */}
-            <div 
-            ref={privateNoteRef}
-            className="absolute left-1 bottom-16 z-10 mb-2"
-          >
-            <button
-              onClick={() => togglePrivateNotes()}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-lg shadow-lg flex items-center"
-            >
-              <Lucide icon="Lock" className="w-6 h-6 mr-2" />
-              <span>Private Notes</span>
-            </button>
-            <Transition
-              show={isPrivateNotesExpanded}
-              enter="transition ease-out duration-300 transform"
-              enterFrom="opacity-0 scale-95 translate-y-full"
-              enterTo="opacity-100 scale-100 translate-y-0"
-              leave="transition ease-in duration-200 transform"
-              leaveFrom="opacity-100 scale-100 translate-y-0"
-              leaveTo="opacity-0 scale-95 translate-y-full"
-              className="transition-all duration-300 ease-in-out absolute bottom-full left-0 w-full"
-            >
-              <div className="absolute bottom-full mb-2 left-0 bg-white dark:bg-gray-800 border border-yellow-500 rounded-lg shadow-lg w-80 max-h-96 overflow-y-auto">
-                <div className="sticky top-0 bg-yellow-100 dark:bg-yellow-900 p-3 border-b border-yellow-300 dark:border-yellow-700">
-                  <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200">Private Notes</h3>
-          </div>
-                {privateNotes[selectedChatId]?.length > 0 ? (
-                  privateNotes[selectedChatId]?.map((note) => (
-                    <div key={note.id} className="p-4 border-b border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900 transition-colors duration-150">
-                      <p className="text-gray-800 dark:text-gray-200 text-sm whitespace-pre-wrap break-words">
-                        {note.text}
-                      </p>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex justify-between items-center">
-                        <span>{new Date(note.timestamp).toLocaleString()}</span>
-                        <button 
-                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                          onClick={() => deletePrivateNote(note.id)}
-                        >
-                          <Lucide icon="Trash2" className="w-4 h-4" />
-                        </button>
-        </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-4 text-gray-500 dark:text-gray-400 text-sm italic">No private notes yet.</div>
-                )}
-                <div className="sticky bottom-0 bg-white dark:bg-gray-800 p-3 border-t border-yellow-300 dark:border-yellow-700">
-                  <textarea
-                    ref={textareaRef}
-                    className="chat__input form-control w-full min-h-[80px] resize-y bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md p-2"
-                    placeholder="Type a private note..."
-                    value={newPrivateNote}
-                    onChange={handlePrivateNoteChange}
-                  />
-                  {isPrivateNotesMentionOpen && (
-                    <div className="absolute bottom-full left-0 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
-                      {employeeList.map((employee) => (
-                        <div
-                          key={employee.id}
-                          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer text-gray-800 dark:text-gray-200"
-                          onClick={() => handlePrivateNoteMentionSelect(employee)}
-                        >
-                          {employee.name}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <button 
-                    className="mt-2 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md transition-colors duration-150"
-                    onClick={() => {
-                      handleAddPrivateNote(newPrivateNote);
-                      setNewPrivateNote('');
-                    }}
-                  >
-                    Add Note
-                  </button>
-                </div>
-              </div>
-            </Transition>
-          </div>
+     
+        
           </>
         )}
       </div>
+      
       <div className="absolute bottom-0 left-0 w-500px !box m-1 py-1 px-2">
+ 
         {replyToMessage && (
           <div className="p-2 mb-2 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-between">
             <div>
@@ -5698,6 +5633,41 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
             </button>
           </div>
         )}
+             <div className="flex mb-2">
+    <button
+      className={`px-4 py-2 rounded-tl-lg rounded-tr-lg ${
+        messageMode === 'reply'
+          ? 'bg-primary text-white'
+          : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+      }`}
+      onClick={() => setMessageMode('reply')}
+    >
+      Reply
+    </button>
+    <button
+      className={`px-4 py-2 rounded-tl-lg rounded-tr-lg ${
+        messageMode === 'privateNote'
+          ? 'bg-yellow-500 text-white'
+          : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+      }`}
+      onClick={() => setMessageMode('privateNote')}
+    >
+      Private Note
+    </button>
+  </div>
+         {isPrivateNotesMentionOpen && (
+                    <div className="absolute bottom-full left-0 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                      {employeeList.map((employee) => (
+                        <div
+                          key={employee.id}
+                          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer text-gray-800 dark:text-gray-200"
+                          onClick={() => handlePrivateNoteMentionSelect(employee)}
+                        >
+                          {employee.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
         <div className="flex items-center w-full bg-white dark:bg-gray-800 pl-2 pr-2 rounded-lg">
           <button className="p-2 m-0 !box" onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}>
             <span className="flex items-center justify-center w-5 h-5">
@@ -5748,14 +5718,26 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
               <Lucide icon='Zap' className="w-5 h-5 text-gray-800 dark:text-gray-200" />
             </span>
           </button>
+       
           <textarea
             ref={textareaRef}
-            className="flex-grow h-10 px-2 py-1.5 m-1 ml-2 border rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200"
+            className={`flex-grow h-10 px-2 py-1.5 m-1 ml-2 border rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden ${
+              messageMode === 'privateNote' 
+                ? 'bg-yellow-800 text-white dark:bg-yellow-800 dark:text-white placeholder-white dark:placeholder-white' 
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400'
+            } border-gray-300 dark:border-gray-700`}
             placeholder="Type a message..."
             value={newMessage}
             onChange={(e) => {
               setNewMessage(e.target.value);
               adjustHeight(e.target);
+              const lastAtSymbolIndex = e.target.value.lastIndexOf('@');
+              if (lastAtSymbolIndex !== -1 && lastAtSymbolIndex === e.target.value.length - 1) {
+                setIsPrivateNotesMentionOpen(true);
+                console.log('Private note mention open');
+              } else {
+                setIsPrivateNotesMentionOpen(false);
+              }
             }}
             rows={1}
             style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
@@ -5768,7 +5750,12 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                 } else {
                   e.preventDefault();
                   if (selectedIcon === 'ws') {
-                    handleSendMessage();
+                    if (messageMode === 'reply') {
+                      handleSendMessage();
+                    } else {
+                      handleAddPrivateNote(newMessage);
+                  
+                    }
                   } else {
                     sendTextMessage(selectedContact.id, newMessage, selectedContact);
                   }

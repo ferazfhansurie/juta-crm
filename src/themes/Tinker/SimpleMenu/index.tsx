@@ -24,6 +24,7 @@ type Notification = {
     text: {
         body: string;
     };
+    from: string;
     timestamp: number;
 };
 function Main() {
@@ -386,15 +387,17 @@ const clearAllNotifications = async () => {
                           >
                             <div className="flex justify-between items-center mb-1">
                               <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate capitalize">
-                                {notification.chat_id.split('@')[0]}
+                                {notification.from.split('@')[0]}
                               </div>
                               <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
-                                  hour: 'numeric',
-                                  minute: 'numeric',
-                                  hour12: true,
-                                })}
-                              </div>
+  {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true,
+  })}
+</div>
                             </div>
                             <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
                               {notification.text ? notification.text.body : ''}
