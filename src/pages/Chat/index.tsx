@@ -1885,17 +1885,40 @@ useEffect(() => {
                     from_name: message.from_name
                 });
             } else {
-                const formattedMessage: any = {
-                    id: message.id,
-                    from_me: message.from_me,
-                    from_name: message.from_name,
-                    from: message.from,
-                    chat_id: message.chat_id,
-                    createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
-                    type: message.type,
-                    author:message.author,
-                    name: message.name
-                };
+              const formattedMessage: any = {
+                id: message.id,
+                from_me: message.from_me,
+                from_name: message.from_name,
+                from: message.from,
+                chat_id: message.chat_id,
+                type: message.type,
+                author: message.author,
+                name: message.name
+            };
+    
+            // Handle timestamp based on message type
+            if (message.type === 'privateNote') {
+                // For private notes, parse the formatted string
+                if (typeof message.timestamp === 'string') {
+                    const parsedDate = new Date(message.timestamp);
+                    if (!isNaN(parsedDate.getTime())) {
+                        formattedMessage.createdAt = parsedDate.toISOString();
+                    } else {
+                        console.warn('Invalid date string for private note:', message.timestamp);
+                        formattedMessage.createdAt = new Date().toISOString(); // Fallback to current date
+                    }
+                } else if (message.timestamp instanceof Date) {
+                    formattedMessage.createdAt = message.timestamp.toISOString();
+                } else if (typeof message.timestamp === 'number') {
+                    formattedMessage.createdAt = new Date(message.timestamp).toISOString();
+                } else {
+                    console.warn('Unexpected timestamp format for private note:', message.timestamp);
+                    formattedMessage.createdAt = new Date().toISOString(); // Fallback to current date
+                }
+            } else {
+                // For regular messages, multiply timestamp by 1000
+                formattedMessage.createdAt = new Date(message.timestamp * 1000).toISOString();
+            }
         
                 // Include message-specific content
                 switch (message.type) {
@@ -1983,6 +2006,13 @@ useEffect(() => {
                     case 'reactions':
                         formattedMessage.reactions = message.reactions ? message.reactions : undefined;
                         break;
+                        case 'privateNote':
+    console.log('Private note data:', message);
+    formattedMessage.text = typeof message.text === 'string' ? message.text : message.text?.body || '';
+    console.log('Formatted private note text:', formattedMessage.text);
+    formattedMessage.from_me = true;
+    formattedMessage.from_name = message.from;
+    break;
                     default:
                         console.warn(`Unknown message type: ${message.type}`);
                 }
@@ -2398,12 +2428,44 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
 
       const docRef = await addDoc(privateNoteRef, newPrivateNote);
       console.log('Private note added with ID:', docRef.id);
+ // Add the private note to the messages collection
+ const messageData = {
+  chat_id: numericChatId,
+  from: user.email ?? "",
+  from_me: true,
+  id: docRef.id,
+  source: "web", // Assuming the source is web, adjust if necessary
+  status: "delivered",
+  text: {
+    body: newMessage
+  },
+  timestamp: serverTimestamp(),
+  type: "privateNote",
+};
 
+const contactRef = doc(firestore, 'companies', companyId, 'contacts', numericChatId);
+const messagesRef = collection(contactRef, 'messages');
+const messageDoc = doc(messagesRef, docRef.id);
+await setDoc(messageDoc, messageData, { merge: true });
+
+console.log('Private note added to messages collection');
       const mentions = detectMentions(newMessage);
+      console.log('Mentions:', mentions); 
       for (const mention of mentions) {
         const employeeName = mention.slice(1); // Remove @ symbol
         console.log(employeeName);
+        console.log('Adding notification for:', employeeName);
+        await addNotificationToUser(companyId, employeeName, {
+        chat_id: selectedChatId,
+        from: selectedChatId,
+        from_me: false,
+        text: {
+          body: newMessage
+        },
+        type: "privateNote"
+      });
         await sendWhatsAppAlert(employeeName, selectedChatId);
+       
       }
   
       // Update the local state
@@ -2416,20 +2478,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       }));
   
       // Update the messages state to include the new private note
-      setMessages(prevMessages => [
-        ...prevMessages,
-        {
-          id: docRef.id,
-          text: { body: newMessage },
-          from: userData.name,
-          from_name: userData.name,
-          chat_id: selectedChatId,
-          createdAt: new Date().toISOString(),
-          dateAdded: new Date().getTime(), // Changed to number
-          timestamp: Date.now(),
-          type: 'privateNote'
-        } as unknown as Message // Added type assertion
-      ]);
+    fetchMessages(selectedChatId,"");
   
       setNewMessage('');
       toast.success("Private note added successfully!");
@@ -2578,7 +2627,40 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     setNewContactNumber('');
   };
 
-
+  const addNotificationToUser = async (companyId: string, employeeName: string, message: any) => {
+    console.log('Adding notification for:', employeeName);
+    try {
+      // Find the user with the specified companyId and name
+      const usersRef = collection(firestore, 'user');
+      const q = query(usersRef, 
+        where('companyId', '==', companyId),
+        where('name', '==', employeeName)
+      );
+      const querySnapshot = await getDocs(q);
+  
+      if (querySnapshot.empty) {
+        console.log('No matching user found for:', employeeName);
+        return;
+      }
+  
+      // Filter out undefined values from the message object
+      const cleanMessage = Object.fromEntries(
+        Object.entries(message).filter(([_, value]) => value !== undefined)
+      );
+  
+      // Add the new message to the notifications subcollection of the user's document
+      querySnapshot.forEach(async (doc) => {
+        const userRef = doc.ref;
+        const notificationsRef = collection(userRef, 'notifications');
+        const updatedMessage = { ...cleanMessage, read: false };
+    
+        await addDoc(notificationsRef, updatedMessage);
+        console.log(`Notification added for user: ${employeeName}, companyId: ${companyId}`);
+      });
+    } catch (error) {
+      console.error('Error adding notification: ', error);
+    }
+  };
   const handleCreateNewChat = async () => {
 
     console.log('Attempting to create new chat:', { userRole });
@@ -5227,32 +5309,16 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                         </div>
                       </div>
                     )}
+ {message.type === 'privateNote' && (
+                      <div className="flex justify-center my-4">
+                        <PrivateNoteIndicator />
+                      </div>
+                    )}
 
-                    {privateNotes[selectedChatId]?.map((note) => {
-                      const noteDate = new Date(note.timestamp);
-                      const messageDate = new Date(message.createdAt || message.dateAdded);
-                      if (noteDate > messageDate && (index === 0 || noteDate <= new Date(array[index - 1]?.createdAt || array[index - 1]?.dateAdded))) {
-                        return (
-                          <React.Fragment key={note.id}>
-                            <PrivateNoteIndicator />
-                            <div className="flex justify-center my-4">
-                              <div className="bg-yellow-100 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 p-3 rounded-lg shadow-md max-w-md">
-                                <div className="font-bold mb-1">Private Note:</div>
-                                <div>{note.text}</div>
-                                <div className="text-xs text-yellow-600 dark:text-yellow-300 mt-1">
-                                  {new Date(note.timestamp).toLocaleString()}
-                                </div>
-                              </div>
-                            </div>
-                          </React.Fragment>
-                        );
-                      }
-                      return null;
-                    })}
 
                     <div
                       data-message-id={message.id}
-                      className={`p-2 mb-2 rounded ${message.isPrivateNote ? "bg-yellow-200 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group" : message.from_me ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass) : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass)}`}
+                      className={`p-2 mb-2 rounded ${message.type === 'privateNote' ? "bg-yellow-500 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group" : message.from_me ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass) : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass)}`}
                       style={{
                         maxWidth: message.type === 'document' ? '90%' : '70%',
                         width: `${
@@ -5289,6 +5355,11 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                           <div className="text-sm text-gray-800 ">{message.text.context.quoted_content?.body || ''}</div>
                         </div>
                       )}
+    {message.type === 'privateNote' && (
+  <div className="whitespace-pre-wrap break-words overflow-hidden text-white">
+    {typeof message.text === 'string' ? message.text : message.text?.body || 'No content'}
+  </div>
+)}
                       {message.type === 'text' && (
                         <div className={`whitespace-pre-wrap break-words overflow-hidden ${message.from_me ? myMessageTextClass : otherMessageTextClass}`} style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                           {formatText(message.text?.body || '')}
