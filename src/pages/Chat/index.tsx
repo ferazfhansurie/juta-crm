@@ -2413,77 +2413,73 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
       
-      // Split selectedChatId to show numbers only and add '+' at the start
       const numericChatId = '+' + selectedChatId.split('').filter(char => /\d/.test(char)).join('');
       console.log('Numeric Chat ID:', numericChatId);
-
-      // Create a reference to the privateNotes subcollection
+  
       const privateNoteRef = collection(firestore, 'companies', companyId, 'contacts', numericChatId, 'privateNotes');
+      const currentTimestamp = new Date();
       const newPrivateNote = {
         text: newMessage,
         from: userData.name,
-        timestamp: serverTimestamp(),
+        timestamp: currentTimestamp,
         type: 'privateNote'
       };
   
-      // Add console.log statements to debug
       console.log('Adding private note:', newPrivateNote);
       console.log('Private note ref:', privateNoteRef);
-
+  
       const docRef = await addDoc(privateNoteRef, newPrivateNote);
       console.log('Private note added with ID:', docRef.id);
- // Add the private note to the messages collection
- const messageData = {
-  chat_id: numericChatId,
-  from: user.email ?? "",
-  from_me: true,
-  id: docRef.id,
-  source: "web", // Assuming the source is web, adjust if necessary
-  status: "delivered",
-  text: {
-    body: newMessage
-  },
-  timestamp: serverTimestamp(),
-  type: "privateNote",
-};
-
-const contactRef = doc(firestore, 'companies', companyId, 'contacts', numericChatId);
-const messagesRef = collection(contactRef, 'messages');
-const messageDoc = doc(messagesRef, docRef.id);
-await setDoc(messageDoc, messageData, { merge: true });
-
-console.log('Private note added to messages collection');
-      const mentions = detectMentions(newMessage);
-      console.log('Mentions:', mentions); 
-      for (const mention of mentions) {
-        const employeeName = mention.slice(1); // Remove @ symbol
-        console.log(employeeName);
-        console.log('Adding notification for:', employeeName);
-        await addNotificationToUser(companyId, employeeName, {
-        chat_id: selectedChatId,
-        from: userData.name,
-        timestamp: serverTimestamp(),
-        from_me: false,
+  
+      const messageData = {
+        chat_id: numericChatId,
+        from: user.email ?? "",
+        from_me: true,
+        id: docRef.id,
+        source: "web",
+        status: "delivered",
         text: {
           body: newMessage
         },
-        type: "privateNote"
-      });
+        timestamp: currentTimestamp,
+        type: "privateNote",
+      };
+  
+      const contactRef = doc(firestore, 'companies', companyId, 'contacts', numericChatId);
+      const messagesRef = collection(contactRef, 'messages');
+      const messageDoc = doc(messagesRef, docRef.id);
+      await setDoc(messageDoc, messageData);
+  
+      console.log('Private note added to messages collection');
+  
+      const mentions = detectMentions(newMessage);
+      console.log('Mentions:', mentions); 
+      for (const mention of mentions) {
+        const employeeName = mention.slice(1);
+        console.log(employeeName);
+        console.log('Adding notification for:', employeeName);
+        await addNotificationToUser(companyId, employeeName, {
+          chat_id: selectedChatId,
+          from: userData.name,
+          timestamp: currentTimestamp,
+          from_me: false,
+          text: {
+            body: newMessage
+          },
+          type: "privateNote"
+        });
         await sendWhatsAppAlert(employeeName, selectedChatId);
-       
       }
   
-      // Update the local state
       setPrivateNotes(prevNotes => ({
         ...prevNotes,
         [selectedChatId]: [
           ...(prevNotes[selectedChatId] || []),
-          { id: docRef.id, text: newMessage, timestamp: Date.now() }
+          { id: docRef.id, text: newMessage, timestamp: currentTimestamp.getTime() }
         ]
       }));
   
-      // Update the messages state to include the new private note
-    fetchMessages(selectedChatId,"");
+      fetchMessages(selectedChatId, "");
   
       setNewMessage('');
       toast.success("Private note added successfully!");
@@ -2492,7 +2488,6 @@ console.log('Private note added to messages collection');
       toast.error("Failed to add private note");
     }
   };
-
   const deletePrivateNote = async (noteId: string) => {
     if (!selectedChatId) {
       console.error('No chat selected');
