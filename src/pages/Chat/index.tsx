@@ -1251,6 +1251,16 @@ const closePDFModal = () => {
           const phone = "+" + chatIdFromUrl.split('@')[0];
           contact = await fetchDuplicateContact(phone, data.ghl_location, data.ghl_accessToken);
         }
+        if (userData?.role === '3') {
+          const filteredContacts = contacts.filter((contact: any) => 
+            contact.tags?.some((tag: string) => 
+              typeof tag === 'string' && tag.toLowerCase() === userData.name.toLowerCase()
+            )
+          );
+          setContacts(filteredContacts);
+        } else {
+          setContacts(contacts);
+        }
      
         setSelectedContact(contact);
         setSelectedChatId(chatIdFromUrl);
@@ -1261,7 +1271,7 @@ const closePDFModal = () => {
     };
   
     fetchContact();
-  }, [location.search]);
+  }, [userData, location.search]);
 async function fetchConfigFromDatabase() {
   const user = auth.currentUser;
 
@@ -2742,13 +2752,21 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
     });
 
     // Update state
-    setContacts(prevContacts =>
-      prevContacts.map(c =>
-        c.id === contact.id
-          ? { ...c, tags: [...(c.tags || []), tagName] }
-          : c
-      )
-    );
+    setContacts(prevContacts => {
+      if (userData?.role === '3') {
+        // For role 3, add the contact if it's being assigned to them
+        if (tagName.toLowerCase() === userData.name.toLowerCase()) {
+          return [...prevContacts, { ...contact, tags: [...(contact.tags || []), tagName] }];
+        } else {
+          return prevContacts;
+        }
+      } else {
+        // For other roles, update the tags as before
+        return prevContacts.map(c =>
+          c.id === contact.id ? { ...c, tags: [...(c.tags || []), tagName] } : c
+        );
+      }
+    });
 
     setSelectedContact((prevContact: Contact) => ({
       ...prevContact,
@@ -3738,13 +3756,22 @@ const handleForwardMessage = async () => {
       }
   
       // Update state
-      setContacts(prevContacts =>
-        prevContacts.map(contact =>
-          contact.id === contactId
-            ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName), assignedTo: undefined }
-            : contact
-        )
-      );
+      setContacts(prevContacts => {
+        if (userData?.role === '3') {
+          // For role 3, remove the contact if the removed tag matches their name
+          return prevContacts.filter(contact => 
+            contact.id !== contactId || 
+            (contact.tags && contact.tags.some(tag => tag.toLowerCase() === userData.name.toLowerCase()))
+          );
+        } else {
+          // For other roles, just update the tags
+          return prevContacts.map(contact =>
+            contact.id === contactId
+              ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName), assignedTo: undefined }
+              : contact
+          );
+        }
+      });
   
       const updatedContacts = contacts.map((contact: Contact) =>
         contact.id === contactId

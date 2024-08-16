@@ -559,6 +559,15 @@ async function fetchConfigFromDatabase() {
     }
   }
 
+  // Add this function to handle employee selection
+  const handleEmployeeSelect = async (employee: Employee) => {
+    console.log("Employee selected:", employee);
+    const fullEmployeeData = await fetchEmployeeData(employee.id);
+    if (fullEmployeeData) {
+      setSelectedEmployee(fullEmployeeData);
+    }
+  };
+
   return (
     <div className="flex flex-col w-full h-full overflow-x-hidden overflow-y-auto">
       <div className="flex-grow p-4 space-y-6">
@@ -610,7 +619,7 @@ async function fetchConfigFromDatabase() {
                     className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
                       selectedEmployee?.id === currentUser.id ? 'border-2 border-blue-500' : ''
                     }`}
-                    onClick={() => setSelectedEmployee(currentUser)}
+                    onClick={() => handleEmployeeSelect(currentUser)}
                   >
                     <div className="flex items-center">
                       <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
@@ -623,25 +632,27 @@ async function fetchConfigFromDatabase() {
                     </div>
                   </div>
                 )}
-                {employees.filter(emp => emp.id !== currentUser?.id).map((employee) => (
-                <div 
-                  key={employee.id} 
-                  className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
-                    selectedEmployee?.id === employee.id ? 'border-2 border-blue-500' : ''
-                  }`}
-                  onClick={() => setSelectedEmployee(employee)}
-                >
-                  <div className="flex items-center">
-                    <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
-                    <div>
-                      <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">
-                        {employee.assignedContacts} currently assigned contacts
+                {currentUser?.role !== '3' && (
+                  employees.filter(emp => emp.id !== currentUser?.id).map((employee) => (
+                    <div 
+                      key={employee.id} 
+                      className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
+                        selectedEmployee?.id === employee.id ? 'border-2 border-blue-500' : ''
+                      }`}
+                      onClick={() => handleEmployeeSelect(employee)}
+                    >
+                      <div className="flex items-center">
+                        <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
+                        <div>
+                          <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">
+                            {employee.assignedContacts} currently assigned contacts
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  ))
+                )}
               </div>
               <div className="lg:col-span-3">
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
