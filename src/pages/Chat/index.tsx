@@ -2019,6 +2019,7 @@ const togglePrivateNotes = () => {
 
 async function fetchMessagesFromFirebase(companyId: string, chatId: string): Promise<any[]> {
   const number = '+' + chatId.split('@')[0];
+  console.log(number);
   const messagesRef = collection(firestore, `companies/${companyId}/contacts/${number}/messages`);
   const messagesSnapshot = await getDocs(messagesRef);
   
@@ -4867,19 +4868,27 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
     </div>
     <div className="relative w-12 h-12">
     <div className="w-12 h-12 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl overflow-hidden">
-  {contact && (
-    contact.chat_id && contact.chat_id.includes('@g.us') ? (
-      <Lucide icon="Users" className="w-6 h-6 text-white dark:text-gray-200" />
-    ) : contact.profilePicUrl ? (
+    {contact && (
+  contact.chat_id && contact.chat_id.includes('@g.us') ? (
+    contact.profilePicUrl ? (
       <img 
         src={contact.profilePicUrl} 
-        alt={contact.contactName || "Profile"} 
+        alt={contact.contactName || "Group"} 
         className="w-full h-full object-cover"
       />
     ) : (
-      <Lucide icon="User" className="w-6 h-6 text-white dark:text-gray-200" />
+      <Lucide icon="Users" className="w-6 h-6 text-white dark:text-gray-200" />
     )
-  )}
+  ) : contact.profilePicUrl ? (
+    <img 
+      src={contact.profilePicUrl} 
+      alt={contact.contactName || "Profile"} 
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <Lucide icon="User" className="w-6 h-6 text-white dark:text-gray-200" />
+  )
+)}
 </div>
     {(contact.unreadCount ?? 0) > 0 && (
       <span className="absolute -top-1 -right-1 bg-primary text-white dark:bg-blue-600 dark:text-gray-200 text-xs rounded-full px-2 py-1 min-w-[20px] h-[20px] flex items-center justify-center">
