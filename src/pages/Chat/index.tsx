@@ -1873,24 +1873,29 @@ useEffect(() => {
     
             // Handle timestamp based on message type
             if (message.type === 'privateNote') {
-                // For private notes, parse the formatted string
-                if (typeof message.timestamp === 'string') {
-                    const parsedDate = new Date(message.timestamp);
-                    if (!isNaN(parsedDate.getTime())) {
-                        formattedMessage.createdAt = parsedDate.toISOString();
-                    } else {
-                        console.warn('Invalid date string for private note:', message.timestamp);
-                        formattedMessage.createdAt = new Date().toISOString(); // Fallback to current date
-                    }
-                } else if (message.timestamp instanceof Date) {
-                    formattedMessage.createdAt = message.timestamp.toISOString();
-                } else if (typeof message.timestamp === 'number') {
-                    formattedMessage.createdAt = new Date(message.timestamp).toISOString();
-                } else {
-                    console.warn('Unexpected timestamp format for private note:', message.timestamp);
-                    formattedMessage.createdAt = new Date().toISOString(); // Fallback to current date
-                }
-            } else {
+              if (message.timestamp && message.timestamp.seconds) {
+                  // Firestore Timestamp
+                  formattedMessage.createdAt = new Date(message.timestamp.seconds * 1000).toISOString();
+              } else if (typeof message.timestamp === 'string') {
+                  // String timestamp
+                  const parsedDate = new Date(message.timestamp);
+                  if (!isNaN(parsedDate.getTime())) {
+                      formattedMessage.createdAt = parsedDate.toISOString();
+                  } else {
+                      console.warn('Invalid date string for private note:', message.timestamp);
+                      formattedMessage.createdAt = message.timestamp; // Keep the original string
+                  }
+              } else if (message.timestamp instanceof Date) {
+                  // Date object
+                  formattedMessage.createdAt = message.timestamp.toISOString();
+              } else if (typeof message.timestamp === 'number') {
+                  // Unix timestamp (milliseconds)
+                  formattedMessage.createdAt = new Date(message.timestamp).toISOString();
+              } else {
+                  console.warn('Unexpected timestamp format for private note:', message.timestamp);
+                  formattedMessage.createdAt = message.timestamp; // Keep the original value
+              }
+          }else {
                 // For regular messages, multiply timestamp by 1000
                 formattedMessage.createdAt = new Date(message.timestamp * 1000).toISOString();
             }
@@ -2109,24 +2114,29 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
           name: message.name
         };
         if (message.type === 'privateNote') {
-          // For private notes, parse the formatted string
-          if (typeof message.timestamp === 'string') {
+          if (message.timestamp && message.timestamp.seconds) {
+              // Firestore Timestamp
+              formattedMessage.createdAt = new Date(message.timestamp.seconds * 1000).toISOString();
+          } else if (typeof message.timestamp === 'string') {
+              // String timestamp
               const parsedDate = new Date(message.timestamp);
               if (!isNaN(parsedDate.getTime())) {
                   formattedMessage.createdAt = parsedDate.toISOString();
               } else {
                   console.warn('Invalid date string for private note:', message.timestamp);
-                  formattedMessage.createdAt = new Date().toISOString(); // Fallback to current date
+                  formattedMessage.createdAt = message.timestamp; // Keep the original string
               }
           } else if (message.timestamp instanceof Date) {
+              // Date object
               formattedMessage.createdAt = message.timestamp.toISOString();
           } else if (typeof message.timestamp === 'number') {
+              // Unix timestamp (milliseconds)
               formattedMessage.createdAt = new Date(message.timestamp).toISOString();
           } else {
               console.warn('Unexpected timestamp format for private note:', message.timestamp);
-              formattedMessage.createdAt = new Date().toISOString(); // Fallback to current date
+              formattedMessage.createdAt = message.timestamp; // Keep the original value
           }
-      } else {
+      }else {
           // For regular messages, multiply timestamp by 1000
           formattedMessage.createdAt = new Date(message.timestamp * 1000).toISOString();
       }
