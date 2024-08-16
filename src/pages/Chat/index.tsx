@@ -303,7 +303,6 @@ const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
 const auth = getAuth(app);
 
-
 function Main() {
   const { contacts: initialContacts, isLoading } = useContacts();
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -623,42 +622,122 @@ const quickRepliesRef = useRef<HTMLDivElement>(null);
     setIsPrivateNotesMentionOpen(false);
   };
 
-console.log('Initial contacts:', initialContacts);
+  console.log('Initial contacts:', initialContacts);
 
-useEffect(() => {
-  if (initialContacts.length > 0) {
-    loadMoreContacts();
-  }
-}, [initialContacts]);
+  const filterContactsByUserRole = (contacts: Contact[], userRole: string, userName: string) => {
+    console.log('Filtering contacts:', { userRole, userName, contactsCount: contacts.length });
+    if (userRole === "3") {
+      const filteredContacts = contacts.filter(contact => 
+        contact.assignedTo?.toLowerCase() === userName.toLowerCase()
+      );
+      console.log('Filtered contacts for role 3:', { filteredCount: filteredContacts.length });
+      return filteredContacts;
+    }
+    return contacts;
+  };
 
-useEffect(() => {
-  if (contacts.length > 0) {
-    let filtered = contacts;
+  const filterAndSetContacts = useCallback((contactsToFilter: Contact[]) => {
+    console.log('Filtering contacts', { 
+      contactsLength: contactsToFilter.length, 
+      userRole, 
+      userName: userData?.name,
+      activeTags 
+    });
+  
+    let filtered = contactsToFilter;
     
-    // Always exclude group chats, regardless of the active tag
+    // Apply role-based filtering
+    filtered = filterContactsByUserRole(filtered, userRole, userData?.name || '');
+    console.log('After role-based filtering:', { filteredCount: filtered.length });
+  
+    // Filter out group chats
     filtered = filtered.filter(contact => 
       contact.chat_id && !contact.chat_id.includes('@g.us')
     );
-
+    console.log('Filtered out group chats:', { filteredCount: filtered.length });
+  
+    // Apply tag-based filtering
     if (activeTags.includes('all')) {
-      console.log('All tag is active. Filtered contacts:', filtered);
-      console.log('Excluded group chats:', contacts.filter(contact => contact.chat_id && contact.chat_id.includes('@g.us')));
-      // No additional filtering needed for 'all'
+      console.log('Showing all contacts');
     } else if (activeTags.includes('unread')) {
       filtered = filtered.filter(contact => (contact.unreadCount || 0) > 0);
+      console.log('Filtered unread contacts:', { filteredCount: filtered.length });
     } else if (activeTags.includes('mine')) {
       filtered = filtered.filter((contact) => 
         contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase())
       );
+      console.log('Filtered "mine" contacts:', { filteredCount: filtered.length });
     } else {
       filtered = filtered.filter(contact => 
         activeTags.some(tag => contact.tags?.includes(tag))
       );
+      console.log('Filtered by active tags:', { filteredCount: filtered.length, activeTags });
+    }
+  
+    setFilteredContacts(filtered);
+    console.log('Final filtered contacts set:', { filteredCount: filtered.length });
+  }, [userRole, userData, activeTags, currentUserName]);
+
+  useEffect(() => {
+    if (initialContacts.length > 0) {
+      const filteredContacts = filterContactsByUserRole(initialContacts, userRole, userData?.name || '');
+      console.log('Filtered contacts:', { count: filteredContacts.length });
+      setContacts(filteredContacts.slice(0, 200));
+      filterAndSetContacts(filteredContacts.slice(0, 200));
+      localStorage.setItem('contacts', LZString.compress(JSON.stringify(filteredContacts)));
+      sessionStorage.setItem('contactsFetched', 'true');
+    }
+  }, [initialContacts, userRole, userData]);
+
+  useEffect(() => {
+    if (contacts.length > 0) {
+      filterAndSetContacts(contacts);
+    }
+  }, [contacts, filterAndSetContacts]);
+
+useEffect(() => {
+  console.log('useEffect for filtering contacts triggered', { 
+    contactsLength: contacts.length, 
+    userRole, 
+    userName: userData?.name,
+    activeTags 
+  });
+
+  if (contacts.length > 0) {
+    let filtered = contacts;
+    
+    // First, apply role-based filtering
+    filtered = filterContactsByUserRole(filtered, userRole, userData?.name || '');
+    console.log('After role-based filtering:', { filteredCount: filtered.length });
+
+    // Then, filter out group chats
+    filtered = filtered.filter(contact => 
+      contact.chat_id && !contact.chat_id.includes('@g.us')
+    );
+    console.log('Filtered out group chats:', { filteredCount: filtered.length });
+
+    // Apply tag-based filtering
+    if (activeTags.includes('all')) {
+      console.log('Showing all contacts');
+    } else if (activeTags.includes('unread')) {
+      filtered = filtered.filter(contact => (contact.unreadCount || 0) > 0);
+      console.log('Filtered unread contacts:', { filteredCount: filtered.length });
+    } else if (activeTags.includes('mine')) {
+      filtered = filtered.filter((contact) => 
+        contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase())
+      );
+      console.log('Filtered "mine" contacts:', { filteredCount: filtered.length });
+    } else {
+      filtered = filtered.filter(contact => 
+        activeTags.some(tag => contact.tags?.includes(tag))
+      );
+      console.log('Filtered by active tags:', { filteredCount: filtered.length, activeTags });
     }
 
     setFilteredContacts(filtered);
+    console.log('Final filtered contacts set:', { filteredCount: filtered.length });
   }
-}, [contacts, currentUserName, activeTags]);
+}, [contacts, currentUserName, activeTags, userRole, userData]);
 
 useEffect(() => {
   const handleScroll = () => {
@@ -702,11 +781,8 @@ useEffect(() => {
   }
 }, [activeTags, employeeList]);
 
-
-
 const loadMoreContacts = () => {
   if (initialContacts.length <= contacts.length) return;
-
 
   const nextPage = currentPage + 1;
   const newContacts = initialContacts.slice(
@@ -714,10 +790,13 @@ const loadMoreContacts = () => {
     nextPage * contactsPerPage
   );
 
-  setContacts((prevContacts) => [...prevContacts, ...newContacts]);
+  setContacts((prevContacts) => {
+    const updatedContacts = [...prevContacts, ...newContacts];
+    return filterContactsByUserRole(updatedContacts, userRole, userData?.name || '');
+  });
   setCurrentPage(nextPage);
- 
 };
+
 const handleEmojiClick = (emojiObject: EmojiClickData) => {
   setNewMessage(prevMessage => prevMessage + emojiObject.emoji);
 };
@@ -1306,6 +1385,13 @@ async function fetchConfigFromDatabase() {
   };
 
   const selectChat = async (chatId: string, id?: string, contactSelect?: Contact) => {
+    console.log('Attempting to select chat:', { chatId, userRole, userName: userData?.name });
+    if (userRole === "3" && contactSelect && contactSelect.assignedTo?.toLowerCase() !== userData?.name.toLowerCase()) {
+      console.log('Permission denied for role 3 user');
+      toast.error("You don't have permission to view this chat.");
+      return;
+    }
+
     const updatedContacts = contacts.map(contact =>
       contact.chat_id === chatId ? { ...contact, unreadCount: 0 } : contact
     );
@@ -1529,16 +1615,16 @@ const fetchDuplicateContact = async (phone: string, locationId: string, accessTo
 };
 
 const fetchContacts = async (whapiToken: any, locationId: any, ghlToken: any, user_name: string, role: string, userEmail: string, callback?: Function) => {
+  console.log('Fetching contacts:', { user_name, role, userEmail });
   try {
-    // Set contacts to state
-    setContacts(initialContacts);
-    setFilteredContacts(initialContacts);
-    setFilteredContactsForForwarding(initialContacts);
-   
+    console.log('Initial contacts:', { count: initialContacts.length });
+    const filteredInitialContacts = filterContactsByUserRole(initialContacts, role, user_name);
+    console.log('Filtered initial contacts:', { count: filteredInitialContacts.length });
+    setContacts(filteredInitialContacts);
+    setFilteredContacts(filteredInitialContacts);
+    setFilteredContactsForForwarding(filteredInitialContacts);
   } catch (error) {
     console.error('Failed to fetch contacts:', error);
-  } finally {
-  
   }
 };
 
@@ -1653,10 +1739,28 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     setContacts(allContacts.slice(0, 200));
     localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
     sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
+    console.log("All fetched contacts:", { count: allContacts.length });
+    setContacts(allContacts); // Use setContacts instead of setInitialContacts
   } catch (error) {
     console.error('Error fetching contacts:', error);
   }
 };
+
+useEffect(() => {
+  const fetchUserRole = async () => {
+    const user = auth.currentUser;
+    if (user) {
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (docUserSnapshot.exists()) {
+        const userData = docUserSnapshot.data();
+        setUserRole(userData.role);
+        console.log('User role set:', userData.role);
+      }
+    }
+  };
+  fetchUserRole();
+}, []);
 
 
   async function fetchConversationMessages(conversationId: string,contact:any) {
@@ -2464,6 +2568,14 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
 
 
   const handleCreateNewChat = async () => {
+
+    console.log('Attempting to create new chat:', { userRole });
+    if (userRole === "3") {
+      console.log('Permission denied for role 3 user');
+      toast.error("You don't have permission to create new chats.");
+      return;
+    }
+
     if (!newContactNumber) return;
   
     try {
@@ -2723,10 +2835,11 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
     const userData = docUserSnapshot.data();
     const companyId = userData.companyId;
 
-    if (!companyId) {
-      console.error('No companyId found');
-      return;
+    if (!companyId || typeof companyId !== 'string') {
+      console.error('Invalid companyId:', companyId);
+      throw new Error('Invalid companyId');
     }
+    
 
     // Check if notification has already been sent
     const notificationRef = doc(firestore, 'companies', companyId, 'assignmentNotifications', `${contact.id}_${assignedEmployeeName}`);
@@ -2751,9 +2864,14 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
       return;
     }
 
-    // Ensure the phone number is in the correct format for WhatsApp
-    const employeePhone = assignedEmployee.phoneNumber.replace(/[^\d]/g, '');
-    console.log('Formatted employee phone number:', employeePhone);
+    // Format the phone number for WhatsApp chat_id
+    const employeePhone = `${assignedEmployee.phoneNumber.replace(/[^\d]/g, '')}@c.us`;
+    console.log('Formatted employee chat_id:', employeePhone);
+
+    if (!employeePhone || !/^\d+@c\.us$/.test(employeePhone)) {
+      console.error('Invalid employeePhone:', employeePhone);
+      throw new Error('Invalid employeePhone');
+    }
 
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
@@ -2780,13 +2898,20 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
     console.log('Sending request to:', url);
     console.log('Request body:', JSON.stringify(requestBody));
 
+    console.log('Full request details:', {
+      url,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    });
+
     // Send WhatsApp message to the employee
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
     });
-
+  
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Error response:', response.status, errorText);
@@ -2807,7 +2932,14 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
     toast.success("Assignment notification sent successfully!");
   } catch (error) {
     console.error('Error sending assignment notification:', error);
-    toast.error('Failed to send assignment notification. Please try again.');
+    
+    // Instead of throwing the error, we'll handle it here
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      toast.error('Network error. Please check your connection and try again.');
+    } else {
+      toast.error('Failed to send assignment notification. Please try again.');
+    }
+    
     // Log additional information that might be helpful
     console.log('Assigned Employee Name:', assignedEmployeeName);
     console.log('Contact:', contact);
@@ -2815,8 +2947,6 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
     console.log('Company ID:', companyId);
   }
 };
-
-// ... rest of the code ...
   
   async function updateContactTags(contactId: string, tags: string[], addTag: boolean) {
     try {
@@ -2927,11 +3057,6 @@ function formatDate(timestamp: string | number | Date) {
     }
   }, [contacts, searchQuery, activeTags, isGroupFilterActive]);
   
-  useEffect(() => {
-    if (contacts.length > 0) {
-      setFilteredContacts(contacts);
-    }
-  }, [contacts]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value.toLowerCase();
@@ -3033,7 +3158,7 @@ function formatDate(timestamp: string | number | Date) {
             case 'group':
               return isGroup;
             case 'unassigned':
-              return !contactTags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag)) && !contactTags.includes('snooze');
+              return !contactTags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())) && !contactTags.includes('snooze');
             case 'snooze':
               return contactTags.includes('snooze');
             default:
@@ -5051,6 +5176,29 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                         </div>
                       </div>
                     )}
+
+                    {privateNotes[selectedChatId]?.map((note) => {
+                      const noteDate = new Date(note.timestamp);
+                      const messageDate = new Date(message.createdAt || message.dateAdded);
+                      if (noteDate > messageDate && (index === 0 || noteDate <= new Date(array[index - 1]?.createdAt || array[index - 1]?.dateAdded))) {
+                        return (
+                          <React.Fragment key={note.id}>
+                            <PrivateNoteIndicator />
+                            <div className="flex justify-center my-4">
+                              <div className="bg-yellow-100 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 p-3 rounded-lg shadow-md max-w-md">
+                                <div className="font-bold mb-1">Private Note:</div>
+                                <div>{note.text}</div>
+                                <div className="text-xs text-yellow-600 dark:text-yellow-300 mt-1">
+                                  {new Date(note.timestamp).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                          </React.Fragment>
+                        );
+                      }
+                      return null;
+                    })}
+
                     <div
                       data-message-id={message.id}
                       className={`p-2 mb-2 rounded ${message.isPrivateNote ? "bg-yellow-200 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group" : message.from_me ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass) : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass)}`}
