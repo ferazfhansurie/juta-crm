@@ -59,7 +59,6 @@ function Main() {
     dnd?: boolean | null;
     dndSettings?: any | null;
     email?: string | null;
-    firstName?: string | null;
     followers?: string[] | null;
     id?: string | null;
     lastName?: string | null;
@@ -72,6 +71,8 @@ function Main() {
     type?: string | null;
     website?: string | null;
     chat_pic_full?: string | null;
+    profilePicUrl?: string | null;
+    chat_id?:string| null;
   }
   
   interface Employee {
@@ -143,7 +144,7 @@ function Main() {
   const [totalContacts, setTotalContacts] = useState(contacts.length);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
   const [newContact, setNewContact] = useState({
-      firstName: '',
+      contactName: '',
       lastName: '',
       email: '',
       phone: '',
@@ -337,7 +338,7 @@ const handleSaveNewContact = async () => {
     const contactData = {
       id: formattedPhone,
       chat_id:chat_id,
-      firstName: newContact.firstName,
+      contactName: newContact.contactName,
       lastName: newContact.lastName,
       email: newContact.email,
       phone: formattedPhone,
@@ -355,7 +356,7 @@ const handleSaveNewContact = async () => {
     setAddContactModal(false);
     setContacts(prevContacts => [...prevContacts, contactData]);
     setNewContact({
-      firstName: '',
+      contactName: '',
       lastName: '',
       email: '',
       phone: '',
@@ -1110,7 +1111,7 @@ const handleSaveContact = async () => {
 
       // Update contact in Firebase
       await updateDoc(contactDocRef, {
-        firstName: currentContact.firstName,
+        contactName: currentContact.contactName,
         lastName: currentContact.lastName,
         email: currentContact.email,
         phone: currentContact.phone,
@@ -1165,7 +1166,7 @@ useEffect(() => {
 const filteredContacts = contacts.filter(contact => {
   const lowerCaseQuery = searchQuery.toLowerCase();
   return (
-    (contact.firstName?.toLowerCase().includes(lowerCaseQuery) ||
+    (contact.contactName?.toLowerCase().includes(lowerCaseQuery) ||
       contact.phone?.includes(lowerCaseQuery) ||
       contact.contactName?.toLowerCase().includes(lowerCaseQuery)) &&
     (selectedTagFilter ? (contact.tags ?? []).includes(selectedTagFilter) : true)
@@ -2180,16 +2181,24 @@ console.log(filteredContacts);
                     >
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center overflow-hidden">
-                          {contact.chat_pic_full ? (
-                            <img src={contact.chat_pic_full ?? ''} className="w-10 h-10 rounded-full object-cover mr-3 flex-shrink-0" />
-                          ) : (
-                            <div className="w-10 h-10 mr-3 border-2 border-gray-500 dark:border-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
-                              <Lucide icon="User" className="w-6 h-6 text-gray-500 dark:text-gray-400" />
-                            </div>
-                          )}
+                        {contact.profilePicUrl ? (
+  <img 
+    src={contact.profilePicUrl} 
+    alt={contact.contactName || "Profile"} 
+    className="w-10 h-10 rounded-full object-cover mr-3 flex-shrink-0" 
+  />
+) : (
+  <div className="w-10 h-10 mr-3 border-2 border-gray-500 dark:border-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
+    {contact.chat_id && contact.chat_id.includes('@g.us') ? (
+      <Lucide icon="Users" className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+    ) : (
+      <Lucide icon="User" className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+    )}
+  </div>
+)}
                           <div className="overflow-hidden">
                             <h3 className="font-medium text-lg text-gray-900 dark:text-white truncate">
-                            {contact.firstName ? (contact.lastName ? `${contact.firstName} ${contact.lastName}` : contact.firstName) : (contact.contactName || contact.phone)}
+                            {contact.contactName ? (contact.lastName ? `${contact.contactName} ${contact.lastName}` : contact.contactName) : (contact.contactName || contact.phone)}
                             </h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{contact.phone ?? contact.source}</p>
                           </div>
@@ -2286,8 +2295,8 @@ console.log(filteredContacts);
                   <input
                     type="text"
                     className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
-                    value={newContact.firstName}
-                    onChange={(e) => setNewContact({ ...newContact, firstName: e.target.value })}
+                    value={newContact.contactName}
+                    onChange={(e) => setNewContact({ ...newContact, contactName: e.target.value })}
                   />
                 </div>
                 <div>
@@ -2358,11 +2367,21 @@ console.log(filteredContacts);
           <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
             <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-10 text-gray-900 dark:text-white">
               <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
-                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-white mr-4">
-                  <span className="text-xl">{(currentContact?.firstName) ? currentContact?.firstName.charAt(0).toUpperCase() : ""}</span>
-                </div>
+              <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-white mr-4">
+  {currentContact?.profilePicUrl ? (
+    <img 
+      src={currentContact.profilePicUrl} 
+      alt={currentContact.contactName || "Profile"} 
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <span className="text-xl">
+      {currentContact?.contactName ? currentContact.contactName.charAt(0).toUpperCase() : ""}
+    </span>
+  )}
+</div>
                 <div>
-                  <div className="font-semibold text-gray-900 dark:text-white">{currentContact?.firstName} {currentContact?.lastName}</div>
+                  <div className="font-semibold text-gray-900 dark:text-white">{currentContact?.contactName} {currentContact?.lastName}</div>
                   <div className="text-sm text-gray-500 dark:text-gray-400">{currentContact?.phone}</div>
                 </div>
               </div>
@@ -2372,8 +2391,8 @@ console.log(filteredContacts);
                   <input
                     type="text"
                     className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
-                    value={currentContact?.firstName || ''}
-                    onChange={(e) => setCurrentContact({ ...currentContact, firstName: e.target.value } as Contact)}
+                    value={currentContact?.contactName || ''}
+                    onChange={(e) => setCurrentContact({ ...currentContact, contactName: e.target.value } as Contact)}
                   />
                 </div>
                 <div>
