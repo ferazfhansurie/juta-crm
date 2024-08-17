@@ -5324,7 +5324,7 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
 
                     <div
                       data-message-id={message.id}
-                      className={`p-2 mb-2 rounded ${message.type === 'privateNote' ? "bg-yellow-800 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group" : message.from_me ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass) : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass)}`}
+                      className={`p-2 mb-2 mr-4 rounded ${message.type === 'privateNote' ? "bg-yellow-600 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group" : message.from_me ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass) : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass)}`}
                       style={{
                         maxWidth: message.type === 'document' ? '90%' : '70%',
                         width: `${
@@ -5347,14 +5347,14 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
                           <span className="text-xs font-semibold">Private Note</span>
                         </div>
                       )}
-       {message.chat_id.includes('@g') && message.author && (
-  <div 
-    className="pb-0.5 text-xs font-medium" 
-    style={{ color: getAuthorColor(message.author.split('@')[0]) }}
-  >
-    {message.author.split('@')[0].toLowerCase()}
-  </div>
-)}
+                      {message.chat_id.includes('@g') && message.author && (
+                        <div 
+                          className="pb-0.5 text-sm font-medium capitalize" 
+                          style={{ color: getAuthorColor(message.author.split('@')[0]) }}
+                        >
+                          {message.author.split('@')[0].toLowerCase()}
+                        </div>
+                      )}
                       {message.type === 'text' && message.text?.context && (
                         <div className="p-2 mb-2 rounded bg-gray-300 dark:bg-gray-300">
                           <div className="text-sm font-medium text-gray-800 ">{message.text.context.quoted_author || ''}</div>
@@ -5638,34 +5638,34 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
             </button>
           </div>
         )}
-             <div className="flex mb-2">
+             <div className="flex mb-1">
     <button
-      className={`px-4 py-2 rounded-tl-lg rounded-tr-lg ${
+      className={`px-4 py-2 mr-1 rounded-lg ${
         messageMode === 'reply'
           ? 'bg-primary text-white'
-          : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+          : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
       }`}
       onClick={() => setMessageMode('reply')}
     >
       Reply
     </button>
     <button
-      className={`px-4 py-2 rounded-tl-lg rounded-tr-lg ${
+      className={`px-4 py-2 rounded-lg ${
         messageMode === 'privateNote'
-          ? 'bg-yellow-500 text-white'
-          : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+          ? 'bg-yellow-600 text-white'
+          : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
       }`}
       onClick={() => setMessageMode('privateNote')}
     >
       Private Note
     </button>
   </div>
-         {isPrivateNotesMentionOpen && (
-                    <div className="absolute bottom-full left-0 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
+         {isPrivateNotesMentionOpen && messageMode === 'privateNote' && (
+                    <div className="absolute bottom-full left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-40 overflow-y-auto mb-1">
                       {employeeList.map((employee) => (
                         <div
                           key={employee.id}
-                          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer text-gray-800 dark:text-gray-200"
+                          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-800 dark:text-gray-200"
                           onClick={() => handlePrivateNoteMentionSelect(employee)}
                         >
                           {employee.name}
@@ -5726,12 +5726,10 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
        
           <textarea
             ref={textareaRef}
-            className={`flex-grow h-10 px-2 py-1.5 m-1 ml-2 border rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden ${
-              messageMode === 'privateNote' 
-                ? 'bg-yellow-800 text-white dark:bg-yellow-800 dark:text-white placeholder-white dark:placeholder-white' 
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400'
+            className={`flex-grow h-10 px-2 py-2 m-1 ml-2 border rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden ${
+              'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400'
             } border-gray-300 dark:border-gray-700`}
-            placeholder="Type a message..."
+            placeholder={messageMode === 'privateNote' ? "Type a private note..." : "Type a message..."}
             value={newMessage}
             onChange={(e) => {
               setNewMessage(e.target.value);
@@ -6152,16 +6150,16 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
       <ToastContainer />
 
       <ContextMenu id="contact-context-menu">
-  <Item onClick={({ props }) => markAsUnread(props.contact)}>
-    Mark as Unread
-  </Item>
-  <Separator />
-  <Item 
-    onClick={({ props }) => props.isSnooze ? props.onUnsnooze(props.contact) : props.onSnooze(props.contact)}
-  >
-    Snooze/Unsnooze
-  </Item>
-</ContextMenu>
+        <Item onClick={({ props }) => markAsUnread(props.contact)}>
+          Mark as Unread
+        </Item>
+        <Separator />
+        <Item 
+          onClick={({ props }) => props.isSnooze ? props.onUnsnooze(props.contact) : props.onSnooze(props.contact)}
+        >
+          Snooze/Unsnooze
+        </Item>
+      </ContextMenu>
       {isReminderModalOpen && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsReminderModalOpen(false)}>
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
