@@ -1,6 +1,6 @@
 import _ from "lodash";
 import clsx from "clsx";
-import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useEffect, useRef, useState, useMemo } from "react";
+import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useEffect, useRef, useState, useMemo, useCallback } from "react";
 import Button from "@/components/Base/Button";
 import Pagination from "@/components/Base/Pagination";
 import { FormInput, FormSelect } from "@/components/Base/Form";
@@ -162,6 +162,7 @@ function Main() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [showAllEmployees, setShowAllEmployees] = useState(false);
 
   useEffect(() => {
     fetchCompanyData();
@@ -578,13 +579,30 @@ async function fetchConfigFromDatabase() {
   }, [companyId]);
 
   // Add this function to handle employee selection
-  const handleEmployeeSelect = async (employee: Employee) => {
+  const handleEmployeeSelect = async (event: React.MouseEvent, employee: Employee) => {
+    event.stopPropagation(); // Prevent the click from bubbling up
     console.log("Employee selected:", employee);
     const fullEmployeeData = await fetchEmployeeData(employee.id);
     if (fullEmployeeData) {
       setSelectedEmployee(fullEmployeeData);
     }
   };
+
+  // Add this new function
+  const handleOutsideClick = useCallback((event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.employee-card')) {
+      setSelectedEmployee(null);
+    }
+  }, []);
+
+  // Add this new useEffect
+  useEffect(() => {
+    document.addEventListener('click', handleOutsideClick);
+    return () => {
+      document.removeEventListener('click', handleOutsideClick);
+    };
+  }, [handleOutsideClick]);
 
   return (
     <div className="flex flex-col w-full h-full overflow-x-hidden overflow-y-auto">
@@ -596,13 +614,13 @@ async function fetchConfigFromDatabase() {
             {[
               { icon: "Contact", label: "Total Contacts", value: totalContacts },
               { icon: "MessageCircleReply", label: "Number Replies", value: numReplies },
-              { icon: "Mail", label: "Total Leads", value: unclosed },
               { icon: "Check", label: "Closed Leads", value: closed },
+              // { icon: "TrendingUp", label: "Conversion Rate", value: `${((closed / totalContacts) * 100).toFixed(1)}%` },
             ].map((stat, index) => (
               <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
                 <div className="flex items-center justify-between">
                   <Lucide
-                    icon={stat.icon as "Contact" | "MessageCircleReply" | "Mail" | "Check"}
+                    icon={stat.icon as "Contact" | "MessageCircleReply" | "Mail" | "Check" | "TrendingUp"}
                     className="w-12 h-12 text-blue-500 dark:text-blue-400"
                   />
                   <div className="text-right">
@@ -634,10 +652,10 @@ async function fetchConfigFromDatabase() {
                 {currentUser && (
                   <div 
                     key={currentUser.id} 
-                    className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
+                    className={`employee-card bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
                       selectedEmployee?.id === currentUser.id ? 'border-2 border-blue-500' : ''
                     }`}
-                    onClick={() => handleEmployeeSelect(currentUser)}
+                    onClick={(e) => handleEmployeeSelect(e, currentUser)}
                   >
                     <div className="flex items-center">
                       <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
@@ -651,25 +669,54 @@ async function fetchConfigFromDatabase() {
                   </div>
                 )}
                 {currentUser?.role !== '3' && (
-                  employees.filter(emp => emp.id !== currentUser?.id).map((employee) => (
-                    <div 
-                      key={employee.id} 
-                      className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
-                        selectedEmployee?.id === employee.id ? 'border-2 border-blue-500' : ''
-                      }`}
-                      onClick={() => handleEmployeeSelect(employee)}
-                    >
-                      <div className="flex items-center">
-                        <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
-                        <div>
-                          <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            {employee.assignedContacts} currently assigned contacts
+                  <>
+                    {employees.filter(emp => emp.id !== currentUser?.id).slice(0, 4).map((employee) => (
+                      <div 
+                        key={employee.id} 
+                        className={`employee-card bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
+                          selectedEmployee?.id === employee.id ? 'border-2 border-blue-500' : ''
+                        }`}
+                        onClick={(e) => handleEmployeeSelect(e, employee)}
+                      >
+                        <div className="flex items-center">
+                          <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
+                          <div>
+                            <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">
+                              {employee.assignedContacts} currently assigned contacts
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                    {showAllEmployees && employees.filter(emp => emp.id !== currentUser?.id).slice(4).map((employee) => (
+                      <div 
+                        key={employee.id} 
+                        className={`employee-card bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
+                          selectedEmployee?.id === employee.id ? 'border-2 border-blue-500' : ''
+                        }`}
+                        onClick={(e) => handleEmployeeSelect(e, employee)}
+                      >
+                        <div className="flex items-center">
+                          <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
+                          <div>
+                            <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">
+                              {employee.assignedContacts} currently assigned contacts
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {employees.filter(emp => emp.id !== currentUser?.id).length > 4 && (
+                      <button
+                        className="w-full text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium mt-2"
+                        onClick={() => setShowAllEmployees(!showAllEmployees)}
+                      >
+                        {showAllEmployees ? 'Show Less' : 'Show More'}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
               <div className="lg:col-span-3">

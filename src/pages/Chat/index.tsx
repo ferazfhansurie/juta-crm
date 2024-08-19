@@ -5412,24 +5412,24 @@ const handleForwardMessage = async () => {
                           {formatText(message.text.body)}
                         </div>
                       )}
-                          {message.type === 'image' && message.image && (
-  <div className="p-0 message-content image-message">
-    <img
-      src={message.image.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image.link || ''}
-      alt="Image"
-      className="rounded-lg message-image cursor-pointer"
-      style={{ maxWidth: '300px', maxHeight: '300px', objectFit: 'contain' }}
-      onClick={() => openImageModal(message.image?.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image?.link || '')}
-      onError={(e) => {
-        console.error("Error loading image:", e.currentTarget.src);
-        e.currentTarget.src = logoImage; // Replace with your fallback image path
-      }}
-    />
-    {message.image.caption && (
-      <div className="caption text-gray-800 dark:text-gray-200 mt-2">{message.image.caption}</div>
-    )}
-  </div>
-)}
+                      {message.type === 'image' && message.image && (
+                        <div className="p-0 message-content image-message">
+                          <img
+                            src={message.image.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image.link || ''}
+                            alt="Image"
+                            className="rounded-lg message-image cursor-pointer"
+                            style={{ maxWidth: '300px', maxHeight: '300px', objectFit: 'contain' }}
+                            onClick={() => openImageModal(message.image?.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image?.link || '')}
+                            onError={(e) => {
+                              console.error("Error loading image:", e.currentTarget.src);
+                              e.currentTarget.src = logoImage; // Replace with your fallback image path
+                            }}
+                          />
+                          {message.image.caption && (
+                            <div className="caption text-gray-800 dark:text-gray-200 mt-2">{message.image.caption}</div>
+                          )}
+                        </div>
+                      )}
                       {message.type === 'video' && message.video && (
                         <div className="video-content p-0 message-content image-message">
                           <video
