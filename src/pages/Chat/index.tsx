@@ -3197,6 +3197,7 @@ function formatDate(timestamp: string | number | Date) {
 
     setFilteredContacts(filtered);
   };
+
   const handleSearchChange2 = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value.toLowerCase();
     setSearchQuery2(query);
@@ -4484,8 +4485,9 @@ const handleForwardMessage = async () => {
       const whapiToken = companyData.whapiToken || '';
       const phone = userData.phoneNumber.split('+')[1];
       const chatId = phone + "@c.us"; // The specific number you want to send the reminder to
-console.log(chatId)
-const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName || selectedContact.firstName || selectedContact.phone}\n\n${text}`;
+      
+      console.log(chatId)
+      const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName || selectedContact.firstName || selectedContact.phone}\n\n${text}`;
 
       const scheduledMessageData = {
         batchQuantity: 1,
@@ -4940,7 +4942,7 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
   {filteredContacts.map((contact, index) => (
     <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
     <div
-      className={`m-2 pl-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 group ${
+      className={`m-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 group ${
         contact.chat_id !== undefined
           ? selectedChatId === contact.chat_id
             ? 'bg-slate-300 text-white dark:bg-gray-800 dark:text-gray-200'
@@ -4958,8 +4960,8 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
       onClick={() => selectChat(contact.chat_id!, contact.id!)}
     >
     </div>
-    <div className="relative w-12 h-12">
-    <div className="w-12 h-12 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl overflow-hidden">
+    <div className="relative w-14 h-14">
+    <div className="w-14 h-14 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl overflow-hidden">
     {contact && (
   contact.chat_id && contact.chat_id.includes('@g.us') ? (
     contact.profilePicUrl ? (
@@ -4990,9 +4992,19 @@ const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName |
   </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center">
-          <span className="font-semibold capitalize truncate w-25 text-gray-800 dark:text-gray-200">
-            {contact.contactName ?? contact.firstName ?? contact.phone}
-          </span>
+          <div className="flex items-center">
+            <span className="font-semibold capitalize truncate w-25 text-gray-800 dark:text-gray-200 mr-2">
+              {((contact.contactName ?? contact.firstName ?? contact.phone ?? "").slice(0, 20))}
+              {((contact.contactName ?? contact.firstName ?? contact.phone ?? "").length > 20 ? '...' : '')}
+            </span>
+            <span className="text-xs text-gray-600 dark:text-gray-400 truncate" style={{ 
+              visibility: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'hidden' : 'visible',
+              display: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'flex' : 'inline',
+              alignItems: 'center'
+            }}>
+              {contact.phone}
+            </span>
+          </div>
           <span className="text-xs flex items-center space-x-2 text-gray-600 dark:text-gray-400">
             <div className="ml-1 flex flex-grow">
               {(() => {
