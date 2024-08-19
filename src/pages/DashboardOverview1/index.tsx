@@ -166,7 +166,6 @@ function Main() {
   useEffect(() => {
     fetchCompanyData();
     fetchEmployees();
-    fetchLeadsData();
   }, []);
   
 
@@ -538,6 +537,11 @@ async function fetchConfigFromDatabase() {
   }, [selectedEmployee]);
 
   async function fetchLeadsData() {
+    if (!companyId) {
+      console.error('CompanyId is not set. Unable to fetch leads data.');
+      return;
+    }
+
     try {
       const leadsRef = collection(firestore, `companies/${companyId}/leads`);
       const leadsSnapshot = await getDocs(leadsRef);
@@ -552,12 +556,26 @@ async function fetchConfigFromDatabase() {
         }
       });
 
+      // Log the leads data
+      console.log('Leads Data:', {
+        totalLeads,
+        closedLeads,
+        openLeads: totalLeads - closedLeads
+      });
+
       setUnclosed(totalLeads);
       setClosed(closedLeads);
     } catch (error) {
       console.error('Error fetching leads data:', error);
     }
   }
+
+  // Add a new useEffect to fetch leads data after companyId is set
+  useEffect(() => {
+    if (companyId) {
+      fetchLeadsData();
+    }
+  }, [companyId]);
 
   // Add this function to handle employee selection
   const handleEmployeeSelect = async (employee: Employee) => {

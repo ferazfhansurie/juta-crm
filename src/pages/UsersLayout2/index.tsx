@@ -43,6 +43,7 @@ interface Employee {
   groups?: string[];
   email?: string;
   assignedContacts?: number;
+  employeeId?: string;
   // Add other properties as needed
 }
 
@@ -194,10 +195,10 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
   }
 };
   return (
-    <>
-      <h2 className="mt-10 text-2xl font-bold intro-y text-gray-800 dark:text-gray-200">Users Layout</h2>
-      <div className="grid grid-cols-12 gap-6 mt-5">
-        <div className="flex flex-wrap items-center col-span-12 mt-2 intro-y sm:flex-nowrap">
+    <div className="flex flex-col h-full overflow-auto">
+      <h2 className="ml-4 mt-10 text-2xl font-bold intro-y text-gray-800 dark:text-gray-200">Users Directory</h2>
+      <div className="flex-grow p-5">
+        <div className="flex flex-wrap items-center mt-2 intro-y sm:flex-nowrap">
           <Link to="crud-form">
             {showAddUserButton && role !== "3" && (
               <Button variant="primary" className="mr-2 shadow-md">
@@ -219,14 +220,29 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
             </div>
           </div>
         </div>
-        <div className="col-span-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {employeeList.map((contact, index) => (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-5">
+          {employeeList
+            .sort((a, b) => {
+              const roleOrder = { "1": 0, "2": 1, "3": 2, "4": 3 };
+              return roleOrder[a.role as keyof typeof roleOrder] - roleOrder[b.role as keyof typeof roleOrder];
+            })
+            .map((contact, index) => (
             <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-                      {contact.name}
+                      {contact.name.length > 20 ? contact.name.substring(0, 20) + '...' : contact.name}
+                      {contact.employeeId && (
+                        <span className={`ml-2 text-md font-medium ${
+                          contact.role === "1" ? 'text-indigo-600 dark:text-indigo-400' :
+                          contact.role === "2" ? 'text-teal-600 dark:text-teal-400' :
+                          contact.role === "3" ? 'text-purple-600 dark:text-purple-400' :
+                          'text-amber-600 dark:text-amber-400'
+                        }`}>
+                          {contact.employeeId}
+                        </span>
+                      )}
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       {contact.email}
@@ -293,7 +309,7 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
         </div>
       )}
       <ToastContainer />
-    </>
+    </div>
   );
 }
 
