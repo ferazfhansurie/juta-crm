@@ -1903,10 +1903,15 @@ useEffect(() => {
                 // Include message-specific content
                 switch (message.type) {
                     case 'text':
-                        formattedMessage.text = {
-                            body: message.text ? message.text.body : '', // Include the message body
-                            context: message.context ? message.context : '' // Include the context
-                        };
+                      formattedMessage.text = {
+                          body: message.text ? message.text.body : '', // Include the message body
+                          context: message.text && message.text.context ? {
+                              quoted_author: message.text.context.quoted_author,
+                              quoted_content: {
+                                  body: message.text.context.quoted_content?.body || ''
+                              }
+                          } : null // Include the context with quoted content
+                        };                
                         break;
                     case 'image':
                         formattedMessage.image = message.image ? message.image : undefined;
@@ -2145,8 +2150,13 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         switch (message.type) {
           case 'text':
             formattedMessage.text = {
-              body: message.text ? message.text.body : '', // Include the message body
-              context: message.context ? message.context : '' // Include the context
+                body: message.text ? message.text.body : '', // Include the message body
+                context: message.text && message.text.context ? {
+                    quoted_author: message.text.context.quoted_author,
+                    quoted_content: {
+                        body: message.text.context.quoted_content?.body || ''
+                    }
+                } : null // Include the context with quoted content
             };
             break;
           case 'image':
@@ -4997,16 +5007,18 @@ const handleForwardMessage = async () => {
               {((contact.contactName ?? contact.firstName ?? contact.phone ?? "").slice(0, 20))}
               {((contact.contactName ?? contact.firstName ?? contact.phone ?? "").length > 20 ? '...' : '')}
             </span>
-            <span className="text-xs text-gray-600 dark:text-gray-400 truncate" style={{ 
-              visibility: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'hidden' : 'visible',
-              display: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'flex' : 'inline',
-              alignItems: 'center'
-            }}>
-              {contact.phone}
-            </span>
+            {!contact.chat_id?.includes('@g.us') && (
+              <span className="text-xs text-gray-600 dark:text-gray-400 truncate" style={{ 
+                visibility: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'hidden' : 'visible',
+                display: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'flex' : 'inline',
+                alignItems: 'center'
+              }}>
+                {contact.phone}
+              </span>
+            )}
           </div>
           <span className="text-xs flex items-center space-x-2 text-gray-600 dark:text-gray-400">
-            <div className="ml-1 flex flex-grow">
+            <div className="flex flex-grow items-center">
               {(() => {
                 const employeeTags = contact.tags?.filter(tag =>
                   employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
@@ -5029,7 +5041,7 @@ const handleForwardMessage = async () => {
                           appendTo: () => document.body
                         }}
                       >
-                        <span className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200 text-xs font-semibold mr-1 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
+                        <span className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200 text-xs font-semibold mr-1 px-2.5 py-0.5 rounded-full cursor-pointer">
                           <Lucide icon="Users" className="w-4 h-4 inline-block" />
                           <span className="ml-1 text-xxs">
                             {employeeTags.length === 1 ? employeeTags[0] : employeeTags.length}
@@ -5045,7 +5057,7 @@ const handleForwardMessage = async () => {
                           appendTo: () => document.body
                         }}
                       >
-                        <span className="bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200 text-xs font-semibold mr-1 mb-2 px-2.5 py-0.5 rounded-full cursor-pointer">
+                        <span className="bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200 text-xs font-semibold mr-1 px-2.5 py-0.5 rounded-full cursor-pointer">
                           <Lucide icon="Tag" className="w-4 h-4 inline-block" />
                           <span className="ml-1">{uniqueTags.length}</span>
                         </span>
@@ -5054,38 +5066,40 @@ const handleForwardMessage = async () => {
                   </>
                 );
               })()}
-                    </div>
+            </div>
 
-            <button
-              className={`text-md mr-2 ${
-                contact.pinned ? 'text-blue-500 dark:text-blue-400 font-bold' : 'text-gray-500 group-hover:text-blue-500 dark:text-gray-400 dark:group-hover:text-blue-400 group-hover:font-bold dark:group-hover:font-bold'
-              }`}
-              onClick={(e) => {
-                e.stopPropagation();
-                togglePinConversation(contact.chat_id!);
-              }}
-            >
-             {contact.pinned ? (
-   <Pin 
-   size={14} 
-   color="currentColor" 
-   strokeWidth={1.25} 
-   absoluteStrokeWidth 
-   className="text-gray-800 dark:text-blue-400 fill-current"
- />
-) : (
-  <PinOff size={14} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
-)}
-            </button>
-            <span className={`${
-  contact.unreadCount && contact.unreadCount > 0 
-    ? 'text-blue-500 font-bold' 
-    : ''
-}`}>
-  {contact.last_message?.createdAt || contact.last_message?.timestamp
-    ? formatDate(contact.last_message.createdAt || (contact.last_message.timestamp && contact.last_message.timestamp * 1000))
-    : 'No Messages'}
-</span>
+            <div className="flex items-center space-x-2">
+              <button
+                className={`text-md ${
+                  contact.pinned ? 'text-blue-500 dark:text-blue-400 font-bold' : 'text-gray-500 group-hover:text-blue-500 dark:text-gray-400 dark:group-hover:text-blue-400 group-hover:font-bold dark:group-hover:font-bold'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePinConversation(contact.chat_id!);
+                }}
+              >
+               {contact.pinned ? (
+                 <Pin 
+                 size={14} 
+                 color="currentColor" 
+                 strokeWidth={1.25} 
+                 absoluteStrokeWidth 
+                 className="text-gray-800 dark:text-blue-400 fill-current"
+               />
+              ) : (
+                <PinOff size={14} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
+              )}
+              </button>
+              <span className={`${
+                contact.unreadCount && contact.unreadCount > 0 
+                  ? 'text-blue-500 font-bold' 
+                  : ''
+              }`}>
+                {contact.last_message?.createdAt || contact.last_message?.timestamp
+                  ? formatDate(contact.last_message.createdAt || (contact.last_message.timestamp && contact.last_message.timestamp * 1000))
+                  : 'No Messages'}
+              </span>
+            </div>
           </span>
     </div>
         <div className="flex justify-between items-center">
@@ -5283,7 +5297,7 @@ const handleForwardMessage = async () => {
           </Menu>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4" 
+      <div className="flex-1 overflow-y-auto p-2" 
         style={{
           paddingBottom: "150px",
           backgroundColor: selectedContact ? 'transparent' : 'bg-slate-400 dark:bg-gray-800',
@@ -5336,7 +5350,7 @@ const handleForwardMessage = async () => {
 
                     <div
                       data-message-id={message.id}
-                      className={`p-2 mb-2 mr-4 rounded ${message.type === 'privateNote' ? "bg-yellow-600 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group" : message.from_me ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass) : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass)}`}
+                      className={`p-2 mb-2 mr-2 rounded ${message.type === 'privateNote' ? "bg-yellow-600 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group" : message.from_me ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass) : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass)}`}
                       style={{
                         maxWidth: message.type === 'document' ? '90%' : '70%',
                         width: `${
@@ -5359,7 +5373,7 @@ const handleForwardMessage = async () => {
                           <span className="text-xs font-semibold">Private Note</span>
                         </div>
                       )}
-                      {message.chat_id.includes('@g') && message.author && (
+                      {message.chat_id && message.chat_id.includes('@g') && message.author && (
                         <div 
                           className="pb-0.5 text-sm font-medium capitalize" 
                           style={{ color: getAuthorColor(message.author.split('@')[0]) }}
@@ -5368,29 +5382,34 @@ const handleForwardMessage = async () => {
                         </div>
                       )}
                       {message.type === 'text' && message.text?.context && (
-                        <div className="p-2 mb-2 rounded bg-gray-300 dark:bg-gray-300">
-                          <div className="text-sm font-medium text-gray-800 ">{message.text.context.quoted_author || ''}</div>
-                          <div className="text-sm text-gray-800 ">{message.text.context.quoted_content?.body || ''}</div>
+                        <div className="p-2 mb-2 rounded bg-gray-200 dark:bg-gray-800">
+                          <div 
+                            className="text-sm font-medium" 
+                            style={{ color: getAuthorColor(message.text.context.quoted_author) }}
+                          >
+                            {message.text.context.quoted_author || ''}
+                          </div>
+                          <div className="text-sm text-gray-700 dark:text-gray-300">{message.text.context.quoted_content?.body || ''}</div>
                         </div>
                       )}
-   {message.type === 'privateNote' && (
-  <div className="whitespace-pre-wrap break-words overflow-hidden text-white">
-    {(() => {
-      const text = typeof message.text === 'string' ? message.text : message.text?.body || 'No content';
-      const parts = text.split(/(@\w+)/g);
-      return parts.map((part, index) => 
-        part.startsWith('@') ? (
-          <span key={index} className="underline">{part}</span>
-        ) : (
-          part
-        )
-      );
-    })()}
-  </div>
-)}
-                      {message.type === 'text' && (
+                      {message.type === 'privateNote' && (
+                        <div className="whitespace-pre-wrap break-words overflow-hidden text-white">
+                          {(() => {
+                            const text = typeof message.text === 'string' ? message.text : message.text?.body || 'No content';
+                            const parts = text.split(/(@\w+)/g);
+                            return parts.map((part, index) => 
+                              part.startsWith('@') ? (
+                                <span key={index} className="underline">{part}</span>
+                              ) : (
+                                part
+                              )
+                            );
+                          })()}
+                        </div>
+                      )}
+                      {message.type === 'text' && message.text?.body && (
                         <div className={`whitespace-pre-wrap break-words overflow-hidden ${message.from_me ? myMessageTextClass : otherMessageTextClass}`} style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                          {formatText(message.text?.body || '')}
+                          {formatText(message.text.body)}
                         </div>
                       )}
                           {message.type === 'image' && message.image && (
@@ -5578,35 +5597,28 @@ const handleForwardMessage = async () => {
           ))}
         </div>
                       )}
-                      <div className={`message-timestamp text-xs ${message.from_me ? myMessageTextClass : otherMessageTextClass} mt-1`}>
-                        {formatTimestamp(message.createdAt || message.dateAdded)}
-                        {message.name && (
-                          <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>
-                        )}
-                        {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
-                          <div className="flex items-center">
-                            <input
-                              type="checkbox"
-                              className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2"
-                              checked={selectedMessages.includes(message)}
-                              onChange={() => handleSelectMessage(message)}
-                            />
-                            <button
-                              className="ml-2 text-blue-500 hover:text-gray-400 dark:text-blue-400 dark:hover:text-gray-600 fill-current"
-                              onClick={() => setReplyToMessage(message)}
-                            >
-                              <Lucide icon="MessageSquare" className="w-5 h-5" />
-                            </button>
-                            {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && userRole !== "3" && (
-                              <button
-                                className="ml-2 text-white hover:text-gray-400 dark:text-gray-200 dark:hover:text-gray-400 fill-current"
-                                onClick={() => openEditMessage(message)}
-                              >
-                                <Lucide icon="Pencil" className="w-5 h-5" />
+                      <div className={`message-timestamp text-xs ${message.from_me ? myMessageTextClass : otherMessageTextClass} mt-1 flex items-center h-6`}>
+                        <div className="flex-grow">
+                          {formatTimestamp(message.createdAt || message.dateAdded)}
+                          {message.name && <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>}
+                        </div>
+                        <div className="flex items-center">
+                          {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+                            <>
+                              <input type="checkbox" className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2" checked={selectedMessages.includes(message)} onChange={() => handleSelectMessage(message)} />
+                              <button className="ml-2 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors duration-200" onClick={() => setReplyToMessage(message)}>
+                                <Lucide icon="MessageSquare" className="w-5 h-5 fill-current" />
                               </button>
-                            )}
-      </div>
-                        )}
+                              {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && userRole !== "3" && (
+                                <button className="ml-2 text-black hover:text-black dark:text-gray-300 dark:hover:text-black transition-colors duration-200" onClick={() => openEditMessage(message)}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                                    <path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z" />
+                                  </svg>
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </React.Fragment>
@@ -5838,19 +5850,19 @@ const handleForwardMessage = async () => {
 </div>
 
 {selectedMessages.length > 0 && (
-  <div className="fixed bottom-20 right-2 md:right-10 space-y-2 md:space-y-0 md:space-x-4 flex flex-col md:flex-row">
+  <div className="fixed bottom-16 right-2 md:right-10 space-y-2 md:space-y-0 md:space-x-4 flex flex-col md:flex-row">
     <button
-      className="bg-blue-800 dark:bg-blue-600 text-white px-4 py-3 rounded-xl shadow-lg w-full md:w-auto"
+      className="bg-blue-800 dark:bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg w-full md:w-auto"
       onClick={() => setIsForwardDialogOpen(true)}>
       Forward
     </button>
     <button
-      className="bg-red-800 dark:bg-red-600 text-white px-4 py-3 rounded-xl shadow-lg w-full md:w-auto"
+      className="bg-red-800 dark:bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg w-full md:w-auto"
       onClick={openDeletePopup}>
       Delete
     </button>
     <button
-      className="bg-gray-700 dark:bg-gray-600 text-white px-4 py-3 rounded-xl shadow-lg w-full md:w-auto"
+      className="bg-gray-700 dark:bg-gray-600 text-white px-4 py-2 rounded-lg shadow-lg w-full md:w-auto"
       onClick={() => setSelectedMessages([])}
       onKeyDown={handleKeyDown}>
       Cancel

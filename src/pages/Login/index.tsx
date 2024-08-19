@@ -26,10 +26,11 @@ const firebaseConfig = {
   function Main() {
     const [email, setEmail] = useState(""); // State for email input
     const [password, setPassword] = useState(""); // State for password input
-    const [signInResult, setSignInResult] = useState(null);
+    const [error, setError] = useState("");
     const [signedIn, setSignedIn] = useState(false);
     const navigate = useNavigate(); // Initialize useNavigate
     const handleSignIn = () => {
+      setError(""); // Clear previous errors
       const auth = getAuth(app);
       signInWithEmailAndPassword(auth, email, password)
         .then((userCredential) => {
@@ -40,8 +41,22 @@ const firebaseConfig = {
         })
         .catch((error) => {
           const errorCode = error.code;
-          const errorMessage = error.message;
-          setSignInResult(errorMessage);
+          switch (errorCode) {
+            case "auth/invalid-email":
+              setError("Please enter a valid email address.");
+              break;
+            case "auth/user-disabled":
+              setError("This account has been disabled. Please contact support.");
+              break;
+            case "auth/user-not-found":
+              setError("No account found with this email. Please check your email or sign up.");
+              break;
+            case "auth/wrong-password":
+              setError("Incorrect password. Please try again.");
+              break;
+            default:
+              setError("An error occurred during sign-in. Please try again later.");
+          }
         });
     }
 
@@ -120,8 +135,8 @@ const firebaseConfig = {
               </Link>
                     
                   </div>
-                  {signInResult && (
-                    <div className="mt-5 text-center text-red-500">{signInResult}</div>
+                  {error && (
+                    <div className="mt-5 text-center text-red-500">{error}</div>
                   )}
                 </div>
               </div>
