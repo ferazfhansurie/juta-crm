@@ -262,25 +262,28 @@ const paginatedEmployees = filteredEmployees
             </div>
             <div className="flex-grow"></div>
             <div className="flex justify-end items-center font-medium">
-              <ReactPaginate
-                  breakLabel="..."
-                  nextLabel="Next >"
-                  onPageChange={handlePageChange}
-                  pageRangeDisplayed={5}
-                  pageCount={Math.ceil(filteredEmployees.length / itemsPerPage)}
-                  previousLabel="< Previous"
-                  renderOnZeroPageCount={null}
-                  containerClassName="flex justify-center items-center"
-                  pageClassName="mx-1"
-                  pageLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
-                  previousClassName="mx-1"
-                  nextClassName="mx-1"
-                  previousLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
-                  nextLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
-                  disabledClassName="opacity-50 cursor-not-allowed"
-                  activeClassName="font-bold"
-                  activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
-                />
+            <ReactPaginate
+              breakLabel="..."
+              nextLabel={<>Next <span className="hidden sm:inline">&gt;</span></>}
+              previousLabel={<><span className="hidden sm:inline">&lt;</span> Previous</>}
+              onPageChange={handlePageChange}
+              pageRangeDisplayed={3}
+              marginPagesDisplayed={1}
+              pageCount={Math.ceil(filteredEmployees.length / itemsPerPage)}
+              renderOnZeroPageCount={null}
+              containerClassName="flex justify-center items-center flex-wrap mt-2"
+              pageClassName="m-1"
+              pageLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+              previousClassName="m-1"
+              nextClassName="m-1"
+              previousLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+              nextLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+              disabledClassName="opacity-50 cursor-not-allowed"
+              activeClassName="font-bold"
+              activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
+              breakClassName="mx-1"
+              breakLinkClassName="px-2 py-1 text-gray-700 dark:text-gray-300"
+            />
             </div>
           </div>
         </div>
