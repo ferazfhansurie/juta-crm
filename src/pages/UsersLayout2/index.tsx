@@ -206,6 +206,13 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
               </Button>
             )}
           </Link>
+          <Link to="loading2">
+            {showAddUserButton && role !== "3" && (
+              <Button variant="primary" className="mr-2 shadow-md">
+                Add Number
+              </Button>
+            )}
+          </Link>
           <div className="w-full mt-3 sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
             <div className="relative w-56 text-slate-500">
               <FormInput

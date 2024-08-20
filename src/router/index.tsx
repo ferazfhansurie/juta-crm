@@ -59,6 +59,7 @@ import Dropdown from "../pages/Dropdown";
 import Typography from "../pages/Typography";
 import Icon from "../pages/Icon";
 import LoadingIcon from "../pages/LoadingPage";
+import LoadingIcon2 from "../pages/LoadingPage2";
 import RegularForm from "../pages/RegularForm";
 import Datepicker from "../pages/Datepicker";
 import FileUpload from "../pages/FileUpload";
@@ -163,6 +164,7 @@ function Router() {
         { path: "slider", element: <Slider /> },
         { path: "image-zoom", element: <ImageZoom /> },
         { path: "opp", element: <Opportunities /> },
+        { path: "users-layout-2/loading2", element: <LoadingIcon2 /> },
         { path: "dashboard-overview-2", element: <DashboardOverview2 /> },
         { path: "product-list", element: <ProductList /> },
         { path: "product-grid", element: <ProductGrid /> },

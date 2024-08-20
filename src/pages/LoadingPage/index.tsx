@@ -122,16 +122,27 @@ function LoadingPage() {
       if (botStatusResponse.status !== 200) {
         throw new Error(`Unexpected response status: ${botStatusResponse.status}`);
       }
-
-      const { status, qrCode } = botStatusResponse.data;
-      setBotStatus(status);
-      if (status === 'qr') {
-        setQrCodeImage(qrCode);
-        console.log({companyId});
-      } else if (status === 'authenticated' || status === 'ready') {
-        console.log("Bot authenticated, preparing to fetch contacts");
-        setShouldFetchContacts(true);
+      let phoneCount = companyData.phoneCount??null;
+      if(phoneCount === null){
+        const { status, qrCode } = botStatusResponse.data;
+        console.log(botStatusResponse.data); 
+        console.log('phonecount is 0'); 
+        setBotStatus(status);
+        if (status === 'qr') {
+          setQrCodeImage(qrCode);
+          console.log({companyId});
+        } else if (status === 'authenticated' || status === 'ready') {
+          console.log("Bot authenticated, preparing to fetch contacts");
+          setShouldFetchContacts(true);
+        }
+      }else{
+        console.log(botStatusResponse.data[0])
+        if(botStatusResponse.data[0].status === 'authenticated' || botStatusResponse.data[0].status === 'ready'){
+          console.log("Bot authenticated, preparing to fetch contacts");
+          setShouldFetchContacts(true);
+        }
       }
+   
       setIsLoading(false);
     } catch (error) {
       setIsLoading(false);
