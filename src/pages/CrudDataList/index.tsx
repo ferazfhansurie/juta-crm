@@ -26,6 +26,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { format, compareAsc } from 'date-fns';
 import { saveAs } from 'file-saver';
 import Papa from 'papaparse';
+import ReactPaginate from 'react-paginate';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -173,6 +174,8 @@ function Main() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [stopbot, setStopbot] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
+  const [itemOffset, setItemOffset] = useState(0);
+  const itemsPerPage = 30;
 
   useEffect(() => {
     if (initialContacts.length > 0) {
@@ -1173,6 +1176,14 @@ const filteredContacts = contacts.filter(contact => {
   );
 });
 
+const endOffset = itemOffset + itemsPerPage;
+const currentContacts = filteredContacts.slice(itemOffset, endOffset);
+const pageCount = Math.ceil(filteredContacts.length / itemsPerPage);
+
+const handlePageClick = (event: { selected: number }) => {
+  const newOffset = (event.selected * itemsPerPage) % filteredContacts.length;
+  setItemOffset(newOffset);
+};
 
 useEffect(() => {
   console.log('Contacts:', contacts);
@@ -1180,10 +1191,6 @@ useEffect(() => {
   console.log('Search Query:', searchQuery);
 }, [contacts, filteredContacts, searchQuery]);
 console.log(filteredContacts);
-  // Get current contacts for pagination
-  const indexOfLastContact = currentPage * contactsPerPage;
-  const indexOfFirstContact = indexOfLastContact - contactsPerPage;
-  const currentContacts = filteredContacts.slice(indexOfFirstContact, indexOfLastContact);
 
   const sendBlastMessage = async () => {
     console.log('Starting sendBlastMessage function');
@@ -1550,8 +1557,6 @@ console.log(filteredContacts);
       throw error;
     }
   }
-
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
   
   useEffect(() => {
     fetchScheduledMessages();
@@ -2131,45 +2136,68 @@ console.log(filteredContacts);
         <div className="flex flex-col">
           <div className="sticky top-0 bg-gray-100 dark:bg-gray-900 z-10 py-2">
             <div className="flex flex-col md:flex-row items-start md:items-center text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              <span className="mb-2 md:mb-0 text-2xl text-left">Contacts</span>
-              <button
-                onClick={handleSelectAll}
-                className="inline-flex items-center p-2 m-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg cursor-pointer transition-colors duration-200"
-              >
-                <Lucide 
-                  icon={selectedContacts.length === filteredContacts.length ? "CheckSquare" : "Square"} 
-                  className="w-4 h-4 mr-1 text-gray-600 dark:text-gray-300" 
-                />
-                <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">
-                  Select All
-                </span>
-              </button>
-              {selectedTagFilter && (
-                <div 
-                  className="inline-flex items-center p-2 mt-2 md:mt-0 md:ml-2 bg-blue-100 dark:bg-blue-900 rounded-md self-start md:self-auto cursor-pointer"
-                  onClick={() => setSelectedTagFilter('')}
+              <div className="flex-grow">
+                <span className="mb-2 md:mb-0 text-2xl text-left">Contacts</span>
+                <button
+                  onClick={handleSelectAll}
+                  className="inline-flex items-center p-2 m-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg cursor-pointer transition-colors duration-200"
                 >
-                  <span className="text-xs text-blue-700 dark:text-blue-300 whitespace-nowrap font-medium">{selectedTagFilter}</span>
-                  <Lucide icon="X" className="w-4 h-4 ml-2 text-blue-700 dark:text-blue-300" />
-                </div>
-              )}
-              {selectedContacts.length > 0 && (
-                <div className="inline-flex items-center p-2 mt-2 md:mt-0 md:ml-2 bg-gray-200 dark:bg-gray-700 rounded-md self-start md:self-auto">
-                  <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">{selectedContacts.length} selected</span>
-                  <button
-                    onClick={() => setSelectedContacts([])}
-                    className="ml-2 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 focus:outline-none"
+                  <Lucide 
+                    icon={selectedContacts.length === filteredContacts.length ? "CheckSquare" : "Square"} 
+                    className="w-4 h-4 mr-1 text-gray-600 dark:text-gray-300" 
+                  />
+                  <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">
+                    Select All
+                  </span>
+                </button>
+                {selectedTagFilter && (
+                  <div 
+                    className="inline-flex items-center p-2 mt-2 md:mt-0 md:ml-2 bg-blue-100 dark:bg-blue-900 rounded-md self-start md:self-auto cursor-pointer"
+                    onClick={() => setSelectedTagFilter('')}
                   >
-                    <Lucide icon="X" className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+                    <span className="text-xs text-blue-700 dark:text-blue-300 whitespace-nowrap font-medium">{selectedTagFilter}</span>
+                    <Lucide icon="X" className="w-4 h-4 ml-2 text-blue-700 dark:text-blue-300" />
+                  </div>
+                )}
+                {selectedContacts.length > 0 && (
+                  <div className="inline-flex items-center p-2 mt-2 md:mt-0 md:ml-2 bg-gray-200 dark:bg-gray-700 rounded-md self-start md:self-auto">
+                    <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">{selectedContacts.length} selected</span>
+                    <button
+                      onClick={() => setSelectedContacts([])}
+                      className="ml-2 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 focus:outline-none"
+                    >
+                      <Lucide icon="X" className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end items-center font-medium">
+              <ReactPaginate
+                breakLabel="..."
+                nextLabel="Next >"
+                onPageChange={handlePageClick}
+                pageRangeDisplayed={5}
+                pageCount={pageCount}
+                previousLabel="< Previous"
+                renderOnZeroPageCount={null}
+                containerClassName="flex justify-center items-center"
+                pageClassName="mx-1"
+                pageLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+                previousClassName="mx-1"
+                nextClassName="mx-1"
+                previousLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+                nextLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+                disabledClassName="opacity-50 cursor-not-allowed"
+                activeClassName="font-bold"
+                activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
+              />
+              </div>
             </div>
           </div>
           <div className="w-full flex-shrink">
             <div className="h-[calc(150vh-200px)] overflow-y-auto" ref={contactListRef}>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 m-1">
-                {filteredContacts.map((contact, index) => {
+                {currentContacts.map((contact, index) => {
                   const isSelected = selectedContacts.some((c) => c.phone === contact.phone);
                   return (
                     <div 

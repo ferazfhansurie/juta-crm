@@ -10,9 +10,10 @@ import { initializeApp } from "firebase/app";
 import { DocumentReference, updateDoc, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import { getFirestore, collection, doc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import axios from "axios";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from 'react-toastify';
+import ReactPaginate from 'react-paginate';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -44,6 +45,7 @@ interface Employee {
   email?: string;
   assignedContacts?: number;
   employeeId?: string;
+  phoneNumber?: string; // Added phone field
   // Add other properties as needed
 }
 
@@ -62,6 +64,9 @@ function Main() {
   const [employeeIdToDelete, setEmployeeIdToDelete] = useState<string>('');
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [role, setRole] = useState<string>(""); // Added role state
+
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 21; // Show 9 employees per page
 
   const toggleModal = (id?:string) => {
     setIsModalOpen(!isModalOpen);
@@ -194,46 +199,93 @@ const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
     console.error("Error deleting employee:", error);
   }
 };
+
+const handlePageChange = ({ selected }: { selected: number }) => {
+  setCurrentPage(selected);
+};
+
+const [searchTerm, setSearchTerm] = useState("");
+
+const filteredEmployees = useMemo(() => {
+  if (!searchTerm.trim()) return employeeList;
+  
+  const lowercaseSearchTerm = searchTerm.toLowerCase();
+  return employeeList.filter(employee => 
+    employee.name.toLowerCase().includes(lowercaseSearchTerm) ||
+    employee.email?.toLowerCase().includes(lowercaseSearchTerm) ||
+    employee.employeeId?.toLowerCase().includes(lowercaseSearchTerm) ||
+    employee.phoneNumber?.toLowerCase().includes(lowercaseSearchTerm)
+  );
+}, [employeeList, searchTerm]);
+
+const paginatedEmployees = filteredEmployees
+  .sort((a, b) => {
+    const roleOrder = { "1": 0, "2": 1, "3": 2, "4": 3 };
+    return roleOrder[a.role as keyof typeof roleOrder] - roleOrder[b.role as keyof typeof roleOrder];
+  })
+  .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
+
   return (
     <div className="flex flex-col h-full overflow-auto">
       <h2 className="ml-4 mt-10 text-2xl font-bold intro-y text-gray-800 dark:text-gray-200">Users Directory</h2>
       <div className="flex-grow p-5">
-        <div className="flex flex-wrap items-center mt-2 intro-y sm:flex-nowrap">
-          <Link to="crud-form">
-            {showAddUserButton && role !== "3" && (
-              <Button variant="primary" className="mr-2 shadow-md">
-                Add New User
-              </Button>
-            )}
-          </Link>
-          <Link to="loading2">
-            {showAddUserButton && role !== "3" && (
-              <Button variant="primary" className="mr-2 shadow-md">
-                Add Number
-              </Button>
-            )}
-          </Link>
-          <div className="w-full mt-3 sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
-            <div className="relative w-56 text-slate-500">
-              <FormInput
-                type="text"
-                className="w-56 pr-10 !box"
-                placeholder="Search..."
-              />
-              <Lucide
-                icon="Search"
-                className="absolute inset-y-0 right-0 w-4 h-4 my-auto mr-3"
-              />
+        <div className="sticky top-0 bg-gray-100 dark:bg-gray-900 z-10 py-2">
+          <div className="flex flex-wrap items-center mt-2 intro-y sm:flex-nowrap">
+            <Link to="crud-form">
+              {showAddUserButton && role !== "3" && (
+                <Button variant="primary" className="mr-2 shadow-md">
+                  Add New User
+                </Button>
+              )}
+            </Link>
+            <Link to="loading2">
+              {showAddUserButton && role !== "3" && (
+                <Button variant="primary" className="mr-2 shadow-md">
+                  Add Number
+                </Button>
+              )}
+            </Link>
+            <div className="w-full mt-3 sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
+              <div className="relative w-56 text-slate-500">
+                <FormInput
+                  type="text"
+                  className="w-56 pr-10 !box"
+                  placeholder="Search name, ID, or phone..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Lucide
+                  icon="Search"
+                  className="absolute inset-y-0 right-0 w-4 h-4 my-auto mr-3"
+                />
+              </div>
+            </div>
+            <div className="flex-grow"></div>
+            <div className="flex justify-end items-center font-medium">
+              <ReactPaginate
+                  breakLabel="..."
+                  nextLabel="Next >"
+                  onPageChange={handlePageChange}
+                  pageRangeDisplayed={5}
+                  pageCount={Math.ceil(filteredEmployees.length / itemsPerPage)}
+                  previousLabel="< Previous"
+                  renderOnZeroPageCount={null}
+                  containerClassName="flex justify-center items-center"
+                  pageClassName="mx-1"
+                  pageLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+                  previousClassName="mx-1"
+                  nextClassName="mx-1"
+                  previousLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+                  nextLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+                  disabledClassName="opacity-50 cursor-not-allowed"
+                  activeClassName="font-bold"
+                  activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
+                />
             </div>
           </div>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-5">
-          {employeeList
-            .sort((a, b) => {
-              const roleOrder = { "1": 0, "2": 1, "3": 2, "4": 3 };
-              return roleOrder[a.role as keyof typeof roleOrder] - roleOrder[b.role as keyof typeof roleOrder];
-            })
-            .map((contact, index) => (
+          {paginatedEmployees.map((contact, index) => (
             <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">

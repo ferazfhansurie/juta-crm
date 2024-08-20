@@ -907,6 +907,7 @@ const closePDFModal = () => {
   const closeDeletePopup = () => {
     setIsDeletePopupOpen(false);
   };
+
   const deleteMessages = async () => {
     try {
       const user = auth.currentUser;
@@ -922,7 +923,7 @@ const closePDFModal = () => {
         return;
       }
       const userData = docUserSnapshot.data();
-       companyId = userData.companyId;
+      const companyId = userData.companyId;
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
@@ -932,17 +933,39 @@ const closePDFModal = () => {
       const companyData = docSnapshot.data();
   
       for (const message of selectedMessages) {
-        const response = await axios.delete(`https://gate.whapi.cloud/messages/${message.id}`, {
-          headers: {
-            'Authorization': `Bearer ${companyData.whapiToken}`,
-            'Accept': 'application/json',
-          },
-        });
+        let deleteSuccessful = false;
   
-        if (response.status === 200) {
+        // Try deleting using the new Firebase-based API first
+        try {
+          const response = await axios.delete(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/${companyId}/${selectedChatId}/${message.id}`);
+          if (response.data.success) {
+            deleteSuccessful = true;
+          }
+        } catch (error) {
+          console.error('Error deleting message with new API:', error);
+        }
+  
+        // If the new API failed or isn't available, try the original Whapi method
+        if (!deleteSuccessful) {
+          try {
+            const response = await axios.delete(`https://gate.whapi.cloud/messages/${message.id}`, {
+              headers: {
+                'Authorization': `Bearer ${companyData.whapiToken}`,
+                'Accept': 'application/json',
+              },
+            });
+            if (response.status === 200) {
+              deleteSuccessful = true;
+            }
+          } catch (error) {
+            console.error('Error deleting message with Whapi:', error);
+          }
+        }
+  
+        if (deleteSuccessful) {
           setMessages((prevMessages) => prevMessages.filter((msg) => msg.id !== message.id));
         } else {
-          throw new Error(`Failed to delete message: ${response.statusText}`);
+          console.error(`Failed to delete message: ${message.id}`);
         }
       }
   
@@ -954,6 +977,7 @@ const closePDFModal = () => {
       toast.error('Failed to delete messages');
     }
   };
+
   useEffect(() => {
     if (messageListRef.current) {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
@@ -3951,58 +3975,85 @@ const handleForwardMessage = async () => {
     setEditingMessage(null);
     setEditedMessageText("");
   };
+  
   const handleEditMessage = async () => {
     if (!editedMessageText.trim() || !editingMessage) return;
     
     try {
       const user = auth.currentUser;
-      if (!user) {
-        console.error('No authenticated user');
-        return;
-      }
+      if (!user) throw new Error('No authenticated user');
   
       const docUserRef = doc(firestore, 'user', user.email!);
       const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
-        return;
-      }
+      if (!docUserSnapshot.exists()) throw new Error('No such document for user');
+  
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.error('No such document for company!');
-        return;
-      }
+      if (!docSnapshot.exists()) throw new Error('No such document for company');
+  
       const companyData = docSnapshot.data();
   
-      const response = await axios.post(`https://gate.whapi.cloud/messages/text`, {
-        to: editingMessage.chat_id,
-        body: editedMessageText,
-        edit: editingMessage.id,
-      }, {
-        headers: {
-          'Authorization': `Bearer ${companyData.whapiToken}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-  console.log(response);
-      if (response.status === 200) {
+      let editSuccessful = false;
+  
+      // Try editing using the new Firebase-based API first
+      try {
+        const response = await axios.put(
+          `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/${companyId}/${editingMessage.chat_id}/${editingMessage.id}`,
+          { newMessage: editedMessageText }
+        );
+        if (response.data.success) {
+          editSuccessful = true;
+        }
+      } catch (error) {
+        if (axios.isAxiosError(error) && error.response) {
+          console.error('Error editing message with new API:', error.response.status, error.response.data);
+        } else {
+          console.error('Error editing message with new API:', error);
+        }
+      }
+  
+      // If the new API failed or isn't available, try the original Whapi method
+      if (!editSuccessful) {
+        try {
+          const response = await axios.post(`https://gate.whapi.cloud/messages/text`, {
+            to: editingMessage.chat_id,
+            body: editedMessageText,
+            edit: editingMessage.id,
+          }, {
+            headers: {
+              'Authorization': `Bearer ${companyData.whapiToken}`,
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+          });
+          if (response.status === 200) {
+            editSuccessful = true;
+          }
+        } catch (error) {
+          if (axios.isAxiosError(error) && error.response) {
+            console.error('Error editing message with Whapi:', error.response.status, error.response.data);
+          } else {
+            console.error('Error editing message with Whapi:', error);
+          }
+        }
+      }
+  
+      if (editSuccessful) {
         toast.success('Message edited successfully');
         fetchMessages(editingMessage.chat_id, companyData.whapiToken);
         setEditingMessage(null);
         setEditedMessageText("");
       } else {
-        console.log(response);
+        throw new Error(`Failed to edit message: ${editingMessage.id}`);
       }
     } catch (error) {
-     
       console.error('Error editing message:', error);
-      toast.error('Failed to edit message');
+      toast.error('Failed to edit message. Please try again.');
     }
   };
+  
   const DeleteConfirmationPopup = () => (
     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
@@ -5154,24 +5205,24 @@ const handleForwardMessage = async () => {
 ))}
               </div>
               <ReactPaginate
-                previousLabel={'Previous'}
-                nextLabel={'Next'}
-                breakLabel={'...'}
-                pageCount={Math.ceil(filteredContacts.length / contactsPerPage)}
-                marginPagesDisplayed={1}
-                pageRangeDisplayed={3}
+                breakLabel="..."
+                nextLabel="Next >"
                 onPageChange={handlePageChange}
-                containerClassName={'pagination flex justify-center mt-4 mb-4'}
-                activeClassName={'active bg-blue-200 text-white dark:bg-blue-600 dark:text-white'}
-                pageClassName={'px-2 py-1 rounded-md mx-1 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}
-                pageLinkClassName={'text-gray-700 dark:text-gray-200'}
-                previousClassName={'px-2 py-1 rounded-md mx-1 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}
-                nextClassName={'px-2 py-1 rounded-md mx-1 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}
-                previousLinkClassName={'text-gray-700 dark:text-gray-200'}
-                nextLinkClassName={'text-gray-700 dark:text-gray-200'}
-                breakClassName={'px-2 py-1 rounded-md mx-1 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}
-                breakLinkClassName={'text-gray-700 dark:text-gray-200'}
-                forcePage={currentPage}
+                pageRangeDisplayed={5}
+                pageCount={Math.max(1, Math.ceil(filteredContacts.length / contactsPerPage))}
+                previousLabel="< Previous"
+                renderOnZeroPageCount={null}
+                containerClassName="flex justify-center items-center mt-4 mb-4"
+                pageClassName="mx-1"
+                pageLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+                previousClassName="mx-1"
+                nextClassName="mx-1"
+                previousLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+                nextLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+                disabledClassName="opacity-50 cursor-not-allowed"
+                activeClassName="font-bold"
+                activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
+                forcePage={Math.min(currentPage, Math.max(0, Math.ceil(filteredContacts.length / contactsPerPage) - 1))}
               />
         </div>
       <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 dark:bg-gray-900 relative flext-1 overflow-hidden">
@@ -5831,6 +5882,10 @@ const handleForwardMessage = async () => {
                 console.log('Private note mention open');
               } else {
                 setIsPrivateNotesMentionOpen(false);
+              }
+              if (e.target.value === '\\') {
+                handleQR();
+                setNewMessage('');
               }
             }}
             rows={1}
