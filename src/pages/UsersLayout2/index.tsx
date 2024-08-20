@@ -64,7 +64,7 @@ function Main() {
   const [employeeIdToDelete, setEmployeeIdToDelete] = useState<string>('');
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [role, setRole] = useState<string>(""); // Added role state
-
+  const [phoneCount, setPhoneCount] = useState<number>(1);
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 21; // Show 9 employees per page
 
@@ -143,7 +143,7 @@ function Main() {
         return;
       }
       const companyData = docSnapshot.data();
-
+      setPhoneCount(companyData.phoneCount);
       accessToken = companyData.ghl_accessToken;
 
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
@@ -239,7 +239,7 @@ const paginatedEmployees = filteredEmployees
               )}
             </Link>
             <Link to="loading2">
-              {showAddUserButton && role !== "3" && (
+              {showAddUserButton && phoneCount >= 2 && (
                 <Button variant="primary" className="mr-2 shadow-md">
                   Add Number
                 </Button>
