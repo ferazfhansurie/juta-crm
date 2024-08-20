@@ -340,7 +340,7 @@ function Main() {
   // Add these new classes for consecutive messages from the same sender
   const myConsecutiveMessageClass = "flex flex-col max-w-[320px] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-0.5 group";
   const otherConsecutiveMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left mt-0.5 group-first:mt-0.5";
-  const [messageMode, setMessageMode] = useState<'reply' | 'privateNote'>('reply');
+  const [messageMode, setMessageMode] = useState<'reply' | 'privateNote' | `phone${number}`>('reply');
   const [isEmployeeMentionOpen, setIsEmployeeMentionOpen] = useState(false);
   const myMessageTextClass = "text-white"
   const otherMessageTextClass = "text-white"
@@ -363,6 +363,7 @@ function Main() {
   const [fetched, setFetched] = useState(0);
   const [total, setTotal] = useState(0);
   const prevNotificationsRef = useRef<number | null>(null);
+  const [phoneCount, setPhoneCount] = useState<number>(1);
   const isInitialMount = useRef(true);
   const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
   const [isGroupFilterActive, setIsGroupFilterActive] = useState(false);
@@ -1292,7 +1293,10 @@ async function fetchConfigFromDatabase() {
       console.error('Company data is missing');
       return;
     }
-
+    setPhoneCount(data.phoneCount);
+    if(data.phoneCount >2){
+      setMessageMode('phone1');
+    }
     setGhlConfig({
       ghl_id: data.ghl_id,
       ghl_secret: data.ghl_secret,
@@ -2596,12 +2600,21 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         if (data2.v2 === true) {
           console.log("v2 is true");
           // Use the new API
+          let phoneIndex = 0;
+          if(messageMode === 'phone1'){
+            phoneIndex = 0;
+          }else if(messageMode === 'phone2'){
+            phoneIndex = 1;
+          }else if(messageMode === 'phone3'){
+            phoneIndex = 2;
+          }
           response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${selectedChatId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               message: newMessage,
-              quotedMessageId: replyToMessage?.id || null
+              quotedMessageId: replyToMessage?.id || null,
+              phoneIndex: phoneIndex
             }),
           });
         } else {
@@ -5698,7 +5711,24 @@ const handleForwardMessage = async () => {
             </button>
           </div>
         )}
-             <div className="flex mb-1">
+         <div className="flex mb-1">
+  {phoneCount > 1 ? (
+    // Display phone buttons when phoneCount > 1
+    Array.from({ length:phoneCount }, (_, i) => (
+      <button
+        key={i}
+        className={`px-4 py-2 mr-1 rounded-lg ${
+          messageMode === `phone${i + 1}`
+            ? 'bg-primary text-white'
+            : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+        }`}
+        onClick={() => setMessageMode(`phone${i + 1}`)}
+      >
+        Phone {i + 1}
+      </button>
+    ))
+  ) : (
+    // Display Reply button when phoneCount <= 1
     <button
       className={`px-4 py-2 mr-1 rounded-lg ${
         messageMode === 'reply'
@@ -5709,17 +5739,18 @@ const handleForwardMessage = async () => {
     >
       Reply
     </button>
-    <button
-      className={`px-4 py-2 rounded-lg ${
-        messageMode === 'privateNote'
-          ? 'bg-yellow-600 text-white'
-          : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-      }`}
-      onClick={() => setMessageMode('privateNote')}
-    >
-      Private Note
-    </button>
-  </div>
+  )}
+  <button
+    className={`px-4 py-2 rounded-lg ${
+      messageMode === 'privateNote'
+        ? 'bg-yellow-600 text-white'
+        : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+    }`}
+    onClick={() => setMessageMode('privateNote')}
+  >
+    Private Note
+  </button>
+</div>
          {isPrivateNotesMentionOpen && messageMode === 'privateNote' && (
                     <div className="absolute bottom-full left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-40 overflow-y-auto mb-1">
                       {employeeList.map((employee) => (
@@ -5813,7 +5844,7 @@ const handleForwardMessage = async () => {
                 } else {
                   e.preventDefault();
                   if (selectedIcon === 'ws') {
-                    if (messageMode === 'reply') {
+                    if (messageMode !== 'privateNote') {
                       handleSendMessage();
                     } else {
                       handleAddPrivateNote(newMessage);
