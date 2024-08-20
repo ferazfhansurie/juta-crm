@@ -103,6 +103,7 @@ interface Contact {
   unreadCount?: number | null;
   pinned?: boolean | null;
   profilePicUrl?:string;
+  phoneIndex?:number |null;
 }
 interface GhlConfig {
   ghl_id: string;
@@ -3224,39 +3225,59 @@ function formatDate(timestamp: string | number | Date) {
   const handlePageChange = ({ selected }: { selected: number }) => {
     setCurrentPage(selected);
   };
-
   const filterTagContact = (tag: string) => {
     setActiveTags([tag.toLowerCase()]);
-    const filteredContacts = contacts.filter((contact) => {
-      const contactTags = contact.tags?.map((t) => t.toLowerCase()) || [];
-      const isGroup = contact.chat_id?.endsWith('@g.us');
     
-      switch (tag.toLowerCase()) {
-        case 'all':
-          return !isGroup && !contactTags.includes('snooze');
-        case 'unread':
-          return contact.unreadCount && contact.unreadCount > 0;
-        case 'mine':
-          return contactTags.includes(currentUserName.toLowerCase());
-        case 'unassigned':
-          return !contactTags.some((t) => employeeList.some((e) => e.name.toLowerCase() === t));
-        case 'snooze':
-          return contactTags.includes('snooze');
-        case 'group':
-          return isGroup;
-        default:
-          return contactTags.includes(tag.toLowerCase());
+    // Use setTimeout to ensure this runs after the current call stack is clear
+    setTimeout(() => {
+      let filteredContacts = contacts;
+  
+      if (tag.toLowerCase().startsWith('phone ')) {
+        const phoneIndex = parseInt(tag.split(' ')[1]) - 1; // Subtract 1 to match the 0-based index
+        filteredContacts = contacts.filter(contact => 
+          contact.phoneIndex === phoneIndex
+        );
+      } else {
+        // Existing filtering logic for other tags
+        switch (tag.toLowerCase()) {
+          case 'all':
+            filteredContacts = contacts.filter(contact => !contact.chat_id?.endsWith('@g.us'));
+            break;
+          case 'unread':
+            filteredContacts = contacts.filter(contact => contact.unreadCount && contact.unreadCount > 0);
+            break;
+          case 'mine':
+            filteredContacts = contacts.filter(contact => 
+              contact.tags?.some(t => t.toLowerCase() === currentUserName.toLowerCase())
+            );
+            break;
+          case 'unassigned':
+            filteredContacts = contacts.filter(contact => 
+              !contact.tags?.some(t => employeeList.some(e => e.name.toLowerCase() === t.toLowerCase()))
+            );
+            break;
+          case 'snooze':
+            filteredContacts = contacts.filter(contact => 
+              contact.tags?.includes('snooze')
+            );
+            break;
+          case 'group':
+            filteredContacts = contacts.filter(contact => contact.chat_id?.endsWith('@g.us'));
+            break;
+          default:
+            filteredContacts = contacts.filter(contact => 
+              contact.tags?.some(t => t.toLowerCase() === tag.toLowerCase())
+            );
+        }
       }
-    });
-    
-    if (tag.toLowerCase() === 'group') {
-      console.log(`Number of groups: ${filteredContacts.length}`);
-    }
-    
-    setFilteredContacts(filteredContacts);
-    setCurrentPage(0);
+  
+      console.log('Filtered contacts:', filteredContacts); // Add this line for debugging
+      setFilteredContacts(filteredContacts);
+    }, 0);
   };
-
+  useEffect(() => {
+    console.log('Filtered contacts updated:', filteredContacts);
+  }, [filteredContacts]);
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value.toLowerCase();
     setSearchQuery(query);
@@ -3738,28 +3759,42 @@ const handleForwardMessage = async () => {
   
     try {
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
   
-      const pinnedCollection = collection(firestore, `user/${user.email}/pinned`);
-      const contactDocRef = doc(pinnedCollection, chatId);
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      if (!companyId) {
+        console.error('Company ID is missing');
+        return;
+      }
   
       const contactToToggle = contacts.find(contact => contact.chat_id === chatId);
-      if (!contactToToggle) {
+      if (!contactToToggle || !contactToToggle.id) {
         console.error("Contact not found for chatId:", chatId);
         return;
       }
   
-      const userDataToSend = { ...contactToToggle, pinned: !contactToToggle.pinned };
+      const contactDocRef = doc(firestore, 'companies', companyId, 'contacts', contactToToggle.id);
   
-      if (contactToToggle.pinned) {
-        // Unpin the chat
-        await deleteDoc(contactDocRef);
-        console.log(`Chat ${chatId} unpinned`);
-      } else {
-        // Pin the chat
-        await setDoc(contactDocRef, userDataToSend);
-        console.log(`Chat ${chatId} pinned`);
-      }
+      // Toggle the pinned status
+      const newPinnedStatus = !contactToToggle.pinned;
+  
+      // Update the contact document
+      await updateDoc(contactDocRef, {
+        pinned: newPinnedStatus
+      });
+  
+      console.log(`Chat ${chatId} ${newPinnedStatus ? 'pinned' : 'unpinned'}`);
     } catch (error) {
       console.error('Error toggling chat pin state:', error);
     }
@@ -4953,45 +4988,54 @@ const handleForwardMessage = async () => {
 
 </div>
 <div className="mt-4 mb-2 px-4 max-h-40 overflow-y-auto">
-  <div className="flex flex-wrap gap-2">
-    {['Mine', 'All', 'Group', 'Unread', 'Unassigned', 'Snooze', ...(isTagsExpanded ? visibleTags.filter(tag => !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group'].includes(tag.name)) : [])].map((tag) => {
-      const tagName = typeof tag === 'string' ? tag : tag.name;
-      const tagLower = tagName.toLowerCase();
-      const unreadCount = contacts.filter(contact => {
-        const contactTags = contact.tags?.map(t => t.toLowerCase()) || [];
-        const isGroup = contact.chat_id?.endsWith('@g.us');
-        
-        return (
-          (tagLower === 'all' ? !isGroup : // Exclude groups from 'All' unread count
-          tagLower === 'unread' ? contact.unreadCount && contact.unreadCount > 0 :
-          tagLower === 'mine' ? contactTags.includes(currentUserName.toLowerCase()) :
-          tagLower === 'unassigned' ? !contactTags.some(t => employeeList.some(e => e.name.toLowerCase() === t)) :
-          tagLower === 'snooze' ? contactTags.includes('snooze') :
-          tagLower === 'group' ? isGroup :
-          contactTags.includes(tagLower)) &&
-          contact.unreadCount && contact.unreadCount > 0
-        );
-      }).length;
-        return (
-          <button
-            key={typeof tag === 'string' ? tag : tag.id}
-            onClick={() => filterTagContact(tagName)}
-            className={`px-3 py-1 rounded-full text-sm flex items-center ${
-              (tagLower === activeTags[0])
-                ? 'bg-primary text-white dark:bg-primary dark:text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-            } transition-colors duration-200`}
-          >
-            <span>{tagName}</span>
-            {unreadCount > 0 && (
-              <span className="ml-2 px-1.5 py-0.5 rounded-full text-xs bg-primary text-white">
-                {unreadCount}
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </div>
+<div className="flex flex-wrap gap-2">
+  {['Mine', 'All', 'Group', 'Unread', 'Unassigned', 'Snooze', 
+    ...Array.from({ length: phoneCount }, (_, i) => `Phone ${i + 1}`),
+    ...(isTagsExpanded ? visibleTags.filter(tag => 
+      !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group'].includes(tag.name) && 
+      !tag.name.startsWith('Phone ')
+    ) : [])
+  ].map((tag) => {
+    const tagName = typeof tag === 'string' ? tag : tag.name;
+    const tagLower = tagName.toLowerCase();
+    const unreadCount = contacts.filter(contact => {
+      const contactTags = contact.tags?.map(t => t.toLowerCase()) || [];
+      const isGroup = contact.chat_id?.endsWith('@g.us');
+      const phoneIndex = tagName.startsWith('Phone ') ? parseInt(tagName.split(' ')[1]) - 1 : null;
+      
+      return (
+        (tagLower === 'all' ? !isGroup :
+        tagLower === 'unread' ? contact.unreadCount && contact.unreadCount > 0 :
+        tagLower === 'mine' ? contactTags.includes(currentUserName.toLowerCase()) :
+        tagLower === 'unassigned' ? !contactTags.some(t => employeeList.some(e => e.name.toLowerCase() === t)) :
+        tagLower === 'snooze' ? contactTags.includes('snooze') :
+        tagLower === 'group' ? isGroup :
+        phoneIndex !== null ? contact.phoneIndex === phoneIndex :
+        contactTags.includes(tagLower)) &&
+        contact.unreadCount && contact.unreadCount > 0
+      );
+    }).length;
+
+    return (
+      <button
+        key={typeof tag === 'string' ? tag : tag.id}
+        onClick={() => filterTagContact(tagName)}
+        className={`px-3 py-1 rounded-full text-sm flex items-center ${
+          (tagLower === activeTags[0])
+            ? 'bg-primary text-white dark:bg-primary dark:text-white'
+            : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+        } transition-colors duration-200`}
+      >
+        <span>{tagName}</span>
+        {unreadCount > 0 && (
+          <span className="ml-2 px-1.5 py-0.5 rounded-full text-xs bg-primary text-white">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+    );
+  })}
+</div>
 </div>
 {tagList.length > visibleTags.length && (
   <div className="max-h-40 overflow-y-auto">
