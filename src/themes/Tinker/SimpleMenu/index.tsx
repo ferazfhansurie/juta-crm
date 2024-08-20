@@ -26,6 +26,7 @@ type Notification = {
     };
     from: string;
     timestamp: number;
+    assignedTo?: string; // Add this field
 };
 function Main() {
   const location = useLocation();
@@ -163,8 +164,14 @@ async function fetchConfigFromDatabase() {
     // Fetch notifications from the notifications subcollection
     const notificationsRef = collection(firestore, 'user', userEmail, 'notifications');
     const notificationsSnapshot = await getDocs(notificationsRef);
-    const notifications = notificationsSnapshot.docs.map((doc: { data: () => DocumentData; }) => doc.data());
-console.log(notifications);
+    let notifications = notificationsSnapshot.docs.map((doc) => doc.data() as Notification);
+
+    // Filter notifications based on user role
+    if (role !== 1) {
+      notifications = notifications.filter((notification) => notification.assignedTo === userEmail);
+    }
+
+    console.log(notifications);
     // Update state with the fetched notifications
     setNotifications(notifications);
   } catch (error) {

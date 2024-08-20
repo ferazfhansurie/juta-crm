@@ -38,6 +38,7 @@ import 'react-contexify/dist/ReactContexify.css';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { updateMonthlyAssignments } from '../DashboardOverview1';
+import ReactPaginate from 'react-paginate';
 
 // Add this new component for the private note indicator
 const PrivateNoteIndicator = () => (
@@ -378,7 +379,7 @@ function Main() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  const contactsPerPage = 200;
+  const [contactsPerPage] = useState(50);
   const contactListRef =useRef<HTMLDivElement>(null);
   const [response, setResponse] = useState<string>('');
   const [qrCodeImage, setQrCodeImage] = useState<string>('');
@@ -751,7 +752,7 @@ useEffect(() => {
       contactListRef.current.scrollTop + contactListRef.current.clientHeight >=
         contactListRef.current.scrollHeight
     ) {
-      loadMoreContacts();
+      // loadMoreContacts();
     }
   };
 
@@ -3182,11 +3183,47 @@ function formatDate(timestamp: string | number | Date) {
       // Optionally, handle the error in a user-friendly way
     }
   }, [contacts, searchQuery, activeTags, isGroupFilterActive]);
-  
+
+  const handlePageChange = ({ selected }: { selected: number }) => {
+    setCurrentPage(selected);
+  };
+
+  const filterTagContact = (tag: string) => {
+    setActiveTags([tag.toLowerCase()]);
+    const filteredContacts = contacts.filter((contact) => {
+      const contactTags = contact.tags?.map((t) => t.toLowerCase()) || [];
+      const isGroup = contact.chat_id?.endsWith('@g.us');
+    
+      switch (tag.toLowerCase()) {
+        case 'all':
+          return !isGroup && !contactTags.includes('snooze');
+        case 'unread':
+          return contact.unreadCount && contact.unreadCount > 0;
+        case 'mine':
+          return contactTags.includes(currentUserName.toLowerCase());
+        case 'unassigned':
+          return !contactTags.some((t) => employeeList.some((e) => e.name.toLowerCase() === t));
+        case 'snooze':
+          return contactTags.includes('snooze');
+        case 'group':
+          return isGroup;
+        default:
+          return contactTags.includes(tag.toLowerCase());
+      }
+    });
+    
+    if (tag.toLowerCase() === 'group') {
+      console.log(`Number of groups: ${filteredContacts.length}`);
+    }
+    
+    setFilteredContacts(filteredContacts);
+    setCurrentPage(0);
+  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value.toLowerCase();
     setSearchQuery(query);
+    setCurrentPage(0);
 
     if (query.trim() === '') {
       setFilteredContacts(contacts);
@@ -3227,36 +3264,9 @@ function formatDate(timestamp: string | number | Date) {
     setFilteredContactsForForwarding(filtered);
   };
 
-  const filterTagContact = (tag: string) => {
-    setActiveTags([tag.toLowerCase()]);
-    const filteredContacts = contacts.filter((contact) => {
-      const contactTags = contact.tags?.map((t) => t.toLowerCase()) || [];
-      const isGroup = contact.chat_id?.endsWith('@g.us');
-    
-      switch (tag.toLowerCase()) {
-        case 'all':
-          return !isGroup && !contactTags.includes('snooze');
-        case 'unread':
-          return contact.unreadCount && contact.unreadCount > 0;
-        case 'mine':
-          return contactTags.includes(currentUserName.toLowerCase());
-        case 'unassigned':
-          return !contactTags.some((t) => employeeList.some((e) => e.name.toLowerCase() === t));
-        case 'snooze':
-          return contactTags.includes('snooze');
-        case 'group':
-          return isGroup;
-        default:
-          return contactTags.includes(tag.toLowerCase());
-      }
-    });
-    
-    if (tag.toLowerCase() === 'group') {
-      console.log(`Number of groups: ${filteredContacts.length}`);
-    }
-    
-    setFilteredContacts(filteredContacts);
-  };
+  const indexOfLastContact = (currentPage + 1) * contactsPerPage;
+  const indexOfFirstContact = indexOfLastContact - contactsPerPage;
+  const currentContacts = filteredContacts.slice(indexOfFirstContact, indexOfLastContact);
   
   useEffect(() => {
     let filtered = contacts;
@@ -4953,7 +4963,7 @@ const handleForwardMessage = async () => {
   </div>
 )}
 <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
-  {filteredContacts.map((contact, index) => (
+  {currentContacts.map((contact, index) => (
     <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
     <div
       className={`m-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 group ${
@@ -5130,6 +5140,26 @@ const handleForwardMessage = async () => {
   </React.Fragment>
 ))}
               </div>
+              <ReactPaginate
+                previousLabel={'Previous'}
+                nextLabel={'Next'}
+                breakLabel={'...'}
+                pageCount={Math.ceil(filteredContacts.length / contactsPerPage)}
+                marginPagesDisplayed={1}
+                pageRangeDisplayed={3}
+                onPageChange={handlePageChange}
+                containerClassName={'pagination flex justify-center mt-4 mb-4'}
+                activeClassName={'active bg-blue-200 text-white dark:bg-blue-600 dark:text-white'}
+                pageClassName={'px-2 py-1 rounded-md mx-1 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}
+                pageLinkClassName={'text-gray-700 dark:text-gray-200'}
+                previousClassName={'px-2 py-1 rounded-md mx-1 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}
+                nextClassName={'px-2 py-1 rounded-md mx-1 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}
+                previousLinkClassName={'text-gray-700 dark:text-gray-200'}
+                nextLinkClassName={'text-gray-700 dark:text-gray-200'}
+                breakClassName={'px-2 py-1 rounded-md mx-1 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}
+                breakLinkClassName={'text-gray-700 dark:text-gray-200'}
+                forcePage={currentPage}
+              />
         </div>
       <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 dark:bg-gray-900 relative flext-1 overflow-hidden">
   {selectedChatId ? (
