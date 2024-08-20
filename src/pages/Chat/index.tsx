@@ -5011,7 +5011,7 @@ const handleForwardMessage = async () => {
               {((contact.contactName ?? contact.firstName ?? contact.phone ?? "").slice(0, 20))}
               {((contact.contactName ?? contact.firstName ?? contact.phone ?? "").length > 20 ? '...' : '')}
             </span>
-            {!contact.chat_id?.includes('@g.us') && (
+            {!contact.chat_id?.includes('@g.us') && userData?.role === '1' && (
               <span className="text-xs text-gray-600 dark:text-gray-400 truncate" style={{ 
                 visibility: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'hidden' : 'visible',
                 display: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'flex' : 'inline',
@@ -5154,7 +5154,9 @@ const handleForwardMessage = async () => {
           </div>
           <div>
             <div className="font-semibold text-gray-800 dark:text-gray-200 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">{selectedContact.phone}</div>
+            {userRole === '1' && (
+              <div className="text-sm text-gray-600 dark:text-gray-400">{selectedContact.phone}</div>
+            )}
           </div>
         </div>
         <div className="flex items-center space-x-3">
@@ -5430,7 +5432,7 @@ const handleForwardMessage = async () => {
                             }}
                           />
                           {message.image.caption && (
-                            <div className="caption text-gray-800 dark:text-gray-200 mt-2">{message.image.caption}</div>
+                            <div className="caption text-gray-300 dark:text-gray-300 mt-2">{message.image.caption}</div>
                           )}
                         </div>
                       )}
@@ -5957,7 +5959,9 @@ const handleForwardMessage = async () => {
                 <Lucide icon="Pencil" className="w-4 h-4 ml-2 text-gray-500 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
               </div>
             )}
-            <span className="text-sm text-gray-500 dark:text-gray-400">{selectedContact.phone}</span>
+            {userRole === '1' && (
+              <span className="text-sm text-gray-500 dark:text-gray-400">{selectedContact.phone}</span>
+            )}
           </div>
         </div>
         <button onClick={handleEyeClick} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-500 transition-all duration-200">
