@@ -5157,7 +5157,10 @@ const handleForwardMessage = async () => {
                   <>
                     {employeeTags.length > 0 && (
                       <Tippy
-                        content={employeeTags.length === 1 ? employeeTags[0] : employeeTags.join(', ')}
+                        content={employeeTags.map(tag => {
+                          const employee = employeeList.find(e => e.name.toLowerCase() === tag.toLowerCase());
+                          return employee ? employee.name : tag;
+                        }).join(', ')}
                         options={{ 
                           interactive: true,  
                           appendTo: () => document.body
@@ -5166,7 +5169,10 @@ const handleForwardMessage = async () => {
                         <span className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200 text-xs font-semibold mr-1 px-2.5 py-0.5 rounded-full cursor-pointer">
                           <Lucide icon="Users" className="w-4 h-4 inline-block" />
                           <span className="ml-1 text-xxs">
-                            {employeeTags.length === 1 ? employeeTags[0] : employeeTags.length}
+                            {employeeTags.length === 1 
+                              ? (employeeList.find(e => e.name.toLowerCase() === employeeTags[0].toLowerCase())?.employeeId || 
+                                 (employeeTags[0].length > 8 ? employeeTags[0].slice(0, 6) : employeeTags[0]))
+                              : employeeTags.length}
                           </span>
                         </span>
                       </Tippy>
@@ -5250,11 +5256,11 @@ const handleForwardMessage = async () => {
               </div>
               <ReactPaginate
                 breakLabel="..."
-                nextLabel="Next >"
+                nextLabel="Next"
                 onPageChange={handlePageChange}
-                pageRangeDisplayed={5}
+                pageRangeDisplayed={2}
                 pageCount={Math.max(1, Math.ceil(filteredContacts.length / contactsPerPage))}
-                previousLabel="< Previous"
+                previousLabel="Previous"
                 renderOnZeroPageCount={null}
                 containerClassName="flex justify-center items-center mt-4 mb-4"
                 pageClassName="mx-1"
