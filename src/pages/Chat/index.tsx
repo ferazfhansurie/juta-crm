@@ -1751,13 +1751,13 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       return dateB.getTime() - dateA.getTime();
     });
 
-    console.log("all");
+    console.log('active:'+activeTags[0]);
     console.log(allContacts);
     setContacts(allContacts.slice(0, 200));
     localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
     sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
     console.log("All fetched contacts:", { count: allContacts.length });
-    setContacts(allContacts); // Use setContacts instead of setInitialContacts
+
   } catch (error) {
     console.error('Error fetching contacts:', error);
   }
@@ -3227,7 +3227,7 @@ function formatDate(timestamp: string | number | Date) {
   };
   const filterTagContact = (tag: string) => {
     setActiveTags([tag.toLowerCase()]);
-    
+    console.log('active1:'+activeTags[0]);
     // Use setTimeout to ensure this runs after the current call stack is clear
     setTimeout(() => {
       let filteredContacts = contacts;
@@ -3330,69 +3330,74 @@ function formatDate(timestamp: string | number | Date) {
   const indexOfLastContact = (currentPage + 1) * contactsPerPage;
   const indexOfFirstContact = indexOfLastContact - contactsPerPage;
   const currentContacts = filteredContacts.slice(indexOfFirstContact, indexOfLastContact);
+ useEffect(() => {
+  let filtered = contacts;
   
-  useEffect(() => {
-    let filtered = contacts;
-    
-    if (searchQuery) {
-      filtered = filtered.filter((contact) =>
-        (contact.contactName || contact.firstName || contact.phone || '')
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase())
-      );
-    }
-    
-    if (activeTags.length > 0) {
-      filtered = filtered.filter((contact) => {
-        const contactTags = contact.tags?.map(tag => tag.toLowerCase()) || [];
-        const isGroup = contact.chat_id?.endsWith('@g.us');
+  if (searchQuery) {
+    filtered = filtered.filter((contact) =>
+      (contact.contactName || contact.firstName || contact.phone || '')
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
+    );
+  }
+  
+  if (activeTags.length > 0) {
+    console.log('active2:' + activeTags[0]);
+    filtered = filtered.filter((contact) => {
+      const contactTags = contact.tags?.map(tag => tag.toLowerCase()) || [];
+      const isGroup = contact.chat_id?.endsWith('@g.us');
+      
+      return activeTags.every(tag => {
+        if (tag.startsWith('phone ')) {
+          const phoneIndex = parseInt(tag.split(' ')[1]) - 1;
+          return contact.phoneIndex === phoneIndex;
+        }
         
-        return activeTags.every(tag => {
-          switch (tag) {
-            case 'mine':
-              return contactTags.includes(currentUserName.toLowerCase()) && !contactTags.includes('snooze');
-            case 'all':
-              return !isGroup && !contactTags.includes('snooze');
-            case 'unread':
-              return contact.unreadCount && contact.unreadCount > 0 && !contactTags.includes('snooze');
-            case 'group':
-              return isGroup;
-            case 'unassigned':
-              return !contactTags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())) && !contactTags.includes('snooze');
-            case 'snooze':
-              return contactTags.includes('snooze');
-            case 'stop bot':
-              return contactTags.includes('stop bot');
-            default:
-              return contactTags.includes(tag) && !contactTags.includes('snooze');
-          }
-        });
+        switch (tag) {
+          case 'mine':
+            return contactTags.includes(currentUserName.toLowerCase()) && !contactTags.includes('snooze');
+          case 'all':
+            return !isGroup && !contactTags.includes('snooze');
+          case 'unread':
+            return contact.unreadCount && contact.unreadCount > 0 && !contactTags.includes('snooze');
+          case 'group':
+            return isGroup;
+          case 'unassigned':
+            return !contactTags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())) && !contactTags.includes('snooze');
+          case 'snooze':
+            return contactTags.includes('snooze');
+          case 'stop bot':
+            return contactTags.includes('stop bot');
+          default:
+            return contactTags.includes(tag) && !contactTags.includes('snooze');
+        }
       });
-    } else if (showAllContacts) {
-      filtered = filtered.filter(contact => 
-        !contact.tags?.includes('snooze') && 
-        !contact.chat_id?.endsWith('@g.us')
-      );
-    } else if (showUnreadContacts) {
-      filtered = filtered.filter((contact) => contact.unreadCount && contact.unreadCount > 0 && !contact.tags?.includes('snooze'));
-    } else if (showMineContacts) {
-      filtered = filtered.filter((contact) => 
-        contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase()) && !contact.tags?.includes('snooze')
-      );
-    } else if (showUnassignedContacts) {
-      filtered = filtered.filter((contact) => 
-        (!contact.tags || !contact.tags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()))) &&
-        !contact.tags?.includes('snooze')
-      );
-    } else if (showSnoozedContacts) {
-      filtered = filtered.filter((contact) => contact.tags?.includes('snooze'));
-    } else if (showGroupContacts) {
-      filtered = filtered.filter((contact) => contact.chat_id?.endsWith('@g.us'));
-      console.log(`Number of groups: ${filtered.length}`);
-    }
-    
-    setFilteredContacts(filtered);
-  }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList]);
+    });
+  } else if (showAllContacts) {
+    filtered = filtered.filter(contact => 
+      !contact.tags?.includes('snooze') && 
+      !contact.chat_id?.endsWith('@g.us')
+    );
+  } else if (showUnreadContacts) {
+    filtered = filtered.filter((contact) => contact.unreadCount && contact.unreadCount > 0 && !contact.tags?.includes('snooze'));
+  } else if (showMineContacts) {
+    filtered = filtered.filter((contact) => 
+      contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase()) && !contact.tags?.includes('snooze')
+    );
+  } else if (showUnassignedContacts) {
+    filtered = filtered.filter((contact) => 
+      (!contact.tags || !contact.tags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()))) &&
+      !contact.tags?.includes('snooze')
+    );
+  } else if (showSnoozedContacts) {
+    filtered = filtered.filter((contact) => contact.tags?.includes('snooze'));
+  } else if (showGroupContacts) {
+    filtered = filtered.filter((contact) => contact.chat_id?.endsWith('@g.us'));
+    console.log(`Number of groups: ${filtered.length}`);
+  }
+  
+  setFilteredContacts(filtered);
+}, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList]);
   
   const handleSnoozeContact = async (contact: Contact) => {
     try {
