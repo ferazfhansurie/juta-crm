@@ -3652,93 +3652,138 @@ const handleForwardMessage = async () => {
   };
   
   
-  const sendImageMessage = async (chatId: string, imageUrl: string,caption?: string) => {
+  const sendImageMessage = async (chatId: string, imageUrl: string, caption?: string) => {
     try {
       const user = auth.currentUser;
-
-      const docUserRef = doc(firestore, 'user', user?.email!);
+      if (!user) throw new Error('No authenticated user');
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
       const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
-        return;
-      }
+      if (!docUserSnapshot.exists()) throw new Error('No user document found');
+  
       const userData = docUserSnapshot.data();
-       companyId = userData.companyId;
+      const companyId = userData.companyId;
+  
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
-        return;
-      }
-      const companyData = docSnapshot.data();
-      const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/image/${companyData.whapiToken}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chatId: chatId,
-          imageUrl: imageUrl,
-          caption: caption || '',
-        }),
-      });
+      if (!docSnapshot.exists()) throw new Error('No company document found');
   
-      if (!response.ok) {
-        throw new Error(`Failed to send image message: ${response.statusText}`);
+      const companyData = docSnapshot.data();
+  
+      let response;
+      // Try the new API first
+      try {
+        response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/image/${companyId}/${chatId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageUrl: imageUrl,
+            caption: caption || '',
+            phoneIndex: 0, // Assuming default phone index is 0
+          }),
+        });
+  
+        if (!response.ok) throw new Error(`New API failed with status ${response.status}`);
+      } catch (newApiError) {
+        console.warn('New API failed, falling back to old API', newApiError);
+  
+        // If the new API fails, fall back to the old API
+        response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/image/${companyData.whapiToken}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            chatId: chatId,
+            imageUrl: imageUrl,
+            caption: caption || '',
+          }),
+        });
+  
+        if (!response.ok) throw new Error(`Old API failed with status ${response.status}`);
       }
   
       const data = await response.json();
-      fetchMessages(selectedChatId!,companyData.ghl_accessToken);
+      fetchMessages(chatId, companyData.ghl_accessToken);
       console.log('Image message sent successfully:', data);
+      toast.success('Image sent successfully');
     } catch (error) {
       console.error('Error sending image message:', error);
+      toast.error(`Failed to send image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
     }
   };
   
-  const sendDocumentMessage = async (chatId: string, imageUrl: string,mime_type:string,fileName:string, caption?: string,) => {
+  const sendDocumentMessage = async (chatId: string, documentUrl: string, mimeType: string, fileName: string, caption?: string, phoneIndex: number = 0) => {
     try {
       const user = auth.currentUser;
-
-      const docUserRef = doc(firestore, 'user', user?.email!);
+      if (!user) throw new Error('No authenticated user');
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
       const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
-        return;
-      }
+      if (!docUserSnapshot.exists()) throw new Error('No user document found');
+  
       const userData = docUserSnapshot.data();
-       companyId = userData.companyId;
+      const companyId = userData.companyId;
+  
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document for company!');
-        return;
-      }
-      const companyData = docSnapshot.data();
-      const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/document/${companyData.whapiToken}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chatId: chatId,
-          imageUrl: imageUrl,
-          mimeType:mime_type,
-          fileName:fileName,
-          caption: caption || '',
-        }),
-      });
+      if (!docSnapshot.exists()) throw new Error('No company document found');
   
-      if (!response.ok) {
-        throw new Error(`Failed to send image message: ${response.statusText}`);
+      const companyData = docSnapshot.data();
+  
+      let response;
+      // Try the new API first
+      try {
+        response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/document/${companyId}/${chatId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            documentUrl: documentUrl,
+            filename: fileName,
+            caption: caption || '',
+            phoneIndex: phoneIndex,
+          }),
+        });
+  
+        if (!response.ok) throw new Error(`New API failed with status ${response.status}`);
+      } catch (newApiError) {
+        console.warn('New API failed, falling back to old API', newApiError);
+  
+        // If the new API fails, fall back to the old API
+        response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/document/${companyData.whapiToken}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            chatId: chatId,
+            imageUrl: documentUrl,
+            mimeType: mimeType,
+            fileName: fileName,
+            caption: caption || '',
+          }),
+        });
+  
+        if (!response.ok) throw new Error(`Old API failed with status ${response.status}`);
       }
   
       const data = await response.json();
-      fetchMessages(selectedChatId!,companyData.ghl_accessToken);
-      console.log('Image message sent successfully:', data);
+      fetchMessages(chatId, companyData.ghl_accessToken);
+      console.log('Document message sent successfully:', data);
+      toast.success('Document sent successfully');
     } catch (error) {
-      console.error('Error sending image message:', error);
+      console.error('Error sending document message:', error);
+      toast.error(`Failed to send document: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
     }
   };
+
+  
   const handleCloseForwardDialog = () => {
     setIsForwardDialogOpen(false);
     setSearchQuery2(''); // Clear the search query
@@ -4097,27 +4142,27 @@ const handleForwardMessage = async () => {
   };
   
   const DeleteConfirmationPopup = () => (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
-        <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75 flex items-center justify-center z-50 rounded-lg">
+      <div className="bg-white dark:bg-gray-800 rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
+        <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 rounded-lg">
           <div className="sm:flex sm:items-start">
             <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Delete message</h3>
-              <p>Are you sure you want to delete this message?</p>
+              <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100 mb-4">Delete message</h3>
+              <p className="text-gray-700 dark:text-gray-300">Are you sure you want to delete this message?</p>
             </div>
           </div>
         </div>
-        <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse rounded-b-lg">
           <Button
             type="button"
-            className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+            className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-red-600 sm:ml-3 sm:w-auto sm:text-sm"
            onClick={deleteMessages}
           >
             Delete
           </Button>
           <Button
             type="button"
-            className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
+            className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-indigo-600 sm:mt-0 sm:w-auto sm:text-sm"
             onClick={closeDeletePopup}
           >
             Cancel
@@ -5079,7 +5124,11 @@ const handleForwardMessage = async () => {
   </div>
 )}
 <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
-  {currentContacts.map((contact, index) => (
+  {[...currentContacts].sort((a, b) => {
+    const aTimestamp = a.last_message?.createdAt || a.last_message?.timestamp || 0;
+    const bTimestamp = b.last_message?.createdAt || b.last_message?.timestamp || 0;
+    return bTimestamp - aTimestamp;
+  }).map((contact, index) => (
     <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
     <div
       className={`m-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 group ${
@@ -5240,7 +5289,23 @@ const handleForwardMessage = async () => {
     </div>
         <div className="flex justify-between items-center">
           <span className="text-sm truncate text-gray-600 dark:text-gray-400" style={{ width: '200px' }}>
-            {(contact.last_message?.type === "text") ? contact.last_message?.text?.body ?? "No Messages" : "Photo"}
+            {contact.last_message ? (
+              contact.last_message.type === "text" ? (
+                contact.last_message.text?.body
+              ) : contact.last_message.type === "image" ? (
+                "Photo"
+              ) : contact.last_message.type === "document" ? (
+                "Document"
+              ) : contact.last_message.type === "audio" ? (
+                "Audio"
+              ) : contact.last_message.type === "video" ? (
+                "Video"
+              ) : (
+                contact.last_message.from_me ? "You: Message" : "Bot: Message"
+              )
+            ) : (
+              "No Messages"
+            )}
           </span>
           <div onClick={(e) => toggleStopBotLabel(contact, index, e)}
           className="cursor-pointer">
@@ -5255,7 +5320,7 @@ const handleForwardMessage = async () => {
               </div>
             </label>
           </div>
-                  </div>
+        </div>
                   </div>
                 </div>
     {index < filteredContacts.length - 1 && <hr className="my-2 border-gray-300 dark:border-gray-700" />}
