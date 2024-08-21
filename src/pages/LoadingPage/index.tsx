@@ -135,11 +135,22 @@ function LoadingPage() {
           console.log("Bot authenticated, preparing to fetch contacts");
           setShouldFetchContacts(true);
         }
-      }else{
-        console.log(botStatusResponse.data[0])
-        if(botStatusResponse.data[0].status === 'authenticated' || botStatusResponse.data[0].status === 'ready'){
-          console.log("Bot authenticated, preparing to fetch contacts");
+      } else {
+        console.log(botStatusResponse.data);
+        let anyAuthenticated = false;
+        for (let i = 0; i < botStatusResponse.data.length; i++) {
+          const status = botStatusResponse.data[i].status;
+          console.log(`Phone ${i + 1} status:`, status);
+          if (status === 'authenticated' || status === 'ready') {
+            anyAuthenticated = true;
+            break;
+          }
+        }
+        if (anyAuthenticated) {
+          console.log("At least one bot authenticated, preparing to fetch contacts");
           setShouldFetchContacts(true);
+        } else {
+          console.log("No bots are authenticated yet");
         }
       }
    
