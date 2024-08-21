@@ -205,6 +205,12 @@ interface ImageModalProps {
   onClose: () => void;
   imageUrl: string;
 }
+interface DocumentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  document: File | null;
+  onSend: (file: File, caption: string) => void;
+}
 interface PDFModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -225,6 +231,72 @@ interface EditMessagePopupProps {
   handleEditMessage: () => void;
   cancelEditMessage: () => void;
 }
+const DocumentModal: React.FC<DocumentModalProps> = ({ isOpen, onClose, document, onSend }) => {
+  const [caption, setCaption] = useState('');
+
+  const handleSendClick = () => {
+    if (document) {
+      onSend(document, caption);
+    }
+    setCaption('');
+    onClose();
+  };
+
+  if (!isOpen || !document) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
+      <div
+        className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full md:w-[800px] h-[90vh] md:h-[600px] p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">Document Preview</h2>
+          <button
+            className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+            onClick={onClose}
+          >
+            <Lucide icon="X" className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4 flex justify-center items-center" style={{ height: '70%' }}>
+          {document.type === 'application/pdf' ? (
+            <iframe
+              src={URL.createObjectURL(document)}
+              width="100%"
+              height="100%"
+              title="PDF Document"
+              className="border rounded"
+            />
+          ) : (
+            <div className="text-center">
+              <Lucide icon="File" className="w-20 h-20 mb-2 mx-auto text-gray-600 dark:text-gray-400" />
+              <p className="text-gray-800 dark:text-gray-200 font-semibold">{document.name}</p>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                {(document.size / 1024 / 1024).toFixed(2)} MB
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center bg-gray-200 dark:bg-gray-700 rounded-lg p-2">
+          <input
+            type="text"
+            placeholder="Add a caption"
+            className="flex-grow bg-white dark:bg-gray-600 text-gray-800 dark:text-gray-200 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+          />
+          <button
+            className="ml-2 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition duration-200"
+            onClick={handleSendClick}
+          >
+            <Lucide icon="Send" className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageUrl }) => {
   const [zoomLevel, setZoomLevel] = useState(1);
 
@@ -434,7 +506,6 @@ function Main() {
   const [blastMessageModal, setBlastMessageModal] = useState(false);
 const [blastMessage, setBlastMessage] = useState("");
 const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
-const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
 const [blastStartTime, setBlastStartTime] = useState<Date | null>(null);
 const [batchQuantity, setBatchQuantity] = useState<number>(10);
 const [repeatInterval, setRepeatInterval] = useState<number>(0);
@@ -443,6 +514,8 @@ const [isScheduling, setIsScheduling] = useState(false);
 const [activeQuickReplyTab, setActiveQuickReplyTab] = useState<'all' | 'self'>('all');
 const [newQuickReplyType, setNewQuickReplyType] = useState<'all' | 'self'>('all');
 const quickRepliesRef = useRef<HTMLDivElement>(null);
+const [documentModalOpen, setDocumentModalOpen] = useState(false);
+const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
   const handleMessageSearchClick = () => {
     setIsMessageSearchOpen(!isMessageSearchOpen);
     if (!isMessageSearchOpen) {
@@ -1757,7 +1830,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
     sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
     console.log("All fetched contacts:", { count: allContacts.length });
-
+    
   } catch (error) {
     console.error('Error fetching contacts:', error);
   }
@@ -3330,74 +3403,70 @@ function formatDate(timestamp: string | number | Date) {
   const indexOfLastContact = (currentPage + 1) * contactsPerPage;
   const indexOfFirstContact = indexOfLastContact - contactsPerPage;
   const currentContacts = filteredContacts.slice(indexOfFirstContact, indexOfLastContact);
- useEffect(() => {
-  let filtered = contacts;
   
-  if (searchQuery) {
-    filtered = filtered.filter((contact) =>
-      (contact.contactName || contact.firstName || contact.phone || '')
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
-    );
-  }
-  
-  if (activeTags.length > 0) {
-    console.log('active2:' + activeTags[0]);
-    filtered = filtered.filter((contact) => {
-      const contactTags = contact.tags?.map(tag => tag.toLowerCase()) || [];
-      const isGroup = contact.chat_id?.endsWith('@g.us');
-      
-      return activeTags.every(tag => {
-        if (tag.startsWith('phone ')) {
-          const phoneIndex = parseInt(tag.split(' ')[1]) - 1;
-          return contact.phoneIndex === phoneIndex;
-        }
+  useEffect(() => {
+    let filtered = contacts;
+    
+    if (searchQuery) {
+      filtered = filtered.filter((contact) =>
+        (contact.contactName || contact.firstName || contact.phone || '')
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    if (activeTags.length > 0) {
+      console.log('active2:'+activeTags[0]);
+      filtered = filtered.filter((contact) => {
+        const contactTags = contact.tags?.map(tag => tag.toLowerCase()) || [];
+        const isGroup = contact.chat_id?.endsWith('@g.us');
         
-        switch (tag) {
-          case 'mine':
-            return contactTags.includes(currentUserName.toLowerCase()) && !contactTags.includes('snooze');
-          case 'all':
-            return !isGroup && !contactTags.includes('snooze');
-          case 'unread':
-            return contact.unreadCount && contact.unreadCount > 0 && !contactTags.includes('snooze');
-          case 'group':
-            return isGroup;
-          case 'unassigned':
-            return !contactTags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())) && !contactTags.includes('snooze');
-          case 'snooze':
-            return contactTags.includes('snooze');
-          case 'stop bot':
-            return contactTags.includes('stop bot');
-          default:
-            return contactTags.includes(tag) && !contactTags.includes('snooze');
-        }
+        return activeTags.every(tag => {
+          switch (tag) {
+            case 'mine':
+              return contactTags.includes(currentUserName.toLowerCase()) && !contactTags.includes('snooze');
+            case 'all':
+              return !isGroup && !contactTags.includes('snooze');
+            case 'unread':
+              return contact.unreadCount && contact.unreadCount > 0 && !contactTags.includes('snooze');
+            case 'group':
+              return isGroup;
+            case 'unassigned':
+              return !contactTags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())) && !contactTags.includes('snooze');
+            case 'snooze':
+              return contactTags.includes('snooze');
+            case 'stop bot':
+              return contactTags.includes('stop bot');
+            default:
+              return contactTags.includes(tag) && !contactTags.includes('snooze');
+          }
+        });
       });
-    });
-  } else if (showAllContacts) {
-    filtered = filtered.filter(contact => 
-      !contact.tags?.includes('snooze') && 
-      !contact.chat_id?.endsWith('@g.us')
-    );
-  } else if (showUnreadContacts) {
-    filtered = filtered.filter((contact) => contact.unreadCount && contact.unreadCount > 0 && !contact.tags?.includes('snooze'));
-  } else if (showMineContacts) {
-    filtered = filtered.filter((contact) => 
-      contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase()) && !contact.tags?.includes('snooze')
-    );
-  } else if (showUnassignedContacts) {
-    filtered = filtered.filter((contact) => 
-      (!contact.tags || !contact.tags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()))) &&
-      !contact.tags?.includes('snooze')
-    );
-  } else if (showSnoozedContacts) {
-    filtered = filtered.filter((contact) => contact.tags?.includes('snooze'));
-  } else if (showGroupContacts) {
-    filtered = filtered.filter((contact) => contact.chat_id?.endsWith('@g.us'));
-    console.log(`Number of groups: ${filtered.length}`);
-  }
-  
-  setFilteredContacts(filtered);
-}, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList]);
+    } else if (showAllContacts) {
+      filtered = filtered.filter(contact => 
+        !contact.tags?.includes('snooze') && 
+        !contact.chat_id?.endsWith('@g.us')
+      );
+    } else if (showUnreadContacts) {
+      filtered = filtered.filter((contact) => contact.unreadCount && contact.unreadCount > 0 && !contact.tags?.includes('snooze'));
+    } else if (showMineContacts) {
+      filtered = filtered.filter((contact) => 
+        contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase()) && !contact.tags?.includes('snooze')
+      );
+    } else if (showUnassignedContacts) {
+      filtered = filtered.filter((contact) => 
+        (!contact.tags || !contact.tags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()))) &&
+        !contact.tags?.includes('snooze')
+      );
+    } else if (showSnoozedContacts) {
+      filtered = filtered.filter((contact) => contact.tags?.includes('snooze'));
+    } else if (showGroupContacts) {
+      filtered = filtered.filter((contact) => contact.chat_id?.endsWith('@g.us'));
+      console.log(`Number of groups: ${filtered.length}`);
+    }
+    
+    setFilteredContacts(filtered);
+  }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList]);
   
   const handleSnoozeContact = async (contact: Contact) => {
     try {
@@ -4176,6 +4245,21 @@ const handleForwardMessage = async () => {
       </div>
     </div>
   );
+  const sendDocument = async (file: File, caption: string) => {
+    setLoading(true);
+    try {
+      const uploadedDocumentUrl = await uploadFile(file);
+      if (uploadedDocumentUrl) {
+        await sendDocumentMessage(selectedChatId!, uploadedDocumentUrl, caption, file.name);
+      }
+    } catch (error) {
+      console.error('Error sending document:', error);
+      toast.error('Failed to send document. Please try again.');
+    } finally {
+      setLoading(false);
+      setDocumentModalOpen(false);
+    }
+  };
   const uploadLocalImageUrl = async (localUrl: string): Promise<string | null> => {
     try {
       const response = await fetch(localUrl);
@@ -4202,15 +4286,23 @@ const handleForwardMessage = async () => {
     console.log('Image URL:', imageUrl);
     console.log('Caption:', caption);
     setLoading(true);
-    if (imageUrl) {
-      const publicUrl = await uploadLocalImageUrl(imageUrl);
-      console.log(publicUrl);
-      if (publicUrl) {
-     await sendImageMessage(selectedChatId!, publicUrl, caption);
+    try {
+      if (imageUrl) {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const file = new File([blob], 'image.jpg', { type: blob.type });
+        
+        const uploadedImageUrl = await uploadFile(file);
+        if (uploadedImageUrl) {
+          await sendImageMessage(selectedChatId!, uploadedImageUrl, caption);
+        }
       }
+    } catch (error) {
+      console.error('Error sending image:', error);
+      toast.error('Failed to send image. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    //setImageModalOpen2(false);
   };
 
   //fetch qrcode
@@ -5958,34 +6050,45 @@ const handleForwardMessage = async () => {
               </Menu.Button>
             </div>
             <Menu.Items className="absolute left-0 bottom-full mb-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-              <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-                <label htmlFor="imageUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full">
-                  <Lucide icon="Image" className="w-4 h-4 mr-2" />
-                  Image
-                  <input
-                    type="file"
-                    id="imageUpload"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageUpload}
-                    multiple
-                  />
-                </label>
-              </button>
-              <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-                <label htmlFor="documentUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full">
-                  <Lucide icon="File" className="w-4 h-4 mr-2" />
-                  Document
-                  <input
-                    type="file"
-                    id="documentUpload"
-                    accept="application/pdf"
-                    className="hidden"
-                    onChange={handleDocumentUpload}
-                    multiple
-                  />
-                </label>
-              </button>
+            <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
+  <label htmlFor="imageUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full">
+    <Lucide icon="Image" className="w-4 h-4 mr-2" />
+    Image
+    <input
+      type="file"
+      id="imageUpload"
+      accept="image/*"
+      className="hidden"
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          const imageUrl = URL.createObjectURL(file);
+          setPastedImageUrl(imageUrl);
+          setImageModalOpen2(true);
+        }
+      }}
+    />
+  </label>
+</button>
+<button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
+  <label htmlFor="documentUpload" className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full">
+    <Lucide icon="File" className="w-4 h-4 mr-2" />
+    Document
+    <input
+  type="file"
+  id="documentUpload"
+  accept="application/pdf"
+  className="hidden"
+  onChange={(e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedDocument(file);
+      setDocumentModalOpen(true);
+    }
+  }}
+/>
+  </label>
+</button>
             </Menu.Items>
           </Menu>
           <button className="p-2 m-0 !box" onClick={handleQR}>
@@ -6420,6 +6523,12 @@ const handleForwardMessage = async () => {
   </div>
 )}
 
+<DocumentModal 
+  isOpen={documentModalOpen} 
+  onClose={() => setDocumentModalOpen(false)} 
+  document={selectedDocument} 
+  onSend={sendDocument} 
+/>
       <ImageModal isOpen={isImageModalOpen} onClose={closeImageModal} imageUrl={modalImageUrl} />
       <ImageModal2 isOpen={isImageModalOpen2} onClose={() => setImageModalOpen2(false)} imageUrl={pastedImageUrl} onSend={sendImage} />
 
