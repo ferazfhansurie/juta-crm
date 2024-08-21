@@ -3264,6 +3264,11 @@ function formatDate(timestamp: string | number | Date) {
           case 'group':
             filteredContacts = contacts.filter(contact => contact.chat_id?.endsWith('@g.us'));
             break;
+          case 'stop bot':
+            filteredContacts = contacts.filter(contact => 
+              contact.tags?.includes('stop bot')
+            );
+            break;
           default:
             filteredContacts = contacts.filter(contact => 
               contact.tags?.some(t => t.toLowerCase() === tag.toLowerCase())
@@ -3356,6 +3361,8 @@ function formatDate(timestamp: string | number | Date) {
               return !contactTags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())) && !contactTags.includes('snooze');
             case 'snooze':
               return contactTags.includes('snooze');
+            case 'stop bot':
+              return contactTags.includes('stop bot');
             default:
               return contactTags.includes(tag) && !contactTags.includes('snooze');
           }
@@ -4989,10 +4996,10 @@ const handleForwardMessage = async () => {
 </div>
 <div className="mt-4 mb-2 px-4 max-h-40 overflow-y-auto">
 <div className="flex flex-wrap gap-2">
-  {['Mine', 'All', 'Group', 'Unread', 'Unassigned', 'Snooze', 
+  {['Mine', 'All', 'Group', 'Unread', 'Unassigned', 'Snooze', 'Stop Bot',
     ...Array.from({ length: phoneCount }, (_, i) => `Phone ${i + 1}`),
     ...(isTagsExpanded ? visibleTags.filter(tag => 
-      !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group'].includes(tag.name) && 
+      !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group', 'stop bot'].includes(tag.name) && 
       !tag.name.startsWith('Phone ')
     ) : [])
   ].map((tag) => {
@@ -5010,6 +5017,7 @@ const handleForwardMessage = async () => {
         tagLower === 'unassigned' ? !contactTags.some(t => employeeList.some(e => e.name.toLowerCase() === t)) :
         tagLower === 'snooze' ? contactTags.includes('snooze') :
         tagLower === 'group' ? isGroup :
+        tagLower === 'stop bot' ? contactTags.includes('stop bot') :
         phoneIndex !== null ? contact.phoneIndex === phoneIndex :
         contactTags.includes(tagLower)) &&
         contact.unreadCount && contact.unreadCount > 0
