@@ -39,6 +39,8 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { updateMonthlyAssignments } from '../DashboardOverview1';
 import ReactPaginate from 'react-paginate';
+import { getFileTypeFromMimeType } from '../../utils/fileUtils';
+
 
 // Add this new component for the private note indicator
 const PrivateNoteIndicator = () => (
@@ -247,7 +249,7 @@ const DocumentModal: React.FC<DocumentModalProps> = ({ isOpen, onClose, document
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
       <div
-        className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full md:w-[800px] h-[90vh] md:h-[600px] p-4"
+        className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full md:w-[800px] h-auto md:h-[600px] p-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
@@ -259,7 +261,7 @@ const DocumentModal: React.FC<DocumentModalProps> = ({ isOpen, onClose, document
             <Lucide icon="X" className="w-6 h-6" />
           </button>
         </div>
-        <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4 flex justify-center items-center" style={{ height: '70%' }}>
+        <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4 flex justify-center items-center" style={{ height: '90%' }}>
           {document.type === 'application/pdf' ? (
             <iframe
               src={URL.createObjectURL(document)}
@@ -5832,16 +5834,13 @@ const handleForwardMessage = async () => {
                             src={message.image.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image.link || ''}
                             alt="Image"
                             className="rounded-lg message-image cursor-pointer"
-                            style={{ maxWidth: '300px', maxHeight: '300px', objectFit: 'contain' }}
+                            style={{ maxWidth: 'auto', maxHeight: 'auto', objectFit: 'contain' }}
                             onClick={() => openImageModal(message.image?.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image?.link || '')}
                             onError={(e) => {
                               console.error("Error loading image:", e.currentTarget.src);
                               e.currentTarget.src = logoImage; // Replace with your fallback image path
                             }}
                           />
-                          {message.image.caption && (
-                            <div className="caption text-gray-300 dark:text-gray-300 mt-2">{message.image.caption}</div>
-                          )}
                         </div>
                       )}
                       {message.type === 'video' && message.video && (
@@ -5850,9 +5849,8 @@ const handleForwardMessage = async () => {
                             controls
                             src={message.video.link}
                             className="rounded-lg message-image cursor-pointer"
-                            style={{ maxWidth: '300px' }}
+                            style={{ width: 'auto', height: 'auto', maxWidth: '100%' }}
                           />
-                          <div className="caption text-gray-800 dark:text-gray-200">{message.video.caption}</div>
                         </div>
                       )}
                       {message.type === 'gif' && message.gif && (
@@ -6242,12 +6240,21 @@ const handleForwardMessage = async () => {
               const items = e.clipboardData?.items;
               if (items) {
                 for (const item of items) {
-                  if (item.type.startsWith('image/')) {
-                    const blob = item.getAsFile();
-                    if (blob) {
-                      const url = URL.createObjectURL(blob);
+                  const blob = item.getAsFile();
+                  if (blob) {
+                    const fileType = getFileTypeFromMimeType(item.type);
+                    if (fileType === 'Unknown') {
+                      console.warn('Unsupported file type:', item.type);
+                      continue;
+                    }
+            
+                    const url = URL.createObjectURL(blob);
+                    if (fileType === 'JPEG' || fileType === 'PNG' || fileType === 'GIF' || fileType === 'WebP' || fileType === 'SVG') {
                       setPastedImageUrl(url);
                       setImageModalOpen2(true);
+                    } else {
+                      setSelectedDocument(blob);
+                      setDocumentModalOpen(true);
                     }
                     break;
                   }
@@ -6261,13 +6268,24 @@ const handleForwardMessage = async () => {
             onDrop={async (e) => {
               e.preventDefault();
               e.stopPropagation();
-
+            
               const files = e.dataTransfer.files;
               if (files.length > 0) {
                 const file = files[0];
+                const fileType = getFileTypeFromMimeType(file.type);
+                if (fileType === 'Unknown') {
+                  console.warn('Unsupported file type:', file.type);
+                  return;
+                }
+            
                 const url = URL.createObjectURL(file);
-                setPastedImageUrl(url);
-                setImageModalOpen2(true);
+                if (fileType === 'JPEG' || fileType === 'PNG' || fileType === 'GIF' || fileType === 'WebP' || fileType === 'SVG') {
+                  setPastedImageUrl(url);
+                  setImageModalOpen2(true);
+                } else {
+                  setSelectedDocument(file);
+                  setDocumentModalOpen(true);
+                }
               }
             }}
             disabled={userRole === "3"}
