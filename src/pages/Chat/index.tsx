@@ -410,11 +410,11 @@ function Main() {
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const myMessageClass = "flex flex-col max-w-[320px] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group";
+  const myMessageClass = "flex flex-col flex-grow max-w-[auto] min-w-[auto] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group";
   const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left mt-1 group-first:mt-1";
   
   // Add these new classes for consecutive messages from the same sender
-  const myConsecutiveMessageClass = "flex flex-col max-w-[320px] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-0.5 group";
+  const myConsecutiveMessageClass = "flex flex-col max-w-[auto] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-0.5 group";
   const otherConsecutiveMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left mt-0.5 group-first:mt-0.5";
   const [messageMode, setMessageMode] = useState<'reply' | 'privateNote' | `phone${number}`>('reply');
   const [isEmployeeMentionOpen, setIsEmployeeMentionOpen] = useState(false);
@@ -5802,7 +5802,7 @@ const handleForwardMessage = async () => {
                             ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
                             : '100'
                         }px`,
-                        minWidth: '100px',
+                        minWidth: '200',
                       }}
                       onMouseEnter={() => setHoveredMessageId(message.id)}
                       onMouseLeave={() => setHoveredMessageId(null)}
@@ -6040,34 +6040,28 @@ const handleForwardMessage = async () => {
           ))}
         </div>
                       )}
-                      <div className={`message-timestamp text-xs ${message.from_me ? myMessageTextClass : otherMessageTextClass} mt-1 flex items-center h-6`}>
-                        <div className="flex-grow">
-                          {formatTimestamp(message.createdAt || message.dateAdded)}
-                          {message.name && <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>}
-                        </div>
-                        <div className="flex items-center">
-                          {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
-                            <>
-                              <input type="checkbox" className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full ml-2" checked={selectedMessages.includes(message)} onChange={() => handleSelectMessage(message)} />
-                              <button className="ml-2 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors duration-200" onClick={() => setReplyToMessage(message)}>
-                                <Lucide icon="MessageSquare" className="w-5 h-5 fill-current" />
-                              </button>
-                              {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && userRole !== "3" && (
-                                <button className="ml-2 text-black hover:text-black dark:text-gray-300 dark:hover:text-black transition-colors duration-200" onClick={() => openEditMessage(message)}>
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                                    <path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z" />
-                                  </svg>
-                                </button>
-                              )}
-                            </>
-                          )}
+                      <div className="flex justify-between items-center mt-1">
+                        {message.phoneIndex !== undefined && (
+                          <span className="text-gray-500 dark:text-gray-400 text-xs">
+                            Sent from Phone {message.phoneIndex + 1}
+                          </span>
+                        )}
+                        <div className={`message-timestamp text-xs ${message.from_me ? myMessageTextClass : otherMessageTextClass} flex items-center h-6 ml-auto`}>
+                          <div className="flex items-center mr-2">
+                            {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
+                              <>
+                                <input type="checkbox" className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full" checked={selectedMessages.includes(message)} onChange={() => handleSelectMessage(message)} />
+                                <button className="ml-2 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors duration-200 mr-2" onClick={() => setReplyToMessage(message)}><Lucide icon="MessageSquare" className="w-5 h-5 fill-current" /></button>
+                                {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && userRole !== "3" && (
+                                  <button className="ml-2 mr-2 text-black hover:text-black dark:text-gray-300 dark:hover:text-black transition-colors duration-200" onClick={() => openEditMessage(message)}><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z" /></svg></button>
+                                )}
+                              </>
+                            )}
+                            {message.name && <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>}
+                            {formatTimestamp(message.createdAt || message.dateAdded)}
+                          </div>
                         </div>
                       </div>
-                      {message.phoneIndex !== undefined && (
-    <span className="ml-2 text-gray-400 dark:text-gray-600">
-      Sent from Phone {message.phoneIndex + 1}
-    </span>
-  )}
                     </div>
                   </React.Fragment>
                 );
@@ -6273,6 +6267,7 @@ const handleForwardMessage = async () => {
               }
             }}
             onPaste={(e) => {
+              e.preventDefault(); // Prevent default paste behavior
               const items = e.clipboardData?.items;
               if (items) {
                 for (const item of items) {
@@ -6292,9 +6287,14 @@ const handleForwardMessage = async () => {
                       setSelectedDocument(blob);
                       setDocumentModalOpen(true);
                     }
-                    break;
+                    return; // Exit the loop after handling the file
                   }
                 }
+              }
+              // If no file was pasted, allow the default text paste
+              const text = e.clipboardData?.getData('text');
+              if (text) {
+                setNewMessage((prev) => prev + text);
               }
             }}
             onDragOver={(e) => {
