@@ -2736,8 +2736,16 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         if (!response.ok) {
           throw new Error('Failed to send message');
         }
-        
+        const now = new Date();
         const data = await response.json();
+        // Update the local state
+    setContacts(prevContacts => 
+      prevContacts.map(contact => 
+        contact.id === selectedContact.id 
+          ? updateContactWithNewMessage(contact, newMessage, now)
+          : contact
+      )
+    );
         console.log('Message sent successfully:', data);
         toast.success("Message sent successfully!");
         fetchMessagesBackground(selectedChatId!, data2.apiToken);
@@ -2750,7 +2758,28 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     setNewMessage('');
     setReplyToMessage(null);
   };
-
+  const updateContactWithNewMessage = (contact: Contact, newMessage: string, now: Date): Contact => {
+    const updatedLastMessage: Message = {
+      createdAt: now.getTime(),
+      text: { body: newMessage },
+      chat_id: contact.last_message?.chat_id || contact.chat_id || '',
+      dateAdded: contact.last_message?.dateAdded || now.getTime(),
+      timestamp: contact.last_message?.timestamp || Math.floor(now.getTime() / 1000),
+      id: contact.last_message?.id || `temp_${now.getTime()}`,
+      from_me: true,
+      type: 'text',
+      from_name: contact.last_message?.from_name || '',
+      from: contact.last_message?.from || '',
+      author: contact.last_message?.author || '',
+      name: contact.last_message?.name || '',
+      // Add any other required fields with appropriate default values
+    };
+  
+    return {
+      ...contact,
+      last_message: updatedLastMessage
+    };
+  };
   const openNewChatModal = () => {
     setIsNewChatModalOpen(true);
   };
@@ -3326,7 +3355,8 @@ function formatDate(timestamp: string | number | Date) {
             break;
           case 'mine':
             filteredContacts = contacts.filter(contact => 
-              contact.tags?.some(t => t.toLowerCase() === currentUserName.toLowerCase())
+              contact.tags?.some(t => t.toLowerCase() === currentUserName.toLowerCase())&& 
+              !contact.tags?.includes('snooze')
             );
             break;
           case 'unassigned':
@@ -3504,7 +3534,31 @@ function formatDate(timestamp: string | number | Date) {
       filtered = filtered.filter((contact) => contact.chat_id?.endsWith('@g.us'));
       console.log(`Number of groups: ${filtered.length}`);
     }
-    
+    filtered.sort((a, b) => {
+      // First, sort by pinned status
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+  
+      // Then, sort by timestamp
+      const getTimestamp = (contact: any) => {
+        let timestamp = contact.last_message?.timestamp || contact.timestamp;
+        
+        if (typeof timestamp === 'number') {
+          return timestamp < 1000000000000 ? timestamp * 1000 : timestamp;
+        } else if (typeof timestamp === 'string') {
+          const parsed = new Date(timestamp).getTime();
+          return isNaN(parsed) ? 0 : parsed;
+        }
+        
+        return 0;
+      };
+  
+      const timestampA = getTimestamp(a);
+      const timestampB = getTimestamp(b);
+  
+      // Sort in descending order (most recent first)
+      return timestampB - timestampA;
+    });
     setFilteredContacts(filtered);
   }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList]);
   
