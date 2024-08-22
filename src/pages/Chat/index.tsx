@@ -137,6 +137,7 @@ interface Message {
   type?: string;
   from:string;
   author?:string;
+  phoneIndex:number;
   image?: { link?: string; caption?: string;url?:string ;data?:string;mimetype?:string};
   video?: { link?: string; caption?: string; };
   gif?: { link?: string; caption?: string };
@@ -1974,7 +1975,8 @@ useEffect(() => {
                 chat_id: message.chat_id,
                 type: message.type,
                 author: message.author,
-                name: message.name
+                name: message.name,
+                phoneIndex: message.phoneIndex // Add this line to include phoneIndex
             };
     
             // Handle timestamp based on message type
@@ -2762,6 +2764,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       from: selectedContact.last_message?.from || '',
       author: selectedContact.last_message?.author || '',
       name: selectedContact.last_message?.name || '',
+      phoneIndex: selectedContact.last_message?.phoneIndex || 0,
       // Add any other required fields with appropriate default values
     };
     
@@ -2794,6 +2797,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       from: contact.last_message?.from || '',
       author: contact.last_message?.author || '',
       name: contact.last_message?.name || '',
+      phoneIndex: selectedContact.last_message?.phoneIndex || 0,
       // Add any other required fields with appropriate default values
     };
   
@@ -6052,6 +6056,11 @@ const handleForwardMessage = async () => {
                           )}
                         </div>
                       </div>
+                      {message.phoneIndex !== undefined && (
+    <span className="ml-2 text-gray-400 dark:text-gray-600">
+      Sent from Phone {message.phoneIndex + 1}
+    </span>
+  )}
                     </div>
                   </React.Fragment>
                 );
