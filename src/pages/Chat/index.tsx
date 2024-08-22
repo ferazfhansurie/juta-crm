@@ -3300,11 +3300,13 @@ function formatDate(timestamp: string | number | Date) {
   };
   const filterTagContact = (tag: string) => {
     setActiveTags([tag.toLowerCase()]);
-    console.log('active1:'+activeTags[0]);
+    console.log('active1:' + activeTags[0]);
+  
     // Use setTimeout to ensure this runs after the current call stack is clear
     setTimeout(() => {
       let filteredContacts = contacts;
   
+      // Filtering logic
       if (tag.toLowerCase().startsWith('phone ')) {
         const phoneIndex = parseInt(tag.split(' ')[1]) - 1; // Subtract 1 to match the 0-based index
         filteredContacts = contacts.filter(contact => 
@@ -3314,7 +3316,10 @@ function formatDate(timestamp: string | number | Date) {
         // Existing filtering logic for other tags
         switch (tag.toLowerCase()) {
           case 'all':
-            filteredContacts = contacts.filter(contact => !contact.chat_id?.endsWith('@g.us'));
+            filteredContacts = contacts.filter(contact => 
+              !contact.chat_id?.endsWith('@g.us') && 
+              !contact.tags?.includes('snooze')
+            );
             break;
           case 'unread':
             filteredContacts = contacts.filter(contact => contact.unreadCount && contact.unreadCount > 0);
@@ -3349,7 +3354,42 @@ function formatDate(timestamp: string | number | Date) {
         }
       }
   
-      console.log('Filtered contacts:', filteredContacts); // Add this line for debugging
+    // Updated sorting logic
+    filteredContacts.sort((a, b) => {
+      // First, sort by pinned status
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+
+      // Then, sort by timestamp
+      const getTimestamp = (contact: any) => {
+        let timestamp = contact.last_message?.timestamp || contact.timestamp;
+        
+        if (typeof timestamp === 'number') {
+          // If the timestamp is already a number
+          // Check if it's in seconds (Unix timestamp) and convert to milliseconds if needed
+          return timestamp < 1000000000000 ? timestamp * 1000 : timestamp;
+        } else if (typeof timestamp === 'string') {
+          // If it's a string, try to parse it
+          const parsed = new Date(timestamp).getTime();
+          return isNaN(parsed) ? 0 : parsed;
+        }
+        
+        // If there's no valid timestamp, return 0
+        return 0;
+      };
+
+      const timestampA = getTimestamp(a);
+      const timestampB = getTimestamp(b);
+
+      // Log timestamps for debugging
+      console.log(`Contact A (${a.id}): ${timestampA}`);
+      console.log(`Contact B (${b.id}): ${timestampB}`);
+
+      // Sort in descending order (most recent first)
+      return timestampB - timestampA;
+    });
+  
+      console.log('Filtered and sorted contacts:', filteredContacts); // Add this line for debugging
       setFilteredContacts(filteredContacts);
     }, 0);
   };
