@@ -5890,83 +5890,90 @@ const handleForwardMessage = async () => {
                         </div>
                       )}
              {(message.type === 'audio' || message.type === 'ptt') && (message.audio || message.ptt) && (
-  <div className="audio-content p-0 message-content image-message">
-    <audio 
-      controls 
-      className="rounded-lg message-image cursor-pointer"
-      src={(() => {
-        const audioData = message.audio?.data || message.ptt?.data;
-        const mimeType = message.audio?.mimetype || message.ptt?.mimetype;
-        if (audioData && mimeType) {
-          const byteCharacters = atob(audioData);
-          const byteNumbers = new Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-          }
-          const byteArray = new Uint8Array(byteNumbers);
-          const blob = new Blob([byteArray], { type: mimeType });
-          return URL.createObjectURL(blob);
-        }
-        return '';
-      })()}
-    />
-    {(message.audio?.caption || message.ptt?.caption) && (
-      <div className="caption text-gray-800 dark:text-gray-200 mt-2">
-        {message.audio?.caption || message.ptt?.caption}
-      </div>
-    )}
-  </div>
-)}
+              <div className="audio-content p-0 message-content image-message">
+                <audio 
+                  controls 
+                  className="rounded-lg message-image cursor-pointer"
+                  src={(() => {
+                    const audioData = message.audio?.data || message.ptt?.data;
+                    const mimeType = message.audio?.mimetype || message.ptt?.mimetype;
+                    if (audioData && mimeType) {
+                      const byteCharacters = atob(audioData);
+                      const byteNumbers = new Array(byteCharacters.length);
+                      for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                      }
+                      const byteArray = new Uint8Array(byteNumbers);
+                      const blob = new Blob([byteArray], { type: mimeType });
+                      return URL.createObjectURL(blob);
+                    }
+                    return '';
+                  })()}
+                />
+                {(message.audio?.caption || message.ptt?.caption) && (
+                  <div className="caption text-gray-800 dark:text-gray-200 mt-2">
+                    {message.audio?.caption || message.ptt?.caption}
+                  </div>
+                )}
+              </div>
+            )}
                       {message.type === 'voice' && message.voice && (
-                        <div className="voice-content p-0 message-content image-message">
+                        <div className="voice-content p-0 message-content image-message w-auto h-auto">
                           <audio controls src={message.voice.link} className="rounded-lg message-image cursor-pointer" />
                         </div>
                       )}
                       {message.type === 'document' && message.document && (
-  <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
-    {message.document.link ? (
-      <iframe
-        src={message.document.link}
-        width="100%"
-        height="500px"
-        title="PDF Document"
-        className="border rounded cursor-pointer"
-        onClick={() => openPDFModal(message.document?.link || '')}
-      />
-    ) : message.document.data ? (
-      <iframe
-        src={`data:${message.document.mimetype};base64,${message.document.data}`}
-        width="100%"
-        height="500px"
-        title="PDF Document"
-        className="border rounded cursor-pointer"
-        onClick={() => message.document && openPDFModal(`data:${message.document.mimetype};base64,${message.document.data}`)}
-      />
-    ) : (
-      <div className="text-gray-600 dark:text-gray-400">Document preview not available</div>
-    )}
-    <div className="flex-1 text-justify mt-3 w-full">
-      <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">
-        {message.document.file_name || message.document.filename || 'Document'}
-      </div>
-      <div className="text-gray-600 dark:text-gray-400">
-        {message.document.page_count && `${message.document.page_count} page${message.document.page_count > 1 ? 's' : ''} • `}
-        {message.document.mimetype || 'PDF'} •{' '}
-        {((message.document.file_size || message.document.fileSize || 0) / (1024 * 1024)).toFixed(2)} MB
-      </div>
-    </div>
-    <button
-      onClick={() => {
-        if (message.document) {
-          openPDFModal(message.document.link || `data:${message.document.mimetype};base64,${message.document.data}`);
-        }
-      }}
-      className="mt-3"
-    >
-      <Lucide icon="ExternalLink" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
-    </button>
-  </div>
-)}
+                        <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
+                          {message.document.mimetype && message.document.mimetype.startsWith('video/') ? (
+                            <video
+                              src={message.document.link || `data:${message.document.mimetype};base64,${message.document.data}`}
+                              controls
+                              className="w-full max-w-md h-auto rounded cursor-pointer"
+                              onClick={() => openPDFModal(message.document?.link ?? `data:${message.document?.mimetype};base64,${message.document?.data}`)}
+                            />
+                          ) : message.document.link ? (
+                            <iframe
+                              src={message.document.link}
+                              width="auto"
+                              height="auto"
+                              title="Document"
+                              className="border rounded cursor-pointer"
+                              onClick={() => openPDFModal(message.document?.link || '')}
+                            />
+                          ) : message.document.data ? (
+                            <iframe
+                              src={`data:${message.document.mimetype};base64,${message.document.data}`}
+                              width="auto"
+                              height="auto"
+                              title="Document"
+                              className="border rounded cursor-pointer"
+                              onClick={() => message.document && openPDFModal(`data:${message.document.mimetype};base64,${message.document.data}`)}
+                            />
+                          ) : (
+                            <div className="text-gray-600 dark:text-gray-400">Document preview not available</div>
+                          )}
+                          <div className="flex-1 text-justify mt-3 w-full">
+                            <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+                              {message.document.file_name || message.document.filename || 'Document'}
+                            </div>
+                            <div className="text-gray-600 dark:text-gray-400">
+                              {message.document.page_count && `${message.document.page_count} page${message.document.page_count > 1 ? 's' : ''} • `}
+                              {message.document.mimetype || 'Unknown'} •{' '}
+                              {((message.document.file_size || message.document.fileSize || 0) / (1024 * 1024)).toFixed(2)} MB
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (message.document) {
+                                openPDFModal(message.document.link || `data:${message.document.mimetype};base64,${message.document.data}`);
+                              }
+                            }}
+                            className="mt-3"
+                          >
+                            <Lucide icon="ExternalLink" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
+                          </button>
+                        </div>
+                      )}
                       {message.type === 'link_preview' && message.link_preview && (
                         <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden text-gray-800 dark:text-gray-200">
                           <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
@@ -5989,7 +5996,7 @@ const handleForwardMessage = async () => {
                             src={message.sticker.link}
                             alt="Sticker"
                             className="rounded-lg message-image cursor-pointer"
-                            style={{ maxWidth: '150px' }}
+                            style={{ maxWidth: 'auto', maxHeight: 'auto', objectFit: 'contain' }}
                             onClick={() => openImageModal(message.sticker?.link || '')}
                           />
                         </div>
