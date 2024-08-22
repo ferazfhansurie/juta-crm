@@ -5348,7 +5348,7 @@ const handleForwardMessage = async () => {
   }).map((contact, index) => (
     <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
     <div
-      className={`m-2 pr-3 pb-4 pt-4 rounded-lg cursor-pointer flex items-center space-x-3 group ${
+      className={`m-2 pr-3 pb-2 pt-2 rounded-lg cursor-pointer flex items-center space-x-3 group ${
         contact.chat_id !== undefined
           ? selectedChatId === contact.chat_id
             ? 'bg-slate-300 text-white dark:bg-gray-800 dark:text-gray-200'
@@ -5367,7 +5367,7 @@ const handleForwardMessage = async () => {
     >
     </div>
     <div className="relative w-14 h-14">
-    <div className="w-14 h-14 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl overflow-hidden">
+    <div className="w-14 h-14 bg-gray-400 dark:bg-gray-600 rounded-full flex items-start justify-center text-white text-xl overflow-hidden">
     {contact && (
   contact.chat_id && contact.chat_id.includes('@g.us') ? (
     contact.profilePicUrl ? (
@@ -5398,15 +5398,15 @@ const handleForwardMessage = async () => {
   </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center">
-          <div className="flex items-center">
-            <span className="font-semibold capitalize truncate w-25 text-gray-800 dark:text-gray-200 mr-2">
+          <div className="flex flex-col">
+            <span className="font-semibold capitalize truncate w-25 text-gray-800 dark:text-gray-200">
               {((contact.contactName ?? contact.firstName ?? contact.phone ?? "").slice(0, 20))}
               {((contact.contactName ?? contact.firstName ?? contact.phone ?? "").length > 20 ? '...' : '')}
             </span>
             {!contact.chat_id?.includes('@g.us') && userData?.role === '1' && (
               <span className="text-xs text-gray-600 dark:text-gray-400 truncate" style={{ 
                 visibility: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'hidden' : 'visible',
-                display: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'flex' : 'inline',
+                display: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'flex' : 'block',
                 alignItems: 'center'
               }}>
                 {contact.phone}
@@ -5802,7 +5802,7 @@ const handleForwardMessage = async () => {
                             ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
                             : '100'
                         }px`,
-                        minWidth: '200',
+                        minWidth: '200px',
                       }}
                       onMouseEnter={() => setHoveredMessageId(message.id)}
                       onMouseLeave={() => setHoveredMessageId(null)}
@@ -6042,7 +6042,14 @@ const handleForwardMessage = async () => {
                       )}
                       <div className="flex justify-between items-center mt-1">
                         {message.phoneIndex !== undefined && (
-                          <span className="text-gray-500 dark:text-gray-400 text-xs">
+                          <span className={`text-xs ${
+                            message.phoneIndex === 0 ? 'text-blue-500 dark:text-blue-400' :
+                            message.phoneIndex === 1 ? 'text-green-500 dark:text-green-400' :
+                            message.phoneIndex === 2 ? 'text-red-500 dark:text-red-400' :
+                            message.phoneIndex === 3 ? 'text-yellow-500 dark:text-yellow-400' :
+                            message.phoneIndex === 4 ? 'text-purple-500 dark:text-purple-400' :
+                            'text-gray-500 dark:text-gray-400'
+                          }`}>
                             Sent from Phone {message.phoneIndex + 1}
                           </span>
                         )}
@@ -6107,19 +6114,23 @@ const handleForwardMessage = async () => {
          <div className="flex mb-1">
   {phoneCount > 1 ? (
     // Display phone buttons when phoneCount > 1
-    Array.from({ length:phoneCount }, (_, i) => (
-      <button
-        key={i}
-        className={`px-4 py-2 mr-1 rounded-lg ${
-          messageMode === `phone${i + 1}`
-            ? 'bg-primary text-white'
-            : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-        }`}
-        onClick={() => setMessageMode(`phone${i + 1}`)}
-      >
-        Phone {i + 1}
-      </button>
-    ))
+    Array.from({ length:phoneCount }, (_, i) => {
+      const colors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 'bg-purple-500'];
+      const buttonColor = colors[i % colors.length];
+      return (
+        <button
+          key={i}
+          className={`px-4 py-2 mr-1 rounded-lg ${
+            messageMode === `phone${i + 1}`
+              ? `${buttonColor} text-white`
+              : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+          }`}
+          onClick={() => setMessageMode(`phone${i + 1}`)}
+        >
+          Phone {i + 1}
+        </button>
+      );
+    })
   ) : (
     // Display Reply button when phoneCount <= 1
     <button
