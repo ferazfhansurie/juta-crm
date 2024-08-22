@@ -2748,6 +2748,26 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
           : contact
       )
     );
+    const contactRef = doc(firestore, `companies/${companyId}/contacts`, selectedContact.id);
+    const updatedLastMessage: Message = {
+      createdAt: now.getTime(),
+      text: { body: newMessage },
+      chat_id: selectedContact.last_message?.chat_id || selectedContact.chat_id || '',
+      dateAdded: selectedContact.last_message?.dateAdded || now.getTime(),
+      timestamp: selectedContact.last_message?.timestamp || Math.floor(now.getTime() / 1000),
+      id: selectedContact.last_message?.id || `temp_${now.getTime()}`,
+      from_me: true,
+      type: 'text',
+      from_name: selectedContact.last_message?.from_name || '',
+      from: selectedContact.last_message?.from || '',
+      author: selectedContact.last_message?.author || '',
+      name: selectedContact.last_message?.name || '',
+      // Add any other required fields with appropriate default values
+    };
+    
+    await updateDoc(contactRef, {
+      last_message: updatedLastMessage
+    });
         console.log('Message sent successfully:', data);
         toast.success("Message sent successfully!");
         fetchMessagesBackground(selectedChatId!, data2.apiToken);
