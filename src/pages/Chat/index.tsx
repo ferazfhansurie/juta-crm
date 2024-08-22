@@ -410,12 +410,18 @@ function Main() {
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const myMessageClass = "flex flex-col flex-grow max-w-[auto] min-w-[auto] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group";
-  const otherMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left mt-1 group-first:mt-1";
-  
-  // Add these new classes for consecutive messages from the same sender
-  const myConsecutiveMessageClass = "flex flex-col max-w-[auto] p-1 bg-primary text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-0.5 group";
-  const otherConsecutiveMessageClass = "bg-gray-700 text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left mt-0.5 group-first:mt-0.5";
+  const baseMessageClass = "flex flex-col max-w-[auto] min-w-[auto] p-1 text-white";
+
+  const myMessageClass = `${baseMessageClass} bg-primary self-end ml-auto text-left mb-1 mr-6 group`;
+  const otherMessageClass = `${baseMessageClass} bg-gray-700 self-start text-left mt-1 ml-2 group`;
+
+  const myFirstMessageClass = `${myMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mt-4`;
+  const myMiddleMessageClass = `${myMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl`;
+  const myLastMessageClass = `${myMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mb-4`;
+
+  const otherFirstMessageClass = `${otherMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mt-4`;
+  const otherMiddleMessageClass = `${otherMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl`;
+  const otherLastMessageClass = `${otherMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mb-4`;
   const [messageMode, setMessageMode] = useState<'reply' | 'privateNote' | `phone${number}`>('reply');
   const [isEmployeeMentionOpen, setIsEmployeeMentionOpen] = useState(false);
   const myMessageTextClass = "text-white"
@@ -5771,10 +5777,23 @@ const handleForwardMessage = async () => {
                     new Date(array[index - 1]?.createdAt || array[index - 1]?.dateAdded),
                     new Date(message.createdAt || message.dateAdded)
                   );
-                const isConsecutive = index > 0 && messages[index - 1].from_me === message.from_me;
-                const messageClass = message.from_me
-                  ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass)
-                  : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass);
+                  const isMyMessage = message.from_me;
+                  const prevMessage = messages[index - 1];
+                  const nextMessage = messages[index + 1];
+                  
+                  const isFirstInSequence = !prevMessage || prevMessage.from_me !== message.from_me;
+                  const isLastInSequence = !nextMessage || nextMessage.from_me !== message.from_me;
+                  
+                  let messageClass;
+                  if (isMyMessage) {
+                    messageClass = isFirstInSequence ? myFirstMessageClass :
+                                   isLastInSequence ? myLastMessageClass :
+                                   myMiddleMessageClass;
+                  } else {
+                    messageClass = isFirstInSequence ? otherFirstMessageClass :
+                                   isLastInSequence ? otherLastMessageClass :
+                                   otherMiddleMessageClass;
+                  }
 
   return (
                   <React.Fragment key={message.id}>
@@ -5790,7 +5809,11 @@ const handleForwardMessage = async () => {
 
                     <div
                       data-message-id={message.id}
-                      className={`p-2 mb-2 mr-2 rounded ${message.type === 'privateNote' ? "bg-yellow-600 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group" : message.from_me ? (isConsecutive ? myConsecutiveMessageClass : myMessageClass) : (isConsecutive ? otherConsecutiveMessageClass : otherMessageClass)}`}
+                      className={`p-2 mr-2 ${
+                        message.type === 'privateNote'
+                          ? "bg-yellow-600 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group"
+                          : messageClass
+                      }`}
                       style={{
                         maxWidth: message.type === 'document' ? '90%' : '70%',
                         width: `${
