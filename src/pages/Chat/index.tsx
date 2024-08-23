@@ -5870,7 +5870,7 @@ const handleForwardMessage = async () => {
                           <div className="text-sm text-gray-700 dark:text-gray-300">{message.text.context.quoted_content?.body || ''}</div>
                         </div>
                       )}
-                       {message.phoneIndex &&phoneCount >= 2 && (
+                       {message.phoneIndex != null &&phoneCount >= 2 && (
                           <span className="text-sm font-medium pb-0.5 "
                           style={{ color: getAuthorColor(message.phoneIndex.toString() ) }}>
                             Phone {message.phoneIndex + 1}  
