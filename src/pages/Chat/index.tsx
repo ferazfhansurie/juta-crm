@@ -2771,7 +2771,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       text: { body: newMessage },
       chat_id: selectedContact.last_message?.chat_id || selectedContact.chat_id || '',
       dateAdded: selectedContact.last_message?.dateAdded || now.getTime(),
-      timestamp: selectedContact.last_message?.timestamp || Math.floor(now.getTime() / 1000),
+      timestamp: Math.floor(now.getTime() / 1000),
       id: selectedContact.last_message?.id || `temp_${now.getTime()}`,
       from_me: true,
       type: 'text',
@@ -2802,9 +2802,9 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     const updatedLastMessage: Message = {
       createdAt: now.getTime(),
       text: { body: newMessage },
-      chat_id: contact.last_message?.chat_id || contact.chat_id || '',
+      chat_id: contact.chat_id || '',
       dateAdded: contact.last_message?.dateAdded || now.getTime(),
-      timestamp: contact.last_message?.timestamp || Math.floor(now.getTime() / 1000),
+      timestamp:  Math.floor(now.getTime() / 1000),
       id: contact.last_message?.id || `temp_${now.getTime()}`,
       from_me: true,
       type: 'text',
@@ -3413,11 +3413,7 @@ const getTimestamp2 = (timestamp: any): number => {
           return typeof contact.last_message.timestamp === 'number'
             ? contact.last_message.timestamp
             : new Date(contact.last_message.timestamp).getTime() / 1000;
-        } else if (contact.last_message?.createdAt) {
-          return typeof contact.last_message.createdAt === 'number'
-            ? contact.last_message.createdAt
-            : new Date(contact.last_message.createdAt).getTime() / 1000;
-        } else {
+        }else {
           return 0;
         }
       };
@@ -3485,8 +3481,6 @@ const getTimestamp2 = (timestamp: any): number => {
         }
       }
   
-  // Apply sorting
-  filteredContacts = sortContacts(filteredContacts);
   
       console.log('Filtered and sorted contacts:', filteredContacts); // Add this line for debugging
       setFilteredContacts(filteredContacts);
@@ -5888,7 +5882,7 @@ const handleForwardMessage = async () => {
                           <div className="text-sm text-gray-700 dark:text-gray-300">{message.text.context.quoted_content?.body || ''}</div>
                         </div>
                       )}
-                       {phoneCount >= 2 && (
+                       {message.phoneIndex &&phoneCount >= 2 && (
                           <span className="text-sm font-medium pb-0.5 "
                           style={{ color: getAuthorColor(message.phoneIndex.toString() ) }}>
                             Phone {message.phoneIndex + 1}  
