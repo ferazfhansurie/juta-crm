@@ -738,7 +738,7 @@ const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
     
     // Apply role-based filtering
     filtered = filterContactsByUserRole(filtered, userRole, userData?.name || '');
-    console.log('After role-based filtering:', { filteredCount: filtered.length });
+    console.log('After role-based filtering:', { filteredCount: filtered });
   
     // Filter out group chats
     filtered = filtered.filter(contact => 
@@ -1401,9 +1401,10 @@ async function fetchConfigFromDatabase() {
       return;
     }
     setPhoneCount(data.phoneCount);
-    if(data.phoneCount >2){
+    if(data.phoneCount >=2){
       setMessageMode('phone1');
     }
+    console.log(messageMode);
     setGhlConfig({
       ghl_id: data.ghl_id,
       ghl_secret: data.ghl_secret,
@@ -2128,7 +2129,14 @@ useEffect(() => {
         });
         
         setMessages(formattedMessages);
-        
+        fetchContactsBackground(
+          data2.whapiToken,
+          data2.ghl_location,
+          data2.ghl_accessToken,
+          user_name,
+          dataUser.role,
+          dataUser.email
+        );
     } catch (error) {
         console.error('Failed to fetch messages:', error);
     } finally {
@@ -2230,7 +2238,8 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
           createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
           type: message.type,
           author:message.author,
-          name: message.name
+          name: message.name,
+          phoneIndex: message.phoneIndex // Add this line to include phoneIndex
         };
         if (message.type === 'privateNote') {
           if (message.timestamp && message.timestamp.seconds) {
@@ -3345,19 +3354,79 @@ function formatDate(timestamp: string | number | Date) {
           activeTags.every(tag => contact.tags?.includes(tag))
         );
       }
-    
-      // Sort contacts by pinned status
-      updatedContacts.sort((a, b) => Number(b.pinned) - Number(a.pinned));
-    
-    setFilteredContacts(updatedContacts);
+      let filtered = contacts;
+     // Updated sorting logic
+  filtered.sort((a, b) => {
+    // First, sort by pinned status
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+
+    // Then, sort by timestamp
+    const getTimestamp = (contact: any) => {
+      let timestamp = contact.last_message?.timestamp || contact.timestamp;
+      
+      if (typeof timestamp === 'number') {
+        return timestamp < 1000000000000 ? timestamp * 1000 : timestamp;
+      } else if (typeof timestamp === 'string') {
+        const parsed = new Date(timestamp).getTime();
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      
+      return 0;
+    };
+
+    const timestampA = getTimestamp(a);
+    const timestampB = getTimestamp(b);
+
+    // Sort in descending order (most recent first)
+    return timestampB - timestampA;
+  });
+    setFilteredContacts(filtered);
     } catch (error) {
       console.error('Error filtering contacts:', error);
       // Optionally, handle the error in a user-friendly way
     }
   }, [contacts, searchQuery, activeTags, isGroupFilterActive]);
-
+// Helper function to handle different timestamp formats
+const getTimestamp2 = (timestamp: any): number => {
+  if (typeof timestamp === 'number') {
+    return timestamp;
+  } else if (timestamp && timestamp.seconds) {
+    return timestamp.seconds * 1000;
+  } else if (typeof timestamp === 'string') {
+    return new Date(timestamp).getTime();
+  }
+  return 0;
+};
   const handlePageChange = ({ selected }: { selected: number }) => {
     setCurrentPage(selected);
+  };
+  const sortContacts = (contacts: Contact[]) => {
+    return contacts.sort((a, b) => {
+      // First, sort by pinned status
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+  
+      // If both have the same pinned status, sort by timestamp
+      const getDate = (contact: Contact) => {
+        if (contact.last_message?.timestamp) {
+          return typeof contact.last_message.timestamp === 'number'
+            ? contact.last_message.timestamp
+            : new Date(contact.last_message.timestamp).getTime() / 1000;
+        } else if (contact.last_message?.createdAt) {
+          return typeof contact.last_message.createdAt === 'number'
+            ? contact.last_message.createdAt
+            : new Date(contact.last_message.createdAt).getTime() / 1000;
+        } else {
+          return 0;
+        }
+      };
+  
+      const timestampA = getDate(a);
+      const timestampB = getDate(b);
+  
+      return timestampB - timestampA;
+    });
   };
   const filterTagContact = (tag: string) => {
     setActiveTags([tag.toLowerCase()]);
@@ -3416,40 +3485,8 @@ function formatDate(timestamp: string | number | Date) {
         }
       }
   
-    // Updated sorting logic
-    filteredContacts.sort((a, b) => {
-      // First, sort by pinned status
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-
-      // Then, sort by timestamp
-      const getTimestamp = (contact: any) => {
-        let timestamp = contact.last_message?.timestamp || contact.timestamp;
-        
-        if (typeof timestamp === 'number') {
-          // If the timestamp is already a number
-          // Check if it's in seconds (Unix timestamp) and convert to milliseconds if needed
-          return timestamp < 1000000000000 ? timestamp * 1000 : timestamp;
-        } else if (typeof timestamp === 'string') {
-          // If it's a string, try to parse it
-          const parsed = new Date(timestamp).getTime();
-          return isNaN(parsed) ? 0 : parsed;
-        }
-        
-        // If there's no valid timestamp, return 0
-        return 0;
-      };
-
-      const timestampA = getTimestamp(a);
-      const timestampB = getTimestamp(b);
-
-      // Log timestamps for debugging
-      console.log(`Contact A (${a.id}): ${timestampA}`);
-      console.log(`Contact B (${b.id}): ${timestampB}`);
-
-      // Sort in descending order (most recent first)
-      return timestampB - timestampA;
-    });
+  // Apply sorting
+  filteredContacts = sortContacts(filteredContacts);
   
       console.log('Filtered and sorted contacts:', filteredContacts); // Add this line for debugging
       setFilteredContacts(filteredContacts);
@@ -5347,11 +5384,7 @@ const handleForwardMessage = async () => {
   </div>
 )}
 <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
-  {[...currentContacts].sort((a, b) => {
-    const aTimestamp = a.last_message?.createdAt || a.last_message?.timestamp || 0;
-    const bTimestamp = b.last_message?.createdAt || b.last_message?.timestamp || 0;
-    return bTimestamp - aTimestamp;
-  }).map((contact, index) => (
+  {sortContacts([...currentContacts]).map((contact, index) => (
     <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
     <div
       className={`m-2 pr-3 pb-2 pt-2 rounded-lg cursor-pointer flex items-center space-x-3 group ${
@@ -5437,10 +5470,10 @@ const handleForwardMessage = async () => {
                   <>
                     {employeeTags.length > 0 && (
                       <Tippy
-                        content={employeeTags.map(tag => {
-                          const employee = employeeList.find(e => e.name.toLowerCase() === tag.toLowerCase());
-                          return employee ? employee.name : tag;
-                        }).join(', ')}
+                          content={employeeTags.map(tag => {
+                            const employee = employeeList.find(e => e.name.toLowerCase() === tag.toLowerCase());
+                            return employee ? employee.name : tag;
+                          }).join(', ')}
                         options={{ 
                           interactive: true,  
                           appendTo: () => document.body
@@ -5822,7 +5855,7 @@ const handleForwardMessage = async () => {
                             : message.type !== 'text'
                             ? '320'
                             : message.text?.body
-                            ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 10, 320)
+                            ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 30, 320)
                             : '100'
                         }px`,
                         minWidth: '200px',
@@ -5855,6 +5888,12 @@ const handleForwardMessage = async () => {
                           <div className="text-sm text-gray-700 dark:text-gray-300">{message.text.context.quoted_content?.body || ''}</div>
                         </div>
                       )}
+                       {phoneCount >= 2 && (
+                          <span className="text-sm font-medium pb-0.5 "
+                          style={{ color: getAuthorColor(message.phoneIndex.toString() ) }}>
+                            Phone {message.phoneIndex + 1}  
+                          </span>
+                        )}
                       {message.type === 'privateNote' && (
                         <div className="whitespace-pre-wrap break-words overflow-hidden text-white">
                           {(() => {
@@ -6064,18 +6103,7 @@ const handleForwardMessage = async () => {
         </div>
                       )}
                       <div className="flex justify-between items-center mt-1">
-                        {message.phoneIndex !== undefined && (
-                          <span className={`text-xs ${
-                            message.phoneIndex === 0 ? 'text-blue-500 dark:text-blue-400' :
-                            message.phoneIndex === 1 ? 'text-green-500 dark:text-green-400' :
-                            message.phoneIndex === 2 ? 'text-red-500 dark:text-red-400' :
-                            message.phoneIndex === 3 ? 'text-yellow-500 dark:text-yellow-400' :
-                            message.phoneIndex === 4 ? 'text-purple-500 dark:text-purple-400' :
-                            'text-gray-500 dark:text-gray-400'
-                          }`}>
-                            Sent from Phone {message.phoneIndex + 1}
-                          </span>
-                        )}
+                      
                         <div className={`message-timestamp text-xs ${message.from_me ? myMessageTextClass : otherMessageTextClass} flex items-center h-6 ml-auto`}>
                           <div className="flex items-center mr-2">
                             {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (

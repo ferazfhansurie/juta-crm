@@ -165,22 +165,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         lastVisible = contactsSnapshot.docs[contactsSnapshot.docs.length - 1];
       }
     
-      // Fetch pinned chats
-      const pinnedChatsRef = collection(firestore, `user/${user.email!}/pinned`);
-      const pinnedChatsSnapshot = await getDocs(pinnedChatsRef);
-      const pinnedChats = pinnedChatsSnapshot.docs.map(doc => doc.data() as Contact);
-    
-      // Add pinned status to contactsData and update in Firebase
-      const updatePromises = allContacts.map(async contact => {
-        const isPinned = pinnedChats.some(pinned => pinned.chat_id === contact.chat_id);
-        if (isPinned) {
-          contact.pinned = true;
-          const contactDocRef = doc(firestore, `companies/${companyId}/contacts`, contact.id);
-          await setDoc(contactDocRef, contact, { merge: true });
-        }
-      });
-    
-      await Promise.all(updatePromises);
+
     
       // Sort contactsData by pinned status and last_message timestamp
       allContacts.sort((a, b) => {
