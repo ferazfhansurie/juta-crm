@@ -5514,6 +5514,42 @@ const handleForwardMessage = async () => {
               
                 return (
                   <>
+                  <button
+                    className={`text-md ${
+                      contact.pinned ? 'text-blue-500 dark:text-blue-400 font-bold' : 'text-gray-500 group-hover:text-blue-500 dark:text-gray-400 dark:group-hover:text-blue-400 group-hover:font-bold dark:group-hover:font-bold mr-1'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      togglePinConversation(contact.chat_id!);
+                    }}
+                  >
+                  {contact.pinned ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 48 48" className="text-gray-800 dark:text-blue-400 fill-current mr-1">
+                      <mask id="ipSPin0">
+                        <path fill="#fff" stroke="#fff" strokeLinejoin="round" strokeWidth="4" d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"/>
+                      </mask>
+                      <path fill="currentColor" d="M0 0h48v48H0z" mask="url(#ipSPin0)"/>
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 48 48" className="group-hover:block hidden">
+                      <path fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="4" d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"/>
+                    </svg>
+                  )}
+                  </button>
+                    {uniqueTags.length > 0 && (
+                      <Tippy
+                        content={uniqueTags.join(', ')}
+                        options={{ 
+                          interactive: true,
+                          appendTo: () => document.body
+                        }}
+                      >
+                        <span className="bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200 text-xs font-semibold mr-1 px-2.5 py-0.5 rounded-full cursor-pointer">
+                          <Lucide icon="Tag" className="w-4 h-4 inline-block" />
+                          <span className="ml-1">{uniqueTags.length}</span>
+                        </span>
+                      </Tippy>
+                    )}
                     {employeeTags.length > 0 && (
                       <Tippy
                           content={employeeTags.map(tag => {
@@ -5536,50 +5572,15 @@ const handleForwardMessage = async () => {
                         </span>
                       </Tippy>
                     )}
-                    {uniqueTags.length > 0 && (
-                      <Tippy
-                        content={uniqueTags.join(', ')}
-                        options={{ 
-                          interactive: true,
-                          appendTo: () => document.body
-                        }}
-                      >
-                        <span className="bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200 text-xs font-semibold mr-1 px-2.5 py-0.5 rounded-full cursor-pointer">
-                          <Lucide icon="Tag" className="w-4 h-4 inline-block" />
-                          <span className="ml-1">{uniqueTags.length}</span>
-                        </span>
-                      </Tippy>
-                    )}
                   </>
                 );
               })()}
             </div>
 
-            <div className="flex items-center space-x-2">
-              <button
-                className={`text-md ${
-                  contact.pinned ? 'text-blue-500 dark:text-blue-400 font-bold' : 'text-gray-500 group-hover:text-blue-500 dark:text-gray-400 dark:group-hover:text-blue-400 group-hover:font-bold dark:group-hover:font-bold'
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  togglePinConversation(contact.chat_id!);
-                }}
-              >
-               {contact.pinned ? (
-                 <Pin 
-                 size={14} 
-                 color="currentColor" 
-                 strokeWidth={1.25} 
-                 absoluteStrokeWidth 
-                 className="text-gray-800 dark:text-blue-400 fill-current"
-               />
-              ) : (
-                <PinOff size={14} color="currentColor" className="group-hover:block hidden" strokeWidth={1.25} absoluteStrokeWidth />
-              )}
-              </button>
+            <div className="flex items-center align-top space-x-1">
               <span className={`${
                 contact.unreadCount && contact.unreadCount > 0 
-                  ? 'text-blue-500 font-bold' 
+                  ? 'text-blue-500 font-medium' 
                   : ''
               }`}>
                 {contact.last_message?.createdAt || contact.last_message?.timestamp
@@ -5952,7 +5953,7 @@ className="cursor-pointer">
                           </span>
                         )}
                       {message.type === 'privateNote' && (
-                        <div className="whitespace-pre-wrap break-words overflow-hidden text-white">
+                        <div className="inline-block whitespace-pre-wrap break-words text-white">
                           {(() => {
                             const text = typeof message.text === 'string' ? message.text : message.text?.body || 'No content';
                             const parts = text.split(/(@\w+)/g);
