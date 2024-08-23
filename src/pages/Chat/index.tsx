@@ -127,15 +127,15 @@ interface Chat {
 
 interface Message {
   chat_id: string;
-  dateAdded: number;
-  timestamp: number;
+  dateAdded?: number | 0;
+  timestamp: number | 0;
   id: string;
   text?: { body: string | "" ,  context?: any;};
   from_me?: boolean;
-  from_name: string;
-  createdAt: number;
+  from_name?: string | "";
+  createdAt?: number;
   type?: string;
-  from:string;
+  from?:string|"";
   author?:string;
   phoneIndex:number;
   image?: { link?: string; caption?: string;url?:string ;data?:string;mimetype?:string};
@@ -2767,20 +2767,13 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     );
     const contactRef = doc(firestore, `companies/${companyId}/contacts`, selectedContact.id);
     const updatedLastMessage: Message = {
-      createdAt: now.getTime(),
       text: { body: newMessage },
-      chat_id: selectedContact.last_message?.chat_id || selectedContact.chat_id || '',
-      dateAdded: selectedContact.last_message?.dateAdded || now.getTime(),
-      timestamp: Math.floor(now.getTime() / 1000),
+      chat_id: selectedContact.chat_id || '',
+      timestamp:  Math.floor(now.getTime() / 1000),
       id: selectedContact.last_message?.id || `temp_${now.getTime()}`,
       from_me: true,
       type: 'text',
-      from_name: selectedContact.last_message?.from_name || '',
-      from: selectedContact.last_message?.from || '',
-      author: selectedContact.last_message?.author || '',
-      name: selectedContact.last_message?.name || '',
       phoneIndex: selectedContact.last_message?.phoneIndex || 0,
-      // Add any other required fields with appropriate default values
     };
     
     await updateDoc(contactRef, {
@@ -2800,18 +2793,13 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
   };
   const updateContactWithNewMessage = (contact: Contact, newMessage: string, now: Date): Contact => {
     const updatedLastMessage: Message = {
-      createdAt: now.getTime(),
       text: { body: newMessage },
       chat_id: contact.chat_id || '',
-      dateAdded: contact.last_message?.dateAdded || now.getTime(),
       timestamp:  Math.floor(now.getTime() / 1000),
       id: contact.last_message?.id || `temp_${now.getTime()}`,
       from_me: true,
       type: 'text',
       from_name: contact.last_message?.from_name || '',
-      from: contact.last_message?.from || '',
-      author: contact.last_message?.author || '',
-      name: contact.last_message?.name || '',
       phoneIndex: selectedContact.last_message?.phoneIndex || 0,
       // Add any other required fields with appropriate default values
     };
@@ -3480,7 +3468,7 @@ const getTimestamp2 = (timestamp: any): number => {
             );
         }
       }
-  
+      filteredContacts = sortContacts(filteredContacts);
   
       console.log('Filtered and sorted contacts:', filteredContacts); // Add this line for debugging
       setFilteredContacts(filteredContacts);
@@ -5801,8 +5789,8 @@ const handleForwardMessage = async () => {
                 const showDateHeader =
                   index === 0 ||
                   !isSameDay(
-                    new Date(array[index - 1]?.createdAt || array[index - 1]?.dateAdded),
-                    new Date(message.createdAt || message.dateAdded)
+                    new Date(array[index - 1]?.createdAt ?? array[index - 1]?.dateAdded ?? 0),
+                    new Date(message.createdAt ?? message.dateAdded ?? 0)
                   );
                   const isMyMessage = message.from_me;
                   const prevMessage = messages[index - 1];
@@ -5827,7 +5815,7 @@ const handleForwardMessage = async () => {
                     {showDateHeader && (
                       <div className="flex justify-center my-4">
                         <div className="inline-block bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold py-1 px-4 rounded-lg shadow-md">
-                          {formatDateHeader(message.createdAt || message.dateAdded)}
+                          {formatDateHeader(message.createdAt?.toString() || message.dateAdded?.toString() || '')}
                         </div>
                       </div>
                     )}
@@ -6104,7 +6092,7 @@ const handleForwardMessage = async () => {
                               <>
                                 <input type="checkbox" className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full" checked={selectedMessages.includes(message)} onChange={() => handleSelectMessage(message)} />
                                 <button className="ml-2 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors duration-200 mr-2" onClick={() => setReplyToMessage(message)}><Lucide icon="MessageSquare" className="w-5 h-5 fill-current" /></button>
-                                {message.from_me && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && userRole !== "3" && (
+                                {message.from_me && message.createdAt && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && userRole !== "3" && (
                                   <button className="ml-2 mr-2 text-black hover:text-black dark:text-gray-300 dark:hover:text-black transition-colors duration-200" onClick={() => openEditMessage(message)}><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z" /></svg></button>
                                 )}
                               </>
