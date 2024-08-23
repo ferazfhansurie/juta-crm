@@ -5592,19 +5592,26 @@ const handleForwardMessage = async () => {
         <div className="flex justify-between items-center">
           <span className="text-sm truncate text-gray-600 dark:text-gray-400" style={{ width: '200px' }}>
             {contact.last_message ? (
-              contact.last_message.type === "text" ? (
-                contact.last_message.text?.body
-              ) : contact.last_message.type === "image" ? (
-                "Photo"
-              ) : contact.last_message.type === "document" ? (
-                "Document"
-              ) : contact.last_message.type === "audio" ? (
-                "Audio"
-              ) : contact.last_message.type === "video" ? (
-                "Video"
-              ) : (
-                contact.last_message.from_me ? "You: Message" : "Bot: Message"
-              )
+              <>
+                {contact.last_message.from_me && (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="inline-block items-center justify-start w-5 h-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+                {contact.last_message.type === "text" ? (
+                  contact.last_message.text?.body
+                ) : contact.last_message.type === "image" ? (
+                  "Photo"
+                ) : contact.last_message.type === "document" ? (
+                  "Document"
+                ) : contact.last_message.type === "audio" ? (
+                  "Audio"
+                ) : contact.last_message.type === "video" ? (
+                  "Video"
+                ) : (
+                  contact.last_message.from_me ? "You: Message" : "Bot: Message"
+                )}
+              </>
             ) : (
               "No Messages"
             )}
