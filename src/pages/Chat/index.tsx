@@ -3617,7 +3617,7 @@ const getTimestamp2 = (timestamp: any): number => {
             case 'snooze':
               return contactTags.includes('snooze');
             case 'stop bot':
-              return contactTags.includes('stop bot');
+              return contactTags.includes('stop bot') && !contactTags.includes('snooze');
             default:
               return contactTags.includes(tag) && !contactTags.includes('snooze');
           }
@@ -5383,7 +5383,9 @@ const handleForwardMessage = async () => {
       >
         <span>{tagName}</span>
         {unreadCount > 0 && (
-          <span className="ml-2 px-1.5 py-0.5 rounded-full text-xs bg-primary text-white">
+          <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
+            tagName.toLowerCase() === 'stop bot' ? 'bg-red-700' : 'bg-primary'
+          } text-white`}>
             {unreadCount}
           </span>
         )}
@@ -5448,29 +5450,31 @@ const handleForwardMessage = async () => {
     >
     </div>
     <div className="relative w-14 h-14">
-    <div className="w-14 h-14 bg-gray-400 dark:bg-gray-600 rounded-full flex items-start justify-center text-white text-xl overflow-hidden">
+    <div className="w-14 h-14 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-white text-xl overflow-hidden">
     {contact && (
-  contact.chat_id && contact.chat_id.includes('@g.us') ? (
-    contact.profilePicUrl ? (
-      <img 
-        src={contact.profilePicUrl} 
-        alt={contact.contactName || "Group"} 
-        className="w-full h-full object-cover"
-      />
-    ) : (
-      <Lucide icon="Users" className="w-6 h-6 text-white dark:text-gray-200" />
-    )
-  ) : contact.profilePicUrl ? (
-    <img 
-      src={contact.profilePicUrl} 
-      alt={contact.contactName || "Profile"} 
-      className="w-full h-full object-cover"
-    />
-  ) : (
-    <Lucide icon="User" className="w-6 h-6 text-white dark:text-gray-200" />
-  )
-)}
-</div>
+      contact.chat_id && contact.chat_id.includes('@g.us') ? (
+        contact.profilePicUrl ? (
+          <img 
+            src={contact.profilePicUrl} 
+            alt={contact.contactName || "Group"} 
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <Lucide icon="Users" className="w-8 h-8 text-white dark:text-gray-200" />
+        )
+      ) : contact.profilePicUrl ? (
+        <img 
+          src={contact.profilePicUrl} 
+          alt={contact.contactName || "Profile"} 
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-gray-400 dark:bg-gray-600 text-white">
+          {<Lucide icon="User" className="w-10 h-10" />}
+        </div>
+      )
+    )}
+    </div>
     {(contact.unreadCount ?? 0) > 0 && (
       <span className="absolute -top-1 -right-1 bg-primary text-white dark:bg-blue-600 dark:text-gray-200 text-xs rounded-full px-2 py-1 min-w-[20px] h-[20px] flex items-center justify-center">
         {contact.unreadCount}
