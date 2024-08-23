@@ -1309,7 +1309,67 @@ const closePDFModal = () => {
     chatId =  params.get("chatId");
     console.log(chatId);
   }
+// New separate useEffect for message listener
+useEffect(() => {
+  let unsubscribeMessages: (() => void) | null = null;
 
+  const setupMessageListener = async () => {
+    if (selectedChatId && auth.currentUser) {
+   
+      const phone = "+"+selectedChatId.split('@')[0];
+      console.log('listing to messages' + phone);
+      const userDocRef = doc(firestore, 'user', auth.currentUser.email!);
+      const userDocSnapshot = await getDoc(userDocRef);
+      
+      if (!userDocSnapshot.exists()) {
+        console.log('No such user document!');
+        return;
+      }
+      
+      const dataUser = userDocSnapshot.data();
+      const newCompanyId = dataUser.companyId;
+      
+      const companyDocRef = doc(firestore, 'companies', newCompanyId);
+      const companyDocSnapshot = await getDoc(companyDocRef);
+      
+      if (!companyDocSnapshot.exists()) {
+        console.log('No such company document!');
+        return;
+      }
+      
+      const data = companyDocSnapshot.data();
+      console.log('Setting up message listener for company:', newCompanyId);
+
+      let prevMessagesCount = 0;
+
+      unsubscribeMessages = onSnapshot(
+        collection(firestore, `companies/${newCompanyId}/contacts/${phone}/messages`),
+        async (snapshot) => {
+          const currentMessages = snapshot.docs;
+          
+          // Check if new messages have been added
+          if (currentMessages.length > prevMessagesCount) {
+            console.log('New message(s) detected');
+            fetchMessagesBackground(selectedChatId, data.whapiToken);
+          }
+
+          // Update the previous messages count
+          prevMessagesCount = currentMessages.length;
+        }
+      );
+    }
+  };
+
+  if (selectedChatId) {
+    setupMessageListener();
+  }
+
+  return () => {
+    if (unsubscribeMessages) {
+      unsubscribeMessages();
+    }
+  };
+}, [selectedChatId]); 
 
   useEffect(() => {
     const fetchContact = async () => {
@@ -5546,18 +5606,22 @@ const handleForwardMessage = async () => {
             )}
           </span>
           <div onClick={(e) => toggleStopBotLabel(contact, index, e)}
-          className="cursor-pointer">
-            <label className="inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={contact.tags?.includes("stop bot")}
-                readOnly
-              />
-              <div className="mt-1 ml-0 relative w-11 h-6 bg-primary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-blue-700 peer-checked:after:-translate-x-full rtl:peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:end-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400 peer-checked:bg-gray-400">
-              </div>
-            </label>
-          </div>
+className="cursor-pointer">
+  <label className="inline-flex items-center cursor-pointer">
+    <input
+      type="checkbox"
+      className="sr-only peer"
+      checked={contact.tags?.includes("stop bot")}
+      readOnly
+    />
+    <div className={`mt-1 ml-0 relative w-11 h-6 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer ${
+      contact.tags?.includes("stop bot") 
+        ? 'bg-red-500 dark:bg-red-700' 
+        : 'bg-green-500 dark:bg-green-700'
+    } peer-checked:after:-translate-x-full rtl:peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:end-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400`}>
+    </div>
+  </label>
+</div>
         </div>
                   </div>
                 </div>
