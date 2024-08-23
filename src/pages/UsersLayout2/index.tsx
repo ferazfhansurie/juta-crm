@@ -41,12 +41,11 @@ interface Employee {
   id: string;
   name: string;
   role: string;
-  groups?: string[];
+  group?: string;
   email?: string;
   assignedContacts?: number;
   employeeId?: string;
-  phoneNumber?: string; // Added phone field
-  // Add other properties as needed
+  phoneNumber?: string;
 }
 
 function Main() {
@@ -63,10 +62,13 @@ function Main() {
   const navigate = useNavigate();
   const [employeeIdToDelete, setEmployeeIdToDelete] = useState<string>('');
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
-  const [role, setRole] = useState<string>(""); // Added role state
+  const [role, setRole] = useState<string>("");
   const [phoneCount, setPhoneCount] = useState<number>(1);
   const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 21; // Show 9 employees per page
+  const itemsPerPage = 21;
+
+  const [groups, setGroups] = useState<string[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<string>('');
 
   const toggleModal = (id?:string) => {
     setIsModalOpen(!isModalOpen);
@@ -115,7 +117,6 @@ function Main() {
       fetchEmployees();
     } else {
       console.log("No user is signed in.");
-      // Handle the case when no user is signed in
     }
   }, []);
 
@@ -150,32 +151,41 @@ function Main() {
       const employeeSnapshot = await getDocs(employeeRef);
 
       const employeeListData: Employee[] = [];
+      const groupSet = new Set<string>();
+
       employeeSnapshot.forEach((doc) => {
         const data = doc.data();
+        const employeeGroup = data.group || '';
+        if (employeeGroup) {
+          groupSet.add(employeeGroup);
+        }
         employeeListData.push({ 
           id: doc.id, 
           ...data,
-          groups: data.groups || [],
-          email: data.email
+          group: employeeGroup,
+          email: data.email,
+          name: data.name,
+          employeeId: data.employeeId,
+          phoneNumber: data.phoneNumber,
+          role: data.role
         } as Employee);
       });
 
       console.log("All employees:", employeeListData);
       console.log("Current user email:", user?.email);
 
-      // Filter the employee list if the user is an observer
       const filteredEmployeeList = dataUser.role === "3"
         ? employeeListData.filter(employee => employee.email === user?.email)
         : employeeListData;
       
       console.log("Filtered employees:", filteredEmployeeList);
       setEmployeeList(filteredEmployeeList);
+      setGroups(Array.from(groupSet));
       
-      // Check if user's role is 1
       setShowAddUserButton(dataUser.role === "1");
     
     } catch (error) {
-      console.error('Error fetching config:', error);
+      console.error('Error fetching employees:', error);
       throw error;
     }
   }
@@ -207,16 +217,24 @@ const handlePageChange = ({ selected }: { selected: number }) => {
 const [searchTerm, setSearchTerm] = useState("");
 
 const filteredEmployees = useMemo(() => {
-  if (!searchTerm.trim()) return employeeList;
+  let filtered = employeeList;
   
-  const lowercaseSearchTerm = searchTerm.toLowerCase();
-  return employeeList.filter(employee => 
-    employee.name.toLowerCase().includes(lowercaseSearchTerm) ||
-    employee.email?.toLowerCase().includes(lowercaseSearchTerm) ||
-    employee.employeeId?.toLowerCase().includes(lowercaseSearchTerm) ||
-    employee.phoneNumber?.toLowerCase().includes(lowercaseSearchTerm)
-  );
-}, [employeeList, searchTerm]);
+  if (searchTerm.trim()) {
+    const lowercaseSearchTerm = searchTerm.toLowerCase();
+    filtered = filtered.filter(employee => 
+      employee.name.toLowerCase().includes(lowercaseSearchTerm) ||
+      employee.email?.toLowerCase().includes(lowercaseSearchTerm) ||
+      employee.employeeId?.toLowerCase().includes(lowercaseSearchTerm) ||
+      employee.phoneNumber?.toLowerCase().includes(lowercaseSearchTerm)
+    );
+  }
+
+  if (selectedGroup) {
+    filtered = filtered.filter(employee => employee.group === selectedGroup);
+  }
+
+  return filtered;
+}, [employeeList, searchTerm, selectedGroup]);
 
 const paginatedEmployees = filteredEmployees
   .sort((a, b) => {
@@ -245,6 +263,21 @@ const paginatedEmployees = filteredEmployees
                 </Button>
               )}
             </Link>
+            <Menu className="mr-2">
+              <Menu.Button as={Button} variant="outline-secondary" className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                {selectedGroup || "Select a group"} <Lucide icon="ChevronDown" className="w-4 h-4" />
+              </Menu.Button>
+              <Menu.Items className="w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg mt-2">
+                <Menu.Item as="button" onClick={() => setSelectedGroup('')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                  Select All
+                </Menu.Item>
+                {groups.map(group => (
+                  <Menu.Item as="button" key={group} onClick={() => setSelectedGroup(group)} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    {group}
+                  </Menu.Item>
+                ))}
+              </Menu.Items>
+            </Menu>
             <div className="w-full mt-3 sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
               <div className="relative w-56 text-slate-500">
                 <FormInput
@@ -288,43 +321,48 @@ const paginatedEmployees = filteredEmployees
           </div>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-5">
-          {paginatedEmployees.map((contact, index) => (
+          {paginatedEmployees.map((employee, index) => (
             <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-                      {contact.name.length > 20 ? contact.name.substring(0, 20) + '...' : contact.name}
-                      {contact.employeeId && (
+                      {employee.name.length > 20 ? employee.name.substring(0, 20) + '...' : employee.name}
+                      {employee.employeeId && (
                         <span className={`ml-2 text-md font-medium ${
-                          contact.role === "1" ? 'text-indigo-600 dark:text-indigo-400' :
-                          contact.role === "2" ? 'text-teal-600 dark:text-teal-400' :
-                          contact.role === "3" ? 'text-purple-600 dark:text-purple-400' :
+                          employee.role === "1" ? 'text-indigo-600 dark:text-indigo-400' :
+                          employee.role === "2" ? 'text-teal-600 dark:text-teal-400' :
+                          employee.role === "3" ? 'text-purple-600 dark:text-purple-400' :
                           'text-amber-600 dark:text-amber-400'
                         }`}>
-                          {contact.employeeId}
+                          {employee.employeeId}
                         </span>
                       )}
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {contact.email}
+                      {employee.email}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {contact.role === "1" ? 'Admin' : contact.role === "2" ? 'Sales' : contact.role === "3" ? 'Observer' : "Other"}
+                      {employee.role === "1" ? 'Admin' : employee.role === "2" ? 'Sales' : employee.role === "3" ? 'Observer' : "Other"}
                     </p>
+                    {/* {employee.group && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Group: {employee.group}
+                      </p>
+                    )} */}
                   </div>
                   <div className="flex space-x-2">
                     {canEdit && (
                       <>
                         <button
-                          onClick={() => navigate(`crud-form`, { state: { contactId: contact.id, contact: contact, companyId: companyId || '' } })}
+                          onClick={() => navigate(`crud-form`, { state: { contactId: employee.id, contact: employee, companyId: companyId || '' } })}
                           className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-full transition-colors duration-300"
                           aria-label="Edit"
                         >
                           <Lucide icon="Pencil" className="w-5 h-5" />
                         </button>
                         <button 
-                          onClick={() => toggleModal(contact.id)}
+                          onClick={() => toggleModal(employee.id)}
                           className="p-2 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors duration-300"
                           aria-label="Delete"
                         >

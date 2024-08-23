@@ -75,7 +75,8 @@ function Main() {
     role: "",
     companyId: "",
     group: "",
-    employeeId: ""
+    employeeId: "",
+    notes: "",
   });
 
   useEffect(() => {
@@ -88,7 +89,8 @@ function Main() {
         role: contact.role || "",
         companyId: companyId || "",
         group: contact.group || "",
-        employeeId: contact.employeeId || ""
+        employeeId: contact.employeeId || "",
+        notes: contact.notes || ""
       });
       setCategories([contact.role]);
     }
@@ -146,6 +148,10 @@ function Main() {
     window.history.back();
   };
 
+  const handleEditorChange = (data: string) => {
+    setUserData(prev => ({ ...prev, notes: data }));
+  };
+
   const saveUser = async () => {
     try {
       setIsLoading(true);
@@ -172,7 +178,8 @@ function Main() {
         companyId: companyId,
         company: company,
         group: userData.group,
-        employeeId: userData.employeeId || null
+        employeeId: userData.employeeId || null,
+        notes: userData.notes || null
       };
 
       if (contactId) {
@@ -202,7 +209,8 @@ function Main() {
             role: "",
             companyId: "",
             group: "",
-            employeeId: ""
+            employeeId: "",
+            notes: ""
           });
         } else {
           throw new Error(responseData.error);
@@ -221,7 +229,21 @@ function Main() {
 
   const editorConfig = {
     toolbar: {
-      items: ["bold", "italic", "link"],
+      items: [
+        "bold",
+        "italic",
+        "link",
+        "bulletedList",
+        "numberedList",
+        "blockQuote",
+        "insertTable",
+        "undo",
+        "redo",
+        "heading",
+        "alignment",
+        "fontColor",
+        "fontSize",
+      ],
     },
   };
 
@@ -230,12 +252,12 @@ function Main() {
 
   return (
     <>
-      <div className="flex items-center mt-8 intro-y">
-        <h2 className="mr-auto text-lg font-medium">
+      <div className="flex items-center mt-5 intro-y">
+        <h2 className="mr-auto text-lg font-semibold">
           {contactId ? "Update User" : "Add User"}
         </h2>
       </div>
-      <div className="grid grid-cols-12 gap-6 mt-5">
+      <div className="grid grid-cols-12 gap-6 mt-2">
         <div className="col-span-12 intro-y lg:col-span-6">
           <div className="p-5 intro-y box">
             <div>
@@ -364,6 +386,23 @@ function Main() {
                 onChange={handleChange}
                 placeholder="Employee ID (optional)"
               />
+            </div>
+            <div className="mt-2">
+              <div className="relative rounded-lg focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark focus:border-transparent">
+                <ClassicEditor
+                  value={userData.notes}
+                  onChange={handleEditorChange}
+                  config={editorConfig}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent"
+                />
+                <div className="absolute top-2 right-2">
+                  <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
             {errorMessage && <div className="text-red-500">{errorMessage}</div>}
             {successMessage && <div className="text-green-500">{successMessage}</div>}
