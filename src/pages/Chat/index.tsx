@@ -155,11 +155,12 @@ interface Message {
     preview: string;
     sha256: string;
     data?:string;
+    caption?:string;
   mimetype?: string;
   fileSize?: number;
   };
   link_preview?: { link: string; title: string; description: string ,body:string,preview:string};
-  sticker?: { link: string; emoji: string };
+  sticker?: { link: string; emoji: string;mimetype:string;data:string };
   location?: { latitude: number; longitude: number; name: string };
   live_location?: { latitude: number; longitude: number; name: string };
   contact?: { name: string; phone: string };
@@ -3450,7 +3451,14 @@ const getTimestamp2 = (timestamp: any): number => {
     setCurrentPage(selected);
   };
   const sortContacts = (contacts: Contact[]) => {
-    return contacts.sort((a, b) => {
+    let fil = contacts;
+    if (activeTags[0].toLowerCase().startsWith('phone ')) {
+      const phoneIndex = parseInt(activeTags[0].split(' ')[1]) - 1; // Subtract 1 to match the 0-based index
+      fil = contacts.filter(contact => 
+        contact.phoneIndex === phoneIndex
+      );
+    }
+    return fil.sort((a, b) => {
       // First, sort by pinned status
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
@@ -3595,81 +3603,6 @@ const getTimestamp2 = (timestamp: any): number => {
           .includes(searchQuery.toLowerCase())
       );
     }
-    
-    if (activeTags.length > 0) {
-      console.log('active2:'+activeTags[0]);
-      filtered = filtered.filter((contact) => {
-        const contactTags = contact.tags?.map(tag => tag.toLowerCase()) || [];
-        const isGroup = contact.chat_id?.endsWith('@g.us');
-        
-        return activeTags.every(tag => {
-          switch (tag) {
-            case 'mine':
-              return contactTags.includes(currentUserName.toLowerCase()) && !contactTags.includes('snooze');
-            case 'all':
-              return !isGroup && !contactTags.includes('snooze');
-            case 'unread':
-              return contact.unreadCount && contact.unreadCount > 0 && !contactTags.includes('snooze');
-            case 'group':
-              return isGroup;
-            case 'unassigned':
-              return !contactTags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())) && !contactTags.includes('snooze');
-            case 'snooze':
-              return contactTags.includes('snooze');
-            case 'stop bot':
-              return contactTags.includes('stop bot') && !contactTags.includes('snooze');
-            default:
-              return contactTags.includes(tag) && !contactTags.includes('snooze');
-          }
-        });
-      });
-    } else if (showAllContacts) {
-      filtered = filtered.filter(contact => 
-        !contact.tags?.includes('snooze') && 
-        !contact.chat_id?.endsWith('@g.us')
-      );
-    } else if (showUnreadContacts) {
-      filtered = filtered.filter((contact) => contact.unreadCount && contact.unreadCount > 0 && !contact.tags?.includes('snooze'));
-    } else if (showMineContacts) {
-      filtered = filtered.filter((contact) => 
-        contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase()) && !contact.tags?.includes('snooze')
-      );
-    } else if (showUnassignedContacts) {
-      filtered = filtered.filter((contact) => 
-        (!contact.tags || !contact.tags.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()))) &&
-        !contact.tags?.includes('snooze')
-      );
-    } else if (showSnoozedContacts) {
-      filtered = filtered.filter((contact) => contact.tags?.includes('snooze'));
-    } else if (showGroupContacts) {
-      filtered = filtered.filter((contact) => contact.chat_id?.endsWith('@g.us'));
-      console.log(`Number of groups: ${filtered.length}`);
-    }
-    filtered.sort((a, b) => {
-      // First, sort by pinned status
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-  
-      // Then, sort by timestamp
-      const getTimestamp = (contact: any) => {
-        let timestamp = contact.last_message?.timestamp || contact.timestamp;
-        
-        if (typeof timestamp === 'number') {
-          return timestamp < 1000000000000 ? timestamp * 1000 : timestamp;
-        } else if (typeof timestamp === 'string') {
-          const parsed = new Date(timestamp).getTime();
-          return isNaN(parsed) ? 0 : parsed;
-        }
-        
-        return 0;
-      };
-  
-      const timestampA = getTimestamp(a);
-      const timestampB = getTimestamp(b);
-  
-      // Sort in descending order (most recent first)
-      return timestampB - timestampA;
-    });
     setFilteredContacts(filtered);
   }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList]);
   
@@ -5857,7 +5790,9 @@ className="cursor-pointer">
         {selectedChatId && (
           <>
             {messages
-              .filter((message) => message.type !== 'action')
+              .filter((message) => message.type !== 'action'&& 
+              message.type !== 'e2e_notification' && 
+              message.type !== 'notification_template')
               .slice()
               .reverse()
               .map((message, index, array) => {
@@ -5946,7 +5881,7 @@ className="cursor-pointer">
                           <div className="text-sm text-gray-700 dark:text-gray-300">{message.text.context.quoted_content?.body || ''}</div>
                         </div>
                       )}
-                       {message.phoneIndex != null &&phoneCount >= 2 && (
+                       {!message.chat_id.includes('@g') && message.phoneIndex != null &&phoneCount >= 2 && (
                           <span className="text-sm font-medium pb-0.5 "
                           style={{ color: getAuthorColor(message.phoneIndex.toString() ) }}>
                             Phone {message.phoneIndex + 1}  
@@ -5985,6 +5920,9 @@ className="cursor-pointer">
                               e.currentTarget.src = logoImage; // Replace with your fallback image path
                             }}
                           />
+                            {message.image?.caption && (
+                <p className="mt-2 text-sm">{message.image.caption}</p>
+              )}
                         </div>
                       )}
                       {message.type === 'video' && message.video && (
@@ -6081,7 +6019,9 @@ className="cursor-pointer">
                               {message.document.mimetype || 'Unknown'} •{' '}
                               {((message.document.file_size || message.document.fileSize || 0) / (1024 * 1024)).toFixed(2)} MB
                             </div>
+                      
                           </div>
+                  
                           <button
                             onClick={() => {
                               if (message.document) {
@@ -6092,8 +6032,13 @@ className="cursor-pointer">
                           >
                             <Lucide icon="ExternalLink" className="w-6 h-6 text-gray-800 dark:text-gray-200" />
                           </button>
+                   
                         </div>
+                        
                       )}
+                             {message.document?.caption && (
+                <p className="mt-2 text-sm">{message.document.caption}</p>
+              )}
                       {message.type === 'link_preview' && message.link_preview && (
                         <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden text-gray-800 dark:text-gray-200">
                           <a href={message.link_preview.body} target="_blank" rel="noopener noreferrer" className="block">
@@ -6110,17 +6055,17 @@ className="cursor-pointer">
                           </a>
                         </div>
                       )}
-                      {message.type === 'sticker' && message.sticker && (
-                        <div className="sticker-content p-0 message-content image-message">
-                          <img
-                            src={message.sticker.link}
-                            alt="Sticker"
-                            className="rounded-lg message-image cursor-pointer"
-                            style={{ maxWidth: 'auto', maxHeight: 'auto', objectFit: 'contain' }}
-                            onClick={() => openImageModal(message.sticker?.link || '')}
-                          />
-                        </div>
-                      )}
+                    {message.type === 'sticker' && message.sticker && (
+  <div className="sticker-content p-0 message-content image-message">
+    <img
+      src={`data:${message.sticker.mimetype};base64,${message.sticker.data}`}
+      alt="Sticker"
+      className="rounded-lg message-image cursor-pointer"
+      style={{ maxWidth: 'auto', maxHeight: 'auto', objectFit: 'contain' }}
+      onClick={() => openImageModal(`data:${message.sticker?.mimetype};base64,${message.sticker?.data}`)}
+    />
+  </div>
+)}
                       {message.type === 'location' && message.location && (
                         <div className="location-content p-0 message-content image-message">
                           <div className="text-sm text-gray-800 dark:text-gray-200">Location: {message.location.latitude}, {message.location.longitude}</div>

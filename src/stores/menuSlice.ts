@@ -6,6 +6,7 @@ import sideMenu from "@/main/side-menu";
 import simpleMenu from "@/main/simple-menu";
 import simpleMenu2 from "@/main/simple-menu2";
 import simpleMenu3 from "@/main/simple-menu3";
+import simpleMenuJuta from "@/main/simple-menuJuta";
 import simpleMenuRole2 from "@/main/simple-menu-role-2";
 import topMenu from "@/main/top-menu";
 import { useConfig } from '../config';
@@ -46,6 +47,8 @@ export const selectMenu = (layout: Themes["layout"]) => (state: RootState) => {
       return simpleMenu2;
     } else if (initialContacts.name === "Tatapies") {
       return simpleMenu3;
+    }else if (initialContacts.name === "Juta") {
+      return simpleMenuJuta;
     } else {
       switch (userRole) {
         case "1":
