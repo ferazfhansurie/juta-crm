@@ -1556,7 +1556,7 @@ async function fetchConfigFromDatabase() {
     const updatedContacts = contacts.map(contact =>
       contact.chat_id === chatId ? { ...contact, unreadCount: 0 } : contact
     );
-  
+  console.log('Updated Contacts:', updatedContacts);
     setContacts(updatedContacts);
   
     // Update local storage to reflect the updated contacts
@@ -1565,23 +1565,11 @@ async function fetchConfigFromDatabase() {
   
     let contact = contacts.find(contact => contact.chat_id === chatId || contact.id === chatId);
     console.log('Selected Contact:', contact);
- 
-    // If the contact does not exist and contactSelect is provided, create the contact
-    if (!contact!.id && contactSelect) {
-      console.log('creating contact');
-      try {
-       // contact = await createContact(contactSelect!.firstName!, contactSelect.phone!);
-        //updatedContacts.push(contact);
-        //setContacts(updatedContacts);
-  
-        // Update local storage again to reflect the newly added contact
-        localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
-        sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been updated in this session
-      } catch (error) {
-        console.error('Failed to create contact:', error);
-      }
+    console.log('Chatid:', chatId);
+    console.log('id:', id);
+    if(contactSelect){
+      contact = contactSelect;
     }
-
     if (contact) {
       // Update unreadCount in Firebase
       try {
@@ -2914,23 +2902,23 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
   };
   const handleCreateNewChat = async () => {
-
     console.log('Attempting to create new chat:', { userRole });
     if (userRole === "3") {
       console.log('Permission denied for role 3 user');
       toast.error("You don't have permission to create new chats.");
       return;
     }
-
+  
     if (!newContactNumber) return;
   
     try {
       const chatId = `${newContactNumber}@c.us`;
       const contactId = `+${newContactNumber}`; // This will be used as the document ID
-      const newContact = {
-        id: contactId,
+      console.log('contactId:', contactId);
+      const newContact: Contact = {
+        id: contactId, // Ensure the id is set here
         chat_id: chatId,
-        contactName: newContactNumber,
+        contactName: contactId,
         phone: newContactNumber,
         tags: [],
         unreadCount: 0,
@@ -2967,7 +2955,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       closeNewChatModal();
   
       // Select the new chat
-      selectChat(chatId, newContactNumber, newContact);
+      selectChat(chatId, contactId, newContact);
   
     } catch (error) {
       console.error('Error creating new chat:', error);
@@ -5604,18 +5592,18 @@ className="cursor-pointer">
             <Lucide icon="ChevronLeft" className="w-6 h-6" />
           </button>
           <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-3 ml-2">
-          {selectedContact.profilePicUrl ? (
-  <img 
-    src={selectedContact.profilePicUrl} 
-    alt={selectedContact.contactName || "Profile"} 
-    className="w-10 h-10 rounded-full object-cover"
-  />
-) : (
-  <span className="text-2xl font-bold">
-    {selectedContact.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}
-  </span>
-)}
-          </div>
+  {selectedContact?.profilePicUrl ? (
+    <img 
+      src={selectedContact.profilePicUrl} 
+      alt={selectedContact.contactName || "Profile"} 
+      className="w-10 h-10 rounded-full object-cover"
+    />
+  ) : (
+    <span className="text-2xl font-bold">
+      {selectedContact?.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}
+    </span>
+  )}
+</div>
           <div>
             <div className="font-semibold text-gray-800 dark:text-gray-200 capitalize">{selectedContact.contactName || selectedContact.firstName || selectedContact.phone}</div>
             {userRole === '1' && (
