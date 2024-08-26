@@ -67,7 +67,19 @@ function Main() {
     }
   }, [companyId]);
 
-  const [userData, setUserData] = useState({
+  const [userData, setUserData] = useState<{
+    name: string;
+    phoneNumber: string;
+    email: string;
+    password: string;
+    role: string;
+    companyId: string;
+    group: string;
+    employeeId: string;
+    notes: string;
+    quotaLeads: number;
+    invoiceNumber: string | null;
+  }>({
     name: "",
     phoneNumber: "",
     email: "",
@@ -77,6 +89,8 @@ function Main() {
     group: "",
     employeeId: "",
     notes: "",
+    quotaLeads: 0,
+    invoiceNumber: null,
   });
 
   useEffect(() => {
@@ -90,7 +104,9 @@ function Main() {
         companyId: companyId || "",
         group: contact.group || "",
         employeeId: contact.employeeId || "",
-        notes: contact.notes || ""
+        notes: contact.notes || "",
+        quotaLeads: contact.quotaLeads || 0,
+        invoiceNumber: contact.invoiceNumber || null,
       });
       setCategories([contact.role]);
     }
@@ -179,7 +195,9 @@ function Main() {
         company: company,
         group: userData.group,
         employeeId: userData.employeeId || null,
-        notes: userData.notes || null
+        notes: userData.notes || null,
+        quotaLeads: userData.quotaLeads || 0,
+        invoiceNumber: userData.invoiceNumber || null,
       };
 
       if (contactId) {
@@ -210,7 +228,9 @@ function Main() {
             companyId: "",
             group: "",
             employeeId: "",
-            notes: ""
+            notes: "",
+            quotaLeads: 0,
+            invoiceNumber: null,
           });
         } else {
           throw new Error(responseData.error);
@@ -251,25 +271,28 @@ function Main() {
   const [isLoading, setIsLoading] = useState(false);
 
   return (
-    <>
-      <div className="flex items-center mt-5 intro-y">
-        <h2 className="mr-auto text-lg font-semibold">
+    <div className="w-full px-4 py-6 h-full flex flex-col">
+      <div className="flex items-center mb-2">
+        <h2 className="text-2xl font-semibold">
           {contactId ? "Update User" : "Add User"}
         </h2>
       </div>
-      <div className="grid grid-cols-12 gap-6 mt-2">
-        <div className="col-span-12 intro-y lg:col-span-6">
-          <div className="p-5 intro-y box">
-            <div>
-              <FormInput
-                name="name"
-                type="text"
-                value={userData.name}
-                onChange={handleChange}
-                placeholder="Name"
-              />
-            </div>
-            <div className="mt-3 flex shrink items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 flex-grow overflow-y-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <FormLabel htmlFor="name">Name</FormLabel>
+            <FormInput
+              id="name"
+              name="name"
+              type="text"
+              value={userData.name}
+              onChange={handleChange}
+              placeholder="Name"
+            />
+          </div>
+          <div>
+            <FormLabel htmlFor="phoneNumber">Phone Number</FormLabel>
+            <div className="flex">
               <FormInput
                 type="text"
                 value="+6"
@@ -277,6 +300,7 @@ function Main() {
                 className="w-12 mr-2"
               />
               <FormInput
+                id="phoneNumber"
                 name="phoneNumber"
                 type="text"
                 value={userData.phoneNumber}
@@ -285,17 +309,20 @@ function Main() {
                 className="flex-grow"
               />
             </div>
-            <div className="mt-3">
-              <FormInput
-                name="email"
-                type="text"
-                value={userData.email}
-                onChange={handleChange}
-                placeholder="Email"
-                readOnly={!!contactId}
-              />
-            </div>
-            <div className="mt-3">
+          </div>
+          <div>
+            <FormLabel htmlFor="email">Email</FormLabel>
+            <FormInput
+              id="email"
+              name="email"
+              type="text"
+              value={userData.email}
+              onChange={handleChange}
+              placeholder="Email"
+              readOnly={!!contactId}
+            />
+          </div>
+          <div>
             <FormLabel htmlFor="group">Group</FormLabel>
             {isAddingNewGroup ? (
               <div className="flex items-center">
@@ -350,10 +377,10 @@ function Main() {
               </div>
             )}
           </div>
-            <div className="mt-3">
-            <FormLabel htmlFor="crud-form-2" className="dark:text-gray-200">Role</FormLabel>
-              <select
-              id="crud-form-2"
+          <div>
+            <FormLabel htmlFor="role">Role</FormLabel>
+            <select
+              id="role"
               name="role"
               value={userData.role}
               onChange={(e) => {
@@ -367,77 +394,96 @@ function Main() {
               <option value="3">Observer</option>
               <option value="4">Others</option>
             </select>
-
-            </div>
-            <div className="mt-3">
-              <FormInput
-                name="password"
-                type="password"
-                value={userData.password}
-                onChange={handleChange}
-                placeholder="Password"
-              />
-            </div>
-            <div className="mt-3">
-              <FormInput
-                name="employeeId"
-                type="text"
-                value={userData.employeeId}
-                onChange={handleChange}
-                placeholder="Employee ID (optional)"
-              />
-            </div>
-            <div className="mt-2">
-              <div className="relative rounded-lg focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark focus:border-transparent">
-                <ClassicEditor
-                  value={userData.notes}
-                  onChange={handleEditorChange}
-                  config={editorConfig}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent"
-                />
-                <div className="absolute top-2 right-2">
-                  <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-            {errorMessage && <div className="text-red-500">{errorMessage}</div>}
-            {successMessage && <div className="text-green-500">{successMessage}</div>}
-            <div className="mt-5 text-right">
-              <Button
-                type="button"
-                variant="outline-secondary"
-                className="w-24 mr-1"
-                onClick={handleGoBack}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                className="w-24"
-                onClick={async () => {
-                  try {
-                    await saveUser();
-                    toast.success("User saved successfully");
-                    handleGoBack();
-                  } catch (error) {
-                    console.error("Error saving user:", error);
-                    toast.error("Failed to save user");
-                  }
-                }}
-                disabled={isLoading}
-              >
-                {isLoading ? "Saving..." : "Save"}
-              </Button>
-            </div>
+          </div>
+          <div>
+            <FormLabel htmlFor="password">Password</FormLabel>
+            <FormInput
+              id="password"
+              name="password"
+              type="password"
+              value={userData.password}
+              onChange={handleChange}
+              placeholder="Password"
+            />
+          </div>
+          <div>
+            <FormLabel htmlFor="employeeId">Employee ID</FormLabel>
+            <FormInput
+              id="employeeId"
+              name="employeeId"
+              type="text"
+              value={userData.employeeId}
+              onChange={handleChange}
+              placeholder="Employee ID (optional)"
+            />
+          </div>
+          <div>
+            <FormLabel htmlFor="quotaLeads">Quota Leads</FormLabel>
+            <FormInput
+              id="quotaLeads"
+              name="quotaLeads"
+              type="number"
+              value={userData.quotaLeads}
+              onChange={(e) => setUserData(prev => ({ ...prev, quotaLeads: parseInt(e.target.value) || 0 }))}
+              placeholder="Number of quota leads"
+              min="0"
+            />
+          </div>
+          <div>
+            <FormLabel htmlFor="invoiceNumber">Invoice Number</FormLabel>
+            <FormInput
+              id="invoiceNumber"
+              name="invoiceNumber"
+              type="text"
+              value={userData.invoiceNumber || ""}
+              onChange={(e) => setUserData(prev => ({ ...prev, invoiceNumber: e.target.value || null }))}
+              placeholder="Invoice Number (optional)"
+            />
           </div>
         </div>
+        <div className="mt-4">
+          <FormLabel htmlFor="notes">Notes</FormLabel>
+          <div className="relative rounded-lg focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark focus:border-transparent">
+            <ClassicEditor
+              value={userData.notes}
+              onChange={handleEditorChange}
+              config={editorConfig}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent"
+            />
+          </div>
+        </div>
+        {errorMessage && <div className="text-red-500 mt-4">{errorMessage}</div>}
+        {successMessage && <div className="text-green-500 mt-4">{successMessage}</div>}
       </div>
-    </>
+      <div className="mt-4 flex justify-end">
+        <Button
+          type="button"
+          variant="outline-secondary"
+          className="w-24 mr-4"
+          onClick={handleGoBack}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          variant="primary"
+          className="w-24"
+          onClick={async () => {
+            try {
+              await saveUser();
+              toast.success("User saved successfully");
+              handleGoBack();
+            } catch (error) {
+              console.error("Error saving user:", error);
+              toast.error("Failed to save user");
+            }
+          }}
+          disabled={isLoading}
+        >
+          {isLoading ? "Saving..." : "Save"}
+        </Button>
+      </div>
+    </div>
   );
 }
 

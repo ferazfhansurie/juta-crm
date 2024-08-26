@@ -180,12 +180,15 @@ interface Message {
   reactions?: { emoji: string; from_name: string }[];
   name?:string;
   isPrivateNote?: boolean;
-}interface Employee {
+}
+interface Employee {
   id: string;
   name: string;
   employeeId: string;
   role: string;
   phoneNumber?: string;
+  quotaLeads?: number;
+  assignedContacts?: number;
   // Add other properties as needed
 }
 interface Tag {
@@ -526,6 +529,8 @@ const [newQuickReplyType, setNewQuickReplyType] = useState<'all' | 'self'>('all'
 const quickRepliesRef = useRef<HTMLDivElement>(null);
 const [documentModalOpen, setDocumentModalOpen] = useState(false);
 const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+const [quickReplyFilter, setQuickReplyFilter] = useState('');
+
   const handleMessageSearchClick = () => {
     setIsMessageSearchOpen(!isMessageSearchOpen);
     if (!isMessageSearchOpen) {
@@ -1230,6 +1235,11 @@ const closePDFModal = () => {
     setNewMessage(text);
     setIsQuickRepliesOpen(false);
   };
+  const filteredQuickReplies = quickReplies.filter(reply =>
+    reply.text.toLowerCase().includes(quickReplyFilter.toLowerCase())
+  );
+
+  
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(firestore, 'user', auth.currentUser?.email!, 'notifications'),
@@ -3113,9 +3123,15 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
         const employeeDoc = querySnapshot.docs[0];
         console.log(`Employee document found for ${matchingEmployee.name}`);
         
+        // Get current employee data
+        const currentEmployeeData = employeeDoc.data();
+        const currentAssignedContacts = currentEmployeeData.assignedContacts || 0;
+        const currentQuotaLeads = currentEmployeeData.quotaLeads || 0;
+
         // Update existing employee document
         await updateDoc(employeeDoc.ref, {
-          assignedContacts: arrayUnion(contact.id)
+          assignedContacts: arrayUnion(contact.id),
+          quotaLeads: Math.max(0, currentQuotaLeads - 1) // Decrease quota by 1, minimum 0
         });
 
         // Update monthly assignments
@@ -3135,7 +3151,7 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
 
         await sendAssignmentNotification(tagName, contact);
 
-        toast.success(`Contact assigned to ${matchingEmployee.name} and monthly assignments updated.`);
+        toast.success(`Contact assigned to ${matchingEmployee.name}. Quota leads updated from ${currentQuotaLeads} to ${Math.max(0, currentQuotaLeads - 1)}.`);
       } else {
         console.error(`Employee document not found for ${matchingEmployee.name}`);
         
@@ -4165,25 +4181,23 @@ const handleForwardMessage = async () => {
       // Check if the removed tag is an employee name
       const isEmployeeTag = employeeList.some(employee => employee.name.toLowerCase() === tagName.toLowerCase());
       if (isEmployeeTag) {
-        // Get the employee document reference
         const employeeRef = doc(firestore, 'companies', companyId, 'employee', tagName);
-        
-        console.log(`Attempting to access employee document: companies/${companyId}/employee/${tagName}`);
-        
-        // Check if the document exists
         const employeeDoc = await getDoc(employeeRef);
         
         if (employeeDoc.exists()) {
-          console.log(`Employee document found for ${tagName}`);
-          // Document exists, update it
+          const currentData = employeeDoc.data();
+          const currentQuotaLeads = currentData.quotaLeads || 0;
+          
           await updateDoc(employeeRef, {
-            assignedContacts: arrayRemove(contactId)
+            assignedContacts: arrayRemove(contactId),
+            quotaLeads: currentQuotaLeads + 1 // Increase quota by 1
           });
-  
-          // Update the contact document to remove the assignedTo field
+
           await updateDoc(contactRef, {
             assignedTo: deleteField()
           });
+
+          toast.success(`Contact unassigned from ${tagName}. Quota leads updated from ${currentQuotaLeads} to ${currentQuotaLeads + 1}.`);
         } else {
           console.error(`Employee document for ${tagName} does not exist.`);
           console.log('Current employeeList:', employeeList);
@@ -5153,7 +5167,7 @@ const handleForwardMessage = async () => {
                   <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                     <Button
                       type="button"
-                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary text-base font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
                       onClick={handleForwardMessage}
                     >
                       Forward
@@ -5264,12 +5278,15 @@ const handleForwardMessage = async () => {
 </div>
 <div className="mt-4 mb-2 px-4 max-h-40 overflow-y-auto">
 <div className="flex flex-wrap gap-2">
-  {['Mine', 'All', 'Group', 'Unread', 'Unassigned', 'Snooze', 'Stop Bot',
-    ...Array.from({ length: phoneCount }, (_, i) => `Phone ${i + 1}`),
-    ...(isTagsExpanded ? visibleTags.filter(tag => 
-      !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group', 'stop bot'].includes(tag.name) && 
-      !tag.name.startsWith('Phone ')
-    ) : [])
+  {['Mine', 'All', 'Unassigned',
+    ...(isTagsExpanded ? [
+      'Group', 'Unread', 'Snooze', 'Stop Bot',
+      ...Array.from({ length: phoneCount }, (_, i) => `Phone ${i + 1}`),
+      ...visibleTags.filter(tag => 
+        !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group', 'stop bot'].includes(tag.name) && 
+        !tag.name.startsWith('Phone ')
+      )
+    ] : [])
   ].map((tag) => {
     const tagName = typeof tag === 'string' ? tag : tag.name;
     const tagLower = tagName.toLowerCase();
@@ -5315,39 +5332,12 @@ const handleForwardMessage = async () => {
   })}
 </div>
 </div>
-{tagList.length > visibleTags.length && (
-  <div className="max-h-40 overflow-y-auto">
-    <button
-      onClick={toggleTagsExpansion}
-      className="text-primary dark:text-blue-400 hover:underline focus:outline-none w-full text-center py-2 text-sm"
-    >
-      {isTagsExpanded ? (
-        <div className="flex items-center justify-center">
-          <Lucide icon="ChevronUp" className="w-4 h-4 mr-1" />
-          <span>Show Less</span>
-        </div>
-      ) : (
-        <div className="flex items-center justify-center">
-          <Lucide icon="ChevronDown" className="w-4 h-4 mr-1" />
-          <span>Show More</span>
-        </div>
-      )}
-    </button>
-    {isTagsExpanded && (
-      <div className="mt-2 space-y-2">
-        {tagList.slice(visibleTags.length).map((tag) => (
-          <button
-            key={tag.id}
-            onClick={() => filterTagContact(tag.name)}
-            className="px-3 py-1 rounded-full text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 w-full text-left"
-          >
-            {tag.name}
-          </button>
-        ))}
-      </div>
-    )}
-  </div>
-)}
+  <span
+    className="flex items-center justify-center p-2 cursor-pointer text-primary dark:text-blue-400 hover:underline transition-colors duration-200"
+    onClick={toggleTagsExpansion}
+  >
+    {isTagsExpanded ? "Show Less" : "Show More"}
+  </span>
 <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
   {sortContacts([...currentContacts]).map((contact, index) => (
     <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
@@ -5639,15 +5629,21 @@ className="cursor-pointer">
                   <Lucide icon="Users" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
                 </span>
               </Menu.Button>
-              <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+              <Menu.Items className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
                 {employeeList.map((employee) => (
                   <Menu.Item key={employee.id}>
                     <button
-                      className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                      className="flex items-center justify-between w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
                       onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
                     >
-                      <Lucide icon="User" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
-                      <span className="text-gray-800 dark:text-gray-200">{employee.name}</span>
+                      <div className="flex items-center">
+                        <span className="text-gray-800 dark:text-gray-200 truncate" style={{ maxWidth: '180px' }}>
+                          {employee.name}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        Quota: {employee.quotaLeads}
+                      </span>
                     </button>
                   </Menu.Item>
                 ))}
@@ -6293,31 +6289,44 @@ className="cursor-pointer">
                 handleQR();
                 setNewMessage('');
               }
+              // Update this condition for quick reply search
+              if (e.target.value.startsWith('/')) {
+                setIsQuickRepliesOpen(true);
+                setQuickReplyFilter(e.target.value.slice(1));
+              } else {
+                setIsQuickRepliesOpen(false);
+                setQuickReplyFilter('');
+              }
             }}
             rows={1}
             style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
             onKeyDown={(e) => {
               const target = e.target as HTMLTextAreaElement;
-              if (e.key === 'Enter') {
-                if (e.shiftKey) {
+              const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  setNewMessage((prev) => prev + '\n');
-                } else {
-                  e.preventDefault();
-                  if (selectedIcon === 'ws') {
-                    if (messageMode !== 'privateNote') {
-                      handleSendMessage();
-                    } else {
-                      handleAddPrivateNote(newMessage);
-                  
-                    }
+                  handleSendMessage();
+                } else if (e.key === 'Enter') {
+                  if (e.shiftKey) {
+                    e.preventDefault();
+                    setNewMessage((prev) => prev + '\n');
                   } else {
-                    sendTextMessage(selectedContact.id, newMessage, selectedContact);
+                    e.preventDefault();
+                    if (selectedIcon === 'ws') {
+                      if (messageMode !== 'privateNote') {
+                        handleSendMessage();
+                      } else {
+                        handleAddPrivateNote(newMessage);
+                      }
+                    } else {
+                      sendTextMessage(selectedContact.id, newMessage, selectedContact);
+                    }
+                    setNewMessage('');
+                    adjustHeight(target, true); // Reset height after sending message
                   }
-                  setNewMessage('');
-                  adjustHeight(target, true); // Reset height after sending message
                 }
-              }
+              };
+              handleKeyDown(e);
             }}
             onPaste={(e) => {
               e.preventDefault(); // Prevent default paste behavior
@@ -6379,6 +6388,101 @@ className="cursor-pointer">
             }}
             disabled={userRole === "3"}
           />
+          {isQuickRepliesOpen && (
+          <div ref={quickRepliesRef} className="absolute bottom-full left-0 mb-2 w-full max-w-md bg-gray-100 dark:bg-gray-800 p-2 rounded-md shadow-lg mt-2 z-10">
+            <div className="flex justify-between mb-4">
+              <button
+                className={`px-4 py-2 rounded-lg ${
+                  activeQuickReplyTab === 'all'
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                }`}
+                onClick={() => setActiveQuickReplyTab('all')}
+              >
+                All
+              </button>
+              <button
+                className={`px-4 py-2 rounded-lg ${
+                  activeQuickReplyTab === 'self'
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                }`}
+                onClick={() => setActiveQuickReplyTab('self')}
+              >
+                Self
+              </button>
+            </div>
+            <div className="max-h-60 overflow-y-auto">
+              {quickReplies
+                .filter(reply => activeQuickReplyTab === 'all' || reply.type === 'self')
+                .filter(reply => reply.text.toLowerCase().includes(quickReplyFilter.toLowerCase()))
+                .sort((a, b) => a.text.localeCompare(b.text))
+                .map(reply => (
+                  <div key={reply.id} className="flex items-center justify-between mb-2 bg-gray-50 dark:bg-gray-700">
+                    {editingReply?.id === reply.id ? (
+                      <>
+                        <textarea
+                          className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                          value={editingReply.text}
+                          onChange={(e) => setEditingReply({ ...editingReply, text: e.target.value })}
+                          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                        />
+                        <button className="p-2 m-1 !box" onClick={() => updateQuickReply(reply.id, editingReply.text, reply.type as "all" | "self")}>
+                          <span className="flex items-center justify-center w-5 h-5">
+                            <Lucide icon="Save" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                          </span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span
+                          className="px-4 py-2 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
+                          onClick={() => handleQRClick(reply.text)}
+                          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                        >
+                          {reply.text}
+                        </span>
+                        <div>
+                          <button className="p-2 m-1 !box" onClick={() => setEditingReply(reply)}>
+                            <span className="flex items-center justify-center w-5 h-5">
+                              <Lucide icon="Eye" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                            </span>
+                          </button>
+                          <button className="p-2 m-1 !box text-red-500 dark:text-red-400" onClick={() => deleteQuickReply(reply.id, reply.type as "all" | "self")}>
+                            <span className="flex items-center justify-center w-5 h-5">
+                              <Lucide icon="Trash" className="w-5 h-5" />
+                            </span>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+            </div>
+            <div className="flex items-center mb-4">
+              {(newMessage === '/' || isQuickRepliesOpen) && !quickReplyFilter && (
+                <textarea
+                  className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                  placeholder="Add new quick reply"
+                  value={newQuickReply}
+                  onChange={(e) => setNewQuickReply(e.target.value)}
+                  rows={3}
+                  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                />
+              )}
+              <div className="flex flex-col ml-2">
+                {!quickReplyFilter && (
+                  <button className="p-2 m-1 !box" onClick={addQuickReply}>
+                    <span className="flex items-center justify-center w-5 h-5">
+                      <Lucide icon="Plus" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          
+        )}
         </div>
         {isEmojiPickerOpen && (
           <div className="absolute bottom-20 left-2 z-10">
@@ -6633,96 +6737,6 @@ className="cursor-pointer">
       </div>
     </div>
   )}
-{isQuickRepliesOpen && (
-  <div ref={quickRepliesRef} className="absolute bottom-20 left-2 w-full max-w-md bg-gray-100 dark:bg-gray-800 p-2 rounded-md shadow-lg mt-2 z-10">
-    <div className="flex justify-between mb-4">
-      <button
-        className={`px-4 py-2 rounded-lg ${
-          activeQuickReplyTab === 'all'
-            ? 'bg-primary text-white'
-            : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-        }`}
-        onClick={() => setActiveQuickReplyTab('all')}
-      >
-        All
-      </button>
-      <button
-        className={`px-4 py-2 rounded-lg ${
-          activeQuickReplyTab === 'self'
-            ? 'bg-primary text-white'
-            : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-        }`}
-        onClick={() => setActiveQuickReplyTab('self')}
-      >
-        Self
-      </button>
-    </div>
-    <div className="flex items-center mb-4">
-      <textarea
-        className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-        placeholder="Add new quick reply"
-        value={newQuickReply}
-        onChange={(e) => setNewQuickReply(e.target.value)}
-        rows={3}
-        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-      />
-      <div className="flex flex-col ml-2">
-       
-       
-        <button className="p-2 m-1 !box" onClick={addQuickReply}>
-          <span className="flex items-center justify-center w-5 h-5">
-            <Lucide icon="Plus" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-          </span>
-        </button>
-      </div>
-    </div>
-    <div className="max-h-60 overflow-y-auto">
-      {quickReplies
-        .filter(reply => activeQuickReplyTab === 'all' || reply.type === 'self')
-        .map(reply => (
-          <div key={reply.id} className="flex items-center justify-between mb-2 bg-gray-50 dark:bg-gray-700">
-            {editingReply?.id === reply.id ? (
-              <>
-                <textarea
-                  className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-                  value={editingReply.text}
-                  onChange={(e) => setEditingReply({ ...editingReply, text: e.target.value })}
-                  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                />
-                <button className="p-2 m-1 !box" onClick={() => updateQuickReply(reply.id, editingReply.text, reply.type as "all" | "self")}>
-                  <span className="flex items-center justify-center w-5 h-5">
-                    <Lucide icon="Save" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-                  </span>
-                </button>
-              </>
-            ) : (
-              <>
-                <span
-                  className="px-4 py-2 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
-                  onClick={() => handleQRClick(reply.text)}
-                  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                >
-                  {reply.text}
-                </span>
-                <div>
-                  <button className="p-2 m-1 !box" onClick={() => setEditingReply(reply)}>
-                    <span className="flex items-center justify-center w-5 h-5">
-                      <Lucide icon="Eye" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-                    </span>
-                  </button>
-                  <button className="p-2 m-1 !box text-red-500 dark:text-red-400" onClick={() => deleteQuickReply(reply.id, reply.type as "all" | "self")}>
-                    <span className="flex items-center justify-center w-5 h-5">
-                      <Lucide icon="Trash" className="w-5 h-5" />
-                    </span>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        ))}
-    </div>
-  </div>
-)}
 
 <DocumentModal 
   isOpen={documentModalOpen} 
@@ -6925,44 +6939,60 @@ const updateEmployeeAssignedContacts = async () => {
 
     const employeeRef = collection(firestore, `companies/${companyId}/employee`);
     const employeeSnapshot = await getDocs(employeeRef);
-    const employeeList = employeeSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+    const employeeList = employeeSnapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      name: doc.data().name, 
+      quotaLeads: doc.data().quotaLeads || 0 
+    }));
 
     // Count assignments
     contactsSnapshot.forEach((doc) => {
       const contact = doc.data();
       if (contact.tags) {
         contact.tags.forEach((tag: string) => {
-          if (employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())) {
-            employeeAssignments[tag] = (employeeAssignments[tag] || 0) + 1;
+          const employee = employeeList.find(emp => emp.name.toLowerCase() === tag.toLowerCase());
+          if (employee) {
+            employeeAssignments[employee.id] = (employeeAssignments[employee.id] || 0) + 1;
           }
         });
       }
     });
 
-    // Update employee documents
-    const employeeUpdates = Object.entries(employeeAssignments).map(async ([employeeName, count]) => {
-      const employeeQuerySnapshot = await getDocs(query(
-        collection(firestore, 'companies', companyId, 'employee'),
-        where('name', '==', employeeName)
-      ));
+    console.log('Employee assignments before update:', employeeAssignments);
 
-      if (!employeeQuerySnapshot.empty) {
-        const employeeDoc = employeeQuerySnapshot.docs[0];
-        await updateDoc(employeeDoc.ref, {
-          assignedContacts: count
+    // Update employee documents
+    const employeeUpdates = Object.entries(employeeAssignments).map(async ([employeeId, count]) => {
+      const employeeDocRef = doc(firestore, `companies/${companyId}/employee`, employeeId);
+      const employeeDoc = await getDoc(employeeDocRef);
+
+      if (employeeDoc.exists()) {
+        const currentData = employeeDoc.data();
+        const currentQuotaLeads = currentData.quotaLeads || 0;
+        const currentAssignedContacts = currentData.assignedContacts || 0;
+        
+        // Calculate the difference in assigned contacts
+        const assignedContactsDiff = count - currentAssignedContacts;
+        
+        // Calculate new quotaLeads
+        const newQuotaLeads = Math.max(0, currentQuotaLeads - assignedContactsDiff);
+        
+        // Update assigned contacts and quotaLeads
+        await updateDoc(employeeDocRef, {
+          assignedContacts: count,
+          quotaLeads: newQuotaLeads
         });
-        console.log(`Updated ${employeeName} with ${count} assigned contacts`);
+        console.log(`Updated ${currentData.name}: Assigned contacts from ${currentAssignedContacts} to ${count}, Quota leads from ${currentQuotaLeads} to ${newQuotaLeads}`);
       } else {
-        console.error(`Employee document for ${employeeName} not found`);
+        console.error(`Employee document for ID ${employeeId} not found`);
       }
     });
 
     await Promise.all(employeeUpdates);
 
-    console.log('Employee assigned contacts updated successfully');
+    console.log('Employee assigned contacts and quota leads updated successfully');
   } catch (error) {
-    console.error('Error updating employee assigned contacts:', error);
-    toast.error('Failed to update employee assigned contacts.');
+    console.error('Error updating employee assigned contacts and quota leads:', error);
+    toast.error('Failed to update employee assigned contacts and quota leads.');
   }
 };
 
