@@ -5865,12 +5865,12 @@ className="cursor-pointer">
                           <div className="text-sm text-gray-700 dark:text-gray-300">{message.text.context.quoted_content?.body || ''}</div>
                         </div>
                       )}
-                       {!message.chat_id.includes('@g') && message.phoneIndex != null &&phoneCount >= 2 && (
-                          <span className="text-sm font-medium pb-0.5 "
+                       {message.chat_id && !message.chat_id.includes('@g') && message.phoneIndex != null && phoneCount >= 2 && (
+                        <span className="text-sm font-medium pb-0.5 "
                           style={{ color: getAuthorColor(message.phoneIndex.toString() ) }}>
-                            Phone {message.phoneIndex + 1}  
-                          </span>
-                        )}
+                          Phone {message.phoneIndex + 1}  
+                        </span>
+                      )}
                       {message.type === 'privateNote' && (
                         <div className="inline-block whitespace-pre-wrap break-words text-white">
                           {(() => {
