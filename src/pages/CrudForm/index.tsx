@@ -288,6 +288,7 @@ function Main() {
               value={userData.name}
               onChange={handleChange}
               placeholder="Name"
+              disabled={userData.role === "3"}
             />
           </div>
           <div>
@@ -307,6 +308,7 @@ function Main() {
                 onChange={handleChange}
                 placeholder="Phone Number"
                 className="flex-grow"
+                disabled={userData.role === "3"}
               />
             </div>
           </div>
@@ -320,6 +322,7 @@ function Main() {
               onChange={handleChange}
               placeholder="Email"
               readOnly={!!contactId}
+              disabled={userData.role === "3"}
             />
           </div>
           <div>
@@ -332,12 +335,14 @@ function Main() {
                   onChange={(e) => setNewGroup(e.target.value)}
                   placeholder="Enter new group name"
                   className="w-full mr-2"
+                  disabled={userData.role === "3"}
                 />
                 <Button
                   type="button"
                   variant="outline-secondary"
                   className="mr-2"
                   onClick={handleCancelNewGroup}
+                  disabled={userData.role === "3"}
                 >
                   Cancel
                 </Button>
@@ -345,6 +350,7 @@ function Main() {
                   type="button"
                   variant="primary"
                   onClick={handleSaveNewGroup}
+                  disabled={userData.role === "3"}
                 >
                   Save
                 </Button>
@@ -357,6 +363,7 @@ function Main() {
                   value={userData.group}
                   onChange={handleChange}
                   className="text-black dark:text-white-dark border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full mr-2 p-2.5"
+                  disabled={userData.role === "3"}
                 >
                   <option value="">Select a group</option>
                   {groups.map((group) => (
@@ -368,6 +375,7 @@ function Main() {
                   variant="outline-secondary"
                   onClick={handleAddNewGroup}
                   className="dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700 inline-flex items-center whitespace-nowrap"
+                  disabled={userData.role === "3"}
                 >
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -388,6 +396,7 @@ function Main() {
                 setCategories([e.target.value]);
               }}
               className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
+              disabled={userData.role === "3"}
             >
               <option value="1">Admin</option>
               <option value="2">Sales</option>
@@ -415,6 +424,7 @@ function Main() {
               value={userData.employeeId}
               onChange={handleChange}
               placeholder="Employee ID (optional)"
+              disabled={userData.role === "3"}
             />
           </div>
           <div>
@@ -427,6 +437,7 @@ function Main() {
               onChange={(e) => setUserData(prev => ({ ...prev, quotaLeads: parseInt(e.target.value) || 0 }))}
               placeholder="Number of quota leads"
               min="0"
+              disabled={userData.role === "3"}
             />
           </div>
           <div>
@@ -438,6 +449,7 @@ function Main() {
               value={userData.invoiceNumber || ""}
               onChange={(e) => setUserData(prev => ({ ...prev, invoiceNumber: e.target.value || null }))}
               placeholder="Invoice Number (optional)"
+              disabled={userData.role === "3"}
             />
           </div>
         </div>
@@ -449,6 +461,7 @@ function Main() {
               onChange={handleEditorChange}
               config={editorConfig}
               className="w-full rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent"
+              disabled={userData.role === "3"}
             />
           </div>
         </div>

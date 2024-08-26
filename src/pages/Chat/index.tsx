@@ -5642,7 +5642,7 @@ className="cursor-pointer">
                         </span>
                       </div>
                       <span className="text-xs text-gray-500 dark:text-gray-400">
-                        Quota: {employee.quotaLeads}
+                        Leads Quota: {employee.quotaLeads}
                       </span>
                     </button>
                   </Menu.Item>

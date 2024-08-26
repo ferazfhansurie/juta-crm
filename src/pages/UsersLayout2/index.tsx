@@ -56,8 +56,6 @@ function Main() {
   const [qrCodeImage, setQrCodeImage] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [canEdit, setCanEdit] = useState(false);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
   const [employeeIdToDelete, setEmployeeIdToDelete] = useState<string>('');
@@ -135,7 +133,6 @@ function Main() {
       const dataUser = docUserSnapshot.data();
       companyId = dataUser.companyId;
       setRole(dataUser.role);
-      setCanEdit(dataUser.role !== "3");
       console.log("User role:", dataUser.role);
 
       const docRef = doc(firestore, 'companies', companyId);
@@ -352,15 +349,15 @@ const paginatedEmployees = filteredEmployees
                     )} */}
                   </div>
                   <div className="flex space-x-2">
-                    {canEdit && (
-                      <>
-                        <button
-                          onClick={() => navigate(`crud-form`, { state: { contactId: employee.id, contact: employee, companyId: companyId || '' } })}
-                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-full transition-colors duration-300"
-                          aria-label="Edit"
-                        >
-                          <Lucide icon="Pencil" className="w-5 h-5" />
-                        </button>
+                    <>
+                      <button
+                        onClick={() => navigate(`crud-form`, { state: { contactId: employee.id, contact: employee, companyId: companyId || '' } })}
+                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-full transition-colors duration-300"
+                        aria-label="Edit"
+                      >
+                        <Lucide icon="Pencil" className="w-5 h-5" />
+                      </button>
+                      {employee.role !== "3" && (
                         <button 
                           onClick={() => toggleModal(employee.id)}
                           className="p-2 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors duration-300"
@@ -368,8 +365,8 @@ const paginatedEmployees = filteredEmployees
                         >
                           <Lucide icon="Trash" className="w-5 h-5" />
                         </button>
-                      </>
-                    )}
+                      )}
+                    </>
                   </div>
                 </div>
               </div>
