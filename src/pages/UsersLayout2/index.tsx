@@ -316,29 +316,31 @@ const paginatedEmployees = filteredEmployees
               )}
             </Link>
             {/* Add a dropdown to show phone names */}
-            <Menu className="mr-2">
-              <Menu.Button as={Button} variant="outline-secondary" className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                Phone Numbers <Lucide icon="ChevronDown" className="w-4 h-4 ml-2" />
-              </Menu.Button>
-              <Menu.Items className="w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg mt-2">
-                {Object.entries(phoneNames).map(([index, phoneName]) => (
-                  <Menu.Item key={index} className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <div className="flex items-center justify-between w-full">
-                      <span>{phoneNames[parseInt(index)]}</span>
-                      <button
-                        onClick={() => {
-                          const newName = prompt(`Enter new name for ${phoneName}`, phoneName);
-                          if (newName) updatePhoneName(parseInt(index), newName);
-                        }}
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        <Lucide icon="Pencil" className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </Menu.Item>
-                ))}
-              </Menu.Items>
-            </Menu>
+            {phoneCount >= 2 && (
+              <Menu className="mr-2">
+                <Menu.Button as={Button} variant="outline-secondary" className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                  Phone Numbers <Lucide icon="ChevronDown" className="w-4 h-4 ml-2" />
+                </Menu.Button>
+                <Menu.Items className="w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg mt-2">
+                  {Object.entries(phoneNames).map(([index, phoneName]) => (
+                    <Menu.Item key={index} className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                      <div className="flex items-center justify-between w-full">
+                        <span>{phoneNames[parseInt(index)]}</span>
+                        <button
+                          onClick={() => {
+                            const newName = prompt(`Enter new name for ${phoneName}`, phoneName);
+                            if (newName) updatePhoneName(parseInt(index), newName);
+                          }}
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          <Lucide icon="Pencil" className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </Menu.Item>
+                  ))}
+                </Menu.Items>
+              </Menu>
+            )}
             <Menu className="mr-2">
               <Menu.Button as={Button} variant="outline-secondary" className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                 {selectedGroup || "Select a group"} <Lucide icon="ChevronDown" className="w-4 h-4" />
