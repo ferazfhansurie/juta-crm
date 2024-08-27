@@ -144,6 +144,9 @@ function Main() {
   const { contacts: initialContacts, refetchContacts } = useContacts();
   const [totalContacts, setTotalContacts] = useState(contacts.length);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportModalContent, setExportModalContent] = useState<React.ReactNode | null>(null);
   const [newContact, setNewContact] = useState({
       contactName: '',
       lastName: '',
@@ -204,7 +207,9 @@ function Main() {
       }
     };
   }, [contacts]);
-
+  useEffect(() => {
+    console.log('Selected tags updated:', selectedTags);
+  }, [selectedTags]);
   const loadMoreContacts = () => {
     if (initialContacts.length <= contacts.length) return;
 
@@ -223,30 +228,165 @@ function Main() {
       return;
     }
   
-    // Prepare the data for CSV
-    const csvData = contacts.map(contact => ({
-      contactName: contact.contactName || '',
-      email: contact.email || '',
-      phone: contact.phone || '',
-      address: contact.address1 || '',
-      company: contact.companyName || '',
-      tags: (contact.tags || []).join(', ')
-    }));
+    const exportOptions = [
+      { id: 'selected', label: 'Export Selected Contacts' },
+      { id: 'tagged', label: 'Export Contacts by Tag' },
+    ];
   
-    // Convert to CSV
-    const csv = Papa.unparse(csvData);
+    const exportModal = (
+      <Dialog open={true} onClose={() => setExportModalOpen(false)}>
+        <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-lg">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Export Contacts</h3>
+          <div className="space-y-4">
+            {exportOptions.map((option) => (
+              <button
+                key={option.id}
+                className="w-full p-2 text-left bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md"
+                onClick={() => handleExportOption(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </Dialog.Panel>
+      </Dialog>
+    );
   
-    // Create a Blob with the CSV data
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  
-    // Generate filename
-    const fileName = `contacts_export_${new Date().toISOString()}.csv`;
-  
-    // Trigger the download
-    saveAs(blob, fileName);
-  
-    toast.success("Contacts exported successfully!");
+    setExportModalOpen(true);
+    setExportModalContent(exportModal);
   };
+
+  const handleExportOption = (option: string) => {
+    setExportModalOpen(false);
+  
+    if (option === 'selected') {
+      if (selectedContacts.length === 0) {
+        toast.error("No contacts selected. Please select contacts to export.");
+        return;
+      }
+      exportContactsToCSV(selectedContacts);
+    } else if (option === 'tagged') {
+      showTagSelectionModal();
+    }
+  };
+
+  const TagSelectionModal = ({ onClose, onExport }: { onClose: () => void, onExport: (tags: string[]) => void }) => {
+    const [localSelectedTags, setLocalSelectedTags] = useState<string[]>(selectedTags);
+  
+    const handleLocalTagSelection = (e: React.ChangeEvent<HTMLInputElement>, tagName: string) => {
+      const isChecked = e.target.checked;
+      setLocalSelectedTags(prevTags => 
+        isChecked ? [...prevTags, tagName] : prevTags.filter(tag => tag !== tagName)
+      );
+    };
+  
+    return (
+      <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-lg">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Select Tags to Export</h3>
+        <div className="space-y-2 max-h-60 overflow-y-auto">
+          {tagList.map((tag) => (
+            <label key={tag.id} className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                value={tag.name}
+                checked={localSelectedTags.includes(tag.name)}
+                onChange={(e) => handleLocalTagSelection(e, tag.name)}
+                className="form-checkbox"
+              />
+              <span className="text-gray-700 dark:text-gray-300">{tag.name}</span>
+            </label>
+          ))}
+                </div>
+      <div className="mt-4 flex justify-end space-x-2">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onExport(localSelectedTags)}
+          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+          >
+          Export
+        </button>
+      </div>
+    </Dialog.Panel>
+  );
+};
+const showTagSelectionModal = () => {
+  setExportModalContent(
+    <Dialog open={true} onClose={() => setExportModalOpen(false)}>
+      <TagSelectionModal 
+        onClose={() => setExportModalOpen(false)}
+        onExport={(tags) => {
+          console.log('Exporting with tags:', tags);
+          exportContactsByTags(tags);
+        }}
+      />
+    </Dialog>
+  );
+  setExportModalOpen(true);
+};
+
+const exportContactsByTags = (currentSelectedTags: string[]) => {
+  console.log('Exporting contacts. Selected tags:', currentSelectedTags);
+
+  if (currentSelectedTags.length === 0) {
+    toast.error("No tags selected. Please select at least one tag.");
+    return;
+  }
+
+  const contactsToExport = contacts.filter(contact => 
+    contact.tags && contact.tags.some(tag => currentSelectedTags.includes(tag))
+  );
+
+  console.log('Contacts to export:', contactsToExport);
+
+  if (contactsToExport.length === 0) {
+    toast.error("No contacts found with the selected tags.");
+    return;
+  }
+
+  exportContactsToCSV(contactsToExport);
+  setExportModalOpen(false);
+  setSelectedTags(currentSelectedTags);
+};
+
+const exportContactsToCSV = (contactsToExport: Contact[]) => {
+  const csvData = contactsToExport.map(contact => ({
+    contactName: contact.contactName || '',
+    email: contact.email || '',
+    phone: contact.phone || '',
+    address: contact.address1 || '',
+    company: contact.companyName || '',
+    tags: (contact.tags || []).join(', ')
+  }));
+
+  const csv = Papa.unparse(csvData);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const fileName = `contacts_export_${new Date().toISOString()}.csv`;
+  saveAs(blob, fileName);
+
+  toast.success(`${contactsToExport.length} contacts exported successfully!`);
+};
+
+const handleTagSelection = (e: React.ChangeEvent<HTMLInputElement>, tagName: string) => {
+  try {
+    const isChecked = e.target.checked;
+    setSelectedTags(prevTags => {
+      if (isChecked) {
+        return [...prevTags, tagName];
+      } else {
+        return prevTags.filter(tag => tag !== tagName);
+      }
+    });
+  } catch (error) {
+    console.error('Error handling tag selection:', error);
+    toast.error("An error occurred while selecting tags. Please try again.");
+  }
+};
+
 const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (file) {
@@ -1891,7 +2031,8 @@ console.log(filteredContacts);
   <Lucide icon="FolderUp" className="w-5 h-5 mr-2" />
   <span className="font-medium">Export Contacts</span>
 </button>
-              
+{exportModalOpen && exportModalContent}
+
                   </div>
                   
                   {/* Mobile view */}
