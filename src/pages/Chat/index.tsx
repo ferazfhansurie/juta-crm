@@ -430,7 +430,7 @@ function Main() {
   const [isEmployeeMentionOpen, setIsEmployeeMentionOpen] = useState(false);
   const myMessageTextClass = "text-white"
   const otherMessageTextClass = "text-white"
-  const [activeTags, setActiveTags] = useState<string[]>(['mine']);
+  const [activeTags, setActiveTags] = useState<string[]>(['all']);
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [ghlConfig, setGhlConfig] = useState<GhlConfig | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -491,7 +491,7 @@ function Main() {
   const privateNoteRef = useRef<HTMLDivElement>(null);
   const [newPrivateNote, setNewPrivateNote] = useState('');
   const [isPrivateNotesMentionOpen, setIsPrivateNotesMentionOpen] = useState(false);
-  const [showAllContacts, setShowAllContacts] = useState(false);
+  const [showAllContacts, setShowAllContacts] = useState(true);
   const [showUnreadContacts, setShowUnreadContacts] = useState(false);
   const [activeTab, setActiveTab] = useState<'messages' | 'privateNotes'>('messages');
   const [showEmployeeList, setShowEmployeeList] = useState(false);
@@ -504,7 +504,7 @@ function Main() {
   const [editedName, setEditedName] = useState('');
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [newContactNumber, setNewContactNumber] = useState('');
-  const [showMineContacts, setShowMineContacts] = useState(true);
+  const [showMineContacts, setShowMineContacts] = useState(false);
   const [showGroupContacts, setShowGroupContacts] = useState(false);
   const [showUnassignedContacts, setShowUnassignedContacts] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
@@ -1893,7 +1893,7 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       return dateB.getTime() - dateA.getTime();
     });
 
-    console.log('active:'+activeTags[0]);
+    console.log('active:'+ activeTags[0]);
     console.log(allContacts);
     setContacts(allContacts.slice(0, 200));
     localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
@@ -3508,7 +3508,11 @@ const getTimestamp2 = (timestamp: any): number => {
             );
             break;
           case 'unread':
-            filteredContacts = contacts.filter(contact => contact.unreadCount && contact.unreadCount > 0);
+            filteredContacts = contacts.filter(contact => 
+              contact.unreadCount && 
+              contact.unreadCount > 0 && 
+              !contact.tags?.includes('snooze')
+            );
             break;
           case 'mine':
             filteredContacts = contacts.filter(contact => 
@@ -3518,7 +3522,8 @@ const getTimestamp2 = (timestamp: any): number => {
             break;
           case 'unassigned':
             filteredContacts = contacts.filter(contact => 
-              !contact.tags?.some(t => employeeList.some(e => e.name.toLowerCase() === t.toLowerCase()))
+              !contact.tags?.some(t => employeeList.some(e => e.name.toLowerCase() === t.toLowerCase())) && 
+              !contact.tags?.includes('snooze')
             );
             break;
           case 'snooze':
@@ -3527,16 +3532,20 @@ const getTimestamp2 = (timestamp: any): number => {
             );
             break;
           case 'group':
-            filteredContacts = contacts.filter(contact => contact.chat_id?.endsWith('@g.us'));
+            filteredContacts = contacts.filter(contact => contact.chat_id?.endsWith('@g.us') && 
+            !contact.tags?.includes('snooze')
+            );
             break;
           case 'stop bot':
             filteredContacts = contacts.filter(contact => 
-              contact.tags?.includes('stop bot')
+              contact.tags?.includes('stop bot') && 
+              !contact.tags?.includes('snooze')
             );
             break;
           default:
             filteredContacts = contacts.filter(contact => 
-              contact.tags?.some(t => t.toLowerCase() === tag.toLowerCase())
+              contact.tags?.some(t => t.toLowerCase() === tag.toLowerCase()) && 
+              !contact.tags?.includes('snooze')
             );
         }
       }
@@ -5637,7 +5646,7 @@ className="cursor-pointer">
                       onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
                     >
                       <div className="flex items-center">
-                        <span className="text-gray-800 dark:text-gray-200 truncate" style={{ maxWidth: '180px' }}>
+                        <span className="text-gray-800 dark:text-gray-200 truncate" style={{ maxWidth: '120px' }}>
                           {employee.name}
                         </span>
                       </div>
