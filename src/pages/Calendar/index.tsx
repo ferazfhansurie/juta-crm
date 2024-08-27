@@ -5,7 +5,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { ChangeEvent, JSXElementConstructor, Key, ReactElement, ReactNode, useEffect, useState } from "react";
+import { ChangeEvent, JSXElementConstructor, Key, ReactElement, ReactNode, useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { getAuth } from 'firebase/auth';
 import { initializeApp } from "firebase/app";
@@ -121,6 +121,19 @@ function Main() {
   const [newPackageName, setNewPackageName] = useState("");
   const [newPackageSessions, setNewPackageSessions] = useState(0);
   const [isAddingPackage, setIsAddingPackage] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const calendarRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const generateTimeSlots = (isWeekend: boolean): string[] => {
     const start = 8;
@@ -180,7 +193,7 @@ function Main() {
     if (auth.currentUser?.email) {
       fetchAppointments(auth.currentUser.email);
     }
-  }, [selectedEmployeeId]);
+  }, [auth.currentUser?.email]); // Add this useEffect at the top of your component
 
   const fetchEmployees = async () => {
     try {
@@ -232,46 +245,16 @@ function Main() {
     try {
       const userRef = doc(firestore, 'user', selectedUserId);
       const appointmentsCollectionRef = collection(userRef, 'appointments');
-  
-      let appointmentsQuery;
-      if (selectedEmployeeId) {
-        // Fetch appointments where the selected employee is the only staff member
-        const singleStaffQuery = query(appointmentsCollectionRef, where('staff', '==', [selectedEmployeeId]));
-        // Fetch appointments where the selected employee is among the staff members
-        const multipleStaffQuery = query(appointmentsCollectionRef, where('staff', 'array-contains', selectedEmployeeId));
-  
-        const [singleStaffSnapshot, multipleStaffSnapshot] = await Promise.all([
-          getDocs(singleStaffQuery),
-          getDocs(multipleStaffQuery),
-        ]);
-  
-        // Combine results from both queries, avoiding duplicates
-        const singleStaffAppointments = singleStaffSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        } as Appointment));
-  
-        const multipleStaffAppointments = multipleStaffSnapshot.docs
-          .map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-          } as Appointment))
-          .filter(appointment => !singleStaffAppointments.some(a => a.id === appointment.id));
-  
-        const allAppointments = [...singleStaffAppointments, ...multipleStaffAppointments];
-        setAppointments(allAppointments.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()));
-      } else {
-        // If no employee is selected, fetch all appointments
-        const querySnapshot = await getDocs(appointmentsCollectionRef);
-        const allAppointments = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        } as Appointment));
-        setAppointments(allAppointments.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()));
-      }
+
+      // Fetch all appointments
+      const querySnapshot = await getDocs(appointmentsCollectionRef);
+      const allAppointments = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      } as Appointment));
 
       // Fetch package details for each appointment
-      const appointmentsWithPackages = await Promise.all(appointments.map(async (appointment: Appointment) => {
+      const appointmentsWithPackages = await Promise.all(allAppointments.map(async (appointment: Appointment) => {
         if (appointment.packageId) {
           const packageRef = doc(firestore, `companies/${selectedUserId}/packages`, appointment.packageId);
           const packageSnapshot = await getDoc(packageRef);
@@ -297,7 +280,6 @@ function Main() {
       setLoading(false);
     }
   };
-  
 
   const handleEmployeeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const employeeId = event.target.value;
@@ -685,7 +667,7 @@ function Main() {
     return (
       (filterStatus ? appointment.appointmentStatus === filterStatus : true) &&
       (filterDate ? format(new Date(appointment.startTime), 'yyyy-MM-dd') === filterDate : true) &&
-      (selectedEmployeeId ? appointment.staff.includes(selectedEmployeeId) || (appointment.staff.length === 1 && appointment.staff[0] === selectedEmployeeId) : true)
+      (selectedEmployeeId ? appointment.staff.includes(selectedEmployeeId) : true)
     );
   });
 
@@ -1091,48 +1073,67 @@ function Main() {
 
   return (
     <>
-      <div className="flex flex-col items-center mt-8 intro-y sm:flex-row">
-        <div className="flex w-full mt-4 sm:w-auto sm:mt-0">
-        {employees.length > 0 && (
-          <select value={selectedEmployeeId} onChange={handleEmployeeChange} className="text-white bg-primary hover:bg-white hover:text-primary hover focus:ring-2 focus:ring-blue-300 font-medium rounded-lg text-sm text-start inline-flex items-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 mr-4">
-            <option value="">Select an employee</option>
-            {employees.map(employee => (
-              <option key={employee.id} value={employee.id}>
-                {employee.name}
-              </option>
-            ))}
-          </select>
-        )}
+      <div className="flex flex-col items-start mt-8 intro-y sm:flex-row sm:flex-wrap lg:flex-nowrap">
+        {/* Employee selection dropdown */}
+        <div className="w-full mb-4 sm:w-1/2 lg:w-auto lg:mb-0 lg:mr-4">
+          {employees.length > 0 && (
+            <select
+              value={selectedEmployeeId}
+              onChange={handleEmployeeChange}
+              className="w-full text-white bg-primary hover:bg-white hover:text-primary focus:ring-2 focus:ring-blue-300 font-medium rounded-lg text-sm text-start inline-flex items-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+            >
+              <option value="">Select an employee</option>
+              {employees.map(employee => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
-        <div className="flex flex-col items-center sm:flex-row w-full mt-4 sm:w-auto sm:mt-0">
-          <select value={filterStatus} onChange={handleStatusFilterChange} className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm mr-4">
+
+        {/* Status and date filters */}
+        <div className="w-full mb-4 sm:w-1/2 lg:w-auto lg:mb-0 lg:mr-4">
+          <select
+            value={filterStatus}
+            onChange={handleStatusFilterChange}
+            className="w-full mb-2 sm:mb-0 text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          >
             <option value="">All Statuses</option>
             <option value="new">New</option>
             <option value="confirmed">Confirmed</option>
             <option value="cancelled">Cancelled</option>
             <option value="showed">Showed</option>
             <option value="noshow">No Show</option>
-            <option value="rescheduled">Resceduled</option>
+            <option value="rescheduled">Rescheduled</option>
           </select>
+        </div>
+
+        <div className="w-full mb-4 sm:w-1/2 lg:w-auto lg:mb-0 lg:mr-4">
           <input
             type="date"
             value={filterDate}
             onChange={handleDateFilterChange}
-            className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm mr-4"
+            className="w-full text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600"
           />
         </div>
-        <div>
+
+        {/* Add New Package button */}
+        <div className="w-full mb-4 sm:w-1/2 lg:w-auto lg:mb-0 lg:mr-4">
           <button
-            className="mr-2 px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
+            className="w-full px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
             onClick={() => setIsAddingPackage(true)}
           >
             Add New Package
           </button>
         </div>
-        <div className="flex w-full mt-4 sm:w-auto sm:mt-0">
+
+        {/* Add New Appointment button */}
+        <div className="w-full sm:w-1/2 lg:w-auto">
           <Button
             variant="primary"
             type="button"
+            className="w-full"
             onClick={() => {
               setSelectedContacts([]);
               setCurrentEvent({
@@ -1155,36 +1156,39 @@ function Main() {
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-12 gap-5 mt-5">
-        <div className="md:col-span-4 xl:col-span-4 2xl:col-span-3">
-          <div className="p-5 box intro-y" style={{ maxHeight: '700px', overflowY: 'auto' }}>
+
+      {/* Main content grid */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-5 mt-5">
+        {/* Appointments list */}
+        <div className={`${isMobile ? 'order-1' : ''} md:col-span-4 xl:col-span-4 2xl:col-span-3`}>
+          <div className="p-5 box intro-y dark:bg-gray-700" style={{ maxHeight: '700px', overflowY: 'auto' }}>
             <div className="flex justify-between items-center h-10 intro-y gap-4">
-              <h2 className="text-3xl font-bold">
+              <h2 className="text-3xl sm:text-xl md:text-2xl font-bold dark:text-white">
                 Appointments
               </h2>
               <div className="">
                 {employees.map((employee, index) => (
-                  <span key={employee.id} className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3">
+                  <span key={employee.id} className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3">
                     <span className="flex w-2.5 h-2.5 rounded-full me-1.5 flex-shrink-0" style={{ backgroundColor: employee.color }}></span>
                     {employee.name}
                   </span>
                 ))}
               </div>
               <div className="">
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-gray-500 rounded-full me-1.5 flex-shrink-0"></span>New</span>
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-green-500 rounded-full me-1.5 flex-shrink-0"></span>Showed</span>
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-red-500 rounded-full me-1.5 flex-shrink-0"></span>Canceled</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3"><span className="flex w-2.5 h-2.5 bg-gray-500 rounded-full me-1.5 flex-shrink-0"></span>New</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3"><span className="flex w-2.5 h-2.5 bg-green-500 rounded-full me-1.5 flex-shrink-0"></span>Showed</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3"><span className="flex w-2.5 h-2.5 bg-red-500 rounded-full me-1.5 flex-shrink-0"></span>Canceled</span>
               </div>
             </div>
-            <div className="mt-6 mb-5 border-t border-b border-slate-200/60 dark:border-darkmode-400">
-            {filteredAppointments.length > 0 ? (
+            <div className="mt-6 mb-5 border-t border-b border-slate-200/60 dark:border-gray-600">
+              {filteredAppointments.length > 0 ? (
                 filteredAppointments.map((appointment, index) => (
                   <div key={index} className="relative" onClick={() => handleAppointmentClick(appointment)}>
-                    <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-darkmode-400">
+                    <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-gray-600">
                       <div className={`w-2 h-20 mr-3 rounded-sm ${getStatusColor(appointment.appointmentStatus)}`}></div>
                       <div className="pr-10 item-center">
-                        <div className="truncate event__title text-lg font-medium">{appointment.title}</div>
-                        <div className="text-slate-500 text-xs mt-0.5">
+                        <div className="truncate event__title text-lg font-medium dark:text-white">{appointment.title}</div>
+                        <div className="text-slate-500 text-xs mt-0.5 dark:text-gray-300">
                           {new Date(appointment.startTime).toLocaleString('en-US', {
                             weekday: 'long',
                             month: 'long',
@@ -1198,12 +1202,12 @@ function Main() {
                             hour12: true
                           })}
                         </div>
-                        <div className="text-slate-500 text-xs mt-0.5">
+                        <div className="text-slate-500 text-xs mt-0.5 dark:text-gray-300">
                           Package: {packages.find(p => p.id === appointment.packageId)?.name ?? 'No package set'}
                           {(packages.find(p => p.id === appointment.packageId)?.sessions ?? 0) > 0 && 
                             ` (${packages.find(p => p.id === appointment.packageId)?.sessions ?? 0} sessions)`}
                         </div> 
-                        <div className="text-slate-500 text-xs mt-0.5">
+                        <div className="text-slate-500 text-xs mt-0.5 dark:text-gray-300">
                           Contacts:{" "}
                           {appointment.contacts && appointment.contacts.length > 0 ? (
                             <span>
@@ -1221,17 +1225,21 @@ function Main() {
                       </div>
                     </div>
                   </div>
-                ))) : (
-                <div className="p-3 text-center text-slate-500">
+                ))
+              ) : (
+                <div className="p-3 text-center text-slate-500 dark:text-gray-400">
                   No events yet
                 </div>
               )}
             </div>
           </div>
         </div>
-        <div className="md:col-span-8 xl:col-span-8 2xl:col-span-9">
-          <div className="p-5 box">
+
+        {/* Calendar */}
+        <div className={`${isMobile ? 'hidden' : ''} md:col-span-8 xl:col-span-8 2xl:col-span-9`}>
+          <div className="p-5 box dark:bg-gray-700">
             <FullCalendar
+              ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
               initialView={view}
               events={filteredAppointments.map(appointment => ({
@@ -1241,7 +1249,7 @@ function Main() {
                 end: appointment.endTime,
                 extendedProps: {
                   appointmentStatus: appointment.appointmentStatus,
-                  staff: appointment.staff // Ensure staff property is included
+                  staff: appointment.staff
                 }
               }))}
               selectable={true}
@@ -1263,57 +1271,80 @@ function Main() {
               }
               .fc .fc-toolbar button {
                 text-transform: capitalize;
-                background-color: #0C4A6E; /* Darker blue color */
-                color: white; /* Ensure button text is white */
+                background-color: #0C4A6E;
+                color: white;
                 border: none;
                 padding: 0.5rem 1rem;
                 margin: 0 0.25rem;
-                border-radius: 0.375rem; /* Tailwind rounded-md */
+                border-radius: 0.375rem;
                 cursor: pointer;
               }
               .fc .fc-toolbar button:hover {
-                background-color: #082F49; /* Even darker blue for hover state */
+                background-color: #082F49;
+              }
+              .dark .fc {
+                color: #fff;
+              }
+              .dark .fc .fc-toolbar {
+                color: #fff;
+              }
+              .dark .fc .fc-toolbar button {
+                background-color: #1e40af;
+              }
+              .dark .fc .fc-toolbar button:hover {
+                background-color: #1e3a8a;
+              }
+              .dark .fc-day-today {
+                background-color: rgba(59, 130, 246, 0.1) !important;
+              }
+              .dark .fc-col-header-cell {
+                background-color: #374151;
+              }
+              .dark .fc-theme-standard td, .dark .fc-theme-standard th {
+                border-color: #4b5563;
               }
             `}</style>
           </div>
         </div>
       </div>
+
+      {/* Edit Modal */}
       {editModalOpen && (
         <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)}>
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
-              <div className="flex items-center p-4 border-b">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10 dark:bg-gray-800">
+              <div className="flex items-center p-4 border-b dark:border-gray-700">
                 <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
                   <span className="text-xl">{currentEvent?.title.charAt(0).toUpperCase()}</span>
                 </div>
                 <div>
-                  <div className="font-semibold text-gray-800">{currentEvent?.title}</div>
-                  <div className="text-sm text-gray-600">{currentEvent?.extendedProps?.address}</div>
+                  <div className="font-semibold text-gray-800 dark:text-white">{currentEvent?.title}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">{currentEvent?.extendedProps?.address}</div>
                 </div>
               </div>
               <div className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Title</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
                   <input
                     type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     value={currentEvent?.title || ''}
                     onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Date</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Date</label>
                   <input
                     type="date"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     value={currentEvent?.dateStr || ''}
                     onChange={handleDateChange}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Time Slot</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Time Slot</label>
                   <select
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     value={currentEvent?.startTimeStr && currentEvent?.endTimeStr ? `${currentEvent.startTimeStr} - ${currentEvent.endTimeStr}` : ''}
                     onChange={handleTimeSlotChange}
                   >
@@ -1326,9 +1357,9 @@ function Main() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Appointment Status</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Appointment Status</label>
                   <select
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     value={currentEvent?.extendedProps?.appointmentStatus || ''}
                     onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
                   >
@@ -1342,8 +1373,8 @@ function Main() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Staff</label>
-                  <div className="block w-full mt-1 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Staff</label>
+                  <div className="block w-full mt-1 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 dark:bg-gray-700 dark:border-gray-600">
                     {employees.map((employee) => (
                       <div key={employee.id} className="flex items-center">
                         <input
@@ -1351,9 +1382,9 @@ function Main() {
                           id={`employee-${employee.id}`}
                           checked={currentEvent?.extendedProps?.staff.includes(employee.id)}
                           onChange={() => handleStaffChange(employee.id)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500"
                         />
-                        <label htmlFor={`employee-${employee.id}`} className="ml-2 text-sm font-medium text-gray-700">
+                        <label htmlFor={`employee-${employee.id}`} className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                           {employee.name}
                         </label>
                       </div>
@@ -1361,9 +1392,9 @@ function Main() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Package</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Package</label>
                   <select
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     value={currentEvent?.extendedProps?.package?.id || ''}
                     onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: packages.find(p => p.id === e.target.value) } })}
                   >
@@ -1375,246 +1406,247 @@ function Main() {
                     ))}
                   </select>
                   <button
-                    className="mt-2 px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/80"
+                    className="mt-2 px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/80 dark:bg-blue-600 dark:hover:bg-blue-700"
                     onClick={() => setIsAddingPackage(true)}
                   >
                     Add New Package
                   </button>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Contacts</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contacts</label>
                   <Select
                     isMulti
                     value={selectedContacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
                     options={contacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
                     onChange={handleContactChange}
-                    className="capitalize"
+                    className="capitalize dark:bg-gray-700 dark:text-white"
                   />
                   {selectedContacts.map(contact => (
-                    <div key={contact.id} className="capitalize text-sm text-gray-600">
+                    <div key={contact.id} className="capitalize text-sm text-gray-600 dark:text-gray-300">
                       {contact.contactName}: Session {contactSessions[contact.id] || 'N/A'}
                     </div>
                   ))}
                 </div>
               </div>
               <div className="flex justify-end mt-6">
-              {currentEvent?.id && (
+                {currentEvent?.id && (
+                  <button
+                    className="px-4 py-2 mr-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+                    onClick={() => {
+                      handleDeleteAppointment(currentEvent.id);
+                      setEditModalOpen(false);
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
                 <button
-                  className="px-4 py-2 mr-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
-                  onClick={() => {
-                    handleDeleteAppointment(currentEvent.id);
-                    setEditModalOpen(false);
-                  }}
-                >
-                  Delete
-                </button>
-              )}
-                <button
-                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
                   onClick={() => setEditModalOpen(false)}
                 >
                   Cancel
                 </button>
                 {(initialAppointmentStatus !== 'showed' && initialAppointmentStatus !== 'noshow') &&  (
-            <button
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-              onClick={handleSaveAppointment}
-            >
-              Save
-            </button>
-          )}
+                  <button
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
+                    onClick={handleSaveAppointment}
+                  >
+                    Save
+                  </button>
+                )}
               </div>
             </Dialog.Panel>
           </div>
         </Dialog>
       )}
 
-    {addModalOpen && (
-      <Dialog open={addModalOpen} onClose={() => setAddModalOpen(false)}>
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
-            <div className="flex items-center p-4 border-b">
-              <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-                <Lucide icon="User" className="w-6 h-6" />
+      {/* Add Modal */}
+      {addModalOpen && (
+        <Dialog open={addModalOpen} onClose={() => setAddModalOpen(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10 dark:bg-gray-800">
+              <div className="flex items-center p-4 border-b dark:border-gray-700">
+                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
+                  <Lucide icon="User" className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-xl dark:text-white">Add New Appointment</span>
+                </div>
               </div>
-              <div>
-                <span className="text-xl">Add New Appointment</span>
-              </div>
-            </div>
-            <div className="mt-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Title</label>
-                <input
-                  type="text"
-                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  value={currentEvent?.title || ''}
-                  onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Date</label>
-                <input
-                  type="date"
-                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  value={currentEvent?.dateStr || ''}
-                  onChange={handleDateChange}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Time Slot</label>
-                <select
-                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  value={currentEvent?.startTimeStr && currentEvent?.endTimeStr ? `${currentEvent.startTimeStr} - ${currentEvent.endTimeStr}` : ''}
-                  onChange={handleTimeSlotChange}
-                >
-                  <option value="" disabled>Select a time slot</option>
-                  {currentEvent?.timeSlots?.map((slot: string) => (
-                    <option key={slot} value={slot}>
-                      {slot}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Address</label>
-                <input
-                  type="text"
-                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  value={currentEvent?.extendedProps?.address || ''}
-                  onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, address: e.target.value } })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Appointment Status</label>
-                <select
-                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  value={currentEvent?.extendedProps?.appointmentStatus || ''}
-                  onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
-                >
-                  <option value="" disabled>Set a status</option>
-                  <option value="new">New</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="showed">Showed</option>
-                  <option value="noshow">No Show</option>
-                  <option value="rescheduled">rescheduled</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Staff</label>
-                <div className="block w-full mt-1 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                  {employees.map((employee) => (
-                    <div key={employee.id} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id={`employee-${employee.id}`}
-                        checked={selectedEmployeeIds.includes(employee.id)}
-                        onChange={() => handleStaffChangeAddModal(employee.id)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <label htmlFor={`employee-${employee.id}`} className="ml-2 text-sm font-medium text-gray-700">
-                        {employee.name}
-                      </label>
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
+                  <input
+                    type="text"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    value={currentEvent?.title || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Date</label>
+                  <input
+                    type="date"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    value={currentEvent?.dateStr || ''}
+                    onChange={handleDateChange}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Time Slot</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    value={currentEvent?.startTimeStr && currentEvent?.endTimeStr ? `${currentEvent.startTimeStr} - ${currentEvent.endTimeStr}` : ''}
+                    onChange={handleTimeSlotChange}
+                  >
+                    <option value="" disabled>Select a time slot</option>
+                    {currentEvent?.timeSlots?.map((slot: string) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
+                  <input
+                    type="text"
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    value={currentEvent?.extendedProps?.address || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, address: e.target.value } })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Appointment Status</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    value={currentEvent?.extendedProps?.appointmentStatus || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
+                  >
+                    <option value="" disabled>Set a status</option>
+                    <option value="new">New</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="showed">Showed</option>
+                    <option value="noshow">No Show</option>
+                    <option value="rescheduled">rescheduled</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Staff</label>
+                  <div className="block w-full mt-1 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 dark:bg-gray-700 dark:border-gray-600">
+                    {employees.map((employee) => (
+                      <div key={employee.id} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`employee-${employee.id}`}
+                          checked={selectedEmployeeIds.includes(employee.id)}
+                          onChange={() => handleStaffChangeAddModal(employee.id)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500"
+                        />
+                        <label htmlFor={`employee-${employee.id}`} className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {employee.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Package</label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    value={currentEvent?.extendedProps?.package?.id || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: packages.find(p => p.id === e.target.value) } })}
+                  >
+                    <option value="" disabled>Choose a package</option>
+                    {packages.map((pkg) => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.name} - {pkg.sessions} Sessions
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contacts</label>
+                  <Select
+                    isMulti
+                    options={contacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
+                    onChange={handleContactChange}
+                    className="capitalize dark:bg-gray-700 dark:text-white"
+                  />
+                  {selectedContacts.map(contact => (
+                    <div key={contact.id} className="capitalize text-sm text-gray-600 dark:text-gray-300">
+                      {contact.contactName}: Session {contactSessions[contact.id] || 'N/A'}
                     </div>
                   ))}
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Package</label>
-                <select
-                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  value={currentEvent?.extendedProps?.package?.id || ''}
-                  onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: packages.find(p => p.id === e.target.value) } })}
+              <div className="flex justify-end mt-6">
+                <button
+                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
+                  onClick={() => {
+                    setAddModalOpen(false);
+                    setSelectedContacts([]);
+                  }}
                 >
-                  <option value="" disabled>Choose a package</option>
-                  {packages.map((pkg) => (
-                    <option key={pkg.id} value={pkg.id}>
-                      {pkg.name} - {pkg.sessions} Sessions
-                    </option>
-                  ))}
-                </select>
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
+                  onClick={handleAddAppointment}
+                >
+                  Save
+                </button>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+      )}
+
+      {/* Add Package Modal */}
+      <Dialog open={isAddingPackage} onClose={() => setIsAddingPackage(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10 dark:bg-gray-800">
+            <h2 className="text-lg font-medium mb-4 dark:text-white">Add New Package</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Package Name</label>
+                <input
+                  type="text"
+                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  value={newPackageName}
+                  onChange={(e) => setNewPackageName(e.target.value)}
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Contacts</label>
-                <Select
-                  isMulti
-                  options={contacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
-                  onChange={handleContactChange}
-                  className="capitalize"
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Number of Sessions</label>
+                <input
+                  type="number"
+                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  value={newPackageSessions}
+                  onChange={(e) => setNewPackageSessions(parseInt(e.target.value))}
                 />
-                {selectedContacts.map(contact => (
-                  <div key={contact.id} className="capitalize text-sm text-gray-600">
-                    {contact.contactName}: Session {contactSessions[contact.id] || 'N/A'}
-                  </div>
-                ))}
               </div>
-            </div>
-            <div className="flex justify-end mt-6">
-              <button
-                className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                onClick={() => {
-                  setAddModalOpen(false);
-                  setSelectedContacts([]);
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                onClick={handleAddAppointment}
-              >
-                Save
-              </button>
+              <div className="flex justify-end space-x-2">
+                <button
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
+                  onClick={() => setIsAddingPackage(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
+                  onClick={addNewPackage}
+                >
+                  Add Package
+                </button>
+              </div>
             </div>
           </Dialog.Panel>
         </div>
       </Dialog>
-    )}
-
-    {/* Add Package Modal */}
-    <Dialog open={isAddingPackage} onClose={() => setIsAddingPackage(false)}>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-        <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
-          <h2 className="text-lg font-medium mb-4">Add New Package</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Package Name</label>
-              <input
-                type="text"
-                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                value={newPackageName}
-                onChange={(e) => setNewPackageName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Number of Sessions</label>
-              <input
-                type="number"
-                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                value={newPackageSessions}
-                onChange={(e) => setNewPackageSessions(parseInt(e.target.value))}
-              />
-            </div>
-            <div className="flex justify-end space-x-2">
-              <button
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                onClick={() => setIsAddingPackage(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
-                onClick={addNewPackage}
-              >
-                Add Package
-              </button>
-            </div>
-          </div>
-        </Dialog.Panel>
-      </div>
-    </Dialog>
-  </>
-);
+    </>
+  );
 }
 
 export default Main;
