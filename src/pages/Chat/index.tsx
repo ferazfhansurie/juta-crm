@@ -532,6 +532,7 @@ const quickRepliesRef = useRef<HTMLDivElement>(null);
 const [documentModalOpen, setDocumentModalOpen] = useState(false);
 const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
 const [quickReplyFilter, setQuickReplyFilter] = useState('');
+const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
 
   const handleMessageSearchClick = () => {
     setIsMessageSearchOpen(!isMessageSearchOpen);
@@ -545,6 +546,34 @@ const [quickReplyFilter, setQuickReplyFilter] = useState('');
   const handleMessageSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMessageSearchQuery(e.target.value);
   };
+
+  useEffect(() => {
+    const fetchCompanyData = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        const docUserRef = doc(firestore, 'user', user.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (docUserSnapshot.exists()) {
+          const userData = docUserSnapshot.data();
+          const companyId = userData.companyId;
+          const companyRef = doc(firestore, 'companies', companyId);
+          const companySnapshot = await getDoc(companyRef);
+          if (companySnapshot.exists()) {
+            const companyData = companySnapshot.data();
+            const phoneCount = companyData.phoneCount || 0;
+            const newPhoneNames: Record<number, string> = {};
+            for (let i = 0; i < phoneCount; i++) {
+              newPhoneNames[i] = companyData[`phone${i + 1}`] || `Phone ${i + 1}`;
+            }
+            setPhoneNames(newPhoneNames);
+            setPhoneCount(phoneCount);
+          }
+        }
+      }
+    };
+  
+    fetchCompanyData();
+  }, []);
 
   useEffect(() => {
     if (messageSearchQuery) {
@@ -739,14 +768,16 @@ const [quickReplyFilter, setQuickReplyFilter] = useState('');
       contactsLength: contactsToFilter.length, 
       userRole, 
       userName: userData?.name,
-      activeTags 
+      activeTags,
+      phoneCount,
+      phoneNames
     });
   
     let filtered = contactsToFilter;
     
     // Apply role-based filtering
     filtered = filterContactsByUserRole(filtered, userRole, userData?.name || '');
-    console.log('After role-based filtering:', { filteredCount: filtered });
+    console.log('After role-based filtering:', { filteredCount: filtered.length });
   
     // Filter out group chats
     filtered = filtered.filter(contact => 
@@ -765,6 +796,12 @@ const [quickReplyFilter, setQuickReplyFilter] = useState('');
         contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase())
       );
       console.log('Filtered "mine" contacts:', { filteredCount: filtered.length });
+    } else if (Object.values(phoneNames).includes(activeTags[0])) {
+      const phoneIndex = Object.entries(phoneNames).find(([_, name]) => name === activeTags[0])?.[0];
+      if (phoneIndex !== undefined) {
+        filtered = filtered.filter(contact => contact.phoneIndex === parseInt(phoneIndex));
+        console.log(`Filtered contacts for ${activeTags[0]}:`, { filteredCount: filtered.length });
+      }
     } else {
       filtered = filtered.filter(contact => 
         activeTags.some(tag => contact.tags?.includes(tag))
@@ -774,7 +811,7 @@ const [quickReplyFilter, setQuickReplyFilter] = useState('');
   
     setFilteredContacts(filtered);
     console.log('Final filtered contacts set:', { filteredCount: filtered.length });
-  }, [userRole, userData, activeTags, currentUserName]);
+  }, [userRole, userData, activeTags, currentUserName, phoneCount, phoneNames]);
 
   useEffect(() => {
     if (initialContacts.length > 0) {
@@ -825,6 +862,12 @@ useEffect(() => {
         contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase())
       );
       console.log('Filtered "mine" contacts:', { filteredCount: filtered.length });
+    } else if (Object.values(phoneNames).includes(activeTags[0])) {
+      const phoneIndex = Object.entries(phoneNames).find(([_, name]) => name === activeTags[0])?.[0];
+      if (phoneIndex !== undefined) {
+        filtered = filtered.filter(contact => contact.phoneIndex === parseInt(phoneIndex));
+        console.log(`Filtered contacts for ${activeTags[0]}:`, { filteredCount: filtered.length });
+      }
     } else {
       filtered = filtered.filter(contact => 
         activeTags.some(tag => contact.tags?.includes(tag))
@@ -835,7 +878,7 @@ useEffect(() => {
     setFilteredContacts(filtered);
     console.log('Final filtered contacts set:', { filteredCount: filtered.length });
   }
-}, [contacts, currentUserName, activeTags, userRole, userData]);
+}, [contacts, currentUserName, activeTags, userRole, userData, phoneNames]);
 
 useEffect(() => {
   const handleScroll = () => {
@@ -3511,11 +3554,13 @@ const getTimestamp2 = (timestamp: any): number => {
       let filteredContacts = contacts;
   
       // Filtering logic
-      if (tag.toLowerCase().startsWith('phone ')) {
-        const phoneIndex = parseInt(tag.split(' ')[1]) - 1; // Subtract 1 to match the 0-based index
-        filteredContacts = contacts.filter(contact => 
-          contact.phoneIndex === phoneIndex
-        );
+      if (Object.values(phoneNames).includes(tag)) {
+        const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => name === tag);
+        if (phoneIndex !== -1) {
+          filteredContacts = contacts.filter(contact => 
+            contact.phoneIndex === phoneIndex
+          );
+        }
       } else {
         // Existing filtering logic for other tags
         switch (tag.toLowerCase()) {
@@ -5216,10 +5261,10 @@ const handleForwardMessage = async () => {
   {['Mine', 'All', 'Unassigned',
     ...(isTagsExpanded ? [
       'Group', 'Unread', 'Snooze', 'Stop Bot',
-      ...Array.from({ length: phoneCount }, (_, i) => `Phone ${i + 1}`),
+      ...Object.entries(phoneNames).slice(0, phoneCount).map(([index, name]) => name),
       ...visibleTags.filter(tag => 
         !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group', 'stop bot'].includes(tag.name) && 
-        !tag.name.startsWith('Phone ')
+        !Object.values(phoneNames).slice(0, phoneCount).includes(tag.name)
       )
     ] : [])
   ].map((tag) => {
@@ -5228,7 +5273,7 @@ const handleForwardMessage = async () => {
     const unreadCount = contacts.filter(contact => {
       const contactTags = contact.tags?.map(t => t.toLowerCase()) || [];
       const isGroup = contact.chat_id?.endsWith('@g.us');
-      const phoneIndex = tagName.startsWith('Phone ') ? parseInt(tagName.split(' ')[1]) - 1 : null;
+      const phoneIndex = Object.entries(phoneNames).slice(0, phoneCount).findIndex(([_, name]) => name === tagName);
       
       return (
         (tagLower === 'all' ? !isGroup :
@@ -5238,9 +5283,9 @@ const handleForwardMessage = async () => {
         tagLower === 'snooze' ? contactTags.includes('snooze') :
         tagLower === 'group' ? isGroup :
         tagLower === 'stop bot' ? contactTags.includes('stop bot') :
-        phoneIndex !== null ? contact.phoneIndex === phoneIndex :
+        phoneIndex !== -1 ? contact.phoneIndex === parseInt(Object.keys(phoneNames)[phoneIndex]) :
         contactTags.includes(tagLower)) &&
-        contact.unreadCount && contact.unreadCount > 0
+        (tagLower !== 'all' && tagLower !== 'unassigned' ? contact.unreadCount && contact.unreadCount > 0 : true)
       );
     }).length;
 
@@ -5801,7 +5846,7 @@ className="cursor-pointer">
                        {message.chat_id && !message.chat_id.includes('@g') && message.phoneIndex != null && phoneCount >= 2 && (
                         <span className="text-sm font-medium pb-0.5 "
                           style={{ color: getAuthorColor(message.phoneIndex.toString() ) }}>
-                          Phone {message.phoneIndex + 1}  
+                          {phoneNames[message.phoneIndex] || `Phone ${message.phoneIndex + 1}`}
                         </span>
                       )}
                       {message.type === 'privateNote' && (
@@ -6099,7 +6144,7 @@ className="cursor-pointer">
   {phoneCount > 1 ? (
     // Display phone buttons when phoneCount > 1
     Array.from({ length:phoneCount }, (_, i) => {
-      const colors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 'bg-purple-500'];
+      const colors = ['bg-primary', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 'bg-purple-500'];
       const buttonColor = colors[i % colors.length];
       return (
         <button
@@ -6111,7 +6156,7 @@ className="cursor-pointer">
           }`}
           onClick={() => setMessageMode(`phone${i + 1}`)}
         >
-          Phone {i + 1}
+          {phoneNames[i] || `Phone ${i + 1}`}
         </button>
       );
     })
