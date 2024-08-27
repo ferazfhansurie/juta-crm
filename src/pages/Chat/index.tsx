@@ -3473,10 +3473,41 @@ const getTimestamp2 = (timestamp: any): number => {
   };
   const filterTagContact = (tag: string) => {
     setActiveTags([tag.toLowerCase()]);
+    setSearchQuery('');
     console.log('active1:' + activeTags[0]);
+
+  };
+  useEffect(() => {
+    console.log('Filtered contacts updated:', filteredContacts);
+  }, [filteredContacts]);
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value.toLowerCase();
+    setSearchQuery(query);
+    setCurrentPage(0);
+  };
+
+  const handleSearchChange2 = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value.toLowerCase();
+    setSearchQuery2(query);
   
+    const filtered = contacts.filter((contact) => {
+      const name = (contact.contactName || contact.firstName || contact.phone || '').toLowerCase();
+      const phone = (contact.phone || '').toLowerCase();
+      const tags = (contact.tags || []).join(' ').toLowerCase();
+  
+      return name.includes(query) || phone.includes(query) || tags.includes(query);
+    });
+  
+    setFilteredContactsForForwarding(filtered);
+  };
+
+  const indexOfLastContact = (currentPage + 1) * contactsPerPage;
+  const indexOfFirstContact = indexOfLastContact - contactsPerPage;
+  const currentContacts = filteredContacts.slice(indexOfFirstContact, indexOfLastContact);
+  
+  useEffect(() => {
+    const tag = activeTags[0]
     // Use setTimeout to ensure this runs after the current call stack is clear
-    setTimeout(() => {
       let filteredContacts = contacts;
   
       // Filtering logic
@@ -3536,69 +3567,19 @@ const getTimestamp2 = (timestamp: any): number => {
       }
       filteredContacts = sortContacts(filteredContacts);
   
-      setFilteredContacts(filteredContacts);
-    }, 0);
-  };
-  useEffect(() => {
-    console.log('Filtered contacts updated:', filteredContacts);
-  }, [filteredContacts]);
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value.toLowerCase();
-    setSearchQuery(query);
-    setCurrentPage(0);
 
-    if (query.trim() === '') {
-      setFilteredContacts(contacts);
-      return;
-    }
-
-    const filtered = contacts.filter((contact) => {
-      const name = contact.contactName?.toLowerCase() || '';
-      const firstName = contact.firstName?.toLowerCase() || '';
-      const lastName = contact.lastName?.toLowerCase() || '';
-      const phone = contact.phone?.toLowerCase() || '';
-      const tags = contact.tags?.map(tag => tag.toLowerCase()) || [];
-
-      return (
-        name.includes(query) ||
-        firstName.includes(query) ||
-        lastName.includes(query) ||
-        phone.includes(query) ||
-        tags.some(tag => tag.includes(query))
-      );
-    });
-
-    setFilteredContacts(filtered);
-  };
-
-  const handleSearchChange2 = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value.toLowerCase();
-    setSearchQuery2(query);
-  
-    const filtered = contacts.filter((contact) => {
-      const name = (contact.contactName || contact.firstName || contact.phone || '').toLowerCase();
-      const phone = (contact.phone || '').toLowerCase();
-      const tags = (contact.tags || []).join(' ').toLowerCase();
-  
-      return name.includes(query) || phone.includes(query) || tags.includes(query);
-    });
-  
-    setFilteredContactsForForwarding(filtered);
-  };
-
-  const indexOfLastContact = (currentPage + 1) * contactsPerPage;
-  const indexOfFirstContact = indexOfLastContact - contactsPerPage;
-  const currentContacts = filteredContacts.slice(indexOfFirstContact, indexOfLastContact);
-  
-  useEffect(() => {
-    let filtered = contacts;
+    let filtered = filteredContacts;
     
     if (searchQuery) {
-      filtered = filtered.filter((contact) =>
-        (contact.contactName || contact.firstName || contact.phone || '')
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase())
-      );
+      filtered = filtered.filter((contact) => {
+        const name = (contact.contactName || contact.firstName || '').toLowerCase();
+        const phone = (contact.phone || '').toLowerCase();
+        const tags = (contact.tags || []).join(' ').toLowerCase();
+        
+        return name.includes(searchQuery) || 
+               phone.includes(searchQuery) || 
+               tags.includes(searchQuery);
+      });
     }
     setFilteredContacts(filtered);
   }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList]);
