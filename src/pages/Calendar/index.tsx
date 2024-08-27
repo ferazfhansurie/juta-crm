@@ -40,11 +40,10 @@ interface Appointment {
   appointmentStatus: string;
   staff: string[];
   color: string;
-  package: string;
+  packageId: string;
   dateAdded: string;
-  contacts: { id: string, name: string, session: number }[]; // Include contacts in the interface
+  contacts: { id: string, name: string, session: number }[];
 }
-
 
 interface Employee {
   id: string;
@@ -91,6 +90,11 @@ type BackgroundStyle = {
   background?: string;
 };
 
+interface Package {
+  id: string;
+  name: string;
+  sessions: number;
+}
 
 function Main() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -113,6 +117,10 @@ function Main() {
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [contactSessions, setContactSessions] = useState<{ [key: string]: number }>({});
   const [initialAppointmentStatus, setInitialAppointmentStatus] = useState<string | null>(null);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [newPackageName, setNewPackageName] = useState("");
+  const [newPackageSessions, setNewPackageSessions] = useState(0);
+  const [isAddingPackage, setIsAddingPackage] = useState(false);
 
   const generateTimeSlots = (isWeekend: boolean): string[] => {
     const start = 8;
@@ -203,7 +211,7 @@ function Main() {
       const employeeSnapshot = await getDocs(employeeRef);
 
       const employeeListData: Employee[] = [];
-      const colors = ["#ff97cf", "#0f52ba", "#f6b092", "#663399",];
+      const colors = ["#1F3A8A", "#2196F3", "#FFC107", "#9C27B0", "#00BCD4", "#795548", "#607D8B", "#E91E63"];
       let colorIndex = 0;
   
       employeeSnapshot.forEach((doc) => {
@@ -261,6 +269,28 @@ function Main() {
         } as Appointment));
         setAppointments(allAppointments.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()));
       }
+
+      // Fetch package details for each appointment
+      const appointmentsWithPackages = await Promise.all(appointments.map(async (appointment: Appointment) => {
+        if (appointment.packageId) {
+          const packageRef = doc(firestore, `companies/${selectedUserId}/packages`, appointment.packageId);
+          const packageSnapshot = await getDoc(packageRef);
+          if (packageSnapshot.exists()) {
+            const packageData = packageSnapshot.data();
+            return {
+              ...appointment,
+              package: {
+                id: packageSnapshot.id,
+                name: packageData.name,
+                sessions: packageData.sessions
+              }
+            };
+          }
+        }
+        return appointment;
+      }));
+
+      setAppointments(appointmentsWithPackages.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()));
     } catch (error) {
       console.error('Error fetching appointments:', error);
     } finally {
@@ -401,7 +431,7 @@ function Main() {
         address: appointment.address,
         appointmentStatus: appointment.appointmentStatus,
         staff: appointment.staff,
-        package: appointment.package,
+        package: appointment.packageId,
         dateAdded: appointment.dateAdded,
         contacts: eventContacts // Include contacts in currentEvent
       },
@@ -418,7 +448,7 @@ function Main() {
         address: appointment.address,
         appointmentStatus: appointment.appointmentStatus,
         staff: appointment.staff,
-        package: appointment.package,
+        package: appointment.packageId,
         dateAdded: appointment.dateAdded,
         contacts: eventContacts
       },
@@ -457,7 +487,7 @@ function Main() {
       appointmentStatus: extendedProps.appointmentStatus,
       staff: extendedProps.staff,
       color: color,
-      package: extendedProps.package,
+      packageId: extendedProps.package.id,
       dateAdded: extendedProps.dateAdded,
       contacts: selectedContacts.map(contact => ({
         id: contact.id,
@@ -540,7 +570,7 @@ function Main() {
         name: contact.contactName,
         session: contactSessions[contact.id] || getPackageSessions(currentEvent.extendedProps.package) // Initialize session number
       })),
-      package: currentEvent.extendedProps.package,
+      packageId: currentEvent.extendedProps.package.id,
     };
     await createAppointment(newEvent);
     setAddModalOpen(false);
@@ -568,7 +598,7 @@ function Main() {
         appointmentStatus: newEvent.appointmentStatus,
         staff: newEvent.staff,
         color: newEvent.color, // Include color property
-        package: newEvent.package,
+        packageId: newEvent.packageId,
         dateAdded: new Date().toISOString(),
         contacts: newEvent.contacts,
       };
@@ -728,7 +758,7 @@ function Main() {
         address: appointment.address,
         appointmentStatus: appointment.appointmentStatus,
         staff: appointment.staff,
-        package: appointment.package,
+        package: appointment.packageId,
         dateAdded: appointment.dateAdded,
         contacts: appointment.contacts // Include contacts in currentEvent
       }
@@ -743,7 +773,7 @@ function Main() {
         address: appointment.address,
         appointmentStatus: appointment.appointmentStatus,
         staff: appointment.staff,
-        package: appointment.package,
+        package: appointment.packageId,
         dateAdded: appointment.dateAdded,
         contacts: appointment.contacts
       }
@@ -992,6 +1022,73 @@ function Main() {
     }
   };
 
+  useEffect(() => {
+    fetchPackages();
+  }, []);
+
+  const fetchPackages = async () => {
+    try {
+      const auth = getAuth(app);
+      const user = auth.currentUser;
+
+      if (!user) return;
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+
+      const dataUser = docUserSnapshot.data();
+      const companyId = dataUser.companyId;
+      const packagesRef = collection(firestore, `companies/${companyId}/packages`);
+      const packagesSnapshot = await getDocs(packagesRef);
+
+      const packagesData: Package[] = [];
+      packagesSnapshot.forEach((doc) => {
+        packagesData.push({ id: doc.id, ...doc.data() } as Package);
+      });
+
+      setPackages(packagesData);
+    } catch (error) {
+      console.error('Error fetching packages:', error);
+    }
+  };
+
+  const addNewPackage = async () => {
+    try {
+      const auth = getAuth(app);
+      const user = auth.currentUser;
+
+      if (!user) return;
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+
+      const dataUser = docUserSnapshot.data();
+      const companyId = dataUser.companyId;
+      const packagesRef = collection(firestore, `companies/${companyId}/packages`);
+
+      const newPackage = {
+        name: newPackageName,
+        sessions: newPackageSessions,
+      };
+
+      const docRef = await addDoc(packagesRef, newPackage);
+      setPackages([...packages, { id: docRef.id, ...newPackage }]);
+      setNewPackageName("");
+      setNewPackageSessions(0);
+      setIsAddingPackage(false);
+    } catch (error) {
+      console.error('Error adding new package:', error);
+    }
+  };
+
   return (
     <>
       <div className="flex flex-col items-center mt-8 intro-y sm:flex-row">
@@ -1023,6 +1120,14 @@ function Main() {
             onChange={handleDateFilterChange}
             className="text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm mr-4"
           />
+        </div>
+        <div>
+          <button
+            className="mr-2 px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
+            onClick={() => setIsAddingPackage(true)}
+          >
+            Add New Package
+          </button>
         </div>
         <div className="flex w-full mt-4 sm:w-auto sm:mt-0">
           <Button
@@ -1058,10 +1163,12 @@ function Main() {
                 Appointments
               </h2>
               <div className="">
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-pink-300 rounded-full me-1.5 flex-shrink-0"></span>Adriana</span>
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-blue-700 rounded-full me-1.5 flex-shrink-0"></span>Azhani</span>
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-orange-300 rounded-full me-1.5 flex-shrink-0"></span>Nurin</span>
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-purple-700 rounded-full me-1.5 flex-shrink-0"></span>Shivaa</span>
+                {employees.map((employee, index) => (
+                  <span key={employee.id} className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3">
+                    <span className="flex w-2.5 h-2.5 rounded-full me-1.5 flex-shrink-0" style={{ backgroundColor: employee.color }}></span>
+                    {employee.name}
+                  </span>
+                ))}
               </div>
               <div className="">
                 <span className="flex items-center text-xs font-medium text-gray-500 dark:text-white me-3"><span className="flex w-2.5 h-2.5 bg-gray-500 rounded-full me-1.5 flex-shrink-0"></span>New</span>
@@ -1079,26 +1186,31 @@ function Main() {
                         <div className="truncate event__title text-lg font-medium">{appointment.title}</div>
                         <div className="text-slate-500 text-xs mt-0.5">
                           {new Date(appointment.startTime).toLocaleString('en-US', {
-                            weekday: 'long', // Long name of the day of the week
-                            month: 'long',   // Full name of the month
-                            day: 'numeric',  // Day of the month
-                            hour: 'numeric', // Hour
-                            minute: 'numeric', // Minute
-                            hour12: true     // 12-hour format
+                            weekday: 'long',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: 'numeric',
+                            hour12: true
                           })} - {new Date(appointment.endTime).toLocaleString('en-US', {
                             hour: 'numeric',
                             minute: 'numeric',
                             hour12: true
                           })}
                         </div>
-                        <div className="text-slate-500 text-xs mt-0.5">Package: {getPackageName(appointment.package)}</div>
+                        <div className="text-slate-500 text-xs mt-0.5">
+                          Package: {packages.find(p => p.id === appointment.packageId)?.name ?? 'No package set'}
+                          {(packages.find(p => p.id === appointment.packageId)?.sessions ?? 0) > 0 && 
+                            ` (${packages.find(p => p.id === appointment.packageId)?.sessions ?? 0} sessions)`}
+                        </div> 
                         <div className="text-slate-500 text-xs mt-0.5">
                           Contacts:{" "}
                           {appointment.contacts && appointment.contacts.length > 0 ? (
                             <span>
                               {appointment.contacts.map(contact => (
                                 <div className="capitalize" key={contact.id}>
-                                  {contact.name} | Session {contact.session}
+                                  {contact.name}
+                                  {contact.session > 0 && ` | Session ${contact.session}`}
                                 </div>
                               ))}
                             </span>
@@ -1147,11 +1259,11 @@ function Main() {
             />
             <style jsx global>{`
               .fc .fc-toolbar {
-                color: #164E63;
+                color: #0C4A6E;
               }
               .fc .fc-toolbar button {
                 text-transform: capitalize;
-                background-color: #164E63; /* Tailwind blue-600 */
+                background-color: #0C4A6E; /* Darker blue color */
                 color: white; /* Ensure button text is white */
                 border: none;
                 padding: 0.5rem 1rem;
@@ -1160,7 +1272,7 @@ function Main() {
                 cursor: pointer;
               }
               .fc .fc-toolbar button:hover {
-                background-color: #164E63; /* Tailwind blue-800 */
+                background-color: #082F49; /* Even darker blue for hover state */
               }
             `}</style>
           </div>
@@ -1252,21 +1364,22 @@ function Main() {
                   <label className="block text-sm font-medium text-gray-700">Package</label>
                   <select
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    value={currentEvent?.extendedProps?.package || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
+                    value={currentEvent?.extendedProps?.package?.id || ''}
+                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: packages.find(p => p.id === e.target.value) } })}
                   >
                     <option value="" disabled>Choose a package</option>
-                    <option value="trial1">Trial - Private</option>
-                    <option value="trial2">Trial - Duo</option>
-                    <option value="privDrop">Private - Drop In</option>
-                    <option value="priv4">Private - 4 Sessions</option>
-                    <option value="priv10">Private - 10 Sessions</option>
-                    <option value="priv20">Private - 20 Sessions</option>
-                    <option value="duoDrop">Duo - Drop In</option>
-                    <option value="duo4">Duo - 4 Sessions</option>
-                    <option value="duo10">Duo - 10 Sessions</option>
-                    <option value="duo20">Duo - 20 Sessions</option>
+                    {packages.map((pkg) => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.name} - {pkg.sessions} Sessions
+                      </option>
+                    ))}
                   </select>
+                  <button
+                    className="mt-2 px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/80"
+                    onClick={() => setIsAddingPackage(true)}
+                  >
+                    Add New Package
+                  </button>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Contacts</label>
@@ -1410,20 +1523,15 @@ function Main() {
                 <label className="block text-sm font-medium text-gray-700">Package</label>
                 <select
                   className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  value={currentEvent?.extendedProps?.package || ''}
-                  onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: e.target.value } })}
+                  value={currentEvent?.extendedProps?.package?.id || ''}
+                  onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: packages.find(p => p.id === e.target.value) } })}
                 >
                   <option value="" disabled>Choose a package</option>
-                  <option value="trial1">Trial - Private</option>
-                  <option value="trial2">Trial - Duo</option>
-                  <option value="privDrop">Private - Drop In</option>
-                  <option value="priv4">Private - 4 Sessions</option>
-                  <option value="priv10">Private - 10 Sessions</option>
-                  <option value="priv20">Private - 20 Sessions</option>
-                  <option value="duoDrop">Duo - Drop In</option>
-                  <option value="duo4">Duo - 4 Sessions</option>
-                  <option value="duo10">Duo - 10 Sessions</option>
-                  <option value="duo20">Duo - 20 Sessions</option>
+                  {packages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.name} - {pkg.sessions} Sessions
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -1462,8 +1570,51 @@ function Main() {
         </div>
       </Dialog>
     )}
-    </>
-  );
+
+    {/* Add Package Modal */}
+    <Dialog open={isAddingPackage} onClose={() => setIsAddingPackage(false)}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10">
+          <h2 className="text-lg font-medium mb-4">Add New Package</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Package Name</label>
+              <input
+                type="text"
+                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                value={newPackageName}
+                onChange={(e) => setNewPackageName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Number of Sessions</label>
+              <input
+                type="number"
+                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                value={newPackageSessions}
+                onChange={(e) => setNewPackageSessions(parseInt(e.target.value))}
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                onClick={() => setIsAddingPackage(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700"
+                onClick={addNewPackage}
+              >
+                Add Package
+              </button>
+            </div>
+          </div>
+        </Dialog.Panel>
+      </div>
+    </Dialog>
+  </>
+);
 }
 
 export default Main;
