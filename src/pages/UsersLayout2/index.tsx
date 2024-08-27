@@ -46,6 +46,7 @@ interface Employee {
   assignedContacts?: number;
   employeeId?: string;
   phoneNumber?: string;
+  phoneNames?: { [key: number]: string };
 }
 
 function Main() {
@@ -67,6 +68,7 @@ function Main() {
 
   const [groups, setGroups] = useState<string[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>('');
+  const [phoneNames, setPhoneNames] = useState<{ [key: number]: string }>({});
 
   const toggleModal = (id?:string) => {
     setIsModalOpen(!isModalOpen);
@@ -118,6 +120,35 @@ function Main() {
     }
   }, []);
 
+  useEffect(() => {
+    const fetchCompanyData = async () => {
+      const auth = getAuth(app);
+      const user = auth.currentUser;
+      if (user) {
+        const docUserRef = doc(firestore, 'user', user.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (docUserSnapshot.exists()) {
+          const userData = docUserSnapshot.data();
+          companyId = userData.companyId;
+          const companyRef = doc(firestore, 'companies', companyId);
+          const companySnapshot = await getDoc(companyRef);
+          if (companySnapshot.exists()) {
+            const companyData = companySnapshot.data();
+            const phoneCount = companyData.phoneCount || 0;
+            const newPhoneNames: { [key: number]: string } = {};
+            for (let i = 1; i <= phoneCount; i++) {
+              newPhoneNames[i] = companyData[`phone${i}`] || `Phone ${i}`;
+            }
+            setPhoneNames(newPhoneNames);
+            setPhoneCount(phoneCount);
+          }
+        }
+      }
+    };
+  
+    fetchCompanyData();
+  }, []);
+
   
   async function fetchEmployees() {
     const auth = getAuth(app);
@@ -143,6 +174,17 @@ function Main() {
       const companyData = docSnapshot.data();
       setPhoneCount(companyData.phoneCount);
       accessToken = companyData.ghl_accessToken;
+
+      // Fetch phone names
+      const phoneNamesData: { [key: number]: string } = {};
+      for (let i = 1; i <= companyData.phoneCount; i++) {
+        if (companyData[`phone${i}Name`]) {
+          phoneNamesData[i] = companyData[`phone${i}Name`];
+        } else {
+          phoneNamesData[i] = `Phone ${i}`;
+        }
+      }
+      setPhoneNames(phoneNamesData);
 
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
@@ -187,7 +229,20 @@ function Main() {
     }
   }
 
-
+  // Update the updatePhoneName function
+  const updatePhoneName = async (index: number, name: string) => {
+    try {
+      const docRef = doc(firestore, 'companies', companyId);
+      await updateDoc(docRef, {
+        [`phone${index}`]: name
+      });
+      setPhoneNames(prev => ({ ...prev, [index]: name }));
+      toast.success(`Phone ${index} name updated successfully`);
+    } catch (error) {
+      console.error('Error updating phone name:', error);
+      toast.error('Failed to update phone name');
+    }
+  };
 
 const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
   try {
@@ -260,6 +315,32 @@ const paginatedEmployees = filteredEmployees
                 </Button>
               )}
             </Link>
+            {/* Add a dropdown to show phone names */}
+            {phoneCount >= 2 && (
+              <Menu className="mr-2">
+                <Menu.Button as={Button} variant="outline-secondary" className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                  Phone Numbers <Lucide icon="ChevronDown" className="w-4 h-4 ml-2" />
+                </Menu.Button>
+                <Menu.Items className="w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg mt-2">
+                  {Object.entries(phoneNames).map(([index, phoneName]) => (
+                    <Menu.Item key={index} className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                      <div className="flex items-center justify-between w-full">
+                        <span>{phoneNames[parseInt(index)]}</span>
+                        <button
+                          onClick={() => {
+                            const newName = prompt(`Enter new name for ${phoneName}`, phoneName);
+                            if (newName) updatePhoneName(parseInt(index), newName);
+                          }}
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          <Lucide icon="Pencil" className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </Menu.Item>
+                  ))}
+                </Menu.Items>
+              </Menu>
+            )}
             <Menu className="mr-2">
               <Menu.Button as={Button} variant="outline-secondary" className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                 {selectedGroup || "Select a group"} <Lucide icon="ChevronDown" className="w-4 h-4" />
