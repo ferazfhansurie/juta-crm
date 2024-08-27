@@ -3508,11 +3508,8 @@ const getTimestamp2 = (timestamp: any): number => {
             );
             break;
           case 'unread':
-            filteredContacts = contacts.filter(contact => 
-              contact.unreadCount && 
-              contact.unreadCount > 0 && 
-              !contact.tags?.includes('snooze')
-            );
+            filteredContacts = contacts.filter(contact => contact.unreadCount && contact.unreadCount > 0 && 
+            !contact.tags?.includes('snooze'));
             break;
           case 'mine':
             filteredContacts = contacts.filter(contact => 
@@ -3532,11 +3529,12 @@ const getTimestamp2 = (timestamp: any): number => {
             );
             break;
           case 'group':
-            filteredContacts = contacts.filter(contact => contact.chat_id?.endsWith('@g.us') && 
-            !contact.tags?.includes('snooze')
+            filteredContacts = contacts.filter(
+              (contact) =>
+                contact.chat_id?.endsWith("@g.us") && !contact.tags?.includes("snooze")
             );
             break;
-          case 'stop bot':
+          case "stop bot":
             filteredContacts = contacts.filter(contact => 
               contact.tags?.includes('stop bot') && 
               !contact.tags?.includes('snooze')
@@ -3551,7 +3549,6 @@ const getTimestamp2 = (timestamp: any): number => {
       }
       filteredContacts = sortContacts(filteredContacts);
   
-      console.log('Filtered and sorted contacts:', filteredContacts); // Add this line for debugging
       setFilteredContacts(filteredContacts);
     }, 0);
   };
@@ -5240,8 +5237,8 @@ const handleForwardMessage = async () => {
         </span>
       </Menu.Button>
     </div>
-    <Menu.Items className="absolute right-0 mt-2 w-40 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-      {employeeList.map((employee) => (
+    <Menu.Items className="absolute right-0 mt-2 w-60 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+      {employeeList.sort((a, b) => a.name.localeCompare(b.name)).map((employee) => (
         <Menu.Item key={employee.id}>
           {({ active }) => (
             <button
@@ -5254,14 +5251,6 @@ const handleForwardMessage = async () => {
               }`}
               onClick={() => filterTagContact(employee.name)}
             >
-              <Lucide 
-                icon="User" 
-                className={`w-4 h-4 mr-2 ${
-                  activeTags.includes(employee.name)
-                    ? 'text-white'
-                    : 'text-gray-800 dark:text-gray-200'
-                }`} 
-              />
               <span>{employee.name}</span>
             </button>
           )}
@@ -5645,12 +5634,10 @@ className="cursor-pointer">
                       className="flex items-center justify-between w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
                       onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
                     >
-                      <div className="flex items-center">
-                        <span className="text-gray-800 dark:text-gray-200 truncate" style={{ maxWidth: '120px' }}>
-                          {employee.name}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-gray-800 dark:text-gray-200 truncate flex-grow mr-2" style={{ maxWidth: '70%' }}>
+                        {employee.name}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         Leads Quota: {employee.quotaLeads}
                       </span>
                     </button>
