@@ -167,7 +167,9 @@ interface Message {
   contact_list?: { contacts: { name: string; phone: string }[] };
   interactive?: any;
   poll?: any;
+  userName?: string;
   hsm?: any;
+  edited?: boolean;
   system?: any;
   order?: any;
   group_invite?: any;
@@ -1013,48 +1015,26 @@ const closePDFModal = () => {
       }
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.error('No such document for company!');
-        return;
-      }
-      const companyData = docSnapshot.data();
   
       for (const message of selectedMessages) {
-        let deleteSuccessful = false;
-  
-        // Try deleting using the new Firebase-based API first
         try {
-          const response = await axios.delete(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/${companyId}/${selectedChatId}/${message.id}`);
+          const response = await axios.delete(
+            `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/${companyId}/${selectedChatId}/${message.id}`,
+            {
+              data: { deleteForEveryone: true } // Set this to false if you want to delete only for the current user
+            }
+          );
+  
           if (response.data.success) {
-            deleteSuccessful = true;
+            setMessages((prevMessages) => prevMessages.filter((msg) => msg.id !== message.id));
+          } else {
+            console.error(`Failed to delete message: ${message.id}`);
           }
         } catch (error) {
-          console.error('Error deleting message with new API:', error);
-        }
-  
-        // If the new API failed or isn't available, try the original Whapi method
-        if (!deleteSuccessful) {
-          try {
-            const response = await axios.delete(`https://gate.whapi.cloud/messages/${message.id}`, {
-              headers: {
-                'Authorization': `Bearer ${companyData.whapiToken}`,
-                'Accept': 'application/json',
-              },
-            });
-            if (response.status === 200) {
-              deleteSuccessful = true;
-            }
-          } catch (error) {
-            console.error('Error deleting message with Whapi:', error);
+          console.error('Error deleting message:', error);
+          if (axios.isAxiosError(error) && error.response) {
+            console.error('Error details:', error.response.status, error.response.data);
           }
-        }
-  
-        if (deleteSuccessful) {
-          setMessages((prevMessages) => prevMessages.filter((msg) => msg.id !== message.id));
-        } else {
-          console.error(`Failed to delete message: ${message.id}`);
         }
       }
   
@@ -1062,7 +1042,7 @@ const closePDFModal = () => {
       setSelectedMessages([]);
       closeDeletePopup();
     } catch (error) {
-      console.error('Error deleting messages:', error);
+      console.error('Error in delete operation:', error);
       toast.error('Failed to delete messages');
     }
   };
@@ -2042,7 +2022,9 @@ useEffect(() => {
                 type: message.type,
                 author: message.author,
                 name: message.name,
-                phoneIndex: message.phoneIndex // Add this line to include phoneIndex
+                phoneIndex: message.phoneIndex,
+                userName: message.userName,
+                edited: message.edited // Add this line to include phoneIndex
             };
     
             // Handle timestamp based on message type
@@ -2084,7 +2066,7 @@ useEffect(() => {
                               quoted_content: {
                                   body: message.text.context.quoted_content?.body || ''
                               }
-                          } : null // Include the context with quoted content
+                          } : null
                         };                
                         break;
                     case 'image':
@@ -2298,7 +2280,9 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
           type: message.type,
           author:message.author,
           name: message.name,
-          phoneIndex: message.phoneIndex // Add this line to include phoneIndex
+          phoneIndex: message.phoneIndex,
+          userName: message.userName,
+          edited: message.edited // Add this line to include phoneIndex
         };
         if (message.type === 'privateNote') {
           if (message.timestamp && message.timestamp.seconds) {
@@ -2746,6 +2730,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
     const dataUser = docUserSnapshot.data();
     companyId = dataUser.companyId;
+    const userName = dataUser.name || dataUser.email || ''; // Get the user's name
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
     if (!docSnapshot.exists()) {
@@ -2790,7 +2775,8 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
             body: JSON.stringify({
               message: newMessage,
               quotedMessageId: replyToMessage?.id || null,
-              phoneIndex: phoneIndex
+              phoneIndex: phoneIndex,
+              userName: userName
             }),
           });
         } else {
@@ -2802,7 +2788,8 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               message: newMessage,
-              quotedMessageId: replyToMessage?.id || null
+              quotedMessageId: replyToMessage?.id || null,
+              userName: userName
             }),
           });
         }
@@ -3885,7 +3872,7 @@ const handleForwardMessage = async () => {
   
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-  
+      const userName = userData.name || userData.email || '';
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) throw new Error('No company document found');
@@ -3904,6 +3891,7 @@ const handleForwardMessage = async () => {
             imageUrl: imageUrl,
             caption: caption || '',
             phoneIndex: 0, // Assuming default phone index is 0
+            userName: userName,
           }),
         });
   
@@ -3921,6 +3909,7 @@ const handleForwardMessage = async () => {
             chatId: chatId,
             imageUrl: imageUrl,
             caption: caption || '',
+            userName: userName,
           }),
         });
   
@@ -3949,7 +3938,7 @@ const handleForwardMessage = async () => {
   
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-  
+      const userName = userData.name || userData.email || '';
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) throw new Error('No company document found');
@@ -3969,6 +3958,7 @@ const handleForwardMessage = async () => {
             filename: fileName,
             caption: caption || '',
             phoneIndex: phoneIndex,
+            userName: userName,
           }),
         });
   
@@ -3988,6 +3978,7 @@ const handleForwardMessage = async () => {
             mimeType: mimeType,
             fileName: fileName,
             caption: caption || '',
+            userName: userName,
           }),
         });
   
@@ -4296,64 +4287,29 @@ const handleForwardMessage = async () => {
   
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error('No such document for company');
+      const chatId = editingMessage.id.split('_')[1];
+      console.log('editing this chat id', chatId)
+      const response = await axios.put(
+        `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/${companyId}/${chatId}/${editingMessage.id}`,
+        { newMessage: editedMessageText }
+      );
   
-      const companyData = docSnapshot.data();
-  
-      let editSuccessful = false;
-  
-      // Try editing using the new Firebase-based API first
-      try {
-        const response = await axios.put(
-          `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/${companyId}/${editingMessage.chat_id}/${editingMessage.id}`,
-          { newMessage: editedMessageText }
-        );
-        if (response.data.success) {
-          editSuccessful = true;
-        }
-      } catch (error) {
-        if (axios.isAxiosError(error) && error.response) {
-          console.error('Error editing message with new API:', error.response.status, error.response.data);
-        } else {
-          console.error('Error editing message with new API:', error);
-        }
-      }
-  
-      // If the new API failed or isn't available, try the original Whapi method
-      if (!editSuccessful) {
-        try {
-          const response = await axios.post(`https://gate.whapi.cloud/messages/text`, {
-            to: editingMessage.chat_id,
-            body: editedMessageText,
-            edit: editingMessage.id,
-          }, {
-            headers: {
-              'Authorization': `Bearer ${companyData.whapiToken}`,
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-          });
-          if (response.status === 200) {
-            editSuccessful = true;
-          }
-        } catch (error) {
-          if (axios.isAxiosError(error) && error.response) {
-            console.error('Error editing message with Whapi:', error.response.status, error.response.data);
-          } else {
-            console.error('Error editing message with Whapi:', error);
-          }
-        }
-      }
-  
-      if (editSuccessful) {
+      if (response.data.success) {
         toast.success('Message edited successfully');
-        fetchMessages(editingMessage.chat_id, companyData.whapiToken);
+        
+        // Update the message locally
+        setMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.id === editingMessage.id 
+              ? { ...msg, text: { ...msg.text, body: editedMessageText }, edited: true }
+              : msg
+          )
+        );
+  
         setEditingMessage(null);
         setEditedMessageText("");
       } else {
-        throw new Error(`Failed to edit message: ${editingMessage.id}`);
+        throw new Error(response.data.error || 'Failed to edit message');
       }
     } catch (error) {
       console.error('Error editing message:', error);
@@ -5883,9 +5839,22 @@ className="cursor-pointer">
                         </div>
                       )}
                       {message.type === 'text' && message.text?.body && (
-                        <div className={`whitespace-pre-wrap break-words overflow-hidden ${message.from_me ? myMessageTextClass : otherMessageTextClass}`} style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                        <div>
+                        {message.from_me && message.userName && message.userName !== '' && (
+                          <div className="text-xs text-gray-500 mb-1">{message.userName}</div>
+                        )}
+                        <div 
+                          className={`whitespace-pre-wrap break-words overflow-hidden ${
+                            message.from_me ? myMessageTextClass : otherMessageTextClass
+                          }`} 
+                          style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                        >
                           {formatText(message.text.body)}
                         </div>
+                        {message.edited && (
+                          <div className="text-xs text-gray-500 mt-1 italic">Edited</div>
+                        )}
+                      </div>
                       )}
                       {message.type === 'image' && message.image && (
                         <div className="p-0 message-content image-message">
