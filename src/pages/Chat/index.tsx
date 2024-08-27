@@ -2108,9 +2108,9 @@ useEffect(() => {
                     case 'interactive':
                         formattedMessage.interactive = message.interactive ? message.interactive : undefined;
                         break;
-                        case 'ptt':
-                          formattedMessage.ptt = message.ptt ? message.ptt : undefined;
-                          break;
+                    case 'ptt':
+                        formattedMessage.ptt = message.ptt ? message.ptt : undefined;
+                        break;
                     case 'poll':
                         formattedMessage.poll = message.poll ? message.poll : undefined;
                         break;
@@ -2369,6 +2369,9 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
             break;
           case 'hsm':
             formattedMessage.hsm = message.hsm ? message.hsm : undefined;
+            break;
+          case 'ptt':
+            formattedMessage.ptt = message.ptt ? message.ptt : undefined;
             break;
           case 'system':
             formattedMessage.system = message.system ? message.system : undefined;
