@@ -428,7 +428,7 @@ function Main() {
   const otherFirstMessageClass = `${otherMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mt-4`;
   const otherMiddleMessageClass = `${otherMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl`;
   const otherLastMessageClass = `${otherMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mb-4`;
-  const [messageMode, setMessageMode] = useState<'reply' | 'privateNote' | `phone${number}`>('reply');
+  const [messageMode, setMessageMode] = useState('reply');
   const [isEmployeeMentionOpen, setIsEmployeeMentionOpen] = useState(false);
   const myMessageTextClass = "text-white"
   const otherMessageTextClass = "text-white"
@@ -3489,11 +3489,15 @@ const getTimestamp2 = (timestamp: any): number => {
   };
   const sortContacts = (contacts: Contact[]) => {
     let fil = contacts;
-    if (activeTags[0].toLowerCase().startsWith('phone ')) {
-      const phoneIndex = parseInt(activeTags[0].split(' ')[1]) - 1; // Subtract 1 to match the 0-based index
-      fil = contacts.filter(contact => 
-        contact.phoneIndex === phoneIndex
-      );
+    const activeTag = activeTags[0].toLowerCase();
+    
+    // Check if the active tag matches any of the phone names
+    const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => 
+      name.toLowerCase() === activeTag
+    );
+  
+    if (phoneIndex !== -1) {
+      fil = contacts.filter(contact => contact.phoneIndex === phoneIndex);
     }
     return fil.sort((a, b) => {
       // First, sort by pinned status
@@ -3552,81 +3556,84 @@ const getTimestamp2 = (timestamp: any): number => {
   const currentContacts = filteredContacts.slice(indexOfFirstContact, indexOfLastContact);
   
   useEffect(() => {
-    const tag = activeTags[0]
-    // Use setTimeout to ensure this runs after the current call stack is clear
-      let filteredContacts = contacts;
-  
-      // Filtering logic
-      if (Object.values(phoneNames).includes(tag)) {
-        const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => name === tag);
-        if (phoneIndex !== -1) {
-          filteredContacts = contacts.filter(contact => 
-            contact.phoneIndex === phoneIndex
-          );
-        }
-      } else {
-        // Existing filtering logic for other tags
-        switch (tag.toLowerCase()) {
-          case 'all':
-            filteredContacts = contacts.filter(contact => 
-              !contact.chat_id?.endsWith('@g.us') && 
-              !contact.tags?.includes('snooze')
-            );
-            break;
-          case 'unread':
-            filteredContacts = contacts.filter(contact => contact.unreadCount && contact.unreadCount > 0 && 
-            !contact.tags?.includes('snooze'));
-            break;
-          case 'mine':
-            filteredContacts = contacts.filter(contact => 
-              contact.tags?.some(t => t.toLowerCase() === currentUserName.toLowerCase())&& 
-              !contact.tags?.includes('snooze')
-            );
-            break;
-          case 'unassigned':
-            filteredContacts = contacts.filter(contact => 
-              !contact.tags?.some(t => employeeList.some(e => e.name.toLowerCase() === t.toLowerCase())) && 
-              !contact.tags?.includes('snooze')
-            );
-            break;
-          case 'snooze':
-            filteredContacts = contacts.filter(contact => 
-              contact.tags?.includes('snooze')
-            );
-            break;
-          case 'group':
-            filteredContacts = contacts.filter(
-              (contact) =>
-                contact.chat_id?.endsWith("@g.us") && !contact.tags?.includes("snooze")
-            );
-            break;
-          case "stop bot":
-            filteredContacts = contacts.filter(contact => 
-              contact.tags?.includes('stop bot') && 
-              !contact.tags?.includes('snooze')
-            );
-            break;
-          default:
-            filteredContacts = contacts.filter(contact => 
-              contact.tags?.some(t => t.toLowerCase() === tag.toLowerCase()) && 
-              !contact.tags?.includes('snooze')
-            );
-        }
+    const tag = activeTags[0].toLowerCase();
+    let filteredContacts = contacts;
+
+    // Filtering logic
+    if (Object.values(phoneNames).map(name => name.toLowerCase()).includes(tag)) {
+      const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => 
+        name.toLowerCase() === tag
+      );
+      if (phoneIndex !== -1) {
+        setMessageMode(`phone${phoneIndex + 1}`);
+        filteredContacts = contacts.filter(contact => 
+        contact.phoneIndex === phoneIndex
+        );
       }
-      filteredContacts = sortContacts(filteredContacts);
+    } else {
+      setMessageMode('reply');
+      // Existing filtering logic for other tags
+      switch (tag) {
+        case 'all':
+          filteredContacts = contacts.filter(contact => 
+            !contact.chat_id?.endsWith('@g.us') && 
+            !contact.tags?.includes('snooze')
+          );
+          break;
+        case 'unread':
+          filteredContacts = contacts.filter(contact => contact.unreadCount && contact.unreadCount > 0 && 
+          !contact.tags?.includes('snooze'));
+          break;
+        case 'mine':
+          filteredContacts = contacts.filter(contact => 
+            contact.tags?.some(t => t.toLowerCase() === currentUserName.toLowerCase())&& 
+            !contact.tags?.includes('snooze')
+          );
+          break;
+        case 'unassigned':
+          filteredContacts = contacts.filter(contact => 
+            !contact.tags?.some(t => employeeList.some(e => e.name.toLowerCase() === t.toLowerCase())) && 
+            !contact.tags?.includes('snooze')
+          );
+          break;
+        case 'snooze':
+          filteredContacts = contacts.filter(contact => 
+            contact.tags?.includes('snooze')
+          );
+          break;
+        case 'group':
+          filteredContacts = contacts.filter(
+            (contact) =>
+              contact.chat_id?.endsWith("@g.us") && !contact.tags?.includes("snooze")
+          );
+          break;
+        case "stop bot":
+          filteredContacts = contacts.filter(contact => 
+            contact.tags?.includes('stop bot') && 
+            !contact.tags?.includes('snooze')
+          );
+          break;
+        default:
+          filteredContacts = contacts.filter(contact => 
+            contact.tags?.some(t => t.toLowerCase() === tag.toLowerCase()) && 
+            !contact.tags?.includes('snooze')
+          );
+      }
+    }
+    filteredContacts = sortContacts(filteredContacts);
   
 
     let filtered = filteredContacts;
     
     if (searchQuery) {
-      filtered = filtered.filter((contact) => {
+      filteredContacts = filteredContacts.filter((contact) => {
         const name = (contact.contactName || contact.firstName || '').toLowerCase();
         const phone = (contact.phone || '').toLowerCase();
         const tags = (contact.tags || []).join(' ').toLowerCase();
         
-        return name.includes(searchQuery) || 
-               phone.includes(searchQuery) || 
-               tags.includes(searchQuery);
+        return name.includes(searchQuery.toLowerCase()) || 
+               phone.includes(searchQuery.toLowerCase()) || 
+               tags.includes(searchQuery.toLowerCase());
       });
     }
     setFilteredContacts(filtered);
@@ -5276,7 +5283,7 @@ const handleForwardMessage = async () => {
     const unreadCount = contacts.filter(contact => {
       const contactTags = contact.tags?.map(t => t.toLowerCase()) || [];
       const isGroup = contact.chat_id?.endsWith('@g.us');
-      const phoneIndex = Object.entries(phoneNames).slice(0, phoneCount).findIndex(([_, name]) => name === tagName);
+      const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => name.toLowerCase() === tagLower);
       
       return (
         (tagLower === 'all' ? !isGroup :
@@ -5286,7 +5293,7 @@ const handleForwardMessage = async () => {
         tagLower === 'snooze' ? contactTags.includes('snooze') :
         tagLower === 'group' ? isGroup :
         tagLower === 'stop bot' ? contactTags.includes('stop bot') :
-        phoneIndex !== -1 ? contact.phoneIndex === parseInt(Object.keys(phoneNames)[phoneIndex]) :
+        phoneIndex !== -1 ? contact.phoneIndex === phoneIndex :
         contactTags.includes(tagLower)) &&
         (tagLower !== 'all' && tagLower !== 'unassigned' ? contact.unreadCount && contact.unreadCount > 0 : true)
       );
@@ -5846,7 +5853,7 @@ className="cursor-pointer">
                           <div className="text-sm text-gray-700 dark:text-gray-300">{message.text.context.quoted_content?.body || ''}</div>
                         </div>
                       )}
-                       {message.chat_id && !message.chat_id.includes('@g') && message.phoneIndex != null && phoneCount >= 2 && (
+                       {message.chat_id && message.chat_id.includes('@g') && message.phoneIndex != null && phoneCount >= 2 && (
                         <span className="text-sm font-medium pb-0.5 "
                           style={{ color: getAuthorColor(message.phoneIndex.toString() ) }}>
                           {phoneNames[message.phoneIndex] || `Phone ${message.phoneIndex + 1}`}
@@ -5870,7 +5877,7 @@ className="cursor-pointer">
                       {message.type === 'text' && message.text?.body && (
                         <div>
                         {message.from_me && message.userName && message.userName !== '' && (
-                          <div className="text-xs text-gray-500 mb-1">{message.userName}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-300 mb-1 capitalize font-medium">{message.userName}</div>
                         )}
                         <div 
                           className={`whitespace-pre-wrap break-words overflow-hidden ${
@@ -6144,49 +6151,30 @@ className="cursor-pointer">
           </div>
         )}
          <div className="flex mb-1">
-  {phoneCount > 1 ? (
-    // Display phone buttons when phoneCount > 1
-    Array.from({ length:phoneCount }, (_, i) => {
-      const colors = ['bg-primary', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 'bg-purple-500'];
-      const buttonColor = colors[i % colors.length];
-      return (
-        <button
-          key={i}
-          className={`px-4 py-2 mr-1 rounded-lg ${
-            messageMode === `phone${i + 1}`
-              ? `${buttonColor} text-white`
-              : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-          }`}
-          onClick={() => setMessageMode(`phone${i + 1}`)}
-        >
-          {phoneNames[i] || `Phone ${i + 1}`}
-        </button>
-      );
-    })
-  ) : (
-    // Display Reply button when phoneCount <= 1
-    <button
-      className={`px-4 py-2 mr-1 rounded-lg ${
-        messageMode === 'reply'
-          ? 'bg-primary text-white'
-          : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-      }`}
-      onClick={() => setMessageMode('reply')}
-    >
-      Reply
-    </button>
-  )}
-  <button
-    className={`px-4 py-2 rounded-lg ${
-      messageMode === 'privateNote'
-        ? 'bg-yellow-600 text-white'
-        : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-    }`}
-    onClick={() => setMessageMode('privateNote')}
-  >
-    Private Note
-  </button>
-</div>
+            <button
+              className={`px-4 py-2 mr-1 rounded-lg ${
+                messageMode === 'reply'
+                  ? 'bg-primary text-white'
+                  : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+              }`}
+              onClick={() => {
+                const phoneIndex = selectedContact?.phoneIndex || 0;
+                setMessageMode(`phone${phoneIndex + 1}`);
+              }}
+            >
+              Reply
+            </button>
+            <button
+              className={`px-4 py-2 rounded-lg ${
+                messageMode === 'privateNote'
+                  ? 'bg-yellow-600 text-white'
+                  : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+              }`}
+              onClick={() => setMessageMode('privateNote')}
+            >
+              Private Note
+            </button>
+          </div>
          {isPrivateNotesMentionOpen && messageMode === 'privateNote' && (
                     <div className="absolute bottom-full left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-40 overflow-y-auto mb-1">
                       {employeeList.map((employee) => (

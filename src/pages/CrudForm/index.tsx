@@ -37,6 +37,8 @@ function Main() {
   const [isAddingNewGroup, setIsAddingNewGroup] = useState(false);
   const [newGroup, setNewGroup] = useState("");
 
+  const [currentUserRole, setCurrentUserRole] = useState("");
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -46,6 +48,7 @@ function Main() {
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
             setCompanyId(userData.companyId);
+            setCurrentUserRole(userData.role);
             console.log("Fetched companyId:", userData.companyId);
           } else {
             console.log("No user document found");
@@ -168,6 +171,12 @@ function Main() {
     setUserData(prev => ({ ...prev, notes: data }));
   };
 
+  const isFieldDisabled = (fieldName: string) => {
+    if (currentUserRole === "1") return false; // Admin (role 1) can edit everything
+    if (currentUserRole === "3") return fieldName !== "password"; // Observer can only edit password
+    return userData.role === "3"; // For other roles, they can't edit users with role 3
+  };
+
   const saveUser = async () => {
     try {
       setIsLoading(true);
@@ -176,68 +185,78 @@ function Main() {
         throw new Error("No authenticated user found");
       }
 
-      const docUserRef = doc(firestore, 'user', userOri.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser!.companyId;
-      const company = dataUser!.company;
-
-      const formatPhoneNumber = (phoneNumber: string) => {
-        return phoneNumber && !phoneNumber.startsWith('+') ? "+6" + phoneNumber : phoneNumber;
-      };
-
-      const userDataToSend = {
-        name: userData.name,
-        phoneNumber: formatPhoneNumber(userData.phoneNumber),
-        email: userData.email,
-        role: userData.role,
-        companyId: companyId,
-        company: company,
-        group: userData.group,
-        employeeId: userData.employeeId || null,
-        notes: userData.notes || null,
-        quotaLeads: userData.quotaLeads || 0,
-        invoiceNumber: userData.invoiceNumber || null,
-      };
-
-      if (contactId) {
-        // Updating existing user
-        await updateDoc(doc(firestore, `companies/${companyId}/employee`, contactId), userDataToSend);
-        await updateDoc(doc(firestore, 'user', userData.email), userDataToSend);
-        toast.success("User updated successfully");
-      } else {
-        // Adding new user
-        const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/create-user/${userData.email}/${formatPhoneNumber(userData.phoneNumber)}/${userData.password}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-        });
-        const responseData = await response.json();
-        
-        if (responseData.message === 'User created successfully') {
-          await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
-          await setDoc(doc(firestore, `companies/${companyId}/employee`, userData.email), userDataToSend);
-          toast.success("User created successfully");
-          setUserData({
-            name: "",
-            phoneNumber: "",
-            email: "",
-            password: "",
-            role: "",
-            companyId: "",
-            group: "",
-            employeeId: "",
-            notes: "",
-            quotaLeads: 0,
-            invoiceNumber: null,
-          });
-        } else {
-          throw new Error(responseData.error);
+      if (currentUserRole === "3") {
+        // Observer can only update their password
+        if (userData.password) {
+          await updatePassword(userOri, userData.password);
+          toast.success("Password updated successfully");
         }
+      } else {
+        // Existing logic for other roles
+        const docUserRef = doc(firestore, 'user', userOri.email);
+        const docUserSnapshot = await getDoc(docUserRef);
+        const dataUser = docUserSnapshot.data();
+        const companyId = dataUser!.companyId;
+        const company = dataUser!.company;
+
+        const formatPhoneNumber = (phoneNumber: string) => {
+          return phoneNumber && !phoneNumber.startsWith('+') ? "+6" + phoneNumber : phoneNumber;
+        };
+
+        const userDataToSend = {
+          name: userData.name,
+          phoneNumber: formatPhoneNumber(userData.phoneNumber),
+          email: userData.email,
+          role: userData.role,
+          companyId: companyId,
+          company: company,
+          group: userData.group,
+          employeeId: userData.employeeId || null,
+          notes: userData.notes || null,
+          quotaLeads: userData.quotaLeads || 0,
+          invoiceNumber: userData.invoiceNumber || null,
+        };
+
+        if (contactId) {
+          // Updating existing user
+          await updateDoc(doc(firestore, `companies/${companyId}/employee`, contactId), userDataToSend);
+          await updateDoc(doc(firestore, 'user', userData.email), userDataToSend);
+          toast.success("User updated successfully");
+        } else {
+          // Adding new user
+          const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/create-user/${userData.email}/${formatPhoneNumber(userData.phoneNumber)}/${userData.password}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+          });
+          const responseData = await response.json();
+          
+          if (responseData.message === 'User created successfully') {
+            await setDoc(doc(firestore, 'user', userData.email), userDataToSend);
+            await setDoc(doc(firestore, `companies/${companyId}/employee`, userData.email), userDataToSend);
+            toast.success("User created successfully");
+            setUserData({
+              name: "",
+              phoneNumber: "",
+              email: "",
+              password: "",
+              role: "",
+              companyId: "",
+              group: "",
+              employeeId: "",
+              notes: "",
+              quotaLeads: 0,
+              invoiceNumber: null,
+            });
+          } else {
+            throw new Error(responseData.error);
+          }
+        }
+
+        setSuccessMessage(contactId ? "User updated successfully" : "User created successfully");
       }
 
-      setSuccessMessage(contactId ? "User updated successfully" : "User created successfully");
       setErrorMessage('');
       setIsLoading(false);
     } catch (error) {
@@ -288,7 +307,7 @@ function Main() {
               value={userData.name}
               onChange={handleChange}
               placeholder="Name"
-              disabled={userData.role === "3"}
+              disabled={isFieldDisabled("name")}
             />
           </div>
           <div>
@@ -308,7 +327,7 @@ function Main() {
                 onChange={handleChange}
                 placeholder="Phone Number"
                 className="flex-grow"
-                disabled={userData.role === "3"}
+                disabled={isFieldDisabled("phoneNumber")}
               />
             </div>
           </div>
@@ -322,7 +341,7 @@ function Main() {
               onChange={handleChange}
               placeholder="Email"
               readOnly={!!contactId}
-              disabled={userData.role === "3"}
+              disabled={isFieldDisabled("email")}
             />
           </div>
           <div>
@@ -335,14 +354,14 @@ function Main() {
                   onChange={(e) => setNewGroup(e.target.value)}
                   placeholder="Enter new group name"
                   className="w-full mr-2"
-                  disabled={userData.role === "3"}
+                  disabled={isFieldDisabled("group")}
                 />
                 <Button
                   type="button"
                   variant="outline-secondary"
                   className="mr-2"
                   onClick={handleCancelNewGroup}
-                  disabled={userData.role === "3"}
+                  disabled={isFieldDisabled("group")}
                 >
                   Cancel
                 </Button>
@@ -350,7 +369,7 @@ function Main() {
                   type="button"
                   variant="primary"
                   onClick={handleSaveNewGroup}
-                  disabled={userData.role === "3"}
+                  disabled={isFieldDisabled("group")}
                 >
                   Save
                 </Button>
@@ -363,7 +382,7 @@ function Main() {
                   value={userData.group}
                   onChange={handleChange}
                   className="text-black dark:text-white-dark border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full mr-2 p-2.5"
-                  disabled={userData.role === "3"}
+                  disabled={isFieldDisabled("group")}
                 >
                   <option value="">Select a group</option>
                   {groups.map((group) => (
@@ -375,7 +394,7 @@ function Main() {
                   variant="outline-secondary"
                   onClick={handleAddNewGroup}
                   className="dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700 inline-flex items-center whitespace-nowrap"
-                  disabled={userData.role === "3"}
+                  disabled={isFieldDisabled("group")}
                 >
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -396,7 +415,7 @@ function Main() {
                 setCategories([e.target.value]);
               }}
               className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
-              disabled={userData.role === "3"}
+              disabled={isFieldDisabled("role")}
             >
               <option value="1">Admin</option>
               <option value="2">Sales</option>
@@ -413,6 +432,7 @@ function Main() {
               value={userData.password}
               onChange={handleChange}
               placeholder="Password"
+              disabled={isFieldDisabled("password")}
             />
           </div>
           <div>
@@ -424,7 +444,7 @@ function Main() {
               value={userData.employeeId}
               onChange={handleChange}
               placeholder="Employee ID (optional)"
-              disabled={userData.role === "3"}
+              disabled={isFieldDisabled("employeeId")}
             />
           </div>
           <div>
@@ -437,7 +457,7 @@ function Main() {
               onChange={(e) => setUserData(prev => ({ ...prev, quotaLeads: parseInt(e.target.value) || 0 }))}
               placeholder="Number of quota leads"
               min="0"
-              disabled={userData.role === "3"}
+              disabled={isFieldDisabled("quotaLeads")}
             />
           </div>
           <div>
@@ -449,7 +469,7 @@ function Main() {
               value={userData.invoiceNumber || ""}
               onChange={(e) => setUserData(prev => ({ ...prev, invoiceNumber: e.target.value || null }))}
               placeholder="Invoice Number (optional)"
-              disabled={userData.role === "3"}
+              disabled={isFieldDisabled("invoiceNumber")}
             />
           </div>
         </div>
@@ -461,7 +481,7 @@ function Main() {
               onChange={handleEditorChange}
               config={editorConfig}
               className="w-full rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent"
-              disabled={userData.role === "3"}
+              disabled={isFieldDisabled("notes")}
             />
           </div>
         </div>
@@ -491,7 +511,7 @@ function Main() {
               toast.error("Failed to save user");
             }
           }}
-          disabled={isLoading}
+          disabled={isLoading || (currentUserRole === "3" && !userData.password)}
         >
           {isLoading ? "Saving..." : "Save"}
         </Button>
