@@ -3430,7 +3430,7 @@ function formatDate(timestamp: string | number | Date) {
         updatedContacts = updatedContacts.filter(contact =>
           contact.contactName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          contact.phone?.includes(searchQuery)
+          contact.phone?.includes(searchQuery.toLowerCase())
         );
       }
     
@@ -3530,6 +3530,7 @@ const getTimestamp2 = (timestamp: any): number => {
   useEffect(() => {
     console.log('Filtered contacts updated:', filteredContacts);
   }, [filteredContacts]);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value.toLowerCase();
     setSearchQuery(query);
@@ -3626,7 +3627,7 @@ const getTimestamp2 = (timestamp: any): number => {
     let filtered = filteredContacts;
     
     if (searchQuery) {
-      filteredContacts = filteredContacts.filter((contact) => {
+      filtered = filteredContacts.filter((contact) => {
         const name = (contact.contactName || contact.firstName || '').toLowerCase();
         const phone = (contact.phone || '').toLowerCase();
         const tags = (contact.tags || []).join(' ').toLowerCase();
@@ -5853,12 +5854,12 @@ className="cursor-pointer">
                           <div className="text-sm text-gray-700 dark:text-gray-300">{message.text.context.quoted_content?.body || ''}</div>
                         </div>
                       )}
-                       {message.chat_id && message.chat_id.includes('@g') && message.phoneIndex != null && phoneCount >= 2 && (
+                       {/* {message.chat_id && message.chat_id.includes('@g') && message.phoneIndex != null && phoneCount >= 2 && (
                         <span className="text-sm font-medium pb-0.5 "
                           style={{ color: getAuthorColor(message.phoneIndex.toString() ) }}>
                           {phoneNames[message.phoneIndex] || `Phone ${message.phoneIndex + 1}`}
                         </span>
-                      )}
+                      )} */}
                       {message.type === 'privateNote' && (
                         <div className="inline-block whitespace-pre-wrap break-words text-white">
                           {(() => {
@@ -6311,7 +6312,7 @@ className="cursor-pointer">
               handleKeyDown(e);
             }}
             onPaste={(e) => {
-              e.preventDefault(); // Prevent default paste behavior
+              e.preventDefault();
               const items = e.clipboardData?.items;
               if (items) {
                 for (const item of items) {
@@ -6324,18 +6325,17 @@ className="cursor-pointer">
                     }
             
                     const url = URL.createObjectURL(blob);
-                    if (fileType === 'JPEG' || fileType === 'PNG' || fileType === 'GIF' || fileType === 'WebP' || fileType === 'SVG') {
+                    if (['JPEG', 'PNG', 'GIF', 'WebP', 'SVG'].includes(fileType)) {
                       setPastedImageUrl(url);
                       setImageModalOpen2(true);
                     } else {
                       setSelectedDocument(blob);
                       setDocumentModalOpen(true);
                     }
-                    return; // Exit the loop after handling the file
+                    return;
                   }
                 }
               }
-              // If no file was pasted, allow the default text paste
               const text = e.clipboardData?.getData('text');
               if (text) {
                 setNewMessage((prev) => prev + text);
@@ -6359,7 +6359,7 @@ className="cursor-pointer">
                 }
             
                 const url = URL.createObjectURL(file);
-                if (fileType === 'JPEG' || fileType === 'PNG' || fileType === 'GIF' || fileType === 'WebP' || fileType === 'SVG') {
+                if (['JPEG', 'PNG', 'GIF', 'WebP', 'SVG'].includes(fileType)) {
                   setPastedImageUrl(url);
                   setImageModalOpen2(true);
                 } else {

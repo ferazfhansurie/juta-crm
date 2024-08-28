@@ -76,12 +76,14 @@ function LoadingPage() {
   const location = useLocation();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [isFetchingChats, setIsFetchingChats] = useState(false);
+  const [isQRLoading, setIsQRLoading] = useState(false);
   
   const fetchQRCode = async () => {
     const auth = getAuth(app);
     const user = auth.currentUser;
     let v2;
     setIsLoading(true);
+    setIsQRLoading(true);
     setError(null);
     try {
       const docUserRef = doc(firestore, 'user', user?.email!);
@@ -169,6 +171,9 @@ function LoadingPage() {
         setError('An unknown error occurred. Please try again.');
       }
       console.error("Error fetching QR code:", error);
+    } finally {
+      setIsQRLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -422,7 +427,9 @@ function LoadingPage() {
   return (
     <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-900">
       <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
+      {!isLoading && (
         <img alt="Logo" className="w-40 h-40 p-25" src={logoUrl} />
+      )}
         {v2 ? (
           <>
             {botStatus === 'qr' ? (
@@ -432,9 +439,18 @@ function LoadingPage() {
                 </div>
                 <hr className="w-full my-4 border-t border-gray-300 dark:border-gray-700" />
                 {error && <div className="text-red-500 dark:text-red-400 mt-2">{error}</div>}
-                {qrCodeImage && (
+                {isQRLoading ? (
+                  <div className="mt-4">
+                    <img alt="Logo" className="w-40 h-40 p-25 animate-spin" src={logoUrl} style={{ animation: 'spin 10s linear infinite' }} />
+                    <p className="mt-2 text-gray-600 dark:text-gray-400">Loading QR Code...</p>
+                  </div>
+                ) : qrCodeImage ? (
                   <div className="bg-white p-4 rounded-lg mt-4">
                     <img src={qrCodeImage} alt="QR Code" className="max-w-full h-auto" />
+                  </div>
+                ) : (
+                  <div className="mt-4 text-gray-600 dark:text-gray-400">
+                    No QR Code available. Please try refreshing.
                   </div>
                 )}
               </>
@@ -495,7 +511,7 @@ function LoadingPage() {
           </>
         ) : (
           <div className="mt-4">
-            <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
+            <img alt="Logo" className="w-40 h-40 p-25 animate-spin" src={logoUrl} style={{ animation: 'spin 3s linear infinite' }} />
           </div>
         )}
       </div>

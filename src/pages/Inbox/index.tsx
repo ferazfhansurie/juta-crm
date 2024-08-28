@@ -434,7 +434,8 @@ const Main: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex h-screen">
+    <div className="flex justify-center h-screen bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-lg">
       <Tab.Group as="div" className="flex flex-col w-full h-full">
         <Tab.List className="flex bg-gray-100 dark:bg-gray-900 p-2 sticky top-0 z-10">
           <Tab
@@ -581,6 +582,7 @@ const Main: React.FC = () => {
         </Tab.Panels>
       </Tab.Group>
       <ToastContainer />
+    </div>
     </div>
   );
 }
