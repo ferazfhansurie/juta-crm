@@ -132,6 +132,7 @@ function Main() {
   const [newTag, setNewTag] = useState("");
   const [showAddTagModal, setShowAddTagModal] = useState(false);
   const [showDeleteTagModal, setShowDeleteTagModal] = useState(false);
+  const [selectedImportTags, setSelectedImportTags] = useState<string[]>([]);
   const [tagToDelete, setTagToDelete] = useState<Tag | null>(null);
   const [tags, setTags] = useState<TagsState>({}); 
   const [blastMessageModal, setBlastMessageModal] = useState(false);
@@ -1552,6 +1553,8 @@ console.log(filteredContacts);
     }
   };
 
+  const [importTags, setImportTags] = useState<string[]>([]);
+
   const handleCsvImport = async () => {
     if (!selectedCsvFile) {
       toast.error("Please select a CSV file to import.");
@@ -1576,18 +1579,27 @@ console.log(filteredContacts);
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
   
+      // Combine selected tags and new tags
+      const allTags = [...new Set([...selectedImportTags, ...importTags])];
+  
       console.log(`Sending request to: https://mighty-dane-newly.ngrok-free.app/api/import-csv/${companyId}`);
       console.log('CSV URL:', csvUrl);
-
+      console.log('Tags:', allTags);
+  
       // Call server API to process CSV
-      const response = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/import-csv/${companyId}`, { csvUrl });
-
+      const response = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/import-csv/${companyId}`, { 
+        csvUrl,
+        tags: allTags
+      });
+  
       console.log('Server response:', response);
-
+  
       if (response.status === 200) {
         toast.success("CSV imported successfully!");
         setShowCsvImportModal(false);
         setSelectedCsvFile(null);
+        setSelectedImportTags([]);
+        setImportTags([]);
         
         // Fetch updated contacts and store them in local storage
         await refetchContacts();
@@ -2847,6 +2859,39 @@ console.log(filteredContacts);
                 onChange={handleCsvFileSelect}
                 className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Select Tags</label>
+                <div className="mt-1 max-h-40 overflow-y-auto">
+                  {tagList.map((tag) => (
+                    <label key={tag.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        value={tag.name}
+                        checked={selectedImportTags.includes(tag.name)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedImportTags([...selectedImportTags, tag.name]);
+                          } else {
+                            setSelectedImportTags(selectedImportTags.filter(t => t !== tag.name));
+                          }
+                        }}
+                        className="form-checkbox h-4 w-4 text-indigo-600 transition duration-150 ease-in-out"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{tag.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Add New Tags (comma-separated)</label>
+                <input
+                  type="text"
+                  value={importTags.join(', ')}
+                  onChange={(e) => setImportTags(e.target.value.split(',').map(tag => tag.trim()))}
+                  className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="Enter new tags separated by commas"
+                />
+              </div>
               <div className="flex justify-end mt-4">
                 <button
                   className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
