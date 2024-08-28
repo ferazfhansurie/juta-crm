@@ -1253,25 +1253,25 @@ const handleSaveContact = async () => {
       
       const contactDocRef = doc(contactsCollectionRef, currentContact.phone);
 
-      // Update contact in Firebase
-      await updateDoc(contactDocRef, {
-        contactName: currentContact.contactName,
-        lastName: currentContact.lastName,
-        email: currentContact.email,
-        phone: currentContact.phone,
-        address1: currentContact.address1,
-        city: currentContact.city,
-        state: currentContact.state,
-        postalCode: currentContact.postalCode,
-        website: currentContact.website,
-        dnd: currentContact.dnd,
-        dndSettings: currentContact.dndSettings,
-        tags: currentContact.tags,
-        customFields: currentContact.customFields,
-        source: currentContact.source,
-        country: currentContact.country,
+      // Create an object with only the defined fields
+      const updateData: { [key: string]: any } = {
         dateUpdated: new Date().toISOString()
+      };
+
+      const fieldsToUpdate = [
+        'contactName', 'lastName', 'email', 'phone', 'address1', 'city', 
+        'state', 'postalCode', 'website', 'dnd', 'dndSettings', 'tags', 
+        'customFields', 'source', 'country'
+      ];
+
+      fieldsToUpdate.forEach(field => {
+        if (currentContact[field as keyof Contact] !== undefined) {
+          updateData[field] = currentContact[field as keyof Contact];
+        }
       });
+
+      // Update contact in Firebase
+      await updateDoc(contactDocRef, updateData);
 
       setContacts(contacts.map(contact => (contact.phone === currentContact.phone ? currentContact : contact)));
       setEditContactModal(false);

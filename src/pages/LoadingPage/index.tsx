@@ -427,9 +427,6 @@ function LoadingPage() {
   return (
     <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-900">
       <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
-      {!isLoading && (
-        <img alt="Logo" className="w-40 h-40 p-25" src={logoUrl} />
-      )}
         {v2 ? (
           <>
             {botStatus === 'qr' ? (

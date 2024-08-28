@@ -438,7 +438,7 @@ const paginatedEmployees = filteredEmployees
                       >
                         <Lucide icon="Pencil" className="w-5 h-5" />
                       </button>
-                      {employee.role !== "3" && (
+                      {(role === "1") && (
                         <button 
                           onClick={() => toggleModal(employee.id)}
                           className="p-2 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors duration-300"
