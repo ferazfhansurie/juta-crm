@@ -40,6 +40,7 @@ function Main() {
   const [currentUserRole, setCurrentUserRole] = useState("");
 
   const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
+  const [phoneNames, setPhoneNames] = useState<{ [key: number]: string }>({});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -155,14 +156,24 @@ function Main() {
       if (companyDocSnap.exists()) {
         const companyData = companyDocSnap.data();
         const phoneCount = companyData.phoneCount || 0;
-        console.log('phoneCount for this company'+phoneCount)
-        // Generate an array of numbers from 0 to phoneCount - 1
-        const phoneArray = Array.from({ length: phoneCount }, (_, i) => i);
-        setPhoneOptions(phoneArray);
+        console.log('phoneCount for this company:', phoneCount);
+        
+        // Generate phoneNames object
+        const phoneNamesData: { [key: number]: string } = {};
+        for (let i = 0; i <= phoneCount; i++) {
+          const phoneName = companyData[`phone${i}`];
+          if (phoneName) {
+            phoneNamesData[i] = phoneName;
+          }
+        }
+        console.log('Phone names:', phoneNamesData);
+        setPhoneNames(phoneNamesData);
+        setPhoneOptions(Object.keys(phoneNamesData).map(Number));
       }
     } catch (error) {
       console.error("Error fetching phone count:", error);
-      setPhoneOptions([]); // Set to empty array in case of error
+      setPhoneOptions([]);
+      setPhoneNames({});
     }
   };
 
@@ -465,8 +476,12 @@ function Main() {
               disabled={isFieldDisabled("phone")}
             >
               <option value="">Select a phone</option>
-              {phoneOptions.map((phone) => (
-                <option key={phone} value={phone.toString()}>Phone {phone + 1}</option>
+              {Object.entries(phoneNames).map(([index, phoneName]) => (
+                index !== '0' && (
+                  <option key={index} value={index}>
+                    {phoneName}
+                  </option>
+                )
               ))}
             </select>
           </div>

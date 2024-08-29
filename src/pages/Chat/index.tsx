@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import logoImage from '@/assets/images/placeholder.svg';
@@ -533,6 +533,8 @@ const [documentModalOpen, setDocumentModalOpen] = useState(false);
 const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
 const [quickReplyFilter, setQuickReplyFilter] = useState('');
 const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
+const [userPhone, setUserPhone] = useState<number | null>(null);
+
 
   const handleMessageSearchClick = () => {
     setIsMessageSearchOpen(!isMessageSearchOpen);
@@ -770,38 +772,57 @@ const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
       userName: userData?.name,
       activeTags,
       phoneCount,
-      phoneNames
+      phoneNames,
+      userPhone
     });
   
     let filtered = contactsToFilter;
     
     // Apply role-based filtering
     filtered = filterContactsByUserRole(filtered, userRole, userData?.name || '');
-    console.log('After role-based filtering:', { filteredCount: filtered.length });
-  
-    // Filter out group chats
-    filtered = filtered.filter(contact => 
-      contact.chat_id && !contact.chat_id.includes('@g.us')
+  console.log('After role-based filtering:', { filteredCount: filtered.length });
+
+  // Filter out group chats
+  filtered = filtered.filter(contact => 
+    contact.chat_id && !contact.chat_id.includes('@g.us')
+  );
+  console.log('Filtered out group chats:', { filteredCount: filtered.length });
+
+  // Filter by user's phone if set
+  if (userPhone !== null) {
+    filtered = filtered.filter(contact => contact.phoneIndex === userPhone);
+    console.log(`Filtered contacts for user's phone (${phoneNames[userPhone]}):`, { filteredCount: filtered.length });
+  }
+
+  // Apply tag-based filtering
+  if (activeTags.includes('all')) {
+    console.log('Showing all contacts');
+  } else if (activeTags.includes('unread')) {
+    filtered = filtered.filter(contact => (contact.unreadCount || 0) > 0);
+    console.log('Filtered unread contacts:', { filteredCount: filtered.length });
+  } else if (activeTags.includes('mine')) {
+    filtered = filtered.filter((contact) => 
+      contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase())
     );
-    console.log('Filtered out group chats:', { filteredCount: filtered.length });
-  
-    // Apply tag-based filtering
-    if (activeTags.includes('all')) {
-      console.log('Showing all contacts');
-    } else if (activeTags.includes('unread')) {
-      filtered = filtered.filter(contact => (contact.unreadCount || 0) > 0);
-      console.log('Filtered unread contacts:', { filteredCount: filtered.length });
-    } else if (activeTags.includes('mine')) {
-      filtered = filtered.filter((contact) => 
-        contact.tags?.some(tag => tag.toLowerCase() === currentUserName.toLowerCase())
-      );
-      console.log('Filtered "mine" contacts:', { filteredCount: filtered.length });
-    } else if (Object.values(phoneNames).includes(activeTags[0])) {
-      const phoneIndex = Object.entries(phoneNames).find(([_, name]) => name === activeTags[0])?.[0];
-      if (phoneIndex !== undefined) {
-        filtered = filtered.filter(contact => contact.phoneIndex === parseInt(phoneIndex));
-        console.log(`Filtered contacts for ${activeTags[0]}:`, { filteredCount: filtered.length });
-      }
+    console.log('Filtered "mine" contacts:', { filteredCount: filtered.length });
+  } else if (userData?.role !== '1') {
+    // Get the user's assigned phone from the employee document
+    const userPhoneNames = userData?.phone && phoneNames[userData.phone] ? [phoneNames[userData.phone]] : [];
+    
+    if (userPhoneNames.length > 0 && userData?.phone !== undefined) {
+      // Only display contacts for the user's assigned phone
+      filtered = filtered.filter(contact => contact.phoneIndex === userData.phone);
+      console.log(`Filtered contacts for ${userPhoneNames[0]}:`, { filteredCount: filtered.length });
+    } else {
+      console.log('User has no assigned phone');
+    }
+  } else if (Object.values(phoneNames).includes(activeTags[0])) {
+    // For role '1', display contacts for the selected phone
+    const phoneIndex = Object.entries(phoneNames).find(([_, name]) => name === activeTags[0])?.[0];
+    if (phoneIndex !== undefined) {
+      filtered = filtered.filter(contact => contact.phoneIndex === parseInt(phoneIndex));
+      console.log(`Filtered contacts for ${activeTags[0]}:`, { filteredCount: filtered.length });
+    }
     } else {
       filtered = filtered.filter(contact => 
         activeTags.some(tag => contact.tags?.includes(tag))
@@ -828,7 +849,7 @@ const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
     if (contacts.length > 0) {
       filterAndSetContacts(contacts);
     }
-  }, [contacts, filterAndSetContacts]);
+  }, [contacts, filterAndSetContacts, userPhone]);
 
 useEffect(() => {
   console.log('useEffect for filtering contacts triggered', { 
@@ -1468,15 +1489,14 @@ async function fetchConfigFromDatabase() {
       return;
     }
     const dataUser = docUserSnapshot.data() as UserData;
+    setUserData(dataUser);
+    user_role = dataUser.role;
+    companyId = dataUser.companyId;
     setUserRole(dataUser.role);
     if (!dataUser || !dataUser.companyId) {
       console.error('Invalid user data or companyId');
       return;
     }
-
-    setUserData(dataUser);
-    user_role = dataUser.role;
-    companyId = dataUser.companyId;
 
     console.log('Company ID:', companyId);
 
@@ -1519,8 +1539,15 @@ async function fetchConfigFromDatabase() {
       setWallpaperUrl(dataUser.wallpaper_url);
     }
 
-    const employeeRef = collection(firestore, `companies/${companyId}/employee`);
-    const employeeSnapshot = await getDocs(employeeRef);
+    const employeeRef = doc(firestore, `companies/${companyId}/employee`, dataUser.name);
+    const employeeDoc = await getDoc(employeeRef);
+    if (employeeDoc.exists()) {
+      const employeeData = employeeDoc.data();
+      setUserPhone(employeeData.phone || null);
+    }
+
+    const employeeCollectionRef = collection(firestore, `companies/${companyId}/employee`);
+    const employeeSnapshot = await getDocs(employeeCollectionRef);
 
     const employeeListData: Employee[] = [];
     employeeSnapshot.forEach((doc) => {
@@ -4937,6 +4964,20 @@ const handleForwardMessage = async () => {
     }
   };
 
+  const visiblePhoneTags = useMemo(() => {
+    if (userData?.role === '1') {
+      // Admin users can see all phone tags
+      return Object.entries(phoneNames).slice(0, phoneCount).map(([_, name]) => name);
+    } else if (userData?.phone && userData.phone !== '0') {
+      // Regular users can only see their associated phone tag
+      const phoneIndex = Object.keys(phoneNames).findIndex(index => phoneNames[Number(index)] === userData.phone);
+      if (phoneIndex !== -1 && phoneIndex < phoneCount) {
+        return [phoneNames[phoneIndex]];
+      }
+    }
+    return [];
+  }, [userData, phoneNames, phoneCount]);
+
   return (
     <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
       <audio ref={audioRef} src={noti} />
@@ -5275,10 +5316,11 @@ const handleForwardMessage = async () => {
   {['Mine', 'All', 'Unassigned',
     ...(isTagsExpanded ? [
       'Group', 'Unread', 'Snooze', 'Stop Bot',
-      ...Object.entries(phoneNames).slice(0, phoneCount).map(([index, name]) => name),
+      ...(userData?.role === '1' ? Object.values(phoneNames) : 
+        userData?.phone ? [phoneNames[Object.keys(phoneNames).find(index => phoneNames[Number(index)] === userData.phone) as unknown as number]] : []),
       ...visibleTags.filter(tag => 
         !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group', 'stop bot'].includes(tag.name) && 
-        !Object.values(phoneNames).slice(0, phoneCount).includes(tag.name)
+        !visiblePhoneTags.includes(tag.name)
       )
     ] : [])
   ].map((tag) => {

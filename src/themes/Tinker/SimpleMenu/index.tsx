@@ -17,6 +17,8 @@ import { initializeApp } from 'firebase/app';
 import { DocumentData, DocumentReference, getDoc, getDocs } from 'firebase/firestore';
 import { getFirestore, collection, doc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { useMediaQuery } from 'react-responsive';
+import { Tab } from '@headlessui/react';
+
 
 type Notification = {
     chat_id: string;
@@ -47,6 +49,8 @@ function Main() {
   const [company, setCompany] = useState("");
   const [showMobileMenu, setShowMobileMenu] = useState(true);
   const [showSideMenu, setShowSideMenu] = useState(false);
+  const [activeTab, setActiveTab] = useState('notifications');
+  const [scheduledMessages, setScheduledMessages] = useState<any[]>([]);
 // Initialize Firebase app
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -97,6 +101,14 @@ const hideSearchDropdown = () => {
 
 useEffect(() => {
   fetchConfigFromDatabase();
+}, []);
+
+useEffect(() => {
+  fetchScheduledMessages();
+}, []);
+
+useEffect(() => {
+  fetchScheduledMessages();
 }, []);
 
 useEffect(() => {
@@ -154,8 +166,6 @@ useEffect(() => {
   setUniqueNotifications(unique);
 }, [notifications]);
 
-// ... existing code ...
-
 async function fetchConfigFromDatabase() {
   const user = auth.currentUser;
 
@@ -208,6 +218,27 @@ async function fetchConfigFromDatabase() {
     throw error;
   }
 }
+
+async function fetchScheduledMessages() {
+  const user = auth.currentUser;
+  if (!user || !user.email) return;
+
+  try {
+    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserSnapshot = await getDoc(docUserRef);
+    if (!docUserSnapshot.exists()) return;
+
+    const userData = docUserSnapshot.data();
+    const companyId = userData.companyId;
+    const scheduledMessagesRef = collection(firestore, `companies/${companyId}/scheduledMessages`);
+    const scheduledMessagesSnapshot = await getDocs(scheduledMessagesRef);
+    const messages = scheduledMessagesSnapshot.docs.map(doc => doc.data());
+    setScheduledMessages(messages);
+  } catch (error) {
+    console.error('Error fetching scheduled messages:', error);
+  }
+}
+
 
 const clearAllNotifications = async () => {
   const user = auth.currentUser;
@@ -393,59 +424,121 @@ const clearAllNotifications = async () => {
               <Menu className="!z-[9999]">
                 <Menu.Button className="z-50 block w-10 h-10 overflow rounded-md text-slate-900 dark:text-gray-200 hover:bg-slate-400 dark:hover:bg-gray-700 hover:text-slate-900 dark:hover:text-gray-200 font-medium flex items-center justify-center">
                   <Lucide icon="Bell" className="w-5 h-5" />
-                  {uniqueNotifications.length > 0 && (
+                  {(uniqueNotifications.length > 0) && (
                     <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1 py-0.5 text-[8px] z-10 transform translate-x-1/2 -translate-y-1/2">
                       {uniqueNotifications.length}
                     </span>
                   )}
                 </Menu.Button>
-                <Menu.Items className="absolute left-2 w-64 md:w-80 mt-2 mr-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-lg overflow-hidden top-[-300px] sm:top-[-200px]">
-                <Menu.Header className="font-normal border-b border-gray-200 dark:border-gray-700">
-                <div className="flex justify-between items-center p-3">
-                  <div className="font-medium text-lg">Notifications</div>
-                  <button
-                    onClick={clearAllNotifications}
-                    className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    Clear All
-                  </button>
-                </div>
-                </Menu.Header>
-                <div className="max-h-[40vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-                  {uniqueNotifications.length > 0 ? (
-                    uniqueNotifications
-                      .sort((a, b) => b.timestamp - a.timestamp)
-                      .map((notification, key) => (
-                        <div key={key} className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                          <div
-                            className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-lg transition-colors duration-150 ease-in-out p-2"
-                            onClick={() => handleNotificationClick(notification.chat_id)}
-                          >
-                            <div className="flex justify-between items-center mb-1">
-                              <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate capitalize">
-                                {notification.from.split('@')[0]}
+                <Menu.Items className="absolute left-0 w-64 md:w-80 mt-2 mr-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-lg overflow-hidden">
+                  <Tab.Group>
+                    <Tab.List className="flex p-1">
+                      <Tab
+                        className={({ selected }) =>
+                          clsx(
+                            'w-full py-2.5 text-sm font-medium leading-5 text-gray-800 dark:text-gray-100 m-2', // Adjusted text color for light mode
+                            'focus:outline-none transition-all duration-200 ease-in-out',
+                            selected
+                              ? 'bg-gray-100 dark:bg-gray-900 shadow rounded-md' // Adjusted background color for selected state
+                              : 'hover:bg-gray-300 dark:hover:bg-gray-700 rounded-md' // Adjusted hover background color
+                          )
+                        }
+                      >
+                        Notifications
+                      </Tab>
+                      <Tab
+                        className={({ selected }) =>
+                          clsx(
+                            'w-full py-2.5 text-sm font-medium leading-5 text-gray-800 dark:text-gray-100 m-2', // Adjusted text color for light mode
+                            'focus:outline-none transition-all duration-200 ease-in-out',
+                            selected
+                              ? 'bg-gray-100 dark:bg-gray-900 shadow rounded-md' // Adjusted background color for selected state
+                              : 'hover:bg-gray-300 dark:hover:bg-gray-700 rounded-md' // Adjusted hover background color
+                          )
+                        }
+                      >
+                        Reminders
+                      </Tab>
+                    </Tab.List>
+                    <Tab.Panels className="mt-2">
+                      <Tab.Panel className="max-h-[40vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+                      <div className="flex justify-center">
+                        <button
+                          onClick={() => {
+                            clearAllNotifications();
+                          }}
+                          className="items-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                        {uniqueNotifications.length > 0 ? (
+                          uniqueNotifications
+                            .sort((a, b) => b.timestamp - a.timestamp)
+                            .map((notification, key) => (
+                              <div key={key} className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                                <div
+                                  className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-lg transition-colors duration-150 ease-in-out p-2"
+                                  onClick={() => handleNotificationClick(notification.chat_id)}
+                                >
+                                  <div className="flex justify-between items-center mb-1">
+                                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate capitalize">
+                                      {notification.from.split('@')[0]}
+                                    </div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                      {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: 'numeric',
+                                        minute: 'numeric',
+                                        hour12: true,
+                                      })}
+                                    </div>
+                                  </div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                                    {notification.text ? notification.text.body : ''}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: 'numeric',
-                                  minute: 'numeric',
-                                  hour12: true,
-                                })}
+                            ))
+                        ) : (
+                          <div className="text-center text-gray-500 dark:text-gray-400 p-4">No notifications available</div>
+                        )}
+                      </Tab.Panel>
+                      <Tab.Panel className="max-h-[40vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+                        {scheduledMessages && scheduledMessages.length > 0 ? (
+                          scheduledMessages
+                            .filter(message => message.scheduledTime && message.scheduledTime.toDate() > new Date())
+                            .sort((a, b) => a.scheduledTime.toDate().getTime() - b.scheduledTime.toDate().getTime())
+                            .map((message, key) => (
+                              <div key={key} className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                                <div className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-150 ease-in-out p-2">
+                                  <div className="flex justify-between items-center mb-1">
+                                    <p className="text-sm text-gray-800 dark:text-gray-200 mb-1 line-clamp-2 truncate">{message.message}</p>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      {message.scheduledTime.toDate().toLocaleString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: 'numeric',
+                                        minute: 'numeric',
+                                        hour12: true,
+                                      })}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
+                                    <Lucide icon="Users" className="w-3 h-3 mr-1" />
+                                    <span>{message.chatIds ? `${message.chatIds.length} recipient${message.chatIds.length !== 1 ? 's' : ''}` : 'Recipients not available'}</span>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                              {notification.text ? notification.text.body : ''}
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                  ) : (
-                    <div className="text-center text-gray-500 dark:text-gray-400 p-4">No messages available</div>
-                  )}
-                </div>
-              </Menu.Items>
+                            ))
+                        ) : (
+                          <div className="text-center text-gray-500 dark:text-gray-400 p-4">No reminders available</div>
+                        )}
+                      </Tab.Panel>
+                    </Tab.Panels>
+                  </Tab.Group>
+                </Menu.Items>
               </Menu>
             )}
           </div>
