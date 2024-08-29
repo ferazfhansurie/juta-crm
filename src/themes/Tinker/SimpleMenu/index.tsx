@@ -423,11 +423,15 @@ const clearAllNotifications = async () => {
       </ul>
           <div className="mt-4 ml-1 mb-4">
           <Menu>
-            <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-red-700 flex items-center justify-center text-white">
-              <Link to="/login" onClick={handleSignOut}>
-                <Lucide icon="LogOut" className="text-center justify-center w-4 h-4" />
-              </Link>
-            </Menu.Button>
+          <Menu.Button 
+            className="block w-8 h-8 overflow-hidden rounded-md bg-red-700 flex items-center justify-center text-white"
+            onClick={() => {
+              handleSignOut();
+              navigate('/login');
+            }}
+          >
+            <Lucide icon="LogOut" className="text-center justify-center w-4 h-4" />
+          </Menu.Button>
           </Menu>
         </div>
         </nav>
