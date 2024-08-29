@@ -186,57 +186,70 @@ function LoadingPage() {
   }, []);
 
   useEffect(() => {
-    const initWebSocket = async () => {
+    const initWebSocket = async (retries = 3) => {
       if (!wsConnected) {
-        const auth = getAuth(app);
-        const user = auth.currentUser;
-        const docUserRef = doc(firestore, 'user', user?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          throw new Error("User document does not exist");
-        }
-
-        const dataUser = docUserSnapshot.data();
-        const companyId = dataUser.companyId;
-        ws.current = new WebSocket(`wss://mighty-dane-newly.ngrok-free.app/ws/${user?.email}/${companyId}`);
-        ws.current.onopen = () => {
-          console.log('WebSocket connected');
-          setWsConnected(true);
-        };
-        
-        ws.current.onmessage = async (event) => {
-          const data = JSON.parse(event.data);
-          console.log('WebSocket message received:', data);
-
-          if (data.type === 'auth_status') {
-            console.log(`Bot status: ${data.status}`);
-            setBotStatus(data.status);
-            if (data.status === 'qr') {
-              setQrCodeImage(data.qrCode);
-      
-            } else if (data.status === 'authenticated' || data.status === 'ready') {
-              setIsProcessingChats(true);
-            }
-          } else if (data.type === 'progress') {
-            setCurrentAction(data.action);
-            setFetchedChats(data.fetchedChats);
-            setTotalChats(data.totalChats);
-
-            if (data.action === 'done_process') {
-              setProcessingComplete(true);
+        try {
+          const auth = getAuth(app);
+          const user = auth.currentUser;
+          const docUserRef = doc(firestore, 'user', user?.email!);
+          const docUserSnapshot = await getDoc(docUserRef);
+          
+          if (!docUserSnapshot.exists()) {
+            if (retries > 0) {
+              console.log(`User document not found. Retrying... (${retries} attempts left)`);
+              setTimeout(() => initWebSocket(retries - 1), 2000); // Retry after 2 seconds
+              return;
+            } else {
+              throw new Error("User document does not exist after retries");
             }
           }
-        };
+
+          const dataUser = docUserSnapshot.data();
+          const companyId = dataUser.companyId;
+          ws.current = new WebSocket(`wss://mighty-dane-newly.ngrok-free.app/ws/${user?.email}/${companyId}`);
+          ws.current.onopen = () => {
+            console.log('WebSocket connected');
+            setWsConnected(true);
+            setError('')
+          };
+          
+          ws.current.onmessage = async (event) => {
+            const data = JSON.parse(event.data);
+            console.log('WebSocket message received:', data);
+
+            if (data.type === 'auth_status') {
+              console.log(`Bot status: ${data.status}`);
+              setBotStatus(data.status);
+              if (data.status === 'qr') {
+                setQrCodeImage(data.qrCode);
         
-        ws.current.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          setError('WebSocket connection error. Please try again.');
-        };
-        
-        ws.current.onclose = () => {
-          console.log('WebSocket disconnected');
-          setWsConnected(false);
-        };
+              } else if (data.status === 'authenticated' || data.status === 'ready') {
+                setIsProcessingChats(true);
+              }
+            } else if (data.type === 'progress') {
+              setCurrentAction(data.action);
+              setFetchedChats(data.fetchedChats);
+              setTotalChats(data.totalChats);
+
+              if (data.action === 'done_process') {
+                setProcessingComplete(true);
+              }
+            }
+          };
+          
+          ws.current.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            setError('WebSocket connection error. Please try again.');
+          };
+          
+          ws.current.onclose = () => {
+            console.log('WebSocket disconnected');
+            setWsConnected(false);
+          };
+        } catch (error) {
+          console.error('Error initializing WebSocket:', error);
+          setError('Failed to initialize WebSocket. Please try again.');
+        }
       }
     };
 
@@ -416,9 +429,16 @@ function LoadingPage() {
   const handleLogout = async () => {
     const auth = getAuth(app);
     try {
+      // Close WebSocket connection if it exists
+      if (ws.current) {
+        console.log('Closing WebSocket connection');
+        ws.current.close();
+        setWsConnected(false);
+      }
+
       await signOut(auth);
       navigate('/login'); // Adjust this to your login route
-    } catch (error) {
+    }    catch (error) {
       console.error("Error signing out: ", error);
       setError('Failed to log out. Please try again.');
     }
@@ -427,7 +447,7 @@ function LoadingPage() {
   return (
     <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-900">
       <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
-        {v2 ? (
+        {(
           <>
             {botStatus === 'qr' ? (
               <>
@@ -481,9 +501,12 @@ function LoadingPage() {
                   </div>
                 )}
                 {(isLoading || !processingComplete || isFetchingChats) && (
-                  <div className="mt-4">
-                    <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
-                  </div>
+                <div className="mt-4 flex flex-col items-center">
+                  <img alt="Logo" className="w-40 h-40 p-25 animate-spin" src={logoUrl} style={{ animation: 'spin 3s linear infinite' }} />
+                  <p className="mt-2 text-gray-600 dark:text-gray-400">
+                    {isQRLoading ? "Please wait while QR code is loading..." : "Please wait while QR Code is loading..."}
+                  </p>
+                </div>
                 )}
               </>
             )}
@@ -506,10 +529,6 @@ function LoadingPage() {
             
             {error && <div className="mt-2 text-red-500 dark:text-red-400">{error}</div>}
           </>
-        ) : (
-          <div className="mt-4">
-            <img alt="Logo" className="w-40 h-40 p-25 animate-spin" src={logoUrl} style={{ animation: 'spin 3s linear infinite' }} />
-          </div>
         )}
       </div>
     </div>
