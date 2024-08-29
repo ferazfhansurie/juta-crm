@@ -1,6 +1,6 @@
 import "@/assets/css/themes/tinker/side-nav.css";
 import { Transition } from "react-transition-group";
-import { useState, useEffect, ReactElement, JSXElementConstructor, ReactNode, ReactPortal, Key, useCallback } from "react";
+import { useState, useEffect, ReactElement, JSXElementConstructor, ReactNode, ReactPortal, Key, useCallback, useRef } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { selectMenu } from "@/stores/menuSlice";
 import { useAppSelector } from "@/stores/hooks";
@@ -15,7 +15,7 @@ import { Menu, Popover } from "@/components/Base/Headless";
 import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
 import { initializeApp } from 'firebase/app';
 import { DocumentData, DocumentReference, getDoc, getDocs } from 'firebase/firestore';
-import { getFirestore, collection, doc, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { useMediaQuery } from 'react-responsive';
 
 type Notification = {
@@ -39,7 +39,9 @@ function Main() {
   const [userName, setUserName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [userEmail, setUserEmail] = useState("");
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const prevNotificationsRef = useRef<number | null>(null);
+  const isInitialMount = useRef(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [uniqueNotifications, setUniqueNotifications] = useState<Notification[]>([]);
   const [company, setCompany] = useState("");
@@ -98,9 +100,47 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
-  const unique = notifications.reduce((uniqueNotifications, notification) => {
+  if (!auth.currentUser?.email) return;
+
+  const unsubscribe = onSnapshot(
+    collection(firestore, 'user', auth.currentUser.email, 'notifications'),
+    (snapshot) => {
+      const currentNotifications = snapshot.docs.map(doc => doc.data() as Notification);
+
+      // Prevent running on initial mount
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
+        prevNotificationsRef.current = currentNotifications.length;
+        setNotifications(currentNotifications);
+        return;
+      }
+
+      // Check if a new notification has been added
+      if (prevNotificationsRef.current !== null && currentNotifications.length > prevNotificationsRef.current) {
+        // Sort notifications by timestamp to ensure the latest one is picked
+        currentNotifications.sort((a, b) => b.timestamp - a.timestamp);
+        const latestNotification = currentNotifications[0];
+
+        // Add new notification to the state
+        setNotifications(prev => [...prev, latestNotification]);
+        
+        // You can add additional logic here, like playing a sound or showing a toast notification
+      }
+
+      // Update the previous notifications count
+      prevNotificationsRef.current = currentNotifications.length;
+    }
+  );
+
+  return () => unsubscribe();
+}, [auth.currentUser?.email]);
+
+// ... existing code ...
+
+useEffect(() => {
+  const unique = notifications.reduce((uniqueNotifications: Notification[], notification) => {
       const existingNotificationIndex = uniqueNotifications.findIndex(
-          (n: { chat_id: any; }) => n.chat_id === notification.chat_id
+          (n) => n.chat_id === notification.chat_id
       );
       if (existingNotificationIndex !== -1) {
           if (uniqueNotifications[existingNotificationIndex].timestamp < notification.timestamp) {
@@ -113,6 +153,9 @@ useEffect(() => {
   }, []);
   setUniqueNotifications(unique);
 }, [notifications]);
+
+// ... existing code ...
+
 async function fetchConfigFromDatabase() {
   const user = auth.currentUser;
 
@@ -160,20 +203,6 @@ async function fetchConfigFromDatabase() {
     }
 
     setCompanyName(dataUser.company); // Set company
-
-    // Fetch notifications from the notifications subcollection
-    const notificationsRef = collection(firestore, 'user', userEmail, 'notifications');
-    const notificationsSnapshot = await getDocs(notificationsRef);
-    let notifications = notificationsSnapshot.docs.map((doc) => doc.data() as Notification);
-
-    // Filter notifications based on user role
-    if (role !== 1) {
-      notifications = notifications.filter((notification) => notification.assignedTo === userEmail);
-    }
-
-    console.log(notifications);
-    // Update state with the fetched notifications
-    setNotifications(notifications);
   } catch (error) {
     console.error('Error fetching config:', error);
     throw error;
@@ -370,7 +399,7 @@ const clearAllNotifications = async () => {
                     </span>
                   )}
                 </Menu.Button>
-                <Menu.Items className="absolute left-0 w-64 md:w-80 mt-2 mr-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-lg overflow-hidden">
+                <Menu.Items className="absolute left-2 w-64 md:w-80 mt-2 mr-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-lg overflow-hidden top-[-300px] sm:top-[-200px]">
                 <Menu.Header className="font-normal border-b border-gray-200 dark:border-gray-700">
                 <div className="flex justify-between items-center p-3">
                   <div className="font-medium text-lg">Notifications</div>
@@ -382,7 +411,7 @@ const clearAllNotifications = async () => {
                   </button>
                 </div>
                 </Menu.Header>
-                <div className="max-h-[40vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+                <div className="max-h-[40vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
                   {uniqueNotifications.length > 0 ? (
                     uniqueNotifications
                       .sort((a, b) => b.timestamp - a.timestamp)
@@ -397,14 +426,14 @@ const clearAllNotifications = async () => {
                                 {notification.from.split('@')[0]}
                               </div>
                               <div className="text-xs text-gray-500 dark:text-gray-400">
-  {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: true,
-  })}
-</div>
+                                {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: 'numeric',
+                                  minute: 'numeric',
+                                  hour12: true,
+                                })}
+                              </div>
                             </div>
                             <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
                               {notification.text ? notification.text.body : ''}
