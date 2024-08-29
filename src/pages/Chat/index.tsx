@@ -3636,8 +3636,11 @@ const getTimestamp2 = (timestamp: any): number => {
                phone.includes(searchQuery.toLowerCase()) || 
                tags.includes(searchQuery.toLowerCase());
       });
+      setFilteredContacts(filtered);
+    }else{
+      setFilteredContacts(filtered);
+      setCurrentPage(0)
     }
-    setFilteredContacts(filtered);
   }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList]);
   
   const handleSnoozeContact = async (contact: Contact) => {
