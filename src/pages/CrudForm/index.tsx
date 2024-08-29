@@ -39,6 +39,8 @@ function Main() {
 
   const [currentUserRole, setCurrentUserRole] = useState("");
 
+  const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -50,6 +52,9 @@ function Main() {
             setCompanyId(userData.companyId);
             setCurrentUserRole(userData.role);
             console.log("Fetched companyId:", userData.companyId);
+            
+            // Fetch phoneIndex from company document
+            fetchPhoneIndex(userData.companyId);
           } else {
             console.log("No user document found");
           }
@@ -82,6 +87,7 @@ function Main() {
     notes: string;
     quotaLeads: number;
     invoiceNumber: string | null;
+    phone: number | null;
   }>({
     name: "",
     phoneNumber: "",
@@ -94,6 +100,7 @@ function Main() {
     notes: "",
     quotaLeads: 0,
     invoiceNumber: null,
+    phone: null,
   });
 
   useEffect(() => {
@@ -110,6 +117,7 @@ function Main() {
         notes: contact.notes || "",
         quotaLeads: contact.quotaLeads || 0,
         invoiceNumber: contact.invoiceNumber || null,
+        phone: contact.phone || 0,
       });
       setCategories([contact.role]);
     }
@@ -140,9 +148,30 @@ function Main() {
     }
   };
 
+  const fetchPhoneIndex = async (companyId: string) => {
+    try {
+      const companyDocRef = doc(firestore, 'companies', companyId);
+      const companyDocSnap = await getDoc(companyDocRef);
+      if (companyDocSnap.exists()) {
+        const companyData = companyDocSnap.data();
+        const phoneCount = companyData.phoneCount || 0;
+        console.log('phoneCount for this company'+phoneCount)
+        // Generate an array of numbers from 0 to phoneCount - 1
+        const phoneArray = Array.from({ length: phoneCount }, (_, i) => i);
+        setPhoneOptions(phoneArray);
+      }
+    } catch (error) {
+      console.error("Error fetching phone count:", error);
+      setPhoneOptions([]); // Set to empty array in case of error
+    }
+  };
+
   const handleChange = (e: { target: { name: any; value: any; }; }) => {
     const { name, value } = e.target;
-    setUserData(prev => ({ ...prev, [name]: value }));
+    setUserData(prev => ({
+      ...prev,
+      [name]: name === 'phone' ? (value === '' ? null : parseInt(value, 10)) : value
+    }));
   };
 
   const handleAddNewGroup = () => {
@@ -215,6 +244,7 @@ function Main() {
           notes: userData.notes || null,
           quotaLeads: userData.quotaLeads || 0,
           invoiceNumber: userData.invoiceNumber || null,
+          phone: userData.phone || 0,
         };
 
         if (contactId) {
@@ -248,6 +278,7 @@ function Main() {
               notes: "",
               quotaLeads: 0,
               invoiceNumber: null,
+              phone: null,
             });
           } else {
             throw new Error(responseData.error);
@@ -421,6 +452,22 @@ function Main() {
               <option value="2">Sales</option>
               <option value="3">Observer</option>
               <option value="4">Others</option>
+            </select>
+          </div>
+          <div>
+            <FormLabel htmlFor="phone">Phone</FormLabel>
+            <select
+              id="phone"
+              name="phone"
+              value={userData.phone === null ? '' : userData.phone.toString()}
+              onChange={handleChange}
+              className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
+              disabled={isFieldDisabled("phone")}
+            >
+              <option value="">Select a phone</option>
+              {phoneOptions.map((phone) => (
+                <option key={phone} value={phone.toString()}>Phone {phone + 1}</option>
+              ))}
             </select>
           </div>
           <div>
