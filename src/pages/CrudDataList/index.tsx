@@ -180,6 +180,7 @@ function Main() {
   const [userRole, setUserRole] = useState<string>("");
   const [itemOffset, setItemOffset] = useState(0);
   const itemsPerPage = 30;
+  const [employeeNames, setEmployeeNames] = useState<string[]>([]);
 
   useEffect(() => {
     if (initialContacts.length > 0) {
@@ -789,7 +790,8 @@ const handleConfirmDeleteTag = async () => {
      console.log(employeeListData);
       setEmployeeList(employeeListData);
       const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
-     
+      setEmployeeNames(employeeNames);
+    
       if (companyData.v2 !== true) {
         await fetchTags(companyData.ghl_accessToken, companyData.ghl_location, employeeNames);
       } else {
@@ -1862,6 +1864,36 @@ console.log(filteredContacts);
     }
   };
 
+  const renderTags = (tags: string[] | undefined, contact: Contact) => {
+    if (!tags || tags.length === 0) return null;
+    return (
+      <div className="flex flex-wrap gap-1 mt-1">
+        {tags.map((tag, index) => (
+          <span
+            key={index}
+            className={`px-2 py-1 text-xs font-semibold rounded-full ${
+              employeeNames.includes(tag.toLowerCase())
+                ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200'
+                : 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200'
+            }`}
+          >
+            {tag}
+            <button
+              className="absolute top-0 right-0 hidden group-hover:block bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs leading-none"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemoveTag(contact.id!, tag);
+              }}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+    );
+  };
+  
+
   return (
     <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
       <div className="flex-grow overflow-y-auto">
@@ -2436,15 +2468,24 @@ console.log(filteredContacts);
                           <div className="flex flex-wrap gap-2">
                             {contact.tags && contact.tags.length > 0 ? (
                               contact.tags.map((tag, index) => (
-                                <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-100">
-                                  {tag}
-                                  <button
-                                    className="ml-1 text-blue-400 hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-100"
-                                    onClick={() => handleRemoveTag(contact.id!, tag)}
-                                  >
-                                    <Lucide icon="X" className="w-3 h-3" />
-                                  </button>
-                                </span>
+                                <div key={index} className="relative group">
+                                  <span className={`px-2 py-1 text-xs font-semibold rounded-full inline-flex items-center ${
+                                    employeeNames.includes(tag.toLowerCase())
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200'
+                                      : 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200'
+                                  }`}>
+                                    {tag}
+                                    <button
+                                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-white hover:text-red-500 hidden group-hover:block"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveTag(contact.id!, tag);
+                                      }}
+                                    >
+                                      X
+                                    </button>
+                                  </span>
+                                </div>
                               ))
                             ) : (
                               <span className="text-sm text-gray-500 dark:text-gray-400">No tags</span>

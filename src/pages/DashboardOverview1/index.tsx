@@ -26,10 +26,11 @@ import { onMessage } from "firebase/messaging";
 import { useNavigate } from "react-router-dom";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement } from 'chart.js';
+import { Chart as ChartJS, ChartData, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement } from 'chart.js';
 import { BarChart } from "lucide-react";
 import { useContacts } from "@/contact";
-import { User } from 'lucide-react';
+import { User, ChevronRight } from 'lucide-react';
+import { format, subDays, subMonths, startOfDay, endOfDay } from 'date-fns';
 
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement);
@@ -100,7 +101,6 @@ let companyId = "";
 let total_contacts = 0;
 let role = 2;
 
-
 function Main() {
 
   interface Contact {
@@ -163,6 +163,9 @@ function Main() {
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [showAllEmployees, setShowAllEmployees] = useState(false);
+  const [contactsOverTime, setContactsOverTime] = useState<{ date: string; count: number }[]>([]);
+  const [contactsTimeFilter, setContactsTimeFilter] = useState<'today' | '7days' | '1month' | '3months' | 'all'>('7days');
+  const [selectedCard, setSelectedCard] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCompanyData();
@@ -493,6 +496,7 @@ async function fetchConfigFromDatabase() {
       scales: {
         y: {
           beginAtZero: true,
+          min: 0, // Add this line to set the minimum value to 0
           title: {
             display: true,
             text: 'Assigned Contacts',
@@ -537,44 +541,84 @@ async function fetchConfigFromDatabase() {
     } as const;
   }, [selectedEmployee]);
 
-  async function fetchLeadsData() {
+  // Add these new state variables
+  const [closedContacts, setClosedContacts] = useState(0);
+  const [openContacts, setOpenContacts] = useState(0);
+  const [todayContacts, setTodayContacts] = useState(0);
+  const [weekContacts, setWeekContacts] = useState(0);
+  const [monthContacts, setMonthContacts] = useState(0);
+
+  // Update this function
+  async function fetchContactsData() {
     if (!companyId) {
-      console.error('CompanyId is not set. Unable to fetch leads data.');
+      console.error('CompanyId is not set. Unable to fetch contacts data.');
       return;
     }
 
     try {
-      const leadsRef = collection(firestore, `companies/${companyId}/leads`);
-      const leadsSnapshot = await getDocs(leadsRef);
+      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+      const contactsSnapshot = await getDocs(contactsRef);
       
-      let totalLeads = 0;
-      let closedLeads = 0;
+      let total = 0;
+      let closed = 0;
+      let today = 0;
+      let week = 0;
+      let month = 0;
 
-      leadsSnapshot.forEach((doc) => {
-        totalLeads++;
-        if (doc.data().status === 'closed') {
-          closedLeads++;
+      const now = new Date();
+const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      contactsSnapshot.forEach((doc) => {
+        const contactData = doc.data();
+        const dateAdded = contactData.dateAdded ? new Date(contactData.dateAdded) : null;
+
+        total++;
+        if (contactData.status === 'closed') {
+          closed++;
+        }
+
+        if (dateAdded) {
+          if (dateAdded >= startOfDay) {
+            today++;
+          }
+          if (dateAdded >= startOfWeek) {
+            week++;
+          }
+          if (dateAdded >= startOfMonth) {
+            month++;
+          }
         }
       });
 
-      // Log the leads data
-      console.log('Leads Data:', {
-        totalLeads,
-        closedLeads,
-        openLeads: totalLeads - closedLeads
+      const open = total - closed;
+
+      // Log the contacts data
+      console.log('Contacts Data:', {
+        totalContacts: total,
+        closedContacts: closed,
+        openContacts: open,
+        todayContacts: today,
+        weekContacts: week,
+        monthContacts: month
       });
 
-      setUnclosed(totalLeads);
-      setClosed(closedLeads);
+      setTotalContacts(total);
+      setClosedContacts(closed);
+      setOpenContacts(open);
+      setTodayContacts(today);
+      setWeekContacts(week);
+      setMonthContacts(month);
     } catch (error) {
-      console.error('Error fetching leads data:', error);
+      console.error('Error fetching contacts data:', error);
     }
   }
 
-  // Add a new useEffect to fetch leads data after companyId is set
+  // Update this useEffect
   useEffect(() => {
     if (companyId) {
-      fetchLeadsData();
+      fetchContactsData();
     }
   }, [companyId]);
 
@@ -604,138 +648,236 @@ async function fetchConfigFromDatabase() {
     };
   }, [handleOutsideClick]);
 
+  const fetchContactsOverTime = async (filter: 'today' | '7days' | '1month' | '3months' | 'all') => {
+    if (!companyId) {
+      console.error('CompanyId is not set. Unable to fetch contacts data.');
+      return;
+    }
+
+    const now = new Date();
+    let startDate: Date;
+
+    switch (filter) {
+      case 'today':
+        startDate = startOfDay(now);
+        break;
+      case '7days':
+        startDate = subDays(now, 7);
+        break;
+      case '1month':
+        startDate = subMonths(now, 1);
+        break;
+      case '3months':
+        startDate = subMonths(now, 3);
+        break;
+      case 'all':
+        startDate = new Date(0); // Start from the earliest possible date
+        break;
+    }
+
+    try {
+      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+      const contactsSnapshot = await getDocs(contactsRef);
+      
+      const contactsData: { [date: string]: number } = {};
+      let totalContacts = 0;
+
+      contactsSnapshot.forEach((doc) => {
+        const contactData = doc.data();
+        const dateAdded = contactData.dateAdded ? new Date(contactData.dateAdded) : null;
+
+        if (dateAdded && dateAdded >= startDate && dateAdded <= now) {
+          const dateKey = format(dateAdded, 'yyyy-MM-dd');
+          contactsData[dateKey] = (contactsData[dateKey] || 0) + 1;
+        }
+        totalContacts++;
+      });
+
+      let sortedData = Object.entries(contactsData)
+        .map(([date, count]) => ({ date, count }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      if (filter === 'all' && sortedData.length > 0) {
+        // Add a starting point at 0
+        sortedData.unshift({ date: sortedData[0].date, count: 0 });
+        // Add an ending point with total contacts
+        sortedData.push({ date: format(now, 'yyyy-MM-dd'), count: totalContacts });
+      }
+
+      setContactsOverTime(sortedData);
+    } catch (error) {
+      console.error('Error fetching contacts over time data:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (companyId) {
+      fetchContactsOverTime(contactsTimeFilter);
+    }
+  }, [companyId, contactsTimeFilter]);
+
+  const totalContactsChartData = useMemo(() => {
+    return {
+      labels: contactsOverTime.map(d => d.date),
+      datasets: [{
+        label: 'Total Contacts',
+        data: contactsOverTime.map(d => d.count),
+        borderColor: 'rgb(75, 192, 192)',
+        tension: 0.1,
+        fill: false
+      }]
+    };
+  }, [contactsOverTime]);
+
+  const totalContactsChartOptions = useMemo(() => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          min: 0,
+          title: {
+            display: true,
+            text: 'Number of Contacts',
+            color: 'rgb(75, 85, 99)',
+          },
+          ticks: {
+            color: 'rgb(107, 114, 128)',
+            stepSize: Math.max(1, Math.ceil(Math.max(...contactsOverTime.map(d => d.count)) / 10)),
+          },
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Date',
+            color: 'rgb(75, 85, 99)',
+          },
+          ticks: {
+            color: 'rgb(107, 114, 128)',
+            maxTicksLimit: 10, // Limit the number of x-axis labels
+          },
+        },
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+        title: {
+          display: true,
+          text: 'Total Contacts Over Time',
+          color: 'rgb(31, 41, 55)',
+        },
+      },
+    } as const;
+  }, [contactsOverTime]);
+
+  const dashboardCards = [
+    {
+      id: 'kpi',
+      title: 'Key Performance Indicators',
+      content: [
+        { icon: "Contact", label: "Total Contacts", value: totalContacts },
+        { icon: "MessageCircleReply", label: "Number Replies", value: numReplies },
+        { icon: "Check", label: "Closed Contacts", value: closedContacts },
+        { icon: "Mail", label: "Open Contacts", value: openContacts },
+      ]
+    },
+    {
+      id: 'leads',
+      title: 'Leads Overview',
+      content: [
+        { label: "Total", value: totalContacts },
+        { label: "Today", value: todayContacts },
+        { label: "This Week", value: weekContacts },
+        { label: "This Month", value: monthContacts },
+      ]
+    },
+    {
+      id: 'contacts-over-time',
+      title: 'Contacts Over Time',
+      content: totalContactsChartData,
+      filter: contactsTimeFilter,
+      setFilter: setContactsTimeFilter
+    },
+    {
+      id: 'employee-assignments',
+      title: 'Top Performers',
+      content: { employees, chartData, lineChartOptions }
+    },
+    // Add more cards here as needed
+  ];
+
   return (
     <div className="flex flex-col w-full h-full overflow-x-hidden overflow-y-auto">
       <div className="flex-grow p-4 space-y-6">
-        {/* BEGIN: Stats */}
-        <div>
-          <h2 className="text-xl sm:text-2xl font-semibold mb-4">Key Performance Indicators</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-            {[
-              { icon: "Contact", label: "Total Contacts", value: totalContacts },
-              { icon: "MessageCircleReply", label: "Number Replies", value: numReplies },
-              { icon: "Check", label: "Closed Leads", value: closed },
-              // { icon: "TrendingUp", label: "Conversion Rate", value: `${((closed / totalContacts) * 100).toFixed(1)}%` },
-            ].map((stat, index) => (
-              <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                <div className="flex items-center justify-between">
-                  <Lucide
-                    icon={stat.icon as "Contact" | "MessageCircleReply" | "Mail" | "Check" | "TrendingUp"}
-                    className="w-12 h-12 text-blue-500 dark:text-blue-400"
-                  />
-                  <div className="text-right">
-                    <div className="text-3xl font-bold text-gray-800 dark:text-gray-200">
-                      {!loading ? stat.value : (
-                        <LoadingIcon icon="spinning-circles" className="w-8 h-8 ml-auto" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+          {dashboardCards.map((card) => (
+            <div 
+              key={card.id}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col h-full"
+            >
+              <div className="p-6 flex-grow flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{card.title}</h3>
+                  {card.id === 'contacts-over-time' && (
+                    <FormSelect
+                      className="w-40"
+                      value={card.filter}
+                      onChange={(e) => card.setFilter?.(e.target.value as 'today' | '7days' | '1month' | '3months' | 'all')}
+                    >
+                      <option value="today">Today</option>
+                      <option value="7days">Last 7 Days</option>
+                      <option value="1month">Last Month</option>
+                      <option value="3months">Last 3 Months</option>
+                      <option value="all">All Time</option>
+                    </FormSelect>
+                  )}
+                </div>
+                <div className="flex-grow">
+                  {card.id === 'kpi' || card.id === 'leads' ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      {Array.isArray(card.content) && card.content.map((item, index) => (
+                        <div key={index} className="text-center">
+                          <div className="text-3xl font-bold text-blue-500 dark:text-blue-400">
+                            {!loading ? item.value : <LoadingIcon icon="spinning-circles" className="w-8 h-8 mx-auto" />}
+                          </div>
+                          <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">{item.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : card.id === 'contacts-over-time' ? (
+                    <div className="h-full">
+                      {('datasets' in card.content) && (
+                        <Line data={card.content} options={totalContactsChartOptions} />
                       )}
                     </div>
-                    <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                      {stat.label}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* END: Stats */}
-        {/* BEGIN: Employee Leaderboard and Chart */}
-        <div>
-          <h2 className="text-xl sm:text-2xl font-semibold mb-4">Employee Contact Assignments</h2>
-          {loading ? (
-            <div className="text-center">
-              <LoadingIcon icon="spinning-circles" className="w-8 h-8 mx-auto" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              <div className="lg:col-span-1 space-y-2">
-                {currentUser && (
-                  <div 
-                    key={currentUser.id} 
-                    className={`employee-card bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
-                      selectedEmployee?.id === currentUser.id ? 'border-2 border-blue-500' : ''
-                    }`}
-                    onClick={(e) => handleEmployeeSelect(e, currentUser)}
-                  >
-                    <div className="flex items-center">
-                      <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
-                      <div>
-                        <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{currentUser.name} (You)</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {currentUser.assignedContacts} currently assigned contacts
+                  ) : card.id === 'employee-assignments' ? (
+                    <div>
+                      <div className="mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          {employees.slice(0, 3).map((employee) => (
+                            <div key={employee.id} className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
+                              <div className="font-medium text-gray-800 dark:text-gray-200">{employee.name}</div>
+                              <div className="text-sm text-gray-600 dark:text-gray-400">
+                                {employee.assignedContacts} assigned contacts
+                              </div>
+                            </div>
+                          ))}
                         </div>
+                      </div>
+                      <div className="h-64">
+                        {chartData && <Line data={chartData} options={lineChartOptions} />}
                       </div>
                     </div>
-                  </div>
-                )}
-                {currentUser?.role !== '3' && (
-                  <>
-                    {employees.filter(emp => emp.id !== currentUser?.id).slice(0, 4).map((employee) => (
-                      <div 
-                        key={employee.id} 
-                        className={`employee-card bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
-                          selectedEmployee?.id === employee.id ? 'border-2 border-blue-500' : ''
-                        }`}
-                        onClick={(e) => handleEmployeeSelect(e, employee)}
-                      >
-                        <div className="flex items-center">
-                          <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
-                          <div>
-                            <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400">
-                              {employee.assignedContacts} currently assigned contacts
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {showAllEmployees && employees.filter(emp => emp.id !== currentUser?.id).slice(4).map((employee) => (
-                      <div 
-                        key={employee.id} 
-                        className={`employee-card bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer ${
-                          selectedEmployee?.id === employee.id ? 'border-2 border-blue-500' : ''
-                        }`}
-                        onClick={(e) => handleEmployeeSelect(e, employee)}
-                      >
-                        <div className="flex items-center">
-                          <User className="w-8 h-8 text-blue-500 dark:text-blue-400 mr-2" />
-                          <div>
-                            <div className="font-medium text-lg text-gray-800 dark:text-gray-200">{employee.name}</div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400">
-                              {employee.assignedContacts} currently assigned contacts
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {employees.filter(emp => emp.id !== currentUser?.id).length > 4 && (
-                      <button
-                        className="w-full text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium mt-2"
-                        onClick={() => setShowAllEmployees(!showAllEmployees)}
-                      >
-                        {showAllEmployees ? 'Show Less' : 'Show More'}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-              <div className="lg:col-span-3">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                  <div style={{ height: '400px' }}>
-                    {chartData ? (
-                      <Line data={chartData} options={lineChartOptions} />
-                    ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <p>Select an employee to view their data</p>
-                      </div>
-                    )}
-                  </div>
+                  ) : (
+                    <div className="text-center text-gray-600 dark:text-gray-400">No data available</div>
+                  )}
                 </div>
               </div>
             </div>
-          )}
+          ))}
         </div>
-        {/* END: Employee Leaderboard and Chart */}
       </div>
     </div>
   );
