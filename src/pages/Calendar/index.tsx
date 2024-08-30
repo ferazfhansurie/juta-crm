@@ -40,7 +40,7 @@ interface Appointment {
   appointmentStatus: string;
   staff: string[];
   color: string;
-  packageId: string;
+  packageId: string | null;
   dateAdded: string;
   contacts: { id: string, name: string, session: number }[];
 }
@@ -413,7 +413,7 @@ function Main() {
         address: appointment.address,
         appointmentStatus: appointment.appointmentStatus,
         staff: appointment.staff,
-        package: appointment.packageId,
+        package: packages.find(p => p.id === appointment.packageId) || null,
         dateAdded: appointment.dateAdded,
         contacts: eventContacts // Include contacts in currentEvent
       },
@@ -430,7 +430,7 @@ function Main() {
         address: appointment.address,
         appointmentStatus: appointment.appointmentStatus,
         staff: appointment.staff,
-        package: appointment.packageId,
+        package: packages.find(p => p.id === appointment.packageId) || null,
         dateAdded: appointment.dateAdded,
         contacts: eventContacts
       },
@@ -469,7 +469,7 @@ function Main() {
       appointmentStatus: extendedProps.appointmentStatus,
       staff: extendedProps.staff,
       color: color,
-      packageId: extendedProps.package.id,
+      packageId: extendedProps.package ? extendedProps.package.id : null,
       dateAdded: extendedProps.dateAdded,
       contacts: selectedContacts.map(contact => ({
         id: contact.id,
@@ -545,14 +545,14 @@ function Main() {
       endTime: new Date(`${currentEvent.dateStr}T${currentEvent.endTimeStr}`).toISOString(),
       address: currentEvent.extendedProps.address,
       appointmentStatus: currentEvent.extendedProps.appointmentStatus,
-      staff: selectedEmployeeIds, // Use selectedEmployeeIds array
-      color: firstEmployee ? firstEmployee.color : '#51484f', // Default color if no employee found
+      staff: selectedEmployeeIds,
+      color: firstEmployee ? firstEmployee.color : '#51484f',
       contacts: selectedContacts.map(contact => ({
         id: contact.id,
         name: contact.contactName,
-        session: contactSessions[contact.id] || getPackageSessions(currentEvent.extendedProps.package) // Initialize session number
+        session: contactSessions[contact.id] || getPackageSessions(currentEvent.extendedProps.package)
       })),
-      packageId: currentEvent.extendedProps.package.id,
+      packageId: currentEvent.extendedProps.package?.id || null,
     };
     await createAppointment(newEvent);
     setAddModalOpen(false);
@@ -579,7 +579,7 @@ function Main() {
         address: newEvent.address,
         appointmentStatus: newEvent.appointmentStatus,
         staff: newEvent.staff,
-        color: newEvent.color, // Include color property
+        color: newEvent.color,
         packageId: newEvent.packageId,
         dateAdded: new Date().toISOString(),
         contacts: newEvent.contacts,
@@ -740,7 +740,7 @@ function Main() {
         address: appointment.address,
         appointmentStatus: appointment.appointmentStatus,
         staff: appointment.staff,
-        package: appointment.packageId,
+        package: packages.find(p => p.id === appointment.packageId) || null,
         dateAdded: appointment.dateAdded,
         contacts: appointment.contacts // Include contacts in currentEvent
       }
@@ -755,7 +755,7 @@ function Main() {
         address: appointment.address,
         appointmentStatus: appointment.appointmentStatus,
         staff: appointment.staff,
-        package: appointment.packageId,
+        package: packages.find(p => p.id === appointment.packageId) || null,
         dateAdded: appointment.dateAdded,
         contacts: appointment.contacts
       }
@@ -786,15 +786,19 @@ function Main() {
       case 'new':
         return 'bg-gray-500';
       case 'confirmed':
-        return 'bg-gray-500';
+        return 'bg-green-500';
       case 'cancelled':
         return 'bg-red-500';
       case 'showed':
         return 'bg-green-500';
       case 'noshow':
-        return 'bg-green-500';
+        return 'bg-red-500';
       case 'rescheduled':
         return 'bg-gray-500';
+      case 'lost':
+        return 'bg-red-500';
+      case 'closed':
+        return 'bg-blue-700';
       default:
         return 'bg-gray-500';
     }
@@ -824,25 +828,6 @@ function Main() {
         return 'Duo - 20 Sessions';
       default:
         return null;
-    }
-  };
-
-  const getStatusColor2 = (status: string) => {
-    switch (status) {
-      case 'new':
-        return 'gray'; // Replacing yellow with orange
-      case 'confirmed':
-        return 'gray';
-      case 'cancelled':
-        return 'red';
-      case 'showed':
-        return 'green';
-      case 'noshow':
-        return 'green';
-      case 'rescheduled':
-        return 'gray';
-      default:
-        return 'gray';
     }
   };
 
@@ -1106,6 +1091,8 @@ function Main() {
             <option value="showed">Showed</option>
             <option value="noshow">No Show</option>
             <option value="rescheduled">Rescheduled</option>
+            <option value="lost">Lost</option>
+            <option value="closed">Closed</option>
           </select>
         </div>
 
@@ -1178,6 +1165,7 @@ function Main() {
                 <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3"><span className="flex w-2.5 h-2.5 bg-gray-500 rounded-full me-1.5 flex-shrink-0"></span>New</span>
                 <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3"><span className="flex w-2.5 h-2.5 bg-green-500 rounded-full me-1.5 flex-shrink-0"></span>Showed</span>
                 <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3"><span className="flex w-2.5 h-2.5 bg-red-500 rounded-full me-1.5 flex-shrink-0"></span>Canceled</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3"><span className="flex w-2.5 h-2.5 bg-blue-700 rounded-full me-1.5 flex-shrink-0"></span>Closed</span>
               </div>
             </div>
             <div className="mt-6 mb-5 border-t border-b border-slate-200/60 dark:border-gray-600">
@@ -1228,7 +1216,7 @@ function Main() {
                 ))
               ) : (
                 <div className="p-3 text-center text-slate-500 dark:text-gray-400">
-                  No events yet
+                  No appointments yet
                 </div>
               )}
             </div>
@@ -1370,6 +1358,8 @@ function Main() {
                     <option value="showed">Showed</option>
                     <option value="noshow">No Show</option>
                     <option value="rescheduled">Rescheduled</option>
+                    <option value="lost">Lost</option>
+                    <option value="closed">Closed</option>
                   </select>
                 </div>
                 <div>
@@ -1396,9 +1386,18 @@ function Main() {
                   <select
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     value={currentEvent?.extendedProps?.package?.id || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: packages.find(p => p.id === e.target.value) } })}
+                    onChange={(e) => {
+                      const packageId = e.target.value;
+                      setCurrentEvent({
+                        ...currentEvent,
+                        extendedProps: {
+                          ...currentEvent.extendedProps,
+                          package: packageId === '' ? null : packages.find(p => p.id === packageId)
+                        }
+                      });
+                    }}
                   >
-                    <option value="" disabled>Choose a package</option>
+                    <option value="">No Package</option>
                     {packages.map((pkg) => (
                       <option key={pkg.id} value={pkg.id}>
                         {pkg.name} - {pkg.sessions} Sessions
@@ -1529,7 +1528,9 @@ function Main() {
                     <option value="cancelled">Cancelled</option>
                     <option value="showed">Showed</option>
                     <option value="noshow">No Show</option>
-                    <option value="rescheduled">rescheduled</option>
+                    <option value="rescheduled">Rescheduled</option>
+                    <option value="lost">Lost</option>
+                    <option value="closed">Closed</option>
                   </select>
                 </div>
                 <div>
@@ -1556,9 +1557,18 @@ function Main() {
                   <select
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     value={currentEvent?.extendedProps?.package?.id || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, package: packages.find(p => p.id === e.target.value) } })}
+                    onChange={(e) => {
+                      const packageId = e.target.value;
+                      setCurrentEvent({
+                        ...currentEvent,
+                        extendedProps: {
+                          ...currentEvent.extendedProps,
+                          package: packageId === '' ? null : packages.find(p => p.id === packageId)
+                        }
+                      });
+                    }}
                   >
-                    <option value="" disabled>Choose a package</option>
+                    <option value="">No Package</option>
                     {packages.map((pkg) => (
                       <option key={pkg.id} value={pkg.id}>
                         {pkg.name} - {pkg.sessions} Sessions
