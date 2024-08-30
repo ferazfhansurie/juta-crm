@@ -10,6 +10,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import logoUrl from "@/assets/images/logo_black.png";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { Tab } from '@headlessui/react'
+import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from 'firebase/storage';
 
 
 const firebaseConfig = {
@@ -35,15 +36,13 @@ interface ChatMessage {
   createdAt: string;
 }
 
-interface InstructionField {
-  title: string;
-  content: string;
-}
-
 interface AssistantInfo {
   name: string;
   description: string;
-  instructions: InstructionField[];
+  instructions: string;
+  metadata: {
+    files: Array<{id: string, name: string, url: string}>;
+  };
 }
 
 interface MessageListProps {
@@ -140,7 +139,10 @@ const Main: React.FC = () => {
   const [assistantInfo, setAssistantInfo] = useState<AssistantInfo>({
     name: '',
     description: '',
-    instructions: [],
+    instructions: '',
+    metadata: {
+      files: [],
+    },
   });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +156,9 @@ const Main: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [isMobile, setIsMobile] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
+  const [isWideScreen, setIsWideScreen] = useState(false);
+  const [files, setFiles] = useState<Array<{id: string, name: string, url: string}>>([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchCompanyId();
@@ -162,6 +167,7 @@ const Main: React.FC = () => {
   useEffect(() => {
     if (companyId) {
       fetchFirebaseConfig(companyId);
+      fetchFiles();
     }
   }, [companyId]);
 
@@ -174,6 +180,17 @@ const Main: React.FC = () => {
     window.addEventListener('resize', checkIfMobile);
 
     return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
+
+  useEffect(() => {
+    const checkScreenWidth = () => {
+      setIsWideScreen(window.innerWidth >= 1024); // Adjust this breakpoint as needed
+    };
+
+    checkScreenWidth();
+    window.addEventListener('resize', checkScreenWidth);
+
+    return () => window.removeEventListener('resize', checkScreenWidth);
   }, []);
 
   const fetchCompanyId = async () => {
@@ -228,33 +245,9 @@ const Main: React.FC = () => {
     }
   };
 
-  const handleInstructionChange = (index: number, field: string, value: string) => {
-    const newInstructions = [...assistantInfo.instructions];
-    newInstructions[index] = { ...newInstructions[index], [field]: value };
-    setAssistantInfo({ ...assistantInfo, instructions: newInstructions });
-  };
-  
-  const addInstructionField = () => {
-    setAssistantInfo(prevState => ({
-      ...prevState,
-      instructions: [...prevState.instructions, { title: '', content: '' }]
-    }));
-  };
-  
-  const deleteInstructionField = (index: number) => {
-    setAssistantInfo(prevState => ({
-      ...prevState,
-      instructions: prevState.instructions.filter((_, i) => i !== index)
-    }));
-  };
-  
-  const getCombinedInstructions = () => {
-    return assistantInfo.instructions.map(inst => `# ${inst.title}\n${inst.content}`).join('\n\n');
-  };
-
   const fetchAssistantInfo = async (assistantId: string, apiKey: string) => {
     console.log("Fetching assistant info with ID:", assistantId);
-    setLoading(true); // Add this line
+    setLoading(true);
     try {
       const response = await axios.get(`https://api.openai.com/v1/assistants/${assistantId}`, {
         headers: {
@@ -263,16 +256,12 @@ const Main: React.FC = () => {
         }
       });
       const { name, description = "", instructions = "" } = response.data;
-      const parsedInstructions = instructions ? instructions.split('\n\n').map((inst: { split: (arg0: string) => [any, ...any[]]; }) => {
-        const [title, ...content] = inst.split('\n');
-        return { title: title.replace('# ', ''), content: content.join('\n') };
-      }) : [];
-      setAssistantInfo({ name, description, instructions: parsedInstructions });
+      setAssistantInfo({ name, description, instructions, metadata: { files: [] } });
     } catch (error) {
       console.error("Error fetching assistant information:", error);
       setError("Failed to fetch assistant information");
     } finally {
-      setLoading(false); // Add this line
+      setLoading(false);
     }
   };
 
@@ -293,7 +282,7 @@ const Main: React.FC = () => {
     const payload = {
       name: assistantInfo.name || '',
       description: assistantInfo.description || '',
-      instructions: getCombinedInstructions()
+      instructions: assistantInfo.instructions
     };
 
     console.log("Payload being sent:", payload);
@@ -412,7 +401,7 @@ const Main: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setError(null);
     const { name, value } = e.target;
-    setAssistantInfo({ ...assistantInfo!, [name]: value });
+    setAssistantInfo({ ...assistantInfo, [name]: value });
   };
   
   const handleFocus = () => {
@@ -433,156 +422,398 @@ const Main: React.FC = () => {
     };
   }, []);
 
+  const fetchFiles = async () => {
+    if (!companyId) return;
+
+    const filesCollectionRef = collection(firestore, 'companies', companyId, 'assistantFiles');
+    
+    try {
+      const querySnapshot = await getDocs(filesCollectionRef);
+      const fileList = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Array<{id: string, name: string, url: string}>;
+      setFiles(fileList);
+    } catch (error) {
+      console.error('Error fetching files:', error);
+      toast.error('Failed to fetch files');
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !companyId) return;
+
+    setUploading(true);
+    const storage = getStorage(app);
+    const storageRef = ref(storage, `files/${companyId}/${file.name}`);
+
+    try {
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      // Add file info to Firestore
+      const fileDocRef = doc(collection(firestore, 'companies', companyId, 'assistantFiles'));
+      await setDoc(fileDocRef, {
+        name: file.name,
+        url: downloadURL
+      });
+
+      const newFile = { id: fileDocRef.id, name: file.name, url: downloadURL };
+      setFiles(prevFiles => [...prevFiles, newFile]);
+      toast.success('File uploaded successfully');
+
+      // Update the assistant with the new file information
+      await updateAssistantWithFile(newFile);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast.error('Failed to upload file');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const updateAssistantWithFile = async (file: {id: string, name: string, url: string}) => {
+    try {
+      const updatedFiles = [...(assistantInfo.metadata?.files || []), file];
+      await updateAssistantMetadata(updatedFiles);
+      console.log('Assistant updated with new file');
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error('Error updating assistant with file:', error.response?.data);
+        toast.error(`Failed to update assistant with file: ${error.response?.data?.error?.message || 'Unknown error'}`);
+      } else {
+        console.error('Error updating assistant with file:', error);
+        toast.error('Failed to update assistant with file: Unknown error');
+      }
+    }
+  };
+
+  const deleteFile = async (fileId: string) => {
+    if (!companyId) return;
+  
+    try {
+      await deleteDoc(doc(firestore, 'companies', companyId, 'assistantFiles', fileId));
+      
+      // Remove file from local state
+      setFiles(prevFiles => prevFiles.filter(file => file.id !== fileId));
+  
+      // Update assistant metadata to remove the file
+      const updatedFiles = assistantInfo.metadata?.files.filter(file => file.id !== fileId) || [];
+      await updateAssistantMetadata(updatedFiles);
+  
+      toast.success('File deleted successfully');
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      toast.error('Failed to delete file');
+    }
+  };
+
+  const updateAssistantMetadata = async (updatedFiles: Array<{id: string, name: string, url: string}>) => {
+    try {
+      const response = await axios.post(`https://api.openai.com/v1/assistants/${assistantId}`, {
+        metadata: {
+          ...assistantInfo.metadata,
+          files: JSON.stringify(updatedFiles) // Stringify the files array
+        }
+      }, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v1'
+        }
+      });
+      console.log('Assistant metadata updated:', response.data);
+      
+      // Update local state
+      setAssistantInfo(prevInfo => ({
+        ...prevInfo,
+        metadata: {
+          ...prevInfo.metadata,
+          files: updatedFiles
+        }
+      }));
+  
+      toast.success('Assistant metadata updated successfully');
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error('Error updating assistant metadata:', error.response?.data);
+        toast.error(`Failed to update assistant metadata: ${error.response?.data?.error?.message || 'Unknown error'}`);
+      } else {
+        console.error('Error updating assistant metadata:', error);
+        toast.error('Failed to update assistant metadata: Unknown error');
+      }
+    }
+  };
+
   return (
     <div className="flex justify-center h-screen bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-lg">
-      <Tab.Group as="div" className="flex flex-col w-full h-full">
-        <Tab.List className="flex bg-gray-100 dark:bg-gray-900 p-2 sticky top-0 z-10">
-          <Tab
-            className={({ selected }) =>
-              `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
-                selected
-                  ? 'bg-white text-blue-600 dark:bg-gray-800 dark:text-blue-400'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-              } transition-colors duration-200`
-            }
-          >
-            Chat
-          </Tab>
-          <Tab
-            className={({ selected }) =>
-              `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
-                selected
-                  ? 'bg-white text-blue-600 dark:bg-gray-800 dark:text-blue-400'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-              } transition-colors duration-200`
-            }
-          >
-            Assistant Config
-          </Tab>
-        </Tab.List>
-        <Tab.Panels className="flex-1 overflow-hidden">
-          <Tab.Panel className="h-full flex flex-col">
-            <MessageList 
-              messages={messages} 
-              onSendMessage={sendMessageToAssistant} 
-              assistantName={assistantInfo?.name || 'Juta Assistant'} 
-              deleteThread={deleteThread} 
-              threadId={threadId}
-            />
-          </Tab.Panel>
-          <Tab.Panel className="h-full overflow-auto p-4 dark:bg-gray-900">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
-                  <img alt="Logo" className="w-24 h-24 p-15" src={logoUrl} />
-                  <div className="mt-2 text-xs p-15 dark:text-gray-200">Fetching Assistant...</div>
-                  <LoadingIcon icon="three-dots" className="w-20 h-20 p-4" />
+      <div className={`w-full ${isWideScreen ? 'max-w-6xl flex' : 'max-w-lg'}`}>
+        {isWideScreen ? (
+          <>
+            <div className="w-1/2 pl-2 pr-2 ml-2 mr-2 mt-4 overflow-auto">
+              {loading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-4">
+                    <img alt="Logo" className="w-24 h-24 mb-4" src={logoUrl} />
+                    <div className="mt-2 text-xs p-2 dark:text-gray-200">Fetching Assistant...</div>
+                    <LoadingIcon icon="three-dots" className="w-20 h-20 p-4" />
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-col mb-4">
-                  {assistantInfo && (
-                    <>
-                      <div className="mb-2 text-lg font-semibold capitalize dark:text-gray-200">{assistantInfo.name}</div>
-                    </>
-                  )}
-                </div>
-                <div className="mb-4">
-                  <label className="mb-2 text-md font-semibold capitalize dark:text-gray-200" htmlFor="name">
-                    Name
-                  </label>
-                  <input
-                    id="name"
-                    type="text"
-                    className="w-full p-2 border border-gray-300 rounded text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                    placeholder="Name your assistant"
-                    value={assistantInfo ? assistantInfo.name : ''}
-                    onChange={handleInputChange}
-                    onFocus={handleFocus}
-                    disabled={userRole === "3"}
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="mb-2 text-md font-semibold dark:text-gray-200" htmlFor="description">
-                    Description
-                  </label>
-                  <textarea
-                    id="description"
-                    className="w-full p-2 border border-gray-300 rounded h-16 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                    placeholder="Add a short description of what this assistant does"
-                    value={assistantInfo ? assistantInfo.description : ''}
-                    onChange={handleInputChange}
-                    onFocus={handleFocus}
-                    disabled={userRole === "3"}
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="mb-2 text-md font-semibold dark:text-gray-200" htmlFor="instructions">
-                    Instructions
-                  </label>
-                  {assistantInfo.instructions.map((instruction, index) => (
-                    <div key={index} className="mb-2 flex items-center">
-                      <div className="flex-grow">
-                        <input
-                          type="text"
-                          className="w-full p-2 border border-gray-300 rounded mb-1 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                          placeholder="Title"
-                          value={instruction.title}
-                          onChange={(e) => handleInstructionChange(index, 'title', e.target.value)}
-                          onFocus={handleFocus}
-                          disabled={userRole === "3"}
-                        />
-                        <textarea
-                          className="w-full p-2 border border-gray-300 rounded h-32 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                          placeholder="Content"
-                          value={instruction.content}
-                          onChange={(e) => handleInstructionChange(index, 'content', e.target.value)}
-                          onFocus={handleFocus}
-                          disabled={userRole === "3"}
-                        />
-                      </div>
-                      <button
-                        onClick={() => deleteInstructionField(index)}
-                        className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <h1 className="text-2xl font-bold dark:text-gray-200">{assistantInfo.name || "Assistant Name"}</h1>
+                  </div>
+                  <div className="mb-4">
+                    <label className="mb-2 text-lg font-medium capitalize dark:text-gray-200" htmlFor="name">
+                      Name
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="name"
+                        name="name"
+                        type="text"
+                        className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                        placeholder="Name your assistant"
+                        value={assistantInfo.name}
+                        onChange={handleInputChange}
+                        onFocus={handleFocus}
+                        disabled={userRole === "3"}
+                      />
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="mb-2 text-lg font-medium dark:text-gray-200" htmlFor="description">
+                      Description
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        id="description"
+                        name="description"
+                        className="w-full p-3 border border-gray-300 rounded-lg h-24 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Add a short description of what this assistant does"
+                        value={assistantInfo.description}
+                        onChange={handleInputChange}
+                        onFocus={handleFocus}
+                        disabled={userRole === "3"}
+                      />
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="mb-2 text-lg font-medium dark:text-gray-200" htmlFor="instructions">
+                      Instructions
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        id="instructions"
+                        name="instructions"
+                        className="w-full p-3 border border-gray-300 rounded-lg h-32 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Tell your assistant what to do"
+                        value={assistantInfo.instructions}
+                        onChange={handleInputChange}
+                        onFocus={handleFocus}
+                        rows={10}
+                        disabled={userRole === "3"}
+                      />
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="mb-2 text-lg font-medium dark:text-gray-200" htmlFor="file-upload">
+                      Knowledge Base
+                    </label>
+                    <input
+                      id="file-upload"
+                      type="file"
+                      onChange={handleFileUpload}
+                      className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                      disabled={uploading || userRole === "3"}
+                    />
+                    {uploading && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Uploading...</p>}
+                  </div>
+                  <div className="mb-4">
+                    <ul className="list-disc list-inside">
+                      {files.map((file) => (
+                        <li key={file.id} className="text-sm text-blue-500 flex items-center justify-between">
+                          <a href={file.url} target="_blank" rel="noopener noreferrer">{file.name}</a>
+                          <button 
+                            onClick={() => deleteFile(file.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            Delete
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <button 
+                      ref={updateButtonRef}
+                      onClick={updateAssistantInfo} 
+                      className={`px-4 py-2 bg-primary text-white rounded-lg transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95 ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      onFocus={handleFocus}
+                      disabled={userRole === "3"}
+                    >
+                      Update Assistant
+                    </button>
+                  </div>
+                  {error && <div className="mt-4 text-red-500">{error}</div>}
+                </>
+              )}
+            </div>
+            <div className="w-1/2 pr-2">
+              <MessageList 
+                messages={messages} 
+                onSendMessage={sendMessageToAssistant} 
+                assistantName={assistantInfo?.name || 'Juta Assistant'} 
+                deleteThread={deleteThread} 
+                threadId={threadId}
+              />
+            </div>
+          </>
+        ) : (
+          <Tab.Group as="div" className="flex flex-col w-full h-full">
+            <Tab.List className="flex bg-gray-100 dark:bg-gray-900 p-2 sticky top-0 z-10">
+              <Tab
+                className={({ selected }) =>
+                  `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
+                    selected
+                      ? 'bg-white text-blue-600 dark:bg-gray-800 dark:text-blue-400'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                  } transition-colors duration-200`
+                }
+              >
+                Assistant Config
+              </Tab>
+              <Tab
+                className={({ selected }) =>
+                  `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
+                    selected
+                      ? 'bg-white text-blue-600 dark:bg-gray-800 dark:text-blue-400'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                  } transition-colors duration-200`
+                }
+              >
+                Chat
+              </Tab>
+            </Tab.List>
+            <Tab.Panels className="flex-1 overflow-hidden">
+              <Tab.Panel className="h-full overflow-auto p-4 dark:bg-gray-900">
+                {loading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
+                      <img alt="Logo" className="w-24 h-24 p-15" src={logoUrl} />
+                      <div className="mt-2 text-xs p-15 dark:text-gray-200">Fetching Assistant...</div>
+                      <LoadingIcon icon="three-dots" className="w-20 h-20 p-4" />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-4">
+                      <label className="mb-2 text-lg font-medium capitalize dark:text-gray-200" htmlFor="name">
+                        Name
+                      </label>
+                      <input
+                        id="name"
+                        name="name"
+                        type="text"
+                        className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                        placeholder="Name your assistant"
+                        value={assistantInfo.name}
+                        onChange={handleInputChange}
+                        onFocus={handleFocus}
+                        disabled={userRole === "3"}
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <label className="mb-2 text-lg font-medium dark:text-gray-200" htmlFor="description">
+                        Description
+                      </label>
+                      <textarea
+                        id="description"
+                        name="description"
+                        className="w-full p-3 border border-gray-300 rounded-lg h-24 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Add a short description of what this assistant does"
+                        value={assistantInfo.description}
+                        onChange={handleInputChange}
+                        onFocus={handleFocus}
+                        disabled={userRole === "3"}
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <label className="mb-2 text-lg font-medium dark:text-gray-200" htmlFor="instructions">
+                        Instructions
+                      </label>
+                      <textarea
+                        id="instructions"
+                        name="instructions"
+                        className="w-full p-3 border border-gray-300 rounded-lg h-32 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Instructions for the assistant"
+                        value={assistantInfo.instructions}
+                        onChange={handleInputChange}
+                        onFocus={handleFocus}
+                        disabled={userRole === "3"}
+                        rows={5}
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <label className="mb-2 text-lg font-medium dark:text-gray-200" htmlFor="file-upload">
+                        Upload Files for Assistant
+                      </label>
+                      <input
+                        id="file-upload"
+                        type="file"
+                        onChange={handleFileUpload}
+                        className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                        disabled={uploading}
+                      />
+                      {uploading && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Uploading...</p>}
+                    </div>
+                    <div className="mb-4">
+                      <h3 className="text-lg font-medium dark:text-gray-200">Uploaded Files</h3>
+                      <ul className="list-disc list-inside">
+                        {files.map((file) => (
+                          <li key={file.id} className="text-sm text-blue-500 flex items-center justify-between">
+                            <a href={file.url} target="_blank" rel="noopener noreferrer">{file.name}</a>
+                            <button 
+                              onClick={() => deleteFile(file.id)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              Delete
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <button 
+                        ref={updateButtonRef}
+                        onClick={updateAssistantInfo} 
+                        className={`px-4 py-2 m-2 bg-primary text-white rounded-lg transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95 ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`}
                         onFocus={handleFocus}
                         disabled={userRole === "3"}
                       >
-                        ✖
+                        Update Assistant
                       </button>
                     </div>
-                  ))}
-                </div>
-                <div>
-                  <button 
-                    onClick={addInstructionField} 
-                    className="px-4 py-2 m-2 bg-primary text-white rounded active:scale-95"
-                    onFocus={handleFocus}
-                    disabled={userRole === "3"}
-                  >
-                    Add Instruction
-                  </button>
-                </div>
-                <div>
-                  <button 
-                    ref={updateButtonRef}
-                    onClick={updateAssistantInfo} 
-                    className={`px-4 py-2 m-2 bg-primary text-white rounded transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95 ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    onFocus={handleFocus}
-                    disabled={userRole === "3"}
-                  >
-                    Update Assistant
-                  </button>
-                </div>
-                {error && <div className="mt-4 text-red-500">{error}</div>}
-              </>
-            )}
-          </Tab.Panel>
-        </Tab.Panels>
-      </Tab.Group>
-      <ToastContainer />
-    </div>
+                    {error && <div className="mt-4 text-red-500">{error}</div>}
+                  </>
+                )}
+              </Tab.Panel>
+              <Tab.Panel className="h-full flex flex-col">
+                <MessageList 
+                  messages={messages} 
+                  onSendMessage={sendMessageToAssistant} 
+                  assistantName={assistantInfo?.name || 'Juta Assistant'} 
+                  deleteThread={deleteThread} 
+                  threadId={threadId}
+                />
+              </Tab.Panel>
+            </Tab.Panels>
+          </Tab.Group>
+        )}
+        <ToastContainer />
+      </div>
     </div>
   );
 }
