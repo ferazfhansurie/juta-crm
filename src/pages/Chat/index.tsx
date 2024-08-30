@@ -189,6 +189,7 @@ interface Employee {
   employeeId: string;
   role: string;
   phoneNumber?: string;
+  phone?: string;
   quotaLeads?: number;
   assignedContacts?: number;
   // Add other properties as needed
@@ -756,7 +757,7 @@ const [userPhone, setUserPhone] = useState<number | null>(null);
 
   console.log('Initial contacts:', initialContacts);
 
-  const filterContactsByUserRole = (contacts: Contact[], userRole: string, userName: string) => {
+  const filterContactsByUserRole = (contacts: Contact[], userRole: string, userName: string, phone: string = "-1") => {
     console.log('Filtering contacts:', { userRole, userName, contactsCount: contacts.length });
     if (userRole === "3") {
       const filteredContacts = contacts.filter(contact => 
@@ -776,7 +777,7 @@ const [userPhone, setUserPhone] = useState<number | null>(null);
       activeTags,
       phoneCount,
       phoneNames,
-      userPhone
+      userPhone: userData?.phone,
     });
   
     let filtered = contactsToFilter;
@@ -792,9 +793,10 @@ const [userPhone, setUserPhone] = useState<number | null>(null);
   console.log('Filtered out group chats:', { filteredCount: filtered.length });
 
   // Filter by user's phone if set
-  if (userPhone !== null) {
-    filtered = filtered.filter(contact => contact.phoneIndex === userPhone);
-    console.log(`Filtered contacts for user's phone (${phoneNames[userPhone]}):`, { filteredCount: filtered.length });
+  if (userData?.phone !== null) {
+
+    filtered = filtered.filter(contact => contact.phoneIndex === parseInt(userData?.phone));
+    console.log(`Filtered contacts for user's phone (${phoneNames[userData?.phone]}):`, { filteredCount: filtered.length });
   }
 
   // Apply tag-based filtering
@@ -848,11 +850,6 @@ const [userPhone, setUserPhone] = useState<number | null>(null);
     }
   }, [initialContacts, userRole, userData]);
 
-  useEffect(() => {
-    if (contacts.length > 0) {
-      filterAndSetContacts(contacts);
-    }
-  }, [contacts, filterAndSetContacts, userPhone]);
 
 
 
@@ -3474,8 +3471,16 @@ const getTimestamp2 = (timestamp: any): number => {
   
   useEffect(() => {
     const tag = activeTags[0].toLowerCase();
-    let filteredContacts = contacts;
+    let filteredContacts = filterContactsByUserRole(contacts, userRole, userData?.name || '');
+    setMessageMode('reply');
 
+    // First, filter contacts based on the employee's assigned phone
+    if (userData?.phone !== undefined && userData.phone !== -1) {
+      const userPhoneIndex = parseInt(userData.phone, 10);
+      filteredContacts = filteredContacts.filter(contact => contact.phoneIndex === userPhoneIndex);
+      setMessageMode(`phone${userPhoneIndex + 1}`);
+    }
+  
     // Filtering logic
     if (Object.values(phoneNames).map(name => name.toLowerCase()).includes(tag)) {
       const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => 
@@ -3483,69 +3488,67 @@ const getTimestamp2 = (timestamp: any): number => {
       );
       if (phoneIndex !== -1) {
         setMessageMode(`phone${phoneIndex + 1}`);
-        filteredContacts = contacts.filter(contact => 
-        contact.phoneIndex === phoneIndex
+        filteredContacts = filteredContacts.filter(contact => 
+          contact.phoneIndex === phoneIndex
         );
       }
     } else {
-      setMessageMode('reply');
       // Existing filtering logic for other tags
       switch (tag) {
         case 'all':
           if(companySubstring?.includes('042')){
-            filteredContacts = contacts.filter(contact => 
+            filteredContacts = filteredContacts.filter(contact => 
               !contact.chat_id?.endsWith('@g.us') && 
               !contact.tags?.includes('snooze')
             );
           }else{
-            filteredContacts = contacts.filter(contact => 
+            filteredContacts = filteredContacts.filter(contact => 
               !contact.tags?.includes('snooze')
             );
           }
           break;
         case 'unread':
-          filteredContacts = contacts.filter(contact => contact.unreadCount && contact.unreadCount > 0 && 
+          filteredContacts = filteredContacts.filter(contact => contact.unreadCount && contact.unreadCount > 0 && 
           !contact.tags?.includes('snooze'));
           break;
         case 'mine':
-          filteredContacts = contacts.filter(contact => 
+          filteredContacts = filteredContacts.filter(contact => 
             contact.tags?.some(t => t.toLowerCase() === currentUserName.toLowerCase())&& 
             !contact.tags?.includes('snooze')
           );
           break;
         case 'unassigned':
-          filteredContacts = contacts.filter(contact => 
+          filteredContacts = filteredContacts.filter(contact => 
             !contact.tags?.some(t => employeeList.some(e => e.name.toLowerCase() === t.toLowerCase())) && 
             !contact.tags?.includes('snooze')
           );
           break;
         case 'snooze':
-          filteredContacts = contacts.filter(contact => 
+          filteredContacts = filteredContacts.filter(contact => 
             contact.tags?.includes('snooze')
           );
           break;
         case 'group':
-          filteredContacts = contacts.filter(
+          filteredContacts = filteredContacts.filter(
             (contact) =>
               contact.chat_id?.endsWith("@g.us") && !contact.tags?.includes("snooze")
           );
           break;
         case "stop bot":
-          filteredContacts = contacts.filter(contact => 
+          filteredContacts = filteredContacts.filter(contact => 
             contact.tags?.includes('stop bot') && 
             !contact.tags?.includes('snooze')
           );
           break;
         default:
-          filteredContacts = contacts.filter(contact => 
+          filteredContacts = filteredContacts.filter(contact => 
             contact.tags?.some(t => t.toLowerCase() === tag.toLowerCase()) && 
             !contact.tags?.includes('snooze')
           );
       }
     }
     filteredContacts = sortContacts(filteredContacts);
-  
-
+    console.log("MESSAGE MODE", messageMode)
     let filtered = filteredContacts;
     
     if (searchQuery) {
@@ -3559,11 +3562,11 @@ const getTimestamp2 = (timestamp: any): number => {
                tags.includes(searchQuery.toLowerCase());
       });
       setFilteredContacts(filtered);
-    }else{
+    } else {
       setFilteredContacts(filtered);
       setCurrentPage(0)
     }
-  }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList]);
+  }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList, userData]);
   
   const handleSnoozeContact = async (contact: Contact) => {
     try {
@@ -5212,16 +5215,24 @@ const handleForwardMessage = async () => {
     ...(isTagsExpanded ? [
       'Group', 'Unread', 'Snooze', 'Stop Bot',
       ...(userData?.role === '1' ? Object.values(phoneNames) : 
-        userData?.phone ? [phoneNames[Object.keys(phoneNames).find(index => phoneNames[Number(index)] === userData.phone) as unknown as number]] : []),
+        userData?.phone !== undefined && userData.phone !== -1 ? 
+          [phoneNames[userData.phone] || `Phone ${userData.phone + 1}`] : 
+          []
+      ),
       ...visibleTags.filter(tag => 
         !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group', 'stop bot'].includes(tag.name) && 
         !visiblePhoneTags.includes(tag.name)
       )
     ] : [])
   ].map((tag) => {
-    const tagName = typeof tag === 'string' ? tag : tag.name;
+    const tagName = typeof tag === 'string' ? tag : tag.name || String(tag);
     const tagLower = tagName.toLowerCase();
-    const unreadCount = contacts.filter(contact => {
+    let newfilter = contacts;
+    if(userData?.phone !== undefined && userData.phone !== -1){
+      const userPhoneIndex = parseInt(userData.phone, 10);
+      newfilter = contacts.filter(contact => contact.phoneIndex === userPhoneIndex)
+    }
+    const unreadCount = newfilter.filter(contact => {
       const contactTags = contact.tags?.map(t => t.toLowerCase()) || [];
       const isGroup = contact.chat_id?.endsWith('@g.us');
       const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => name.toLowerCase() === tagLower);
@@ -5239,6 +5250,8 @@ const handleForwardMessage = async () => {
         (tagLower !== 'all' && tagLower !== 'unassigned' ? contact.unreadCount && contact.unreadCount > 0 : true)
       );
     }).length;
+
+    // ... rest of the code
 
     return (
       <button

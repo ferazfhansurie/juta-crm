@@ -88,7 +88,7 @@ function Main() {
     notes: string;
     quotaLeads: number;
     invoiceNumber: string | null;
-    phone: number | null;
+    phone: number;
   }>({
     name: "",
     phoneNumber: "",
@@ -101,7 +101,7 @@ function Main() {
     notes: "",
     quotaLeads: 0,
     invoiceNumber: null,
-    phone: null,
+    phone: -1,
   });
 
   useEffect(() => {
@@ -118,7 +118,7 @@ function Main() {
         notes: contact.notes || "",
         quotaLeads: contact.quotaLeads || 0,
         invoiceNumber: contact.invoiceNumber || null,
-        phone: contact.phone || 0,
+        phone: contact.phone || -1,
       });
       setCategories([contact.role]);
     }
@@ -179,10 +179,16 @@ function Main() {
 
   const handleChange = (e: { target: { name: any; value: any; }; }) => {
     const { name, value } = e.target;
-    setUserData(prev => ({
-      ...prev,
-      [name]: name === 'phone' ? (value === '' ? null : parseInt(value, 10)) : value
-    }));
+    setUserData(prev => {
+      const newData = { ...prev, [name]: value };
+      
+      // Reset phone to -1 if role is not "2" (Sales)
+      if (name === 'role' && value !== "2") {
+        newData.phone = -1;
+      }
+      
+      return newData;
+    });
   };
 
   const handleAddNewGroup = () => {
@@ -255,7 +261,7 @@ function Main() {
           notes: userData.notes || null,
           quotaLeads: userData.quotaLeads || 0,
           invoiceNumber: userData.invoiceNumber || null,
-          phone: userData.phone || 0,
+          phone: userData.phone || -1,
         };
 
         if (contactId) {
@@ -289,7 +295,7 @@ function Main() {
               notes: "",
               quotaLeads: 0,
               invoiceNumber: null,
-              phone: null,
+              phone: -1,
             });
           } else {
             throw new Error(responseData.error);
@@ -470,18 +476,16 @@ function Main() {
             <select
               id="phone"
               name="phone"
-              value={userData.phone === null ? '' : userData.phone.toString()}
+              value={userData.phone}
               onChange={handleChange}
               className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
-              disabled={isFieldDisabled("phone")}
+              disabled={isFieldDisabled("phone") || userData.role !== "2"}
             >
-              <option value="">Select a phone</option>
+              <option value="-1">Select a phone</option>
               {Object.entries(phoneNames).map(([index, phoneName]) => (
-                index !== '0' && (
-                  <option key={index} value={index}>
-                    {phoneName}
-                  </option>
-                )
+                <option key={index} value={parseInt(index) - 1}>
+                  {phoneName}
+                </option>
               ))}
             </select>
           </div>
