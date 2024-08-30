@@ -388,7 +388,6 @@ function Main() {
               value={userData.email}
               onChange={handleChange}
               placeholder="Email"
-              readOnly={!!contactId}
               disabled={isFieldDisabled("email")}
             />
           </div>
@@ -465,6 +464,7 @@ function Main() {
               className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
               disabled={isFieldDisabled("role")}
             >
+              <option value="">Select role</option>
               <option value="1">Admin</option>
               <option value="2">Sales</option>
               <option value="3">Observer</option>

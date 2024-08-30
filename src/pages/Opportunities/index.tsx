@@ -472,19 +472,31 @@ function LoadingPage() {
     setLoading(true);
     if (!email) {
       console.log('No email provided!');
+      setLoading(false);
       return;
     }
 
     try {
+      console.log(`Fetching data for user: ${email}`);
       const docUserRef = doc(firestore, 'user', email);
       const docUserSnapshot = await getDoc(docUserRef);
+      
       if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
+        console.error(`No document found for user: ${email}`);
+        setLoading(false);
         return;
       }
 
       const userData = docUserSnapshot.data();
+      console.log('User data:', userData);
       const companyId = userData.companyId;
+
+      if (!companyId) {
+        console.error(`No companyId found for user: ${email}`);
+        setLoading(false);
+        return;
+      }
+      
       // Fetch employee data
       const employeeRef = collection(firestore, `companies/${companyId}/employee`);
       const employeeSnapshot = await getDocs(employeeRef);
