@@ -167,6 +167,11 @@ function Main() {
   const [contactsTimeFilter, setContactsTimeFilter] = useState<'today' | '7days' | '1month' | '3months' | 'all'>('7days');
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
 
+  // Add these new state variables
+  const [responseRate, setResponseRate] = useState(0);
+  const [averageRepliesPerLead, setAverageRepliesPerLead] = useState(0);
+  const [engagementScore, setEngagementScore] = useState(0);
+
   useEffect(() => {
     fetchCompanyData();
     fetchEmployees();
@@ -554,7 +559,6 @@ async function fetchConfigFromDatabase() {
       console.error('CompanyId is not set. Unable to fetch contacts data.');
       return;
     }
-
     try {
       const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
       const contactsSnapshot = await getDocs(contactsRef);
@@ -615,16 +619,32 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     }
   }
 
-  // Update this useEffect
+  // Add this function to calculate additional stats
+  const calculateAdditionalStats = useCallback(() => {
+    // Response Rate
+    const newResponseRate = totalContacts > 0 ? (numReplies / totalContacts) * 100 : 0;
+    setResponseRate(Number(newResponseRate.toFixed(2)));
+
+    // Average Replies per Lead
+    const newAverageRepliesPerLead = totalContacts > 0 ? numReplies / totalContacts : 0;
+    setAverageRepliesPerLead(Number(newAverageRepliesPerLead.toFixed(2)));
+
+    // Engagement Score (example: weighted sum of response rate and average replies)
+    const newEngagementScore = (newResponseRate * 0.7) + (newAverageRepliesPerLead * 30);
+    setEngagementScore(Number(newEngagementScore.toFixed(2)));
+  }, [numReplies, totalContacts]);
+
+  // Update useEffect to call calculateAdditionalStats
   useEffect(() => {
     if (companyId) {
       fetchContactsData();
+      calculateAdditionalStats();
     }
-  }, [companyId]);
+  }, [companyId, calculateAdditionalStats]);
 
-  // Add this function to handle employee selection
+  // Modify the handleEmployeeSelect function
   const handleEmployeeSelect = async (event: React.MouseEvent, employee: Employee) => {
-    event.stopPropagation(); // Prevent the click from bubbling up
+    event.stopPropagation();
     console.log("Employee selected:", employee);
     const fullEmployeeData = await fetchEmployeeData(employee.id);
     if (fullEmployeeData) {
@@ -784,15 +804,25 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       ]
     },
     {
-      id: 'leads',
-      title: 'Leads Overview',
+      id: 'engagement-metrics',
+      title: 'Engagement Metrics',
       content: [
-        { label: "Total", value: totalContacts },
-        { label: "Today", value: todayContacts },
-        { label: "This Week", value: weekContacts },
-        { label: "This Month", value: monthContacts },
-      ]
+        { label: "Response Rate", value: `${responseRate}%` },
+        { label: "Avg. Replies per Lead", value: averageRepliesPerLead },
+        { label: "Engagement Score", value: engagementScore },
+        { label: "Conversion Rate", value: `${closedContacts > 0 ? ((closedContacts / totalContacts) * 100).toFixed(2) : 0}%` },
+      ],
     },
+    // {
+    //   id: 'leads',
+    //   title: 'Leads Overview',
+    //   content: [
+    //     { label: "Total", value: totalContacts },
+    //     { label: "Today", value: todayContacts },
+    //     { label: "This Week", value: weekContacts },
+    //     { label: "This Month", value: monthContacts },
+    //   ]
+    // },
     {
       id: 'contacts-over-time',
       title: 'Contacts Over Time',
@@ -803,7 +833,7 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     {
       id: 'employee-assignments',
       title: 'Top Performers',
-      content: { employees, chartData, lineChartOptions }
+      content: { employees, chartData, lineChartOptions, currentUser, selectedEmployee, handleEmployeeSelect }
     },
     // Add more cards here as needed
   ];
@@ -835,7 +865,7 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
                   )}
                 </div>
                 <div className="flex-grow">
-                  {card.id === 'kpi' || card.id === 'leads' ? (
+                  {card.id === 'kpi' || card.id === 'leads' || card.id === 'engagement-metrics' ? (
                     <div className="grid grid-cols-2 gap-4">
                       {Array.isArray(card.content) && card.content.map((item, index) => (
                         <div key={index} className="text-center">
@@ -857,7 +887,13 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
                       <div className="mb-4">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           {employees.slice(0, 3).map((employee) => (
-                            <div key={employee.id} className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
+                            <div
+                              key={employee.id}
+                              className={`bg-gray-100 dark:bg-gray-700 rounded-lg p-4 cursor-pointer ${
+                                selectedEmployee?.id === employee.id ? 'ring-2 ring-blue-500' : ''
+                              }`}
+                              onClick={(e) => handleEmployeeSelect(e, employee)}
+                            >
                               <div className="font-medium text-gray-800 dark:text-gray-200">{employee.name}</div>
                               <div className="text-sm text-gray-600 dark:text-gray-400">
                                 {employee.assignedContacts} assigned contacts
@@ -867,7 +903,17 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
                         </div>
                       </div>
                       <div className="h-64">
-                        {chartData && <Line data={chartData} options={lineChartOptions} />}
+                      {selectedEmployee ? (
+                        chartData ? (
+                          <Line data={chartData} options={lineChartOptions} />
+                        ) : (
+                          <div className="text-center text-gray-600 dark:text-gray-400">No data available for this employee</div>
+                        )
+                      ) : currentUser && chartData ? (
+                        <Line data={chartData} options={lineChartOptions} />
+                      ) : (
+                        <div className="text-center text-gray-600 dark:text-gray-400">Select an employee to view their chart</div>
+                      )}
                       </div>
                     </div>
                   ) : (
