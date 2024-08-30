@@ -2766,23 +2766,9 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       return;
     }
     const data2 = docSnapshot.data();
-
-    if (isPrivateNote) {
-      const newNote = {
-        id: Date.now().toString(),
-        text: newMessage,
-        timestamp: Date.now(),
-      };
+  
+    if (messageMode === 'privateNote') {
       handleAddPrivateNote(newMessage);
-      setPrivateNotes(prevNotes => ({
-        ...prevNotes,
-        [selectedChatId]: [
-          ...(prevNotes[selectedChatId] || []),
-          { id: Date.now().toString(), text: newMessage, timestamp: Date.now() }
-        ]
-      }));
-      setNewMessage('');
-      adjustHeight(textareaRef.current!, true);
     } else {
       try {
         let response;
@@ -2821,38 +2807,36 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
             }),
           });
         }
-
+  
         await sendTextMessage(selectedChatId, newMessage, selectedContact);
-        setNewMessage('');
-        adjustHeight(textareaRef.current!, true);
-
+  
         if (!response.ok) {
           throw new Error('Failed to send message');
         }
         const now = new Date();
         const data = await response.json();
         // Update the local state
-    setContacts(prevContacts => 
-      prevContacts.map(contact => 
-        contact.id === selectedContact.id 
-          ? updateContactWithNewMessage(contact, newMessage, now)
-          : contact
-      )
-    );
-    const contactRef = doc(firestore, `companies/${companyId}/contacts`, selectedContact.id);
-    const updatedLastMessage: Message = {
-      text: { body: newMessage },
-      chat_id: selectedContact.chat_id || '',
-      timestamp:  Math.floor(now.getTime() / 1000),
-      id: selectedContact.last_message?.id || `temp_${now.getTime()}`,
-      from_me: true,
-      type: 'text',
-      phoneIndex: selectedContact.last_message?.phoneIndex || 0,
-    };
-    
-    await updateDoc(contactRef, {
-      last_message: updatedLastMessage
-    });
+        setContacts(prevContacts => 
+          prevContacts.map(contact => 
+            contact.id === selectedContact.id 
+              ? updateContactWithNewMessage(contact, newMessage, now)
+              : contact
+          )
+        );
+        const contactRef = doc(firestore, `companies/${companyId}/contacts`, selectedContact.id);
+        const updatedLastMessage: Message = {
+          text: { body: newMessage },
+          chat_id: selectedContact.chat_id || '',
+          timestamp:  Math.floor(now.getTime() / 1000),
+          id: selectedContact.last_message?.id || `temp_${now.getTime()}`,
+          from_me: true,
+          type: 'text',
+          phoneIndex: selectedContact.last_message?.phoneIndex || 0,
+        };
+        
+        await updateDoc(contactRef, {
+          last_message: updatedLastMessage
+        });
         console.log('Message sent successfully:', data);
         toast.success("Message sent successfully!");
         fetchMessagesBackground(selectedChatId!, data2.apiToken);
@@ -2861,10 +2845,12 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         toast.error("Failed to send message");
       }
     }
-
+  
     setNewMessage('');
     setReplyToMessage(null);
   };
+
+  
   const updateContactWithNewMessage = (contact: Contact, newMessage: string, now: Date): Contact => {
     const updatedLastMessage: Message = {
       text: { body: newMessage },
@@ -5758,13 +5744,11 @@ className="cursor-pointer">
                       </div>
                     )}
 
-
-
                     <div
                       data-message-id={message.id}
-                      className={`p-2 mr-2 ${
+                      className={`p-2 mr-6 ${
                         message.type === 'privateNote'
-                          ? "bg-yellow-600 text-black rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto text-left mb-1 group"
+                          ? "bg-yellow-600 text-black rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl self-end ml-auto text-left mb-1 group"
                           : messageClass
                       }`}
                       style={{
@@ -5776,7 +5760,7 @@ className="cursor-pointer">
                             ? '320'
                             : message.text?.body
                             ? Math.min(Math.max(message.text.body.length, message.text?.context?.quoted_content?.body?.length || 0) * 30, 320)
-                            : '100'
+                            : '150'
                         }px`,
                         minWidth: '200px',
                       }}

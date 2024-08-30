@@ -758,7 +758,7 @@ const Main: React.FC = () => {
                     </div>
                     <div className="mb-4">
                       <label className="mb-2 text-lg font-medium dark:text-gray-200" htmlFor="file-upload">
-                        Upload Files for Assistant
+                        Knowledge Base
                       </label>
                       <input
                         id="file-upload"
@@ -770,7 +770,6 @@ const Main: React.FC = () => {
                       {uploading && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Uploading...</p>}
                     </div>
                     <div className="mb-4">
-                      <h3 className="text-lg font-medium dark:text-gray-200">Uploaded Files</h3>
                       <ul className="list-disc list-inside">
                         {files.map((file) => (
                           <li key={file.id} className="text-sm text-blue-500 flex items-center justify-between">
