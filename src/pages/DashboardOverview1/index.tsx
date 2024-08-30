@@ -570,16 +570,16 @@ async function fetchConfigFromDatabase() {
       let month = 0;
 
       const now = new Date();
-const startOfDay = new Date(now.setHours(0, 0, 0, 0));
-const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
       contactsSnapshot.forEach((doc) => {
         const contactData = doc.data();
         const dateAdded = contactData.dateAdded ? new Date(contactData.dateAdded) : null;
 
         total++;
-        if (contactData.status === 'closed') {
+        if (contactData.tags && contactData.tags.includes('closed')) {
           closed++;
         }
 
@@ -623,15 +623,15 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const calculateAdditionalStats = useCallback(() => {
     // Response Rate
     const newResponseRate = totalContacts > 0 ? (numReplies / totalContacts) * 100 : 0;
-    setResponseRate(Number(newResponseRate.toFixed(2)));
+    setResponseRate(Number(newResponseRate.toFixed(0)));
 
     // Average Replies per Lead
     const newAverageRepliesPerLead = totalContacts > 0 ? numReplies / totalContacts : 0;
-    setAverageRepliesPerLead(Number(newAverageRepliesPerLead.toFixed(2)));
+    setAverageRepliesPerLead(Number(newAverageRepliesPerLead.toFixed(0)));
 
     // Engagement Score (example: weighted sum of response rate and average replies)
     const newEngagementScore = (newResponseRate * 0.7) + (newAverageRepliesPerLead * 30);
-    setEngagementScore(Number(newEngagementScore.toFixed(2)));
+    setEngagementScore(Number(newEngagementScore.toFixed(0)));
   }, [numReplies, totalContacts]);
 
   // Update useEffect to call calculateAdditionalStats
