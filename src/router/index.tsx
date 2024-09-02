@@ -4,7 +4,6 @@ import DashboardOverview2 from "../pages/DashboardOverview2";
 import DashboardOverview3 from "../pages/DashboardOverview3";
 import DashboardOverview4 from "../pages/DashboardOverview4";
 import Categories from "../pages/Categories";
-import AddProduct from "../pages/AddProduct";
 import ProductList from "../pages/ProductList";
 import ProductGrid from "../pages/ProductGrid";
 import TransactionList from "../pages/TransactionList";
@@ -52,7 +51,6 @@ import Notification from "../pages/Notification";
 import Tab from "../pages/Tab";
 import Accordion from "../pages/Accordion";
 import Button from "../pages/Button";
-import Alert from "../pages/Alert";
 import ProgressBar from "../pages/ProgressBar";
 import Tooltip from "../pages/Tooltip";
 import Dropdown from "../pages/Dropdown";
@@ -107,7 +105,6 @@ function Router() {
         { path: "dashboard-overview-4", element: <DashboardOverview4 /> },
         { path: "profile", element: <ProfileOverview1 /> },
         { path: "categories", element: <Categories /> },
-        { path: "add-product", element: <AddProduct /> },
         { path: "transaction-list", element: <TransactionList /> },
         { path: "transaction-detail", element: <TransactionDetail /> },
         { path: "seller-list", element: <SellerList /> },
@@ -149,7 +146,6 @@ function Router() {
         { path: "tab", element: <Tab /> },
         { path: "accordion", element: <Accordion /> },
         { path: "button", element: <Button /> },
-        { path: "alert", element: <Alert /> },
         { path: "progress-bar", element: <ProgressBar /> },
         { path: "tooltip", element: <Tooltip /> },
         { path: "dropdown", element: <Dropdown /> },

@@ -4,7 +4,6 @@ import fakerData from "@/utils/faker";
 import Button from "@/components/Base/Button";
 import Pagination from "@/components/Base/Pagination";
 import { FormInput, FormSelect } from "@/components/Base/Form";
-import Alert from "@/components/Base/Alert";
 import Lucide from "@/components/Base/Lucide";
 import Tippy from "@/components/Base/Tippy";
 import ReportBarChart1 from "@/components/ReportBarChart1";
@@ -22,36 +21,7 @@ function Main() {
         <div className="grid grid-cols-12 gap-6">
           <div className="z-20 col-span-12 xl:col-span-9 2xl:col-span-9">
             <div className="mt-6 -mb-6 intro-y">
-              <Alert
-                variant="primary"
-                dismissible
-                className="flex items-center mb-6 box dark:border-darkmode-600"
-              >
-                {({ dismiss }: { dismiss: () => void }) => (
-                  <>
-                    <span>
-                      Introducing new dashboard! Download now at
-                      <a
-                        href="https://themeforest.net/item/midone-jquery-tailwindcss-html-admin-template/26366820"
-                        className="ml-1 underline"
-                        target="blank"
-                      >
-                        themeforest.net
-                      </a>
-                      .
-                      <button className="rounded-md bg-white bg-opacity-20 dark:bg-darkmode-300 hover:bg-opacity-30 py-0.5 px-2 -my-3 ml-2">
-                        Live Preview
-                      </button>
-                    </span>
-                    <Alert.DismissButton
-                      className="text-white"
-                      onClick={dismiss}
-                    >
-                      <Lucide icon="X" className="w-4 h-4" />
-                    </Alert.DismissButton>
-                  </>
-                )}
-              </Alert>
+          
             </div>
             <div className="grid grid-cols-12 mb-3 mt-14 sm:gap-10 intro-y">
               <div className="relative col-span-12 py-6 text-center sm:col-span-6 md:col-span-4 sm:pl-5 md:pl-0 lg:pl-5 sm:text-left">
