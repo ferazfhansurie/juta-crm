@@ -455,7 +455,7 @@ function Main() {
                 <div className="p-5">
                   <Preview>
                     <Alert variant="primary" className="flex items-center mb-2">
-                      {({ dismiss }) => (
+                      {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide icon="AlertCircle" className="w-6 h-6 mr-2" />{" "}
                           Awesome alert with icon
@@ -474,7 +474,7 @@ function Main() {
                       variant="secondary"
                       className="flex items-center mb-2"
                     >
-                      {({ dismiss }) => (
+                      {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide
                             icon="AlertOctagon"
@@ -493,7 +493,7 @@ function Main() {
                       )}
                     </Alert>
                     <Alert variant="success" className="flex items-center mb-2">
-                      {({ dismiss }) => (
+                      {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide
                             icon="AlertTriangle"
@@ -512,7 +512,7 @@ function Main() {
                       )}
                     </Alert>
                     <Alert variant="warning" className="flex items-center mb-2">
-                      {({ dismiss }) => (
+                      {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide icon="AlertCircle" className="w-6 h-6 mr-2" />{" "}
                           Awesome alert with icon
@@ -528,7 +528,7 @@ function Main() {
                       )}
                     </Alert>
                     <Alert variant="pending" className="flex items-center mb-2">
-                      {({ dismiss }) => (
+                      {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide
                             icon="AlertTriangle"
@@ -547,7 +547,7 @@ function Main() {
                       )}
                     </Alert>
                     <Alert variant="danger" className="flex items-center mb-2">
-                      {({ dismiss }) => (
+                    {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide
                             icon="AlertOctagon"
@@ -566,7 +566,7 @@ function Main() {
                       )}
                     </Alert>
                     <Alert variant="dark" className="flex items-center mb-2">
-                      {({ dismiss }) => (
+                    {({ dismiss }: { dismiss: () => void }) =>(
                         <>
                           <Lucide
                             icon="AlertTriangle"
@@ -752,7 +752,7 @@ function Main() {
                       variant="outline-primary"
                       className="flex items-center mb-2"
                     >
-                      {({ dismiss }) => (
+                      {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide icon="AlertCircle" className="w-6 h-6 mr-2" />{" "}
                           Awesome alert with icon
@@ -771,7 +771,7 @@ function Main() {
                       variant="outline-secondary"
                       className="flex items-center mb-2"
                     >
-                      {({ dismiss }) => (
+                      {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide
                             icon="AlertOctagon"
@@ -793,7 +793,7 @@ function Main() {
                       variant="outline-success"
                       className="flex items-center mb-2"
                     >
-                      {({ dismiss }) => (
+                      {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide
                             icon="AlertTriangle"
@@ -815,7 +815,7 @@ function Main() {
                       variant="outline-warning"
                       className="flex items-center mb-2"
                     >
-                      {({ dismiss }) => (
+                       {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide icon="AlertCircle" className="w-6 h-6 mr-2" />{" "}
                           Awesome alert with icon
@@ -834,7 +834,7 @@ function Main() {
                       variant="outline-pending"
                       className="flex items-center mb-2"
                     >
-                      {({ dismiss }) => (
+                       {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide icon="AlertCircle" className="w-6 h-6 mr-2" />{" "}
                           Awesome alert with icon
@@ -853,7 +853,7 @@ function Main() {
                       variant="outline-danger"
                       className="flex items-center mb-2"
                     >
-                      {({ dismiss }) => (
+                       {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide
                             icon="AlertOctagon"
@@ -875,7 +875,7 @@ function Main() {
                       variant="outline-dark"
                       className="flex items-center mb-2"
                     >
-                      {({ dismiss }) => (
+                       {({ dismiss }: { dismiss: () => void }) => (
                         <>
                           <Lucide
                             icon="AlertTriangle"
