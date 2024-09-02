@@ -25,16 +25,17 @@ type Variant =
   | "soft-danger"
   | "soft-dark";
 
-type AlertProps<C extends React.ElementType> = {
-  as?: C;
-  children: React.ReactNode | ((props: { dismiss: () => void }) => JSX.Element);
-  dismissible?: boolean;
-  variant?: Variant;
-  onShow?: () => void;
-  onShown?: () => void;
-  onHide?: () => void;
-  onHidden?: () => void;
-} & Omit<React.ComponentPropsWithoutRef<C>, 'as' | 'children'>;
+
+  type AlertProps<C extends React.ElementType> = {
+    as?: C;
+    children: React.ReactNode | ((props: { dismiss: () => void }) => JSX.Element);
+    dismissible?: boolean;
+    variant?: Variant;
+    onShow?: () => void;
+    onShown?: () => void;
+    onHide?: () => void;
+    onHidden?: () => void;
+  } & Omit<React.ComponentPropsWithoutRef<C>, 'as' | 'children'>;
 
 type PolymorphicRef<C extends React.ElementType> = React.ComponentPropsWithRef<C>['ref'];
 const Alert = forwardRef(function Alert<C extends React.ElementType = 'div'>(
@@ -42,7 +43,7 @@ const Alert = forwardRef(function Alert<C extends React.ElementType = 'div'>(
   ref: PolymorphicRef<C>
 ) {
   const [show, setShow] = useState<boolean>(true);
-  const ComponentToRender = Component || 'div';
+  const ComponentToRender: React.ElementType = Component || 'div';
 
   // Main Colors
   const primary = [
