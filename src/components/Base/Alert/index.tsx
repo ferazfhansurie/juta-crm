@@ -47,7 +47,7 @@ type AlertComponent = <C extends React.ElementType = "div">(
 const Alert: AlertComponent = forwardRef(
   <C extends React.ElementType>(
     { as: Component, dismissible, variant, children, ...props }: AlertProps<C>,
-    ref?: PolymorphicRef<C>
+    ref: PolymorphicRef<C>
   ) => {
     const [show, setShow] = useState<boolean>(true);
     const ComponentType = Component || 'div';
@@ -194,7 +194,9 @@ const Alert: AlertComponent = forwardRef(
       </Transition>
     );
   }
-);
+) as <C extends React.ElementType>(
+  props: AlertProps<C> & { ref?: PolymorphicRef<C> }
+) => JSX.Element;
 
 type DismissButtonProps<C extends React.ElementType> = PolymorphicComponentProp<
   C,
