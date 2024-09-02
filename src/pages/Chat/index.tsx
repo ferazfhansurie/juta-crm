@@ -4578,39 +4578,6 @@ const handleForwardMessage = async () => {
       await updateDoc(companyRef, {
         stopbot: !stopbot
       });
-
-      // Update each contact's tags
-      const contactsRef = collection(firestore, 'companies', companyId, 'contacts');
-      const contactsSnapshot = await getDocs(contactsRef);
-      const batch = writeBatch(firestore);
-
-      contactsSnapshot.forEach((doc) => {
-        const contactRef = doc.ref;
-        if (stopbot) {
-          // Remove "stop bot" tag
-          batch.update(contactRef, {
-            tags: arrayRemove('stop bot')
-          });
-        } else {
-          // Add "stop bot" tag
-          batch.update(contactRef, {
-            tags: arrayUnion('stop bot')
-          });
-        }
-      });
-
-      await batch.commit();
-      
-      // Update local state
-      setContacts(prevContacts => 
-        prevContacts.map(contact => ({
-          ...contact,
-          tags: stopbot
-            ? contact.tags?.filter(tag => tag !== 'stop bot')
-            : [...(contact.tags || []), 'stop bot']
-        }))
-      );
-
       setStopbot(!stopbot);
       toast.success(`Bot ${stopbot ? 'activated' : 'deactivated'} successfully!`);
     } catch (error) {
@@ -5242,7 +5209,7 @@ const handleForwardMessage = async () => {
 </div>
 )}
   <div className="flex justify-end space-x-3">
-    <button 
+  <button 
       className={`flex items-center justify-start p-2 !box ${
         stopbot ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
       } ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`} 
@@ -5250,9 +5217,9 @@ const handleForwardMessage = async () => {
       disabled={userRole === "3"}
       >
       <Lucide 
-        icon={allBotsStopped ? 'PowerOff' : 'Power'} 
+        icon={stopbot ? 'PowerOff' : 'Power'} 
         className={`w-5 h-5 ${
-          allBotsStopped ? 'text-red-500' : 'text-green-500'
+          stopbot ? 'text-red-500' : 'text-green-500'
         }`}
       />                
     </button>
