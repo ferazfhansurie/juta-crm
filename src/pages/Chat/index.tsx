@@ -3178,8 +3178,8 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
     const user = auth.currentUser;
     if (!user) {
       console.error('No authenticated user');
-      return;
-    }
+    return;
+  }
 
     const docUserRef = doc(firestore, 'user', user.email!);
     const docUserSnapshot = await getDoc(docUserRef);
@@ -3248,7 +3248,7 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
       console.log("v2 is true");
       url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${employeePhone}`;
       requestBody = { message };
-    } else {
+      } else {
       console.log("v2 is false");
       url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${employeePhone}/${companyData.whapiToken}`;
       requestBody = { message };
@@ -3346,7 +3346,7 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
       return false;
     }
   }
-  
+
 const formatText = (text: string) => {
   const parts = text.split(/(\*[^*]+\*|\*\*[^*]+\*\*)/g);
   return parts.map((part: string, index: any) => {
@@ -4439,15 +4439,45 @@ const handleForwardMessage = async () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  const [allBotsStopped, setAllBotsStopped] = useState(false);
+  const [botsStatus, setBotsStatus] = useState<'allStopped' | 'allRunning' | 'mixed'>('mixed');
+
+  useEffect(() => {
+    const checkAllBotsStopped = () => {
+      const allStopped = contacts.every(contact => contact.tags?.includes('stop bot'));
+      setAllBotsStopped(allStopped);
+    };
+
+    checkAllBotsStopped();
+  }, [contacts]);
+
+  useEffect(() => {
+    const checkBotsStatus = () => {
+      const allStopped = contacts.every(contact => contact.tags?.includes('stop bot'));
+      const allRunning = contacts.every(contact => !contact.tags?.includes('stop bot'));
+      if (allStopped) {
+        setBotsStatus('allStopped');
+      } else if (allRunning) {
+        setBotsStatus('allRunning');
+      } else {
+        setBotsStatus('mixed');
+      }
+    };
+  
+    checkBotsStatus();
+  }, [contacts]);
+
   // Add this new function to toggle all bots
   const toggleAllBots = async () => {
-    setIsAllBotsEnabled(!isAllBotsEnabled);
+    const newStatus = botsStatus !== 'allRunning';
+    setIsAllBotsEnabled(newStatus);
     const user = auth.currentUser;
     if (!user) {
       console.log('No authenticated user');
       return;
     }
-
+  
     const docUserRef = doc(firestore, 'user', user.email!);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
@@ -4456,16 +4486,16 @@ const handleForwardMessage = async () => {
     }
     const userData = docUserSnapshot.data();
     const companyId = userData.companyId;
-
+  
     try {
       const contactsRef = collection(firestore, 'companies', companyId, 'contacts');
       const contactsSnapshot = await getDocs(contactsRef);
-
+  
       const batch = writeBatch(firestore);
-
+  
       contactsSnapshot.forEach((doc) => {
         const contactRef = doc.ref;
-        if (isAllBotsEnabled) {
+        if (newStatus) {
           // Remove "stop bot" tag
           batch.update(contactRef, {
             tags: arrayRemove('stop bot')
@@ -4477,28 +4507,30 @@ const handleForwardMessage = async () => {
           });
         }
       });
-
+  
       await batch.commit();
 
       // Update local state
       setContacts(prevContacts => 
         prevContacts.map(contact => ({
           ...contact,
-          tags: isAllBotsEnabled
+          tags: newStatus
             ? contact.tags?.filter(tag => tag !== 'stop bot')
             : [...(contact.tags || []), 'stop bot']
         }))
       );
-
+      
       localStorage.setItem('contacts', LZString.compress(JSON.stringify(contacts)));
       sessionStorage.setItem('contactsFetched', 'true');
-
-      toast.success(isAllBotsEnabled ? "All bots started" : "All bots stopped");
+  
+      toast.success(newStatus ? "All bots started" : "All bots stopped");
     } catch (error) {
       console.error('Error toggling all bots:', error);
       toast.error("Failed to toggle all bots");
     }
   };
+
+
   const toggleBot = async () => {
     if (userRole === "3") {
       toast.error("You don't have permission to control the bot.");
@@ -4519,6 +4551,39 @@ const handleForwardMessage = async () => {
       await updateDoc(companyRef, {
         stopbot: !stopbot
       });
+
+      // Update each contact's tags
+      const contactsRef = collection(firestore, 'companies', companyId, 'contacts');
+      const contactsSnapshot = await getDocs(contactsRef);
+      const batch = writeBatch(firestore);
+
+      contactsSnapshot.forEach((doc) => {
+        const contactRef = doc.ref;
+        if (stopbot) {
+          // Remove "stop bot" tag
+          batch.update(contactRef, {
+            tags: arrayRemove('stop bot')
+          });
+        } else {
+          // Add "stop bot" tag
+          batch.update(contactRef, {
+            tags: arrayUnion('stop bot')
+          });
+        }
+      });
+
+      await batch.commit();
+      
+      // Update local state
+      setContacts(prevContacts => 
+        prevContacts.map(contact => ({
+          ...contact,
+          tags: stopbot
+            ? contact.tags?.filter(tag => tag !== 'stop bot')
+            : [...(contact.tags || []), 'stop bot']
+        }))
+      );
+
       setStopbot(!stopbot);
       toast.success(`Bot ${stopbot ? 'activated' : 'deactivated'} successfully!`);
     } catch (error) {
@@ -5150,60 +5215,60 @@ const handleForwardMessage = async () => {
 </div>
 )}
   <div className="flex justify-end space-x-3">
-<button 
-  className={`flex items-center justify-start p-2 !box ${
-    stopbot ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
-  } ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`} 
-  onClick={toggleBot}
-  disabled={userRole === "3"}
->
-  <Lucide 
-    icon={stopbot ? 'PowerOff' : 'Power'} 
-    className={`w-5 h-5 ${
-      stopbot ? 'text-red-500' : 'text-green-500'
-    }`}
-  />                
-</button>
-  <Menu as="div" className="relative inline-block text-left">
-    <div className="flex items-right space-x-3">
-      <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
-        <span className="flex items-center justify-center w-5 h-5">
-          <Lucide icon="Users" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-        </span>
-      </Menu.Button>
-    </div>
-    <Menu.Items className="absolute right-0 mt-2 w-60 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-      {employeeList.sort((a, b) => a.name.localeCompare(b.name)).map((employee) => (
-        <Menu.Item key={employee.id}>
-          {({ active }) => (
-            <button
-              className={`flex items-center w-full text-left p-2 rounded-md ${
-                activeTags.includes(employee.name)
-                  ? 'bg-primary text-white dark:bg-primary dark:text-white'
-                  : active
-                  ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
-                  : 'text-gray-700 dark:text-gray-200'
-              }`}
-              onClick={() => filterTagContact(employee.name)}
-            >
-              <span>{employee.name}</span>
-            </button>
-          )}
-        </Menu.Item>
-      ))}
-    </Menu.Items>
-  </Menu>
-  <button
-    className="p-2 !box m-0 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-    onClick={toggleTagsExpansion}
-  >
-    <span className="flex items-center justify-center w-5 h-5">
+    <button 
+      className={`flex items-center justify-start p-2 !box ${
+        stopbot ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
+      } ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`} 
+      onClick={toggleBot}
+      disabled={userRole === "3"}
+      >
       <Lucide 
-        icon={isTagsExpanded ? "ChevronUp" : "ChevronDown"} 
-        className="w-5 h-5 text-gray-800 dark:text-gray-200" 
-      />
-    </span>
-  </button>
+        icon={allBotsStopped ? 'PowerOff' : 'Power'} 
+        className={`w-5 h-5 ${
+          allBotsStopped ? 'text-red-500' : 'text-green-500'
+        }`}
+      />                
+    </button>
+    <Menu as="div" className="relative inline-block text-left">
+      <div className="flex items-right space-x-3">
+        <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
+          <span className="flex items-center justify-center w-5 h-5">
+            <Lucide icon="Users" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+          </span>
+        </Menu.Button>
+      </div>
+      <Menu.Items className="absolute right-0 mt-2 w-60 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
+        {employeeList.sort((a, b) => a.name.localeCompare(b.name)).map((employee) => (
+          <Menu.Item key={employee.id}>
+            {({ active }) => (
+              <button
+                className={`flex items-center w-full text-left p-2 rounded-md ${
+                  activeTags.includes(employee.name)
+                    ? 'bg-primary text-white dark:bg-primary dark:text-white'
+                    : active
+                    ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+                    : 'text-gray-700 dark:text-gray-200'
+                }`}
+                onClick={() => filterTagContact(employee.name)}
+              >
+                <span>{employee.name}</span>
+              </button>
+            )}
+          </Menu.Item>
+        ))}
+      </Menu.Items>
+    </Menu>
+    <button
+      className="p-2 !box m-0 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+      onClick={toggleTagsExpansion}
+    >
+      <span className="flex items-center justify-center w-5 h-5">
+        <Lucide 
+          icon={isTagsExpanded ? "ChevronUp" : "ChevronDown"} 
+          className="w-5 h-5 text-gray-800 dark:text-gray-200" 
+        />
+      </span>
+    </button>
           </div>
           </div>
   <div className="border-b border-gray-300 dark:border-gray-700 mt-4"></div>
