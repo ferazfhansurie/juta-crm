@@ -46,12 +46,11 @@ type AlertComponent = <C extends React.ElementType = "div">(
 
 const Alert: AlertComponent = forwardRef(
   <C extends React.ElementType>(
-    { as, dismissible, variant, ...props }: AlertProps<C>,
+    { as: Component, dismissible, variant, children, ...props }: AlertProps<C>,
     ref?: PolymorphicRef<C>
   ) => {
     const [show, setShow] = useState<boolean>(true);
-    const Component = as || "div";
-
+    const ComponentType = Component || 'div';
     // Main Colors
     const primary = [
       "bg-primary border-primary text-white", // Default
@@ -153,7 +152,7 @@ const Alert: AlertComponent = forwardRef(
         leaveFrom="visible opacity-100 translate-y-0"
         leaveTo="invisible opacity-0 translate-y-1"
       >
-        <Component
+        <ComponentType
           {...props}
           ref={ref}
           role="alert"
@@ -191,7 +190,7 @@ const Alert: AlertComponent = forwardRef(
                 },
               })
             : props.children}
-        </Component>
+        </ComponentType>
       </Transition>
     );
   }
