@@ -4468,10 +4468,37 @@ const handleForwardMessage = async () => {
     checkBotsStatus();
   }, [contacts]);
 
+  useEffect(() => {
+    const checkAllBotsStopped = () => {
+      const allStopped = contacts.every(contact => contact.tags?.includes('stop bot'));
+      setAllBotsStopped(allStopped);
+    };
+
+    checkAllBotsStopped();
+  }, [contacts]);
+
+  useEffect(() => {
+    const checkBotsStatus = () => {
+      const allStopped = contacts.every(contact => contact.tags?.includes('stop bot'));
+      const allRunning = contacts.every(contact => !contact.tags?.includes('stop bot'));
+      if (allStopped) {
+        setBotsStatus('allStopped');
+      } else if (allRunning) {
+        setBotsStatus('allRunning');
+      } else {
+        setBotsStatus('mixed');
+      }
+    };
+  
+    checkBotsStatus();
+  }, [contacts]);
+
+
   // Add this new function to toggle all bots
   const toggleAllBots = async () => {
     const newStatus = botsStatus !== 'allRunning';
     setIsAllBotsEnabled(newStatus);
+
     const user = auth.currentUser;
     if (!user) {
       console.log('No authenticated user');

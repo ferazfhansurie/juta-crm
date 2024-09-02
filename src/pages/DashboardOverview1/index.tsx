@@ -30,7 +30,8 @@ import { Chart as ChartJS, ChartData, CategoryScale, LinearScale, BarElement, Ti
 import { BarChart } from "lucide-react";
 import { useContacts } from "@/contact";
 import { User, ChevronRight } from 'lucide-react';
-import { format, subDays, subMonths, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays, subMonths, startOfDay, endOfDay, eachHourOfInterval, eachDayOfInterval } from 'date-fns';
+
 
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement);
@@ -670,65 +671,111 @@ async function fetchConfigFromDatabase() {
 
   const fetchContactsOverTime = async (filter: 'today' | '7days' | '1month' | '3months' | 'all') => {
     if (!companyId) {
-      console.error('CompanyId is not set. Unable to fetch contacts data.');
-      return;
+        console.error('CompanyId is not set. Unable to fetch contacts data.');
+        return;
     }
 
     const now = new Date();
     let startDate: Date;
 
-    switch (filter) {
-      case 'today':
-        startDate = startOfDay(now);
-        break;
-      case '7days':
-        startDate = subDays(now, 7);
-        break;
-      case '1month':
-        startDate = subMonths(now, 1);
-        break;
-      case '3months':
-        startDate = subMonths(now, 3);
-        break;
-      case 'all':
-        startDate = new Date(0); // Start from the earliest possible date
-        break;
-    }
+    let interval: 'hour' | 'day' | 'month';
+
 
     try {
-      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const contactsSnapshot = await getDocs(contactsRef);
-      
-      const contactsData: { [date: string]: number } = {};
-      let totalContacts = 0;
+        const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+        const contactsSnapshot = await getDocs(contactsRef);
+        
+        let firstContactDate = now;
+        const contactsData: { [date: string]: number } = {};
+        
+        contactsSnapshot.forEach((doc) => {
+          const contactData = doc.data();
+          const dateAdded = contactData.dateAdded ? new Date(contactData.dateAdded) : null;
+  
+          if (dateAdded) {
+            if (dateAdded < firstContactDate) {
+              firstContactDate = dateAdded;
+            }
+          }
+        });
+  
+        switch (filter) {
+          case 'today':
+            startDate = startOfDay(now);
+            interval = 'hour';
+            break;
+          case '7days':
+          case '1month':
+            startDate = filter === '7days' ? subDays(now, 7) : subDays(now, 30);
+            interval = 'day';
+            break;
+          case '3months':
+            startDate = subMonths(now, 3);
+            interval = 'month';
+            break;
+          default: // 'all'
+            startDate = firstContactDate;
+            interval = 'month';
+            break;
+        }
+  
 
-      contactsSnapshot.forEach((doc) => {
+        contactsSnapshot.forEach((doc) => {
+          const contactData = doc.data();
+          const dateAdded = contactData.dateAdded ? new Date(contactData.dateAdded) : null;
+  
+
+          if (dateAdded && dateAdded >= startDate && dateAdded <= now) {
+            const dateKey = interval === 'hour' 
+              ? format(dateAdded, 'yyyy-MM-dd HH:00')
+              : format(dateAdded, 'yyyy-MM-dd');
+              contactsData[dateKey] = (contactsData[dateKey] || 0) + 1;
+            }
+          });
+            
+
+          let timePoints: Date[];
+          if (interval === 'hour') {
+            timePoints = eachHourOfInterval({ start: startOfDay(now), end: endOfDay(now) });
+          } else {
+            timePoints = eachDayOfInterval({ start: startDate, end: now });
+          }
+
+          const sortedData = timePoints.map(date => {
+            const dateKey = interval === 'hour'
+              ? format(date, 'yyyy-MM-dd HH:00')
+              : format(date, 'yyyy-MM-dd');
+            return { 
+              date: interval === 'hour' ? format(date, 'HH:mm') : format(date, 'MMM dd'),
+              count: contactsData[dateKey] || 0 
+            };
+          });    
+
+        setContactsOverTime(sortedData);
+    } catch (error) {
+        console.error('Error fetching contacts over time data:', error);
+    }
+};
+
+// Helper function to get the earliest contact added date
+const getEarliestContactDate = async () => {
+    const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+    const contactsSnapshot = await getDocs(contactsRef);
+    let earliestDate: Date | null = null;
+
+    contactsSnapshot.forEach((doc) => {
         const contactData = doc.data();
         const dateAdded = contactData.dateAdded ? new Date(contactData.dateAdded) : null;
 
-        if (dateAdded && dateAdded >= startDate && dateAdded <= now) {
-          const dateKey = format(dateAdded, 'yyyy-MM-dd');
-          contactsData[dateKey] = (contactsData[dateKey] || 0) + 1;
+        if (dateAdded) {
+            if (!earliestDate || dateAdded < earliestDate) {
+                earliestDate = dateAdded;
+            }
         }
-        totalContacts++;
-      });
+    });
 
-      let sortedData = Object.entries(contactsData)
-        .map(([date, count]) => ({ date, count }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-      if (filter === 'all' && sortedData.length > 0) {
-        // Add a starting point at 0
-        sortedData.unshift({ date: sortedData[0].date, count: 0 });
-        // Add an ending point with total contacts
-        sortedData.push({ date: format(now, 'yyyy-MM-dd'), count: totalContacts });
-      }
-
-      setContactsOverTime(sortedData);
-    } catch (error) {
-      console.error('Error fetching contacts over time data:', error);
-    }
-  };
+    return earliestDate;
+};
 
   useEffect(() => {
     if (companyId) {
@@ -770,12 +817,12 @@ async function fetchConfigFromDatabase() {
         x: {
           title: {
             display: true,
-            text: 'Date',
+            text: contactsTimeFilter === 'today' ? 'Hour' : 'Date',
             color: 'rgb(75, 85, 99)',
           },
           ticks: {
             color: 'rgb(107, 114, 128)',
-            maxTicksLimit: 10, // Limit the number of x-axis labels
+            maxTicksLimit: contactsTimeFilter === 'today' ? 24 : 10, // Show all hours for 'today', limit to 10 for other filters
           },
         },
       },
@@ -790,7 +837,7 @@ async function fetchConfigFromDatabase() {
         },
       },
     } as const;
-  }, [contactsOverTime]);
+  }, [contactsOverTime, contactsTimeFilter]);
 
   const dashboardCards = [
     {
