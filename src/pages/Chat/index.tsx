@@ -6977,7 +6977,7 @@ const updateEmployeeAssignedContacts = async () => {
         contact.tags.forEach((tag: string) => {
           const employee = employeeList.find(emp => emp.name.toLowerCase() === tag.toLowerCase());
           if (employee) {
-            employeeAssignments[employee.id] = (employeeAssignments[employee.id] || 0) + 1;
+            employeeAssignments[employee.quotaLeads] = (employeeAssignments[employee.quotaLeads] || 0) + 1;
           }
         });
       }
