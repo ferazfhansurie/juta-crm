@@ -428,7 +428,7 @@ function Main() {
                   name="group"
                   value={userData.group}
                   onChange={handleChange}
-                  className="text-black dark:text-white-dark border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full mr-2 p-2.5"
+                  className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full mr-2 p-2.5"
                   disabled={isFieldDisabled("group")}
                 >
                   <option value="">Select a group</option>

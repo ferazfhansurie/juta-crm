@@ -569,6 +569,7 @@ function Main() {
           const companySnapshot = await getDoc(companyRef);
           if (companySnapshot.exists()) {
             const companyData = companySnapshot.data();
+            setStopbot(companyData.stopbot)
             const phoneCount = companyData.phoneCount || 0;
             const newPhoneNames: Record<number, string> = {};
             for (let i = 0; i < phoneCount; i++) {
