@@ -51,6 +51,7 @@ function Main() {
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [activeTab, setActiveTab] = useState('notifications');
   const [scheduledMessages, setScheduledMessages] = useState<any[]>([]);
+  const [userData, setUserData] = useState<any>(null);
 // Initialize Firebase app
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -295,6 +296,21 @@ const clearAllNotifications = async () => {
     setFormattedMenu(filteredMenu);
   }, [menuStore, location.pathname, isMobile]);
 
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const user = auth.currentUser;
+      if (user && user.email) {
+        const userDocRef = doc(firestore, 'user', user.email);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          setUserData(userDocSnap.data());
+        }
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
   return (
     <div className="tinker h-screen flex flex-col overflow-hidden">
       <div className="flex flex-1 overflow-hidden">
@@ -420,7 +436,7 @@ const clearAllNotifications = async () => {
             )}
             {/* END: First Child */}
             <div>
-            {companyName !== "Infinity Pilates & Physiotherapy" && (
+            {userData && userData.role !== '3' && companyName !== "Infinity Pilates & Physiotherapy" && (
               <Menu className="!z-[9999]">
                 <Menu.Button className="z-50 block w-10 h-10 overflow rounded-md text-slate-900 dark:text-gray-200 hover:bg-slate-400 dark:hover:bg-gray-700 hover:text-slate-900 dark:hover:text-gray-200 font-medium flex items-center justify-center">
                   <Lucide icon="Bell" className="w-5 h-5" />
@@ -481,10 +497,10 @@ const clearAllNotifications = async () => {
                                   className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-lg transition-colors duration-150 ease-in-out p-2"
                                   onClick={() => handleNotificationClick(notification.chat_id)}
                                 >
-                                  <div className="flex justify-between items-center mb-1">
-                                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate capitalize">
-                                      {notification.from.split('@')[0]}
-                                    </div>
+                                  <div className="flex justify-between items-center mb-1">  
+                                      <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate capitalize">
+                                        {notification.from.split('@')[0]}
+                                      </div>
                                     <div className="text-xs text-gray-500 dark:text-gray-400">
                                       {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
                                         month: 'short',

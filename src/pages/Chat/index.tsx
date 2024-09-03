@@ -207,6 +207,8 @@ interface UserData {
 // Define the QuickReply interface
 interface QuickReply {
   id: string;
+  keyword: string;
+
   text: string;
   type:string;
 }
@@ -445,6 +447,7 @@ function Main() {
   const [isQuickRepliesOpen, setIsQuickRepliesOpen] = useState<boolean>(false);
   const [editingReply, setEditingReply] = useState<QuickReply | null>(null);
   const [newQuickReply, setNewQuickReply] = useState<string>('');
+  const [newQuickReplyKeyword, setNewQuickReplyKeyword] = useState('');
   const [filteredContactsForForwarding, setFilteredContactsForForwarding] = useState<Contact[]>(contacts);
   const [selectedMessages, setSelectedMessages] = useState<Message[]>([]);
   const messageListRef = useRef<HTMLDivElement>(null);
@@ -721,24 +724,28 @@ const [userPhone, setUserPhone] = useState<number | null>(null);
     }
   };
 
+  // Update the textarea onChange handler
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setNewMessage(value);
+    adjustHeight(e.target);
 
-    // Check for @ symbol to trigger employee list
-    const lastAtSymbolIndex = value.lastIndexOf('@');
-    if (lastAtSymbolIndex !== -1) {
-      const query = value.slice(lastAtSymbolIndex + 1).toLowerCase();
-      const filtered = employeeList.filter(employee => 
-        employee.name.toLowerCase().includes(query)
-      );
-      setFilteredEmployees(filtered);
-      setShowEmployeeList(true);
+    if (value.startsWith('/')) {
+      setIsQuickRepliesOpen(true);
+      setQuickReplyFilter(value.slice(1));
     } else {
-      setShowEmployeeList(false);
+      setIsQuickRepliesOpen(false);
+      setQuickReplyFilter('');
     }
 
-    adjustHeight(e.target);
+    // Check for quick reply keyword
+    if (value.startsWith('/') && value.endsWith(' ')) {
+      const keyword = value.slice(1, -1).toLowerCase();
+      const quickReply = quickReplies.find(qr => qr.keyword.toLowerCase() === keyword);
+      if (quickReply) {
+        setNewMessage(quickReply.text);
+      }
+    }
   };
 
   const handleEmployeeSelect = (employee: Employee) => {
@@ -1107,11 +1114,13 @@ const closePDFModal = () => {
       const fetchedQuickReplies: QuickReply[] = [
         ...companySnapshot.docs.map(doc => ({
           id: doc.id,
+          keyword: doc.data().keyword || '',
           text: doc.data().text || '',
           type: 'all',
         })),
         ...userSnapshot.docs.map(doc => ({
           id: doc.id,
+          keyword: doc.data().keyword || '',
           text: doc.data().text || '',
           type: 'self',
         }))
@@ -1143,6 +1152,7 @@ const closePDFModal = () => {
   
       const newQuickReplyData = {
         text: newQuickReply,
+        keyword: newQuickReplyKeyword,
         type: newQuickReplyType,
         createdAt: serverTimestamp(),
         createdBy: user.email,
@@ -1165,7 +1175,7 @@ const closePDFModal = () => {
       console.error('Error adding quick reply:', error);
     }
   };
-  const updateQuickReply = async (id: string, text: string, type: 'all' | 'self') => {
+  const updateQuickReply = async (id: string, keyword: string, text: string, type: 'all' | 'self') => {
     const user = auth.currentUser;
     if (!user) return;
   
@@ -1186,7 +1196,7 @@ const closePDFModal = () => {
         quickReplyDoc = doc(firestore, `companies/${companyId}/quickReplies`, id);
       }
   
-      await updateDoc(quickReplyDoc, { text });
+      await updateDoc(quickReplyDoc, { text, keyword });
       setEditingReply(null);
       fetchQuickReplies(); // Refresh quick replies
     } catch (error) {
@@ -1227,10 +1237,14 @@ const closePDFModal = () => {
     }
   };
 
-  const handleQRClick = (text: string) => {
-    setNewMessage(text);
-    setIsQuickRepliesOpen(false);
+  const handleQRClick = (keyword: string) => {
+    const quickReply = quickReplies.find(qr => qr.keyword.toLowerCase() === keyword.toLowerCase());
+    if (quickReply) {
+      setNewMessage(quickReply.text);
+      setIsQuickRepliesOpen(false);
+    }
   };
+
   const filteredQuickReplies = quickReplies.filter(reply =>
     reply.text.toLowerCase().includes(quickReplyFilter.toLowerCase())
   );
@@ -2526,7 +2540,6 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       console.log(response.data);
   
       console.log('Message sent successfully:', response.data);
-      toast.success("Message sent successfully!");
       fetchConversationMessages(contact.conversation_id,selectedContact);
     } catch (error) {
       console.error('Error sending message:', error);
@@ -2835,7 +2848,6 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
           last_message: updatedLastMessage
         });
         console.log('Message sent successfully:', data);
-        toast.success("Message sent successfully!");
         fetchMessagesBackground(selectedChatId!, data2.apiToken);
       } catch (error) {
         console.error('Error sending message:', error);
@@ -3884,7 +3896,6 @@ const handleForwardMessage = async () => {
       const data = await response.json();
       fetchMessages(chatId, companyData.ghl_accessToken);
       console.log('Image message sent successfully:', data);
-      toast.success('Image sent successfully');
     } catch (error) {
       console.error('Error sending image message:', error);
       toast.error(`Failed to send image: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -3953,7 +3964,6 @@ const handleForwardMessage = async () => {
       const data = await response.json();
       fetchMessages(chatId, companyData.ghl_accessToken);
       console.log('Document message sent successfully:', data);
-      toast.success('Document sent successfully');
     } catch (error) {
       console.error('Error sending document message:', error);
       toast.error(`Failed to send document: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -6381,7 +6391,7 @@ className="cursor-pointer">
             disabled={userRole === "3"}
           />
           {isQuickRepliesOpen && (
-          <div ref={quickRepliesRef} className="absolute bottom-full left-0 mb-2 w-full max-w-md bg-gray-100 dark:bg-gray-800 p-2 rounded-md shadow-lg mt-2 z-10">
+            <div ref={quickRepliesRef} className="absolute bottom-full left-0 mb-2 w-full max-w-md bg-gray-100 dark:bg-gray-800 p-2 rounded-md shadow-lg mt-2 z-10">
             <div className="flex justify-between mb-4">
               <button
                 className={`px-4 py-2 rounded-lg ${
@@ -6406,20 +6416,31 @@ className="cursor-pointer">
             </div>
             <div className="max-h-60 overflow-y-auto">
               {quickReplies
-                .filter(reply => activeQuickReplyTab === 'all' || reply.type === 'self')
-                .filter(reply => reply.text.toLowerCase().includes(quickReplyFilter.toLowerCase()))
-                .sort((a, b) => a.text.localeCompare(b.text))
+                .filter(reply => 
+                  activeQuickReplyTab === 'all' || reply.type === 'self'
+                )
+                .filter(reply => 
+                  reply.keyword.toLowerCase().includes(quickReplyFilter.toLowerCase()) ||
+                  reply.text.toLowerCase().includes(quickReplyFilter.toLowerCase())
+                )
+                .sort((a, b) => a.keyword.localeCompare(b.keyword))
                 .map(reply => (
                   <div key={reply.id} className="flex items-center justify-between mb-2 bg-gray-50 dark:bg-gray-700">
                     {editingReply?.id === reply.id ? (
                       <>
-                        <textarea
-                          className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-                          value={editingReply.text}
-                          onChange={(e) => setEditingReply({ ...editingReply, text: e.target.value })}
+                        <input
+                          className="flex-grow px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                          value={editingReply.keyword}
+                          onChange={(e) => setEditingReply({ ...editingReply, keyword: e.target.value })}
                           style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                         />
-                        <button className="p-2 m-1 !box" onClick={() => updateQuickReply(reply.id, editingReply.text, reply.type as "all" | "self")}>
+                        <textarea
+                          className="flex-grow px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 mr-2"
+                          value={editingReply.text}
+                          onChange={(e) => setEditingReply({ ...editingReply, text: e.target.value })}
+                          placeholder="Text"
+                        />
+                        <button className="p-2 m-1 !box" onClick={() => updateQuickReply(reply.id, editingReply.keyword, editingReply.text, editingReply.type as "all" | "self")}>
                           <span className="flex items-center justify-center w-5 h-5">
                             <Lucide icon="Save" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
                           </span>
@@ -6427,54 +6448,64 @@ className="cursor-pointer">
                       </>
                     ) : (
                       <>
-                        <span
-                          className="px-4 py-2 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
-                          onClick={() => handleQRClick(reply.text)}
-                          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                        >
-                          {reply.text}
-                        </span>
-                        <div>
-                          <button className="p-2 m-1 !box" onClick={() => setEditingReply(reply)}>
-                            <span className="flex items-center justify-center w-5 h-5">
-                              <Lucide icon="Eye" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-                            </span>
-                          </button>
-                          <button className="p-2 m-1 !box text-red-500 dark:text-red-400" onClick={() => deleteQuickReply(reply.id, reply.type as "all" | "self")}>
-                            <span className="flex items-center justify-center w-5 h-5">
-                              <Lucide icon="Trash" className="w-5 h-5" />
-                            </span>
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
+                      <span className="px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded-md text-gray-800 dark:text-gray-200 m-2">
+                        {reply.keyword}
+                      </span>
+                      <span
+                        className="px-2 py-1 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
+                        onClick={() => handleQRClick(reply.keyword)}
+                        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                      >
+                        {reply.text}
+                      </span>
+                      <div>
+                        <button className="p-2 m-1 !box" onClick={() => setEditingReply(reply)}>
+                          <span className="flex items-center justify-center w-5 h-5">
+                            <Lucide icon="Eye" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                          </span>
+                        </button>
+                        <button className="p-2 m-1 !box text-red-500 dark:text-red-400" onClick={() => deleteQuickReply(reply.id, reply.type as "all" | "self")}>
+                          <span className="flex items-center justify-center w-5 h-5">
+                            <Lucide icon="Trash" className="w-5 h-5" />
+                          </span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
             <div className="flex items-center mb-4">
-              {(newMessage === '/' || isQuickRepliesOpen) && !quickReplyFilter && (
-                <textarea
-                  className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-                  placeholder="Add new quick reply"
-                  value={newQuickReply}
-                  onChange={(e) => setNewQuickReply(e.target.value)}
-                  rows={3}
-                  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                />
-              )}
-              <div className="flex flex-col ml-2">
-                {!quickReplyFilter && (
-                  <button className="p-2 m-1 !box" onClick={addQuickReply}>
-                    <span className="flex items-center justify-center w-5 h-5">
-                      <Lucide icon="Plus" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-                    </span>
-                  </button>
-                )}
-              </div>
-            </div>
+          {(newMessage === '/' || isQuickRepliesOpen) && !quickReplyFilter && (
+            <>
+              <input
+                className="flex-grow px-1 py-1 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 mr-2"
+                placeholder="Add new keyword"
+                value={newQuickReplyKeyword}
+                onChange={(e) => setNewQuickReplyKeyword(e.target.value)}
+              />
+              <textarea
+                className="flex-grow px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                placeholder="Add new quick reply"
+                value={newQuickReply}
+                onChange={(e) => setNewQuickReply(e.target.value)}
+                rows={3}
+                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+              />
+            </>
+          )}
+          <div className="flex flex-col ml-2">
+            {!quickReplyFilter && (
+              <button className="p-2 m-1 !box" onClick={addQuickReply}>
+                <span className="flex items-center justify-center w-5 h-5">
+                  <Lucide icon="Plus" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                </span>
+              </button>
+            )}
           </div>
-          
-        )}
+        </div>
+      </div>
+    )}
         </div>
         {isEmojiPickerOpen && (
           <div className="absolute bottom-20 left-2 z-10">
