@@ -524,21 +524,21 @@ function Main() {
   const messageSearchInputRef = useRef<HTMLInputElement>(null);
   const [showSnoozedContacts, setShowSnoozedContacts] = useState(false);
   const [blastMessageModal, setBlastMessageModal] = useState(false);
-const [blastMessage, setBlastMessage] = useState("");
-const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
-const [blastStartTime, setBlastStartTime] = useState<Date | null>(null);
-const [batchQuantity, setBatchQuantity] = useState<number>(10);
-const [repeatInterval, setRepeatInterval] = useState<number>(0);
-const [repeatUnit, setRepeatUnit] = useState<'minutes' | 'hours' | 'days'>('days');
-const [isScheduling, setIsScheduling] = useState(false);
-const [activeQuickReplyTab, setActiveQuickReplyTab] = useState<'all' | 'self'>('all');
-const [newQuickReplyType, setNewQuickReplyType] = useState<'all' | 'self'>('all');
-const quickRepliesRef = useRef<HTMLDivElement>(null);
-const [documentModalOpen, setDocumentModalOpen] = useState(false);
-const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
-const [quickReplyFilter, setQuickReplyFilter] = useState('');
-const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
-const [userPhone, setUserPhone] = useState<number | null>(null);
+  const [blastMessage, setBlastMessage] = useState("");
+  const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
+  const [blastStartTime, setBlastStartTime] = useState<Date | null>(null);
+  const [batchQuantity, setBatchQuantity] = useState<number>(10);
+  const [repeatInterval, setRepeatInterval] = useState<number>(0);
+  const [repeatUnit, setRepeatUnit] = useState<'minutes' | 'hours' | 'days'>('days');
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [activeQuickReplyTab, setActiveQuickReplyTab] = useState<'all' | 'self'>('all');
+  const [newQuickReplyType, setNewQuickReplyType] = useState<'all' | 'self'>('all');
+  const quickRepliesRef = useRef<HTMLDivElement>(null);
+  const [documentModalOpen, setDocumentModalOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+  const [quickReplyFilter, setQuickReplyFilter] = useState('');
+  const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
+  const [userPhone, setUserPhone] = useState<number | null>(null);
 
 
   const handleMessageSearchClick = () => {
@@ -5898,7 +5898,7 @@ className="cursor-pointer">
                       {message.type === 'text' && message.text?.body && (
                         <div>
                         {message.from_me && message.userName && message.userName !== '' && (
-                          <div className="text-sm text-gray-500 dark:text-gray-300 mb-1 capitalize font-medium">{message.userName}</div>
+                          <div className="text-sm text-gray-300 dark:text-gray-300 mb-1 capitalize font-medium">{message.userName}</div>
                         )}
                         <div 
                           className={`whitespace-pre-wrap break-words overflow-hidden ${
@@ -6425,11 +6425,11 @@ className="cursor-pointer">
                 )
                 .sort((a, b) => a.keyword.localeCompare(b.keyword))
                 .map(reply => (
-                  <div key={reply.id} className="flex items-center justify-between mb-2 bg-gray-50 dark:bg-gray-700">
+                  <div key={reply.id} className="flex items-center justify-between mb-2 dark:bg-gray-800">
                     {editingReply?.id === reply.id ? (
                       <>
                         <input
-                          className="flex-grow px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                          className="flex-grow px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 mr-2"
                           value={editingReply.keyword}
                           onChange={(e) => setEditingReply({ ...editingReply, keyword: e.target.value })}
                           style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
@@ -6439,6 +6439,7 @@ className="cursor-pointer">
                           value={editingReply.text}
                           onChange={(e) => setEditingReply({ ...editingReply, text: e.target.value })}
                           placeholder="Text"
+                          rows={1}
                         />
                         <button className="p-2 m-1 !box" onClick={() => updateQuickReply(reply.id, editingReply.keyword, editingReply.text, editingReply.type as "all" | "self")}>
                           <span className="flex items-center justify-center w-5 h-5">
@@ -6489,7 +6490,7 @@ className="cursor-pointer">
                 placeholder="Add new quick reply"
                 value={newQuickReply}
                 onChange={(e) => setNewQuickReply(e.target.value)}
-                rows={3}
+                rows={1}
                 style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
               />
             </>

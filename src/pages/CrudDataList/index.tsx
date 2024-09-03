@@ -1,6 +1,6 @@
 import _ from "lodash";
 import clsx from "clsx";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import fakerData from "@/utils/faker";
 import Button from "@/components/Base/Button";
 import Pagination from "@/components/Base/Pagination";
@@ -181,6 +181,63 @@ function Main() {
   const [itemOffset, setItemOffset] = useState(0);
   const itemsPerPage = 30;
   const [employeeNames, setEmployeeNames] = useState<string[]>([]);
+  
+  const fetchContacts = useCallback(async () => {
+    try {
+      const auth = getAuth();
+      const firestore = getFirestore();
+      const user = auth.currentUser;
+  
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+  
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+      const q = query(contactsRef, orderBy('contactName'));
+  
+      const querySnapshot = await getDocs(q);
+      const fetchedContacts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
+  
+      setContacts(fetchedContacts);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching contacts:', error);
+      toast.error('Failed to fetch contacts');
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
+
+  const sortedContacts = useMemo(() => {
+    return contacts.sort((a, b) => {
+      // First, prioritize contacts with names
+      const aHasName = !!(a.contactName || a.phone);
+      const bHasName = !!(b.contactName || b.phone);
+      
+      if (aHasName && !bHasName) return -1;
+      if (!aHasName && bHasName) return 1;
+      
+      // If both have names or both don't have names, sort by dateAdded
+      const aDate = a.dateAdded ? new Date(a.dateAdded).getTime() : 0;
+      const bDate = b.dateAdded ? new Date(b.dateAdded).getTime() : 0;
+      
+      return bDate - aDate; // Sort in descending order (most recent first)
+    });
+  }, [contacts]);
 
   useEffect(() => {
     if (initialContacts.length > 0) {
@@ -1309,15 +1366,21 @@ useEffect(() => {
   fetchCompanyData();
 }, []);
 
-const filteredContacts = contacts.filter(contact => {
-  const lowerCaseQuery = searchQuery.toLowerCase();
-  return (
-    (contact.contactName?.toLowerCase().includes(lowerCaseQuery) ||
-      contact.phone?.includes(lowerCaseQuery) ||
-      contact.contactName?.toLowerCase().includes(lowerCaseQuery)) &&
-    (selectedTagFilter ? (contact.tags ?? []).includes(selectedTagFilter) : true)
-  );
-});
+const filteredContacts = useMemo(() => {
+  return sortedContacts.filter((contact) => {
+    const name = (contact.contactName || '').toLowerCase();
+    const phone = (contact.phone || '').toLowerCase();
+    const tags = (contact.tags || []).join(' ').toLowerCase();
+    
+    return name.includes(searchQuery.toLowerCase()) || 
+           phone.includes(searchQuery.toLowerCase()) || 
+           tags.includes(searchQuery.toLowerCase());
+  });
+}, [sortedContacts, searchQuery]);
+
+const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  setSearchQuery(e.target.value);
+};
 
 const endOffset = itemOffset + itemsPerPage;
 const currentContacts = filteredContacts.slice(itemOffset, endOffset);
@@ -2176,7 +2239,7 @@ console.log(filteredContacts);
                       <FormInput
                         type="text"
                         className="relative w-full h-[40px] !box text-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                        placeholder="Search..."
+                        placeholder="Search contacts..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
@@ -2322,39 +2385,41 @@ console.log(filteredContacts);
           <div className="sticky top-0 bg-gray-100 dark:bg-gray-900 z-10 py-2">
             <div className="flex flex-col md:flex-row items-start md:items-center text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
               <div className="flex-grow">
-                <span className="mb-2 md:mb-0 text-2xl text-left">Contacts</span>
-                <button
-                  onClick={handleSelectAll}
-                  className="inline-flex items-center p-2 m-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg cursor-pointer transition-colors duration-200"
-                >
-                  <Lucide 
-                    icon={selectedContacts.length === filteredContacts.length ? "CheckSquare" : "Square"} 
-                    className="w-4 h-4 mr-1 text-gray-600 dark:text-gray-300" 
-                  />
-                  <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">
-                    Select All
-                  </span>
-                </button>
-                {selectedTagFilter && (
-                  <div 
-                    className="inline-flex items-center p-2 mt-2 md:mt-0 md:ml-2 bg-blue-100 dark:bg-blue-900 rounded-md self-start md:self-auto cursor-pointer"
-                    onClick={() => setSelectedTagFilter('')}
+                <span className="mb-2 mr-2 md:mb-0 text-2xl text-left">Contacts</span>
+                <div className="inline-flex flex-wrap items-center space-x-2">
+                  <button
+                    onClick={handleSelectAll}
+                    className="inline-flex items-center p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg cursor-pointer transition-colors duration-200"
                   >
-                    <span className="text-xs text-blue-700 dark:text-blue-300 whitespace-nowrap font-medium">{selectedTagFilter}</span>
-                    <Lucide icon="X" className="w-4 h-4 ml-2 text-blue-700 dark:text-blue-300" />
-                  </div>
-                )}
-                {selectedContacts.length > 0 && (
-                  <div className="inline-flex items-center p-2 mt-2 md:mt-0 md:ml-2 bg-gray-200 dark:bg-gray-700 rounded-md self-start md:self-auto">
-                    <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">{selectedContacts.length} selected</span>
-                    <button
-                      onClick={() => setSelectedContacts([])}
-                      className="ml-2 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 focus:outline-none"
+                    <Lucide 
+                      icon={selectedContacts.length === filteredContacts.length ? "CheckSquare" : "Square"} 
+                      className="w-4 h-4 mr-1 text-gray-600 dark:text-gray-300" 
+                    />
+                    <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">
+                      Select All
+                    </span>
+                  </button>
+                  {selectedTagFilter && (
+                    <div 
+                      className="inline-flex items-center p-2 bg-blue-100 dark:bg-blue-900 rounded-md cursor-pointer"
+                      onClick={() => setSelectedTagFilter('')}
                     >
-                      <Lucide icon="X" className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
+                      <span className="text-xs text-blue-700 dark:text-blue-300 whitespace-nowrap font-medium">{selectedTagFilter}</span>
+                      <Lucide icon="X" className="w-4 h-4 ml-2 text-blue-700 dark:text-blue-300" />
+                    </div>
+                  )}
+                  {selectedContacts.length > 0 && (
+                    <div className="inline-flex items-center p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
+                      <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">{selectedContacts.length} selected</span>
+                      <button
+                        onClick={() => setSelectedContacts([])}
+                        className="ml-2 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 focus:outline-none"
+                      >
+                        <Lucide icon="X" className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex justify-end items-center font-medium">
               <ReactPaginate
