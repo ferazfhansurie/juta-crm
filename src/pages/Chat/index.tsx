@@ -3142,7 +3142,7 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
         // Update existing employee document
         await updateDoc(employeeDoc.ref, {
           assignedContacts: arrayUnion(contact.id),
-          quotaLeads: Math.max(0, currentQuotaLeads - 1) // Decrease quota by 1, minimum 0
+          quotaLeads: currentQuotaLeads > 0 ? currentQuotaLeads - 1 : 0 // Decrease quota by 1, minimum 0
         });
 
         // Update monthly assignments
@@ -3162,7 +3162,7 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
 
         await sendAssignmentNotification(tagName, contact);
 
-        toast.success(`Contact assigned to ${matchingEmployee.name}. Quota leads updated from ${currentQuotaLeads} to ${Math.max(0, currentQuotaLeads - 1)}.`);
+        toast.success(`Contact assigned to ${matchingEmployee.name}. Quota leads updated from ${currentQuotaLeads} to ${currentQuotaLeads > 0 ? currentQuotaLeads - 1 : 0}.`);
       } else {
         console.error(`Employee document not found for ${matchingEmployee.name}`);
         

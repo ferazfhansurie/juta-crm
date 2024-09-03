@@ -14,22 +14,24 @@ import MobileMenu from "@/components/MobileMenu";
 import { Menu, Popover } from "@/components/Base/Headless";
 import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
 import { initializeApp } from 'firebase/app';
-import { DocumentData, DocumentReference, getDoc, getDocs } from 'firebase/firestore';
+import { DocumentData, DocumentReference, getDoc, getDocs, setDoc, serverTimestamp } from 'firebase/firestore';
 import { getFirestore, collection, doc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { useMediaQuery } from 'react-responsive';
 import { Tab } from '@headlessui/react';
 
 
 type Notification = {
-    chat_id: string;
-    from_name: string;
-    text: {
-        body: string;
-    };
-    from: string;
-    timestamp: number;
-    assignedTo?: string; // Add this field
+  chat_id: string;
+  from_name: string;
+  text: {
+    body: string;
+  };
+  from: string;
+  timestamp: number;
+  type?: string;
+  assignedTo?: string;
 };
+
 function Main() {
   const location = useLocation();
   const [formattedMenu, setFormattedMenu] = useState<Array<FormattedMenu | "divider">>([]);
@@ -128,6 +130,8 @@ useEffect(() => {
         return;
       }
 
+      
+
       // Check if a new notification has been added
       if (prevNotificationsRef.current !== null && currentNotifications.length > prevNotificationsRef.current) {
         // Sort notifications by timestamp to ensure the latest one is picked
@@ -147,6 +151,20 @@ useEffect(() => {
 
   return () => unsubscribe();
 }, [auth.currentUser?.email]);
+
+// Add notification to the user's notifications collection
+async function addNotification(user: { email: string }, contact: { id: string }, assignedEmployeeName: string) {
+  const userNotificationRef = doc(firestore, 'user', user.email!, 'notifications', `${contact.id}_${assignedEmployeeName}`);
+  await setDoc(userNotificationRef, {
+    type: 'assignment',
+    from: 'System',
+    from_name: 'System',
+    text: { body: `New contact assigned: ${contact.id}` },
+    timestamp: serverTimestamp(),
+    chat_id: contact.id,
+    assignedTo: assignedEmployeeName
+  });
+}
 
 // ... existing code ...
 
@@ -488,38 +506,40 @@ const clearAllNotifications = async () => {
                           Clear All
                         </button>
                       </div>
-                        {uniqueNotifications.length > 0 ? (
-                          uniqueNotifications
-                            .sort((a, b) => b.timestamp - a.timestamp)
-                            .map((notification, key) => (
-                              <div key={key} className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                                <div
-                                  className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-lg transition-colors duration-150 ease-in-out p-2"
-                                  onClick={() => handleNotificationClick(notification.chat_id)}
-                                >
-                                  <div className="flex justify-between items-center mb-1">  
-                                      <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate capitalize">
-                                        {notification.from.split('@')[0]}
-                                      </div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                                      {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: 'numeric',
-                                        minute: 'numeric',
-                                        hour12: true,
-                                      })}
-                                    </div>
+                      {uniqueNotifications.length > 0 ? (
+                        uniqueNotifications
+                          .sort((a, b) => b.timestamp - a.timestamp)
+                          .map((notification, key) => (
+                            <div key={key} className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                              <div
+                                className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-lg transition-colors duration-150 ease-in-out p-2"
+                                onClick={() => handleNotificationClick(notification.chat_id)}
+                              >
+                                <div className="flex justify-between items-center mb-1">  
+                                  <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate capitalize">
+                                    {notification.type === 'assignment' ? 'System' : notification.from.split('@')[0]}
                                   </div>
-                                  <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                                    {notification.text ? notification.text.body : ''}
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: 'numeric',
+                                      minute: 'numeric',
+                                      hour12: true,
+                                    })}
                                   </div>
                                 </div>
+                                <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                                  {notification.type === 'assignment' 
+                                    ? `${notification.text.body} (Assigned to: ${notification.assignedTo})`
+                                    : notification.text ? notification.text.body : ''}
+                                </div>
                               </div>
-                            ))
-                        ) : (
-                          <div className="text-center text-gray-500 dark:text-gray-400 p-4">No notifications available</div>
-                        )}
+                            </div>
+                          ))
+                      ) : (
+                        <div className="text-center text-gray-500 dark:text-gray-400 p-4">No notifications available</div>
+                      )}
                       </Tab.Panel>
                       <Tab.Panel className="max-h-[40vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
                         {scheduledMessages && scheduledMessages.length > 0 ? (
