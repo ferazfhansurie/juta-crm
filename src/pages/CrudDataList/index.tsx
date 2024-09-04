@@ -145,6 +145,7 @@ function Main() {
   const { contacts: initialContacts, refetchContacts } = useContacts();
   const [totalContacts, setTotalContacts] = useState(contacts.length);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
+  const [excludedTags, setExcludedTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportModalContent, setExportModalContent] = useState<React.ReactNode | null>(null);
@@ -479,8 +480,17 @@ let userName ='';
 useEffect(() => {
   setTotalContacts(contacts.length);
 }, [contacts]);
+
 const handleTagFilterChange = (tag: string) => {
   setSelectedTagFilter(tag);
+};
+
+const handleExcludeTag = (tag: string) => {
+  setExcludedTags(prev => [...prev, tag]);
+};
+
+const handleRemoveExcludedTag = (tag: string) => {
+  setExcludedTags(prev => prev.filter(t => t !== tag));
 };
 
 const formatPhoneNumber = (phone: string): string => {
@@ -1370,13 +1380,18 @@ const filteredContacts = useMemo(() => {
   return sortedContacts.filter((contact) => {
     const name = (contact.contactName || '').toLowerCase();
     const phone = (contact.phone || '').toLowerCase();
-    const tags = (contact.tags || []).join(' ').toLowerCase();
+    const tags = (contact.tags || []).map(tag => tag.toLowerCase());
     
-    return name.includes(searchQuery.toLowerCase()) || 
-           phone.includes(searchQuery.toLowerCase()) || 
-           tags.includes(searchQuery.toLowerCase());
+    const matchesSearch = name.includes(searchQuery.toLowerCase()) || 
+                          phone.includes(searchQuery.toLowerCase()) || 
+                          tags.some(tag => tag.includes(searchQuery.toLowerCase()));
+
+    const matchesTagFilter = !selectedTagFilter || tags.includes(selectedTagFilter.toLowerCase());
+    const notExcluded = !excludedTags.some(tag => tags.includes(tag.toLowerCase()));
+
+    return matchesSearch && matchesTagFilter && notExcluded;
   });
-}, [sortedContacts, searchQuery]);
+}, [sortedContacts, searchQuery, selectedTagFilter, excludedTags]);
 
 const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   setSearchQuery(e.target.value);
@@ -2055,20 +2070,39 @@ console.log(filteredContacts);
                         <div>
                           <button
                             className="flex items-center p-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 w-full rounded-md"
-                            onClick={() => handleTagFilterChange("")}
+                            onClick={() => {
+                              handleTagFilterChange("");
+                              setExcludedTags([]);
+                            }}
                           >
                             <Lucide icon="X" className="w-4 h-4 mr-1" />
-                            Clear Filter
+                            Clear All Filters
                           </button>
                         </div>
                         {tagList.map((tag) => (
                           <Menu.Item key={tag.id}>
-                            <span
-                              className="flex items-center p-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 w-full rounded-md"
-                              onClick={() => handleTagFilterChange(tag.name)}
-                            >
-                              {tag.name}
-                            </span>
+                            <div className="flex items-center justify-between p-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 w-full rounded-md">
+                              <span
+                                className="flex-grow cursor-pointer"
+                                onClick={() => handleTagFilterChange(tag.name)}
+                              >
+                                {tag.name}
+                              </span>
+                              <button
+                                className={`px-2 py-1 text-xs rounded ${
+                                  excludedTags.includes(tag.name)
+                                    ? 'bg-red-500 text-white'
+                                    : 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300'
+                                }`}
+                                onClick={() => 
+                                  excludedTags.includes(tag.name)
+                                    ? handleRemoveExcludedTag(tag.name)
+                                    : handleExcludeTag(tag.name)
+                                }
+                              >
+                                {excludedTags.includes(tag.name) ? 'Excluded' : 'Exclude'}
+                              </button>
+                            </div>
                           </Menu.Item>
                         ))}
                       </Menu.Items>
@@ -2400,14 +2434,27 @@ console.log(filteredContacts);
                     </span>
                   </button>
                   {selectedTagFilter && (
-                    <div 
-                      className="inline-flex items-center p-2 bg-blue-100 dark:bg-blue-900 rounded-md cursor-pointer"
-                      onClick={() => setSelectedTagFilter('')}
-                    >
-                      <span className="text-xs text-blue-700 dark:text-blue-300 whitespace-nowrap font-medium">{selectedTagFilter}</span>
-                      <Lucide icon="X" className="w-4 h-4 ml-2 text-blue-700 dark:text-blue-300" />
-                    </div>
+                    <span className="px-2 py-1 text-sm font-semibold rounded-lg bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200">
+                      {selectedTagFilter}
+                      <button
+                        className="text-md ml-1 text-blue-600 hover:text-blue-100"
+                        onClick={() => handleTagFilterChange("")}
+                      >
+                        ×
+                      </button>
+                    </span>
                   )}
+                  {excludedTags.map(tag => (
+                    <span key={tag} className="px-2 py-1 text-sm font-semibold rounded-lg bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200">
+                      {tag}
+                      <button
+                        className="text-md ml-1 text-red-600 hover:text-red-100"
+                        onClick={() => handleRemoveExcludedTag(tag)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
                   {selectedContacts.length > 0 && (
                     <div className="inline-flex items-center p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
                       <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">{selectedContacts.length} selected</span>

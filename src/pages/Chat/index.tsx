@@ -6956,9 +6956,9 @@ const NotificationPopup: React.FC<{ notifications: any[] }> = ({ notifications: 
   };
   
   return (
-    <div className="fixed top-5 right-10 z-50">
+    <div>
       {notifications.slice(-1).map((notification, index) => (
-        <div key={index} className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-2 px-4 py-2" style={{ minWidth: '300px', maxWidth: '80vw' }}>
+        <div key={index}>
         </div>
       ))}
     </div>
