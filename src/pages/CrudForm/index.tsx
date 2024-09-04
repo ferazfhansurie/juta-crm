@@ -223,7 +223,28 @@ function Main() {
     return userData.role === "3"; // For other roles, they can't edit users with role 3
   };
 
+  const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+
+  const validateForm = () => {
+    const errors: { [key: string]: string } = {};
+    const requiredFields = ['name', 'phoneNumber', 'email', 'role', 'password'];
+    
+    requiredFields.forEach(field => {
+      if (!userData[field as keyof typeof userData]) {
+        errors[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
+      }
+    });
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const saveUser = async () => {
+    if (!validateForm()) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
     try {
       setIsLoading(true);
       const userOri = auth.currentUser;
@@ -347,7 +368,7 @@ function Main() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 flex-grow overflow-y-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <FormLabel htmlFor="name">Name</FormLabel>
+            <FormLabel htmlFor="name">Name *</FormLabel>
             <FormInput
               id="name"
               name="name"
@@ -356,10 +377,12 @@ function Main() {
               onChange={handleChange}
               placeholder="Name"
               disabled={isFieldDisabled("name")}
+              required
             />
+            {fieldErrors.name && <p className="text-red-500 text-sm mt-1">{fieldErrors.name}</p>}
           </div>
           <div>
-            <FormLabel htmlFor="phoneNumber">Phone Number</FormLabel>
+            <FormLabel htmlFor="phoneNumber">Phone Number *</FormLabel>
             <div className="flex">
               <FormInput
                 type="text"
@@ -376,11 +399,13 @@ function Main() {
                 placeholder="Phone Number"
                 className="flex-grow"
                 disabled={isFieldDisabled("phoneNumber")}
+                required
               />
             </div>
+            {fieldErrors.phoneNumber && <p className="text-red-500 text-sm mt-1">{fieldErrors.phoneNumber}</p>}
           </div>
           <div>
-            <FormLabel htmlFor="email">Email</FormLabel>
+            <FormLabel htmlFor="email">Email *</FormLabel>
             <FormInput
               id="email"
               name="email"
@@ -389,7 +414,9 @@ function Main() {
               onChange={handleChange}
               placeholder="Email"
               disabled={isFieldDisabled("email")}
+              required
             />
+            {fieldErrors.email && <p className="text-red-500 text-sm mt-1">{fieldErrors.email}</p>}
           </div>
           <div>
             <FormLabel htmlFor="group">Group</FormLabel>
@@ -452,7 +479,7 @@ function Main() {
             )}
           </div>
           <div>
-            <FormLabel htmlFor="role">Role</FormLabel>
+            <FormLabel htmlFor="role">Role *</FormLabel>
             <select
               id="role"
               name="role"
@@ -463,6 +490,7 @@ function Main() {
               }}
               className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
               disabled={isFieldDisabled("role")}
+              required
             >
               <option value="">Select role</option>
               <option value="1">Admin</option>
@@ -470,6 +498,7 @@ function Main() {
               <option value="3">Observer</option>
               <option value="4">Others</option>
             </select>
+            {fieldErrors.role && <p className="text-red-500 text-sm mt-1">{fieldErrors.role}</p>}
           </div>
           <div>
             <FormLabel htmlFor="phone">Phone</FormLabel>
@@ -490,7 +519,7 @@ function Main() {
             </select>
           </div>
           <div>
-            <FormLabel htmlFor="password">Password</FormLabel>
+            <FormLabel htmlFor="password">Password *</FormLabel>
             <FormInput
               id="password"
               name="password"
@@ -499,7 +528,9 @@ function Main() {
               onChange={handleChange}
               placeholder="Password"
               disabled={isFieldDisabled("password")}
+              required
             />
+            {fieldErrors.password && <p className="text-red-500 text-sm mt-1">{fieldErrors.password}</p>}
           </div>
           <div>
             <FormLabel htmlFor="employeeId">Employee ID</FormLabel>
@@ -567,21 +598,13 @@ function Main() {
           type="button"
           variant="primary"
           className="w-24"
-          onClick={async () => {
-            try {
-              await saveUser();
-              toast.success("User saved successfully");
-              handleGoBack();
-            } catch (error) {
-              console.error("Error saving user:", error);
-              toast.error("Failed to save user");
-            }
-          }}
+          onClick={saveUser}
           disabled={isLoading || (currentUserRole === "3" && !userData.password)}
         >
           {isLoading ? "Saving..." : "Save"}
         </Button>
       </div>
+      <ToastContainer />
     </div>
   );
 }
