@@ -2492,7 +2492,7 @@ console.log(filteredContacts);
             </div>
           </div>
           <div className="w-full flex-shrink">
-            <div className="h-[calc(150vh-200px)] overflow-y-auto" ref={contactListRef}>
+            <div className="h-[calc(150vh-200px)] overflow-y-auto mb-4" ref={contactListRef}>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 m-1">
                 {currentContacts.map((contact, index) => {
                   const isSelected = selectedContacts.some((c) => c.phone === contact.phone);

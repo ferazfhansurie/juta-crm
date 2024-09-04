@@ -231,73 +231,88 @@ function Main() {
     };
   }, []);
 
-async function fetchConfigFromDatabase() {
-  const user = auth.currentUser;
-
-  if (!user) {
-    console.error("No user is currently authenticated.");
-    return;
+  async function fetchConfigFromDatabase() {
+    const user = auth.currentUser;
+  
+    if (!user) {
+      console.error("No user is currently authenticated.");
+      return;
+    }
+  
+    const userEmail = user.email;
+  
+    if (!userEmail) {
+      console.error("Authenticated user has no email.");
+      return;
+    }
+  
+    try {
+      const docUserRef = doc(firestore, 'user', userEmail);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.log('No such document for user!');
+        return;
+      }
+      const dataUser = docUserSnapshot.data();
+      if (!dataUser) {
+        console.log('User document exists but has no data!');
+        return;
+      }
+  
+      companyId = dataUser.companyId;
+      role = dataUser.role;
+  
+      if (!companyId) {
+        console.log('No company ID found for user!');
+        return;
+      }
+  
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.log('No such document for company!');
+        return;
+      }
+      const data = docSnapshot.data();
+      if (!data) {
+        console.log('Company document exists but has no data!');
+        return;
+      }
+  
+      // Fetch the number of replies from the messages subcollection
+      const contactsRef = collection(firestore, 'companies', companyId, 'contacts');
+      const contactsSnapshot = await getDocs(contactsRef);
+      
+      let totalReplies = 0;
+  
+      for (const contactDoc of contactsSnapshot.docs) {
+        const contactData = contactDoc.data();
+        // Skip if it's a group
+        if (contactData.type === 'group') {
+          continue;
+        }
+  
+        const messagesRef = collection(contactDoc.ref, 'messages');
+        const messagesSnapshot = await getDocs(messagesRef);
+        
+        messagesSnapshot.forEach(messageDoc => {
+          const messageId = messageDoc.id;
+          if (!messageId.startsWith('false')) {
+            totalReplies++;
+          }
+        });
+      }
+  
+      setReplies(totalReplies);
+      console.log('Total replies:', totalReplies);
+  
+    } catch (error) {
+      console.error('Error fetching config:', error);
+      throw error;
+    }
   }
 
-  const userEmail = user.email;
-
-  if (!userEmail) {
-    console.error("Authenticated user has no email.");
-    return;
-  }
-
-  try {
-    const docUserRef = doc(firestore, 'user', userEmail);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.log('No such document for user!');
-      return;
-    }
-    const dataUser = docUserSnapshot.data();
-    if (!dataUser) {
-      console.log('User document exists but has no data!');
-      return;
-    }
-
-    companyId = dataUser.companyId;
-    role = dataUser.role;
-    
-    // Check if notifications exist before setting them
-    const userNotifications = dataUser.notifications || [];
-    setNotifications(userNotifications);
-    setReplies(userNotifications.length);
-
-    if (!companyId) {
-      console.log('No company ID found for user!');
-      return;
-    }
-
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      console.log('No such document for company!');
-      return;
-    }
-    const data = docSnapshot.data();
-    if (!data) {
-      console.log('Company document exists but has no data!');
-      return;
-    }
-
-    // Fetch notifications from the notifications subcollection
-    const notificationsRef = collection(firestore, 'user', userEmail, 'notifications');
-    const notificationsSnapshot = await getDocs(notificationsRef);
-    const notifications = notificationsSnapshot.docs.map((doc) => doc.data());
-    console.log(notifications);
-
-    setReplies(notifications.length);
-
-  } catch (error) {
-    console.error('Error fetching config:', error);
-    throw error;
-  }
-}
-
+  
   useEffect(() => {
     fetchCompanyData();
   }, []);
@@ -606,7 +621,8 @@ async function fetchConfigFromDatabase() {
         openContacts: open,
         todayContacts: today,
         weekContacts: week,
-        monthContacts: month
+        monthContacts: month,
+        numReplies: numReplies,
       });
 
       setTotalContacts(total);
@@ -631,8 +647,8 @@ async function fetchConfigFromDatabase() {
     setAverageRepliesPerLead(Number(newAverageRepliesPerLead.toFixed(0)));
 
     // Engagement Score (example: weighted sum of response rate and average replies)
-    const newEngagementScore = (newResponseRate * 0.7) + (newAverageRepliesPerLead * 30);
-    setEngagementScore(Number(newEngagementScore.toFixed(0)));
+    const newEngagementScore = (newResponseRate * 0.4) + (newAverageRepliesPerLead * 0.6);
+    setEngagementScore(Number(newEngagementScore.toFixed(2)));
   }, [numReplies, totalContacts]);
 
   // Update useEffect to call calculateAdditionalStats
@@ -943,7 +959,7 @@ const getEarliestContactDate = async () => {
                             >
                               <div className="font-medium text-gray-800 dark:text-gray-200">{employee.name}</div>
                               <div className="text-sm text-gray-600 dark:text-gray-400">
-                                {employee.assignedContacts} assigned contacts
+                                {Array.isArray(employee.assignedContacts) ? employee.assignedContacts.length : 0} assigned contacts
                               </div>
                             </div>
                           ))}
