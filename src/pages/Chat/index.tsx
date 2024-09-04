@@ -229,7 +229,7 @@ interface PDFModalProps {
   pdfUrl: string;
 }
 type Notification = {
-  from: ReactNode;
+  from: string;
   text: {
     body:string
   }
