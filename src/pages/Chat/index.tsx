@@ -229,6 +229,7 @@ interface PDFModalProps {
   pdfUrl: string;
 }
 type Notification = {
+  from: ReactNode;
   text: {
     body:string
   }
@@ -539,6 +540,7 @@ function Main() {
   const [quickReplyFilter, setQuickReplyFilter] = useState('');
   const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
   const [userPhone, setUserPhone] = useState<number | null>(null);
+  const [activeNotifications, setActiveNotifications] = useState<(string | number)[]>([]);
 
 
   const handleMessageSearchClick = () => {
@@ -1256,71 +1258,39 @@ const closePDFModal = () => {
       collection(firestore, 'user', auth.currentUser?.email!, 'notifications'),
       async (snapshot) => {
         const currentNotifications = snapshot.docs.map(doc => doc.data() as Notification);
-  
+
         // Prevent running on initial mount
         if (isInitialMount.current) {
           isInitialMount.current = false;
           prevNotificationsRef.current = currentNotifications.length;
           return;
         }
-  
+
         // Check if a new notification has been added
         if (prevNotificationsRef.current !== null && currentNotifications.length > prevNotificationsRef.current) {
           // Sort notifications by timestamp to ensure the latest one is picked
           currentNotifications.sort((a, b) => b.timestamp - a.timestamp);
           const latestNotification = currentNotifications[0];
-          console.log(latestNotification);
-  
+
           // Add new notification to the state
           setNotifications(prev => [...prev, latestNotification]);
+          
+          // Play notification sound
           if (audioRef.current) {
             audioRef.current.play();
           }
-          if (selectedChatId === latestNotification.chat_id) {
-            fetchMessagesBackground(selectedChatId!, whapiToken!);
-          } else {
-            console.log('Received a new notification');
-            const userDocRef = doc(firestore, 'user', auth.currentUser?.email!);
-            const userDocSnapshot = await getDoc(userDocRef);
-            if (!userDocSnapshot.exists()) {
-              console.log('No such user document!');
-              return;
-            }
-            const dataUser = userDocSnapshot.data();
-            const newCompanyId = dataUser.companyId;
-            const companyDocRef = doc(firestore, 'companies', newCompanyId);
-            const companyDocSnapshot = await getDoc(companyDocRef);
-            if (!companyDocSnapshot.exists()) {
-              console.log('No such company document!');
-              return;
-            }
-            const data = companyDocSnapshot.data();
-            setGhlConfig({
-              ghl_id: data.ghl_id,
-              ghl_secret: data.ghl_secret,
-              refresh_token: data.refresh_token,
-              ghl_accessToken: data.ghl_accessToken,
-              ghl_location: data.ghl_location,
-              whapiToken: data.whapiToken,
-              v2: data.v2,
-            });
-            const user_name = dataUser.name;
-         fetchContactsBackground(
-              data.whapiToken,
-              data.ghl_location,
-              data.ghl_accessToken,
-              user_name,
-              dataUser.role,
-              dataUser.email
-            );
-          }
+
+          // Show toast notification
+          showNotificationToast(latestNotification, notifications.length);
+
+          // ... rest of the existing code for handling new notifications ...
         }
-  
+
         // Update the previous notifications count
         prevNotificationsRef.current = currentNotifications.length;
       }
     );
-  
+
     return () => unsubscribe();
   }, [companyId, selectedChatId, whapiToken]);
   
@@ -1334,6 +1304,45 @@ const closePDFModal = () => {
     }
     console.log(chatId);
   }
+
+  const handleNotificationClick = (chatId: string, index: number) => {
+    selectChat(chatId);
+    setNotifications(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const showNotificationToast = (notification: Notification, index: number) => {
+    const toastId = toast(
+      <div>
+        <strong className="font-semibold capitalize">{notification?.from}</strong>
+        <p className="truncate">{notification?.text?.body}</p>
+      </div>,
+      {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        onClick: () => handleNotificationClick(notification.chat_id, index),
+        onClose: () => {
+          setActiveNotifications(prev => prev.filter(id => id !== toastId));
+        },
+        closeButton: <button onClick={(e) => { e.stopPropagation(); toast.dismiss(toastId); }}><Lucide icon="X" className="w-6 h-6 text-black" /></button>
+      }
+      
+    );
+  
+    setActiveNotifications(prev => [...prev, toastId]);
+
+    // If there are more than 3 active notifications, close the oldest one
+    if (activeNotifications.length >= 3) {
+      toast.dismiss(activeNotifications[0]);
+      setActiveNotifications(prev => prev.slice(1));
+    }
+  };
+
+
 // New separate useEffect for message listener
 useEffect(() => {
   let unsubscribeMessages: (() => void) | null = null;
@@ -3131,7 +3140,7 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
         });
 
         // Add notifications
-        await addNotificationToUser(companyId, matchingEmployee.name, {
+        const notificationData = {
           type: 'assignment',
           from: 'System',
           from_name: 'System',
@@ -3139,19 +3148,28 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
           timestamp: serverTimestamp(),
           chat_id: contact.id,
           assignedTo: matchingEmployee.name
-        });
+        };
+
+        await addNotificationToUser(companyId, matchingEmployee.name, notificationData);
 
         // If the current user is an admin, add a notification for them as well
         if (userData.role === '1') {
-          await addNotificationToUser(companyId, userData.name, {
-            type: 'assignment',
-            from: 'System',
-            from_name: 'System',
-            text: { body: `Contact (${contact.contactName || contact.firstName || 'N/A'}) assigned to ${matchingEmployee.name}` },
-            timestamp: serverTimestamp(),
-            chat_id: contact.id,
-            assignedTo: matchingEmployee.name
-          });
+          const adminNotificationData = {
+            ...notificationData,
+            text: { body: `Contact (${contact.contactName || contact.firstName || 'N/A'}) assigned to ${matchingEmployee.name}` }
+          };
+          await addNotificationToUser(companyId, userData.name, adminNotificationData);
+        }
+
+        // Handle non-assignment notifications
+        if (notificationData.type !== 'assignment') {
+          const nonAssignmentNotificationData = {
+            ...notificationData,
+            from: contact.contactName || contact.firstName || 'N/A',
+            from_name: contact.contactName || contact.firstName || 'N/A',
+            text: notificationData.text.body
+          };
+          await addNotificationToUser(companyId, matchingEmployee.name, nonAssignmentNotificationData);
         }
 
         toast.success(`Contact assigned to ${matchingEmployee.name}. Quota leads updated from ${currentQuotaLeads} to ${currentQuotaLeads > 0 ? currentQuotaLeads - 1 : 0}.`);
@@ -6793,7 +6811,17 @@ className="cursor-pointer">
       <ImageModal isOpen={isImageModalOpen} onClose={closeImageModal} imageUrl={modalImageUrl} />
       <ImageModal2 isOpen={isImageModalOpen2} onClose={() => setImageModalOpen2(false)} imageUrl={pastedImageUrl} onSend={sendImage} />
 
-      <ToastContainer />
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
 
       <ContextMenu id="contact-context-menu">
         <Item onClick={({ props }) => markAsUnread(props.contact)}>
@@ -6929,31 +6957,8 @@ const NotificationPopup: React.FC<{ notifications: any[] }> = ({ notifications: 
   
   return (
     <div className="fixed top-5 right-10 z-50">
-      {notifications.map((notification, index) => (
+      {notifications.slice(-1).map((notification, index) => (
         <div key={index} className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-2 px-4 py-2" style={{ minWidth: '300px', maxWidth: '80vw' }}>
-         <button
-            className="absolute top-1 left-1 text-black hover:text-gray-800 dark:text-gray-200 dark:hover:text-gray-400 p-2"
-            onClick={() => handleDelete(index)}
-          >
-            <Lucide icon="X" className="w-4 h-4" />
-          </button>
-          <div className="flex justify-between items-center">
-            <div className="flex-grow px-10 overflow-hidden">
-              <div className="font-semibold text-primary dark:text-blue-400 truncate capitalize">{notification.from_name}</div>
-              <div className="text-gray-700 dark:text-gray-300 truncate" style={{ maxWidth: '80vw' }}>
-                {notification.text.body.length > 30 ? `${notification.text.body.substring(0, 30)}...` : notification.text.body}
-              </div>
-            </div>
-            <div className="mx-2 h-full flex items-center">
-              <div className="border-l border-gray-300 dark:border-gray-700 h-12"></div>
-            </div>
-            <button 
-              className="bg-primary dark:bg-blue-600 text-white py-1 px-4 rounded whitespace-nowrap"
-              onClick={() => handleNotificationClick(notification.chat_id, index)}
-            >
-              Show
-            </button>
-          </div>
         </div>
       ))}
     </div>

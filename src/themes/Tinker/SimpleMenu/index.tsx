@@ -154,13 +154,12 @@ useEffect(() => {
 }, [auth.currentUser?.email]);
 
 // Add notification to the user's notifications collection
-// Add notification to the user's notifications collection
 async function addNotification(assignedEmployee: { email: string }, contact: { id: string, contactName?: string, firstName?: string, chat_id: string }, assignedEmployeeName: string, adminEmail?: string) {
   const contactName = contact.contactName || contact.firstName || 'N/A';
   const notificationData = {
     type: 'assignment',
-    from: 'System',
-    from_name: 'System',
+    from: `${contactName}`,
+    from_name: `${contactName}`,
     text: { body: `Contact ${contactName} assigned to ${assignedEmployeeName}` },
     timestamp: serverTimestamp(),
     chat_id: contact.chat_id,
@@ -179,19 +178,20 @@ async function addNotification(assignedEmployee: { email: string }, contact: { i
 }
 
 useEffect(() => {
-  const unique = notifications.reduce((uniqueNotifications: Notification[], notification) => {
+  const unique = notifications
+    .sort((a, b) => b.timestamp - a.timestamp) // Sort by timestamp, most recent first
+    .reduce((uniqueNotifications: Notification[], notification) => {
       const existingNotificationIndex = uniqueNotifications.findIndex(
-          (n) => n.chat_id === notification.chat_id
+        (n) => n.chat_id === notification.chat_id
       );
       if (existingNotificationIndex !== -1) {
-          if (uniqueNotifications[existingNotificationIndex].timestamp < notification.timestamp) {
-              uniqueNotifications[existingNotificationIndex] = notification;
-          }
+        // If a notification with the same chat_id exists, replace it with the current one
+        uniqueNotifications[existingNotificationIndex] = notification;
       } else {
-          uniqueNotifications.push(notification);
+        uniqueNotifications.push(notification);
       }
       return uniqueNotifications;
-  }, []);
+    }, []);
   setUniqueNotifications(unique);
 }, [notifications]);
 
@@ -528,7 +528,7 @@ const clearAllNotifications = async () => {
                             <div className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-lg transition-colors duration-150 ease-in-out p-2">
                               <div className="flex justify-between items-center mb-1">  
                                 <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate capitalize">
-                                  {notification.type === 'assignment' ? 'System' : notification.from.split('@')[0]}
+                                  {notification.from.split('@')[0]}
                                 </div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
                                   {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
