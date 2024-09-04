@@ -90,7 +90,8 @@ const filteredNotifications = notifications.filter((notification) => {
 
 const navigate = useNavigate(); // Initialize useNavigate
 
-const handleNotificationClick = (chatId: string) => {
+const handleNotificationClick = (chatId: string,index: number) => {
+  setNotifications(notifications.filter((_, i) => i !== index));
   navigate(`/chat/?chatId=${chatId}`);
 };
 
@@ -153,20 +154,29 @@ useEffect(() => {
 }, [auth.currentUser?.email]);
 
 // Add notification to the user's notifications collection
-async function addNotification(user: { email: string }, contact: { id: string }, assignedEmployeeName: string) {
-  const userNotificationRef = doc(firestore, 'user', user.email!, 'notifications', `${contact.id}_${assignedEmployeeName}`);
-  await setDoc(userNotificationRef, {
+// Add notification to the user's notifications collection
+async function addNotification(assignedEmployee: { email: string }, contact: { id: string, contactName?: string, firstName?: string, chat_id: string }, assignedEmployeeName: string, adminEmail?: string) {
+  const contactName = contact.contactName || contact.firstName || 'N/A';
+  const notificationData = {
     type: 'assignment',
     from: 'System',
     from_name: 'System',
-    text: { body: `New contact assigned: ${contact.id}` },
+    text: { body: `Contact ${contactName} assigned to ${assignedEmployeeName}` },
     timestamp: serverTimestamp(),
-    chat_id: contact.id,
+    chat_id: contact.chat_id,
     assignedTo: assignedEmployeeName
-  });
-}
+  };
 
-// ... existing code ...
+  // Add notification for the assigned employee
+  const employeeNotificationRef = doc(firestore, 'user', assignedEmployee.email, 'notifications', `${contact.id}_${Date.now()}`);
+  await setDoc(employeeNotificationRef, notificationData);
+
+  // Add notification for the admin if adminEmail is provided
+  if (adminEmail) {
+    const adminNotificationRef = doc(firestore, 'user', adminEmail, 'notifications', `${contact.id}_${Date.now()}`);
+    await setDoc(adminNotificationRef, notificationData);
+  }
+}
 
 useEffect(() => {
   const unique = notifications.reduce((uniqueNotifications: Notification[], notification) => {
@@ -510,34 +520,33 @@ const clearAllNotifications = async () => {
                         uniqueNotifications
                           .sort((a, b) => b.timestamp - a.timestamp)
                           .map((notification, key) => (
-                            <div key={key} className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                              <div
-                                className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-lg transition-colors duration-150 ease-in-out p-2"
-                                onClick={() => handleNotificationClick(notification.chat_id)}
-                              >
-                                <div className="flex justify-between items-center mb-1">  
-                                  <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate capitalize">
-                                    {notification.type === 'assignment' ? 'System' : notification.from.split('@')[0]}
-                                  </div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      hour: 'numeric',
-                                      minute: 'numeric',
-                                      hour12: true,
-                                    })}
-                                  </div>
+                            <div 
+                            key={key} 
+                            className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                            onClick={() => handleNotificationClick(notification.chat_id,key)}
+                          >
+                            <div className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-lg transition-colors duration-150 ease-in-out p-2">
+                              <div className="flex justify-between items-center mb-1">  
+                                <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate capitalize">
+                                  {notification.type === 'assignment' ? 'System' : notification.from.split('@')[0]}
                                 </div>
-                                <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                                  {notification.type === 'assignment' 
-                                    ? `${notification.text.body} (Assigned to: ${notification.assignedTo})`
-                                    : notification.text ? notification.text.body : ''}
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {new Date(notification.timestamp * 1000).toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: 'numeric',
+                                    minute: 'numeric',
+                                    hour12: true,
+                                  })}
                                 </div>
                               </div>
+                              <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                                {notification.text ? notification.text.body : ''}
+                              </div>
                             </div>
-                          ))
-                      ) : (
+                          </div>
+                        ))
+                    ) : (
                         <div className="text-center text-gray-500 dark:text-gray-400 p-4">No notifications available</div>
                       )}
                       </Tab.Panel>

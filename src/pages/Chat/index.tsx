@@ -1327,8 +1327,11 @@ const closePDFModal = () => {
   let params :URLSearchParams;
   let chatId: any ;
   if(location != undefined){
-    params =new URLSearchParams(location.search);
-    chatId =  params.get("chatId");
+    params = new URLSearchParams(location.search);
+    chatId = params.get("chatId");
+    if (chatId && !chatId.endsWith('@g.us')) {
+      chatId += '@c.us';
+    }
     console.log(chatId);
   }
 // New separate useEffect for message listener
@@ -2888,40 +2891,6 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     setNewContactNumber('');
   };
 
-  const addNotificationToUser = async (companyId: string, employeeName: string, message: any) => {
-    console.log('Adding notification for:', employeeName);
-    try {
-      // Find the user with the specified companyId and name
-      const usersRef = collection(firestore, 'user');
-      const q = query(usersRef, 
-        where('companyId', '==', companyId),
-        where('name', '==', employeeName)
-      );
-      const querySnapshot = await getDocs(q);
-  
-      if (querySnapshot.empty) {
-        console.log('No matching user found for:', employeeName);
-        return;
-      }
-  
-      // Filter out undefined values from the message object
-      const cleanMessage = Object.fromEntries(
-        Object.entries(message).filter(([_, value]) => value !== undefined)
-      );
-  
-      // Add the new message to the notifications subcollection of the user's document
-      querySnapshot.forEach(async (doc) => {
-        const userRef = doc.ref;
-        const notificationsRef = collection(userRef, 'notifications');
-        const updatedMessage = { ...cleanMessage, read: false };
-    
-        await addDoc(notificationsRef, updatedMessage);
-        console.log(`Notification added for user: ${employeeName}, companyId: ${companyId}`);
-      });
-    } catch (error) {
-      console.error('Error adding notification: ', error);
-    }
-  };
   const handleCreateNewChat = async () => {
     console.log('Attempting to create new chat:', { userRole });
     if (userRole === "3") {
@@ -3071,6 +3040,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     setFilteredContacts(contacts);
   }, [contacts]);
 
+
 const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
   try {
     const user = auth.currentUser;
@@ -3160,7 +3130,29 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
           assignedTo: matchingEmployee.name
         });
 
-        await sendAssignmentNotification(tagName, contact);
+        // Add notifications
+        await addNotificationToUser(companyId, matchingEmployee.name, {
+          type: 'assignment',
+          from: 'System',
+          from_name: 'System',
+          text: { body: `Contact (${contact.contactName || contact.firstName || 'N/A'}) assigned to you` },
+          timestamp: serverTimestamp(),
+          chat_id: contact.id,
+          assignedTo: matchingEmployee.name
+        });
+
+        // If the current user is an admin, add a notification for them as well
+        if (userData.role === '1') {
+          await addNotificationToUser(companyId, userData.name, {
+            type: 'assignment',
+            from: 'System',
+            from_name: 'System',
+            text: { body: `Contact (${contact.contactName || contact.firstName || 'N/A'}) assigned to ${matchingEmployee.name}` },
+            timestamp: serverTimestamp(),
+            chat_id: contact.id,
+            assignedTo: matchingEmployee.name
+          });
+        }
 
         toast.success(`Contact assigned to ${matchingEmployee.name}. Quota leads updated from ${currentQuotaLeads} to ${currentQuotaLeads > 0 ? currentQuotaLeads - 1 : 0}.`);
       } else {
@@ -3186,13 +3178,42 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
   }
 };
 
+// Add this function to handle adding notifications
+const addNotificationToUser = async (companyId: string, employeeName: string, notificationData: any) => {
+  try {
+    // Find the user with the specified companyId and name
+    const usersRef = collection(firestore, 'user');
+    const q = query(usersRef, 
+      where('companyId', '==', companyId),
+      where('name', '==', employeeName)
+    );
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      console.log('No matching user found for:', employeeName);
+      return;
+    }
+
+    // Add the new notification to the notifications subcollection of the user's document
+    querySnapshot.forEach(async (doc) => {
+      const userRef = doc.ref;
+      const notificationsRef = collection(userRef, 'notifications');
+      await addDoc(notificationsRef, notificationData);
+      console.log(`Notification added for user: ${employeeName}`);
+    });
+  } catch (error) {
+    console.error('Error adding notification: ', error);
+  }
+};
+
 const sendAssignmentNotification = async (assignedEmployeeName: string, contact: Contact) => {
   try {
+
     const user = auth.currentUser;
     if (!user) {
       console.error('No authenticated user');
-    return;
-  }
+      return;
+    }
 
     const docUserRef = doc(firestore, 'user', user.email!);
     const docUserSnapshot = await getDoc(docUserRef);
@@ -6909,7 +6930,7 @@ const NotificationPopup: React.FC<{ notifications: any[] }> = ({ notifications: 
   return (
     <div className="fixed top-5 right-10 z-50">
       {notifications.map((notification, index) => (
-        <div key={index} className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-2 px-4 py-2" style={{ width: '300px', maxWidth: '80vw' }}>
+        <div key={index} className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-2 px-4 py-2" style={{ minWidth: '300px', maxWidth: '80vw' }}>
          <button
             className="absolute top-1 left-1 text-black hover:text-gray-800 dark:text-gray-200 dark:hover:text-gray-400 p-2"
             onClick={() => handleDelete(index)}
@@ -6919,18 +6940,19 @@ const NotificationPopup: React.FC<{ notifications: any[] }> = ({ notifications: 
           <div className="flex justify-between items-center">
             <div className="flex-grow px-10 overflow-hidden">
               <div className="font-semibold text-primary dark:text-blue-400 truncate capitalize">{notification.from_name}</div>
-              <div className="text-gray-700 dark:text-gray-300 truncate" style={{ maxWidth: '200px' }}>
+              <div className="text-gray-700 dark:text-gray-300 truncate" style={{ maxWidth: '80vw' }}>
                 {notification.text.body.length > 30 ? `${notification.text.body.substring(0, 30)}...` : notification.text.body}
+              </div>
             </div>
-        </div>
             <div className="mx-2 h-full flex items-center">
               <div className="border-l border-gray-300 dark:border-gray-700 h-12"></div>
-      </div>
+            </div>
             <button 
-            className="bg-primary dark:bg-blue-600 text-white py-1 px-4 rounded whitespace-nowrap"
-            onClick={() => handleNotificationClick(notification.chat_id,index)}
+              className="bg-primary dark:bg-blue-600 text-white py-1 px-4 rounded whitespace-nowrap"
+              onClick={() => handleNotificationClick(notification.chat_id, index)}
             >
-              Show</button>
+              Show
+            </button>
           </div>
         </div>
       ))}
