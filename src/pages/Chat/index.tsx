@@ -3172,7 +3172,10 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
           await addNotificationToUser(companyId, matchingEmployee.name, nonAssignmentNotificationData);
         }
 
-        toast.success(`Contact assigned to ${matchingEmployee.name}. Quota leads updated from ${currentQuotaLeads} to ${currentQuotaLeads > 0 ? currentQuotaLeads - 1 : 0}.`);
+        await sendAssignmentNotification(matchingEmployee.name, contact);
+        console.log('WhatsApp notification sent successfully');
+
+        toast.success(`Contact assigned to ${matchingEmployee.name}. Quota leads updated from ${currentQuotaLeads} to ${currentQuotaLeads > 0 ? currentQuotaLeads - 1 : 0}. WhatsApp notification sent.`);
       } else {
         console.error(`Employee document not found for ${matchingEmployee.name}`);
         
