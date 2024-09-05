@@ -236,6 +236,7 @@ type Notification = {
   from_name: string;
   timestamp: number;
   chat_id: string;
+  type: string;
 };
 
 interface EditMessagePopupProps {
@@ -1311,10 +1312,38 @@ const closePDFModal = () => {
   };
 
   const showNotificationToast = (notification: Notification, index: number) => {
+    let displayText = 'New message';
+
+    switch (notification.type) {
+      case 'text':
+        displayText = notification.text?.body?.substring(0, 100) || 'New message'; // Truncate text to 100 characters
+        break;
+      case 'image':
+        displayText = 'Image';
+        break;
+      case 'video':
+        displayText = 'Video';
+        break;
+      case 'audio':
+        displayText = 'Audio';
+        break;
+      case 'document':
+        displayText = 'Document';
+        break;
+      case 'location':
+        displayText = 'Location';
+        break;
+      case 'contact':
+        displayText = 'Contact';
+        break;
+      default:
+        displayText = 'New message';
+    }
+
     const toastId = toast(
-      <div>
+      <div className="flex flex-col mr-2 pr-2">
         <strong className="font-semibold capitalize">{notification?.from}</strong>
-        <p className="truncate">{notification?.text?.body}</p>
+        <p className="truncate max-w-xs pr-6">{displayText}</p>
       </div>,
       {
         position: "top-right",
@@ -1328,7 +1357,7 @@ const closePDFModal = () => {
         onClose: () => {
           setActiveNotifications(prev => prev.filter(id => id !== toastId));
         },
-        closeButton: <button onClick={(e) => { e.stopPropagation(); toast.dismiss(toastId); }}><Lucide icon="X" className="w-6 h-6 text-black" /></button>
+        closeButton: <button onClick={(e) => { e.stopPropagation(); toast.dismiss(toastId); }}><Lucide icon="X" className="absolute top-1 right-1 w-5 h-5 text-black" /></button>
       }
       
     );
