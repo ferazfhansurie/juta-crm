@@ -153,6 +153,19 @@ function LoadingPage() {
           setShouldFetchContacts(true);
         } else {
           console.log("No bots are authenticated yet");
+          for (let i = 0; i < botStatusResponse.data.length; i++) {
+            const status = botStatusResponse.data[i].status;
+            setBotStatus(status);
+            console.log(`Phone ${i + 1} status:`, status);
+            if (status === 'qr') {
+              const { status, qrCode } = botStatusResponse.data[i];
+              if (status === 'qr') {
+                setQrCodeImage(qrCode);
+              }
+              break;
+            }
+          }
+          
         }
       }
    
