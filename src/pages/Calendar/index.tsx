@@ -15,6 +15,7 @@ import { useContacts } from "@/contact";
 import Select from 'react-select';
 import { error } from "console";
 import { title } from "process";
+import CreatableSelect from 'react-select/creatable';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -39,6 +40,7 @@ interface Appointment {
   address: string;
   appointmentStatus: string;
   staff: string[];
+  tags: Tag[];
   color: string;
   packageId: string | null;
   dateAdded: string;
@@ -49,6 +51,7 @@ interface Employee {
   id: string;
   name: string;
   color: string;
+  backgroundStyle: string;
 }
 
 interface Contact {
@@ -96,6 +99,11 @@ interface Package {
   sessions: number;
 }
 
+interface Tag {
+  id: string;
+  name: string;
+}
+
 function Main() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +131,37 @@ function Main() {
   const [isAddingPackage, setIsAddingPackage] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const calendarRef = useRef(null);
+  const [appointmentTags, setAppointmentTags] = useState<Tag[]>([]);
+  const [companyId, setCompanyId] = useState<string>('');
+
+  useEffect(() => {
+    const fetchCompanyId = async () => {
+      const auth = getAuth(app);
+      const user = auth.currentUser;
+      if (user) {
+        const docUserRef = doc(firestore, 'user', user.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (docUserSnapshot.exists()) {
+          const dataUser = docUserSnapshot.data();
+          setCompanyId(dataUser.companyId);
+        }
+      }
+    };
+  
+    fetchCompanyId();
+    fetchTags();
+  }, []);
+  
+  const fetchTags = async () => {
+    console.log('Fetching tags for company:', companyId);
+    if (companyId) {
+      const tagsCollectionRef = collection(firestore, `companies/${companyId}/tags`);
+      const querySnapshot = await getDocs(tagsCollectionRef);
+      const tags = querySnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+      console.log('Fetched tags:', tags);
+      setAppointmentTags(tags);
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -133,7 +172,10 @@ function Main() {
     window.addEventListener('resize', handleResize);
 
     return () => window.removeEventListener('resize', handleResize);
+
   }, []);
+
+  
 
   const generateTimeSlots = (isWeekend: boolean): string[] => {
     const start = 8;
@@ -224,11 +266,15 @@ function Main() {
       const employeeSnapshot = await getDocs(employeeRef);
 
       const employeeListData: Employee[] = [];
-      const colors = ["#1F3A8A", "#2196F3", "#FFC107", "#9C27B0", "#00BCD4", "#795548", "#607D8B", "#E91E63"];
+      const colors = ["#FF5733", "#006400", "#3357FF", "#FF33A1", "#33FFF5", "#FF8C33", "#8C33FF", "#33FF8C"];
+      const backgroundStyles = ["linear-gradient(to right, #1F3A8A 0%, #1F3A8A 50%, #2196F3 50%, #2196F3 100%)",
+        "linear-gradient(to right, #8A2BE2 0%, #8A2BE2 50%, #9C27B0 50%, #9C27B0 100%)",
+        "linear-gradient(to right, #00BCD4 0%, #00BCD4 50%, #795548 50%, #795548 100%)",
+        "linear-gradient(to right, #607D8B 0%, #607D8B 50%, #E91E63 50%, #E91E63 100%)"];
       let colorIndex = 0;
   
       employeeSnapshot.forEach((doc) => {
-        employeeListData.push({ id: doc.id, ...doc.data(), color: colors[colorIndex % colors.length] } as Employee);
+        employeeListData.push({ id: doc.id, ...doc.data(), color: colors[colorIndex % colors.length], backgroundStyle: backgroundStyles[colorIndex % backgroundStyles.length] } as Employee);
         colorIndex++;
       });
 
@@ -415,7 +461,8 @@ function Main() {
         staff: appointment.staff,
         package: packages.find(p => p.id === appointment.packageId) || null,
         dateAdded: appointment.dateAdded,
-        contacts: eventContacts // Include contacts in currentEvent
+        contacts: eventContacts, // Include contacts in currentEvent
+        tags: appointment.tags || []
       },
       isWeekend: isWeekend,
       timeSlots: generateTimeSlots(isWeekend)
@@ -432,13 +479,25 @@ function Main() {
         staff: appointment.staff,
         package: packages.find(p => p.id === appointment.packageId) || null,
         dateAdded: appointment.dateAdded,
-        contacts: eventContacts
+        contacts: eventContacts,
+        tags: appointment.tags || []
       },
       isWeekend: isWeekend,
       timeSlots: generateTimeSlots(isWeekend)
     });
     setInitialAppointmentStatus(appointment.appointmentStatus);
     setEditModalOpen(true);
+  };
+
+  const handleTagChange = (newValue: any, actionMeta: any) => {
+    const selectedTags = newValue ? newValue.map((item: any) => ({ id: item.value, name: item.label })) : [];
+    setCurrentEvent({
+      ...currentEvent,
+      extendedProps: {
+        ...currentEvent.extendedProps,
+        tags: selectedTags
+      }
+    });
   };
 
   const handleSaveAppointment = async () => {
@@ -468,6 +527,7 @@ function Main() {
       address: extendedProps.address,
       appointmentStatus: extendedProps.appointmentStatus,
       staff: extendedProps.staff,
+      tags: extendedProps.tags || [],
       color: color,
       packageId: extendedProps.package ? extendedProps.package.id : null,
       dateAdded: extendedProps.dateAdded,
@@ -526,7 +586,8 @@ function Main() {
         appointmentStatus: '',
         staff: '',
         package: '',
-        dateAdded: new Date().toISOString()
+        dateAdded: new Date().toISOString(),
+        tags: []
       },
       isWeekend: isWeekend,
       timeSlots: generateTimeSlots(isWeekend)
@@ -546,6 +607,7 @@ function Main() {
       address: currentEvent.extendedProps.address,
       appointmentStatus: currentEvent.extendedProps.appointmentStatus,
       staff: selectedEmployeeIds,
+      tags: currentEvent.extendedProps.tags || [],
       color: firstEmployee ? firstEmployee.color : '#51484f',
       contacts: selectedContacts.map(contact => ({
         id: contact.id,
@@ -583,6 +645,7 @@ function Main() {
         packageId: newEvent.packageId,
         dateAdded: new Date().toISOString(),
         contacts: newEvent.contacts,
+        tags: newEvent.tags || []
       };
   
       await setDoc(newAppointmentRef, newAppointment);
@@ -600,7 +663,7 @@ function Main() {
         await setDoc(newSessionsRef, newSessions);
       }
   
-      setAppointments([...appointments, newAppointment]);
+      setAppointments([...appointments, newAppointment as Appointment]);
     } catch (error) {
       console.error('Error creating appointment:', error);
     }
@@ -742,7 +805,8 @@ function Main() {
         staff: appointment.staff,
         package: packages.find(p => p.id === appointment.packageId) || null,
         dateAdded: appointment.dateAdded,
-        contacts: appointment.contacts // Include contacts in currentEvent
+        contacts: appointment.contacts, // Include contacts in currentEvent
+        tags: appointment.tags || []
       }
     });
     console.log('Current event set:', {
@@ -757,7 +821,8 @@ function Main() {
         staff: appointment.staff,
         package: packages.find(p => p.id === appointment.packageId) || null,
         dateAdded: appointment.dateAdded,
-        contacts: appointment.contacts
+        contacts: appointment.contacts,
+        tags: appointment.tags || []
       }
     });
     setInitialAppointmentStatus(appointment.appointmentStatus);
@@ -842,12 +907,23 @@ function Main() {
     if (staffColors.length === 1) {
       backgroundStyle = { backgroundColor: staffColors[0] };
     } else if (staffColors.length === 2) {
-      backgroundStyle = { background: `linear-gradient(to right, ${staffColors[0]} 50%, ${staffColors[1]} 50%)` };
+      backgroundStyle = { background: `linear-gradient(to right, ${staffColors[0]} 0%, ${staffColors[0]} 33%, ${staffColors[1]} 66%, ${staffColors[1]} 100%)` };
+    } else if (staffColors.length > 2) {
+      backgroundStyle = { backgroundColor: '#FFD700' }; // Distinct color for more than 2 colors
     }
   
     return (
       <div className="flex-grow text-center text-normal font-medium" style={{ ...backgroundStyle, color: 'white', padding: '5px', borderRadius: '5px' }}>
         <i>{eventInfo.event.title}</i>
+        {/* {eventInfo.event.extendedProps.tags && eventInfo.event.extendedProps.tags.length > 0 && (
+          <div className="text-xs mt-1">
+            {eventInfo.event.extendedProps.tags.map((tag: Tag) => (
+              <span key={tag.id} className="bg-gray-200 text-gray-800 px-1 rounded mr-1">
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )} */}
       </div>
     );
   };
@@ -1060,7 +1136,7 @@ function Main() {
     <>
       <div className="flex flex-col items-start mt-8 intro-y sm:flex-row sm:flex-wrap lg:flex-nowrap">
         {/* Employee selection dropdown */}
-        <div className="w-full mb-4 sm:w-1/2 lg:w-auto lg:mb-0 lg:mr-4">
+        <div className="w-full mb-4 sm:w-1/4 sm:mr-2 lg:w-auto lg:mb-0 lg:mr-4">
           {employees.length > 0 && (
             <select
               value={selectedEmployeeId}
@@ -1078,7 +1154,7 @@ function Main() {
         </div>
 
         {/* Status and date filters */}
-        <div className="w-full mb-4 sm:w-1/2 lg:w-auto lg:mb-0 lg:mr-4">
+        <div className="w-full mb-2 sm:w-1/4 sm:mr-2 lg:w-auto lg:mb-0 lg:mr-4">
           <select
             value={filterStatus}
             onChange={handleStatusFilterChange}
@@ -1096,17 +1172,27 @@ function Main() {
           </select>
         </div>
 
-        <div className="w-full mb-4 sm:w-1/2 lg:w-auto lg:mb-0 lg:mr-4">
-          <input
-            type="date"
-            value={filterDate}
-            onChange={handleDateFilterChange}
-            className="w-full text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600"
-          />
+        <div className="w-full mb-2 sm:w-1/4 sm:mr-2 lg:w-auto lg:mb-0 lg:mr-4 relative">
+          <div className="relative">
+            <input
+              type="date"
+              value={filterDate}
+              onChange={handleDateFilterChange}
+              className="block w-full p-2 text-primary bg-white border border-primary rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            />
+          </div>
+          {filterDate && (
+            <button
+              onClick={() => setFilterDate('')}
+              className="absolute inset-y-0 right-0 flex items-center pr-3"
+            >
+              <Lucide icon="X" className="w-6 h-6 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300" />
+            </button>
+          )}
         </div>
 
         {/* Add New Package button */}
-        <div className="w-full mb-4 sm:w-1/2 lg:w-auto lg:mb-0 lg:mr-4">
+        <div className="w-full mb-4 sm:w-1/4 sm:mr-2  lg:w-auto lg:mb-0 lg:mr-4">
           <button
             className="w-full px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
             onClick={() => setIsAddingPackage(true)}
@@ -1116,7 +1202,7 @@ function Main() {
         </div>
 
         {/* Add New Appointment button */}
-        <div className="w-full sm:w-1/2 lg:w-auto">
+        <div className="w-full sm:w-1/4 sm:mr-2 lg:w-auto lg:mr-4">
           <Button
             variant="primary"
             type="button"
@@ -1133,7 +1219,8 @@ function Main() {
                   appointmentStatus: '',
                   staff: '',
                   package: '',
-                  dateAdded: new Date().toISOString()
+                  dateAdded: new Date().toISOString(),
+                  tags: []
                 }
               });
               setAddModalOpen(true);
@@ -1148,7 +1235,7 @@ function Main() {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-5 mt-5">
         {/* Appointments list */}
         <div className={`${isMobile ? 'order-1' : ''} md:col-span-4 xl:col-span-4 2xl:col-span-3`}>
-          <div className="p-5 box intro-y dark:bg-gray-700" style={{ maxHeight: '700px', overflowY: 'auto' }}>
+          <div className="p-5 box intro-y" style={{ maxHeight: '700px', overflowY: 'auto' }}>
             <div className="flex justify-between items-center h-10 intro-y gap-4">
               <h2 className="text-3xl sm:text-xl md:text-2xl font-bold dark:text-white">
                 Appointments
@@ -1157,7 +1244,7 @@ function Main() {
                 {employees.map((employee, index) => (
                   <span key={employee.id} className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3">
                     <span className="flex w-2.5 h-2.5 rounded-full me-1.5 flex-shrink-0" style={{ backgroundColor: employee.color }}></span>
-                    {employee.name}
+                    {employee.name.charAt(0).toUpperCase() + employee.name.slice(1)}
                   </span>
                 ))}
               </div>
@@ -1168,47 +1255,76 @@ function Main() {
                 <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3"><span className="flex w-2.5 h-2.5 bg-blue-700 rounded-full me-1.5 flex-shrink-0"></span>Closed</span>
               </div>
             </div>
-            <div className="mt-6 mb-5 border-t border-b border-slate-200/60 dark:border-gray-600">
+            <div className="mt-4 mb-2 border-t border-b border-slate-200/60 dark:border-gray-600">
               {filteredAppointments.length > 0 ? (
                 filteredAppointments.map((appointment, index) => (
                   <div key={index} className="relative" onClick={() => handleAppointmentClick(appointment)}>
-                    <div className="flex items-center p-3 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-gray-600">
-                      <div className={`w-2 h-20 mr-3 rounded-sm ${getStatusColor(appointment.appointmentStatus)}`}></div>
-                      <div className="pr-10 item-center">
-                        <div className="truncate event__title text-lg font-medium dark:text-white">{appointment.title}</div>
-                        <div className="text-slate-500 text-xs mt-0.5 dark:text-gray-300">
-                          {new Date(appointment.startTime).toLocaleString('en-US', {
-                            weekday: 'long',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: 'numeric',
-                            hour12: true
-                          })} - {new Date(appointment.endTime).toLocaleString('en-US', {
-                            hour: 'numeric',
-                            minute: 'numeric',
-                            hour12: true
+                    <div className="flex m-2 p-2 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-gray-600">
+                      <div className={`w-2 mr-3 rounded-sm ${getStatusColor(appointment.appointmentStatus)}`} style={{ height: 'auto' }}></div>
+                      <div className="pr-2 item-center w-full">
+                        <div className="flex justify-between">
+                          <div>
+                            <div className="truncate event__title text-lg font-medium dark:text-white text-start capitalize">{appointment.title}</div>
+                            {packages.find(p => p.id === appointment.packageId) && packages.find(p => p.id === appointment.packageId)?.name !== 'No Packages' && (
+                              <div className="text-slate-500 text-xs dark:text-gray-300">
+                                {packages.find(p => p.id === appointment.packageId)?.name} package
+                                {(packages.find(p => p.id === appointment.packageId)?.sessions ?? 0) > 0 && 
+                                  ` (${packages.find(p => p.id === appointment.packageId)?.sessions ?? 0} sessions)`}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-slate-500 text-xs mt-0.5 dark:text-gray-300 text-right">
+                            <div>
+                              {new Date(appointment.startTime).toLocaleString('en-US', {
+                                weekday: 'long',
+                                month: 'long',
+                                day: 'numeric'
+                              })}
+                            </div>
+                            <div>
+                              {new Date(appointment.startTime).toLocaleString('en-US', {
+                                hour: 'numeric',
+                                minute: 'numeric',
+                                hour12: true
+                              })} - {new Date(appointment.endTime).toLocaleString('en-US', {
+                                hour: 'numeric',
+                                minute: 'numeric',
+                                hour12: true
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                        {appointment.tags && appointment.tags.length > 0 && (
+                          <div className="flex flex-wrap">
+                            {appointment.tags.slice(0, 2).map(tag => (
+                              <span key={tag.id} className="bg-blue-200 text-blue-800 text-xs px-1 rounded mr-1 mb-1">
+                                {tag.name}
+                              </span>
+                            ))}
+                            {appointment.tags.length > 2 && (
+                              <span className="bg-blue-200 text-blue-800 text-xs px-1 rounded mr-1 mb-1">
+                                +{appointment.tags.length - 2} more
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        <div className="text-xs flex flex-wrap mt-1">
+                          {appointment.staff.map((employeeId) => {
+                            const employee = employees.find(e => e.id === employeeId);
+                            return employee ? (
+                              <span key={employee.id} className="text-xs px-1 rounded mr-1 mb-1 mr-1 text-start capitalize" style={{ backgroundColor: employee.color, color: '#fff' }}>
+                                {employee.name}
+                              </span>
+                            ) : null;
                           })}
                         </div>
-                        <div className="text-slate-500 text-xs mt-0.5 dark:text-gray-300">
-                          Package: {packages.find(p => p.id === appointment.packageId)?.name ?? 'No package set'}
-                          {(packages.find(p => p.id === appointment.packageId)?.sessions ?? 0) > 0 && 
-                            ` (${packages.find(p => p.id === appointment.packageId)?.sessions ?? 0} sessions)`}
-                        </div> 
-                        <div className="text-slate-500 text-xs mt-0.5 dark:text-gray-300">
-                          Contacts:{" "}
-                          {appointment.contacts && appointment.contacts.length > 0 ? (
-                            <span>
-                              {appointment.contacts.map(contact => (
-                                <div className="capitalize" key={contact.id}>
-                                  {contact.name}
-                                  {contact.session > 0 && ` | Session ${contact.session}`}
-                                </div>
-                              ))}
+                        <div className="text-slate-500 text-xs dark:text-gray-300">
+                          {appointment.contacts.map(contact => (
+                            <span key={contact.id} className="bg-white text-black text-xs px-1 rounded mr-1 mb-1">
+                              {contact.name}
+                              {contact.session > 0 && ` | Session ${contact.session}`}
                             </span>
-                          ) : (
-                            <span> No contacts</span>
-                          )}
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -1225,7 +1341,7 @@ function Main() {
 
         {/* Calendar */}
         <div className={`${isMobile ? 'hidden' : ''} md:col-span-8 xl:col-span-8 2xl:col-span-9`}>
-          <div className="p-5 box dark:bg-gray-700">
+          <div className="p-5 box intro-y">
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -1237,7 +1353,8 @@ function Main() {
                 end: appointment.endTime,
                 extendedProps: {
                   appointmentStatus: appointment.appointmentStatus,
-                  staff: appointment.staff
+                  staff: appointment.staff,
+                  tags: appointment.tags || []
                 }
               }))}
               selectable={true}
@@ -1258,7 +1375,6 @@ function Main() {
                 color: #0C4A6E;
               }
               .fc .fc-toolbar button {
-                text-transform: capitalize;
                 background-color: #0C4A6E;
                 color: white;
                 border: none;
@@ -1270,9 +1386,6 @@ function Main() {
               .fc .fc-toolbar button:hover {
                 background-color: #082F49;
               }
-              .dark .fc {
-                color: #fff;
-              }
               .dark .fc .fc-toolbar {
                 color: #fff;
               }
@@ -1281,15 +1394,6 @@ function Main() {
               }
               .dark .fc .fc-toolbar button:hover {
                 background-color: #1e3a8a;
-              }
-              .dark .fc-day-today {
-                background-color: rgba(59, 130, 246, 0.1) !important;
-              }
-              .dark .fc-col-header-cell {
-                background-color: #374151;
-              }
-              .dark .fc-theme-standard td, .dark .fc-theme-standard th {
-                border-color: #4b5563;
               }
             `}</style>
           </div>
@@ -1363,6 +1467,44 @@ function Main() {
                   </select>
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tags</label>
+                  <Select
+                    isMulti
+                    options={appointmentTags.map((tag: any) => ({ value: tag.id, label: tag.name }))}
+                    value={currentEvent?.extendedProps?.tags?.map((tag: any) => ({ value: tag.id, label: tag.name })) || []}
+                    onChange={handleTagChange}
+                    className="capitalize"
+                    styles={{
+                      control: (provided) => ({
+                        ...provided,
+                        backgroundColor: '#1f2937', // Solid color for better visibility
+                        borderColor: 'border-gray-300 dark:border-gray-600',
+                        boxShadow: 'shadow-sm',
+                      }),
+                      menu: (provided) => ({
+                        ...provided,
+                        backgroundColor: '#1f2937', // Solid color for better visibility
+                      }),
+                      multiValue: (provided) => ({
+                        ...provided,
+                        backgroundColor: '#4b5563', // Solid color for better visibility
+                      }),
+                      multiValueLabel: (provided) => ({
+                        ...provided,
+                        color: 'text-gray-800 dark:text-gray-200',
+                      }),
+                      multiValueRemove: (provided) => ({
+                        ...provided,
+                        color: 'text-gray-800 dark:text-gray-200',
+                        '&:hover': {
+                          backgroundColor: 'bg-gray-300 dark:bg-gray-500',
+                          color: 'text-gray-900 dark:text-gray-100',
+                        },
+                      }),
+                    }}
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Staff</label>
                   <div className="block w-full mt-1 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 dark:bg-gray-700 dark:border-gray-600">
                     {employees.map((employee) => (
@@ -1418,7 +1560,36 @@ function Main() {
                     value={selectedContacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
                     options={contacts.map(contact => ({ value: contact.id, label: contact.contactName }))}
                     onChange={handleContactChange}
-                    className="capitalize dark:bg-gray-700 dark:text-white"
+                    classNamePrefix="react-select"
+                    className="capitalize"
+                    styles={{
+                      control: (provided) => ({
+                        ...provided,
+                        backgroundColor: '#1f2937', // Solid color for better visibility
+                        borderColor: 'border-gray-300 dark:border-gray-600',
+                        boxShadow: 'shadow-sm',
+                      }),
+                      menu: (provided) => ({
+                        ...provided,
+                        backgroundColor: '#1f2937', // Solid color for better visibility
+                      }),
+                      multiValue: (provided) => ({
+                        ...provided,
+                        backgroundColor: '#4b5563', // Solid color for better visibility
+                      }),
+                      multiValueLabel: (provided) => ({
+                        ...provided,
+                        color: 'text-gray-800 dark:text-gray-200',
+                      }),
+                      multiValueRemove: (provided) => ({
+                        ...provided,
+                        color: 'text-gray-800 dark:text-gray-200',
+                        '&:hover': {
+                          backgroundColor: 'bg-gray-300 dark:bg-gray-500',
+                          color: 'text-gray-900 dark:text-gray-100',
+                        },
+                      }),
+                    }}
                   />
                   {selectedContacts.map(contact => (
                     <div key={contact.id} className="capitalize text-sm text-gray-600 dark:text-gray-300">
@@ -1427,10 +1598,10 @@ function Main() {
                   ))}
                 </div>
               </div>
-              <div className="flex justify-end mt-6">
+              <div className="flex justify-end mt-6 space-x-2">
                 {currentEvent?.id && (
                   <button
-                    className="px-4 py-2 mr-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
                     onClick={() => {
                       handleDeleteAppointment(currentEvent.id);
                       setEditModalOpen(false);
@@ -1440,7 +1611,7 @@ function Main() {
                   </button>
                 )}
                 <button
-                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
                   onClick={() => setEditModalOpen(false)}
                 >
                   Cancel
@@ -1534,6 +1705,44 @@ function Main() {
                   </select>
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tags</label>
+                  <Select
+                    isMulti
+                    options={appointmentTags.map((tag: any) => ({ value: tag.id, label: tag.name }))}
+                    value={currentEvent?.extendedProps?.tags?.map((tag: any) => ({ value: tag.id, label: tag.name })) || []}
+                    onChange={handleTagChange}
+                    className="capitalize dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                    styles={{
+                      control: (provided: any) => ({
+                        ...provided,
+                        backgroundColor: '#1f2937', // Solid color for better visibility
+                        borderColor: 'border-gray-300 dark:border-gray-600',
+                        boxShadow: 'shadow-sm',
+                      }),
+                      menu: (provided) => ({
+                        ...provided,
+                        backgroundColor: '#1f2937', // Solid color for better visibility
+                      }),
+                      multiValue: (provided) => ({
+                        ...provided,
+                        backgroundColor: '#4b5563', // Solid color for better visibility
+                      }),
+                      multiValueLabel: (provided) => ({
+                        ...provided,
+                        color: 'text-gray-800 dark:text-gray-200',
+                      }),
+                      multiValueRemove: (provided) => ({
+                        ...provided,
+                        color: 'text-gray-800 dark:text-gray-200',
+                        '&:hover': {
+                          backgroundColor: 'bg-gray-300 dark:bg-gray-500',
+                          color: 'text-gray-900 dark:text-gray-100',
+                        },
+                      }),
+                    }}
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Staff</label>
                   <div className="block w-full mt-1 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 dark:bg-gray-700 dark:border-gray-600">
                     {employees.map((employee) => (
@@ -1591,9 +1800,9 @@ function Main() {
                   ))}
                 </div>
               </div>
-              <div className="flex justify-end mt-6">
+              <div className="flex justify-end mt-6 space-x-2">
                 <button
-                  className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
                   onClick={() => {
                     setAddModalOpen(false);
                     setSelectedContacts([]);
