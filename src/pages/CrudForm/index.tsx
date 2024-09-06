@@ -227,14 +227,19 @@ function Main() {
 
   const validateForm = () => {
     const errors: { [key: string]: string } = {};
-    const requiredFields = ['name', 'phoneNumber', 'email', 'role', 'password'];
+    const requiredFields = ['name', 'phoneNumber', 'email', 'role'];
+    
+    // Only require password for new users
+    if (!contactId) {
+      requiredFields.push('password');
+    }
     
     requiredFields.forEach(field => {
       if (!userData[field as keyof typeof userData]) {
         errors[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
       }
     });
-
+  
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -519,16 +524,16 @@ function Main() {
             </select>
           </div>
           <div>
-            <FormLabel htmlFor="password">Password *</FormLabel>
+            <FormLabel htmlFor="password">Password {contactId ? '' : '*'}</FormLabel>
             <FormInput
               id="password"
               name="password"
               type="password"
               value={userData.password}
               onChange={handleChange}
-              placeholder="Password"
+              placeholder={contactId ? "Leave blank to keep current password" : "Password"}
               disabled={isFieldDisabled("password")}
-              required
+              required={!contactId}
             />
             {fieldErrors.password && <p className="text-red-500 text-sm mt-1">{fieldErrors.password}</p>}
           </div>
