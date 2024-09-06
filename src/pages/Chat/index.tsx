@@ -542,6 +542,8 @@ function Main() {
   const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
   const [userPhone, setUserPhone] = useState<number | null>(null);
   const [activeNotifications, setActiveNotifications] = useState<(string | number)[]>([]);
+  const [isAssistantAvailable, setIsAssistantAvailable] = useState(false);
+
 
 
   const handleMessageSearchClick = () => {
@@ -572,6 +574,9 @@ function Main() {
           const companySnapshot = await getDoc(companyRef);
           if (companySnapshot.exists()) {
             const companyData = companySnapshot.data();
+            if (companyData) {
+              setIsAssistantAvailable(!!companyData.assistantId);
+            }
             setStopbot(companyData.stopbot)
             const phoneCount = companyData.phoneCount || 0;
             const newPhoneNames: Record<number, string> = {};
@@ -1273,8 +1278,14 @@ const closePDFModal = () => {
           currentNotifications.sort((a, b) => b.timestamp - a.timestamp);
           const latestNotification = currentNotifications[0];
 
-          // Add new notification to the state
-          setNotifications(prev => [...prev, latestNotification]);
+          // Check for duplicate notifications
+          setNotifications(prev => {
+            const isDuplicate = prev.some(notification => notification.timestamp === latestNotification.timestamp && notification.from === latestNotification.from);
+            if (isDuplicate) {
+              return prev;
+            }
+            return [...prev, latestNotification];
+          });
           
           // Play notification sound
           if (audioRef.current) {
@@ -1311,13 +1322,29 @@ const closePDFModal = () => {
     setNotifications(prev => prev.filter((_, i) => i !== index));
   };
 
-  const showNotificationToast = (notification: Notification, index: number) => {
-    let displayText = 'New message';
+// Update the showNotificationToast function
+const showNotificationToast = (notification: Notification, index: number) => {
+  // Check if a notification with the same chat_id and timestamp already exists
+  const isDuplicate = activeNotifications.some(id => {
+    const existingToast = toast.isActive(id);
+    if (existingToast) {
+      const content = document.getElementById(`toast-${id}`)?.textContent;
+      return content?.includes(notification.from) && content?.includes(notification.text.body);
+    }
+    return false;
+  });
 
-    switch (notification.type) {
-      case 'text':
-        displayText = notification.text?.body?.substring(0, 100) || 'New message'; // Truncate text to 100 characters
-        break;
+  if (isDuplicate) {
+    console.log('Duplicate notification, not showing toast');
+    return;
+  }
+
+  let displayText = 'New message';
+
+  switch (notification.type) {
+    case 'text':
+      displayText = notification.text?.body?.substring(0, 100) || 'New message'; // Truncate text to 100 characters
+      break;
       case 'image':
         displayText = 'Image';
         break;
@@ -1338,38 +1365,76 @@ const closePDFModal = () => {
         break;
       default:
         displayText = 'New message';
+  }
+  const toastId = toast(
+    <div id={`toast-${Date.now()}`} className="flex flex-col mr-2 pr-2">
+      <strong className="font-semibold capitalize">{notification?.from}</strong>
+      <p className="truncate max-w-xs pr-6">{displayText}</p>
+    </div>,
+    {
+      position: "top-right",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      onClick: () => handleNotificationClick(notification.chat_id, index),
+      onClose: () => {
+        setActiveNotifications(prev => prev.filter(id => id !== toastId));
+      },
+      closeButton: <button onClick={(e) => { e.stopPropagation(); toast.dismiss(toastId); }}><Lucide icon="X" className="absolute top-1 right-1 w-5 h-5 text-black" /></button>
     }
+  );
 
-    const toastId = toast(
-      <div className="flex flex-col mr-2 pr-2">
-        <strong className="font-semibold capitalize">{notification?.from}</strong>
-        <p className="truncate max-w-xs pr-6">{displayText}</p>
-      </div>,
-      {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        onClick: () => handleNotificationClick(notification.chat_id, index),
-        onClose: () => {
-          setActiveNotifications(prev => prev.filter(id => id !== toastId));
-        },
-        closeButton: <button onClick={(e) => { e.stopPropagation(); toast.dismiss(toastId); }}><Lucide icon="X" className="absolute top-1 right-1 w-5 h-5 text-black" /></button>
+  setActiveNotifications(prev => [...prev, toastId]);
+};
+
+// Update the useEffect for notifications
+useEffect(() => {
+  const unsubscribe = onSnapshot(
+    collection(firestore, 'user', auth.currentUser?.email!, 'notifications'),
+    async (snapshot) => {
+      const currentNotifications = snapshot.docs.map(doc => doc.data() as Notification);
+
+      // Prevent running on initial mount
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
+        prevNotificationsRef.current = currentNotifications.length;
+        return;
       }
-      
-    );
-  
-    setActiveNotifications(prev => [...prev, toastId]);
 
-    // If there are more than 3 active notifications, close the oldest one
-    if (activeNotifications.length >= 3) {
-      toast.dismiss(activeNotifications[0]);
-      setActiveNotifications(prev => prev.slice(1));
+      // Check if a new notification has been added
+      if (prevNotificationsRef.current !== null && currentNotifications.length > prevNotificationsRef.current) {
+        // Sort notifications by timestamp to ensure the latest one is picked
+        currentNotifications.sort((a, b) => b.timestamp - a.timestamp);
+        const latestNotification = currentNotifications[0];
+
+        // Check for duplicate notifications
+        setNotifications(prev => {
+          const isDuplicate = prev.some(notification => notification.timestamp === latestNotification.timestamp && notification.from === latestNotification.from);
+          if (isDuplicate) {
+            return prev;
+          }
+          return [...prev, latestNotification];
+        });
+        
+        // Play notification sound
+        if (audioRef.current) {
+          audioRef.current.play();
+        }
+
+        // Show toast notification
+        showNotificationToast(latestNotification, notifications.length);
+      }
+
+      // Update the previous notifications count
+      prevNotificationsRef.current = currentNotifications.length;
     }
-  };
+  );
+
+  return () => unsubscribe();
+}, [companyId, selectedChatId, whapiToken]);
 
 
 // New separate useEffect for message listener
@@ -5292,21 +5357,23 @@ const handleForwardMessage = async () => {
   />
 </div>
 )}
-  <div className="flex justify-end space-x-3">
-  <button 
-      className={`flex items-center justify-start p-2 !box ${
-        stopbot ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
-      } ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`} 
-      onClick={toggleBot}
-      disabled={userRole === "3"}
+    <div className="flex justify-end space-x-3">
+    {isAssistantAvailable && (
+      <button 
+        className={`flex items-center justify-start p-2 !box ${
+          stopbot ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
+        } ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`} 
+        onClick={toggleBot}
+        disabled={userRole === "3"}
       >
-      <Lucide 
-        icon={stopbot ? 'PowerOff' : 'Power'} 
-        className={`w-5 h-5 ${
-          stopbot ? 'text-red-500' : 'text-green-500'
-        }`}
-      />                
-    </button>
+        <Lucide 
+          icon={stopbot ? 'PowerOff' : 'Power'} 
+          className={`w-5 h-5 ${
+            stopbot ? 'text-red-500' : 'text-green-500'
+          }`}
+        />                
+      </button>
+    )}
     <Menu as="div" className="relative inline-block text-left">
       <div className="flex items-right space-x-3">
         <Menu.Button as={Button} className="p-2 !box m-0" onClick={handleTagClick}>
@@ -5615,23 +5682,25 @@ const handleForwardMessage = async () => {
               "No Messages"
             )}
           </span>
-          <div onClick={(e) => toggleStopBotLabel(contact, index, e)}
-className="cursor-pointer">
-  <label className="inline-flex items-center cursor-pointer">
-    <input
-      type="checkbox"
-      className="sr-only peer"
-      checked={contact.tags?.includes("stop bot")}
-      readOnly
-    />
-    <div className={`mt-1 ml-0 relative w-11 h-6 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer ${
-      contact.tags?.includes("stop bot") 
-        ? 'bg-red-500 dark:bg-red-700' 
-        : 'bg-green-500 dark:bg-green-700'
-    } peer-checked:after:-translate-x-full rtl:peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:end-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400`}>
-    </div>
-  </label>
-</div>
+          {isAssistantAvailable && (
+            <div onClick={(e) => toggleStopBotLabel(contact, index, e)}
+              className="cursor-pointer">
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={contact.tags?.includes("stop bot")}
+                    readOnly
+                  />
+                <div className={`mt-1 ml-0 relative w-11 h-6 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer ${
+                  contact.tags?.includes("stop bot") 
+                    ? 'bg-red-500 dark:bg-red-700' 
+                    : 'bg-green-500 dark:bg-green-700'
+                } peer-checked:after:-translate-x-full rtl:peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:end-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400`}>
+                </div>
+              </label>
+            </div>
+          )}
         </div>
                   </div>
                 </div>
