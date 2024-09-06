@@ -5343,10 +5343,10 @@ const handleForwardMessage = async () => {
         </div>
 )}
 {!isFetching && (
-  <div className="bg-gray-100 dark:bg-gray-800 relative flex-grow">
+  <div className="relative flex-grow">
     <input
       type="text"
-      className="!box w-full py-1 pl-10 pr-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
+      className="!box w-full h-9 py-1 pl-10 pr-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
       placeholder="Search..."
       value={searchQuery}
       onChange={handleSearchChange}

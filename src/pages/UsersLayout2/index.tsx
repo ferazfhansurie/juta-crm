@@ -14,6 +14,8 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from 'react-toastify';
 import ReactPaginate from 'react-paginate';
+import ThemeSwitcher from "@/components/ThemeSwitcher";
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -398,6 +400,7 @@ const paginatedEmployees = filteredEmployees
             </div>
           </div>
         </div>
+        <ThemeSwitcher />
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-5">
           {paginatedEmployees.map((employee, index) => (
             <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">

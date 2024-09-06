@@ -1,4 +1,3 @@
-import ThemeSwitcher from "@/components/ThemeSwitcher";
 import logoUrl from "@/assets/images/logo.png";
 import illustrationUrl from "@/assets/images/illustration.svg";
 import { FormInput, FormCheck } from "@/components/Base/Form";
@@ -75,7 +74,6 @@ const firebaseConfig = {
             "after:hidden after:xl:block after:content-[''] after:w-[57%] after:-mt-[20%] after:-mb-[13%] after:-ml-[13%] after:absolute after:inset-y-0 after:left-0 after:transform after:rotate-[-4.5deg] after:bg-primary after:rounded-[100%] after:dark:bg-darkmode-700",
           ])}
         >
-          <ThemeSwitcher />
           <div className="container relative z-10 sm:px-10">
             <div className="block grid-cols-2 gap-4 xl:grid">
               <div className="flex-col hidden min-h-screen xl:flex">

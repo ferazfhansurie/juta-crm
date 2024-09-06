@@ -527,7 +527,7 @@ const clearAllNotifications = async () => {
                           >
                             <div className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-lg transition-colors duration-150 ease-in-out p-2">
                               <div className="flex justify-between items-center mb-1">  
-                                <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate capitalize">
+                                <div className="text-sm font-semibold text-primary dark:text-blue-500 truncate capitalize">
                                   {notification.from.split('@')[0]}
                                 </div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
