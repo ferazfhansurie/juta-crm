@@ -1695,6 +1695,7 @@ async function fetchConfigFromDatabase() {
       console.error('Error deleting notifications:', error);
     }
   };
+  
   const fetchTags = async (token: string, location: string, employeeList: string[]) => {
     const maxRetries = 5;
     const baseDelay = 1000;
@@ -3048,16 +3049,16 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
                 }
               : c
           );
-  
+    
         setContacts(updateContactsList);
-        setFilteredContacts(updateContactsList);
+        setFilteredContacts(prevFilteredContacts => updateContactsList(prevFilteredContacts));
   
         // Update localStorage
         const updatedContacts = updateContactsList(contacts);
         localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
-  
+
         sessionStorage.setItem('contactsFetched', 'true');
-  
+
         // Show a success toast
         toast.success(`Bot ${newHasLabel ? 'disabled' : 'enabled'} for ${contact.contactName || contact.firstName || contact.phone}`);
       } else {
@@ -3481,9 +3482,11 @@ const getTimestamp2 = (timestamp: any): number => {
   }
   return 0;
 };
-  const handlePageChange = ({ selected }: { selected: number }) => {
-    setCurrentPage(selected);
-  };
+  
+const handlePageChange = ({ selected }: { selected: number }) => {
+  setCurrentPage(selected);
+};
+
   const sortContacts = (contacts: Contact[]) => {
     let fil = contacts;
     const activeTag = activeTags[0].toLowerCase();
@@ -3634,7 +3637,7 @@ const getTimestamp2 = (timestamp: any): number => {
     filteredContacts = sortContacts(filteredContacts);
     console.log("MESSAGE MODE", messageMode)
     let filtered = filteredContacts;
-    
+  
     if (searchQuery) {
       filtered = filteredContacts.filter((contact) => {
         const name = (contact.contactName || contact.firstName || '').toLowerCase();
@@ -3642,14 +3645,13 @@ const getTimestamp2 = (timestamp: any): number => {
         const tags = (contact.tags || []).join(' ').toLowerCase();
         
         return name.includes(searchQuery.toLowerCase()) || 
-               phone.includes(searchQuery.toLowerCase()) || 
-               tags.includes(searchQuery.toLowerCase());
+              phone.includes(searchQuery.toLowerCase()) || 
+              tags.includes(searchQuery.toLowerCase());
       });
-      setFilteredContacts(filtered);
-    } else {
-      setFilteredContacts(filtered);
-      setCurrentPage(0)
     }
+
+    setFilteredContacts(filtered);
+    // Don't reset the current page here
   }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList, userData]);
   
   const handleSnoozeContact = async (contact: Contact) => {
