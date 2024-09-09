@@ -76,8 +76,9 @@ function Main() {
     website?: string | null;
     chat_pic_full?: string | null;
     profilePicUrl?: string | null;
-    chat_id?:string| null;
-    points?:number;
+    chat_id?:string | null;
+    points?:number | null;
+    phoneIndex?:number | null;
   }
   
   interface Employee {
