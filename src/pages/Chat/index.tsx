@@ -106,6 +106,7 @@ interface Contact {
   pinned?: boolean | null;
   profilePicUrl?:string;
   phoneIndex?:number |null;
+  points?:number |null;
 }
 interface GhlConfig {
   ghl_id: string;
