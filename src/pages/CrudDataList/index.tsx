@@ -27,6 +27,8 @@ import { format, compareAsc } from 'date-fns';
 import { saveAs } from 'file-saver';
 import Papa from 'papaparse';
 import ReactPaginate from 'react-paginate';
+import { Tab } from '@headlessui/react';
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
@@ -187,6 +189,10 @@ function Main() {
   const [showMassDeleteModal, setShowMassDeleteModal] = useState(false);
   const [userFilter, setUserFilter] = useState<string>("");
   const [activeTab, setActiveTab] = useState<'tags' | 'users'>('tags');
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
+  const [selectedUserFilters, setSelectedUserFilters] = useState<string[]>([]);
+  const [activeFilterTab, setActiveFilterTab] = useState('tags');
+
 
   
   const fetchContacts = useCallback(async () => {
@@ -487,8 +493,12 @@ useEffect(() => {
   setTotalContacts(contacts.length);
 }, [contacts]);
 
-const handleTagFilterChange = (tag: string) => {
-  setSelectedTagFilter(tag);
+const handleTagFilterChange = (tagName: string) => {
+  setSelectedTagFilters(prev => 
+    prev.includes(tagName) 
+      ? prev.filter(tag => tag !== tagName)
+      : [...prev, tagName]
+  );
 };
 
 const handleExcludeTag = (tag: string) => {
@@ -1423,8 +1433,19 @@ useEffect(() => {
   fetchCompanyData();
 }, []);
 
+// Add a user filter change handler
 const handleUserFilterChange = (userName: string) => {
-  setUserFilter(userName);
+  setSelectedUserFilters(prev => 
+    prev.includes(userName) 
+      ? prev.filter(user => user !== userName)
+      : [...prev, userName]
+  );
+};
+
+const clearAllFilters = () => {
+  setSelectedTagFilters([]);
+  setSelectedUserFilters([]);
+  setExcludedTags([]);
 };
 
 const filteredContacts = useMemo(() => {
@@ -1437,13 +1458,15 @@ const filteredContacts = useMemo(() => {
                           phone.includes(searchQuery.toLowerCase()) || 
                           tags.some(tag => tag.includes(searchQuery.toLowerCase()));
 
-    const matchesTagFilter = !selectedTagFilter || tags.includes(selectedTagFilter.toLowerCase());
+    const matchesTagFilters = selectedTagFilters.length === 0 || 
+                              selectedTagFilters.every(filter => tags.includes(filter.toLowerCase()));
+    const matchesUserFilters = selectedUserFilters.length === 0 || 
+                               selectedUserFilters.some(filter => tags.includes(filter.toLowerCase()));
     const notExcluded = !excludedTags.some(tag => tags.includes(tag.toLowerCase()));
-    const matchesUserFilter = !userFilter || tags.includes(userFilter.toLowerCase());
 
-    return matchesSearch && matchesTagFilter && notExcluded && matchesUserFilter;
+    return matchesSearch && matchesTagFilters && matchesUserFilters && notExcluded;
   });
-}, [sortedContacts, searchQuery, selectedTagFilter, excludedTags, userFilter]);
+}, [sortedContacts, searchQuery, selectedTagFilters, selectedUserFilters, excludedTags]);
 
 const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   setSearchQuery(e.target.value);
@@ -2118,48 +2141,49 @@ console.log(filteredContacts);
                         <Lucide icon="Filter" className="w-5 h-5 mr-2" />
                         <span>Filter</span>
                       </Menu.Button>
-                      <Menu.Items className="w-full bg-white text-gray-800 dark:text-gray-200 min-w-[200px]">
+                      <Menu.Items className="w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 min-w-[200px] p-2">
                         <div>
                           <button
                             className="flex items-center p-2 font-medium w-full rounded-md"
-                            onClick={() => {
-                              handleTagFilterChange("");
-                              setExcludedTags([]);
-                              handleUserFilterChange("");
-                            }}
+                            onClick={clearAllFilters}
                           >
                             <Lucide icon="X" className="w-4 h-4 mr-1" />
                             Clear All Filters
                           </button>
                         </div>
-                        <div className="p-2">
-                          <span className="font-medium">Filter by:</span>
-                        </div>
-                        <div className="flex">
-                          <button
-                            className={`rounded-md flex-grow p-2 text-center ${activeTab === 'tags' ? 'bg-primary dark:bg-primary text-white' : ''}`}
-                            onClick={() => setActiveTab('tags')}
-                          >
-                            Tags
-                          </button>
-                          <button
-                            className={`rounded-md flex-grow p-2 text-center ${activeTab === 'users' ? 'bg-primary dark:bg-primary text-white' : ''}`}
-                            onClick={() => setActiveTab('users')}
-                          >
-                            Users
-                          </button>
-                        </div>
-                        {activeTab === 'tags' && (
-                          <>
-                            {tagList.map((tag) => (
-                              <Menu.Item key={tag.id}>
-                                <div className={`flex items-center justify-between p-2 text-sm w-full rounded-md ${selectedTagFilter === tag.name ? 'bg-primary dark:bg-primary text-white' : ''}`}>
-                                  <span
-                                    className="flex-grow cursor-pointer"
+                        <Tab.Group>
+                          <Tab.List className="flex p-1 space-x-1 bg-blue-900/20 rounded-xl mt-2">
+                            <Tab
+                              className={({ selected }) =>
+                                `w-full py-2.5 text-sm font-medium leading-5 text-blue-700 rounded-lg
+                                focus:outline-none focus:ring-2 ring-offset-2 ring-offset-blue-400 ring-white ring-opacity-60
+                                ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`
+                              }
+                              onClick={() => setActiveFilterTab('tags')}
+                            >
+                              Tags
+                            </Tab>
+                            <Tab
+                              className={({ selected }) =>
+                                `w-full py-2.5 text-sm font-medium leading-5 text-blue-700 rounded-lg
+                                focus:outline-none focus:ring-2 ring-offset-2 ring-offset-blue-400 ring-white ring-opacity-60
+                                ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`
+                              }
+                              onClick={() => setActiveFilterTab('users')}
+                            >
+                              Users
+                            </Tab>
+                          </Tab.List>
+                          <Tab.Panels className="mt-2">
+                            <Tab.Panel>
+                              {tagList.map((tag) => (
+                                <div key={tag.id} className={`flex items-center justify-between m-2 p-2 text-sm w-full rounded-md ${selectedTagFilters.includes(tag.name) ? 'bg-primary dark:bg-primary text-white' : ''}`}>
+                                  <div 
+                                    className="flex items-center cursor-pointer"
                                     onClick={() => handleTagFilterChange(tag.name)}
                                   >
                                     {tag.name}
-                                  </span>
+                                  </div>
                                   <button
                                     className={`px-2 py-1 text-xs rounded ${
                                       excludedTags.includes(tag.name)
@@ -2175,26 +2199,22 @@ console.log(filteredContacts);
                                     {excludedTags.includes(tag.name) ? 'Excluded' : 'Exclude'}
                                   </button>
                                 </div>
-                              </Menu.Item>
-                            ))}
-                          </>
-                        )}
-                        {activeTab === 'users' && (
-                          <>
-                            {employeeList.map((employee) => (
-                              <Menu.Item key={employee.id}>
-                                <div className={`flex items-center justify-between p-2 text-sm w-full rounded-md ${userFilter === employee.name ? 'bg-primary dark:bg-primary text-white' : ''}`}>
-                                  <span
-                                    className="flex-grow cursor-pointer"
+                              ))}
+                            </Tab.Panel>
+                            <Tab.Panel>
+                              {employeeList.map((employee) => (
+                                <div key={employee.id} className={`flex items-center justify-between m-2 p-2 text-sm w-full rounded-md ${selectedUserFilters.includes(employee.name) ? 'bg-primary dark:bg-primary text-white' : ''}`}>
+                                  <div 
+                                    className={`flex items-center cursor-pointer ${selectedUserFilters.includes(employee.name) ? 'bg-primary dark:bg-primary text-white' : ''}`}
                                     onClick={() => handleUserFilterChange(employee.name)}
                                   >
                                     {employee.name}
-                                  </span>
+                                  </div>
                                 </div>
-                              </Menu.Item>
-                            ))}
-                          </>
-                        )}
+                              ))}
+                            </Tab.Panel>
+                          </Tab.Panels>
+                        </Tab.Group>
                       </Menu.Items>
                     </Menu>
                     <button 
@@ -2576,6 +2596,30 @@ console.log(filteredContacts);
                       </span>
                     </button>
                   )}
+                  <div className="flex flex-wrap items-center mt-2 space-x-2">
+                    {selectedTagFilters.map(tag => (
+                      <span key={tag} className="px-2 py-1 text-sm font-semibold rounded-lg bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200">
+                        {tag}
+                        <button
+                          className="ml-1 text-blue-600 hover:text-blue-800"
+                          onClick={() => handleTagFilterChange(tag)}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    {selectedUserFilters.map(user => (
+                      <span key={user} className="px-2 py-1 text-sm font-semibold rounded-lg bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200">
+                        {user}
+                        <button
+                          className="ml-1 text-green-600 hover:text-green-800"
+                          onClick={() => handleUserFilterChange(user)}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
               {showMassDeleteModal && (
