@@ -560,6 +560,22 @@ function Main() {
   };
 
   useEffect(() => {
+    const user = auth.currentUser;
+    if (user && userData) {
+      const companyId = userData.companyId;
+      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+      const q = query(contactsRef, orderBy("last_message.timestamp", "desc"), limit(200));
+  
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const updatedContacts = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Contact));
+        setContacts(updatedContacts);
+      });
+  
+      return () => unsubscribe();
+    }
+  }, [userData]);
+
+  useEffect(() => {
     const fetchCompanyData = async () => {
       const user = auth.currentUser;
       if (user) {
@@ -1259,6 +1275,7 @@ const closePDFModal = () => {
   );
 
   
+  // Modify the notification listener
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(firestore, 'user', auth.currentUser?.email!, 'notifications'),
@@ -1278,24 +1295,10 @@ const closePDFModal = () => {
           currentNotifications.sort((a, b) => b.timestamp - a.timestamp);
           const latestNotification = currentNotifications[0];
 
-          // Check for duplicate notifications
-          setNotifications(prev => {
-            const isDuplicate = prev.some(notification => notification.timestamp === latestNotification.timestamp && notification.from === latestNotification.from);
-            if (isDuplicate) {
-              return prev;
-            }
-            return [...prev, latestNotification];
-          });
-          
-          // Play notification sound
-          if (audioRef.current) {
-            audioRef.current.play();
-          }
+          // Update the contact's last_message
+          updateContactLastMessage(latestNotification);
 
-          // Show toast notification
-          showNotificationToast(latestNotification, notifications.length);
-
-          // ... rest of the existing code for handling new notifications ...
+          // ... rest of the existing notification handling code ...
         }
 
         // Update the previous notifications count
@@ -1305,6 +1308,21 @@ const closePDFModal = () => {
 
     return () => unsubscribe();
   }, [companyId, selectedChatId, whapiToken]);
+
+  const updateContactLastMessage = async (notification: Notification) => {
+    if (!userData?.companyId) return;
+  
+    const contactRef = doc(firestore, `companies/${userData.companyId}/contacts`, notification.chat_id);
+    
+    await updateDoc(contactRef, {
+      last_message: {
+        text: { body: notification.text.body },
+        timestamp: notification.timestamp,
+        from_me: false,
+        type: notification.type
+      }
+    });
+  };
   
   let params :URLSearchParams;
   let chatId: any ;
@@ -1982,19 +2000,13 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     const pinnedChatsSnapshot = await getDocs(pinnedChatsRef);
     const pinnedChats = pinnedChatsSnapshot.docs.map(doc => doc.data() as Contact);
 
-    // Add pinned status to contactsData and update in Firebase
-    const updatePromises = allContacts.map(async contact => {
+    // Update pinned status in Firebase
+    const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+    const updatePromises = contacts.map(async contact => {
       const isPinned = pinnedChats.some(pinned => pinned.chat_id === contact.chat_id);
-      if (isPinned) {
-        contact.pinned = true;
-        if (companyId && contact.id) {
-          const contactDocRef = doc(firestore, `companies/${companyId}/contacts`, contact.id);
-          // Further code to use contactDocRef
-          await setDoc(contactDocRef, contact, { merge: true });
-        } else {
-          console.error('companyId or contact.id is null or undefined');
-        }
-    
+      if (isPinned !== contact.pinned) {
+        const contactDocRef = doc(contactsRef, contact.id!);
+        await updateDoc(contactDocRef, { pinned: isPinned });
       }
     });
 
