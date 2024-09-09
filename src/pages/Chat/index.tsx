@@ -3695,7 +3695,6 @@ const handlePageChange = ({ selected }: { selected: number }) => {
     // First, filter contacts based on the employee's assigned phone
     if (userData?.phone !== undefined && userData.phone !== -1) {
       const userPhoneIndex = parseInt(userData.phone, 10);
-      filteredContacts = filteredContacts.filter(contact => contact.phoneIndex === userPhoneIndex);
       setMessageMode(`phone${userPhoneIndex + 1}`);
     }
   
