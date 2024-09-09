@@ -1710,6 +1710,30 @@ async function fetchConfigFromDatabase() {
     }
   };
 
+  const deleteNotifications = async (chatId: string) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.log('No authenticated user');
+        return;
+      }
+  
+      const notificationsRef = collection(firestore, 'user', user.email!, 'notifications');
+      const q = query(notificationsRef, where('chat_id', '==', chatId));
+      const querySnapshot = await getDocs(q);
+  
+      const batch = writeBatch(firestore);
+      querySnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+  
+      await batch.commit();
+      console.log(`Deleted notifications for chat: ${chatId}`);
+    } catch (error) {
+      console.error('Error deleting notifications:', error);
+    }
+  };
+
   const selectChat = async (chatId: string, id?: string, contactSelect?: Contact) => {
     console.log('Attempting to select chat:', { chatId, userRole, userName: userData?.name });
     if (userRole === "3" && contactSelect && contactSelect.assignedTo?.toLowerCase() !== userData?.name.toLowerCase()) {
@@ -1721,20 +1745,21 @@ async function fetchConfigFromDatabase() {
     const updatedContacts = contacts.map(contact =>
       contact.chat_id === chatId ? { ...contact, unreadCount: 0 } : contact
     );
-  console.log('Updated Contacts:', updatedContacts);
+    console.log('Updated Contacts:', updatedContacts);
     setContacts(updatedContacts);
   
-    // Update local storage to reflect the updated contacts
+    console.log('Updating local storage');
     localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
-    sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been updated in this session
-  
+    sessionStorage.setItem('contactsFetched', 'true');
+
     let contact = contacts.find(contact => contact.chat_id === chatId || contact.id === chatId);
     console.log('Selected Contact:', contact);
-    console.log('Chatid:', chatId);
-    console.log('id:', id);
+
     if(contactSelect){
       contact = contactSelect;
+      console.log('Using provided contactSelect:', contact);
     }
+    
     if (contact) {
       // Update unreadCount in Firebase
       try {
@@ -1751,6 +1776,13 @@ async function fetchConfigFromDatabase() {
             console.log('Updated unreadCount in Firebase for contact:', contact.id);
           }
         }
+        console.log('Setting state variables');
+        setSelectedContact(contact);
+        setSelectedChatId(chatId);
+        setIsChatActive(true);
+
+        console.log('Deleting notifications');
+        deleteNotifications(chatId);
       } catch (error) {
         console.error('Error updating unreadCount in Firebase:', error);
       }
