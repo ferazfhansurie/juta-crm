@@ -424,7 +424,7 @@ const paginatedEmployees = filteredEmployees
                       {employee.email}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {employee.role === "1" ? 'Admin' : employee.role === "2" ? 'Sales' : employee.role === "3" ? 'Observer' : "Other"}
+                      {employee.role === "1" ? 'Admin' : employee.role === "2" ? 'Sales' : employee.role === "3" ? 'Observer' : employee.role === "4" ? 'Manager' : 'Other'}
                     </p>
                     {/* {employee.group && (
                       <p className="text-sm text-gray-600 dark:text-gray-400">

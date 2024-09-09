@@ -3,7 +3,7 @@ import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import logoImage from '@/assets/images/placeholder.svg';
 import { getFirestore,Timestamp,  collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp, runTransaction, increment } from "firebase/firestore";
-import {QueryDocumentSnapshot, DocumentData ,Query,CollectionReference, startAfter,limit, deleteField} from 'firebase/firestore'
+import {QueryDocumentSnapshot, DocumentData ,Query,CollectionReference, startAfter,limit,deleteField} from 'firebase/firestore'
 import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
 import Button from "@/components/Base/Button";
@@ -789,16 +789,28 @@ function Main() {
 
   console.log('Initial contacts:', initialContacts);
 
-  const filterContactsByUserRole = (contacts: Contact[], userRole: string, userName: string, phone: string = "-1") => {
-    console.log('Filtering contacts:', { userRole, userName, contactsCount: contacts.length });
-    if (userRole === "2" || userRole === "3") {
-      const filteredContacts = contacts.filter(contact => 
-        contact.assignedTo?.toLowerCase() === userName.toLowerCase()
-      );
-      console.log(`Filtered contacts for role ${userRole}:`, { filteredCount: filteredContacts.length });
-      return filteredContacts;
+  const filterContactsByUserRole = (contacts: Contact[], userRole: string, userName: string) => {
+    switch (userRole) {
+      case '1':
+        return contacts; // Admin sees all contacts
+      case '2':
+        // Sales sees only contacts assigned to them
+        return contacts.filter(contact => 
+          contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
+        );
+      case '3':
+        // Observer sees only contacts assigned to them
+        return contacts.filter(contact => 
+          contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
+        );
+      case '4':
+        // Manager sees only contacts assigned to them
+        return contacts.filter(contact => 
+          contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
+        );
+      default:
+        return [];
     }
-    return contacts;
   };
 
   const filterAndSetContacts = useCallback((contactsToFilter: Contact[]) => {
@@ -1665,7 +1677,8 @@ async function fetchConfigFromDatabase() {
       await fetchTags(data.ghl_accessToken, data.ghl_location, employeeNames);
     }
 
-   
+    console.log('User Role:', userRole);
+    console.log('User Name:', userData?.name);
   } catch (error) {
     console.error('Error fetching config:', error);
   }
@@ -2181,7 +2194,7 @@ useEffect(() => {
                 phoneIndex: message.phoneIndex,
                 userName: message.userName,
                 edited: message.edited // Add this line to include phoneIndex
-            };
+              };
     
             // Handle timestamp based on message type
             if (message.type === 'privateNote') {
@@ -3737,7 +3750,7 @@ const handlePageChange = ({ selected }: { selected: number }) => {
 
     setFilteredContacts(filtered);
     // Don't reset the current page here
-  }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList, userData]);
+  }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList, userData, userRole]);
   
   const handleSnoozeContact = async (contact: Contact) => {
     try {

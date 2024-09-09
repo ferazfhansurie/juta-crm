@@ -501,7 +501,7 @@ function Main() {
               <option value="1">Admin</option>
               <option value="2">Sales</option>
               <option value="3">Observer</option>
-              <option value="4">Others</option>
+              <option value="4">Manager</option>
             </select>
             {fieldErrors.role && <p className="text-red-500 text-sm mt-1">{fieldErrors.role}</p>}
           </div>

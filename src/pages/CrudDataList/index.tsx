@@ -10,7 +10,7 @@ import Tippy from "@/components/Base/Tippy";
 import { Dialog, Menu } from "@/components/Base/Headless";
 import Table from "@/components/Base/Table";
 import { getAuth } from 'firebase/auth';
-import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc, updateDoc,addDoc, arrayUnion, arrayRemove, Timestamp, query, where, onSnapshot, orderBy, limit, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { getFirestore, collection, doc, getDoc, setDoc, getDocs, deleteDoc, updateDoc,addDoc, arrayUnion, arrayRemove, Timestamp, query, where, onSnapshot, orderBy, limit, serverTimestamp, writeBatch, increment } from 'firebase/firestore';
 import { initializeApp } from "firebase/app";
 import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
@@ -54,6 +54,7 @@ function Main() {
     city?: string | null;
     companyName?: string | null;
     contactName?: string | null;
+    firstName?: string | null;
     country?: string | null;
     customFields?: any[] | null;
     dateAdded?: string | null;
@@ -83,6 +84,9 @@ function Main() {
     id: string;
     name: string;
     role: string;
+    phoneNumber: string;
+    employeeId: string;
+
   }
   interface Tag {
     id: string;
@@ -192,8 +196,32 @@ function Main() {
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
   const [selectedUserFilters, setSelectedUserFilters] = useState<string[]>([]);
   const [activeFilterTab, setActiveFilterTab] = useState('tags');
+  const [selectedContact, setSelectedContact] = useState<any>(null);
+  const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
 
-
+  const filterContactsByUserRole = (contacts: Contact[], userRole: string, userName: string) => {
+    switch (userRole) {
+      case '1':
+        return contacts; // Admin sees all contacts
+      case '2':
+        // Sales sees only contacts assigned to them
+        return contacts.filter(contact => 
+          contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
+        );
+      case '3':
+        // Observer sees only contacts assigned to them
+        return contacts.filter(contact => 
+          contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
+        );
+      case '4':
+        // Manager sees only contacts assigned to them
+        return contacts.filter(contact => 
+          contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
+        );
+      default:
+        return [];
+    }
+  };
   
   const fetchContacts = useCallback(async () => {
     try {
@@ -215,14 +243,19 @@ function Main() {
   
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
+      const userRole = userData.role;
+      const userName = userData.name;
   
       const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
       const q = query(contactsRef, orderBy('contactName'));
   
       const querySnapshot = await getDocs(q);
       const fetchedContacts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
+
+      const filteredContacts = filterContactsByUserRole(fetchedContacts, userRole, userName);
   
-      setContacts(fetchedContacts);
+      setContacts(filteredContacts);
+      setFilteredContacts(filteredContacts);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching contacts:', error);
@@ -236,7 +269,7 @@ function Main() {
   }, [fetchContacts]);
 
   const sortedContacts = useMemo(() => {
-    return contacts.sort((a, b) => {
+    return filteredContacts.sort((a, b) => {
       // First, prioritize contacts with names
       const aHasName = !!(a.contactName || a.phone);
       const bHasName = !!(b.contactName || b.phone);
@@ -250,13 +283,14 @@ function Main() {
       
       return bDate - aDate; // Sort in descending order (most recent first)
     });
-  }, [contacts]);
+  }, [filteredContacts]);
 
   useEffect(() => {
     if (initialContacts.length > 0) {
       loadMoreContacts();
     }
   }, [initialContacts]);
+
 
   useEffect(() => {
     const handleScroll = () => {
@@ -278,7 +312,7 @@ function Main() {
         contactListRef.current.removeEventListener('scroll', handleScroll);
       }
     };
-  }, [contacts]);
+  }, [filteredContacts]);
   useEffect(() => {
     console.log('Selected tags updated:', selectedTags);
   }, [selectedTags]);
@@ -947,66 +981,232 @@ const handleConfirmDeleteTag = async () => {
   };
 
   
+  
   const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
-    if (userRole === "3" || userRole === "2") {
-      toast.error("You don't have permission to perform this action.");
-      return;
-    }
     try {
       const user = auth.currentUser;
       if (!user) {
-        console.log('No authenticated user');
+        console.error('No authenticated user');
         return;
       }
   
       const docUserRef = doc(firestore, 'user', user.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
+        console.error('No such document for user!');
         return;
       }
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
   
-      if (!contact.id) {
-        console.error('Contact ID is missing');
+      console.log(`Adding tag: ${tagName} to contact: ${contact.id}`);
+  
+      // Update contact's tags
+      const contactRef = doc(firestore, 'companies', companyId, 'contacts', contact.id!);
+      const updateData: any = {
+        tags: arrayUnion(tagName)
+      };
+  
+      // Only include points if it's defined
+      if (contact.points !== undefined) {
+        updateData.points = contact.points;
+      }
+  
+      // If the tag is 'closed', add 5 points to the contact
+      if (tagName.toLowerCase() === 'closed') {
+        updateData.points = (contact.points || 0) + 5;
+      }
+  
+      await updateDoc(contactRef, updateData);
+  
+      // Update state
+      setContacts(prevContacts => {
+        if (userData?.role === '3') {
+          // For role 3, add the contact if it's being assigned to them
+          if (tagName.toLowerCase() === userData.name.toLowerCase()) {
+            return [...prevContacts, { ...contact, tags: [...(contact.tags || []), tagName] }];
+          } else {
+            return prevContacts;
+          }
+        } else {
+          // For other roles, update the tags as before
+          return prevContacts.map(c =>
+            c.id === contact.id ? { ...c, tags: [...(c.tags || []), tagName] } : c
+          );
+        }
+      });
+  
+      setSelectedContact((prevContact: Contact) => ({
+        ...prevContact,
+        tags: [...(prevContact.tags || []), tagName]
+      }));
+  
+      // ... rest of the function remains the same
+    } catch (error) {
+      console.error('Error adding tag and assigning contact:', error);
+      toast.error('Failed to add tag and assign contact.');
+    }
+  };
+
+  // Add this function to handle adding notifications
+  const addNotificationToUser = async (companyId: string, employeeName: string, notificationData: any) => {
+    try {
+      // Find the user with the specified companyId and name
+      const usersRef = collection(firestore, 'user');
+      const q = query(usersRef, 
+        where('companyId', '==', companyId),
+        where('name', '==', employeeName)
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        console.log('No matching user found for:', employeeName);
+        return;
+      }
+
+      // Add the new notification to the notifications subcollection of the user's document
+      querySnapshot.forEach(async (doc) => {
+        const userRef = doc.ref;
+        const notificationsRef = collection(userRef, 'notifications');
+        await addDoc(notificationsRef, notificationData);
+        console.log(`Notification added for user: ${employeeName}`);
+      });
+    } catch (error) {
+      console.error('Error adding notification: ', error);
+    }
+  };
+
+  const sendAssignmentNotification = async (assignedEmployeeName: string, contact: Contact) => {
+    try {
+  
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
         return;
       }
   
-      let updatedTags = contact.tags || [];
-  
-      const contactRef = doc(firestore, `companies/${companyId}/contacts`, contact.id);
-  
-      let updatedContact = { ...contact, tags: updatedTags };
-  
-      if (tagName.toLowerCase() === 'closed'){
-        updatedContact.points = (updatedContact.points || 0) + 5;
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No user document found');
+        return;
       }
-      // Add the new tag to the contact's tags array
-      await updateDoc(contactRef, {
-        tags: arrayUnion(tagName),
-        points: updatedContact.points
+  
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      if (!companyId || typeof companyId !== 'string') {
+        console.error('Invalid companyId:', companyId);
+        throw new Error('Invalid companyId');
+      }
+      
+  
+      // Check if notification has already been sent
+      const notificationRef = doc(firestore, 'companies', companyId, 'assignmentNotifications', `${contact.id}_${assignedEmployeeName}`);
+      const notificationSnapshot = await getDoc(notificationRef);
+      
+      if (notificationSnapshot.exists()) {
+        console.log('Notification already sent for this assignment');
+        return;
+      }
+  
+      // Find the employee in the employee list
+      const assignedEmployee = employeeList.find(emp => emp.name.toLowerCase() === assignedEmployeeName.toLowerCase());
+      if (!assignedEmployee) {
+        console.error(`Employee not found: ${assignedEmployeeName}`);
+        toast.error(`Failed to send assignment notification: Employee ${assignedEmployeeName} not found`);
+        return;
+      }
+  
+      if (!assignedEmployee.phoneNumber) {
+        console.error(`Phone number missing for employee: ${assignedEmployeeName}`);
+        toast.error(`Failed to send assignment notification: Phone number missing for ${assignedEmployeeName}`);
+        return;
+      }
+  
+      // Format the phone number for WhatsApp chat_id
+      const employeePhone = `${assignedEmployee.phoneNumber.replace(/[^\d]/g, '')}@c.us`;
+      console.log('Formatted employee chat_id:', employeePhone);
+  
+      if (!employeePhone || !/^\d+@c\.us$/.test(employeePhone)) {
+        console.error('Invalid employeePhone:', employeePhone);
+        throw new Error('Invalid employeePhone');
+      }
+  
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) {
+        console.error('No company document found');
+        return;
+      }
+      const companyData = docSnapshot.data();
+  
+      let message = `Hello ${assignedEmployee.name}, a new contact has been assigned to you:\n\nName: ${contact.contactName || contact.firstName || 'N/A'}\nPhone: ${contact.phone}\n\nPlease follow up with them as soon as possible.`;
+      if(companyId == '042'){
+        message = `Hi ${assignedEmployee.employeeId || assignedEmployee.phoneNumber} ${assignedEmployee.name}.\n\nAnda telah diberi satu prospek baharu\n\nSila masuk ke https://web.jutasoftware.co/login untuk melihat perbualan di antara Zahin Travel dan prospek.\n\nTerima kasih.\n\nIkhlas,\nZahin Travel Sdn. Bhd. (1276808-W)\nNo. Lesen Pelancongan: KPK/LN 9159\nNo. MATTA: MA6018\n\n#zahintravel - Nikmati setiap detik..\n#diyakini\n#responsif\n#budibahasa`;
+      }
+  
+      let url;
+      let requestBody;
+      if (companyData.v2 === true) {
+        console.log("v2 is true");
+        url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${employeePhone}`;
+        requestBody = { message };
+        } else {
+        console.log("v2 is false");
+        url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${employeePhone}/${companyData.whapiToken}`;
+        requestBody = { message };
+      }
+  
+      console.log('Sending request to:', url);
+      console.log('Request body:', JSON.stringify(requestBody));
+  
+      console.log('Full request details:', {
+        url,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
       });
   
-      // Update local state
-      setContacts(prevContacts =>
-        prevContacts.map(c =>
-          c.id === contact.id ? { ...c, tags: [...(c.tags || []), tagName], points: updatedContact.points } : c
-        )
-      );
-  
-      if (currentContact?.id === contact.id) {
-        setCurrentContact((prevContact: any) => ({
-          ...prevContact,
-          tags: [...(prevContact.tags || []), tagName],
-          points: updatedContact.points,
-        }));
+      // Send WhatsApp message to the employee
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+    
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', response.status, errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
   
-      toast.success(`Tag "${tagName}" added successfully to ${contact.contactName ? contact.contactName : contact.phone}!`);
+      const responseData = await response.json();
+      console.log('Assignment notification response:', responseData);
+      console.log('Sent to phone number:', employeePhone);
+  
+      // Mark notification as sent
+      await setDoc(notificationRef, {
+        sentAt: serverTimestamp(),
+        employeeName: assignedEmployeeName,
+        contactId: contact.id
+      });
+  
+      toast.success("Assignment notification sent successfully!");
     } catch (error) {
-      console.error('Error adding tag:', error);
-      toast.error("An error occurred while adding the tag.");
+      console.error('Error sending assignment notification:', error);
+      
+      // Instead of throwing the error, we'll handle it here
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        toast.error('Network error. Please check your connection and try again.');
+      } else {
+        toast.error('Failed to send assignment notification. Please try again.');
+      }
+      
+      // Log additional information that might be helpful
+      console.log('Assigned Employee Name:', assignedEmployeeName);
+      console.log('Contact:', contact);
+      console.log('Employee List:', employeeList);
     }
   };
 
@@ -1448,7 +1648,7 @@ const clearAllFilters = () => {
   setExcludedTags([]);
 };
 
-const filteredContacts = useMemo(() => {
+const filteredContactsSearch = useMemo(() => {
   return sortedContacts.filter((contact) => {
     const name = (contact.contactName || '').toLowerCase();
     const phone = (contact.phone || '').toLowerCase();
@@ -1473,20 +1673,19 @@ const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 };
 
 const endOffset = itemOffset + itemsPerPage;
-const currentContacts = filteredContacts.slice(itemOffset, endOffset);
-const pageCount = Math.ceil(filteredContacts.length / itemsPerPage);
+const currentContacts = filteredContactsSearch.slice(itemOffset, endOffset);
+const pageCount = Math.ceil(filteredContactsSearch.length / itemsPerPage);
 
 const handlePageClick = (event: { selected: number }) => {
-  const newOffset = (event.selected * itemsPerPage) % filteredContacts.length;
+  const newOffset = (event.selected * itemsPerPage) % filteredContactsSearch.length;
   setItemOffset(newOffset);
 };
 
 useEffect(() => {
   console.log('Contacts:', contacts);
-  console.log('Filtered Contacts:', filteredContacts);
+  console.log('Filtered Contacts:', filteredContactsSearch);
   console.log('Search Query:', searchQuery);
-}, [contacts, filteredContacts, searchQuery]);
-console.log(filteredContacts);
+}, [contacts, filteredContactsSearch, searchQuery]);
 
   const sendBlastMessage = async () => {
     console.log('Starting sendBlastMessage function');
@@ -2010,10 +2209,10 @@ console.log(filteredContacts);
   };
 
   const handleSelectAll = () => {
-    if (selectedContacts.length === filteredContacts.length) {
+    if (selectedContacts.length === filteredContactsSearch.length) {
       setSelectedContacts([]);
     } else {
-      setSelectedContacts([...filteredContacts]);
+      setSelectedContacts([...filteredContactsSearch]);
     }
   };
 
@@ -2205,7 +2404,7 @@ console.log(filteredContacts);
                               {employeeList.map((employee) => (
                                 <div key={employee.id} className={`flex items-center justify-between m-2 p-2 text-sm w-full rounded-md ${selectedUserFilters.includes(employee.name) ? 'bg-primary dark:bg-primary text-white' : ''}`}>
                                   <div 
-                                    className={`flex items-center cursor-pointer ${selectedUserFilters.includes(employee.name) ? 'bg-primary dark:bg-primary text-white' : ''}`}
+                                    className={`flex items-center cursor-pointer capitalize ${selectedUserFilters.includes(employee.name) ? 'bg-primary dark:bg-primary text-white' : ''}`}
                                     onClick={() => handleUserFilterChange(employee.name)}
                                   >
                                     {employee.name}
