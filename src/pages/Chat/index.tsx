@@ -775,11 +775,11 @@ function Main() {
 
   const filterContactsByUserRole = (contacts: Contact[], userRole: string, userName: string, phone: string = "-1") => {
     console.log('Filtering contacts:', { userRole, userName, contactsCount: contacts.length });
-    if (userRole === "3") {
+    if (userRole === "2" || userRole === "3") {
       const filteredContacts = contacts.filter(contact => 
         contact.assignedTo?.toLowerCase() === userName.toLowerCase()
       );
-      console.log('Filtered contacts for role 3:', { filteredCount: filteredContacts.length });
+      console.log(`Filtered contacts for role ${userRole}:`, { filteredCount: filteredContacts.length });
       return filteredContacts;
     }
     return contacts;
@@ -797,9 +797,9 @@ function Main() {
     });
   
     let filtered = contactsToFilter;
-    
-    // Apply role-based filtering
-    filtered = filterContactsByUserRole(filtered, userRole, userData?.name || '');
+  
+  // Apply role-based filtering
+  filtered = filterContactsByUserRole(filtered, userRole, userData?.name || '');
   console.log('After role-based filtering:', { filteredCount: filtered.length });
 
   // Filter out group chats
@@ -3169,6 +3169,14 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
     await updateDoc(contactRef, {
       tags: arrayUnion(tagName)
     });
+
+    // If the tag is 'closed', add 5 points to the contact
+    if (tagName.toLowerCase() === 'closed') {
+      await updateDoc(contactRef, {
+        points: increment(5)
+      });
+      console.log(`Added 5 points to contact ${contact.id} for closing`);
+    }
 
     // Update state
     setContacts(prevContacts => {
