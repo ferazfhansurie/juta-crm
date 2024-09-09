@@ -984,6 +984,11 @@ const handleConfirmDeleteTag = async () => {
   
   
   const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
+    if (userRole === "3") {
+      toast.error("You don't have permission to assign users to contacts.");
+      return;
+    }
+  
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -1021,28 +1026,25 @@ const handleConfirmDeleteTag = async () => {
       await updateDoc(contactRef, updateData);
   
       // Update state
-      setContacts(prevContacts => {
-        if (userData?.role === '3') {
-          // For role 3, add the contact if it's being assigned to them
-          if (tagName.toLowerCase() === userData.name.toLowerCase()) {
-            return [...prevContacts, { ...contact, tags: [...(contact.tags || []), tagName] }];
-          } else {
-            return prevContacts;
-          }
-        } else {
-          // For other roles, update the tags as before
-          return prevContacts.map(c =>
-            c.id === contact.id ? { ...c, tags: [...(c.tags || []), tagName] } : c
-          );
-        }
-      });
+      setContacts(prevContacts => 
+        prevContacts.map(c =>
+          c.id === contact.id ? { ...c, tags: [...(c.tags || []), tagName] } : c
+        )
+      );
+      if (selectedContact && selectedContact.id === contact.id) {
+        setSelectedContact((prevContact: Contact) => ({
+          ...prevContact,
+          tags: [...(prevContact.tags || []), tagName]
+        }));
+      }
   
-      setSelectedContact((prevContact: Contact) => ({
-        ...prevContact,
-        tags: [...(prevContact.tags || []), tagName]
-      }));
+      toast.success(`Tag "${tagName}" added to contact successfully!`);
   
-      // ... rest of the function remains the same
+      // Send assignment notification
+      if (employeeNames.includes(tagName.toLowerCase())) {
+        await sendAssignmentNotification(tagName, contact);
+      }
+  
     } catch (error) {
       console.error('Error adding tag and assigning contact:', error);
       toast.error('Failed to add tag and assign contact.');
@@ -2273,24 +2275,26 @@ useEffect(() => {
                       <span className="font-medium">Add Contact</span>
                     </button>
                     <Menu>
-                      {showAddUserButton && (
-                        <Menu.Button as={Button} className="flex items-center justify-start p-2 !box bg-white text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                          <Lucide icon="User" className="w-5 h-5 mr-2" />
-                          <span>Assign User</span>
-                        </Menu.Button>
-                      )}
+                      <Menu.Button as={Button} className={`flex items-center justify-start p-2 !box bg-white text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <Lucide icon="User" className="w-5 h-5 mr-2" />
+                        <span>Assign User</span>
+                      </Menu.Button>
                       <Menu.Items className="w-full bg-white text-gray-800 dark:text-gray-200">
                         {employeeList.map((employee) => (
                           <Menu.Item key={employee.id}>
                             <span
                               className="flex items-center p-2"
                               onClick={() => {
-                                selectedContacts.forEach(contact => {
-                                  handleAddTagToSelectedContacts(employee.name, contact);
-                                });
+                                if (userRole !== "3") {
+                                  selectedContacts.forEach(contact => {
+                                    handleAddTagToSelectedContacts(employee.name, contact);
+                                  });
+                                } else {
+                                  toast.error("You don't have permission to assign users to contacts.");
+                                }
                               }}
                             >
-                              <Lucide icon="User" className="w-4 h-4 mr-2" />
+                              <Lucide icon="User" className="w-4 h-4" />
                               <span className="truncate">{employee.name}</span>
                             </span>
                           </Menu.Item>
