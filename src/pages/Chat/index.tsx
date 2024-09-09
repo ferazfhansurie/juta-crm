@@ -5540,7 +5540,7 @@ const handleForwardMessage = async () => {
         } transition-colors duration-200`}
       >
         <span>{tagName}</span>
-        {unreadCount > 0 && (
+        {userData?.role === '1' && unreadCount > 0 && (
           <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
             tagName.toLowerCase() === 'stop bot' ? 'bg-red-700' : 'bg-primary'
           } text-white`}>
