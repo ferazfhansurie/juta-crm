@@ -3531,15 +3531,15 @@ const sortContacts = (contacts: Contact[]) => {
     fil = contacts.filter(contact => contact.phoneIndex === phoneIndex);
   }
   return fil.sort((a, b) => {
-    // First, sort by unread status
-    if ((a.unreadCount || 0) > 0 && (b.unreadCount || 0) === 0) return -1;
-    if ((a.unreadCount || 0) === 0 && (b.unreadCount || 0) > 0) return 1;
-
-    // If both have the same unread status, sort by pinned status
+    // First, sort by pinned status
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
 
-    // If both have the same pinned status, sort by timestamp
+    // If both have the same pinned status, sort by unread status
+    if ((a.unreadCount || 0) > 0 && (b.unreadCount || 0) === 0) return -1;
+    if ((a.unreadCount || 0) === 0 && (b.unreadCount || 0) > 0) return 1;
+
+    // If both have the same pinned and unread status, sort by timestamp
     const getDate = (contact: Contact) => {
       if (contact.last_message?.timestamp) {
         return typeof contact.last_message.timestamp === 'number'
