@@ -1240,38 +1240,65 @@ function Main() {
               <h2 className="text-3xl sm:text-xl md:text-2xl font-bold dark:text-white">
                 Appointments
               </h2>
-              <div className="">
-                {employees.map((employee, index) => (
-                  <span key={employee.id} className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3">
-                    <span className="flex w-2.5 h-2.5 rounded-full me-1.5 flex-shrink-0" style={{ backgroundColor: employee.color }}></span>
-                    {employee.name.charAt(0).toUpperCase() + employee.name.slice(1)}
-                  </span>
-                ))}
-              </div>
-              <div className="">
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3"><span className="flex w-2.5 h-2.5 bg-gray-500 rounded-full me-1.5 flex-shrink-0"></span>New</span>
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3"><span className="flex w-2.5 h-2.5 bg-green-500 rounded-full me-1.5 flex-shrink-0"></span>Showed</span>
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3"><span className="flex w-2.5 h-2.5 bg-red-500 rounded-full me-1.5 flex-shrink-0"></span>Canceled</span>
-                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3"><span className="flex w-2.5 h-2.5 bg-blue-700 rounded-full me-1.5 flex-shrink-0"></span>Closed</span>
+              <div className="flex flex-wrap">
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3 mb-1"><span className="flex w-2.5 h-2.5 bg-gray-500 rounded-full me-1.5 flex-shrink-0"></span>New</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3 mb-1"><span className="flex w-2.5 h-2.5 bg-green-500 rounded-full me-1.5 flex-shrink-0"></span>Showed</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3 mb-1"><span className="flex w-2.5 h-2.5 bg-red-500 rounded-full me-1.5 flex-shrink-0"></span>Canceled</span>
+                <span className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-300 me-3 mb-1"><span className="flex w-2.5 h-2.5 bg-blue-700 rounded-full me-1.5 flex-shrink-0"></span>Closed</span>
               </div>
             </div>
             <div className="mt-4 mb-2 border-t border-b border-slate-200/60 dark:border-gray-600">
               {filteredAppointments.length > 0 ? (
                 filteredAppointments.map((appointment, index) => (
                   <div key={index} className="relative" onClick={() => handleAppointmentClick(appointment)}>
-                    <div className="flex m-2 p-2 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-100 dark:hover:bg-gray-600">
+                    <div className="flex m-2 p-2 -mx-3 transition duration-300 ease-in-out rounded-md cursor-pointer event hover:bg-slate-200 dark:hover:bg-gray-600">
                       <div className={`w-2 mr-3 rounded-sm ${getStatusColor(appointment.appointmentStatus)}`} style={{ height: 'auto' }}></div>
                       <div className="pr-2 item-center w-full">
                         <div className="flex justify-between">
                           <div>
-                            <div className="truncate event__title text-lg font-medium dark:text-white text-start capitalize">{appointment.title}</div>
-                            {packages.find(p => p.id === appointment.packageId) && packages.find(p => p.id === appointment.packageId)?.name !== 'No Packages' && (
-                              <div className="text-slate-500 text-xs dark:text-gray-300">
+                            <div className="truncate event__title text-lg font-semibold dark:text-white text-start capitalize">{appointment.title}</div>
+                        <div className="text-xs flex flex-wrap mt-1">
+                          {appointment.staff.map((employeeId) => {
+                            const employee = employees.find(e => e.id === employeeId);
+                            return employee ? (
+                              <span key={employee.id} className="text-xs px-1 rounded mr-1 mb-1 text-start capitalize" style={{ backgroundColor: employee.color, color: '#fff' }}>
+                                {employee.name}
+                              </span>
+                            ) : null;
+                          })}
+                          {appointment.tags && appointment.tags.length > 0 && (
+                            <>
+                              {appointment.tags.slice(0, 2).map(tag => (
+                                <span key={tag.id} className="bg-blue-200 text-blue-800 text-xs px-1 rounded mr-1 mb-1">
+                                  {tag.name}
+                                </span>
+                              ))}
+                              {appointment.tags.length > 2 && (
+                                <span className="bg-blue-200 text-blue-800 text-xs px-1 rounded mr-1 mb-1">
+                                  +{appointment.tags.length - 2} more
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        {packages.find(p => p.id === appointment.packageId) && packages.find(p => p.id === appointment.packageId)?.name !== 'No Packages' && (
+                          <div className="text-slate-500 text-xs dark:text-gray-300 items-center font-medium">
                                 {packages.find(p => p.id === appointment.packageId)?.name} package
                                 {(packages.find(p => p.id === appointment.packageId)?.sessions ?? 0) > 0 && 
                                   ` (${packages.find(p => p.id === appointment.packageId)?.sessions ?? 0} sessions)`}
                               </div>
                             )}
+                        <div className="text-slate-500 text-xs dark:text-gray-300 flex flex-wrap items-center">
+                          {appointment.contacts.map(contact => (
+                            <div key={contact.id} className="flex items-center mb-1">
+                              <span className="text-gray-800 dark:text-gray-200 text-lg">•</span>
+                              <span className="text-gray-800 dark:text-gray-200 text-xs px-1 rounded items-center">
+                                {contact.name}
+                                {contact.session > 0 && ` | Session ${contact.session}`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                           </div>
                           <div className="text-slate-500 text-xs mt-0.5 dark:text-gray-300 text-right">
                             <div>
@@ -1293,38 +1320,6 @@ function Main() {
                               })}
                             </div>
                           </div>
-                        </div>
-                        {appointment.tags && appointment.tags.length > 0 && (
-                          <div className="flex flex-wrap">
-                            {appointment.tags.slice(0, 2).map(tag => (
-                              <span key={tag.id} className="bg-blue-200 text-blue-800 text-xs px-1 rounded mr-1 mb-1">
-                                {tag.name}
-                              </span>
-                            ))}
-                            {appointment.tags.length > 2 && (
-                              <span className="bg-blue-200 text-blue-800 text-xs px-1 rounded mr-1 mb-1">
-                                +{appointment.tags.length - 2} more
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        <div className="text-xs flex flex-wrap mt-1">
-                          {appointment.staff.map((employeeId) => {
-                            const employee = employees.find(e => e.id === employeeId);
-                            return employee ? (
-                              <span key={employee.id} className="text-xs px-1 rounded mr-1 mb-1 mr-1 text-start capitalize" style={{ backgroundColor: employee.color, color: '#fff' }}>
-                                {employee.name}
-                              </span>
-                            ) : null;
-                          })}
-                        </div>
-                        <div className="text-slate-500 text-xs dark:text-gray-300">
-                          {appointment.contacts.map(contact => (
-                            <span key={contact.id} className="bg-white text-black text-xs px-1 rounded mr-1 mb-1">
-                              {contact.name}
-                              {contact.session > 0 && ` | Session ${contact.session}`}
-                            </span>
-                          ))}
                         </div>
                       </div>
                     </div>
@@ -1475,30 +1470,57 @@ function Main() {
                     onChange={handleTagChange}
                     className="capitalize"
                     styles={{
-                      control: (provided) => ({
+                      control: (provided, state) => ({
                         ...provided,
-                        backgroundColor: '#1f2937', // Solid color for better visibility
-                        borderColor: 'border-gray-300 dark:border-gray-600',
-                        boxShadow: 'shadow-sm',
-                      }),
-                      menu: (provided) => ({
-                        ...provided,
-                        backgroundColor: '#1f2937', // Solid color for better visibility
-                      }),
-                      multiValue: (provided) => ({
-                        ...provided,
-                        backgroundColor: '#4b5563', // Solid color for better visibility
-                      }),
-                      multiValueLabel: (provided) => ({
-                        ...provided,
-                        color: 'text-gray-800 dark:text-gray-200',
-                      }),
-                      multiValueRemove: (provided) => ({
-                        ...provided,
-                        color: 'text-gray-800 dark:text-gray-200',
+                        backgroundColor: state.isFocused ? '#ffffff' : '#f9fafb', // Light mode background
+                        borderColor: state.isFocused ? '#2563eb' : '#d1d5db', // Light mode border
+                        boxShadow: state.isFocused ? '0 0 0 1px #2563eb' : 'none', // Light mode shadow
                         '&:hover': {
-                          backgroundColor: 'bg-gray-300 dark:bg-gray-500',
-                          color: 'text-gray-900 dark:text-gray-100',
+                          borderColor: '#2563eb', // Light mode hover border
+                        },
+                        '&.dark': {
+                          backgroundColor: state.isFocused ? '#374151' : '#1f2937', // Dark mode background
+                          borderColor: state.isFocused ? '#3b82f6' : '#4b5563', // Dark mode border
+                          boxShadow: state.isFocused ? '0 0 0 1px #3b82f6' : 'none', // Dark mode shadow
+                          '&:hover': {
+                            borderColor: '#3b82f6', // Dark mode hover border
+                          },
+                        },
+                      }),
+                      menu: (provided, state) => ({
+                        ...provided,
+                        backgroundColor: state.selectProps.menuIsOpen ? '#ffffff' : '#f9fafb', // Light mode menu background
+                        '&.dark': {
+                          backgroundColor: state.selectProps.menuIsOpen ? '#374151' : '#1f2937', // Dark mode menu background
+                        },
+                      }),
+                      multiValue: (provided, state) => ({
+                        ...provided,
+                        backgroundColor: '#e5e7eb', // Light mode multi-value background
+                        '&.dark': {
+                          backgroundColor: '#4b5563', // Dark mode multi-value background
+                        },
+                      }),
+                      multiValueLabel: (provided, state) => ({
+                        ...provided,
+                        color: '#1f2937', // Light mode multi-value label color
+                        '&.dark': {
+                          color: '#d1d5db', // Dark mode multi-value label color
+                        },
+                      }),
+                      multiValueRemove: (provided, state) => ({
+                        ...provided,
+                        color: '#1f2937', // Light mode multi-value remove color
+                        '&:hover': {
+                          backgroundColor: '#d1d5db', // Light mode multi-value remove hover background
+                          color: '#111827', // Light mode multi-value remove hover color
+                        },
+                        '&.dark': {
+                          color: '#d1d5db', // Dark mode multi-value remove color
+                          '&:hover': {
+                            backgroundColor: '#6b7280', // Dark mode multi-value remove hover background
+                            color: '#f9fafb', // Dark mode multi-value remove hover color
+                          },
                         },
                       }),
                     }}
@@ -1563,30 +1585,57 @@ function Main() {
                     classNamePrefix="react-select"
                     className="capitalize"
                     styles={{
-                      control: (provided) => ({
+                      control: (provided, state) => ({
                         ...provided,
-                        backgroundColor: '#1f2937', // Solid color for better visibility
-                        borderColor: 'border-gray-300 dark:border-gray-600',
-                        boxShadow: 'shadow-sm',
+                        backgroundColor: state.isFocused ? '#f9fafb' : '#ffffff', // Light mode background
+                        borderColor: state.isFocused ? '#3b82f6' : '#d1d5db', // Light mode border
+                        boxShadow: state.isFocused ? '0 0 0 1px #3b82f6' : 'none',
+                        '&:hover': {
+                          borderColor: '#3b82f6',
+                        },
+                        '.dark &': {
+                          backgroundColor: state.isFocused ? '#374151' : '#1f2937', // Dark mode background
+                          borderColor: state.isFocused ? '#3b82f6' : '#4b5563', // Dark mode border
+                          boxShadow: state.isFocused ? '0 0 0 1px #3b82f6' : 'none',
+                          '&:hover': {
+                            borderColor: '#3b82f6',
+                          },
+                        },
                       }),
                       menu: (provided) => ({
                         ...provided,
-                        backgroundColor: '#1f2937', // Solid color for better visibility
+                        backgroundColor: '#ffffff', // Light mode background
+                        '.dark &': {
+                          backgroundColor: '#1f2937', // Dark mode background
+                        },
                       }),
                       multiValue: (provided) => ({
                         ...provided,
-                        backgroundColor: '#4b5563', // Solid color for better visibility
+                        backgroundColor: '#e5e7eb', // Light mode background
+                        '.dark &': {
+                          backgroundColor: '#4b5563', // Dark mode background
+                        },
                       }),
                       multiValueLabel: (provided) => ({
                         ...provided,
-                        color: 'text-gray-800 dark:text-gray-200',
+                        color: '#111827', // Light mode text color
+                        '.dark &': {
+                          color: '#d1d5db', // Dark mode text color
+                        },
                       }),
                       multiValueRemove: (provided) => ({
                         ...provided,
-                        color: 'text-gray-800 dark:text-gray-200',
+                        color: '#111827', // Light mode text color
                         '&:hover': {
-                          backgroundColor: 'bg-gray-300 dark:bg-gray-500',
-                          color: 'text-gray-900 dark:text-gray-100',
+                          backgroundColor: '#d1d5db', // Light mode hover background
+                          color: '#111827', // Light mode hover text color
+                        },
+                        '.dark &': {
+                          color: '#d1d5db', // Dark mode text color
+                          '&:hover': {
+                            backgroundColor: '#4b5563', // Dark mode hover background
+                            color: '#f9fafb', // Dark mode hover text color
+                          },
                         },
                       }),
                     }}
