@@ -3530,30 +3530,35 @@ const sortContacts = (contacts: Contact[]) => {
   if (phoneIndex !== -1) {
     fil = contacts.filter(contact => contact.phoneIndex === phoneIndex);
   }
+
+  const getDate = (contact: Contact) => {
+    if (contact.last_message?.timestamp) {
+      return typeof contact.last_message.timestamp === 'number'
+        ? contact.last_message.timestamp
+        : new Date(contact.last_message.timestamp).getTime() / 1000;
+    } else {
+      return 0;
+    }
+  };
+
   return fil.sort((a, b) => {
     // First, sort by pinned status
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
 
-    // If both have the same pinned status, sort by unread status
+    // If both have the same pinned status, sort by timestamp (most recent first)
+    const timestampA = getDate(a);
+    const timestampB = getDate(b);
+    if (timestampA !== timestampB) {
+      return timestampB - timestampA;
+    }
+
+    // If timestamps are the same, then consider unread status
     if ((a.unreadCount || 0) > 0 && (b.unreadCount || 0) === 0) return -1;
     if ((a.unreadCount || 0) === 0 && (b.unreadCount || 0) > 0) return 1;
 
-    // If both have the same pinned and unread status, sort by timestamp
-    const getDate = (contact: Contact) => {
-      if (contact.last_message?.timestamp) {
-        return typeof contact.last_message.timestamp === 'number'
-          ? contact.last_message.timestamp
-          : new Date(contact.last_message.timestamp).getTime() / 1000;
-      } else {
-        return 0;
-      }
-    };
-
-    const timestampA = getDate(a);
-    const timestampB = getDate(b);
-
-    return timestampB - timestampA;
+    // If everything else is equal, maintain the current order
+    return 0;
   });
 };
 
@@ -6597,6 +6602,7 @@ const handleForwardMessage = async () => {
                 placeholder="Add new keyword"
                 value={newQuickReplyKeyword}
                 onChange={(e) => setNewQuickReplyKeyword(e.target.value)}
+                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'Arial, sans-serif', fontSize: '14px' }}
               />
               <textarea
                 className="flex-grow px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
@@ -6604,7 +6610,7 @@ const handleForwardMessage = async () => {
                 value={newQuickReply}
                 onChange={(e) => setNewQuickReply(e.target.value)}
                 rows={1}
-                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'Arial, sans-serif', fontSize: '14px' }}
               />
             </>
           )}
