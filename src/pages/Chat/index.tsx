@@ -3203,162 +3203,62 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
   }, [contacts]);
 
 
-const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
-  try {
-    const user = auth.currentUser;
-    if (!user) {
-      console.error('No authenticated user');
-      return;
-    }
-
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.error('No such document for user!');
-      return;
-    }
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-
-    console.log(`Adding tag: ${tagName} to contact: ${contact.id}`);
-
-    // Update contact's tags
-    const contactRef = doc(firestore, 'companies', companyId, 'contacts', contact.id!);
-    await updateDoc(contactRef, {
-      tags: arrayUnion(tagName)
-    });
-
-    // If the tag is 'closed', add 5 points to the contact
-    if (tagName.toLowerCase() === 'closed') {
-      await updateDoc(contactRef, {
-        points: increment(5)
-      });
-      console.log(`Added 5 points to contact ${contact.id} for closing`);
-    }
-
-    // Update state
-    setContacts(prevContacts => {
-      if (userData?.role === '3') {
-        // For role 3, add the contact if it's being assigned to them
-        if (tagName.toLowerCase() === userData.name.toLowerCase()) {
-          return [...prevContacts, { ...contact, tags: [...(contact.tags || []), tagName] }];
-        } else {
-          return prevContacts;
-        }
-      } else {
-        // For other roles, update the tags as before
-        return prevContacts.map(c =>
-          c.id === contact.id ? { ...c, tags: [...(c.tags || []), tagName] } : c
-        );
+  const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
       }
-    });
-
-    setSelectedContact((prevContact: Contact) => ({
-      ...prevContact,
-      tags: [...(prevContact.tags || []), tagName]
-    }));
-
-    // Check if the tag matches an employee name
-    console.log('Current employeeList:', employeeList);
-    const matchingEmployee = employeeList.find(employee => employee.name.toLowerCase() === tagName.toLowerCase());
-    
-    if (matchingEmployee) {
-      console.log(`Matching employee found: ${matchingEmployee.name}`);
-      
-      // Search for employee by name field
-      const employeeCollectionRef = collection(firestore, 'companies', companyId, 'employee');
-      const q = query(employeeCollectionRef, where('name', '==', matchingEmployee.name));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        const employeeDoc = querySnapshot.docs[0];
-        console.log(`Employee document found for ${matchingEmployee.name}`);
-        
-        // Get current employee data
-        const currentEmployeeData = employeeDoc.data();
-        const currentAssignedContacts = currentEmployeeData.assignedContacts || 0;
-        const currentQuotaLeads = currentEmployeeData.quotaLeads || 0;
-
-        // Update existing employee document
-        await updateDoc(employeeDoc.ref, {
-          assignedContacts: arrayUnion(contact.id),
-          quotaLeads: currentQuotaLeads > 0 ? currentQuotaLeads - 1 : 0 // Decrease quota by 1, minimum 0
-        });
-
-        // Update monthly assignments
-        const currentDate = new Date();
-        const currentMonthKey = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}`;
-        const monthlyAssignmentRef = doc(employeeDoc.ref, 'monthlyAssignments', currentMonthKey);
-        
-        await setDoc(monthlyAssignmentRef, {
-          assignments: increment(1),
-          lastUpdated: serverTimestamp()
-        }, { merge: true });
-
-        // Update the contact document to reflect the assignment
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      console.log(`Adding tag: ${tagName} to contact: ${contact.id}`);
+  
+      // Update contact's tags
+      const contactRef = doc(firestore, 'companies', companyId, 'contacts', contact.id!);
+      const contactDoc = await getDoc(contactRef);
+  
+      if (!contactDoc.exists()) {
+        console.error(`Contact document does not exist: ${contact.id}`);
+        toast.error(`Failed to add tag: Contact not found`);
+        return;
+      }
+  
+      const currentTags = contactDoc.data().tags || [];
+      if (!currentTags.includes(tagName)) {
         await updateDoc(contactRef, {
-          assignedTo: matchingEmployee.name
+          tags: arrayUnion(tagName)
         });
-
-        // Add notifications
-        const notificationData = {
-          type: 'assignment',
-          from: 'System',
-          from_name: 'System',
-          text: { body: `Contact (${contact.contactName || contact.firstName || 'N/A'}) assigned to you` },
-          timestamp: serverTimestamp(),
-          chat_id: contact.id,
-          assignedTo: matchingEmployee.name
-        };
-
-        await addNotificationToUser(companyId, matchingEmployee.name, notificationData);
-
-        // If the current user is an admin, add a notification for them as well
-        if (userData.role === '1') {
-          const adminNotificationData = {
-            ...notificationData,
-            text: { body: `Contact (${contact.contactName || contact.firstName || 'N/A'}) assigned to ${matchingEmployee.name}` }
-          };
-          await addNotificationToUser(companyId, userData.name, adminNotificationData);
-        }
-
-        // Handle non-assignment notifications
-        if (notificationData.type !== 'assignment') {
-          const nonAssignmentNotificationData = {
-            ...notificationData,
-            from: contact.contactName || contact.firstName || 'N/A',
-            from_name: contact.contactName || contact.firstName || 'N/A',
-            text: notificationData.text.body
-          };
-          await addNotificationToUser(companyId, matchingEmployee.name, nonAssignmentNotificationData);
-        }
-
-        await sendAssignmentNotification(matchingEmployee.name, contact);
-        console.log('WhatsApp notification sent successfully');
-
-        toast.success(`Contact assigned to ${matchingEmployee.name}. Quota leads updated from ${currentQuotaLeads} to ${currentQuotaLeads > 0 ? currentQuotaLeads - 1 : 0}. WhatsApp notification sent.`);
+  
+        // Update local state
+        setContacts(prevContacts =>
+          prevContacts.map(c =>
+            c.id === contact.id
+              ? { ...c, tags: [...(c.tags || []), tagName] }
+              : c
+          )
+        );
+  
+        console.log(`Tag ${tagName} added to contact ${contact.id}`);
+        toast.success(`Tag "${tagName}" added to contact`);
       } else {
-        console.error(`Employee document not found for ${matchingEmployee.name}`);
-        
-        // List all documents in the employee collection
-        const employeeSnapshot = await getDocs(employeeCollectionRef);
-        console.log('All employee documents:');
-        employeeSnapshot.forEach(doc => {
-          console.log(doc.id, '=>', doc.data());
-        });
-        
-        toast.error(`Failed to assign contact: Employee document not found for ${matchingEmployee.name}`);
+        console.log(`Tag ${tagName} already exists for contact ${contact.id}`);
+        toast.info(`Tag "${tagName}" already exists for this contact`);
       }
-    } else {
-      console.log(`No matching employee found for tag: ${tagName}`);
-      toast.success('Tag added successfully.');
+  
+    } catch (error) {
+      console.error('Error adding tag to contact:', error);
+      toast.error('Failed to add tag to contact');
     }
-
-  } catch (error) {
-    console.error('Error adding tag and assigning contact:', error);
-    toast.error('Failed to add tag and assign contact.');
-  }
-};
+  };
 
 // Add this function to handle adding notifications
 const addNotificationToUser = async (companyId: string, employeeName: string, notificationData: any) => {
@@ -3618,40 +3518,45 @@ const handlePageChange = ({ selected }: { selected: number }) => {
   setCurrentPage(selected);
 };
 
-  const sortContacts = (contacts: Contact[]) => {
-    let fil = contacts;
-    const activeTag = activeTags[0].toLowerCase();
-    
-    // Check if the active tag matches any of the phone names
-    const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => 
-      name.toLowerCase() === activeTag
-    );
+const sortContacts = (contacts: Contact[]) => {
+  let fil = contacts;
+  const activeTag = activeTags[0].toLowerCase();
   
-    if (phoneIndex !== -1) {
-      fil = contacts.filter(contact => contact.phoneIndex === phoneIndex);
-    }
-    return fil.sort((a, b) => {
-      // First, sort by pinned status
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-  
-      // If both have the same pinned status, sort by timestamp
-      const getDate = (contact: Contact) => {
-        if (contact.last_message?.timestamp) {
-          return typeof contact.last_message.timestamp === 'number'
-            ? contact.last_message.timestamp
-            : new Date(contact.last_message.timestamp).getTime() / 1000;
-        }else {
-          return 0;
-        }
-      };
-  
-      const timestampA = getDate(a);
-      const timestampB = getDate(b);
-  
-      return timestampB - timestampA;
-    });
-  };
+  // Check if the active tag matches any of the phone names
+  const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => 
+    name.toLowerCase() === activeTag
+  );
+
+  if (phoneIndex !== -1) {
+    fil = contacts.filter(contact => contact.phoneIndex === phoneIndex);
+  }
+  return fil.sort((a, b) => {
+    // First, sort by unread status
+    if ((a.unreadCount || 0) > 0 && (b.unreadCount || 0) === 0) return -1;
+    if ((a.unreadCount || 0) === 0 && (b.unreadCount || 0) > 0) return 1;
+
+    // If both have the same unread status, sort by pinned status
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+
+    // If both have the same pinned status, sort by timestamp
+    const getDate = (contact: Contact) => {
+      if (contact.last_message?.timestamp) {
+        return typeof contact.last_message.timestamp === 'number'
+          ? contact.last_message.timestamp
+          : new Date(contact.last_message.timestamp).getTime() / 1000;
+      } else {
+        return 0;
+      }
+    };
+
+    const timestampA = getDate(a);
+    const timestampB = getDate(b);
+
+    return timestampB - timestampA;
+  });
+};
+
   const filterTagContact = (tag: string) => {
     setActiveTags([tag.toLowerCase()]);
     setSearchQuery('');
