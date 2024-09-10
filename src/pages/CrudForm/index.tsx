@@ -5,7 +5,7 @@ import Button from "@/components/Base/Button";
 import { getAuth, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc, updateDoc, setDoc, collection, getDocs } from 'firebase/firestore';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { FormInput, FormLabel } from "@/components/Base/Form";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -31,6 +31,7 @@ function Main() {
   const [categories, setCategories] = useState(["1"]);
   const [groups, setGroups] = useState<string[]>([]);
   const location = useLocation();
+  const navigate = useNavigate();
   const { contactId, contact } = location.state ?? {};
 
   const [companyId, setCompanyId] = useState("");
@@ -220,6 +221,7 @@ function Main() {
   const isFieldDisabled = (fieldName: string) => {
     if (currentUserRole === "1") return false; // Admin (role 1) can edit everything
     if (currentUserRole === "3") return fieldName !== "password"; // Observer can only edit password
+    if (fieldName === "role") return false; // Allow role changes for non-admin users
     return userData.role === "3"; // For other roles, they can't edit users with role 3
   };
 
@@ -333,6 +335,7 @@ function Main() {
 
       setErrorMessage('');
       setIsLoading(false);
+      navigate('/users-layout-2');
     } catch (error) {
       console.error("Error saving user:", error);
       setErrorMessage('An error occurred while saving the user');
@@ -490,18 +493,25 @@ function Main() {
               name="role"
               value={userData.role}
               onChange={(e) => {
+                const newRole = e.target.value;
+                if (currentUserRole !== "1" && newRole === "1") {
+                  // Prevent non-admin users from selecting admin role
+                  toast.error("You don't have permission to assign admin role.");
+                  return;
+                }
                 handleChange(e);
-                setCategories([e.target.value]);
+                setCategories([newRole]);
               }}
               className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
               disabled={isFieldDisabled("role")}
               required
             >
               <option value="">Select role</option>
-              <option value="1">Admin</option>
+              {currentUserRole === "1" && <option value="1">Admin</option>}
               <option value="2">Sales</option>
               <option value="3">Observer</option>
-              <option value="4">Manager</option>
+              {currentUserRole === "4" && <option value="4">Manager</option>}
+              
             </select>
             {fieldErrors.role && <p className="text-red-500 text-sm mt-1">{fieldErrors.role}</p>}
           </div>
