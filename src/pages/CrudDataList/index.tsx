@@ -330,7 +330,7 @@ function Main() {
     setCurrentPage(nextPage);
   };
   const handleExportContacts = () => {
-    if (userRole === "3") {
+    if (userRole === "2" || userRole === "3") {
       toast.error("You don't have permission to export contacts.");
       return;
     }
@@ -340,7 +340,7 @@ function Main() {
       { id: 'tagged', label: 'Export Contacts by Tag' },
     ];
   
-    const exportModal = (
+    const exportModal = userRole === "1" ? (
       <Dialog open={true} onClose={() => setExportModalOpen(false)}>
         <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-lg">
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Export Contacts</h3>
@@ -357,7 +357,7 @@ function Main() {
           </div>
         </Dialog.Panel>
       </Dialog>
-    );
+    ) : null;
   
     setExportModalOpen(true);
     setExportModalContent(exportModal);
@@ -2474,19 +2474,18 @@ useEffect(() => {
                       <Lucide icon="Upload" className="w-5 h-5 mr-2" />
                       <span className="font-medium">Import CSV</span>
                     </button>
-                    <button 
-                      className={`flex items-center justify-start p-2 !box ${
-                        userRole === "3"
-                          ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed' 
-                          : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      } text-gray-700 dark:text-gray-300`}
-                      onClick={handleExportContacts}
-                      disabled={userRole === "3"}
-                    >
-                      <Lucide icon="FolderUp" className="w-5 h-5 mr-2" />
-                      <span className="font-medium">Export Contacts</span>
-                    </button>
-                    {exportModalOpen && exportModalContent}
+                    {userRole !== "2" && userRole !== "3" && (
+                      <>
+                        <button 
+                          className={`flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300`}
+                          onClick={handleExportContacts}
+                        >
+                          <Lucide icon="FolderUp" className="w-5 h-5 mr-2" />
+                          <span className="font-medium">Export Contacts</span>
+                        </button>
+                        {exportModalOpen && exportModalContent}
+                      </>
+                    )}
                   </div>             
                   {/* Mobile view */}
                   <div className="sm:hidden grid grid-cols-2 gap-2">

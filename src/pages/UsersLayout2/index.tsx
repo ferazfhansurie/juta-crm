@@ -433,7 +433,7 @@ const paginatedEmployees = filteredEmployees
                     )} */}
                   </div>
                   <div className="flex space-x-2">
-                    <>
+                    {role === "1" || (role !== "1" && employee.email === currentUserEmail) ? (
                       <button
                         onClick={() => navigate(`crud-form`, { state: { contactId: employee.id, contact: employee, companyId: companyId || '' } })}
                         className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-full transition-colors duration-300"
@@ -441,16 +441,16 @@ const paginatedEmployees = filteredEmployees
                       >
                         <Lucide icon="Pencil" className="w-5 h-5" />
                       </button>
-                      {(role === "1") && (
-                        <button 
-                          onClick={() => toggleModal(employee.id)}
-                          className="p-2 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors duration-300"
-                          aria-label="Delete"
-                        >
-                          <Lucide icon="Trash" className="w-5 h-5" />
-                        </button>
-                      )}
-                    </>
+                    ) : null}
+                    {role === "1" && (
+                      <button 
+                        onClick={() => toggleModal(employee.id)}
+                        className="p-2 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors duration-300"
+                        aria-label="Delete"
+                      >
+                        <Lucide icon="Trash" className="w-5 h-5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
