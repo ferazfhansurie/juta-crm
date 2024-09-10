@@ -259,14 +259,17 @@ function Main() {
         throw new Error("No authenticated user found");
       }
 
-      if (currentUserRole === "3") {
-        // Observer can only update their password
-        if (userData.password) {
-          await updatePassword(userOri, userData.password);
-          toast.success("Password updated successfully");
-        }
-      } else {
-        // Existing logic for other roles
+      // Check if the user is updating their own profile
+      const isUpdatingSelf = userOri.email === userData.email;
+
+      if (isUpdatingSelf && userData.password) {
+        // User is updating their own password
+        await updatePassword(userOri, userData.password);
+        toast.success("Password updated successfully");
+      }
+
+      // Continue with the rest of the user update logic
+      if (currentUserRole !== "3" || isUpdatingSelf) {
         const docUserRef = doc(firestore, 'user', userOri.email);
         const docUserSnapshot = await getDoc(docUserRef);
         const dataUser = docUserSnapshot.data();
@@ -534,15 +537,15 @@ function Main() {
             </select>
           </div>
           <div>
-            <FormLabel htmlFor="password">Password {contactId ? '' : '*'}</FormLabel>
+            <FormLabel htmlFor="password">Password {contactId ? '(Leave blank to keep current)' : '*'}</FormLabel>
             <FormInput
               id="password"
               name="password"
               type="password"
               value={userData.password}
               onChange={handleChange}
-              placeholder={contactId ? "Leave blank to keep current password" : "Password"}
-              disabled={isFieldDisabled("password")}
+              placeholder={contactId ? "New password (optional)" : "Password"}
+              disabled={isFieldDisabled("password") || (contactId && userData.email !== auth.currentUser?.email)}
               required={!contactId}
             />
             {fieldErrors.password && <p className="text-red-500 text-sm mt-1">{fieldErrors.password}</p>}
