@@ -544,6 +544,7 @@ function Main() {
   const [userPhone, setUserPhone] = useState<number | null>(null);
   const [activeNotifications, setActiveNotifications] = useState<(string | number)[]>([]);
   const [isAssistantAvailable, setIsAssistantAvailable] = useState(false);
+  const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
 
 
 
@@ -788,7 +789,9 @@ function Main() {
     setIsPrivateNotesMentionOpen(false);
   };
 
-  console.log('Initial contacts:', initialContacts);
+  useEffect(() => {
+    console.log('Initial contacts:', initialContacts);
+  }, []);
 
   const filterContactsByUserRole = (contacts: Contact[], userRole: string, userName: string) => {
     switch (userRole) {
@@ -1345,7 +1348,6 @@ const closePDFModal = () => {
     if (chatId && !chatId.endsWith('@g.us')) {
       chatId += '@c.us';
     }
-    console.log(chatId);
   }
 
   const handleNotificationClick = (chatId: string, index: number) => {
@@ -1734,7 +1736,7 @@ async function fetchConfigFromDatabase() {
     }
   };
 
-  const selectChat = async (chatId: string, id?: string, contactSelect?: Contact) => {
+  const selectChat = async (chatId: string, contactId?: string, contactSelect?: Contact) => {
     console.log('Attempting to select chat:', { chatId, userRole, userName: userData?.name });
     if (userRole === "3" && contactSelect && contactSelect.assignedTo?.toLowerCase() !== userData?.name.toLowerCase()) {
       console.log('Permission denied for role 3 user');
@@ -1752,7 +1754,7 @@ async function fetchConfigFromDatabase() {
     localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
     sessionStorage.setItem('contactsFetched', 'true');
 
-    let contact = contacts.find(contact => contact.chat_id === chatId || contact.id === chatId);
+    let contact = contacts.find(contact => contact.chat_id === chatId || contact.id === contactId);
     console.log('Selected Contact:', contact);
 
     if(contactSelect){
@@ -1776,6 +1778,24 @@ async function fetchConfigFromDatabase() {
             console.log('Updated unreadCount in Firebase for contact:', contact.id);
           }
         }
+
+        setContacts(prevContacts => {
+          const updatedContacts = prevContacts.map(c =>
+            c.chat_id === chatId ? { ...c, unreadCount: 0 } : c
+          );
+          
+          // Sort contacts: pinned first, then by last message timestamp
+          return updatedContacts.sort((a, b) => {
+            if (a.pinned && !b.pinned) return -1;
+            if (!a.pinned && b.pinned) return 1;
+            
+            const timestampA = getTimestamp(a.last_message?.timestamp || a.last_message?.createdAt);
+            const timestampB = getTimestamp(b.last_message?.timestamp || b.last_message?.createdAt);
+            
+            return timestampB - timestampA;
+          });
+        });
+
         console.log('Setting state variables');
         setSelectedContact(contact);
         setSelectedChatId(chatId);
@@ -1978,16 +1998,13 @@ const fetchContacts = async (whapiToken: any, locationId: any, ghlToken: any, us
 
 const getTimestamp = (timestamp: any): number => {
   if (typeof timestamp === 'number') {
-      // Assume timestamp is in seconds if it's less than 10000000000
-      return timestamp < 10000000000 ? timestamp * 1000 : timestamp;
+    return timestamp < 10000000000 ? timestamp * 1000 : timestamp;
   } else if (typeof timestamp === 'object' && timestamp.seconds) {
-      // Firestore timestamp
-      return timestamp.seconds * 1000;
+    return timestamp.seconds * 1000;
   } else if (typeof timestamp === 'string') {
-      // Convert string timestamp to milliseconds
-      return new Date(timestamp).getTime();
+    return new Date(timestamp).getTime();
   } else {
-      return 0;
+    return 0;
   }
 };
 
@@ -2060,19 +2077,14 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
 
     // Sort contactsData by pinned status and last_message timestamp
     allContacts.sort((a, b) => {
+      // First, sort by pinned status
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
-      const dateA = a.last_message?.createdAt
-        ? new Date(a.last_message.createdAt)
-        : a.last_message?.timestamp
-          ? new Date(a.last_message.timestamp * 1000)
-          : new Date(0);
-      const dateB = b.last_message?.createdAt
-        ? new Date(b.last_message.createdAt)
-        : b.last_message?.timestamp
-          ? new Date(b.last_message.timestamp * 1000)
-          : new Date(0);
-      return dateB.getTime() - dateA.getTime();
+      
+      // If both are pinned or both are not pinned, sort by timestamp
+      const timestampA = getTimestamp(a.last_message?.timestamp || a.last_message?.createdAt);
+      const timestampB = getTimestamp(b.last_message?.timestamp || b.last_message?.createdAt);
+      return timestampB - timestampA;
     });
 
     console.log('active:'+ activeTags[0]);
@@ -3518,6 +3530,18 @@ const handlePageChange = ({ selected }: { selected: number }) => {
   setCurrentPage(selected);
 };
 
+const getSortedContacts = useCallback((contactsToSort: Contact[]) => {
+  return [...contactsToSort].sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    
+    const timestampA = a.last_message?.timestamp ? new Date(a.last_message.timestamp).getTime() : 0;
+    const timestampB = b.last_message?.timestamp ? new Date(b.last_message.timestamp).getTime() : 0;
+    
+    return timestampB - timestampA;
+  });
+}, []);
+
 const sortContacts = (contacts: Contact[]) => {
   let fil = contacts;
   const activeTag = activeTags[0].toLowerCase();
@@ -3542,23 +3566,13 @@ const sortContacts = (contacts: Contact[]) => {
   };
 
   return fil.sort((a, b) => {
-    // First, sort by pinned status
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
-
-    // If both have the same pinned status, sort by timestamp (most recent first)
-    const timestampA = getDate(a);
-    const timestampB = getDate(b);
-    if (timestampA !== timestampB) {
-      return timestampB - timestampA;
-    }
-
-    // If timestamps are the same, then consider unread status
-    if ((a.unreadCount || 0) > 0 && (b.unreadCount || 0) === 0) return -1;
-    if ((a.unreadCount || 0) === 0 && (b.unreadCount || 0) > 0) return 1;
-
-    // If everything else is equal, maintain the current order
-    return 0;
+    
+    const timestampA = a.last_message?.timestamp ? new Date(a.last_message.timestamp).getTime() : 0;
+    const timestampB = b.last_message?.timestamp ? new Date(b.last_message.timestamp).getTime() : 0;
+    
+    return timestampB - timestampA;
   });
 };
 
@@ -3690,7 +3704,8 @@ const sortContacts = (contacts: Contact[]) => {
       });
     }
 
-    setFilteredContacts(filtered);
+    const filteredAndSortedContacts = sortContacts(filteredContacts);
+    setFilteredContacts(filteredAndSortedContacts);
     // Don't reset the current page here
   }, [contacts, searchQuery, activeTags, showAllContacts, showUnreadContacts, showMineContacts, showUnassignedContacts, showSnoozedContacts, showGroupContacts, currentUserName, employeeList, userData, userRole]);
   
@@ -4090,27 +4105,8 @@ const handleForwardMessage = async () => {
     setIsForwardDialogOpen(false);
     setSearchQuery2(''); // Clear the search query
   };
+
   const togglePinConversation = async (chatId: string) => {
-    setContacts((prevContacts) => {
-      const contactToToggle = prevContacts.find(contact => contact.chat_id === chatId);
-      if (!contactToToggle) {
-        console.error("Contact not found in state for chatId:", chatId);
-        return prevContacts;
-      }
-  
-      const updatedContacts = prevContacts.map((contact) =>
-        contact.chat_id === chatId ? { ...contact, pinned: !contact.pinned } : contact
-      );
-  
-      const sortedContacts = [...updatedContacts].sort((a, b) => {
-        if (a.pinned && !b.pinned) return -1;
-        if (!a.pinned && b.pinned) return 1;
-        return 0;
-      });
-  
-      return sortedContacts;
-    });
-  
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -4143,20 +4139,33 @@ const handleForwardMessage = async () => {
       // Toggle the pinned status
       const newPinnedStatus = !contactToToggle.pinned;
   
-      // Update the contact document
+      // Update the contact document in Firestore
       await updateDoc(contactDocRef, {
         pinned: newPinnedStatus
       });
   
+      // Update the local state
+      setContacts(prevContacts => 
+        prevContacts.map(contact =>
+          contact.id === contactToToggle.id
+            ? { ...contact, pinned: newPinnedStatus }
+            : contact
+        )
+      );
+  
       console.log(`Chat ${chatId} ${newPinnedStatus ? 'pinned' : 'unpinned'}`);
+      toast.success(`Conversation ${newPinnedStatus ? 'pinned' : 'unpinned'}`);
     } catch (error) {
       console.error('Error toggling chat pin state:', error);
+      toast.error('Failed to update pin status');
     }
   };
+
   const openImageModal = (imageUrl: string) => {
     setModalImageUrl(imageUrl);
     setImageModalOpen(true);
   };
+
   const handleSave = async () => {
     try {
       const user = auth.currentUser;
@@ -4213,6 +4222,7 @@ const handleForwardMessage = async () => {
       toast.error('Failed to update contact name.');
     }
   };
+
   const closeImageModal = () => {
     setImageModalOpen(false);
     setModalImageUrl('');
@@ -5044,7 +5054,43 @@ const handleForwardMessage = async () => {
       toast.error("An error occurred while setting the reminder. Please try again.");
     }
   };
+  const handleGenerateAIResponse = async () => {
+    if (messages.length === 0) return;
+  
+    try {
+      setIsGeneratingResponse(true);
+  console.log(messages);
+      // Prepare the context from recent messages
+        // Prepare the context from all messages in reverse order
+ // Prepare the context from the last 20 messages in reverse order
+ const context = messages.slice(0, 10).reverse().map(msg => 
+  `${msg.from_me ? "Me" : "User"}: ${msg.text?.body || ""}`
+).join("\n");
+console.log(context);
 
+const prompt = `
+Your goal is to act like you are Me, and generate a response to the last message in the conversation, if the last message is from "Me", continue or add to that message appropriately, maintaining the same language and style. Note that "Me" indicates messages I sent, and "User" indicates messages from the person I'm talking to.
+
+Based on this conversation:
+${context}
+
+:`;
+
+console.log(prompt);
+  
+      // Use the sendMessageToAssistant function
+      const aiResponse = await sendMessageToAssistant(prompt);
+  
+      // Set the AI's response as the new message
+      setNewMessage(aiResponse);
+  
+    } catch (error) {
+      console.error('Error generating AI response:', error);
+      toast.error("Failed to generate AI response");
+    } finally {
+      setIsGeneratingResponse(false);
+    }
+  };
   const visiblePhoneTags = useMemo(() => {
     if (userData?.role === '1') {
       // Admin users can see all phone tags
@@ -5058,6 +5104,157 @@ const handleForwardMessage = async () => {
     }
     return [];
   }, [userData, phoneNames, phoneCount]);
+
+  const sendMessageToAssistant = async (messageText: string) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error("User not authenticated");
+        toast.error("User not authenticated");
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error("User document not found");
+        toast.error("User document not found");
+        return;
+      }
+  
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      const companyRef = doc(firestore, 'companies', companyId);
+      const companySnapshot = await getDoc(companyRef);
+      if (!companySnapshot.exists()) {
+        console.error("Company document not found");
+        toast.error("Company document not found");
+        return;
+      }
+  
+      const companyData = companySnapshot.data();
+      const assistantId = companyData.assistantId;
+  
+      const res = await axios.get(`https://mighty-dane-newly.ngrok-free.app/api/assistant-test/`, {
+        params: {
+          message: messageText,
+          email: user.email!,
+          assistantid: assistantId
+        },
+      });
+  
+      return res.data.answer;
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("Failed to send message to assistant");
+      throw error;
+    }
+  };
+
+  const NotificationPopup: React.FC<{ notifications: any[] }> = ({ notifications: initialNotifications }) => {
+    const [notifications, setNotifications] = useState(initialNotifications);
+    const navigate = useNavigate(); // Initialize useNavigate
+    const handleDelete = (index: number) => {
+      setNotifications(notifications.filter((_, i) => i !== index));
+    };
+    const handleNotificationClick = (chatId: string,index: number) => {
+      setNotifications(notifications.filter((_, i) => i !== index));
+      navigate(`/chat/?chatId=${chatId}`);
+    };
+    
+    return (
+      <div>
+        {notifications.slice(-1).map((notification, index) => (
+          <div key={index}>
+          </div>
+        ))}
+      </div>
+    );
+  };
+  
+  const updateEmployeeAssignedContacts = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      // Get all contacts
+      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+      const contactsSnapshot = await getDocs(contactsRef);
+  
+      // Object to store employee assignment counts
+      const employeeAssignments: { [key: string]: number } = {};
+  
+      const employeeRef = collection(firestore, `companies/${companyId}/employee`);
+      const employeeSnapshot = await getDocs(employeeRef);
+      const employeeList = employeeSnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        name: doc.data().name, 
+        quotaLeads: doc.data().quotaLeads || 0 
+      }));
+  
+      // Count assignments
+      contactsSnapshot.forEach((doc) => {
+        const contact = doc.data();
+        if (contact.tags) {
+          contact.tags.forEach((tag: string) => {
+            const employee = employeeList.find(emp => emp.name.toLowerCase() === tag.toLowerCase());
+            if (employee) {
+              employeeAssignments[employee.quotaLeads] = (employeeAssignments[employee.quotaLeads] || 0) + 1;
+            }
+          });
+        }
+      });
+  
+      console.log('Employee assignments before update:', employeeAssignments);
+  
+      // Update employee documents
+      const employeeUpdates = Object.entries(employeeAssignments).map(async ([employeeId, count]) => {
+        const employeeDocRef = doc(firestore, `companies/${companyId}/employee`, employeeId);
+        const employeeDoc = await getDoc(employeeDocRef);
+  
+        if (employeeDoc.exists()) {
+          const currentData = employeeDoc.data();
+          const currentQuotaLeads = currentData.quotaLeads || 0;
+          const currentAssignedContacts = currentData.assignedContacts || 0;
+          
+          // Calculate the difference in assigned contacts
+          const assignedContactsDiff = count - currentAssignedContacts;
+          
+          // Calculate new quotaLeads
+          const newQuotaLeads = Math.max(0, currentQuotaLeads - assignedContactsDiff);
+          
+          // Update assigned contacts and quotaLeads
+          await updateDoc(employeeDocRef, {
+            assignedContacts: count,
+            quotaLeads: newQuotaLeads
+          });
+          console.log(`Updated ${currentData.name}: Assigned contacts from ${currentAssignedContacts} to ${count}, Quota leads from ${currentQuotaLeads} to ${newQuotaLeads}`);
+        } else {
+          console.error(`Employee document for ID ${employeeId} not found`);
+        }
+      });
+  
+      await Promise.all(employeeUpdates);
+  
+      console.log('Employee assigned contacts and quota leads updated successfully');
+    } catch (error) {
+      console.error('Error updating employee assigned contacts and quota leads:', error);
+      toast.error('Failed to update employee assigned contacts and quota leads.');
+    }
+  };
 
   return (
     <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
@@ -6388,7 +6585,21 @@ const handleForwardMessage = async () => {
               <Lucide icon='Zap' className="w-5 h-5 text-gray-800 dark:text-gray-200" />
             </span>
           </button>
-       
+          {userData?.company === 'Juta Software' && (
+        <button 
+          className="p-2 m-0 !box ml-2" 
+          onClick={handleGenerateAIResponse}
+          disabled={isGeneratingResponse}
+        >
+          <span className="flex items-center justify-center w-5 h-5">
+            {isGeneratingResponse ? (
+              <Lucide icon="Loader" className="w-5 h-5 text-gray-800 dark:text-gray-200 animate-spin" />
+            ) : (
+              <Lucide icon="Sparkles" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+            )}
+          </span>
+        </button>
+      )}
           <textarea
             ref={textareaRef}
             className={`flex-grow h-10 px-2 py-2 m-1 ml-2 border rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden ${
@@ -7022,109 +7233,6 @@ const ImageModal2: React.FC<ImageModalProps2> = ({ isOpen, onClose, imageUrl, on
                 </div>
               </div>
   );
-};
-const NotificationPopup: React.FC<{ notifications: any[] }> = ({ notifications: initialNotifications }) => {
-  const [notifications, setNotifications] = useState(initialNotifications);
-  const navigate = useNavigate(); // Initialize useNavigate
-  const handleDelete = (index: number) => {
-    setNotifications(notifications.filter((_, i) => i !== index));
-  };
-  const handleNotificationClick = (chatId: string,index: number) => {
-    setNotifications(notifications.filter((_, i) => i !== index));
-    navigate(`/chat/?chatId=${chatId}`);
-  };
-  
-  return (
-    <div>
-      {notifications.slice(-1).map((notification, index) => (
-        <div key={index}>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const updateEmployeeAssignedContacts = async () => {
-  try {
-    const user = auth.currentUser;
-    if (!user) {
-      console.error('No authenticated user');
-      return;
-    }
-
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.error('No such document for user!');
-      return;
-    }
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-
-    // Get all contacts
-    const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-    const contactsSnapshot = await getDocs(contactsRef);
-
-    // Object to store employee assignment counts
-    const employeeAssignments: { [key: string]: number } = {};
-
-    const employeeRef = collection(firestore, `companies/${companyId}/employee`);
-    const employeeSnapshot = await getDocs(employeeRef);
-    const employeeList = employeeSnapshot.docs.map(doc => ({ 
-      id: doc.id, 
-      name: doc.data().name, 
-      quotaLeads: doc.data().quotaLeads || 0 
-    }));
-
-    // Count assignments
-    contactsSnapshot.forEach((doc) => {
-      const contact = doc.data();
-      if (contact.tags) {
-        contact.tags.forEach((tag: string) => {
-          const employee = employeeList.find(emp => emp.name.toLowerCase() === tag.toLowerCase());
-          if (employee) {
-            employeeAssignments[employee.quotaLeads] = (employeeAssignments[employee.quotaLeads] || 0) + 1;
-          }
-        });
-      }
-    });
-
-    console.log('Employee assignments before update:', employeeAssignments);
-
-    // Update employee documents
-    const employeeUpdates = Object.entries(employeeAssignments).map(async ([employeeId, count]) => {
-      const employeeDocRef = doc(firestore, `companies/${companyId}/employee`, employeeId);
-      const employeeDoc = await getDoc(employeeDocRef);
-
-      if (employeeDoc.exists()) {
-        const currentData = employeeDoc.data();
-        const currentQuotaLeads = currentData.quotaLeads || 0;
-        const currentAssignedContacts = currentData.assignedContacts || 0;
-        
-        // Calculate the difference in assigned contacts
-        const assignedContactsDiff = count - currentAssignedContacts;
-        
-        // Calculate new quotaLeads
-        const newQuotaLeads = Math.max(0, currentQuotaLeads - assignedContactsDiff);
-        
-        // Update assigned contacts and quotaLeads
-        await updateDoc(employeeDocRef, {
-          assignedContacts: count,
-          quotaLeads: newQuotaLeads
-        });
-        console.log(`Updated ${currentData.name}: Assigned contacts from ${currentAssignedContacts} to ${count}, Quota leads from ${currentQuotaLeads} to ${newQuotaLeads}`);
-      } else {
-        console.error(`Employee document for ID ${employeeId} not found`);
-      }
-    });
-
-    await Promise.all(employeeUpdates);
-
-    console.log('Employee assigned contacts and quota leads updated successfully');
-  } catch (error) {
-    console.error('Error updating employee assigned contacts and quota leads:', error);
-    toast.error('Failed to update employee assigned contacts and quota leads.');
-  }
 };
 
 export default Main;
