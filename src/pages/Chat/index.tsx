@@ -851,11 +851,9 @@ function Main() {
       userPhone: userData?.phone,
     });
   
-    let filtered = contactsToFilter;
-  
-  // Apply role-based filtering
-  filtered = filterContactsByUserRole(filtered, userRole, userData?.name || '');
-  console.log('After role-based filtering:', { filteredCount: filtered.length });
+    // Apply role-based filtering first
+    let filtered = filterContactsByUserRole(contactsToFilter, userRole, userData?.name || '');
+    console.log('After role-based filtering:', { filteredCount: filtered.length });
 
   // Filter out group chats
   filtered = filtered.filter(contact => 
@@ -2033,45 +2031,40 @@ const getTimestamp = (timestamp: any): number => {
 
 const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string, role: string, userEmail: string | null | undefined) => {
   try {
-    if (!userEmail) {
-      throw new Error("User email is not provided.");
-    }
+    if (!userEmail) throw new Error("User email is not provided.");
     
     const docUserRef = doc(firestore, 'user', userEmail);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) {
+      console.log('User document not found');
       return;
     }
 
     const dataUser = docUserSnapshot.data();
     const companyId = dataUser?.companyId;
     if (!companyId) {
+      console.log('Company ID not found');
       return;
     }
 
     // Pagination settings
     const batchSize = 4000;
-    let lastVisible: QueryDocumentSnapshot<DocumentData> | undefined = undefined;
+    let lastVisible: QueryDocumentSnapshot<DocumentData> | null = null;
     const phoneSet = new Set<string>();
     let allContacts: Contact[] = [];
 
     // Fetch contacts in batches
+    const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
     while (true) {
-      let queryRef: Query<DocumentData>;
-      const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`) as CollectionReference<DocumentData>;
-      
-      if (lastVisible) {
-        queryRef = query(contactsCollectionRef, startAfter(lastVisible), limit(batchSize));
-      } else {
-        queryRef = query(contactsCollectionRef, limit(batchSize));
-      }
+      let queryRef: Query<DocumentData> = lastVisible
+        ? query(contactsCollectionRef, startAfter(lastVisible), limit(batchSize))
+        : query(contactsCollectionRef, limit(batchSize));
 
       const contactsSnapshot = await getDocs(queryRef);
-      const contactsBatch: Contact[] = contactsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Contact));
+      if (contactsSnapshot.empty) break;
 
-      if (contactsBatch.length === 0) break; // Exit if no more documents
-
-      contactsBatch.forEach(contact => {
+      contactsSnapshot.docs.forEach(doc => {
+        const contact = { ...doc.data(), id: doc.id } as Contact;
         if (contact.phone && !phoneSet.has(contact.phone)) {
           phoneSet.add(contact.phone);
           allContacts.push(contact);
@@ -2086,36 +2079,34 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
     const pinnedChatsSnapshot = await getDocs(pinnedChatsRef);
     const pinnedChats = pinnedChatsSnapshot.docs.map(doc => doc.data() as Contact);
 
-    // Update pinned status in Firebase
-    const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-    const updatePromises = contacts.map(async contact => {
+    // Update pinned status in Firebase and local contacts
+    const updatePromises = allContacts.map(async contact => {
       const isPinned = pinnedChats.some(pinned => pinned.chat_id === contact.chat_id);
       if (isPinned !== contact.pinned) {
-        const contactDocRef = doc(contactsRef, contact.id!);
+        const contactDocRef = doc(contactsCollectionRef, contact.id!);
         await updateDoc(contactDocRef, { pinned: isPinned });
+        contact.pinned = isPinned;
       }
     });
 
     await Promise.all(updatePromises);
 
-    // Sort contactsData by pinned status and last_message timestamp
+    // Sort contacts by pinned status and last_message timestamp
     allContacts.sort((a, b) => {
-      // First, sort by pinned status
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
       
-      // If both are pinned or both are not pinned, sort by timestamp
       const timestampA = getTimestamp(a.last_message?.timestamp || a.last_message?.createdAt);
       const timestampB = getTimestamp(b.last_message?.timestamp || b.last_message?.createdAt);
       return timestampB - timestampA;
     });
 
-    console.log('active:'+ activeTags[0]);
-    console.log(allContacts);
+    console.log('Active tag:', activeTags[0]);
+    console.log('Total contacts:', allContacts.length);
+
     setContacts(allContacts.slice(0, 200));
     localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
-    sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
-    console.log("All fetched contacts:", { count: allContacts.length });
+    sessionStorage.setItem('contactsFetched', 'true');
     
   } catch (error) {
     console.error('Error fetching contacts:', error);
@@ -5697,7 +5688,7 @@ console.log(prompt);
     {isTagsExpanded ? "Show Less" : "Show More"}
   </span>
 <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
-  {sortContacts(filteredContactsSearch).map((contact, index) => (
+  {sortContacts(filteredContacts).map((contact, index) => (
     <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
     <div
       className={`m-2 pr-3 pb-2 pt-2 rounded-lg cursor-pointer flex items-center space-x-3 group ${
