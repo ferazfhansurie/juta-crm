@@ -181,6 +181,7 @@ function Main() {
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
   const [blastStartTime, setBlastStartTime] = useState<Date | null>(null);
+  const [blastStartDate, setBlastStartDate] = useState<Date>(new Date());
   const [batchQuantity, setBatchQuantity] = useState<number>(10);
   const [repeatInterval, setRepeatInterval] = useState<number>(0);
   const [repeatUnit, setRepeatUnit] = useState<'minutes' | 'hours' | 'days'>('days');
@@ -209,6 +210,7 @@ function Main() {
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [companyId, setCompanyId] = useState<string>("");
+ 
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -1727,6 +1729,15 @@ useEffect(() => {
 const sendBlastMessage = async () => {
   console.log('Starting sendBlastMessage function');
 
+  // Combine date and time
+  const combinedDateTime = new Date(
+    blastStartDate.getFullYear(),
+    blastStartDate.getMonth(),
+    blastStartDate.getDate(),
+    blastStartTime?.getHours() || 0,
+    blastStartTime?.getMinutes() || 0
+  );
+
   if (selectedContacts.length === 0) {
     console.log('No contacts selected');
     toast.error("No contacts selected!");
@@ -1740,7 +1751,9 @@ const sendBlastMessage = async () => {
   }
 
   const now = new Date();
-  const scheduledTime = new Date(blastStartTime);
+  const scheduledTime = new Date(combinedDateTime);
+
+  
 
   if (scheduledTime <= now) {
     console.log('Selected time is in the past');
@@ -2789,13 +2802,24 @@ const sendBlastMessage = async () => {
                     ></textarea>
                     <div className="mt-4">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Scheduled Time</label>
-                      <DatePicker
-                        selected={currentScheduledMessage?.scheduledTime.toDate()}
-                        onChange={(date: Date) => setCurrentScheduledMessage({...currentScheduledMessage!, scheduledTime: Timestamp.fromDate(date)})}
-                        showTimeSelect
-                        dateFormat="MMMM d, yyyy h:mm aa"
-                        className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
+                      <div className="flex space-x-2">
+                        <DatePicker
+                          selected={currentScheduledMessage?.scheduledTime.toDate()}
+                          onChange={(date: Date) => setCurrentScheduledMessage({...currentScheduledMessage!, scheduledTime: Timestamp.fromDate(date)})}
+                          dateFormat="MMMM d, yyyy"
+                          className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                        <DatePicker
+                          selected={currentScheduledMessage?.scheduledTime.toDate()}
+                          onChange={(date: Date) => setCurrentScheduledMessage({...currentScheduledMessage!, scheduledTime: Timestamp.fromDate(date)})}
+                          showTimeSelect
+                          showTimeSelectOnly
+                          timeIntervals={15}
+                          timeCaption="Time"
+                          dateFormat="h:mm aa"
+                          className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                      </div>
                     </div>
                     <div className="mt-4">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Media (Image or Video)</label>
@@ -3434,14 +3458,25 @@ const sendBlastMessage = async () => {
                     />
                   </div>
                   <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Time</label>
-                    <DatePicker
-                      selected={blastStartTime}
-                      onChange={(date: Date) => setBlastStartTime(date)}
-                      showTimeSelect
-                      dateFormat="MMMM d, yyyy h:mm aa"
-                      className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Date & Time</label>
+                    <div className="flex space-x-2">
+                      <DatePicker
+                        selected={blastStartDate}
+                        onChange={(date: Date) => setBlastStartDate(date)}
+                        dateFormat="MMMM d, yyyy"
+                        className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                      <DatePicker
+                        selected={blastStartTime}
+                        onChange={(date: Date) => setBlastStartTime(date)}
+                        showTimeSelect
+                        showTimeSelectOnly
+                        timeIntervals={15}
+                        timeCaption="Time"
+                        dateFormat="h:mm aa"
+                        className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
                   </div>
                   <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Quantity</label>
