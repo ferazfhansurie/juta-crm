@@ -2271,6 +2271,23 @@ const sendBlastMessage = async () => {
         newFileName = editDocumentFile.name;
       }
 
+      const updatedMessages = currentScheduledMessage.chatIds.map(chatId => {
+        const contact = contacts.find(c => c.phone === chatId.split('@')[0]);
+        let personalizedMessage = blastMessage;
+        if (contact) {
+          personalizedMessage = personalizedMessage
+            .replace(/@{contactName}/g, contact.contactName || '')
+            .replace(/@{firstName}/g, contact.contactName?.split(' ')[0] || '')
+            .replace(/@{lastName}/g, contact.lastName || '')
+            .replace(/@{email}/g, contact.email || '')
+            .replace(/@{phone}/g, contact.phone || '');
+        }
+        return {
+          chatId,
+          message: personalizedMessage
+        };
+      });
+
       // Prepare the updated message data
       const updatedMessageData = {
         ...currentScheduledMessage,
@@ -2802,6 +2819,30 @@ const sendBlastMessage = async () => {
                       onChange={(e) => setBlastMessage(e.target.value)}
                       rows={3}
                     ></textarea>
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        className="text-sm text-blue-500 hover:text-blue-400"
+                        onClick={() => setShowPlaceholders(!showPlaceholders)}
+                      >
+                        {showPlaceholders ? 'Hide Placeholders' : 'Show Placeholders'}
+                      </button>
+                      {showPlaceholders && (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Click to insert:</p>
+                          {['contactName', 'firstName', 'lastName', 'email', 'phone'].map(field => (
+                            <button
+                              key={field}
+                              type="button"
+                              className="mr-2 mb-2 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+                              onClick={() => insertPlaceholder(field)}
+                            >
+                              @{'{'}${field}{'}'}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div className="mt-4">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Scheduled Time</label>
                       <div className="flex space-x-2">

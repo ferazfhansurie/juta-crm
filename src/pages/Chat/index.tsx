@@ -545,6 +545,8 @@ function Main() {
   const [activeNotifications, setActiveNotifications] = useState<(string | number)[]>([]);
   const [isAssistantAvailable, setIsAssistantAvailable] = useState(false);
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
+  
+
 
   const filteredContactsSearch = useMemo(() => {
     return contacts.filter((contact) => {
@@ -568,6 +570,7 @@ function Main() {
       return matchesSearch && matchesTagFilters;
     });
   }, [contacts, searchQuery, activeTags]);
+
 
 
 
@@ -3539,10 +3542,27 @@ const getTimestamp2 = (timestamp: any): number => {
   }
   return 0;
 };
+
+useEffect(() => {
+  const filtered = contacts.filter((contact) =>
+    (contact.contactName?.toLowerCase() || contact.firstName?.toLowerCase() || contact.phone?.toLowerCase() || '')
+      .includes(searchQuery.toLowerCase())
+  );
+  setFilteredContacts(filtered);
+  setCurrentPage(0); // Reset to first page when search query changes
+}, [contacts, searchQuery]);
   
 const handlePageChange = ({ selected }: { selected: number }) => {
   setCurrentPage(selected);
 };
+
+const [paginatedContacts, setPaginatedContacts] = useState<Contact[]>([]);
+
+useEffect(() => {
+  const startIndex = currentPage * contactsPerPage;
+  const endIndex = startIndex + contactsPerPage;
+  setPaginatedContacts(filteredContactsSearch.slice(startIndex, endIndex));
+}, [currentPage, contactsPerPage, filteredContactsSearch]);
 
 const getSortedContacts = useCallback((contactsToSort: Contact[]) => {
   return [...contactsToSort].sort((a, b) => {
@@ -3605,10 +3625,13 @@ const sortContacts = (contacts: Contact[]) => {
     console.log('Filtered contacts updated:', filteredContacts);
   }, [filteredContacts]);
 
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value.toLowerCase();
-    setSearchQuery(query);
-    setCurrentPage(0);
+    setSearchQuery(e.target.value);
+    setCurrentPage(0); // Reset to first page when search query changes
   };
 
   const handleSearchChange2 = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -5688,7 +5711,7 @@ console.log(prompt);
     {isTagsExpanded ? "Show Less" : "Show More"}
   </span>
 <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
-  {sortContacts(filteredContacts).map((contact, index) => (
+  {sortContacts(paginatedContacts).map((contact, index) => (
     <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
     <div
       className={`m-2 pr-3 pb-2 pt-2 rounded-lg cursor-pointer flex items-center space-x-3 group ${
@@ -5908,7 +5931,7 @@ console.log(prompt);
                 nextLabel="Next"
                 onPageChange={handlePageChange}
                 pageRangeDisplayed={2}
-                pageCount={Math.max(1, Math.ceil(filteredContacts.length / contactsPerPage))}
+                pageCount={Math.max(1, Math.ceil(filteredContactsSearch.length / contactsPerPage))}
                 previousLabel="Previous"
                 renderOnZeroPageCount={null}
                 containerClassName="flex justify-center items-center mt-4 mb-4"
@@ -5921,7 +5944,7 @@ console.log(prompt);
                 disabledClassName="opacity-50 cursor-not-allowed"
                 activeClassName="font-bold"
                 activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
-                forcePage={Math.min(currentPage, Math.max(0, Math.ceil(filteredContacts.length / contactsPerPage) - 1))}
+                forcePage={currentPage}
               />
         </div>
       <div className="flex flex-col w-full sm:w-3/4 bg-slate-300 dark:bg-gray-900 relative flext-1 overflow-hidden">
