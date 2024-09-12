@@ -41,16 +41,6 @@ import { updateMonthlyAssignments } from '../DashboardOverview1';
 import ReactPaginate from 'react-paginate';
 import { getFileTypeFromMimeType } from '../../utils/fileUtils';
 
-
-// Add this new component for the private note indicator
-const PrivateNoteIndicator = () => (
-  <div className="flex items-center justify-center my-2">
-    <div className="bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">
-      Private Note Added
-    </div>
-  </div>
-);
-
 interface Label {
   id: string;
   name: string;
@@ -3559,10 +3549,48 @@ const handlePageChange = ({ selected }: { selected: number }) => {
 const [paginatedContacts, setPaginatedContacts] = useState<Contact[]>([]);
 
 useEffect(() => {
+  let filtered = contacts;
+
+  // Apply tag filter
+  if (activeTags.length > 0) {
+    filtered = filtered.filter((contact) => {
+      if (activeTags.includes('Mine')) {
+        return contact.tags?.includes(currentUserName);
+      }
+      if (activeTags.includes('Unassigned')) {
+        return !contact.tags?.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()));
+      }
+      if (activeTags.includes('All')) {
+        return true;
+      }
+      return activeTags.some(tag => contact.tags?.includes(tag));
+    });
+  }
+
+  // Apply search filter
+  if (searchQuery.trim() !== '') {
+    filtered = filtered.filter((contact) =>
+      (contact.contactName?.toLowerCase() || '')
+        .includes(searchQuery.toLowerCase()) ||
+      (contact.firstName?.toLowerCase() || '')
+        .includes(searchQuery.toLowerCase()) ||
+      (contact.phone?.toLowerCase() || '')
+        .includes(searchQuery.toLowerCase())
+    );
+  }
+
+  setFilteredContacts(filtered);
+  setCurrentPage(0); // Reset to first page when filters change
+
+  console.log('Filtered contacts updated:', filtered);
+}, [contacts, searchQuery, activeTags, currentUserName, employeeList]);
+
+// Update the pagination logic
+useEffect(() => {
   const startIndex = currentPage * contactsPerPage;
   const endIndex = startIndex + contactsPerPage;
-  setPaginatedContacts(filteredContactsSearch.slice(startIndex, endIndex));
-}, [currentPage, contactsPerPage, filteredContactsSearch]);
+  setPaginatedContacts(filteredContacts.slice(startIndex, endIndex));
+}, [currentPage, contactsPerPage, filteredContacts]);
 
 const getSortedContacts = useCallback((contactsToSort: Contact[]) => {
   return [...contactsToSort].sort((a, b) => {
@@ -3594,6 +3622,19 @@ const sortContacts = (contacts: Contact[]) => {
     fil = contacts.filter(contact => contact.phoneIndex === phoneIndex);
   }
 
+  // Apply search filter
+  if (searchQuery.trim() !== '') {
+    fil = fil.filter((contact) =>
+      (contact.contactName?.toLowerCase() || '')
+        .includes(searchQuery.toLowerCase()) ||
+      (contact.firstName?.toLowerCase() || '')
+        .includes(searchQuery.toLowerCase()) ||
+      (contact.phone?.toLowerCase() || '')
+        .includes(searchQuery.toLowerCase()) ||
+      (contact.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
+    );
+  }
+
   const getDate = (contact: Contact) => {
     if (contact.last_message?.timestamp) {
       return typeof contact.last_message.timestamp === 'number'
@@ -3621,17 +3662,17 @@ const sortContacts = (contacts: Contact[]) => {
     console.log('active1:' + activeTags[0]);
 
   };
+
   useEffect(() => {
     console.log('Filtered contacts updated:', filteredContacts);
   }, [filteredContacts]);
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
 
+  // Update this function
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(0); // Reset to first page when search query changes
+    const query = e.target.value.toLowerCase();
+    setSearchQuery(query);
+    // We'll handle the filtering in the useEffect
   };
 
   const handleSearchChange2 = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -5567,7 +5608,7 @@ console.log(prompt);
       className="!box w-full h-9 py-1 pl-10 pr-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
       placeholder="Search..."
       value={searchQuery}
-      onChange={(e) => setSearchQuery(e.target.value)}
+      onChange={handleSearchChange}
     />
   <Lucide
     icon="Search"
@@ -5931,7 +5972,7 @@ console.log(prompt);
                 nextLabel="Next"
                 onPageChange={handlePageChange}
                 pageRangeDisplayed={2}
-                pageCount={Math.max(1, Math.ceil(filteredContactsSearch.length / contactsPerPage))}
+                pageCount={Math.ceil(filteredContacts.length / contactsPerPage)}
                 previousLabel="Previous"
                 renderOnZeroPageCount={null}
                 containerClassName="flex justify-center items-center mt-4 mb-4"
