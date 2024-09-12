@@ -210,6 +210,8 @@ function Main() {
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [companyId, setCompanyId] = useState<string>("");
+  const [showAllMessages, setShowAllMessages] = useState(false);
+
  
 
   useEffect(() => {
@@ -2732,8 +2734,8 @@ const sendBlastMessage = async () => {
               <div className="mt-3 mb-5">
                 <h2 className="z-10 text-xl font-semibold mb-1 text-gray-700 dark:text-gray-300">Scheduled Messages</h2>
                 {scheduledMessages.length > 0 ? (
-                  <div className="z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {combineScheduledMessages(scheduledMessages).map((message) => (
+                  <div className="z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+                    {combineScheduledMessages(scheduledMessages).slice(0, showAllMessages ? undefined : 6).map((message) => (
                       <div key={message.id} className="z-10 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col h-full">
                         <div className="z-10 p-4 flex-grow">
                           <div className="z-10 flex justify-between items-center mb-2">
