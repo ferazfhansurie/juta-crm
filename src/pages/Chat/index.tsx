@@ -546,6 +546,29 @@ function Main() {
   const [isAssistantAvailable, setIsAssistantAvailable] = useState(false);
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
 
+  const filteredContactsSearch = useMemo(() => {
+    return contacts.filter((contact) => {
+      const searchTerms = searchQuery.toLowerCase().split(' ');
+      const contactName = (contact.contactName || '').toLowerCase();
+      const firstName = (contact.firstName || '').toLowerCase();
+      const phone = (contact.phone || '').toLowerCase();
+      const tags = (contact.tags || []).map(tag => tag.toLowerCase());
+  
+      const matchesSearch = searchTerms.every(term => 
+        contactName.includes(term) || 
+        firstName.includes(term) || 
+        phone.includes(term) || 
+        tags.some(tag => tag.includes(term))
+      );
+  
+      const matchesTagFilters = activeTags.length === 0 || 
+                                activeTags.includes('all') || 
+                                activeTags.some(tag => tags.includes(tag.toLowerCase()));
+  
+      return matchesSearch && matchesTagFilters;
+    });
+  }, [contacts, searchQuery, activeTags]);
+
 
 
   const handleMessageSearchClick = () => {
@@ -3542,6 +3565,11 @@ const getSortedContacts = useCallback((contactsToSort: Contact[]) => {
   });
 }, []);
 
+useEffect(() => {
+  const sortedAndFilteredContacts = getSortedContacts(filteredContactsSearch);
+  setFilteredContacts(sortedAndFilteredContacts);
+}, [filteredContactsSearch, getSortedContacts]);
+
 const sortContacts = (contacts: Contact[]) => {
   let fil = contacts;
   const activeTag = activeTags[0].toLowerCase();
@@ -3607,9 +3635,13 @@ const sortContacts = (contacts: Contact[]) => {
     setFilteredContactsForForwarding(filtered);
   };
 
-  const indexOfLastContact = (currentPage + 1) * contactsPerPage;
+  // Update the pagination logic
+  const indexOfLastContact = currentPage * contactsPerPage;
   const indexOfFirstContact = indexOfLastContact - contactsPerPage;
-  const currentContacts = filteredContacts.slice(indexOfFirstContact, indexOfLastContact);
+  const currentContacts = filteredContactsSearch.slice(indexOfFirstContact, indexOfLastContact);
+
+  // Update the total pages calculation
+  const totalPages = Math.ceil(filteredContactsSearch.length / contactsPerPage);
   
   useEffect(() => {
     const tag = activeTags[0].toLowerCase();
@@ -5521,7 +5553,7 @@ console.log(prompt);
       className="!box w-full h-9 py-1 pl-10 pr-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
       placeholder="Search..."
       value={searchQuery}
-      onChange={handleSearchChange}
+      onChange={(e) => setSearchQuery(e.target.value)}
     />
   <Lucide
     icon="Search"
@@ -5665,7 +5697,7 @@ console.log(prompt);
     {isTagsExpanded ? "Show Less" : "Show More"}
   </span>
 <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
-  {sortContacts([...currentContacts]).map((contact, index) => (
+  {sortContacts(filteredContactsSearch).map((contact, index) => (
     <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
     <div
       className={`m-2 pr-3 pb-2 pt-2 rounded-lg cursor-pointer flex items-center space-x-3 group ${
