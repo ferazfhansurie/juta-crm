@@ -510,7 +510,8 @@ function Main() {
               required
             >
               <option value="">Select role</option>
-              {currentUserRole === "1" && <option value="1">Admin</option> && <option value="2">Manager</option>}
+              {currentUserRole === "1" && <option value="1">Admin</option>}
+              {currentUserRole === "1" && <option value="4">Manager</option>}
               <option value="2">Sales</option>
               <option value="3">Observer</option>
               {currentUserRole === "4" && <option value="4">Manager</option>}
