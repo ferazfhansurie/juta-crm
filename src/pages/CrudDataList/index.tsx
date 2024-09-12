@@ -123,6 +123,8 @@ function Main() {
     sentAt?: Timestamp;
     error?: string;
     count?: number;
+    v2?:boolean;
+    whapiToken?:string;
   }
   
   const [deleteConfirmationModal, setDeleteConfirmationModal] = useState(false);
@@ -1810,6 +1812,7 @@ const sendBlastMessage = async () => {
 
     const scheduledMessageData = {
       chatIds: chatIds,
+      message: blastMessage,
       messages: processedMessages,
       batchQuantity: batchQuantity,
       companyId: companyId,
@@ -2148,32 +2151,34 @@ const sendBlastMessage = async () => {
     try {
       const user = auth.currentUser;
       if (!user) return;
-
+  
       const docUserRef = doc(firestore, 'user', user.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) return;
-
+  
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-
+  
       const scheduledMessagesRef = collection(firestore, `companies/${companyId}/scheduledMessages`);
       const q = query(scheduledMessagesRef, where("status", "==", "scheduled"));
       const querySnapshot = await getDocs(q);
-
+  
       const messages: ScheduledMessage[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         messages.push({ 
           id: doc.id, 
           ...data,
-          chatIds: data.chatIds || [], // Ensure chatIds is always an array
+          chatIds: data.chatIds || [],
+          message: data.message || '', // Ensure message is included
         } as ScheduledMessage);
       });
-
+  
       // Sort messages by scheduledTime
       messages.sort((a, b) => a.scheduledTime.toDate().getTime() - b.scheduledTime.toDate().getTime());
-
+  
       setScheduledMessages(messages);
+      console.log('Fetched scheduled messages:', messages); // Add this log
     } catch (error) {
       console.error("Error fetching scheduled messages:", error);
     }
@@ -2181,6 +2186,7 @@ const sendBlastMessage = async () => {
 
   const handleEditScheduledMessage = (message: ScheduledMessage) => {
     setCurrentScheduledMessage(message);
+    setBlastMessage(message.message || ''); // Set the blast message to the current message text
     setEditScheduledMessageModal(true);
   };
 
@@ -2253,11 +2259,29 @@ const sendBlastMessage = async () => {
       // Prepare the updated message data
       const updatedMessageData = {
         ...currentScheduledMessage,
-        scheduledTime: Timestamp.fromDate(currentScheduledMessage.scheduledTime.toDate()),
-        mediaUrl: newMediaUrl,
-        documentUrl: newDocumentUrl,
-        fileName: newFileName,
+        chatIds: currentScheduledMessage.chatIds,
+      message: blastMessage,
+      messages: currentScheduledMessage.chatIds.map(chatId => ({
+        chatId,
+        message: blastMessage.replace(/@{contactName}/g, '') // You might want to replace this with actual contact names if available
+      })),
+      batchQuantity: currentScheduledMessage.batchQuantity || 10,
+      companyId: companyId,
+      createdAt: currentScheduledMessage.createdAt || Timestamp.now(),
+      documentUrl: newDocumentUrl,
+      fileName: newFileName,
+      mediaUrl: newMediaUrl,
+      mimeType: editMediaFile ? editMediaFile.type : (editDocumentFile ? editDocumentFile.type : null),
+      repeatInterval: currentScheduledMessage.repeatInterval || 0,
+      repeatUnit: currentScheduledMessage.repeatUnit || 'days',
+      scheduledTime: currentScheduledMessage.scheduledTime,
+      status: currentScheduledMessage.status || 'scheduled',
+      v2: currentScheduledMessage.v2 || false,
+      whapiToken: currentScheduledMessage.whapiToken || null,
       };
+
+      console.log('Request URL:', `https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}/${currentScheduledMessage.id}`);
+      console.log('Request data:', JSON.stringify(updatedMessageData, null, 2));
 
       // Send PUT request to update the scheduled message
       const response = await axios.put(
@@ -2268,13 +2292,18 @@ const sendBlastMessage = async () => {
       if (response.status === 200) {
         // Update the local state
         setScheduledMessages(scheduledMessages.map(msg => 
-          msg.id === currentScheduledMessage.id ? updatedMessageData : msg
+          msg.id === currentScheduledMessage.id 
+            ? { ...updatedMessageData, mimeType: updatedMessageData.mimeType || undefined } as ScheduledMessage
+            : msg
         ));
-
+  
         setEditScheduledMessageModal(false);
         setEditMediaFile(null);
         setEditDocumentFile(null);
         toast.success("Scheduled message updated successfully!");
+        
+        // Refresh the scheduled messages
+        await fetchScheduledMessages();
       } else {
         throw new Error("Failed to update scheduled message");
       }
@@ -2702,7 +2731,9 @@ const sendBlastMessage = async () => {
                               {formatDate(message.scheduledTime.toDate())}
                             </span>
                           </div>
-                          <p className="text-gray-800 dark:text-gray-200 mb-2 font-medium text-md line-clamp-2">{message.message}</p>
+                          <p className="text-gray-800 dark:text-gray-200 mb-2 font-medium text-md line-clamp-2">
+                            {message.message ? message.message : 'No message content'}
+                          </p>  
                           <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
                             <Lucide icon="Users" className="w-4 h-4 mr-1" />
                             <span>{message.chatIds.length} recipient{message.chatIds.length !== 1 ? 's' : ''}</span>
@@ -2752,8 +2783,8 @@ const sendBlastMessage = async () => {
                     <div className="mb-4 text-lg font-semibold">Edit Scheduled Message</div>
                     <textarea
                       className="w-full p-2 border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      value={currentScheduledMessage?.message || ''}
-                      onChange={(e) => setCurrentScheduledMessage({...currentScheduledMessage!, message: e.target.value})}
+                      value={blastMessage} // Use blastMessage instead of currentScheduledMessage?.message
+                      onChange={(e) => setBlastMessage(e.target.value)}
                       rows={3}
                     ></textarea>
                     <div className="mt-4">
