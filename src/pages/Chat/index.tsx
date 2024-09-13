@@ -582,7 +582,7 @@ function Main() {
     if (user && userData) {
       const companyId = userData.companyId;
       const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const q = query(contactsRef, orderBy("last_message.timestamp", "desc"), limit(200));
+      const q = query(contactsRef, orderBy("last_message.timestamp", "desc"));
   
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const updatedContacts = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Contact));
