@@ -3221,6 +3221,65 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     setFilteredContacts(contacts);
   }, [contacts]);
 
+  const handleBinaTag = async (requestType: string, phone: string, first_name: string) => {
+    console.log('Request Payload:', JSON.stringify({ requestType, phone, first_name }));
+    
+    try {
+        const response = await fetch('https://mighty-dane-newly.ngrok-free.app/api/bina/tag', {
+            method: 'POST', // Ensure this is set to POST
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                requestType,
+                phone,
+                first_name,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Response data:', data);
+    } catch (error) {
+        console.error('Error:', error);
+    }
+};
+
+  const addTagBeforeQuote = (contact: Contact) => {
+    if (!contact.phone || !contact.firstName) {
+      console.error('Phone or firstName is null or undefined');
+      return;
+    }
+    handleBinaTag('addBeforeQuote', contact.phone, contact.firstName);
+  };
+  
+  const addTagAfterQuote = (contact: Contact) => {
+    if (contact.phone && contact.firstName) {
+      handleBinaTag('addAfterQuote', contact.phone, contact.firstName);
+    } else {
+      console.error('Phone or firstName is null or undefined');
+    }
+  };
+  
+  const removeTagBeforeQuote = (contact: Contact) => {
+    if (contact.phone && contact.firstName) {
+      handleBinaTag('removeBeforeQuote', contact.phone, contact.firstName);
+    } else {
+      console.error('Phone or firstName is null or undefined');
+    }
+  };
+  
+  const removeTagAfterQuote = (contact: Contact) => {
+    if (contact.phone && contact.firstName) {
+      handleBinaTag('removeAfterQuote', contact.phone, contact.firstName);
+    } else {
+      console.error('Phone or firstName is null or undefined');
+    }
+  };
+
 
   const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
     try {
@@ -3268,6 +3327,13 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
   
         console.log(`Tag ${tagName} added to contact ${contact.id}`);
         toast.success(`Tag "${tagName}" added to contact`);
+
+        // Handle specific tags
+        if (tagName === 'Before Quote Follow Up') {
+          addTagBeforeQuote(contact);
+        } else if (tagName === 'After Quote Follow Up') {
+          addTagAfterQuote(contact);
+        }
       } else {
         console.log(`Tag ${tagName} already exists for contact ${contact.id}`);
         toast.info(`Tag "${tagName}" already exists for this contact`);
@@ -4357,6 +4423,8 @@ const handleForwardMessage = async () => {
   
       // Update Firestore
       const contactRef = doc(firestore, 'companies', companyId, 'contacts', contactId);
+      const contactSnapshot = await getDoc(contactRef);
+      const contact = contactSnapshot.data() as Contact;
       await updateDoc(contactRef, {
         tags: arrayRemove(tagName)
       });
@@ -4394,6 +4462,13 @@ const handleForwardMessage = async () => {
           });
         }
       }
+
+      // Handle specific tags
+      if (tagName === 'Before Quote Follow Up') {
+        removeTagBeforeQuote(contact);
+      } else if (tagName === 'After Quote Follow Up') {
+        removeTagAfterQuote(contact);
+      }
   
       // Update state
       setContacts(prevContacts => {
@@ -4423,7 +4498,6 @@ const handleForwardMessage = async () => {
       if (updatedSelectedContact) {
         setSelectedContact(updatedSelectedContact);
       }
-  
       toast.success('Tag removed successfully!');
     } catch (error) {
       console.error('Error removing tag:', error);
