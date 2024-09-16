@@ -30,17 +30,16 @@ const menu: Array<Menu | "divider"> = [
       pathname: "/inbox",
       title: "Assistant",
     },
-    /*
-    {
-      icon: "HardDrive",
-      pathname: "/dashboard/file-manager",
-      title: "File Manager",
-    },
+    // {
+    //   icon: "HardDrive",
+    //   pathname: "/dashboard/file-manager",
+    //   title: "File Manager",
+    // },
     {
       icon: "Calendar",
-      pathname: "/dashboard/calendar",
+      pathname: "/calendar",
       title: "Calendar",
-    },*/
+    },
     "divider",
     {
       icon: "Users",
