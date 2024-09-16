@@ -3679,13 +3679,21 @@ const sortContacts = (contacts: Contact[]) => {
   let fil = contacts;
   const activeTag = activeTags[0].toLowerCase();
   
+  // Check if the user has a selected phone
+  const userPhoneIndex = userData?.phone !== undefined ? parseInt(userData.phone, 10) : -1;
+
+  // Filter by user's selected phone first
+  if (userPhoneIndex !== -1) {
+    fil = fil.filter(contact => contact.phoneIndex === userPhoneIndex);
+  }
+
   // Check if the active tag matches any of the phone names
   const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => 
     name.toLowerCase() === activeTag
   );
 
   if (phoneIndex !== -1) {
-    fil = contacts.filter(contact => contact.phoneIndex === phoneIndex);
+    fil = fil.filter(contact => contact.phoneIndex === phoneIndex);
   }
 
   // Apply search filter
@@ -5421,10 +5429,18 @@ console.log(prompt);
     <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
       <audio ref={audioRef} src={noti} />
         <div className={`flex flex-col w-full md:min-w-[35%] md:max-w-[35%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700 ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
-        <div className="flex justify-between items-center pl-4 pr-4 pt-6 pb-7 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
+        <div className="flex items-center justify-between pl-4 pr-4 pt-6 pb-7 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
           <div className="text-start text-2xl font-bold capitalize text-gray-800 dark:text-gray-200">
             {userData?.company}
           </div>
+          {userData?.phone !== undefined && (
+            <div className="flex items-center space-x-2 text-xl font-semibold opacity-75">
+              <Lucide icon="Phone" className="w-6 h-6 text-gray-800 dark:text-white" />
+              <span className="text-gray-800 dark:text-white">
+                {phoneNames[userData.phone] || 'No phone assigned'}
+              </span>
+            </div>
+          )}
         </div>
         <div className="sticky top-20 z-10 bg-gray-100 dark:bg-gray-900 p-2">
           <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
@@ -5434,7 +5450,7 @@ console.log(prompt);
   <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
     <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-40 text-gray-900 dark:text-white">
       <div className="mb-4 text-lg font-semibold">Schedule Blast Message</div>
-      <textarea
+        <textarea
                     className="w-full p-2 border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Type your message here..."
                     value={blastMessage}
@@ -5757,10 +5773,9 @@ console.log(prompt);
   {['Mine', 'All', 'Unassigned',
     ...(isTagsExpanded ? [
       'Group', 'Unread', 'Snooze', 'Stop Bot',
-      ...(userData?.role === '1' ? Object.values(phoneNames) : 
-        userData?.phone !== undefined && userData.phone !== -1 ? 
-          [phoneNames[userData.phone] || `Phone ${userData.phone + 1}`] : 
-          []
+      ...(userData?.phone !== undefined && userData.phone !== -1 ? 
+        [phoneNames[userData.phone] || `Phone ${userData.phone + 1}`] : 
+        []
       ),
       ...visibleTags.filter(tag => 
         !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group', 'stop bot'].includes(tag.name) && 
