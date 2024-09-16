@@ -48,7 +48,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
     const shouldFetchConfig = !sessionStorage.getItem('configFetched');
 
     fetchConfigOnAuthChange();
-
+//
     return () => {
     };
   }, [navigate]);
