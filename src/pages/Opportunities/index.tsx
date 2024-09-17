@@ -94,8 +94,7 @@ interface Item {
   businessId: string | null;
   chat: any;
   chat_id: string;
-  chat_pic: string;
-  chat_pic_full: string;
+  profilePicUrl: string;
   city: string | null;
   companyName: string | null;
   country: string;
@@ -106,8 +105,7 @@ interface Item {
   dnd: boolean;
   dndSettings: any;
   email: string | null;
-  firstName: string | null;
-  firstNameRaw: string | null;
+  contactName: string | null;
   followers: any[];
   lastName: string | null;
   lastNameRaw: string | null;
@@ -203,8 +201,7 @@ function LoadingPage() {
         businessId: contact.businessId || null,
         chat: contact.chat || {},
         chat_id: contact.chat_id || '',
-        chat_pic: contact.chat_pic || '',
-        chat_pic_full: contact.chat_pic_full || '',
+        profilePicUrl: contact.profilePicUrl || '',
         city: contact.city || null,
         companyName: contact.companyName || null,
         country: contact.country || '',
@@ -215,8 +212,7 @@ function LoadingPage() {
         dnd: contact.dnd || false,
         dndSettings: contact.dndSettings || {},
         email: contact.email || null,
-        firstName: contact.contactName || null,
-        firstNameRaw: contact.firstNameRaw || null,
+        contactName: contact.contactName || null,
         followers: contact.followers || [],
         lastName: contact.lastName || null,
         lastNameRaw: contact.lastNameRaw || null,
@@ -250,8 +246,7 @@ function LoadingPage() {
         businessId: contact.businessId || null,
         chat: contact.chat || {},
         chat_id: contact.chat_id || '',
-        chat_pic: contact.chat_pic || '',
-        chat_pic_full: contact.chat_pic_full || '',
+        profilePicUrl: contact.profilePicUrl || '',
         city: contact.city || null,
         companyName: contact.companyName || null,
         country: contact.country || '',
@@ -262,8 +257,7 @@ function LoadingPage() {
         dnd: contact.dnd || false,
         dndSettings: contact.dndSettings || {},
         email: contact.email || null,
-        firstName: contact.contactName || null,
-        firstNameRaw: contact.firstNameRaw || null,
+        contactName: contact.contactName || null,
         followers: contact.followers || [],
         lastName: contact.lastName || null,
         lastNameRaw: contact.lastNameRaw || null,
@@ -326,6 +320,7 @@ function LoadingPage() {
     }
   };
   const filterItemsWithIndexes = (items: Item[], query: string) => {
+console.log(items);
     if (!query) return items.map((item, index) => ({ item, originalIndex: index }));
     const formattedQuery = query.replace(/[-\s]/g, '').toLowerCase(); // Remove hyphens and spaces from query and convert to lowercase
     return items
@@ -389,8 +384,7 @@ function LoadingPage() {
           businessId: doc.data().businessId || null,
           chat: doc.data().chat || {},
           chat_id: doc.data().chat_id || '',
-          chat_pic: doc.data().chat_pic || '',
-          chat_pic_full: doc.data().chat_pic_full || '',
+          profilePicUrl: doc.data().profilePicUrl || '',
           city: doc.data().city || null,
           companyName: doc.data().companyName || null,
           country: doc.data().country || '',
@@ -401,8 +395,7 @@ function LoadingPage() {
           dnd: doc.data().dnd || false,
           dndSettings: doc.data().dndSettings || {},
           email: doc.data().email || null,
-          firstName: doc.data().firstName || null,
-          firstNameRaw: doc.data().firstNameRaw || null,
+          contactName: doc.data().contactName || null,
           followers: doc.data().followers || [],
           lastName: doc.data().lastName || null,
           lastNameRaw: doc.data().lastNameRaw || null,
@@ -452,7 +445,7 @@ function LoadingPage() {
           pipelineContacts.add(item.name);  // assuming `name` is unique and matches contactName
         }
       }
-
+      
       const newContacts = filteredContacts.filter(contact => !pipelineContacts.has(contact.contactName));
       const uniqueContacts = Array.from(new Set(newContacts.map(contact => contact.contactName)))
         .map(contactName => newContacts.find(contact => contact.contactName === contactName));
@@ -528,8 +521,7 @@ function LoadingPage() {
           businessId: doc.data().businessId || null,
           chat: doc.data().chat || {},
           chat_id: doc.data().chat_id || '',
-          chat_pic: doc.data().chat_pic || '',
-          chat_pic_full: doc.data().chat_pic_full || '',
+          profilePicUrl: doc.data().profilePicUrl || '',
           city: doc.data().city || null,
           companyName: doc.data().companyName || null,
           country: doc.data().country || '',
@@ -540,8 +532,7 @@ function LoadingPage() {
           dnd: doc.data().dnd || false,
           dndSettings: doc.data().dndSettings || {},
           email: doc.data().email || null,
-          firstName: doc.data().firstName || null,
-          firstNameRaw: doc.data().firstNameRaw || null,
+          contactName: doc.data().contactName || null,
           followers: doc.data().followers || [],
           lastName: doc.data().lastName || null,
           lastNameRaw: doc.data().lastNameRaw || null,
@@ -592,6 +583,7 @@ console.log(sortedColumns);
     const user = auth.currentUser;
     if (user) {
       setSelectedEmployeeEmail(user.email);
+      console.log("Contacts:", contacts); // Add this line to log contacts
       fetchUserData(contacts);
     }
   }, [contacts]);
@@ -620,8 +612,7 @@ console.log(sortedColumns);
         businessId: removed.businessId || null,
         chat: removed.chat || {},
         chat_id: removed.chat_id || '',
-        chat_pic: removed.chat_pic || '',
-        chat_pic_full: removed.chat_pic_full || '',
+        profilePicUrl: removed.profilePicUrl || '',
         city: removed.city || null,
         companyName: removed.companyName || null,
         country: removed.country || '',
@@ -632,8 +623,7 @@ console.log(sortedColumns);
         dnd: removed.dnd || false,
         dndSettings: removed.dndSettings || {},
         email: removed.email || null,
-        firstName: removed.firstName || null,
-        firstNameRaw: removed.firstNameRaw || null,
+        contactName: removed.contactName || null,
         followers: removed.followers || [],
         lastName: removed.lastName || null,
         lastNameRaw: removed.lastNameRaw || null,
@@ -862,20 +852,24 @@ console.log(sortedColumns);
                               >
                                 <div className="flex items-center justify-between mb-3">
                                   <div className="flex items-center">
-                                    {item.chat_pic_full ? (
-                                      <img
-                                        src={item.chat_pic_full}
-                                        className="w-10 h-10 rounded-full mr-3 object-cover border-2 border-gray-200 dark:border-gray-600"
-                                        alt={item.firstName || "Profile"}
+                                  {item.profilePicUrl ? (
+                                      <img 
+                                        src={item.profilePicUrl} 
+                                        alt={item.contactName || "Profile"} 
+                                        className="w-10 h-10 rounded-full object-cover mr-3 flex-shrink-0" 
                                       />
                                     ) : (
-                                      <div className="w-10 h-10 flex items-center justify-center bg-primary text-white rounded-full mr-3 font-semibold text-lg">
-                                        {item.firstName ? item.firstName.charAt(0).toUpperCase() : "?"}
+                                      <div className="w-10 h-10 mr-3 border-2 border-gray-500 dark:border-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
+                                        {item.chat_id && item.chat_id.includes('@g.us') ? (
+                                          <Lucide icon="Users" className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                                        ) : (
+                                          <Lucide icon="User" className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                                        )}
                                       </div>
                                     )}
                                     <div>
                                       <p className="font-semibold text-lg text-primary dark:text-blue-400 capitalize">
-                                        {item.firstName || "Unknown"}
+                                        {item.contactName || "Unknown"}
                                       </p>
                                       <p className="text-sm text-gray-600 dark:text-gray-400">{item.companyName || "No company"}</p>
                                     </div>
@@ -981,9 +975,11 @@ function ModalContent({ pipelines, onClose, onSave, selectedEmployeeEmail }: Mod
   const [pipelineList, setPipelineList] = useState<Column[]>(pipelines);
 
   const handlePipelineNameChange = (id: string, name: string) => {
-    setPipelineList(pipelineList.map(pipeline =>
-      pipeline.id === id ? { ...pipeline, name } : pipeline
-    ));
+    setPipelineList(prevList => 
+      prevList.map(pipeline =>
+        pipeline.id === id ? { ...pipeline, name } : pipeline
+      )
+    );
   };
 
   const handleSavePipelines = async () => {
@@ -1003,15 +999,16 @@ function ModalContent({ pipelines, onClose, onSave, selectedEmployeeEmail }: Mod
   };
 
   const handleAddPipeline = () => {
-    const newPipelineId = `newPipeline${pipelineList.length + 1}`;
+    const newPipelineId = `newPipeline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const newPipeline: Column = {
       id: newPipelineId,
       name: '',
       sort: pipelineList.length + 1,
       items: []
     };
-    setPipelineList([...pipelineList, newPipeline]);
+    setPipelineList(prevList => [...prevList, newPipeline]);
   };
+
 
   const handleDeletePipeline = async (pipelineId: string) => {
     const updatedPipelines = pipelineList.filter(pipeline => pipeline.id !== pipelineId);
@@ -1076,6 +1073,8 @@ function ModalContent({ pipelines, onClose, onSave, selectedEmployeeEmail }: Mod
                 className="w-full border-none bg-transparent focus:ring-0 text-gray-900 dark:text-white"
                 value={pipeline.name}
                 onChange={(e) => handlePipelineNameChange(pipeline.id, e.target.value)}
+                // Add a unique key to each input
+                key={`input-${pipeline.id}`}
               />
             </div>
             <button className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" onClick={() => handleDeletePipeline(pipeline.id)}>
@@ -1130,17 +1129,24 @@ function EditItemModal({ pipelineId, item, onClose, onSave, onDelete }: EditItem
         <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-10">
           <div className="flex items-center p-4 border-b">
             <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-              {updatedItem.chat_pic_full ? (
-                <img
-                  src={updatedItem.chat_pic_full}
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                updatedItem.firstName ? updatedItem.firstName.charAt(0).toUpperCase() : "?"
-              )}
+            {updatedItem.profilePicUrl ? (
+                                      <img 
+                                        src={updatedItem.profilePicUrl} 
+                                        alt={updatedItem.contactName || "Profile"} 
+                                        className="w-10 h-10 rounded-full object-cover mr-3 flex-shrink-0" 
+                                      />
+                                    ) : (
+                                      <div className="w-10 h-10 mr-3 border-2 border-gray-500 dark:border-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
+                                        {updatedItem.chat_id && updatedItem.chat_id.includes('@g.us') ? (
+                                          <Lucide icon="Users" className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                                        ) : (
+                                          <Lucide icon="User" className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                                        )}
+                                      </div>
+                                    )}
             </div>
             <div>
-              <div className="font-semibold text-gray-800 dark:text-white">{updatedItem?.firstName} {updatedItem?.lastName}</div>
+              <div className="font-semibold text-gray-800 dark:text-white">{updatedItem?.contactName} {updatedItem?.lastName}</div>
               <div className="text-sm text-gray-600 dark:text-gray-400">{updatedItem?.phone}</div>
             </div>
           </div>
@@ -1149,9 +1155,9 @@ function EditItemModal({ pipelineId, item, onClose, onSave, onDelete }: EditItem
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">First Name</label>
               <input
                 type="text"
-                name="firstName"
+                name="contactName"
                 className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                value={updatedItem.firstName || ''}
+                value={updatedItem.contactName || ''}
                 onChange={handleChange}
               />
             </div>
@@ -1281,7 +1287,7 @@ function AddOpportunityModal({ contacts, onClose, onSave, pipelines }: AddOpport
             {filteredContacts.length > 0 ? (
               filteredContacts.map((contact, index) => (
                 <div
-                  key={contact.id || `${contact.phone}-${index}`}
+                  key={contact.id || `${contact.contactName}-${index}`}
                   className="flex items-center p-2 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   <input
@@ -1292,17 +1298,24 @@ function AddOpportunityModal({ contacts, onClose, onSave, pipelines }: AddOpport
                   />
                   <div className="flex items-center">
                     <div className="w-8 h-8 flex items-center justify-center bg-gray-300 dark:bg-gray-600 rounded-full mr-3 text-white">
-                      {contact.chat_pic_full ? (
-                        <img
-                          src={contact.chat_pic_full}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        contact.firstName ? contact.firstName.charAt(0).toUpperCase() : "?"
-                      )}
+                    {contact.profilePicUrl ? (
+                                      <img 
+                                        src={contact.profilePicUrl} 
+                                        alt={contact.contactName || "Profile"} 
+                                        className="w-10 h-10 rounded-full object-cover mr-3 flex-shrink-0" 
+                                      />
+                                    ) : (
+                                      <div className="w-10 h-10 mr-3 border-2 border-gray-500 dark:border-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
+                                        {contact.chat_id && contact.chat_id.includes('@g.us') ? (
+                                          <Lucide icon="Users" className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                                        ) : (
+                                          <Lucide icon="User" className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                                        )}
+                                      </div>
+                                    )}
                     </div>
                     <div className="flex-grow">
-                      <div className="font-semibold capitalize text-gray-900 dark:text-white">{contact.name || contact.firstName || contact.phone}</div>
+                      <div className="font-semibold capitalize text-gray-900 dark:text-white">{contact.name || contact.contactName || contact.phone}</div>
                     </div>
                   </div>
                 </div>

@@ -535,7 +535,7 @@ function Main() {
   const [activeNotifications, setActiveNotifications] = useState<(string | number)[]>([]);
   const [isAssistantAvailable, setIsAssistantAvailable] = useState(false);
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
-  
+  const [employeeSearch, setEmployeeSearch] = useState('');
 
 
   const filteredContactsSearch = useMemo(() => {
@@ -6134,22 +6134,33 @@ console.log(prompt);
                 </span>
               </Menu.Button>
               <Menu.Items className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-                {employeeList.map((employee) => (
-                  <Menu.Item key={employee.id}>
-                    <button
-                      className="flex items-center justify-between w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                      onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
-                    >
-                      <span className="text-gray-800 dark:text-gray-200 truncate flex-grow mr-2" style={{ maxWidth: '70%' }}>
-                        {employee.name}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        Leads Quota: {employee.quotaLeads}
-                      </span>
-                    </button>
-                  </Menu.Item>
-                ))}
-              </Menu.Items>
+  <div className="mb-2">
+    <input
+      type="text"
+      placeholder="Search employees..."
+      value={employeeSearch}
+      onChange={(e) => setEmployeeSearch(e.target.value)}
+      className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+    />
+  </div>
+  {employeeList
+    .filter(employee => employee.name.toLowerCase().includes(employeeSearch.toLowerCase()))
+    .map((employee) => (
+      <Menu.Item key={employee.id}>
+        <button
+          className="flex items-center justify-between w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+          onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
+        >
+          <span className="text-gray-800 dark:text-gray-200 truncate flex-grow mr-2" style={{ maxWidth: '70%' }}>
+            {employee.name}
+          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+            Leads Quota: {employee.quotaLeads}
+          </span>
+        </button>
+      </Menu.Item>
+    ))}
+</Menu.Items>
             </Menu>
             <Menu as="div" className="relative inline-block text-left">
               <Menu.Button as={Button} className="p-2 !box m-0">
@@ -6198,25 +6209,36 @@ console.log(prompt);
                 </button>
               </Menu.Item>
               <Menu.Item>
-                <Menu as="div" className="relative inline-block text-left w-full">
-                  <Menu.Button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-                    <Lucide icon="Users" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
-                    <span className="text-gray-800 dark:text-gray-200">Assign Employee</span>
-                  </Menu.Button>
-                  <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10">
-                    {employeeList.map((employee) => (
-                      <Menu.Item key={employee.id}>
-                        <button
-                          className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                          onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
-                        >
-                          <span className="text-gray-800 dark:text-gray-200">{employee.name}</span>
-                        </button>
-                      </Menu.Item>
-                    ))}
-                  </Menu.Items>
-                </Menu>
-              </Menu.Item>
+  <Menu as="div" className="relative inline-block text-left w-full">
+    <Menu.Button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
+      <Lucide icon="Users" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+      <span className="text-gray-800 dark:text-gray-200">Assign Employee</span>
+    </Menu.Button>
+    <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10">
+      <div className="mb-2">
+        <input
+          type="text"
+          placeholder="Search employees..."
+          value={employeeSearch}
+          onChange={(e) => setEmployeeSearch(e.target.value)}
+          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+        />
+      </div>
+      {employeeList
+        .filter(employee => employee.name.toLowerCase().includes(employeeSearch.toLowerCase()))
+        .map((employee) => (
+          <Menu.Item key={employee.id}>
+            <button
+              className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+              onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
+            >
+              <span className="text-gray-800 dark:text-gray-200">{employee.name}</span>
+            </button>
+          </Menu.Item>
+        ))}
+    </Menu.Items>
+  </Menu>
+</Menu.Item>
               <Menu.Item>
                 <Menu as="div" className="relative inline-block text-left w-full">
                   <Menu.Button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
