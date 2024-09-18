@@ -15,7 +15,7 @@ import { access } from "fs";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { time } from "console";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getStorage, ref, uploadBytes, StorageReference, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { onMessage } from "firebase/messaging";
 import { getFirebaseToken, messaging } from "../../firebaseconfig";
 import { rateLimiter } from '../../utils/rate';
@@ -199,9 +199,9 @@ interface UserData {
 interface QuickReply {
   id: string;
   keyword: string;
-
   text: string;
   type:string;
+  document: null;
 }
 interface ImageModalProps {
   isOpen: boolean;
@@ -561,8 +561,12 @@ function Main() {
     });
   }, [contacts, searchQuery, activeTags]);
 
-
-
+  const uploadDocument = async (file: File): Promise<string> => {
+    const storage = getStorage(); // Correctly initialize storage
+    const storageRef = ref(storage, `quickReplies/${file.name}`); // Use the initialized storage
+    await uploadBytes(storageRef, file);
+    return await getDownloadURL(storageRef);
+  };
 
   const handleMessageSearchClick = () => {
     setIsMessageSearchOpen(!isMessageSearchOpen);
@@ -1172,12 +1176,14 @@ const closePDFModal = () => {
           keyword: doc.data().keyword || '',
           text: doc.data().text || '',
           type: 'all',
+          document: doc.data().document || null,
         })),
         ...userSnapshot.docs.map(doc => ({
           id: doc.id,
           keyword: doc.data().keyword || '',
           text: doc.data().text || '',
           type: 'self',
+          document: doc.data().document || null,
         }))
       ];
   
@@ -1211,6 +1217,7 @@ const closePDFModal = () => {
         type: newQuickReplyType,
         createdAt: serverTimestamp(),
         createdBy: user.email,
+        document: selectedDocument ? await uploadDocument(selectedDocument) : null,
       };
   
       if (newQuickReplyType === 'self') {
@@ -1224,6 +1231,8 @@ const closePDFModal = () => {
       }
   
       setNewQuickReply('');
+      setSelectedDocument(null);
+      setNewQuickReplyKeyword('');
       setNewQuickReplyType('all');
       fetchQuickReplies();
     } catch (error) {
@@ -1296,6 +1305,9 @@ const closePDFModal = () => {
     const quickReply = quickReplies.find(qr => qr.keyword.toLowerCase() === keyword.toLowerCase());
     if (quickReply) {
       setNewMessage(quickReply.text);
+      if (quickReply.document) {
+        setSelectedDocument(quickReply.document);
+      }
       setIsQuickRepliesOpen(false);
     }
   };
@@ -3309,8 +3321,9 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         toast.error(`Failed to add tag: Contact not found`);
         return;
       }
-  
+
       const currentTags = contactDoc.data().tags || [];
+
       if (!currentTags.includes(tagName)) {
         await updateDoc(contactRef, {
           tags: arrayUnion(tagName)
@@ -3324,6 +3337,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
               : c
           )
         );
+
   
         console.log(`Tag ${tagName} added to contact ${contact.id}`);
         toast.success(`Tag "${tagName}" added to contact`);
@@ -3334,6 +3348,9 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         } else if (tagName === 'After Quote Follow Up') {
           addTagAfterQuote(contact);
         }
+
+        sendAssignmentNotification(tagName, contact);
+
       } else {
         console.log(`Tag ${tagName} already exists for contact ${contact.id}`);
         toast.info(`Tag "${tagName}" already exists for this contact`);
@@ -3598,15 +3615,6 @@ const getTimestamp2 = (timestamp: any): number => {
   }
   return 0;
 };
-
-useEffect(() => {
-  const filtered = contacts.filter((contact) =>
-    (contact.contactName?.toLowerCase() || contact.firstName?.toLowerCase() || contact.phone?.toLowerCase() || '')
-      .includes(searchQuery.toLowerCase())
-  );
-  setFilteredContacts(filtered);
-  setCurrentPage(0); // Reset to first page when search query changes
-}, [contacts, searchQuery]);
   
 const handlePageChange = ({ selected }: { selected: number }) => {
   setCurrentPage(selected);
@@ -3641,12 +3649,15 @@ useEffect(() => {
       (contact.firstName?.toLowerCase() || '')
         .includes(searchQuery.toLowerCase()) ||
       (contact.phone?.toLowerCase() || '')
-        .includes(searchQuery.toLowerCase())
+        .includes(searchQuery.toLowerCase()) ||
+      (contact.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
     );
   }
 
   setFilteredContacts(filtered);
-  setCurrentPage(0); // Reset to first page when filters change
+  if (searchQuery.trim() !== '') {
+    setCurrentPage(0); // Reset to first page when searching
+  }
 
   console.log('Filtered contacts updated:', filtered);
 }, [contacts, searchQuery, activeTags, currentUserName, employeeList]);
@@ -3737,9 +3748,9 @@ const sortContacts = (contacts: Contact[]) => {
 
   };
 
-  useEffect(() => {
-    console.log('Filtered contacts updated:', filteredContacts);
-  }, [filteredContacts]);
+  // useEffect(() => {
+  //   console.log('Filtered contacts updated:', filteredContacts);
+  // }, [filteredContacts]);
 
 
   // Update this function
@@ -6981,11 +6992,24 @@ console.log(prompt);
                       </span>
                       <span
                         className="px-2 py-1 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
-                        onClick={() => handleQRClick(reply.keyword)}
+                        onClick={() => {
+                          handleQRClick(reply.keyword);
+                          setNewMessage(reply.text);
+                          if (reply.document) {
+                            setSelectedDocument(reply.document);
+                          }
+                        }}
                         style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                       >
                         {reply.text}
                       </span>
+                      {reply.document ? (
+                        <a href={reply.document} target="_blank" className="p-2 m-1 !box">
+                          <span className="flex items-center justify-center w-5 h-5">
+                            <Lucide icon="File" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                          </span>
+                        </a>
+                      ) : null}
                       <div>
                         <button className="p-2 m-1 !box" onClick={() => setEditingReply(reply)}>
                           <span className="flex items-center justify-center w-5 h-5">
@@ -7021,6 +7045,18 @@ console.log(prompt);
                 rows={1}
                 style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'Arial, sans-serif', fontSize: '14px' }}
               />
+              {/* Document Upload 
+              <input
+                type="file"
+                className="hidden"
+                id="quickReplyFile"
+                onChange={(e) => setSelectedDocument(e.target.files ? e.target.files[0] : null)}
+              />
+              <label htmlFor="quickReplyFile" className="p-2 m-1 !box cursor-pointer">
+                <span className="flex items-center justify-center w-5 h-5">
+                  <Lucide icon="Paperclip" className="w-5 h-5 text-gray-800 dark:text-gray-200" />  
+                </span>
+              </label>   */}
             </>
           )}
           <div className="flex flex-col ml-2">
