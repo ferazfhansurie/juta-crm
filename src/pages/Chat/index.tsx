@@ -520,6 +520,7 @@ function Main() {
   const [blastMessage, setBlastMessage] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
   const [blastStartTime, setBlastStartTime] = useState<Date | null>(null);
+  const [blastStartDate, setBlastStartDate] = useState<Date>(new Date());
   const [batchQuantity, setBatchQuantity] = useState<number>(10);
   const [repeatInterval, setRepeatInterval] = useState<number>(0);
   const [repeatUnit, setRepeatUnit] = useState<'minutes' | 'hours' | 'days'>('days');
@@ -536,6 +537,7 @@ function Main() {
   const [isAssistantAvailable, setIsAssistantAvailable] = useState(false);
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [employeeSearch, setEmployeeSearch] = useState('');
+  const [showPlaceholders, setShowPlaceholders] = useState(false);
 
 
   const filteredContactsSearch = useMemo(() => {
@@ -3257,34 +3259,42 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
 };
 
   const addTagBeforeQuote = (contact: Contact) => {
-    if (!contact.phone || !contact.firstName) {
-      console.error('Phone or firstName is null or undefined');
+    console.log('Adding tag before quote for contact:', contact.phone);
+    console.log('Adding tag before quote for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('addBeforeQuote', contact.phone, contact.firstName);
+    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
   };
   
   const addTagAfterQuote = (contact: Contact) => {
-    if (contact.phone && contact.firstName) {
-      handleBinaTag('addAfterQuote', contact.phone, contact.firstName);
+    console.log('Adding tag after quote for contact:', contact.phone);
+    console.log('Adding tag after quote for contact:', contact.contactName);
+    if (contact.phone && contact.contactName) {
+      handleBinaTag('addAfterQuote', contact.phone, contact.contactName);
     } else {
-      console.error('Phone or firstName is null or undefined');
+      console.error('Phone or firstname is null or undefined');
     }
   };
   
   const removeTagBeforeQuote = (contact: Contact) => {
-    if (contact.phone && contact.firstName) {
-      handleBinaTag('removeBeforeQuote', contact.phone, contact.firstName);
+    console.log('Removing tag before quote for contact:', contact.phone);
+    console.log('Removing tag before quote for contact:', contact.contactName);
+    if (contact.phone && contact.contactName) {
+      handleBinaTag('removeBeforeQuote', "60135186862", contact.contactName);
     } else {
-      console.error('Phone or firstName is null or undefined');
+      console.error('Phone or firstname is null or undefined');
     }
   };
   
   const removeTagAfterQuote = (contact: Contact) => {
-    if (contact.phone && contact.firstName) {
-      handleBinaTag('removeAfterQuote', contact.phone, contact.firstName);
+    console.log('Removing tag after quote for contact:', contact.phone);
+    console.log('Removing tag after quote for contact:', contact.contactName);
+    if (contact.phone && contact.contactName) {
+      handleBinaTag('removeAfterQuote', contact.phone, contact.contactName);
     } else {
-      console.error('Phone or firstName is null or undefined');
+      console.error('Phone or firstname is null or undefined');
     }
   };
 
@@ -3345,7 +3355,6 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
           addTagAfterQuote(contact);
         }
 
-        sendAssignmentNotification(tagName, contact);
 
       } else {
         console.log(`Tag ${tagName} already exists for contact ${contact.id}`);
@@ -5057,70 +5066,98 @@ const handleForwardMessage = async () => {
 
   
   const sendBlastMessage = async () => {
+    console.log('Starting sendBlastMessage function');
+
+    // Ensure selectedChatId is valid
+    if (!selectedChatId) {
+      console.log('No chat selected');
+      toast.error("No chat selected!");
+      return;
+    }
+
+    // Combine date and time
+    const scheduledTime = blastStartTime || new Date();
+    const now = new Date();
+    if (scheduledTime <= now) {
+      console.log('Selected time is in the past');
+      toast.error("Please select a future time for the blast message.");
+      return;
+    }
+
     setIsScheduling(true);
+
     try {
-      let mediaUrl = "";
-      let documentUrl = "";
-  
+      let mediaUrl = '';
+      let documentUrl = '';
       if (selectedMedia) {
+        console.log('Uploading media...');
         mediaUrl = await uploadFile(selectedMedia);
+        console.log(`Media uploaded. URL: ${mediaUrl}`);
       }
-  
       if (selectedDocument) {
+        console.log('Uploading document...');
         documentUrl = await uploadFile(selectedDocument);
-      }
-      const user = auth.currentUser;
-      if (!user) {
-        toast.error("User not authenticated");
-        return;
+        console.log(`Document uploaded. URL: ${documentUrl}`);
       }
 
-      const docUserRef = doc(firestore, 'user', user.email!);
+      const user = auth.currentUser;
+      console.log(`Current user: ${user?.email}`);
+
+      const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        toast.error("User document not found");
+        console.log('No such document for user!');
         return;
       }
-
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
+      console.log(`Company ID: ${companyId}`);
 
-      const companyRef = doc(firestore, 'companies', companyId);
-      const companySnapshot = await getDoc(companyRef);
-      if (!companySnapshot.exists()) {
-        toast.error("Company document not found");
-        return;
-      }
+      const chatIds = [selectedChatId]; // Use selectedChatId directly
 
-      const companyData = companySnapshot.data();
-      const isV2 = companyData.v2 || false;
-      const scheduledTime = blastStartTime || new Date();
-  
+      const processedMessages = [selectedContact].map(contact => {
+        let processedMessage = blastMessage;
+        // Replace placeholders
+        processedMessage = processedMessage.replace(/@{contactName}/g, contact.contactName || '');
+        processedMessage = processedMessage.replace(/@{firstName}/g, contact.firstName || '');
+        processedMessage = processedMessage.replace(/@{lastName}/g, contact.lastName || '');
+        processedMessage = processedMessage.replace(/@{email}/g, contact.email || '');
+        processedMessage = processedMessage.replace(/@{phone}/g, contact.phone || '');
+        processedMessage = processedMessage.replace(/@{vehicleNumber}/g, contact.vehicleNumber || '');
+        processedMessage = processedMessage.replace(/@{branch}/g, contact.branch || '');
+        processedMessage = processedMessage.replace(/@{expiryDate}/g, contact.expiryDate || '');  
+        // Add more placeholders as needed
+        return { chatId: contact.phone?.replace(/\D/g, '') + "@s.whatsapp.net", message: processedMessage };
+      });
+
       const scheduledMessageData = {
+        chatIds: chatIds,
+        message: blastMessage,
+        messages: processedMessages,
         batchQuantity: batchQuantity,
-        chatIds: [selectedChatId], // Assuming you want to send to the current chat
         companyId: companyId,
         createdAt: Timestamp.now(),
         documentUrl: documentUrl || "",
         fileName: selectedDocument ? selectedDocument.name : null,
         mediaUrl: mediaUrl || "",
-        message: blastMessage,
         mimeType: selectedMedia ? selectedMedia.type : (selectedDocument ? selectedDocument.type : null),
         repeatInterval: repeatInterval,
         repeatUnit: repeatUnit,
         scheduledTime: Timestamp.fromDate(scheduledTime),
         status: "scheduled",
-        v2: isV2,
-        whapiToken: isV2 ? null : whapiToken,
+        v2: true, // Adjust as needed
+        whapiToken: null, // Adjust as needed
       };
-  
+
+      console.log('Sending scheduledMessageData:', JSON.stringify(scheduledMessageData, null, 2));
+
       // Make API call to schedule the message
       const response = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}`, scheduledMessageData);
-  
+
       console.log(`Scheduled message added. Document ID: ${response.data.id}`);
       toast.success(`Blast message scheduled successfully.`);
       toast.info(`Message will be sent at: ${scheduledTime.toLocaleString()} (local time)`);
-  
+
       // Close the modal and reset state
       setBlastMessageModal(false);
       setBlastMessage("");
@@ -5137,6 +5174,7 @@ const handleForwardMessage = async () => {
       setIsScheduling(false);
     }
   };
+
   const handleReminderClick = () => {
     setIsReminderModalOpen(true);
   };
@@ -5193,7 +5231,7 @@ const handleForwardMessage = async () => {
       const isV2 = companyData.v2 || false;
       const whapiToken = companyData.whapiToken || '';
       const phone = userData.phoneNumber.split('+')[1];
-      const chatId = phone + "@c.us"; // The specific number you want to send the reminder to
+      const chatId = phone + "@s.whatsapp.net"; // The specific number you want to send the reminder to
       
       console.log(chatId)
       const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName || selectedContact.firstName || selectedContact.phone}\n\n${text}`;
@@ -5433,6 +5471,11 @@ console.log(prompt);
     }
   };
 
+  const insertPlaceholder = (field: string) => {
+    const placeholder = `@{${field}}`;
+    setBlastMessage(prevMessage => prevMessage + placeholder);
+  };
+
   return (
     <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
       <audio ref={audioRef} src={noti} />
@@ -5460,10 +5503,10 @@ console.log(prompt);
             {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
             {isDeletePopupOpen && <DeleteConfirmationPopup />}
             <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
-  <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-    <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-40 text-gray-900 dark:text-white">
-      <div className="mb-4 text-lg font-semibold">Schedule Blast Message</div>
-        <textarea
+            <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+              <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-40 text-gray-900 dark:text-white">
+                <div className="mb-4 text-lg font-semibold">Schedule Blast Message</div>
+                  <textarea
                     className="w-full p-2 border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Type your message here..."
                     value={blastMessage}
@@ -5471,83 +5514,118 @@ console.log(prompt);
                     rows={3}
                     style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                   ></textarea>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Media (Image or Video)</label>
-        <input
-          type="file"
-          accept="image/*,video/*"
-          onChange={(e) => handleMediaUpload(e)}
-          className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-      </div>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Document</label>
-        <input
-          type="file"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-          onChange={(e) => handleDocumentUpload(e)}
-          className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-      </div>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Time</label>
-        <DatePicker
-          selected={blastStartTime}
-          onChange={(date: Date) => setBlastStartTime(date)}
-          showTimeSelect
-          dateFormat="MMMM d, yyyy h:mm aa"
-          className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-      </div>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Quantity</label>
-        <input
-          type="number"
-          value={batchQuantity}
-          onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
-          min={1}
-          className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-      </div>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Repeat Every</label>
-        <div className="flex items-center">
-          <input
-            type="number"
-            value={repeatInterval}
-            onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
-            min={0}
-            className="w-20 mr-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          />
-          <select
-            value={repeatUnit}
-            onChange={(e) => setRepeatUnit(e.target.value as 'minutes' | 'hours' | 'days')}
-            className="border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="minutes">Minutes</option>
-            <option value="hours">Hours</option>
-            <option value="days">Days</option>
-          </select>
-        </div>
-      </div>
-      <div className="flex justify-end mt-4">
-        <button
-          className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
-          onClick={() => setBlastMessageModal(false)}
-        >
-          Cancel
-        </button>
-        <button
-          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={sendBlastMessage}
-          disabled={isScheduling}
-        >
-          {isScheduling ? "Scheduling..." : "Send Blast Message"}
-        </button>
-      </div>
-    </Dialog.Panel>
-  </div>
-</Dialog>
+                   <div className="mt-2">
+                    <button
+                      type="button"
+                      className="text-sm text-blue-500 hover:text-blue-400"
+                      onClick={() => setShowPlaceholders(!showPlaceholders)}
+                    >
+                      {showPlaceholders ? 'Hide Placeholders' : 'Show Placeholders'}
+                    </button>
+                    {showPlaceholders && (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Click to insert:</p>
+                        {['contactName', 'firstName', 'lastName', 'email', 'phone', 'vehicleNumber', 'branch', 'expiryDate'].map(field => (
+                          <button
+                            key={field}
+                            type="button"
+                            className="mr-2 mb-2 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+                            onClick={() => insertPlaceholder(field)}
+                          >
+                            @{'{'}${field}{'}'}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Media (Image or Video)</label>
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      onChange={(e) => handleMediaUpload(e)}
+                      className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Document</label>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                      onChange={(e) => handleDocumentUpload(e)}
+                      className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Date & Time</label>
+                    <div className="flex space-x-2">
+                      <DatePicker
+                        selected={blastStartDate}
+                        onChange={(date: Date) => setBlastStartDate(date)}
+                        dateFormat="MMMM d, yyyy"
+                        className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                      <DatePicker
+                        selected={blastStartTime}
+                        onChange={(date: Date) => setBlastStartTime(date)}
+                        showTimeSelect
+                        showTimeSelectOnly
+                        timeIntervals={15}
+                        timeCaption="Time"
+                        dateFormat="h:mm aa"
+                        className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Quantity</label>
+                    <input
+                      type="number"
+                      value={batchQuantity}
+                      onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
+                      min={1}
+                      className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Repeat Every</label>
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        value={repeatInterval}
+                        onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
+                        min={0}
+                        className="w-20 mr-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                      <select
+                        value={repeatUnit}
+                        onChange={(e) => setRepeatUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+                        className="border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="minutes">Minutes</option>
+                        <option value="hours">Hours</option>
+                        <option value="days">Days</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+                      onClick={() => setBlastMessageModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={sendBlastMessage}
+                      disabled={isScheduling}
+                    >
+                      {isScheduling ? "Scheduling..." : "Send Blast Message"}
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </div>
+            </Dialog>
             <PDFModal isOpen={isPDFModalOpen} onClose={closePDFModal} pdfUrl={pdfUrl} />
             {editingMessage && (
               <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">

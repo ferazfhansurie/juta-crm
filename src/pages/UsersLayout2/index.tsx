@@ -302,7 +302,7 @@ const paginatedEmployees = filteredEmployees
       <h2 className="ml-4 mt-10 text-2xl font-bold intro-y text-gray-800 dark:text-gray-200">Users Directory</h2>
       <div className="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-900">
         <div className="text-lg font-medium text-gray-800 dark:text-gray-200 intro-y">
-          Total Employees: {employeeList.length}
+          Total Users: {employeeList.length}
         </div>
         {currentUserEmail && (
           <div className="ml-4 text-lg text-gray-600 dark:text-gray-400">

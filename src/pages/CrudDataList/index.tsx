@@ -1821,6 +1821,9 @@ const sendBlastMessage = async () => {
       processedMessage = processedMessage.replace(/@{lastName}/g, contact.lastName || '');
       processedMessage = processedMessage.replace(/@{email}/g, contact.email || '');
       processedMessage = processedMessage.replace(/@{phone}/g, contact.phone || '');
+      processedMessage = processedMessage.replace(/@{vehicleNumber}/g, contact.vehicleNumber || '');
+      processedMessage = processedMessage.replace(/@{branch}/g, contact.branch || '');
+      processedMessage = processedMessage.replace(/@{expiryDate}/g, contact.expiryDate || '');
       // Add more placeholders as needed
       return { chatId: contact.phone?.replace(/\D/g, '') + "@s.whatsapp.net", message: processedMessage };
     });
@@ -2280,7 +2283,10 @@ const sendBlastMessage = async () => {
             .replace(/@{firstName}/g, contact.contactName?.split(' ')[0] || '')
             .replace(/@{lastName}/g, contact.lastName || '')
             .replace(/@{email}/g, contact.email || '')
-            .replace(/@{phone}/g, contact.phone || '');
+            .replace(/@{phone}/g, contact.phone || '')
+            .replace(/@{vehicleNumber}/g, contact.vehicleNumber || '')
+            .replace(/@{branch}/g, contact.branch || '')
+            .replace(/@{expiryDate}/g, contact.expiryDate || '');
         }
         return {
           chatId,
@@ -3469,7 +3475,7 @@ const sendBlastMessage = async () => {
                     {showPlaceholders && (
                       <div className="mt-2 space-y-1">
                         <p className="text-sm text-gray-600 dark:text-gray-400">Click to insert:</p>
-                        {['contactName', 'firstName', 'lastName', 'email', 'phone'].map(field => (
+                        {['contactName', 'firstName', 'lastName', 'email', 'phone', 'vehicleNumber', 'branch', 'expiryDate'].map(field => (
                           <button
                             key={field}
                             type="button"
