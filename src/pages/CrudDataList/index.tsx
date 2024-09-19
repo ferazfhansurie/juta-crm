@@ -1865,6 +1865,7 @@ const sendBlastMessage = async () => {
 
     const scheduledMessageData = {
       chatIds: chatIds,
+      phoneIndex: phoneIndex,
       message: blastMessage,
       messages: processedMessages,
       batchQuantity: batchQuantity,
@@ -3603,7 +3604,7 @@ const sendBlastMessage = async () => {
                       >
                         <option value="">Select a phone</option>
                         {Object.entries(phoneNames).map(([index, phoneName]) => (
-                          <option key={index} value={index}>
+                          <option key={index} value={parseInt(index) - 1}>
                             {phoneName}
                           </option>
                         ))}
