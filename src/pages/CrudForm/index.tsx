@@ -529,7 +529,7 @@ function Main() {
               className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
               disabled={isFieldDisabled("phone") || (currentUserRole !== "1" && userData.role !== "2")}
             >
-              <option value="-1">Select a phone</option>
+              <option value="">Select a phone</option>
               {Object.entries(phoneNames).map(([index, phoneName]) => (
                 <option key={index} value={parseInt(index) - 1}>
                   {phoneName}

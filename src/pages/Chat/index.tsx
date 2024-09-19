@@ -5437,13 +5437,18 @@ console.log(prompt);
     <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
       <audio ref={audioRef} src={noti} />
         <div className={`flex flex-col w-full md:min-w-[35%] md:max-w-[35%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700 ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
-        <div className="flex items-center justify-between pl-4 pr-4 pt-6 pb-7 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
-          <div className="text-start text-2xl font-bold capitalize text-gray-800 dark:text-gray-200">
-            {userData?.company}
+        <div className="flex items-center justify-between pl-4 pr-4 pt-6 pb-2 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
+          <div>
+            <div className="text-start text-2xl font-semibold capitalize text-gray-800 dark:text-gray-200">
+              {userData?.company}
+            </div>
+            <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
+              Total Contacts: {contacts.length}
+            </div>
           </div>
           {userData?.phone !== undefined && (
-            <div className="flex items-center space-x-2 text-xl font-semibold opacity-75">
-              <Lucide icon="Phone" className="w-6 h-6 text-gray-800 dark:text-white" />
+            <div className="flex items-center space-x-2 text-lg font-semibold opacity-75">
+              <Lucide icon="Phone" className="w-5 h-5 text-gray-800 dark:text-white" />
               <span className="text-gray-800 dark:text-white">
                 {phoneNames[userData.phone] || 'No phone assigned'}
               </span>
@@ -5783,7 +5788,7 @@ console.log(prompt);
       'Group', 'Unread', 'Snooze', 'Stop Bot',
       ...(userData?.phone !== undefined && userData.phone !== -1 ? 
         [phoneNames[userData.phone] || `Phone ${userData.phone + 1}`] : 
-        []
+        Object.values(phoneNames)
       ),
       ...visibleTags.filter(tag => 
         !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group', 'stop bot'].includes(tag.name) && 
