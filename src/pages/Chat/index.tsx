@@ -2956,6 +2956,9 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChatId) return;
+      
+    setNewMessage('');
+    setReplyToMessage(null);
     const user = auth.currentUser;
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
@@ -2965,6 +2968,8 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
     const dataUser = docUserSnapshot.data();
     companyId = dataUser.companyId;
+    const phoneIndex = dataUser.phone || 0;
+    
     const userName = dataUser.name || dataUser.email || ''; // Get the user's name
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
@@ -2982,14 +2987,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         if (data2.v2 === true) {
           console.log("v2 is true");
           // Use the new API
-          let phoneIndex = 0;
-          if(messageMode === 'phone1'){
-            phoneIndex = 0;
-          }else if(messageMode === 'phone2'){
-            phoneIndex = 1;
-          }else if(messageMode === 'phone3'){
-            phoneIndex = 2;
-          }
+        
           response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${selectedChatId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3026,7 +3024,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         setContacts(prevContacts => 
           prevContacts.map(contact => 
             contact.id === selectedContact.id 
-              ? updateContactWithNewMessage(contact, newMessage, now)
+              ? updateContactWithNewMessage(contact, newMessage, now,phoneIndex)
               : contact
           )
         );
@@ -3038,7 +3036,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
           id: selectedContact.last_message?.id || `temp_${now.getTime()}`,
           from_me: true,
           type: 'text',
-          phoneIndex: selectedContact.last_message?.phoneIndex || 0,
+          phoneIndex: phoneIndex,
         };
         
         await updateDoc(contactRef, {
@@ -3051,13 +3049,11 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         toast.error("Failed to send message");
       }
     }
-  
-    setNewMessage('');
-    setReplyToMessage(null);
+
   };
 
   
-  const updateContactWithNewMessage = (contact: Contact, newMessage: string, now: Date): Contact => {
+  const updateContactWithNewMessage = (contact: Contact, newMessage: string, now: Date,phoneIndex: number): Contact => {
     const updatedLastMessage: Message = {
       text: { body: newMessage },
       chat_id: contact.chat_id || '',
@@ -3066,7 +3062,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       from_me: true,
       type: 'text',
       from_name: contact.last_message?.from_name || '',
-      phoneIndex: selectedContact.last_message?.phoneIndex || 0,
+      phoneIndex: phoneIndex,
       // Add any other required fields with appropriate default values
     };
   
@@ -4150,6 +4146,7 @@ const handleForwardMessage = async () => {
   
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
+      const phoneIndex = userData.phone || 0;
       const userName = userData.name || userData.email || '';
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
@@ -4168,7 +4165,7 @@ const handleForwardMessage = async () => {
           body: JSON.stringify({
             imageUrl: imageUrl,
             caption: caption || '',
-            phoneIndex: 0, // Assuming default phone index is 0
+            phoneIndex: phoneIndex, // Assuming default phone index is 0
             userName: userName,
           }),
         });
