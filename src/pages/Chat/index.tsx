@@ -2970,7 +2970,23 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
     const dataUser = docUserSnapshot.data();
     companyId = dataUser.companyId;
-    const phoneIndex = dataUser.phone || 0;
+    let phoneIndex;
+    if (dataUser?.phone !== undefined) {
+        if (dataUser.phone === 0) {
+            // Handle case for phone index 0
+            phoneIndex = 0;
+        } else if (dataUser.phone === -1) {
+            // Handle case for phone index -1
+            phoneIndex = 0;
+        } else {
+            // Handle other cases
+            console.log(`User phone index is: ${dataUser.phone}`);
+            phoneIndex = dataUser.phone;
+        }
+    } else {
+        console.error('User phone is not defined');
+        phoneIndex = 0; // Default value if phone is not defined
+    }
     
     const userName = dataUser.name || dataUser.email || ''; // Get the user's name
     const docRef = doc(firestore, 'companies', companyId);
@@ -3696,8 +3712,11 @@ const sortContacts = (contacts: Contact[]) => {
   const activeTag = activeTags[0].toLowerCase();
   
   // Check if the user has a selected phone
-  const userPhoneIndex = userData?.phone !== undefined ? parseInt(userData.phone, 10) : -1;
-
+  let userPhoneIndex = userData?.phone !== undefined ? parseInt(userData.phone, 10) : 0;
+  if (userPhoneIndex === -1) {
+    userPhoneIndex = 0;
+  }
+  console.log("userPhoneIndex", userPhoneIndex);
   // Filter by user's selected phone first
   if (userPhoneIndex !== -1) {
     fil = fil.filter(contact => contact.phoneIndex === userPhoneIndex);

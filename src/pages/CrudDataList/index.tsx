@@ -89,6 +89,7 @@ function Main() {
     name: string;
     role: string;
     phoneNumber: string;
+    phoneIndex: number;
     employeeId: string;
 
   }
@@ -211,6 +212,10 @@ function Main() {
   const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [companyId, setCompanyId] = useState<string>("");
   const [showAllMessages, setShowAllMessages] = useState(false);
+  const [phoneIndex, setPhoneIndex] = useState<number>(0);
+  const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
+  const [phoneNames, setPhoneNames] = useState<{ [key: number]: string }>({});
+
 
  
 
@@ -223,12 +228,42 @@ function Main() {
         if (docUserSnapshot.exists()) {
           const userData = docUserSnapshot.data();
           setCompanyId(userData.companyId);
+
+          fetchPhoneIndex(userData.companyId);
         }
       }
     };
 
     fetchUserData();
   }, []);
+
+  const fetchPhoneIndex = async (companyId: string) => {
+    try {
+      const companyDocRef = doc(firestore, 'companies', companyId);
+      const companyDocSnap = await getDoc(companyDocRef);
+      if (companyDocSnap.exists()) {
+        const companyData = companyDocSnap.data();
+        const phoneCount = companyData.phoneCount || 0;
+        console.log('phoneCount for this company:', phoneCount);
+        
+        // Generate phoneNames object
+        const phoneNamesData: { [key: number]: string } = {};
+        for (let i = 0; i <= phoneCount; i++) {
+          const phoneName = companyData[`phone${i}`];
+          if (phoneName) {
+            phoneNamesData[i] = phoneName;
+          }
+        }
+        console.log('Phone names:', phoneNamesData);
+        setPhoneNames(phoneNamesData);
+        setPhoneOptions(Object.keys(phoneNamesData).map(Number));
+      }
+    } catch (error) {
+      console.error("Error fetching phone count:", error);
+      setPhoneOptions([]);
+      setPhoneNames({});
+    }
+  };
 
   const filterContactsByUserRole = (contacts: Contact[], userRole: string, userName: string) => {
     switch (userRole) {
@@ -3513,7 +3548,7 @@ const sendBlastMessage = async () => {
                         selected={blastStartDate}
                         onChange={(date: Date) => setBlastStartDate(date)}
                         dateFormat="MMMM d, yyyy"
-                        className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                       <DatePicker
                         selected={blastStartTime}
@@ -3523,7 +3558,7 @@ const sendBlastMessage = async () => {
                         timeIntervals={15}
                         timeCaption="Time"
                         dateFormat="h:mm aa"
-                        className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
                   </div>
@@ -3545,16 +3580,33 @@ const sendBlastMessage = async () => {
                         value={repeatInterval}
                         onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
                         min={0}
-                        className="w-20 mr-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-20 mt-1 mr-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                       <select
                         value={repeatUnit}
                         onChange={(e) => setRepeatUnit(e.target.value as 'minutes' | 'hours' | 'days')}
-                        className="border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         <option value="minutes">Minutes</option>
                         <option value="hours">Hours</option>
                         <option value="days">Days</option>
+                      </select>
+                    </div>
+                    <div className="mt-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="phone">Phone</label>
+                      <select
+                        id="phone"
+                        name="phone"
+                        value={phoneIndex}
+                        onChange={(e) => setPhoneIndex(parseInt(e.target.value))}
+                        className="mt-1 text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
+                      >
+                        <option value="">Select a phone</option>
+                        {Object.entries(phoneNames).map(([index, phoneName]) => (
+                          <option key={index} value={index}>
+                            {phoneName}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
