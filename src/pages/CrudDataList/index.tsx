@@ -1656,14 +1656,14 @@ const chatId = tempphone + "@c.us"
         // Create an object with only the defined fields
         const updateData: { [key: string]: any } = {
           dateUpdated: new Date().toISOString(),
-          points: updatedContact.points // Ensure points are included in the update
+          points: updatedContact.points
         };
   
         const fieldsToUpdate = [
-          'contactName', 'lastName', 'email', 'phone', 'address1', 'city', 
-          'state', 'postalCode', 'website', 'dnd', 'dndSettings', 'tags', 
-          'customFields', 'source', 'country', 'companyName', 'branch', 
-          'expiryDate', 'vehicleNumber'
+          'contactName', 'email', 'lastName', 'phone', 'address1', 'city', 
+                'state', 'postalCode', 'website', 'dnd', 'dndSettings', 'tags', 
+                'customFields', 'source', 'country', 'companyName', 'branch', 
+                'expiryDate', 'vehicleNumber', 'points'
         ];
   
         fieldsToUpdate.forEach(field => {
@@ -2261,9 +2261,14 @@ const sendBlastMessage = async () => {
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
 
-      await deleteDoc(doc(firestore, `companies/${companyId}/scheduledMessages`, messageId));
-      setScheduledMessages(scheduledMessages.filter(msg => msg.id !== messageId));
-      toast.success("Scheduled message deleted successfully!");
+      // Call the backend API to delete the scheduled message
+      const response = await axios.delete(`https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}/${messageId}`);
+      if (response.status === 200) {
+        setScheduledMessages(scheduledMessages.filter(msg => msg.id !== messageId));
+        toast.success("Scheduled message deleted successfully!");
+      } else {
+        throw new Error("Failed to delete scheduled message.");
+      }
     } catch (error) {
       console.error("Error deleting scheduled message:", error);
       toast.error("Failed to delete scheduled message.");
@@ -3308,7 +3313,7 @@ const sendBlastMessage = async () => {
                   onChange={(e) => setNewContact({ ...newContact, branch: e.target.value })}
                 />
               </div>
-              {companyId === '079' && (
+              {companyId === '079' || companyId === '001' && (
                 <>
                   <div>
                     <label className="mt-4 block text-sm font-medium text-gray-700 dark:text-gray-300">Expiry Date</label>
@@ -3443,7 +3448,7 @@ const sendBlastMessage = async () => {
                     onChange={(e) => setCurrentContact({ ...currentContact, branch: e.target.value } as Contact)}
                   />
                 </div>
-                {companyId === '079' && (
+                {companyId === '079' || companyId === '001' && (
                   <>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Expiry Date</label>

@@ -201,7 +201,8 @@ interface QuickReply {
   keyword: string;
   text: string;
   type:string;
-  document: null;
+  document?: null;
+  image?: string | null;
 }
 interface ImageModalProps {
   isOpen: boolean;
@@ -5166,6 +5167,7 @@ const handleForwardMessage = async () => {
         status: "scheduled",
         v2: true, // Adjust as needed
         whapiToken: null, // Adjust as needed
+        phoneIndex: userData.phoneIndex,
       };
 
       console.log('Sending scheduledMessageData:', JSON.stringify(scheduledMessageData, null, 2));
@@ -5511,7 +5513,7 @@ console.log(prompt);
           {userData?.phone !== undefined && (
             <div className="flex items-center space-x-2 text-lg font-semibold opacity-75">
               <Lucide icon="Phone" className="w-5 h-5 text-gray-800 dark:text-white" />
-              <span className="text-gray-800 dark:text-white">
+              <span className="text-gray-800 font-medium dark:text-white">
                 {phoneNames[userData.phone] || 'No phone assigned'}
               </span>
             </div>
@@ -7102,13 +7104,13 @@ console.log(prompt);
                       >
                         {reply.text}
                       </span>
-                      {reply.document ? (
+                      {reply.document && (
                         <a href={reply.document} target="_blank" className="p-2 m-1 !box">
                           <span className="flex items-center justify-center w-5 h-5">
                             <Lucide icon="File" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
                           </span>
                         </a>
-                      ) : null}
+                      )}
                       <div>
                         <button className="p-2 m-1 !box" onClick={() => setEditingReply(reply)}>
                           <span className="flex items-center justify-center w-5 h-5">
@@ -7144,8 +7146,7 @@ console.log(prompt);
                 rows={1}
                 style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'Arial, sans-serif', fontSize: '14px' }}
               />
-              {/* Document Upload 
-              <input
+              {/* <input
                 type="file"
                 className="hidden"
                 id="quickReplyFile"
