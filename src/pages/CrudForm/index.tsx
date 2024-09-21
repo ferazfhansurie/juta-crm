@@ -328,11 +328,58 @@ function Main() {
               invoiceNumber: null,
               phone: -1,
             });
+        
+            const roleMap = {
+              "1": "Admin",
+              "2": "Sales",
+              "3": "Observer",
+              "4": "Manager"
+            };
+      
+            const message = `Hi ${userData.name},\n\nYou're successfully registered as a Staff - ${roleMap[userData.role as keyof typeof roleMap]} in our system.\nHere's your registered information:\n\nPhone Number: ${userData.phoneNumber}\nEmail: ${userData.email}\nRole: ${roleMap[userData.role as keyof typeof roleMap]}\n${userData.employeeId ? `Employee ID: ${userData.employeeId}\n` : ''}\nPassword: ${userData.password || '[Not changed]'}`;
+      
+            let url;
+            let requestBody;
+            let formattedPhone = userData.phoneNumber.replace(/[^\d]/g, '');
+            if (!formattedPhone.startsWith('6')) {
+              formattedPhone = '6' + formattedPhone;
+            }
+            formattedPhone += '@c.us';
+            console.log('Formatted user chat_id:', formattedPhone);
+              url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${formattedPhone}`;
+              requestBody = { 
+                message,
+                phoneIndex: 0, // Include phoneIndex in the request body
+              };
+      
+            console.log('Sending request to:', url);
+            console.log('Request body:', JSON.stringify(requestBody));
+      
+            console.log('Full request details:', {
+              url,
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody)
+            });
+      
+            // Send WhatsApp message to the user
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody),
+            });
+      
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error('Error response:', response.status, errorText);
+              throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            }
           } else {
             throw new Error(responseData.error);
           }
         }
-
+      
+  
         setSuccessMessage(contactId ? "User updated successfully" : "User created successfully");
       }
 
