@@ -3541,7 +3541,7 @@ const sendBlastMessage = async () => {
                     {showPlaceholders && (
                       <div className="mt-2 space-y-1">
                         <p className="text-sm text-gray-600 dark:text-gray-400">Click to insert:</p>
-                        {['contactName', 'firstName', 'lastName', 'email', 'phone', 'vehicleNumber', 'branch', 'expiryDate'].map(field => (
+                        {['contactName', 'firstName', 'lastName', 'email', 'phone', 'vehicleNumber', 'branch', 'expiryDate', 'ic'].map(field => (
                           <button
                             key={field}
                             type="button"
