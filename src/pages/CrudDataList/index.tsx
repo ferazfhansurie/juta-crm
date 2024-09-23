@@ -82,6 +82,7 @@ function Main() {
     branch?:string | null;
     expiryDate?:string | null;
     vehicleNumber?:string | null;
+    ic?:string | null;
   }
   
   interface Employee {
@@ -175,6 +176,7 @@ function Main() {
       branch:'',
       expiryDate:'',
       vehicleNumber:'',
+      ic:'',
   });
   const [total, setTotal] = useState(0);
   const [fetched, setFetched] = useState(0);
@@ -679,6 +681,7 @@ const handleSaveNewContact = async () => {
       branch: newContact.branch,
       expiryDate: newContact.expiryDate,
       vehicleNumber: newContact.vehicleNumber,
+      ic: newContact.ic,
     };
 
     // Add new contact to Firebase
@@ -699,6 +702,7 @@ const handleSaveNewContact = async () => {
       branch: '',
       expiryDate: '',
       vehicleNumber: '',
+      ic: '',
     });
   } catch (error) {
     console.error('Error adding contact:', error);
@@ -1656,14 +1660,15 @@ const chatId = tempphone + "@c.us"
         // Create an object with only the defined fields
         const updateData: { [key: string]: any } = {
           dateUpdated: new Date().toISOString(),
-          points: updatedContact.points
+          points: updatedContact.points,
+          ic: updatedContact.ic
         };
   
         const fieldsToUpdate = [
           'contactName', 'email', 'lastName', 'phone', 'address1', 'city', 
                 'state', 'postalCode', 'website', 'dnd', 'dndSettings', 'tags', 
                 'customFields', 'source', 'country', 'companyName', 'branch', 
-                'expiryDate', 'vehicleNumber', 'points'
+                'expiryDate', 'vehicleNumber', 'points', 'IC'
         ];
   
         fieldsToUpdate.forEach(field => {
@@ -1859,6 +1864,7 @@ const sendBlastMessage = async () => {
       processedMessage = processedMessage.replace(/@{vehicleNumber}/g, contact.vehicleNumber || '');
       processedMessage = processedMessage.replace(/@{branch}/g, contact.branch || '');
       processedMessage = processedMessage.replace(/@{expiryDate}/g, contact.expiryDate || '');
+      processedMessage = processedMessage.replace(/@{ic}/g, contact.ic || '');
       // Add more placeholders as needed
       return { chatId: contact.phone?.replace(/\D/g, '') + "@s.whatsapp.net", message: processedMessage };
     });
@@ -2327,7 +2333,8 @@ const sendBlastMessage = async () => {
             .replace(/@{phone}/g, contact.phone || '')
             .replace(/@{vehicleNumber}/g, contact.vehicleNumber || '')
             .replace(/@{branch}/g, contact.branch || '')
-            .replace(/@{expiryDate}/g, contact.expiryDate || '');
+            .replace(/@{expiryDate}/g, contact.expiryDate || '')
+            .replace(/@{ic}/g, contact.ic || '');
         }
         return {
           chatId,
@@ -3259,6 +3266,15 @@ const sendBlastMessage = async () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">IC</label>
+                  <input
+                    type="text"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
+                    value={newContact.ic}
+                    onChange={(e) => setNewContact({ ...newContact, ic: e.target.value })}
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Points</label>
                   <input
                     type="number"
@@ -3392,6 +3408,15 @@ const sendBlastMessage = async () => {
                     className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
                     value={currentContact?.lastName || ''}
                     onChange={(e) => setCurrentContact({ ...currentContact, lastName: e.target.value } as Contact)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">IC</label>
+                  <input
+                    type="text"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
+                    value={currentContact?.ic || ''}
+                    onChange={(e) => setCurrentContact({ ...currentContact, ic: e.target.value } as Contact)}
                   />
                 </div>
                 <div>
