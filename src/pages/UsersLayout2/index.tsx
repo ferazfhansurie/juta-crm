@@ -292,7 +292,7 @@ const filteredEmployees = useMemo(() => {
 
 const paginatedEmployees = filteredEmployees
   .sort((a, b) => {
-    const roleOrder = { "1": 0, "2": 1, "3": 2, "4": 3 };
+    const roleOrder = { "1": 0, "2": 1, "3": 2, "4": 3, "5": 4 };
     return roleOrder[a.role as keyof typeof roleOrder] - roleOrder[b.role as keyof typeof roleOrder];
   })
   .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
@@ -424,6 +424,8 @@ const paginatedEmployees = filteredEmployees
                           employee.role === "1" ? 'text-indigo-600 dark:text-indigo-400' :
                           employee.role === "2" ? 'text-teal-600 dark:text-teal-400' :
                           employee.role === "3" ? 'text-purple-600 dark:text-purple-400' :
+                          employee.role === "4" ? 'text-amber-600 dark:text-amber-400' :
+                          employee.role === "5" ? 'text-green-600 dark:text-green-400' :
                           'text-amber-600 dark:text-amber-400'
                         }`}>
                           {employee.employeeId}
@@ -434,7 +436,7 @@ const paginatedEmployees = filteredEmployees
                       {employee.email}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {employee.role === "1" ? 'Admin' : employee.role === "2" ? 'Sales' : employee.role === "3" ? 'Observer' : employee.role === "4" ? 'Manager' : 'Other'}
+                      {employee.role === "1" ? 'Admin' : employee.role === "2" ? 'Sales' : employee.role === "3" ? 'Observer' : employee.role === "4" ? 'Manager' : employee.role === "5" ? 'Supervisor' : 'Other'}
                     </p>
                     {/* {employee.group && (
                       <p className="text-sm text-gray-600 dark:text-gray-400">

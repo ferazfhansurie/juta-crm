@@ -835,6 +835,8 @@ function Main() {
         return contacts.filter(contact => 
           contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
         );
+      case '5':
+        return contacts;
       default:
         return [];
     }

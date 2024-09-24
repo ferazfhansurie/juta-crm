@@ -333,7 +333,8 @@ function Main() {
               "1": "Admin",
               "2": "Sales",
               "3": "Observer",
-              "4": "Manager"
+              "4": "Manager",
+              "5": "Supervisor"
             };
       
             const message = `Hi ${userData.name},\n\nYou're successfully registered as a Staff - ${roleMap[userData.role as keyof typeof roleMap]} in our system.\nHere's your registered information:\n\nPhone Number: ${userData.phoneNumber}\nEmail: ${userData.email}\nRole: ${roleMap[userData.role as keyof typeof roleMap]}\n${userData.employeeId ? `Employee ID: ${userData.employeeId}\n` : ''}\nPassword: ${userData.password || '[Not changed]'}`;
@@ -559,10 +560,9 @@ function Main() {
               <option value="">Select role</option>
               {currentUserRole === "1" && <option value="1">Admin</option>}
               {currentUserRole === "1" && <option value="4">Manager</option>}
+              <option value="5">Supervisor</option>
               <option value="2">Sales</option>
               <option value="3">Observer</option>
-              {currentUserRole === "4" && <option value="4">Manager</option>}
-              
             </select>
             {fieldErrors.role && <p className="text-red-500 text-sm mt-1">{fieldErrors.role}</p>}
           </div>

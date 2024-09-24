@@ -286,6 +286,8 @@ function Main() {
         return contacts.filter(contact => 
           contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
         );
+      case '5':
+        return contacts;
       default:
         return [];
     }
@@ -2667,7 +2669,7 @@ const sendBlastMessage = async () => {
                       <Lucide icon="Upload" className="w-5 h-5 mr-2" />
                       <span className="font-medium">Import CSV</span>
                     </button>
-                    {userRole !== "2" && userRole !== "3" && (
+                    {userRole !== "2" && userRole !== "3" && userRole !== "5" && (
                       <>
                         <button 
                           className={`flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300`}
