@@ -3372,8 +3372,13 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
           addTagBeforeQuote(contact);
         } else if (tagName === 'After Quote Follow Up') {
           addTagAfterQuote(contact);
+        } else {
+          // Check if the tag is an employee's name and send assignment notification
+          const employee = employeeList.find(emp => emp.name === tagName);
+          if (employee) {
+            await sendAssignmentNotification(tagName, contact);
+          }
         }
-
 
       } else {
         console.log(`Tag ${tagName} already exists for contact ${contact.id}`);
