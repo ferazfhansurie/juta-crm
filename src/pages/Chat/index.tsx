@@ -539,6 +539,8 @@ function Main() {
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [showPlaceholders, setShowPlaceholders] = useState(false);
+  const [caption, setCaption] = useState(''); // Add this line to define setCaption
+
 
 
   const filteredContactsSearch = useMemo(() => {
@@ -1182,6 +1184,7 @@ const closePDFModal = () => {
           text: doc.data().text || '',
           type: 'all',
           document: doc.data().document || null,
+          image: doc.data().image || null,
         })),
         ...userSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -1189,6 +1192,7 @@ const closePDFModal = () => {
           text: doc.data().text || '',
           type: 'self',
           document: doc.data().document || null,
+          image: doc.data().image || null,
         }))
       ];
   
@@ -1306,20 +1310,15 @@ const closePDFModal = () => {
     }
   };
 
-  const handleQRClick = (keyword: string) => {
-    const quickReply = quickReplies.find(qr => qr.keyword.toLowerCase() === keyword.toLowerCase());
-    if (quickReply) {
-      setNewMessage(quickReply.text);
-      if (quickReply.document) {
-        setSelectedDocument(quickReply.document);
-      }
-      setIsQuickRepliesOpen(false);
+  const handleQRClick = (reply: QuickReply, document: File | null, image: string | null) => {
+    setNewMessage(reply.text);
+    if (document) {
+      setSelectedDocument(document); // Ensure the document is set here
+    } else if (image) { // Check if there is an image
+      setPastedImageUrl(image); // Set the image URL if available
+      setImageModalOpen2(true); // Open the image modal
     }
   };
-
-  const filteredQuickReplies = quickReplies.filter(reply =>
-    reply.text.toLowerCase().includes(quickReplyFilter.toLowerCase())
-  );
 
   
   // Modify the notification listener
@@ -3286,6 +3285,36 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
     handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
   };
+
+  const addTagBeforeQuoteEnglish = (contact: Contact) => {
+    console.log('Adding tag before quote (English) for contact:', contact.phone);
+    console.log('Adding tag before quote (English) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
+};
+
+const addTagBeforeQuoteMalay = (contact: Contact) => {
+    console.log('Adding tag before quote (Malay) for contact:', contact.phone);
+    console.log('Adding tag before quote (Malay) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
+};
+
+const addTagBeforeQuoteChinese = (contact: Contact) => {
+    console.log('Adding tag before quote (Chinese) for contact:', contact.phone);
+    console.log('Adding tag before quote (Chinese) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
+};
   
   const addTagAfterQuote = (contact: Contact) => {
     console.log('Adding tag after quote for contact:', contact.phone);
@@ -3297,25 +3326,85 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
   };
   
-  const removeTagBeforeQuote = (contact: Contact) => {
+  const addTagAfterQuoteEnglish = (contact: Contact) => {
+    console.log('Adding tag after quote (English) for contact:', contact.phone);
+    console.log('Adding tag after quote (English) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('addAfterQuoteEnglish', contact.phone, contact.contactName);
+};
+
+const addTagAfterQuoteChinese = (contact: Contact) => {
+    console.log('Adding tag after quote (Chinese) for contact:', contact.phone);
+    console.log('Adding tag after quote (Chinese) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('addAfterQuoteChinese', contact.phone, contact.contactName);
+};
+
+const addTagAfterQuoteMalay = (contact: Contact) => {
+    console.log('Adding tag after quote (Malay) for contact:', contact.phone);
+    console.log('Adding tag after quote (Malay) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('addAfterQuoteMalay', contact.phone, contact.contactName);
+};
+
+const removeTagBeforeQuote = (contact: Contact) => {
     console.log('Removing tag before quote for contact:', contact.phone);
     console.log('Removing tag before quote for contact:', contact.contactName);
-    if (contact.phone && contact.contactName) {
-      handleBinaTag('removeBeforeQuote', "60135186862", contact.contactName);
-    } else {
+    if (!contact.phone || !contact.contactName) {
       console.error('Phone or firstname is null or undefined');
+      return;
     }
-  };
-  
-  const removeTagAfterQuote = (contact: Contact) => {
+    handleBinaTag('removeBeforeQuote', contact.phone, contact.contactName);
+};
+
+const removeTagAfterQuote = (contact: Contact) => {
     console.log('Removing tag after quote for contact:', contact.phone);
     console.log('Removing tag after quote for contact:', contact.contactName);
-    if (contact.phone && contact.contactName) {
-      handleBinaTag('removeAfterQuote', contact.phone, contact.contactName);
-    } else {
+    if (!contact.phone || !contact.contactName) {
       console.error('Phone or firstname is null or undefined');
+      return;
     }
-  };
+    handleBinaTag('removeAfterQuote', contact.phone, contact.contactName);
+};
+
+const fiveDaysFollowUpEnglish = (contact: Contact) => {
+    console.log('5 Days Follow Up (English) for contact:', contact.phone);
+    console.log('5 Days Follow Up (English) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('5DaysFollowUpEnglish', contact.phone, contact.contactName);
+};
+
+const fiveDaysFollowUpChinese = (contact: Contact) => {
+    console.log('5 Days Follow Up (Chinese) for contact:', contact.phone);
+    console.log('5 Days Follow Up (Chinese) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('5DaysFollowUpChinese', contact.phone, contact.contactName);
+};
+
+const fiveDaysFollowUpMalay = (contact: Contact) => {
+    console.log('5 Days Follow Up (Malay) for contact:', contact.phone);
+    console.log('5 Days Follow Up (Malay) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('5DaysFollowUpMalay', contact.phone, contact.contactName);
+};
 
 
   const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
@@ -3370,8 +3459,26 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         // Handle specific tags
         if (tagName === 'Before Quote Follow Up') {
           addTagBeforeQuote(contact);
+        } else if (tagName === 'Before Quote Follow Up (English)') {
+          addTagBeforeQuoteEnglish(contact);
+        } else if (tagName === 'Before Quote Follow Up (Malay)') {
+          addTagBeforeQuoteMalay(contact);
+        } else if (tagName === 'Before Quote Follow Up (Chinese)') {
+          addTagBeforeQuoteChinese(contact);
         } else if (tagName === 'After Quote Follow Up') {
           addTagAfterQuote(contact);
+        } else if (tagName === 'After Quote Follow Up (English)') {
+          addTagAfterQuoteEnglish(contact);
+        } else if (tagName === 'After Quote Follow Up (Chinese)') {
+          addTagAfterQuoteChinese(contact);
+        } else if (tagName === 'After Quote Follow Up (Malay)') {
+          addTagAfterQuoteMalay(contact);
+        } else if (tagName === '5 Days Follow Up (English)') {
+          fiveDaysFollowUpEnglish(contact);
+        } else if (tagName === '5 Days Follow Up (Chinese)') {
+          fiveDaysFollowUpChinese(contact);
+        } else if (tagName === '5 Days Follow Up (Malay)') {
+          fiveDaysFollowUpMalay(contact);
         } else {
           // Check if the tag is an employee's name and send assignment notification
           const employee = employeeList.find(emp => emp.name === tagName);
@@ -3649,7 +3756,19 @@ const handlePageChange = ({ selected }: { selected: number }) => {
   setCurrentPage(selected);
 };
 
+const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
 const [paginatedContacts, setPaginatedContacts] = useState<Contact[]>([]);
+
+useEffect(() => {
+  setLoadingMessage("Loading contacts...");
+  const timer = setTimeout(() => {
+    if (paginatedContacts.length === 0) {
+      setLoadingMessage("There are a lot of contacts, fetching them might take some time...");
+    }
+  }, 15000);
+
+  return () => clearTimeout(timer);
+}, [paginatedContacts]);
 
 useEffect(() => {
   let filtered = contacts;
@@ -5959,8 +6078,12 @@ console.log(prompt);
   >
     {isTagsExpanded ? "Show Less" : "Show More"}
   </span>
-<div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
-  {sortContacts(paginatedContacts).map((contact, index) => (
+  <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
+  {paginatedContacts.length === 0 ? ( // Check if paginatedContacts is empty
+    <div className="flex items-center justify-center h-full">
+    {loadingMessage && <span className="text-gray-500 dark:text-gray-400 ml-2">{loadingMessage}</span>}
+  </div>
+  ) : ((paginatedContacts).map((contact, index) => (
     <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
     <div
       className={`m-2 pr-3 pb-2 pt-2 rounded-lg cursor-pointer flex items-center space-x-3 group ${
@@ -6173,8 +6296,9 @@ console.log(prompt);
                 </div>
     {index < filteredContacts.length - 1 && <hr className="my-2 border-gray-300 dark:border-gray-700" />}
   </React.Fragment>
-))}
-              </div>
+))
+)}
+</div>
               <ReactPaginate
                 breakLabel="..."
                 nextLabel="Next"
@@ -7101,17 +7225,23 @@ console.log(prompt);
                       <span
                         className="px-2 py-1 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
                         onClick={() => {
-                          handleQRClick(reply.keyword);
+                          handleQRClick(reply, reply?.document ?? null, reply?.image ?? null);
                           setNewMessage(reply.text);
                           if (reply.document) {
-                            setSelectedDocument(reply.document);
+                            setSelectedDocument(reply.document); // Ensure the document is set here
+                            setCaption(reply.text); // Populate the caption with the text
+                            setDocumentModalOpen(true); // Open the document modal
+                          } else if (reply.image) {
+                            setPastedImageUrl(reply.image); // Set the image URL if available
+                            setCaption(reply.text); // Populate the caption with the text
+                            setImageModalOpen2(true); // Open the image modal
                           }
                         }}
                         style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                       >
                         {reply.text}
                       </span>
-                      {reply.document && (
+                      {reply.document && reply.document !== '' && (
                         <a href={reply.document} target="_blank" className="p-2 m-1 !box">
                           <span className="flex items-center justify-center w-5 h-5">
                             <Lucide icon="File" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
