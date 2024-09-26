@@ -1226,17 +1226,19 @@ const handleConfirmDeleteTag = async () => {
       if(companyId == '042'){
         message = `Hi ${assignedEmployee.employeeId || assignedEmployee.phoneNumber} ${assignedEmployee.name}.\n\nAnda telah diberi satu prospek baharu\n\nSila masuk ke https://web.jutasoftware.co/login untuk melihat perbualan di antara Zahin Travel dan prospek.\n\nTerima kasih.\n\nIkhlas,\nZahin Travel Sdn. Bhd. (1276808-W)\nNo. Lesen Pelancongan: KPK/LN 9159\nNo. MATTA: MA6018\n\n#zahintravel - Nikmati setiap detik..\n#diyakini\n#responsif\n#budibahasa`;
       }
-  
+      const phoneIndex = userData.phoneIndex;
       let url;
       let requestBody;
       if (companyData.v2 === true) {
         console.log("v2 is true");
         url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${employeePhone}`;
-        requestBody = { message };
+        requestBody = { message, 
+          phoneIndex  };
         } else {
         console.log("v2 is false");
         url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${employeePhone}/${companyData.whapiToken}`;
-        requestBody = { message };
+        requestBody = { message, 
+          phoneIndex  };
       }
   
       console.log('Sending request to:', url);
