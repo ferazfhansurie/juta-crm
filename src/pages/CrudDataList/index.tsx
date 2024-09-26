@@ -1639,61 +1639,63 @@ const chatId = tempphone + "@c.us"
 
   const handleSaveContact = async () => {
     if (currentContact) {
-      try {
-        const user = auth.currentUser;
-  
-        const docUserRef = doc(firestore, 'user', user?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          console.log('No such document for user!');
-          return;
-        }
-        const userData = docUserSnapshot.data();
-        const companyId = userData.companyId;
-        const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
-  
-        if (!currentContact.phone) {
-          console.error('Contact phone is missing');
-          return;
-        }
-  
-        const updatedContact = { ...currentContact, points: currentContact.points || 0 };
-        
-        const contactDocRef = doc(contactsCollectionRef, currentContact.phone);
-  
-        // Create an object with only the defined fields
-        const updateData: { [key: string]: any } = {
-          dateUpdated: new Date().toISOString(),
-          points: updatedContact.points,
-          ic: updatedContact.ic
-        };
-  
-        const fieldsToUpdate = [
-          'contactName', 'email', 'lastName', 'phone', 'address1', 'city', 
+        try {
+            const user = auth.currentUser;
+            const docUserRef = doc(firestore, 'user', user?.email!);
+            const docUserSnapshot = await getDoc(docUserRef);
+            if (!docUserSnapshot.exists()) {
+                console.log('No such document for user!');
+                return;
+            }
+            const userData = docUserSnapshot.data();
+            const companyId = userData.companyId;
+            const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
+
+            // Create an object with only the defined fields
+            const updateData: { [key: string]: any } = {
+                contactName: currentContact.contactName,
+                email: currentContact.email,
+                lastName: currentContact.lastName,
+                phone: currentContact.phone,
+                points: currentContact.points || 0,
+                ic: currentContact.ic
+            };
+
+            const fieldsToUpdate = [
+                'contactName', 'email', 'lastName', 'phone', 'address1', 'city', 
                 'state', 'postalCode', 'website', 'dnd', 'dndSettings', 'tags', 
                 'customFields', 'source', 'country', 'companyName', 'branch', 
-                'expiryDate', 'vehicleNumber', 'points', 'IC'
-        ];
-  
-        fieldsToUpdate.forEach(field => {
-          if (updatedContact[field as keyof Contact] !== undefined) {
-            updateData[field] = updatedContact[field as keyof Contact];
-          }
-        });
-  
-        // Update contact in Firebase
-        await updateDoc(contactDocRef, updateData);
-  
-        setContacts(contacts.map(contact => (contact.phone === currentContact.phone ? currentContact : contact)));
-        setEditContactModal(false);
-        setCurrentContact(null);
-        toast.success("Contact updated successfully!");
-      } catch (error) {
-        console.error('Error saving contact:', error);
-        toast.error("Failed to update contact.");
-      }
+                'expiryDate', 'vehicleNumber', 'points', 'IC',
+            ];
+
+            fieldsToUpdate.forEach(field => {
+                if (currentContact[field as keyof Contact] !== undefined) {
+                    updateData[field] = currentContact[field as keyof Contact];
+                }
+            });
+
+            // Update contact in Firebase
+            const contactDocRef = doc(contactsCollectionRef, currentContact.phone!); // Get the document reference
+            await updateDoc(contactDocRef, updateData); // Use the document reference
+
+            // Update local state immediately after saving
+            setContacts(prevContacts => 
+                prevContacts.map(contact => 
+                    contact.phone === currentContact.phone ? { ...contact, ...updateData } : contact
+                )
+            );
+            setCurrentContact(prevContact => ({ ...prevContact, ...updateData })); // Update currentContact state
+
+            setEditContactModal(false);
+            setCurrentContact(null);
+            await fetchContacts();
+            toast.success("Contact updated successfully!");
+        } catch (error) {
+            console.error('Error saving contact:', error);
+            toast.error("Failed to update contact.");
+        }
     }
-  };
+};
 
 // Add this function to combine similar scheduled messages
 const combineScheduledMessages = (messages: ScheduledMessage[]): ScheduledMessage[] => {

@@ -201,7 +201,7 @@ interface QuickReply {
   keyword: string;
   text: string;
   type:string;
-  document?: null;
+  document?: File | null;
   image?: string | null;
 }
 interface ImageModalProps {
@@ -211,6 +211,7 @@ interface ImageModalProps {
 }
 interface DocumentModalProps {
   isOpen: boolean;
+  type:string;
   onClose: () => void;
   document: File | null;
   onSend: (file: File, caption: string) => void;
@@ -230,6 +231,7 @@ type Notification = {
   chat_id: string;
   type: string;
 };
+
 
 interface EditMessagePopupProps {
   editedMessageText: string;
@@ -531,6 +533,7 @@ function Main() {
   const quickRepliesRef = useRef<HTMLDivElement>(null);
   const [documentModalOpen, setDocumentModalOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [quickReplyFilter, setQuickReplyFilter] = useState('');
   const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
   const [userPhone, setUserPhone] = useState<number | null>(null);
@@ -1201,6 +1204,14 @@ const closePDFModal = () => {
       console.error('Error fetching quick replies:', error);
     }
   };
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const storage = getStorage(); // Initialize storage
+    const storageRef = ref(storage, `images/${file.name}`); // Set the storage path
+    await uploadBytes(storageRef, file); // Upload the file
+    return await getDownloadURL(storageRef); // Return the download URL
+};
+
   const addQuickReply = async () => {
     if (newQuickReply.trim() === '') return;
   
@@ -1227,6 +1238,7 @@ const closePDFModal = () => {
         createdAt: serverTimestamp(),
         createdBy: user.email,
         document: selectedDocument ? await uploadDocument(selectedDocument) : null,
+        image: selectedImage ? await uploadImage(selectedImage) : null,
       };
   
       if (newQuickReplyType === 'self') {
@@ -1241,6 +1253,7 @@ const closePDFModal = () => {
   
       setNewQuickReply('');
       setSelectedDocument(null);
+      setSelectedImage(null);
       setNewQuickReplyKeyword('');
       setNewQuickReplyType('all');
       fetchQuickReplies();
@@ -1311,13 +1324,26 @@ const closePDFModal = () => {
   };
 
   const handleQRClick = (reply: QuickReply, document: File | null, image: string | null) => {
-    setNewMessage(reply.text);
-    if (document) {
-      setSelectedDocument(document); // Ensure the document is set here
-    } else if (image) { // Check if there is an image
-      setPastedImageUrl(image); // Set the image URL if available
-      setImageModalOpen2(true); // Open the image modal
+    if (document && image) {
+      console.warn('Cannot select both document and image.');
+      return; // Prevent setting both
     }
+    
+    if (image) {
+      const imageFile = new File([image], "image.png", { type: "image/png" });
+      const imageUrl = URL.createObjectURL(imageFile);
+      setPastedImageUrl(imageUrl);
+      setImageModalOpen2(true);
+    }
+    
+    if (document) {
+      const documentFile = new File([document], "document", { type: document.type });
+      setSelectedDocument(documentFile);
+      setDocumentModalOpen(true);
+    }
+    
+    setNewMessage(reply.text);
+    setIsQuickRepliesOpen(false);
   };
 
   
@@ -5302,6 +5328,7 @@ const handleForwardMessage = async () => {
         createdAt: Timestamp.now(),
         documentUrl: documentUrl || "",
         fileName: selectedDocument ? selectedDocument.name : null,
+        image: selectedImage ? await uploadImage(selectedImage) : null,
         mediaUrl: mediaUrl || "",
         mimeType: selectedMedia ? selectedMedia.type : (selectedDocument ? selectedDocument.type : null),
         repeatInterval: repeatInterval,
@@ -7243,28 +7270,43 @@ console.log(prompt);
                         className="px-2 py-1 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
                         onClick={() => {
                           handleQRClick(reply, reply?.document ?? null, reply?.image ?? null);
-                          setNewMessage(reply.text);
-                          if (reply.document) {
-                            setSelectedDocument(reply.document); // Ensure the document is set here
-                            setCaption(reply.text); // Populate the caption with the text
-                            setDocumentModalOpen(true); // Open the document modal
-                          } else if (reply.image) {
-                            setPastedImageUrl(reply.image); // Set the image URL if available
-                            setCaption(reply.text); // Populate the caption with the text
-                            setImageModalOpen2(true); // Open the image modal
+                          let message = reply.text;
+                          if (reply.image) {
+                            const imageFile = new File([reply.image], "image.png", { type: "image/png" });
+                            const imageUrl = URL.createObjectURL(imageFile);
+                            setPastedImageUrl(imageUrl);
+                            setImageModalOpen2(true);
                           }
+                          if (reply.document) {
+                            const documentFile = new File([reply.document], "document", { type: reply.document.type });
+                            setSelectedDocument(documentFile);
+                            setDocumentModalOpen(true);
+                          }
+                          setNewMessage(message);
+                          setIsQuickRepliesOpen(false);
                         }}
                         style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                       >
                         {reply.text}
                       </span>
-                      {reply.document && reply.document !== '' && (
-                        <a href={reply.document} target="_blank" className="p-2 m-1 !box">
-                          <span className="flex items-center justify-center w-5 h-5">
-                            <Lucide icon="File" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-                          </span>
-                        </a>
-                      )}
+                      {(typeof reply.document === 'string' && reply.document !== '') || (typeof reply.image === 'string' && reply.image !== '') ? (
+                        <>
+                          {typeof reply.document === 'string' && reply.document !== '' && (
+                            <a href={reply.document} target="_blank" className="p-2 m-1 !box">
+                              <span className="flex items-center justify-center w-5 h-5">
+                                <Lucide icon="File" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                              </span>
+                            </a>
+                          )}
+                          {typeof reply.image === 'string' && reply.image !== '' && (
+                            <a href={reply.image} target="_blank" className="p-2 m-1 !box">
+                              <span className="flex items-center justify-center w-5 h-5">
+                                <Lucide icon="Image" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                              </span>
+                            </a>
+                          )}
+                        </>
+                      ) : null}
                       <div>
                         <button className="p-2 m-1 !box" onClick={() => setEditingReply(reply)}>
                           <span className="flex items-center justify-center w-5 h-5">
@@ -7309,6 +7351,18 @@ console.log(prompt);
               <label htmlFor="quickReplyFile" className="p-2 m-1 !box cursor-pointer">
                 <span className="flex items-center justify-center w-5 h-5">
                   <Lucide icon="Paperclip" className="w-5 h-5 text-gray-800 dark:text-gray-200" />  
+                </span>
+              </label>  
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                id="quickReplyImage"
+                onChange={(e) => setSelectedImage(e.target.files ? e.target.files[0] : null)}
+              />
+              <label htmlFor="quickReplyImage" className="p-2 m-1 !box cursor-pointer">
+                <span className="flex items-center justify-center w-5 h-5">
+                  <Lucide icon="Image" className="w-5 h-5 text-gray-800 dark:text-gray-200" />  
                 </span>
               </label>   */}
             </>
@@ -7582,6 +7636,7 @@ console.log(prompt);
 
 <DocumentModal 
   isOpen={documentModalOpen} 
+  type={selectedDocument?.type || ''} // Provide a default empty string
   onClose={() => setDocumentModalOpen(false)} 
   document={selectedDocument} 
   onSend={sendDocument} 
