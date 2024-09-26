@@ -328,11 +328,59 @@ function Main() {
               invoiceNumber: null,
               phone: -1,
             });
+        
+            const roleMap = {
+              "1": "Admin",
+              "2": "Sales",
+              "3": "Observer",
+              "4": "Manager",
+              "5": "Supervisor"
+            };
+      
+            const message = `Hi ${userData.name},\n\nYou're successfully registered as a Staff - ${roleMap[userData.role as keyof typeof roleMap]} in our system.\nHere's your registered information:\n\nPhone Number: ${userData.phoneNumber}\nEmail: ${userData.email}\nRole: ${roleMap[userData.role as keyof typeof roleMap]}\n${userData.employeeId ? `Employee ID: ${userData.employeeId}\n` : ''}\nPassword: ${userData.password || '[Not changed]'}`;
+      
+            let url;
+            let requestBody;
+            let formattedPhone = userData.phoneNumber.replace(/[^\d]/g, '');
+            if (!formattedPhone.startsWith('6')) {
+              formattedPhone = '6' + formattedPhone;
+            }
+            formattedPhone += '@c.us';
+            console.log('Formatted user chat_id:', formattedPhone);
+              url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${formattedPhone}`;
+              requestBody = { 
+                message,
+                phoneIndex: 0, // Include phoneIndex in the request body
+              };
+      
+            console.log('Sending request to:', url);
+            console.log('Request body:', JSON.stringify(requestBody));
+      
+            console.log('Full request details:', {
+              url,
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody)
+            });
+      
+            // Send WhatsApp message to the user
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody),
+            });
+      
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error('Error response:', response.status, errorText);
+              throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            }
           } else {
             throw new Error(responseData.error);
           }
         }
-
+      
+  
         setSuccessMessage(contactId ? "User updated successfully" : "User created successfully");
       }
 
@@ -512,10 +560,9 @@ function Main() {
               <option value="">Select role</option>
               {currentUserRole === "1" && <option value="1">Admin</option>}
               {currentUserRole === "1" && <option value="4">Manager</option>}
+              <option value="5">Supervisor</option>
               <option value="2">Sales</option>
               <option value="3">Observer</option>
-              {currentUserRole === "4" && <option value="4">Manager</option>}
-              
             </select>
             {fieldErrors.role && <p className="text-red-500 text-sm mt-1">{fieldErrors.role}</p>}
           </div>
@@ -529,7 +576,7 @@ function Main() {
               className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
               disabled={isFieldDisabled("phone") || (currentUserRole !== "1" && userData.role !== "2")}
             >
-              <option value="-1">Select a phone</option>
+              <option value="">Select a phone</option>
               {Object.entries(phoneNames).map(([index, phoneName]) => (
                 <option key={index} value={parseInt(index) - 1}>
                   {phoneName}

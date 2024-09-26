@@ -124,8 +124,8 @@ function LoadingPage() {
       if (botStatusResponse.status !== 200) {
         throw new Error(`Unexpected response status: ${botStatusResponse.status}`);
       }
-      let phoneCount = companyData.phoneCount??null;
-      if(phoneCount === null){
+      let phoneCount = companyData.phoneCount ?? null;
+      if(phoneCount === null || phoneCount === 1){
         const { status, qrCode } = botStatusResponse.data;
         console.log(botStatusResponse.data); 
         console.log('phonecount is 0'); 

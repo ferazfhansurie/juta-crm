@@ -292,7 +292,7 @@ const filteredEmployees = useMemo(() => {
 
 const paginatedEmployees = filteredEmployees
   .sort((a, b) => {
-    const roleOrder = { "1": 0, "2": 1, "3": 2, "4": 3 };
+    const roleOrder = { "1": 0, "2": 1, "3": 2, "4": 3, "5": 4 };
     return roleOrder[a.role as keyof typeof roleOrder] - roleOrder[b.role as keyof typeof roleOrder];
   })
   .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
@@ -300,6 +300,16 @@ const paginatedEmployees = filteredEmployees
   return (
     <div className="flex flex-col h-full overflow-auto">
       <h2 className="ml-4 mt-10 text-2xl font-bold intro-y text-gray-800 dark:text-gray-200">Users Directory</h2>
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-900">
+        <div className="text-lg font-medium text-gray-800 dark:text-gray-200 intro-y">
+          Total Users: {employeeList.length}
+        </div>
+        {currentUserEmail && (
+          <div className="ml-4 text-lg text-gray-600 dark:text-gray-400">
+            {currentUserEmail.split('@')[0]}
+          </div>
+        )}
+      </div>
       <div className="flex-grow p-5">
         <div className="sticky top-0 bg-gray-100 dark:bg-gray-900 z-10 py-2">
           <div className="flex flex-wrap items-center mt-2 intro-y sm:flex-nowrap">
@@ -414,6 +424,8 @@ const paginatedEmployees = filteredEmployees
                           employee.role === "1" ? 'text-indigo-600 dark:text-indigo-400' :
                           employee.role === "2" ? 'text-teal-600 dark:text-teal-400' :
                           employee.role === "3" ? 'text-purple-600 dark:text-purple-400' :
+                          employee.role === "4" ? 'text-amber-600 dark:text-amber-400' :
+                          employee.role === "5" ? 'text-green-600 dark:text-green-400' :
                           'text-amber-600 dark:text-amber-400'
                         }`}>
                           {employee.employeeId}
@@ -424,7 +436,7 @@ const paginatedEmployees = filteredEmployees
                       {employee.email}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {employee.role === "1" ? 'Admin' : employee.role === "2" ? 'Sales' : employee.role === "3" ? 'Observer' : employee.role === "4" ? 'Manager' : 'Other'}
+                      {employee.role === "1" ? 'Admin' : employee.role === "2" ? 'Sales' : employee.role === "3" ? 'Observer' : employee.role === "4" ? 'Manager' : employee.role === "5" ? 'Supervisor' : 'Other'}
                     </p>
                     {/* {employee.group && (
                       <p className="text-sm text-gray-600 dark:text-gray-400">

@@ -8,36 +8,25 @@ import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
 import Button from "@/components/Base/Button";
 import { Dialog, Menu } from "@/components/Base/Headless";
-import { Link, useParams } from "react-router-dom";
-import { FormInput } from "@/components/Base/Form";
 import { format } from 'date-fns';
-import { access } from "fs";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { time } from "console";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { onMessage } from "firebase/messaging";
-import { getFirebaseToken, messaging } from "../../firebaseconfig";
+import { getStorage, ref, uploadBytes, StorageReference, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { rateLimiter } from '../../utils/rate';
-import errorIllustration from "@/assets/images/chat.svg";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { useLocation } from "react-router-dom";
 import { useContacts } from '../../contact';
-import { Pin, PinOff } from "lucide-react";
 import LZString from 'lz-string';
-import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import Tippy from "@/components/Base/Tippy";
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import {  useNavigate } from "react-router-dom";
 import noti from "../../assets/audio/noti.mp3";
 import { Lock, MessageCircle } from "lucide-react";
-import { Transition } from '@headlessui/react';
 import { Menu as ContextMenu, Item, Separator, useContextMenu } from 'react-contexify';
 import 'react-contexify/dist/ReactContexify.css';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { updateMonthlyAssignments } from '../DashboardOverview1';
 import ReactPaginate from 'react-paginate';
 import { getFileTypeFromMimeType } from '../../utils/fileUtils';
 
@@ -47,19 +36,7 @@ interface Label {
   color: string;
   count: number;
 }
-interface Enquiry {
-  id: string;
-  contact_id: string;
-  email: string;
-  message: string;
-  name:string;
-  page_url: string;
-  phone: string;
-  source: string;
-  timestamp: any;
-  treatment:string;
-  read:boolean;
-}
+
 interface Contact {
   conversation_id?: string | null;
   additionalEmails?: string[] | null;
@@ -199,9 +176,10 @@ interface UserData {
 interface QuickReply {
   id: string;
   keyword: string;
-
   text: string;
   type:string;
+  document?: File | null;
+  image?: string | null;
 }
 interface ImageModalProps {
   isOpen: boolean;
@@ -210,6 +188,7 @@ interface ImageModalProps {
 }
 interface DocumentModalProps {
   isOpen: boolean;
+  type:string;
   onClose: () => void;
   document: File | null;
   onSend: (file: File, caption: string) => void;
@@ -229,6 +208,7 @@ type Notification = {
   chat_id: string;
   type: string;
 };
+
 
 interface EditMessagePopupProps {
   editedMessageText: string;
@@ -388,52 +368,38 @@ const auth = getAuth(app);
 function Main() {
   const { contacts: initialContacts, isLoading } = useContacts();
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [chats, setChats] = useState<Chat[]>([]);
+
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-   const [numPages, setNumPages] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading2, setLoading] = useState<boolean>(false);
-  const [isFetching, setFetching] = useState<boolean>(false);
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const [stopBotLabelCheckedState, setStopBotLabelCheckedState] = useState<boolean[]>([]);
   const [isImageModalOpen, setImageModalOpen] = useState(false);
   const [modalImageUrl, setModalImageUrl] = useState('');
-  const [selectedMessage2, setSelectedMessage2] = useState(null);
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [isTabOpen, setIsTabOpen] = useState(false);
-  const [isTagged, setIsTagged] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchQuery2, setSearchQuery2] = useState('');
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
-  const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const baseMessageClass = "flex flex-col max-w-[auto] min-w-[auto] p-1 text-white";
-
   const myMessageClass = `${baseMessageClass} bg-primary self-end ml-auto text-left mb-1 mr-6 group`;
   const otherMessageClass = `${baseMessageClass} bg-gray-700 self-start text-left mt-1 ml-2 group`;
-
   const myFirstMessageClass = `${myMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mt-4`;
   const myMiddleMessageClass = `${myMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl`;
   const myLastMessageClass = `${myMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mb-4`;
-
   const otherFirstMessageClass = `${otherMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mt-4`;
   const otherMiddleMessageClass = `${otherMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl`;
   const otherLastMessageClass = `${otherMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mb-4`;
   const [messageMode, setMessageMode] = useState('reply');
-  const [isEmployeeMentionOpen, setIsEmployeeMentionOpen] = useState(false);
   const myMessageTextClass = "text-white"
   const otherMessageTextClass = "text-white"
   const [activeTags, setActiveTags] = useState<string[]>(['all']);
   const [tagList, setTagList] = useState<Tag[]>([]);
-  const [ghlConfig, setGhlConfig] = useState<GhlConfig | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isForwardDialogOpen, setIsForwardDialogOpen] = useState(false);
-  const [selectedMessageForForwarding, setSelectedMessageForForwarding] = useState<Message | null>(null);
   const [selectedContactsForForwarding, setSelectedContactsForForwarding] = useState<Contact[]>([]);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
@@ -444,14 +410,9 @@ function Main() {
   const [filteredContactsForForwarding, setFilteredContactsForForwarding] = useState<Contact[]>(contacts);
   const [selectedMessages, setSelectedMessages] = useState<Message[]>([]);
   const messageListRef = useRef<HTMLDivElement>(null);
-  const [progress, setProgress] = useState(0);
-  const [fetched, setFetched] = useState(0);
-  const [total, setTotal] = useState(0);
   const prevNotificationsRef = useRef<number | null>(null);
   const [phoneCount, setPhoneCount] = useState<number>(1);
   const isInitialMount = useRef(true);
-  const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
-  const [isGroupFilterActive, setIsGroupFilterActive] = useState(false);
   const [isDeletePopupOpen, setIsDeletePopupOpen] = useState(false);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [editedMessageText, setEditedMessageText] = useState<string>("");
@@ -481,10 +442,6 @@ function Main() {
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
   const [visibleTags, setVisibleTags] = useState<typeof tagList>([]);
   const [companySubstring, setCompanyId] = useState<string | null>(null);
-  const [isFetchingContacts, setIsFetchingContacts] = useState(false);
-  const [contactsFetchProgress, setContactsFetchProgress] = useState(0);
-  const [totalContactsToFetch, setTotalContactsToFetch] = useState(0);
-  const [fetchedContactsCount, setFetchedContactsCount] = useState(0);
   const [isPrivateNote, setIsPrivateNote] = useState(false);
   const [privateNotes, setPrivateNotes] = useState<Record<string, Array<{ id: string; text: string; timestamp: number }>>>({});
   const [isPrivateNotesExpanded, setIsPrivateNotesExpanded] = useState(false);
@@ -493,9 +450,6 @@ function Main() {
   const [isPrivateNotesMentionOpen, setIsPrivateNotesMentionOpen] = useState(false);
   const [showAllContacts, setShowAllContacts] = useState(true);
   const [showUnreadContacts, setShowUnreadContacts] = useState(false);
-  const [activeTab, setActiveTab] = useState<'messages' | 'privateNotes'>('messages');
-  const [showEmployeeList, setShowEmployeeList] = useState(false);
-  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
   const [isChatActive, setIsChatActive] = useState(false);
@@ -520,6 +474,7 @@ function Main() {
   const [blastMessage, setBlastMessage] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
   const [blastStartTime, setBlastStartTime] = useState<Date | null>(null);
+  const [blastStartDate, setBlastStartDate] = useState<Date>(new Date());
   const [batchQuantity, setBatchQuantity] = useState<number>(10);
   const [repeatInterval, setRepeatInterval] = useState<number>(0);
   const [repeatUnit, setRepeatUnit] = useState<'minutes' | 'hours' | 'days'>('days');
@@ -529,14 +484,16 @@ function Main() {
   const quickRepliesRef = useRef<HTMLDivElement>(null);
   const [documentModalOpen, setDocumentModalOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [quickReplyFilter, setQuickReplyFilter] = useState('');
   const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
   const [userPhone, setUserPhone] = useState<number | null>(null);
   const [activeNotifications, setActiveNotifications] = useState<(string | number)[]>([]);
   const [isAssistantAvailable, setIsAssistantAvailable] = useState(false);
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
-  
-
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [showPlaceholders, setShowPlaceholders] = useState(false);
+  const [caption, setCaption] = useState(''); // Add this line to define setCaption
 
   const filteredContactsSearch = useMemo(() => {
     return contacts.filter((contact) => {
@@ -561,8 +518,12 @@ function Main() {
     });
   }, [contacts, searchQuery, activeTags]);
 
-
-
+  const uploadDocument = async (file: File): Promise<string> => {
+    const storage = getStorage(); // Correctly initialize storage
+    const storageRef = ref(storage, `quickReplies/${file.name}`); // Use the initialized storage
+    await uploadBytes(storageRef, file);
+    return await getDownloadURL(storageRef);
+  };
 
   const handleMessageSearchClick = () => {
     setIsMessageSearchOpen(!isMessageSearchOpen);
@@ -753,50 +714,6 @@ function Main() {
   };
   const [stopbot, setStopbot] = useState(false);
 
-  const handlePrivateNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setNewMessage(value);
-  
-    // Check for @ symbol to trigger mentions
-    const lastAtSymbolIndex = value.lastIndexOf('@');
-    if (lastAtSymbolIndex !== -1 && lastAtSymbolIndex === value.length - 1) {
-      setIsPrivateNotesMentionOpen(true);
-      console.log('Private note mention open');
-    } else {
-      setIsPrivateNotesMentionOpen(false);
-    }
-  };
-
-  // Update the textarea onChange handler
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setNewMessage(value);
-    adjustHeight(e.target);
-
-    if (value.startsWith('/')) {
-      setIsQuickRepliesOpen(true);
-      setQuickReplyFilter(value.slice(1));
-    } else {
-      setIsQuickRepliesOpen(false);
-      setQuickReplyFilter('');
-    }
-
-    // Check for quick reply keyword
-    if (value.startsWith('/') && value.endsWith(' ')) {
-      const keyword = value.slice(1, -1).toLowerCase();
-      const quickReply = quickReplies.find(qr => qr.keyword.toLowerCase() === keyword);
-      if (quickReply) {
-        setNewMessage(quickReply.text);
-      }
-    }
-  };
-
-  const handleEmployeeSelect = (employee: Employee) => {
-    const lastAtSymbolIndex = newMessage.lastIndexOf('@');
-    const newValue = newMessage.slice(0, lastAtSymbolIndex) + `@${employee.name} `;
-    setNewMessage(newValue);
-    setShowEmployeeList(false);
-  };
 
   const handlePrivateNoteMentionSelect = (employee: Employee) => {
     const mentionText = `@${employee.name} `;
@@ -828,6 +745,8 @@ function Main() {
         return contacts.filter(contact => 
           contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
         );
+      case '5':
+        return contacts;
       default:
         return [];
     }
@@ -976,19 +895,7 @@ const loadMoreContacts = () => {
 const handleEmojiClick = (emojiObject: EmojiClickData) => {
   setNewMessage(prevMessage => prevMessage + emojiObject.emoji);
 };
-const handlereplyMessage = async () => {
-  if (!newMessage.trim() || !selectedChatId) return;
-  
-  // Your existing send message logic
 
-  if (replyToMessage) {
-    // Logic to handle replying to a specific message
-    // Use replyToMessage.id to send the reply
-  }
-
-  // Clear the reply state after sending the message
-  setReplyToMessage(null);
-};
 
 const detectMentions = (message: string) => {
   const mentionRegex = /@(\w+)/g;
@@ -1065,9 +972,6 @@ const closePDFModal = () => {
   let user_name = '';
   let user_role='2';
   let totalChats = 0;
-  const getQueryParams = (query: string | string[][] | Record<string, string> | URLSearchParams | undefined) => {
-    return new URLSearchParams(query);
-  };
 
 
   const openDeletePopup = () => {
@@ -1172,12 +1076,16 @@ const closePDFModal = () => {
           keyword: doc.data().keyword || '',
           text: doc.data().text || '',
           type: 'all',
+          document: doc.data().document || null,
+          image: doc.data().image || null,
         })),
         ...userSnapshot.docs.map(doc => ({
           id: doc.id,
           keyword: doc.data().keyword || '',
           text: doc.data().text || '',
           type: 'self',
+          document: doc.data().document || null,
+          image: doc.data().image || null,
         }))
       ];
   
@@ -1186,6 +1094,14 @@ const closePDFModal = () => {
       console.error('Error fetching quick replies:', error);
     }
   };
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const storage = getStorage(); // Initialize storage
+    const storageRef = ref(storage, `images/${file.name}`); // Set the storage path
+    await uploadBytes(storageRef, file); // Upload the file
+    return await getDownloadURL(storageRef); // Return the download URL
+};
+
   const addQuickReply = async () => {
     if (newQuickReply.trim() === '') return;
   
@@ -1211,6 +1127,8 @@ const closePDFModal = () => {
         type: newQuickReplyType,
         createdAt: serverTimestamp(),
         createdBy: user.email,
+        document: selectedDocument ? await uploadDocument(selectedDocument) : null,
+        image: selectedImage ? await uploadImage(selectedImage) : null,
       };
   
       if (newQuickReplyType === 'self') {
@@ -1224,6 +1142,9 @@ const closePDFModal = () => {
       }
   
       setNewQuickReply('');
+      setSelectedDocument(null);
+      setSelectedImage(null);
+      setNewQuickReplyKeyword('');
       setNewQuickReplyType('all');
       fetchQuickReplies();
     } catch (error) {
@@ -1292,17 +1213,28 @@ const closePDFModal = () => {
     }
   };
 
-  const handleQRClick = (keyword: string) => {
-    const quickReply = quickReplies.find(qr => qr.keyword.toLowerCase() === keyword.toLowerCase());
-    if (quickReply) {
-      setNewMessage(quickReply.text);
-      setIsQuickRepliesOpen(false);
+  const handleQRClick = (reply: QuickReply, document: File | null, image: string | null) => {
+    if (document && image) {
+      console.warn('Cannot select both document and image.');
+      return; // Prevent setting both
     }
+    
+    if (image) {
+      const imageFile = new File([image], "image.png", { type: "image/png" });
+      const imageUrl = URL.createObjectURL(imageFile);
+      setPastedImageUrl(imageUrl);
+      setImageModalOpen2(true);
+    }
+    
+    if (document) {
+      const documentFile = new File([document], "document", { type: document.type });
+      setSelectedDocument(documentFile);
+      setDocumentModalOpen(true);
+    }
+    
+    setNewMessage(reply.text);
+    setIsQuickRepliesOpen(false);
   };
-
-  const filteredQuickReplies = quickReplies.filter(reply =>
-    reply.text.toLowerCase().includes(quickReplyFilter.toLowerCase())
-  );
 
   
   // Modify the notification listener
@@ -1577,9 +1509,7 @@ useEffect(() => {
         if (companyData.v2) {
           contact = initialContacts.find(c => c.phone === phone || c.chat_id === chatIdFromUrl);
           if (!contact) throw new Error('Contact not found in initialContacts');
-        } else {
-          contact = await fetchDuplicateContact(phone, companyData.ghl_location, companyData.ghl_accessToken);
-        }
+        } 
   
         setSelectedContact(contact);
         setSelectedChatId(chatIdFromUrl);
@@ -1639,25 +1569,13 @@ async function fetchConfigFromDatabase() {
       setMessageMode('phone1');
     }
     console.log(messageMode);
-    setGhlConfig({
-      ghl_id: data.ghl_id,
-      ghl_secret: data.ghl_secret,
-      refresh_token: data.refresh_token,
-      ghl_accessToken: data.ghl_accessToken,
-      ghl_location: data.ghl_location,
-      whapiToken: data.whapiToken,
-      v2: data.v2,
-    });
+
 
     console.log('Tags:', data.tags);
 
     setToken(data.whapiToken);
     user_name = dataUser.name;
 
-    // Set wallpaper URL if available
-    if (dataUser.wallpaper_url) {
-      setWallpaperUrl(dataUser.wallpaper_url);
-    }
 
     const employeeRef = doc(firestore, `companies/${companyId}/employee`, dataUser.name);
     const employeeDoc = await getDoc(employeeRef);
@@ -1691,7 +1609,7 @@ async function fetchConfigFromDatabase() {
     } else {
       console.log('Company is not using v2, fetching tags from GHL');
       // For non-v2, fetch from GHL API
-      await fetchTags(data.ghl_accessToken, data.ghl_location, employeeNames);
+ 
     }
 
     console.log('User Role:', userRole);
@@ -1700,31 +1618,7 @@ async function fetchConfigFromDatabase() {
     console.error('Error fetching config:', error);
   }
 }
-  const updateConversation = async (conversationId: string, token: string, locationId: string,) => {
-    const url = `https://services.leadconnectorhq.com/conversations/${conversationId}`;
-    const options = {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Version: '2021-04-15',
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      data: {
-        locationId: locationId,
-        unreadCount: 0,
-      },
-    };
   
-    try {
-      const response = await axios(url, options);
-      console.log(response.data);
-      const data = response.data;
-      console.log(data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   const deleteNotifications = async (chatId: string) => {
     try {
@@ -1858,158 +1752,6 @@ async function fetchConfigFromDatabase() {
       console.error('Error deleting notifications:', error);
     }
   };
-  
-  const fetchTags = async (token: string, location: string, employeeList: string[]) => {
-    const maxRetries = 5;
-    const baseDelay = 1000;
-
-    const fetchData = async (url: string, retries: number = 0): Promise<any> => {
-      const options = {
-        method: 'GET',
-        url: url,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Version: '2021-07-28',
-        },
-      };
-      await rateLimiter();
-      try {
-        const response = await axios.request(options);
-        return response;
-      } catch (error: any) {
-        if (error.response && error.response.status === 429 && retries < maxRetries) {
-          const delay = baseDelay * Math.pow(2, retries);
-          console.warn(`Rate limit hit, retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          return fetchData(url, retries + 1);
-        } else {
-          throw error;
-        }
-      }
-    };
-
-    try {
-      const url = `https://services.leadconnectorhq.com/locations/${location}/tags`;
-      const response = await fetchData(url);
-      const filteredTags = response.data.tags.filter((tag: Tag) => !employeeList.includes(tag.name));
-      setTagList(filteredTags);
-
-      // Store tags in Firebase
-      const batch = writeBatch(firestore);
-      const tagsRef = collection(firestore, `companies/${companyId}/tags`);
-      filteredTags.forEach((tag: Tag) => {
-        const tagRef = doc(tagsRef);
-        batch.set(tagRef, { name: tag.name });
-      });
-      await batch.commit();
-
-      return filteredTags;
-    } catch (error) {
-      console.error('Error fetching tags:', error);
-      return [];
-    }
-  };
-async function createContact(name: string, number: string): Promise<Contact> {
-  const options = {
-    method: 'POST',
-    url: 'https://services.leadconnectorhq.com/contacts/',
-    headers: {
-      Authorization: `Bearer ${ghlConfig!.ghl_accessToken}`,
-      Version: '2021-07-28',
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    data: {
-      firstName: name,
-      name: name,
-      locationId: ghlConfig!.ghl_location,
-      phone: number,
-    },
-  };
-
-  try {
-    const response = await axios.request(options);
-    const data = response.data;
-    return {
-      chat_id: data.id,
-      id: data.id,
-      firstName: name,
-      phone: number,
-      unreadCount: 0,
-      conversation_id: '', // Default values
-      additionalEmails: [],
-      address1: null,
-      assignedTo: null,
-      businessId: null,
-      city: null,
-      companyName: null,
-      contactName: name,
-      country: '',
-      customFields: [],
-      dateAdded: new Date().toISOString(),
-      dateOfBirth: null,
-      dateUpdated: new Date().toISOString(),
-      dnd: false,
-      dndSettings: {},
-      email: null,
-      followers: [],
-      lastName: '',
-      locationId: ghlConfig!.ghl_location,
-      postalCode: null,
-      source: null,
-      state: null,
-      tags: [],
-      type: '',
-      website: null,
-      chat: [],
-      last_message: null,
-      pinned: false,
-    };
-  } catch (error) {
-    console.error(error);
-    throw new Error('Failed to create contact');
-  }
-}
-const fetchDuplicateContact = async (phone: string, locationId: string, accessToken: string) => {
-  const url = `https://services.leadconnectorhq.com/contacts/search/duplicate?locationId=${locationId}&number=${phone}`;
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Version: '2021-07-28',
-        Accept: 'application/json',
-      },
-    });
-    return response.data.contact;
-  } catch (err) {
-    const error = err as AxiosError;
-    if (error.response && error.response.status === 429) {
-      // Handle rate limit error gracefully
-      return null;
-    } else if (axios.isCancel(error)) {
-      console.warn('Fetch cancelled:', error.message);
-    } else {
-      console.error('Error fetching duplicate contact:', error);
-      throw error;
-    }
-  }
-};
-
-const fetchContacts = async (whapiToken: any, locationId: any, ghlToken: any, user_name: string, role: string, userEmail: string, callback?: Function) => {
-  console.log('Fetching contacts:', { user_name, role, userEmail });
-  try {
-    console.log('Initial contacts:', { count: initialContacts.length });
-    const filteredInitialContacts = filterContactsByUserRole(initialContacts, role, user_name);
-    console.log('Filtered initial contacts:', { count: filteredInitialContacts.length });
-    setContacts(filteredInitialContacts);
-    setFilteredContacts(filteredInitialContacts);
-    setFilteredContactsForForwarding(filteredInitialContacts);
-  } catch (error) {
-    console.error('Failed to fetch contacts:', error);
-  }
-};
-
-
 const getTimestamp = (timestamp: any): number => {
   if (typeof timestamp === 'number') {
     return timestamp < 10000000000 ? timestamp * 1000 : timestamp;
@@ -2122,57 +1864,6 @@ useEffect(() => {
   fetchUserRole();
 }, []);
 
-
-  async function fetchConversationMessages(conversationId: string,contact:any) {
-    if (!conversationId) return;
-    console.log(contact);
-    console.log(selectedIcon);
-    const auth = getAuth(app);
-    const user = auth.currentUser;
-    try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.log('No such document!');
-        return;
-      }
-      const data2 = docSnapshot.data();
-      await updateConversation(conversationId,data2.ghl_accessToken,data2.ghl_location)
-      setToken(data2.whapiToken);
-      const leadConnectorResponse = await axios.get(`https://services.leadconnectorhq.com/conversations/${conversationId}/messages`, {
-        headers: {
-          Authorization: `Bearer ${data2.ghl_accessToken}`,
-          Version: '2021-04-15',
-          Accept: 'application/json'
-        }
-      });
-      const leadConnectorData = leadConnectorResponse.data;
-      setMessages(
-        leadConnectorData.messages.messages.map((message: any) => ({
-          id: message.id,
-          text: { body: message.body },
-          from_me: message.direction === 'outbound' ? true : false,
-          createdAt: message.dateAdded,
-          type: 'text',
-          image: message.image ? message.image : undefined,
-        }))
-      );
-    } catch (error) {
-      console.error('Failed to fetch messages:', error);
-    }
-  }
-  const handleWhatsappClick = (iconId: string) => {
-    setSelectedIcon(iconId);
-    fetchMessages(selectedChatId!, whapiToken!);
-  };
   useEffect(() => {
     if (selectedChatId) {
       console.log(selectedContact);
@@ -2208,17 +1899,9 @@ useEffect(() => {
         setToken(data2.whapiToken);
         console.log('fetching messages');
         let messages;
-        if (data2.v2) {
-            messages = await fetchMessagesFromFirebase(companyId, selectedChatId);
+        messages = await fetchMessagesFromFirebase(companyId, selectedChatId);
             console.log('messages');
             console.log(messages);
-        } else {
-            messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken, dataUser?.email);
-            // If no messages, try with whapiToken2
-            if (!messages.length && data2.whapiToken2) {
-                messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken2, dataUser?.email);
-            }
-        }
         
         const formattedMessages: any[] = [];
         const reactionsMap: Record<string, any[]> = {};
@@ -2406,16 +2089,6 @@ useEffect(() => {
     }
 }
 
-const togglePrivateNotes = () => {
-  const newExpandedState = !isPrivateNotesExpanded;
-  console.log('Toggling private notes. New state:', newExpandedState);
-  setIsPrivateNotesExpanded(newExpandedState);
-  if (newExpandedState) {
-    console.log('Expanding private notes, calling fetchPrivateNotes');
-    fetchPrivateNotes();
-  }
-};
-
 async function fetchMessagesFromFirebase(companyId: string, chatId: string): Promise<any[]> {
   const number = '+' + chatId.split('@')[0];
   console.log(number);
@@ -2432,12 +2105,7 @@ async function fetchMessagesFromFirebase(companyId: string, chatId: string): Pro
   });
 }
 
-  
-  async function  fetchMessagesFromApi(chatId: string, token: string, userEmail: string) {
-    const response = await axios.get(`https://mighty-dane-newly.ngrok-free.app/api/messages/${chatId}/${token}/${userEmail}`);
-    console.log(response);
-    return response.data.messages;
-  }
+
 async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
   setSelectedIcon('ws');
   const auth = getAuth(app);
@@ -2465,17 +2133,9 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     setToken(data2.whapiToken);
     
     let messages;
-    if (data2.v2) {
-      messages = await fetchMessagesFromFirebase(companyId, selectedChatId);
-      console.log('messages');
-      console.log(messages);
-    } else {
-      messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken, dataUser?.email);
-      // If no messages, try with whapiToken2
-      if (!messages.length && data2.whapiToken2) {
-        messages = await fetchMessagesFromApi(selectedChatId, data2.whapiToken2, dataUser?.email);
-      }
-    }
+    messages = await fetchMessagesFromFirebase(companyId, selectedChatId);
+    console.log('messages');
+    console.log(messages);
     
     const formattedMessages: any[] = [];
     const reactionsMap: Record<string, any[]> = {};
@@ -2677,129 +2337,8 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     console.error('Failed to fetch messages:', error);
   }
 }
-  async function sendTextMessage(selectedChatId: string, newMessage: string,contact:any): Promise<void> {
-    if (!newMessage.trim() || !selectedChatId) return;
-  console.log(selectedChatId)
-    const user = auth.currentUser;
-    if (!user) {
-      console.log('User not authenticated');
-      return;
-    }
-  
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.log('No such document!');
-      return;
-    }
-  
-    const dataUser = docUserSnapshot.data();
-     companyId = dataUser.companyId;
-  
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      console.log('No such document!');
-      return;
-    }
-  
-    const data2 = docSnapshot.data();
-    const accessToken = data2.ghl_accessToken;
-  
-    try {
-      const options = {
-        method: 'POST',
-        url: 'https://services.leadconnectorhq.com/conversations/messages',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Version: '2021-04-15',
-        },
-        data: {
-          type: (selectedIcon =='fb')?'FB':'IG',
-          contactId: selectedChatId,
-          message: newMessage
-        }
-      };
-  
-      const response = await axios.request(options);
-      console.log(response.data);
-  
-      console.log('Message sent successfully:', response.data);
-      fetchConversationMessages(contact.conversation_id,selectedContact);
-    } catch (error) {
-      console.error('Error sending message:', error);
-    }
-  }
 
-  const fetchPrivateNotes = async () => {
-    if (!selectedChatId) {
-      console.log('fetchPrivateNotes: Missing selectedChatId', { selectedChatId });
-      return;
-    }
-  
-    console.log('Fetching private notes for:', selectedChatId);
-  
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.log('No authenticated user');
-        return;
-      }
-  
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-  
-      if (!companyId) {
-        console.log('No companyId found for user');
-        return;
-      }
-  
-      // Convert selectedChatId to numericChatId
-      const numericChatId = '+' + selectedChatId.split('@')[0];
-      console.log('Numeric Chat ID:', numericChatId);
-      
-      const privateNotesRef = collection(firestore, 'companies', companyId, 'contacts', numericChatId, 'privateNotes');
-      console.log('Firestore path:', `companies/${companyId}/contacts/${numericChatId}/privateNotes`);
-  
-      const q = query(privateNotesRef, orderBy('timestamp', 'desc'));
-      const querySnapshot = await getDocs(q);
-  
-      console.log('Number of private notes fetched:', querySnapshot.size);
-  
-      const fetchedNotes = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        console.log('Note data:', data);
-        return {
-          id: doc.id,
-          text: data.text,
-          from: data.from,
-          timestamp: data.timestamp?.toDate().getTime(),
-          type: 'privateNote'
-        };
-      });
-  
-      console.log('Processed fetched notes:', fetchedNotes);
-  
-      setPrivateNotes(prevNotes => {
-        const updatedNotes = {
-          ...prevNotes,
-          [selectedChatId]: fetchedNotes
-        };
-        console.log('Updated privateNotes state:', updatedNotes);
-        return updatedNotes;
-      });
-  
-    } catch (error) {
-      console.error('Error fetching private notes:', error);
-      toast.error('Failed to fetch private notes');
-    }
-  };
+
 
 
 
@@ -2897,53 +2436,12 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       toast.error("Failed to add private note");
     }
   };
-  const deletePrivateNote = async (noteId: string) => {
-    if (!selectedChatId) {
-      console.error('No chat selected');
-      return;
-    }
-  
-    const user = auth.currentUser;
-    if (!user) {
-      console.error('No authenticated user');
-      return;
-    }
-  
-    try {
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-  
-      // Convert selectedChatId to numericChatId
-      const numericChatId = '+' + selectedChatId.split('@')[0];
-  
-      const privateNoteRef = doc(firestore, 'companies', companyId, 'contacts', numericChatId, 'privateNotes', noteId);
-  
-      await deleteDoc(privateNoteRef);
-  
-      // Update local state
-      setPrivateNotes(prevNotes => ({
-        ...prevNotes,
-        [selectedChatId]: prevNotes[selectedChatId].filter(note => note.id !== noteId)
-      }));
-  
-      // Update messages state to remove the deleted note
-      setMessages(prevMessages => prevMessages.filter(message => message.id !== noteId));
-  
-      toast.success("Private note deleted successfully!");
-    } catch (error) {
-      console.error('Error deleting private note:', error);
-      toast.error("Failed to delete private note");
-    }
-  };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChatId) return;
+      
+    setNewMessage('');
+    setReplyToMessage(null);
     const user = auth.currentUser;
     const docUserRef = doc(firestore, 'user', user?.email!);
     const docUserSnapshot = await getDoc(docUserRef);
@@ -2953,6 +2451,24 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
     const dataUser = docUserSnapshot.data();
     companyId = dataUser.companyId;
+    let phoneIndex;
+    if (dataUser?.phone !== undefined) {
+        if (dataUser.phone === 0) {
+            // Handle case for phone index 0
+            phoneIndex = 0;
+        } else if (dataUser.phone === -1) {
+            // Handle case for phone index -1
+            phoneIndex = 0;
+        } else {
+            // Handle other cases
+            console.log(`User phone index is: ${dataUser.phone}`);
+            phoneIndex = dataUser.phone;
+        }
+    } else {
+        console.error('User phone is not defined');
+        phoneIndex = 0; // Default value if phone is not defined
+    }
+    
     const userName = dataUser.name || dataUser.email || ''; // Get the user's name
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
@@ -2967,43 +2483,21 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     } else {
       try {
         let response;
-        if (data2.v2 === true) {
-          console.log("v2 is true");
-          // Use the new API
-          let phoneIndex = 0;
-          if(messageMode === 'phone1'){
-            phoneIndex = 0;
-          }else if(messageMode === 'phone2'){
-            phoneIndex = 1;
-          }else if(messageMode === 'phone3'){
-            phoneIndex = 2;
-          }
-          response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${selectedChatId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              message: newMessage,
-              quotedMessageId: replyToMessage?.id || null,
-              phoneIndex: phoneIndex,
-              userName: userName
-            }),
-          });
-        } else {
-          // Use the original method
-          setToken(data2.whapiToken);
-          console.log("v2 is false");
-          response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/text/${selectedChatId!}/${data2.whapiToken}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              message: newMessage,
-              quotedMessageId: replyToMessage?.id || null,
-              userName: userName
-            }),
-          });
-        }
+        console.log("v2 is true");
+        // Use the new API
+      
+        response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${selectedChatId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: newMessage,
+            quotedMessageId: replyToMessage?.id || null,
+            phoneIndex: phoneIndex,
+            userName: userName
+          }),
+        });
   
-        await sendTextMessage(selectedChatId, newMessage, selectedContact);
+   
   
         if (!response.ok) {
           throw new Error('Failed to send message');
@@ -3014,7 +2508,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         setContacts(prevContacts => 
           prevContacts.map(contact => 
             contact.id === selectedContact.id 
-              ? updateContactWithNewMessage(contact, newMessage, now)
+              ? updateContactWithNewMessage(contact, newMessage, now,phoneIndex)
               : contact
           )
         );
@@ -3026,7 +2520,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
           id: selectedContact.last_message?.id || `temp_${now.getTime()}`,
           from_me: true,
           type: 'text',
-          phoneIndex: selectedContact.last_message?.phoneIndex || 0,
+          phoneIndex: phoneIndex,
         };
         
         await updateDoc(contactRef, {
@@ -3039,13 +2533,11 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         toast.error("Failed to send message");
       }
     }
-  
-    setNewMessage('');
-    setReplyToMessage(null);
+
   };
 
   
-  const updateContactWithNewMessage = (contact: Contact, newMessage: string, now: Date): Contact => {
+  const updateContactWithNewMessage = (contact: Contact, newMessage: string, now: Date,phoneIndex: number): Contact => {
     const updatedLastMessage: Message = {
       text: { body: newMessage },
       chat_id: contact.chat_id || '',
@@ -3054,7 +2546,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       from_me: true,
       type: 'text',
       from_name: contact.last_message?.from_name || '',
-      phoneIndex: selectedContact.last_message?.phoneIndex || 0,
+      phoneIndex: phoneIndex,
       // Add any other required fields with appropriate default values
     };
   
@@ -3249,36 +2741,134 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
 };
 
   const addTagBeforeQuote = (contact: Contact) => {
-    if (!contact.phone || !contact.firstName) {
-      console.error('Phone or firstName is null or undefined');
+    console.log('Adding tag before quote for contact:', contact.phone);
+    console.log('Adding tag before quote for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('addBeforeQuote', contact.phone, contact.firstName);
+    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
   };
+
+  const addTagBeforeQuoteEnglish = (contact: Contact) => {
+    console.log('Adding tag before quote (English) for contact:', contact.phone);
+    console.log('Adding tag before quote (English) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
+};
+
+const addTagBeforeQuoteMalay = (contact: Contact) => {
+    console.log('Adding tag before quote (Malay) for contact:', contact.phone);
+    console.log('Adding tag before quote (Malay) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
+};
+
+const addTagBeforeQuoteChinese = (contact: Contact) => {
+    console.log('Adding tag before quote (Chinese) for contact:', contact.phone);
+    console.log('Adding tag before quote (Chinese) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
+};
   
   const addTagAfterQuote = (contact: Contact) => {
-    if (contact.phone && contact.firstName) {
-      handleBinaTag('addAfterQuote', contact.phone, contact.firstName);
+    console.log('Adding tag after quote for contact:', contact.phone);
+    console.log('Adding tag after quote for contact:', contact.contactName);
+    if (contact.phone && contact.contactName) {
+      handleBinaTag('addAfterQuote', contact.phone, contact.contactName);
     } else {
-      console.error('Phone or firstName is null or undefined');
+      console.error('Phone or firstname is null or undefined');
     }
   };
   
-  const removeTagBeforeQuote = (contact: Contact) => {
-    if (contact.phone && contact.firstName) {
-      handleBinaTag('removeBeforeQuote', contact.phone, contact.firstName);
-    } else {
-      console.error('Phone or firstName is null or undefined');
+  const addTagAfterQuoteEnglish = (contact: Contact) => {
+    console.log('Adding tag after quote (English) for contact:', contact.phone);
+    console.log('Adding tag after quote (English) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
     }
-  };
-  
-  const removeTagAfterQuote = (contact: Contact) => {
-    if (contact.phone && contact.firstName) {
-      handleBinaTag('removeAfterQuote', contact.phone, contact.firstName);
-    } else {
-      console.error('Phone or firstName is null or undefined');
+    handleBinaTag('addAfterQuoteEnglish', contact.phone, contact.contactName);
+};
+
+const addTagAfterQuoteChinese = (contact: Contact) => {
+    console.log('Adding tag after quote (Chinese) for contact:', contact.phone);
+    console.log('Adding tag after quote (Chinese) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
     }
-  };
+    handleBinaTag('addAfterQuoteChinese', contact.phone, contact.contactName);
+};
+
+const addTagAfterQuoteMalay = (contact: Contact) => {
+    console.log('Adding tag after quote (Malay) for contact:', contact.phone);
+    console.log('Adding tag after quote (Malay) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('addAfterQuoteMalay', contact.phone, contact.contactName);
+};
+
+const removeTagBeforeQuote = (contact: Contact) => {
+    console.log('Removing tag before quote for contact:', contact.phone);
+    console.log('Removing tag before quote for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('removeBeforeQuote', contact.phone, contact.contactName);
+};
+
+const removeTagAfterQuote = (contact: Contact) => {
+    console.log('Removing tag after quote for contact:', contact.phone);
+    console.log('Removing tag after quote for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('removeAfterQuote', contact.phone, contact.contactName);
+};
+
+const fiveDaysFollowUpEnglish = (contact: Contact) => {
+    console.log('5 Days Follow Up (English) for contact:', contact.phone);
+    console.log('5 Days Follow Up (English) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('5DaysFollowUpEnglish', contact.phone, contact.contactName);
+};
+
+const fiveDaysFollowUpChinese = (contact: Contact) => {
+    console.log('5 Days Follow Up (Chinese) for contact:', contact.phone);
+    console.log('5 Days Follow Up (Chinese) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('5DaysFollowUpChinese', contact.phone, contact.contactName);
+};
+
+const fiveDaysFollowUpMalay = (contact: Contact) => {
+    console.log('5 Days Follow Up (Malay) for contact:', contact.phone);
+    console.log('5 Days Follow Up (Malay) for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('5DaysFollowUpMalay', contact.phone, contact.contactName);
+};
 
 
   const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
@@ -3309,8 +2899,9 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         toast.error(`Failed to add tag: Contact not found`);
         return;
       }
-  
+
       const currentTags = contactDoc.data().tags || [];
+
       if (!currentTags.includes(tagName)) {
         await updateDoc(contactRef, {
           tags: arrayUnion(tagName)
@@ -3324,6 +2915,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
               : c
           )
         );
+
   
         console.log(`Tag ${tagName} added to contact ${contact.id}`);
         toast.success(`Tag "${tagName}" added to contact`);
@@ -3331,9 +2923,34 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         // Handle specific tags
         if (tagName === 'Before Quote Follow Up') {
           addTagBeforeQuote(contact);
+        } else if (tagName === 'Before Quote Follow Up (English)') {
+          addTagBeforeQuoteEnglish(contact);
+        } else if (tagName === 'Before Quote Follow Up (Malay)') {
+          addTagBeforeQuoteMalay(contact);
+        } else if (tagName === 'Before Quote Follow Up (Chinese)') {
+          addTagBeforeQuoteChinese(contact);
         } else if (tagName === 'After Quote Follow Up') {
           addTagAfterQuote(contact);
+        } else if (tagName === 'After Quote Follow Up (English)') {
+          addTagAfterQuoteEnglish(contact);
+        } else if (tagName === 'After Quote Follow Up (Chinese)') {
+          addTagAfterQuoteChinese(contact);
+        } else if (tagName === 'After Quote Follow Up (Malay)') {
+          addTagAfterQuoteMalay(contact);
+        } else if (tagName === '5 Days Follow Up (English)') {
+          fiveDaysFollowUpEnglish(contact);
+        } else if (tagName === '5 Days Follow Up (Chinese)') {
+          fiveDaysFollowUpChinese(contact);
+        } else if (tagName === '5 Days Follow Up (Malay)') {
+          fiveDaysFollowUpMalay(contact);
+        } else {
+          // Check if the tag is an employee's name and send assignment notification
+          const employee = employeeList.find(emp => emp.name === tagName);
+          if (employee) {
+            await sendAssignmentNotification(tagName, contact);
+          }
         }
+
       } else {
         console.log(`Tag ${tagName} already exists for contact ${contact.id}`);
         toast.info(`Tag "${tagName}" already exists for this contact`);
@@ -3508,46 +3125,7 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
   }
 };
   
-  async function updateContactTags(contactId: string, tags: string[], addTag: boolean) {
-    try {
-      const user = auth.currentUser;
-
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.log('No such document for user!');
-        return;
-      }
-      const userData = docUserSnapshot.data();
-    
-       companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId, 'contacts', contactId);
-      const docSnapshot = await getDoc(docRef);
-  
-      if (!docSnapshot.exists()) {
-        console.error(`No document to update: companies/${companyId}/contacts/${contactId}`);
-        return false;
-      }
-  
-      if (addTag) {
-        await updateDoc(docRef, {
-          tags: arrayUnion(...tags)
-        });
-      } else {
-        await updateDoc(docRef, {
-          tags: arrayRemove(...tags)
-        });
-      }
-    
-      console.log('Contact tags updated successfully');
-   
-      return true;
-    } catch (error) {
-      console.error('Error updating contact tags:', error);
-      return false;
-    }
-  }
-
+ 
 const formatText = (text: string) => {
   const parts = text.split(/(\*[^*]+\*|\*\*[^*]+\*\*)/g);
   return parts.map((part: string, index: any) => {
@@ -3587,32 +3165,24 @@ function formatDate(timestamp: string | number | Date) {
     setIsTabOpen(!isTabOpen);
   };
 
-// Helper function to handle different timestamp formats
-const getTimestamp2 = (timestamp: any): number => {
-  if (typeof timestamp === 'number') {
-    return timestamp;
-  } else if (timestamp && timestamp.seconds) {
-    return timestamp.seconds * 1000;
-  } else if (typeof timestamp === 'string') {
-    return new Date(timestamp).getTime();
-  }
-  return 0;
-};
-
-useEffect(() => {
-  const filtered = contacts.filter((contact) =>
-    (contact.contactName?.toLowerCase() || contact.firstName?.toLowerCase() || contact.phone?.toLowerCase() || '')
-      .includes(searchQuery.toLowerCase())
-  );
-  setFilteredContacts(filtered);
-  setCurrentPage(0); // Reset to first page when search query changes
-}, [contacts, searchQuery]);
   
 const handlePageChange = ({ selected }: { selected: number }) => {
   setCurrentPage(selected);
 };
 
+const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
 const [paginatedContacts, setPaginatedContacts] = useState<Contact[]>([]);
+
+useEffect(() => {
+  setLoadingMessage("Loading contacts...");
+  const timer = setTimeout(() => {
+    if (paginatedContacts.length === 0) {
+      setLoadingMessage("There are a lot of contacts, fetching them might take some time...");
+    }
+  }, 15000);
+
+  return () => clearTimeout(timer);
+}, [paginatedContacts]);
 
 useEffect(() => {
   let filtered = contacts;
@@ -3641,12 +3211,15 @@ useEffect(() => {
       (contact.firstName?.toLowerCase() || '')
         .includes(searchQuery.toLowerCase()) ||
       (contact.phone?.toLowerCase() || '')
-        .includes(searchQuery.toLowerCase())
+        .includes(searchQuery.toLowerCase()) ||
+      (contact.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
     );
   }
 
   setFilteredContacts(filtered);
-  setCurrentPage(0); // Reset to first page when filters change
+  if (searchQuery.trim() !== '') {
+    setCurrentPage(0); // Reset to first page when searching
+  }
 
   console.log('Filtered contacts updated:', filtered);
 }, [contacts, searchQuery, activeTags, currentUserName, employeeList]);
@@ -3680,8 +3253,11 @@ const sortContacts = (contacts: Contact[]) => {
   const activeTag = activeTags[0].toLowerCase();
   
   // Check if the user has a selected phone
-  const userPhoneIndex = userData?.phone !== undefined ? parseInt(userData.phone, 10) : -1;
-
+  let userPhoneIndex = userData?.phone !== undefined ? parseInt(userData.phone, 10) : 0;
+  if (userPhoneIndex === -1) {
+    userPhoneIndex = 0;
+  }
+  console.log("userPhoneIndex", userPhoneIndex);
   // Filter by user's selected phone first
   if (userPhoneIndex !== -1) {
     fil = fil.filter(contact => contact.phoneIndex === userPhoneIndex);
@@ -3736,11 +3312,6 @@ const sortContacts = (contacts: Contact[]) => {
     console.log('active1:' + activeTags[0]);
 
   };
-
-  useEffect(() => {
-    console.log('Filtered contacts updated:', filteredContacts);
-  }, [filteredContacts]);
-
 
   // Update this function
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3959,21 +3530,6 @@ const sortContacts = (contacts: Contact[]) => {
             : [...prevSelectedMessages, message]
     );
   };
-const formatTextForSending = (text: string) => {
-  // Step 1: Ensure proper spacing between items
-  text = text.replace(/- /g, '\n- ');
-
-  // Step 2: Ensure proper new lines between items
-  text = text.replace(/(\w)(?=\w*\()|\b\(/g, '$&\n');
-
-  // Step 3: Add asterisks for emphasis
-  text = text.replace(/(?:^|\n)-\s*([^\n]+)/g, '- *$1*');
-
-  // Step 4: Add a new line after every sentence
-  text = text.replace(/\.(\s)/g, '.\n$1');
-
-  return text.trim();
-};
 const handleForwardMessage = async () => {
   if (selectedMessages.length === 0 || selectedContactsForForwarding.length === 0) return;
 
@@ -4031,10 +3587,7 @@ const handleForwardMessage = async () => {
   }
 };
 
-  const handleOpenForwardDialog = (message: Message) => {
-    setSelectedMessageForForwarding(message);
-    setIsForwardDialogOpen(true);
-  };
+
 
   const handleSelectContactForForwarding = (contact: Contact) => {
     setSelectedContactsForForwarding(prevContacts => 
@@ -4088,20 +3641,6 @@ const handleForwardMessage = async () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
-  const handleForwardClick = () => {
-    setActiveMenu('forward');
-  };
-  const handleImageUpload: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
-    setLoading(true);
-    const files = event.target.files;
-    if (files) {
-      for (const file of Array.from(files)) {
-        const imageUrl = await uploadFile(file);
-        await sendImageMessage(selectedChatId!, imageUrl!, "");
-      }
-    }
-    setLoading(false);
-  };
   
   const handleDocumentUpload: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
     setLoading(true);
@@ -4139,6 +3678,7 @@ const handleForwardMessage = async () => {
   
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
+      const phoneIndex = userData.phone || 0;
       const userName = userData.name || userData.email || '';
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
@@ -4157,7 +3697,7 @@ const handleForwardMessage = async () => {
           body: JSON.stringify({
             imageUrl: imageUrl,
             caption: caption || '',
-            phoneIndex: 0, // Assuming default phone index is 0
+            phoneIndex: phoneIndex, // Assuming default phone index is 0
             userName: userName,
           }),
         });
@@ -4471,13 +4011,30 @@ const handleForwardMessage = async () => {
         }
       }
 
-      // Handle specific tags
+      //handle specific tags
       if (tagName === 'Before Quote Follow Up') {
+        removeTagBeforeQuote(contact);
+      } else if (tagName === 'Before Quote Follow Up (English)') {
+        removeTagBeforeQuote(contact);
+      } else if (tagName === 'Before Quote Follow Up (Malay)') {
+        removeTagBeforeQuote(contact);
+      } else if (tagName === 'Before Quote Follow Up (Chinese)') {
         removeTagBeforeQuote(contact);
       } else if (tagName === 'After Quote Follow Up') {
         removeTagAfterQuote(contact);
+      } else if (tagName === 'After Quote Follow Up (English)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === 'After Quote Follow Up (Chinese)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === 'After Quote Follow Up (Malay)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === '5 Days Follow Up (English)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === '5 Days Follow Up (Chinese)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === '5 Days Follow Up (Malay)') {
+        removeTagAfterQuote(contact);
       }
-  
       // Update state
       setContacts(prevContacts => {
         if (userData?.role === '3') {
@@ -4675,61 +4232,6 @@ const handleForwardMessage = async () => {
     }
   };
 
-  //fetch qrcode
-  const fetchQRCode = async () => {
-    const auth = getAuth(app);
-    const user = auth.currentUser;
-    setError(null);
-    try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-      return;
-      }
-
-      const dataUser = docUserSnapshot.data();
-      companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-          
-      return;
-      }
-      const companyData = docSnapshot.data();
-      const healthresponse = await axios.get('https://gate.whapi.cloud/health?wakeup=true&channel_type=web', {
-        headers: {
-          'accept': 'application/json',
-          'authorization': `Bearer ${companyData.whapiToken}`,
-        },
-      });
-      console.log(healthresponse.data.status)
-      if(healthresponse.data.status.text === 'QR' || healthresponse.data.status.text === 'INIT'){
-        const QRresponse = await axios.get('https://gate.whapi.cloud/users/login/image?wakeup=true', {
-          headers: {
-            'accept': 'image/png',
-            'authorization': `Bearer ${companyData.whapiToken}`,
-            'content-type': 'application/json',
-          },data: {
-            'size': 264,
-            'width': 300,
-            'height': 300,
-            'color_dark': '#122e31',
-            'color_light': '#ffffff',
-          }, responseType: 'blob',
-        });
-
-        const qrCodeURL = URL.createObjectURL(QRresponse.data); // Create an object URL from the blob
-        console.log("qrCodeURL", qrCodeURL)
-        console.log("response", response)
-        setQrCodeImage(qrCodeURL);
-      }else{
-      }
-    } catch (error) {
-      setError('Failed to fetch QR code. Please try again.');
-      console.error("Error fetching QR code:", error);
-    }
-  };
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (quickRepliesRef.current && !quickRepliesRef.current.contains(event.target as Node)) {
@@ -4797,68 +4299,7 @@ const handleForwardMessage = async () => {
   }, [contacts]);
 
 
-  // Add this new function to toggle all bots
-  const toggleAllBots = async () => {
-    const newStatus = botsStatus !== 'allRunning';
-    setIsAllBotsEnabled(newStatus);
-
-    const user = auth.currentUser;
-    if (!user) {
-      console.log('No authenticated user');
-      return;
-    }
-  
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.log('No such document for user!');
-      return;
-    }
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-  
-    try {
-      const contactsRef = collection(firestore, 'companies', companyId, 'contacts');
-      const contactsSnapshot = await getDocs(contactsRef);
-  
-      const batch = writeBatch(firestore);
-  
-      contactsSnapshot.forEach((doc) => {
-        const contactRef = doc.ref;
-        if (newStatus) {
-          // Remove "stop bot" tag
-          batch.update(contactRef, {
-            tags: arrayRemove('stop bot')
-          });
-        } else {
-          // Add "stop bot" tag
-          batch.update(contactRef, {
-            tags: arrayUnion('stop bot')
-          });
-        }
-      });
-  
-      await batch.commit();
-
-      // Update local state
-      setContacts(prevContacts => 
-        prevContacts.map(contact => ({
-          ...contact,
-          tags: newStatus
-            ? contact.tags?.filter(tag => tag !== 'stop bot')
-            : [...(contact.tags || []), 'stop bot']
-        }))
-      );
-      
-      localStorage.setItem('contacts', LZString.compress(JSON.stringify(contacts)));
-      sessionStorage.setItem('contactsFetched', 'true');
-  
-      toast.success(newStatus ? "All bots started" : "All bots stopped");
-    } catch (error) {
-      console.error('Error toggling all bots:', error);
-      toast.error("Failed to toggle all bots");
-    }
-  };
+ 
 
 
   const toggleBot = async () => {
@@ -4889,93 +4330,6 @@ const handleForwardMessage = async () => {
     }
   };
 
-  async function searchContacts(accessToken: string, locationId: string) {
-    setIsFetchingContacts(true);
-    setContactsFetchProgress(0);
-    try {
-      let allContacts: Contact[] = [];
-      let fetchMore = true;
-      let nextPageUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&limit=100`;
-
-      const maxRetries = 5;
-      const baseDelay = 5000;
-
-      const fetchData = async (url: string, retries: number = 0): Promise<any> => {
-        const options = {
-          method: 'GET',
-          url: url,
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Version: '2021-07-28',
-          },
-        };
-        try {
-          const response = await axios.request(options);
-          return response;
-        } catch (error: any) {
-          if (error.response && error.response.status === 429 && retries < maxRetries) {
-            const delay = baseDelay * Math.pow(2, retries);
-            console.warn(`Rate limit hit, retrying in ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            return fetchData(url, retries + 1);
-          } else {
-            throw error;
-          }
-        }
-      };
-
-      let fetchedContacts = 0;
-      let totalContacts = 0;
-      while (fetchMore) {
-        const response = await fetchData(nextPageUrl);
-        const contacts = response.data.contacts;
-        totalContacts = response.data.meta.total;
-
-        if (contacts.length > 0) {
-          allContacts = [...allContacts, ...contacts];
-          if (userData?.role === '2') {
-            const filteredContacts = allContacts.filter(contact => 
-              contact.tags?.some((tag: string) => 
-                typeof tag === 'string' && tag.toLowerCase().includes(userData.name.toLowerCase())
-              )
-            );
-            setContacts(filteredContacts);
-          } else {
-            setContacts(allContacts);
-          }
-
-          fetchedContacts = allContacts.length;
-          setTotalContactsToFetch(totalContacts);
-          setFetchedContactsCount(fetchedContacts);
-          setContactsFetchProgress((fetchedContacts / totalContacts) * 100);
-        }
-
-        if (response.data.meta.nextPageUrl) {
-          nextPageUrl = response.data.meta.nextPageUrl;
-        } else {
-          fetchMore = false;
-        }
-      }
-
-      // Update local storage and session storage
-      localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
-      sessionStorage.setItem('contactsFetched', 'true');
-
-    } catch (error) {
-      console.error('Error searching contacts:', error);
-    } finally {
-      setIsFetchingContacts(false);
-    }
-  }
-
-  // Add this function to trigger the contact search
-  const handleSearchContacts = async () => {
-    if (!ghlConfig) {
-      console.error('GHL configuration is not available');
-      return;
-    }
-    await searchContacts(ghlConfig.ghl_accessToken, ghlConfig.ghl_location);
-  };
 
   const { show } = useContextMenu({
     id: 'contact-context-menu',
@@ -5045,74 +4399,96 @@ const handleForwardMessage = async () => {
       setSelectedMedia(file);
     }
   };
-  
-
-  
   const sendBlastMessage = async () => {
+    console.log('Starting sendBlastMessage function');
+
+    // Ensure selectedChatId is valid
+    if (!selectedChatId) {
+      console.log('No chat selected');
+      toast.error("No chat selected!");
+      return;
+    }
+    // Combine date and time
+    const scheduledTime = blastStartTime || new Date();
+    const now = new Date();
+    if (scheduledTime <= now) {
+      console.log('Selected time is in the past');
+      toast.error("Please select a future time for the blast message.");
+      return;
+    }
     setIsScheduling(true);
     try {
-      let mediaUrl = "";
-      let documentUrl = "";
-  
+      let mediaUrl = '';
+      let documentUrl = '';
       if (selectedMedia) {
+        console.log('Uploading media...');
         mediaUrl = await uploadFile(selectedMedia);
+        console.log(`Media uploaded. URL: ${mediaUrl}`);
       }
-  
       if (selectedDocument) {
+        console.log('Uploading document...');
         documentUrl = await uploadFile(selectedDocument);
-      }
-      const user = auth.currentUser;
-      if (!user) {
-        toast.error("User not authenticated");
-        return;
+        console.log(`Document uploaded. URL: ${documentUrl}`);
       }
 
-      const docUserRef = doc(firestore, 'user', user.email!);
+      const user = auth.currentUser;
+      console.log(`Current user: ${user?.email}`);
+
+      const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
-        toast.error("User document not found");
+        console.log('No such document for user!');
         return;
       }
-
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
+      console.log(`Company ID: ${companyId}`);
+      const chatIds = [selectedChatId]; // Use selectedChatId directly
+      const processedMessages = [selectedContact].map(contact => {
+        let processedMessage = blastMessage;
+        // Replace placeholders
+        processedMessage = processedMessage.replace(/@{contactName}/g, contact.contactName || '');
+        processedMessage = processedMessage.replace(/@{firstName}/g, contact.firstName || '');
+        processedMessage = processedMessage.replace(/@{lastName}/g, contact.lastName || '');
+        processedMessage = processedMessage.replace(/@{email}/g, contact.email || '');
+        processedMessage = processedMessage.replace(/@{phone}/g, contact.phone || '');
+        processedMessage = processedMessage.replace(/@{vehicleNumber}/g, contact.vehicleNumber || '');
+        processedMessage = processedMessage.replace(/@{branch}/g, contact.branch || '');
+        processedMessage = processedMessage.replace(/@{expiryDate}/g, contact.expiryDate || '');  
+        // Add more placeholders as needed
+        return { chatId: contact.phone?.replace(/\D/g, '') + "@s.whatsapp.net", message: processedMessage };
+      });
 
-      const companyRef = doc(firestore, 'companies', companyId);
-      const companySnapshot = await getDoc(companyRef);
-      if (!companySnapshot.exists()) {
-        toast.error("Company document not found");
-        return;
-      }
-
-      const companyData = companySnapshot.data();
-      const isV2 = companyData.v2 || false;
-      const scheduledTime = blastStartTime || new Date();
-  
       const scheduledMessageData = {
+        chatIds: chatIds,
+        message: blastMessage,
+        messages: processedMessages,
         batchQuantity: batchQuantity,
-        chatIds: [selectedChatId], // Assuming you want to send to the current chat
         companyId: companyId,
         createdAt: Timestamp.now(),
         documentUrl: documentUrl || "",
         fileName: selectedDocument ? selectedDocument.name : null,
+        image: selectedImage ? await uploadImage(selectedImage) : null,
         mediaUrl: mediaUrl || "",
-        message: blastMessage,
         mimeType: selectedMedia ? selectedMedia.type : (selectedDocument ? selectedDocument.type : null),
         repeatInterval: repeatInterval,
         repeatUnit: repeatUnit,
         scheduledTime: Timestamp.fromDate(scheduledTime),
         status: "scheduled",
-        v2: isV2,
-        whapiToken: isV2 ? null : whapiToken,
+        v2: true, // Adjust as needed
+        whapiToken: null, // Adjust as needed
+        phoneIndex: userData.phoneIndex,
       };
-  
+
+      console.log('Sending scheduledMessageData:', JSON.stringify(scheduledMessageData, null, 2));
+
       // Make API call to schedule the message
       const response = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}`, scheduledMessageData);
-  
+
       console.log(`Scheduled message added. Document ID: ${response.data.id}`);
       toast.success(`Blast message scheduled successfully.`);
       toast.info(`Message will be sent at: ${scheduledTime.toLocaleString()} (local time)`);
-  
+
       // Close the modal and reset state
       setBlastMessageModal(false);
       setBlastMessage("");
@@ -5129,6 +4505,7 @@ const handleForwardMessage = async () => {
       setIsScheduling(false);
     }
   };
+
   const handleReminderClick = () => {
     setIsReminderModalOpen(true);
   };
@@ -5185,7 +4562,7 @@ const handleForwardMessage = async () => {
       const isV2 = companyData.v2 || false;
       const whapiToken = companyData.whapiToken || '';
       const phone = userData.phoneNumber.split('+')[1];
-      const chatId = phone + "@c.us"; // The specific number you want to send the reminder to
+      const chatId = phone + "@s.whatsapp.net"; // The specific number you want to send the reminder to
       
       console.log(chatId)
       const reminderMessage = `*Reminder for contact:* ${selectedContact.contactName || selectedContact.firstName || selectedContact.phone}\n\n${text}`;
@@ -5425,32 +4802,43 @@ console.log(prompt);
     }
   };
 
+  const insertPlaceholder = (field: string) => {
+    const placeholder = `@{${field}}`;
+    setBlastMessage(prevMessage => prevMessage + placeholder);
+  };
+
   return (
     <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
       <audio ref={audioRef} src={noti} />
         <div className={`flex flex-col w-full md:min-w-[35%] md:max-w-[35%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700 ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
-        <div className="flex items-center justify-between pl-4 pr-4 pt-6 pb-7 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
-          <div className="text-start text-2xl font-bold capitalize text-gray-800 dark:text-gray-200">
-            {userData?.company}
+        <div className="flex items-center justify-between pl-4 pr-4 pt-6 pb-2 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
+          <div>
+            <div className="text-start text-2xl font-semibold capitalize text-gray-800 dark:text-gray-200">
+              {userData?.company}
+            </div>
+            <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
+              Total Contacts: {contacts.length}
+            </div>
           </div>
           {userData?.phone !== undefined && (
-            <div className="flex items-center space-x-2 text-xl font-semibold opacity-75">
-              <Lucide icon="Phone" className="w-6 h-6 text-gray-800 dark:text-white" />
-              <span className="text-gray-800 dark:text-white">
+            <div className="flex items-center space-x-2 text-lg font-semibold opacity-75">
+              <Lucide icon="Phone" className="w-5 h-5 text-gray-800 dark:text-white" />
+              <span className="text-gray-800 font-medium dark:text-white">
                 {phoneNames[userData.phone] || 'No phone assigned'}
               </span>
             </div>
           )}
+  
         </div>
         <div className="sticky top-20 z-10 bg-gray-100 dark:bg-gray-900 p-2">
           <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
             {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
             {isDeletePopupOpen && <DeleteConfirmationPopup />}
             <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
-  <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-    <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-40 text-gray-900 dark:text-white">
-      <div className="mb-4 text-lg font-semibold">Schedule Blast Message</div>
-        <textarea
+            <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
+              <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-40 text-gray-900 dark:text-white">
+                <div className="mb-4 text-lg font-semibold">Schedule Blast Message</div>
+                  <textarea
                     className="w-full p-2 border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Type your message here..."
                     value={blastMessage}
@@ -5458,83 +4846,118 @@ console.log(prompt);
                     rows={3}
                     style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                   ></textarea>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Media (Image or Video)</label>
-        <input
-          type="file"
-          accept="image/*,video/*"
-          onChange={(e) => handleMediaUpload(e)}
-          className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-      </div>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Document</label>
-        <input
-          type="file"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-          onChange={(e) => handleDocumentUpload(e)}
-          className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-      </div>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Time</label>
-        <DatePicker
-          selected={blastStartTime}
-          onChange={(date: Date) => setBlastStartTime(date)}
-          showTimeSelect
-          dateFormat="MMMM d, yyyy h:mm aa"
-          className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-      </div>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Quantity</label>
-        <input
-          type="number"
-          value={batchQuantity}
-          onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
-          min={1}
-          className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-      </div>
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Repeat Every</label>
-        <div className="flex items-center">
-          <input
-            type="number"
-            value={repeatInterval}
-            onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
-            min={0}
-            className="w-20 mr-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          />
-          <select
-            value={repeatUnit}
-            onChange={(e) => setRepeatUnit(e.target.value as 'minutes' | 'hours' | 'days')}
-            className="border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="minutes">Minutes</option>
-            <option value="hours">Hours</option>
-            <option value="days">Days</option>
-          </select>
-        </div>
-      </div>
-      <div className="flex justify-end mt-4">
-        <button
-          className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
-          onClick={() => setBlastMessageModal(false)}
-        >
-          Cancel
-        </button>
-        <button
-          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={sendBlastMessage}
-          disabled={isScheduling}
-        >
-          {isScheduling ? "Scheduling..." : "Send Blast Message"}
-        </button>
-      </div>
-    </Dialog.Panel>
-  </div>
-</Dialog>
+                   <div className="mt-2">
+                    <button
+                      type="button"
+                      className="text-sm text-blue-500 hover:text-blue-400"
+                      onClick={() => setShowPlaceholders(!showPlaceholders)}
+                    >
+                      {showPlaceholders ? 'Hide Placeholders' : 'Show Placeholders'}
+                    </button>
+                    {showPlaceholders && (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Click to insert:</p>
+                        {['contactName', 'firstName', 'lastName', 'email', 'phone', 'vehicleNumber', 'branch', 'expiryDate'].map(field => (
+                          <button
+                            key={field}
+                            type="button"
+                            className="mr-2 mb-2 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+                            onClick={() => insertPlaceholder(field)}
+                          >
+                            @{'{'}${field}{'}'}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Media (Image or Video)</label>
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      onChange={(e) => handleMediaUpload(e)}
+                      className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Document</label>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                      onChange={(e) => handleDocumentUpload(e)}
+                      className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Date & Time</label>
+                    <div className="flex space-x-2">
+                      <DatePicker
+                        selected={blastStartDate}
+                        onChange={(date: Date) => setBlastStartDate(date)}
+                        dateFormat="MMMM d, yyyy"
+                        className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                      <DatePicker
+                        selected={blastStartTime}
+                        onChange={(date: Date) => setBlastStartTime(date)}
+                        showTimeSelect
+                        showTimeSelectOnly
+                        timeIntervals={15}
+                        timeCaption="Time"
+                        dateFormat="h:mm aa"
+                        className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Quantity</label>
+                    <input
+                      type="number"
+                      value={batchQuantity}
+                      onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
+                      min={1}
+                      className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Repeat Every</label>
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        value={repeatInterval}
+                        onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
+                        min={0}
+                        className="w-20 mr-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                      <select
+                        value={repeatUnit}
+                        onChange={(e) => setRepeatUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+                        className="border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="minutes">Minutes</option>
+                        <option value="hours">Hours</option>
+                        <option value="days">Days</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+                      onClick={() => setBlastMessageModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={sendBlastMessage}
+                      disabled={isScheduling}
+                    >
+                      {isScheduling ? "Scheduling..." : "Send Blast Message"}
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </div>
+            </Dialog>
             <PDFModal isOpen={isPDFModalOpen} onClose={closePDFModal} pdfUrl={pdfUrl} />
             {editingMessage && (
               <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
@@ -5681,17 +5104,9 @@ console.log(prompt);
                 </div>
               </div>
 )} 
-{isFetching && (
-  <div className="w-full">
-    <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 relative">
-      <div className="bg-primary h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
-            </div>
-    <div className="text-right mt-1">
-      <span className="font-semibold truncate text-gray-800 dark:text-gray-200">{progress.toFixed(2)}%</span>
-          </div>
-        </div>
-)}
-{!isFetching && (
+
+    <div className="flex justify-end space-x-3">
+    { (
   <div className="relative flex-grow">
     <input
       type="text"
@@ -5706,7 +5121,6 @@ console.log(prompt);
   />
 </div>
 )}
-    <div className="flex justify-end space-x-3">
     {isAssistantAvailable && (
       <button 
         className={`flex items-center justify-start p-2 !box ${
@@ -5775,7 +5189,7 @@ console.log(prompt);
       'Group', 'Unread', 'Snooze', 'Stop Bot',
       ...(userData?.phone !== undefined && userData.phone !== -1 ? 
         [phoneNames[userData.phone] || `Phone ${userData.phone + 1}`] : 
-        []
+        Object.values(phoneNames)
       ),
       ...visibleTags.filter(tag => 
         !['All', 'Unread', 'Mine', 'Unassigned', 'Snooze', 'Group', 'stop bot'].includes(tag.name) && 
@@ -5840,8 +5254,12 @@ console.log(prompt);
   >
     {isTagsExpanded ? "Show Less" : "Show More"}
   </span>
-<div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
-  {sortContacts(paginatedContacts).map((contact, index) => (
+  <div className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full" ref={contactListRef}>
+  {paginatedContacts.length === 0 ? ( // Check if paginatedContacts is empty
+    <div className="flex items-center justify-center h-full">
+    {loadingMessage && <span className="text-gray-500 dark:text-gray-400 ml-2">{loadingMessage}</span>}
+  </div>
+  ) : ((paginatedContacts).map((contact, index) => (
     <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
     <div
       className={`m-2 pr-3 pb-2 pt-2 rounded-lg cursor-pointer flex items-center space-x-3 group ${
@@ -6054,8 +5472,9 @@ console.log(prompt);
                 </div>
     {index < filteredContacts.length - 1 && <hr className="my-2 border-gray-300 dark:border-gray-700" />}
   </React.Fragment>
-))}
-              </div>
+))
+)}
+</div>
               <ReactPaginate
                 breakLabel="..."
                 nextLabel="Next"
@@ -6134,22 +5553,33 @@ console.log(prompt);
                 </span>
               </Menu.Button>
               <Menu.Items className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
-                {employeeList.map((employee) => (
-                  <Menu.Item key={employee.id}>
-                    <button
-                      className="flex items-center justify-between w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                      onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
-                    >
-                      <span className="text-gray-800 dark:text-gray-200 truncate flex-grow mr-2" style={{ maxWidth: '70%' }}>
-                        {employee.name}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        Leads Quota: {employee.quotaLeads}
-                      </span>
-                    </button>
-                  </Menu.Item>
-                ))}
-              </Menu.Items>
+  <div className="mb-2">
+    <input
+      type="text"
+      placeholder="Search employees..."
+      value={employeeSearch}
+      onChange={(e) => setEmployeeSearch(e.target.value)}
+      className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+    />
+  </div>
+  {employeeList
+    .filter(employee => employee.name.toLowerCase().includes(employeeSearch.toLowerCase()))
+    .map((employee) => (
+      <Menu.Item key={employee.id}>
+        <button
+          className="flex items-center justify-between w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+          onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
+        >
+          <span className="text-gray-800 dark:text-gray-200 truncate flex-grow mr-2" style={{ maxWidth: '70%' }}>
+            {employee.name}
+          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+            Leads Quota: {employee.quotaLeads}
+          </span>
+        </button>
+      </Menu.Item>
+    ))}
+</Menu.Items>
             </Menu>
             <Menu as="div" className="relative inline-block text-left">
               <Menu.Button as={Button} className="p-2 !box m-0">
@@ -6198,25 +5628,36 @@ console.log(prompt);
                 </button>
               </Menu.Item>
               <Menu.Item>
-                <Menu as="div" className="relative inline-block text-left w-full">
-                  <Menu.Button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-                    <Lucide icon="Users" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
-                    <span className="text-gray-800 dark:text-gray-200">Assign Employee</span>
-                  </Menu.Button>
-                  <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10">
-                    {employeeList.map((employee) => (
-                      <Menu.Item key={employee.id}>
-                        <button
-                          className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                          onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
-                        >
-                          <span className="text-gray-800 dark:text-gray-200">{employee.name}</span>
-                        </button>
-                      </Menu.Item>
-                    ))}
-                  </Menu.Items>
-                </Menu>
-              </Menu.Item>
+  <Menu as="div" className="relative inline-block text-left w-full">
+    <Menu.Button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
+      <Lucide icon="Users" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
+      <span className="text-gray-800 dark:text-gray-200">Assign Employee</span>
+    </Menu.Button>
+    <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10">
+      <div className="mb-2">
+        <input
+          type="text"
+          placeholder="Search employees..."
+          value={employeeSearch}
+          onChange={(e) => setEmployeeSearch(e.target.value)}
+          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+        />
+      </div>
+      {employeeList
+        .filter(employee => employee.name.toLowerCase().includes(employeeSearch.toLowerCase()))
+        .map((employee) => (
+          <Menu.Item key={employee.id}>
+            <button
+              className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+              onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
+            >
+              <span className="text-gray-800 dark:text-gray-200">{employee.name}</span>
+            </button>
+          </Menu.Item>
+        ))}
+    </Menu.Items>
+  </Menu>
+</Menu.Item>
               <Menu.Item>
                 <Menu as="div" className="relative inline-block text-left w-full">
                   <Menu.Button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
@@ -6826,9 +6267,7 @@ console.log(prompt);
                       } else {
                         handleAddPrivateNote(newMessage);
                       }
-                    } else {
-                      sendTextMessage(selectedContact.id, newMessage, selectedContact);
-                    }
+                    } 
                     setNewMessage('');
                     adjustHeight(target, true); // Reset height after sending message
                   }
@@ -6959,11 +6398,45 @@ console.log(prompt);
                       </span>
                       <span
                         className="px-2 py-1 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
-                        onClick={() => handleQRClick(reply.keyword)}
+                        onClick={() => {
+                          handleQRClick(reply, reply?.document ?? null, reply?.image ?? null);
+                          let message = reply.text;
+                          if (reply.image) {
+                            const imageFile = new File([reply.image], "image.png", { type: "image/png" });
+                            const imageUrl = URL.createObjectURL(imageFile);
+                            setPastedImageUrl(imageUrl);
+                            setImageModalOpen2(true);
+                          }
+                          if (reply.document) {
+                            const documentFile = new File([reply.document], "document", { type: reply.document.type });
+                            setSelectedDocument(documentFile);
+                            setDocumentModalOpen(true);
+                          }
+                          setNewMessage(message);
+                          setIsQuickRepliesOpen(false);
+                        }}
                         style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                       >
                         {reply.text}
                       </span>
+                      {(typeof reply.document === 'string' && reply.document !== '') || (typeof reply.image === 'string' && reply.image !== '') ? (
+                        <>
+                          {typeof reply.document === 'string' && reply.document !== '' && (
+                            <a href={reply.document} target="_blank" className="p-2 m-1 !box">
+                              <span className="flex items-center justify-center w-5 h-5">
+                                <Lucide icon="File" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                              </span>
+                            </a>
+                          )}
+                          {typeof reply.image === 'string' && reply.image !== '' && (
+                            <a href={reply.image} target="_blank" className="p-2 m-1 !box">
+                              <span className="flex items-center justify-center w-5 h-5">
+                                <Lucide icon="Image" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                              </span>
+                            </a>
+                          )}
+                        </>
+                      ) : null}
                       <div>
                         <button className="p-2 m-1 !box" onClick={() => setEditingReply(reply)}>
                           <span className="flex items-center justify-center w-5 h-5">
@@ -6999,6 +6472,29 @@ console.log(prompt);
                 rows={1}
                 style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'Arial, sans-serif', fontSize: '14px' }}
               />
+              {/* <input
+                type="file"
+                className="hidden"
+                id="quickReplyFile"
+                onChange={(e) => setSelectedDocument(e.target.files ? e.target.files[0] : null)}
+              />
+              <label htmlFor="quickReplyFile" className="p-2 m-1 !box cursor-pointer">
+                <span className="flex items-center justify-center w-5 h-5">
+                  <Lucide icon="Paperclip" className="w-5 h-5 text-gray-800 dark:text-gray-200" />  
+                </span>
+              </label>  
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                id="quickReplyImage"
+                onChange={(e) => setSelectedImage(e.target.files ? e.target.files[0] : null)}
+              />
+              <label htmlFor="quickReplyImage" className="p-2 m-1 !box cursor-pointer">
+                <span className="flex items-center justify-center w-5 h-5">
+                  <Lucide icon="Image" className="w-5 h-5 text-gray-800 dark:text-gray-200" />  
+                </span>
+              </label>   */}
             </>
           )}
           <div className="flex flex-col ml-2">
@@ -7270,6 +6766,7 @@ console.log(prompt);
 
 <DocumentModal 
   isOpen={documentModalOpen} 
+  type={selectedDocument?.type || ''} // Provide a default empty string
   onClose={() => setDocumentModalOpen(false)} 
   document={selectedDocument} 
   onSend={sendDocument} 

@@ -82,6 +82,7 @@ function Main() {
     branch?:string | null;
     expiryDate?:string | null;
     vehicleNumber?:string | null;
+    ic?:string | null;
   }
   
   interface Employee {
@@ -89,6 +90,7 @@ function Main() {
     name: string;
     role: string;
     phoneNumber: string;
+    phoneIndex: number;
     employeeId: string;
 
   }
@@ -174,6 +176,7 @@ function Main() {
       branch:'',
       expiryDate:'',
       vehicleNumber:'',
+      ic:'',
   });
   const [total, setTotal] = useState(0);
   const [fetched, setFetched] = useState(0);
@@ -211,6 +214,10 @@ function Main() {
   const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [companyId, setCompanyId] = useState<string>("");
   const [showAllMessages, setShowAllMessages] = useState(false);
+  const [phoneIndex, setPhoneIndex] = useState<number>(0);
+  const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
+  const [phoneNames, setPhoneNames] = useState<{ [key: number]: string }>({});
+
 
  
 
@@ -223,12 +230,42 @@ function Main() {
         if (docUserSnapshot.exists()) {
           const userData = docUserSnapshot.data();
           setCompanyId(userData.companyId);
+
+          fetchPhoneIndex(userData.companyId);
         }
       }
     };
 
     fetchUserData();
   }, []);
+
+  const fetchPhoneIndex = async (companyId: string) => {
+    try {
+      const companyDocRef = doc(firestore, 'companies', companyId);
+      const companyDocSnap = await getDoc(companyDocRef);
+      if (companyDocSnap.exists()) {
+        const companyData = companyDocSnap.data();
+        const phoneCount = companyData.phoneCount || 0;
+        console.log('phoneCount for this company:', phoneCount);
+        
+        // Generate phoneNames object
+        const phoneNamesData: { [key: number]: string } = {};
+        for (let i = 0; i <= phoneCount; i++) {
+          const phoneName = companyData[`phone${i}`];
+          if (phoneName) {
+            phoneNamesData[i] = phoneName;
+          }
+        }
+        console.log('Phone names:', phoneNamesData);
+        setPhoneNames(phoneNamesData);
+        setPhoneOptions(Object.keys(phoneNamesData).map(Number));
+      }
+    } catch (error) {
+      console.error("Error fetching phone count:", error);
+      setPhoneOptions([]);
+      setPhoneNames({});
+    }
+  };
 
   const filterContactsByUserRole = (contacts: Contact[], userRole: string, userName: string) => {
     switch (userRole) {
@@ -249,6 +286,8 @@ function Main() {
         return contacts.filter(contact => 
           contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
         );
+      case '5':
+        return contacts;
       default:
         return [];
     }
@@ -644,6 +683,7 @@ const handleSaveNewContact = async () => {
       branch: newContact.branch,
       expiryDate: newContact.expiryDate,
       vehicleNumber: newContact.vehicleNumber,
+      ic: newContact.ic,
     };
 
     // Add new contact to Firebase
@@ -664,6 +704,7 @@ const handleSaveNewContact = async () => {
       branch: '',
       expiryDate: '',
       vehicleNumber: '',
+      ic: '',
     });
   } catch (error) {
     console.error('Error adding contact:', error);
@@ -1185,17 +1226,35 @@ const handleConfirmDeleteTag = async () => {
       if(companyId == '042'){
         message = `Hi ${assignedEmployee.employeeId || assignedEmployee.phoneNumber} ${assignedEmployee.name}.\n\nAnda telah diberi satu prospek baharu\n\nSila masuk ke https://web.jutasoftware.co/login untuk melihat perbualan di antara Zahin Travel dan prospek.\n\nTerima kasih.\n\nIkhlas,\nZahin Travel Sdn. Bhd. (1276808-W)\nNo. Lesen Pelancongan: KPK/LN 9159\nNo. MATTA: MA6018\n\n#zahintravel - Nikmati setiap detik..\n#diyakini\n#responsif\n#budibahasa`;
       }
-  
+      let phoneIndex;
+      if (userData?.phone !== undefined) {
+          if (userData.phone === 0) {
+              // Handle case for phone index 0
+              phoneIndex = 0;
+          } else if (userData.phone === -1) {
+              // Handle case for phone index -1
+              phoneIndex = 0;
+          } else {
+              // Handle other cases
+              console.log(`User phone index is: ${userData.phone}`);
+              phoneIndex = userData.phone;
+          }
+      } else {
+          console.error('User phone is not defined');
+          phoneIndex = 0; // Default value if phone is not defined
+      }
       let url;
       let requestBody;
       if (companyData.v2 === true) {
         console.log("v2 is true");
         url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${employeePhone}`;
-        requestBody = { message };
+        requestBody = { message, 
+          phoneIndex  };
         } else {
         console.log("v2 is false");
         url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${employeePhone}/${companyData.whapiToken}`;
-        requestBody = { message };
+        requestBody = { message, 
+          phoneIndex  };
       }
   
       console.log('Sending request to:', url);
@@ -1205,7 +1264,10 @@ const handleConfirmDeleteTag = async () => {
         url,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+          message: message,
+          phoneIndex: phoneIndex,
+        })
       });
   
       // Send WhatsApp message to the employee
@@ -1596,60 +1658,63 @@ const chatId = tempphone + "@c.us"
 
   const handleSaveContact = async () => {
     if (currentContact) {
-      try {
-        const user = auth.currentUser;
-  
-        const docUserRef = doc(firestore, 'user', user?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          console.log('No such document for user!');
-          return;
+        try {
+            const user = auth.currentUser;
+            const docUserRef = doc(firestore, 'user', user?.email!);
+            const docUserSnapshot = await getDoc(docUserRef);
+            if (!docUserSnapshot.exists()) {
+                console.log('No such document for user!');
+                return;
+            }
+            const userData = docUserSnapshot.data();
+            const companyId = userData.companyId;
+            const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
+
+            // Create an object with only the defined fields
+            const updateData: { [key: string]: any } = {
+                contactName: currentContact.contactName,
+                email: currentContact.email,
+                lastName: currentContact.lastName,
+                phone: currentContact.phone,
+                points: currentContact.points || 0,
+                ic: currentContact.ic
+            };
+
+            const fieldsToUpdate = [
+                'contactName', 'email', 'lastName', 'phone', 'address1', 'city', 
+                'state', 'postalCode', 'website', 'dnd', 'dndSettings', 'tags', 
+                'customFields', 'source', 'country', 'companyName', 'branch', 
+                'expiryDate', 'vehicleNumber', 'points', 'IC',
+            ];
+
+            fieldsToUpdate.forEach(field => {
+                if (currentContact[field as keyof Contact] !== undefined) {
+                    updateData[field] = currentContact[field as keyof Contact];
+                }
+            });
+
+            // Update contact in Firebase
+            const contactDocRef = doc(contactsCollectionRef, currentContact.phone!); // Get the document reference
+            await updateDoc(contactDocRef, updateData); // Use the document reference
+
+            // Update local state immediately after saving
+            setContacts(prevContacts => 
+                prevContacts.map(contact => 
+                    contact.phone === currentContact.phone ? { ...contact, ...updateData } : contact
+                )
+            );
+            setCurrentContact(prevContact => ({ ...prevContact, ...updateData })); // Update currentContact state
+
+            setEditContactModal(false);
+            setCurrentContact(null);
+            await fetchContacts();
+            toast.success("Contact updated successfully!");
+        } catch (error) {
+            console.error('Error saving contact:', error);
+            toast.error("Failed to update contact.");
         }
-        const userData = docUserSnapshot.data();
-        const companyId = userData.companyId;
-        const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
-  
-        if (!currentContact.phone) {
-          console.error('Contact phone is missing');
-          return;
-        }
-  
-        const updatedContact = { ...currentContact, points: currentContact.points || 0 };
-        
-        const contactDocRef = doc(contactsCollectionRef, currentContact.phone);
-  
-        // Create an object with only the defined fields
-        const updateData: { [key: string]: any } = {
-          dateUpdated: new Date().toISOString(),
-          points: updatedContact.points // Ensure points are included in the update
-        };
-  
-        const fieldsToUpdate = [
-          'contactName', 'lastName', 'email', 'phone', 'address1', 'city', 
-          'state', 'postalCode', 'website', 'dnd', 'dndSettings', 'tags', 
-          'customFields', 'source', 'country', 'companyName', 'branch', 
-          'expiryDate', 'vehicleNumber'
-        ];
-  
-        fieldsToUpdate.forEach(field => {
-          if (updatedContact[field as keyof Contact] !== undefined) {
-            updateData[field] = updatedContact[field as keyof Contact];
-          }
-        });
-  
-        // Update contact in Firebase
-        await updateDoc(contactDocRef, updateData);
-  
-        setContacts(contacts.map(contact => (contact.phone === currentContact.phone ? currentContact : contact)));
-        setEditContactModal(false);
-        setCurrentContact(null);
-        toast.success("Contact updated successfully!");
-      } catch (error) {
-        console.error('Error saving contact:', error);
-        toast.error("Failed to update contact.");
-      }
     }
-  };
+};
 
 // Add this function to combine similar scheduled messages
 const combineScheduledMessages = (messages: ScheduledMessage[]): ScheduledMessage[] => {
@@ -1821,12 +1886,17 @@ const sendBlastMessage = async () => {
       processedMessage = processedMessage.replace(/@{lastName}/g, contact.lastName || '');
       processedMessage = processedMessage.replace(/@{email}/g, contact.email || '');
       processedMessage = processedMessage.replace(/@{phone}/g, contact.phone || '');
+      processedMessage = processedMessage.replace(/@{vehicleNumber}/g, contact.vehicleNumber || '');
+      processedMessage = processedMessage.replace(/@{branch}/g, contact.branch || '');
+      processedMessage = processedMessage.replace(/@{expiryDate}/g, contact.expiryDate || '');
+      processedMessage = processedMessage.replace(/@{ic}/g, contact.ic || '');
       // Add more placeholders as needed
       return { chatId: contact.phone?.replace(/\D/g, '') + "@s.whatsapp.net", message: processedMessage };
     });
 
     const scheduledMessageData = {
       chatIds: chatIds,
+      phoneIndex: phoneIndex,
       message: blastMessage,
       messages: processedMessages,
       batchQuantity: batchQuantity,
@@ -2222,9 +2292,14 @@ const sendBlastMessage = async () => {
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
 
-      await deleteDoc(doc(firestore, `companies/${companyId}/scheduledMessages`, messageId));
-      setScheduledMessages(scheduledMessages.filter(msg => msg.id !== messageId));
-      toast.success("Scheduled message deleted successfully!");
+      // Call the backend API to delete the scheduled message
+      const response = await axios.delete(`https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}/${messageId}`);
+      if (response.status === 200) {
+        setScheduledMessages(scheduledMessages.filter(msg => msg.id !== messageId));
+        toast.success("Scheduled message deleted successfully!");
+      } else {
+        throw new Error("Failed to delete scheduled message.");
+      }
     } catch (error) {
       console.error("Error deleting scheduled message:", error);
       toast.error("Failed to delete scheduled message.");
@@ -2280,7 +2355,11 @@ const sendBlastMessage = async () => {
             .replace(/@{firstName}/g, contact.contactName?.split(' ')[0] || '')
             .replace(/@{lastName}/g, contact.lastName || '')
             .replace(/@{email}/g, contact.email || '')
-            .replace(/@{phone}/g, contact.phone || '');
+            .replace(/@{phone}/g, contact.phone || '')
+            .replace(/@{vehicleNumber}/g, contact.vehicleNumber || '')
+            .replace(/@{branch}/g, contact.branch || '')
+            .replace(/@{expiryDate}/g, contact.expiryDate || '')
+            .replace(/@{ic}/g, contact.ic || '');
         }
         return {
           chatId,
@@ -2613,7 +2692,7 @@ const sendBlastMessage = async () => {
                       <Lucide icon="Upload" className="w-5 h-5 mr-2" />
                       <span className="font-medium">Import CSV</span>
                     </button>
-                    {userRole !== "2" && userRole !== "3" && (
+                    {userRole !== "2" && userRole !== "3" && userRole !== "5" && (
                       <>
                         <button 
                           className={`flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300`}
@@ -3212,6 +3291,15 @@ const sendBlastMessage = async () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">IC</label>
+                  <input
+                    type="text"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
+                    value={newContact.ic}
+                    onChange={(e) => setNewContact({ ...newContact, ic: e.target.value })}
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Points</label>
                   <input
                     type="number"
@@ -3266,7 +3354,7 @@ const sendBlastMessage = async () => {
                   onChange={(e) => setNewContact({ ...newContact, branch: e.target.value })}
                 />
               </div>
-              {companyId === '079' && (
+              {companyId === '079' || companyId === '001' && (
                 <>
                   <div>
                     <label className="mt-4 block text-sm font-medium text-gray-700 dark:text-gray-300">Expiry Date</label>
@@ -3348,6 +3436,15 @@ const sendBlastMessage = async () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">IC</label>
+                  <input
+                    type="text"
+                    className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
+                    value={currentContact?.ic || ''}
+                    onChange={(e) => setCurrentContact({ ...currentContact, ic: e.target.value } as Contact)}
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Points</label>
                   <input
                     type="number"
@@ -3401,7 +3498,7 @@ const sendBlastMessage = async () => {
                     onChange={(e) => setCurrentContact({ ...currentContact, branch: e.target.value } as Contact)}
                   />
                 </div>
-                {companyId === '079' && (
+                {companyId === '079' || companyId === '001' && (
                   <>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Expiry Date</label>
@@ -3469,7 +3566,7 @@ const sendBlastMessage = async () => {
                     {showPlaceholders && (
                       <div className="mt-2 space-y-1">
                         <p className="text-sm text-gray-600 dark:text-gray-400">Click to insert:</p>
-                        {['contactName', 'firstName', 'lastName', 'email', 'phone'].map(field => (
+                        {['contactName', 'firstName', 'lastName', 'email', 'phone', 'vehicleNumber', 'branch', 'expiryDate', 'ic'].map(field => (
                           <button
                             key={field}
                             type="button"
@@ -3507,7 +3604,7 @@ const sendBlastMessage = async () => {
                         selected={blastStartDate}
                         onChange={(date: Date) => setBlastStartDate(date)}
                         dateFormat="MMMM d, yyyy"
-                        className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                       <DatePicker
                         selected={blastStartTime}
@@ -3517,7 +3614,7 @@ const sendBlastMessage = async () => {
                         timeIntervals={15}
                         timeCaption="Time"
                         dateFormat="h:mm aa"
-                        className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
                   </div>
@@ -3539,16 +3636,33 @@ const sendBlastMessage = async () => {
                         value={repeatInterval}
                         onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
                         min={0}
-                        className="w-20 mr-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-20 mt-1 mr-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                       <select
                         value={repeatUnit}
                         onChange={(e) => setRepeatUnit(e.target.value as 'minutes' | 'hours' | 'days')}
-                        className="border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         <option value="minutes">Minutes</option>
                         <option value="hours">Hours</option>
                         <option value="days">Days</option>
+                      </select>
+                    </div>
+                    <div className="mt-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="phone">Phone</label>
+                      <select
+                        id="phone"
+                        name="phone"
+                        value={phoneIndex}
+                        onChange={(e) => setPhoneIndex(parseInt(e.target.value))}
+                        className="mt-1 text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
+                      >
+                        <option value="">Select a phone</option>
+                        {Object.entries(phoneNames).map(([index, phoneName]) => (
+                          <option key={index} value={parseInt(index) - 1}>
+                            {phoneName}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
