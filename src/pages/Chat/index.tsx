@@ -4634,13 +4634,30 @@ const handleForwardMessage = async () => {
         }
       }
 
-      // Handle specific tags
+      //handle specific tags
       if (tagName === 'Before Quote Follow Up') {
+        removeTagBeforeQuote(contact);
+      } else if (tagName === 'Before Quote Follow Up (English)') {
+        removeTagBeforeQuote(contact);
+      } else if (tagName === 'Before Quote Follow Up (Malay)') {
+        removeTagBeforeQuote(contact);
+      } else if (tagName === 'Before Quote Follow Up (Chinese)') {
         removeTagBeforeQuote(contact);
       } else if (tagName === 'After Quote Follow Up') {
         removeTagAfterQuote(contact);
+      } else if (tagName === 'After Quote Follow Up (English)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === 'After Quote Follow Up (Chinese)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === 'After Quote Follow Up (Malay)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === '5 Days Follow Up (English)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === '5 Days Follow Up (Chinese)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === '5 Days Follow Up (Malay)') {
+        removeTagAfterQuote(contact);
       }
-  
       // Update state
       setContacts(prevContacts => {
         if (userData?.role === '3') {
