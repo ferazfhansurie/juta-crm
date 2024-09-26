@@ -1226,7 +1226,23 @@ const handleConfirmDeleteTag = async () => {
       if(companyId == '042'){
         message = `Hi ${assignedEmployee.employeeId || assignedEmployee.phoneNumber} ${assignedEmployee.name}.\n\nAnda telah diberi satu prospek baharu\n\nSila masuk ke https://web.jutasoftware.co/login untuk melihat perbualan di antara Zahin Travel dan prospek.\n\nTerima kasih.\n\nIkhlas,\nZahin Travel Sdn. Bhd. (1276808-W)\nNo. Lesen Pelancongan: KPK/LN 9159\nNo. MATTA: MA6018\n\n#zahintravel - Nikmati setiap detik..\n#diyakini\n#responsif\n#budibahasa`;
       }
-      const phoneIndex = userData.phoneIndex;
+      let phoneIndex;
+      if (userData?.phone !== undefined) {
+          if (userData.phone === 0) {
+              // Handle case for phone index 0
+              phoneIndex = 0;
+          } else if (userData.phone === -1) {
+              // Handle case for phone index -1
+              phoneIndex = 0;
+          } else {
+              // Handle other cases
+              console.log(`User phone index is: ${userData.phone}`);
+              phoneIndex = userData.phone;
+          }
+      } else {
+          console.error('User phone is not defined');
+          phoneIndex = 0; // Default value if phone is not defined
+      }
       let url;
       let requestBody;
       if (companyData.v2 === true) {
