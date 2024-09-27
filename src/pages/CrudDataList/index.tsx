@@ -1654,7 +1654,7 @@ const chatId = tempphone + "@c.us"
         toast.error(`Missing required fields: ${missingFields.join(', ')}`);
         return;
       }
-      
+      //
       try {
           const user = auth.currentUser;
           const docUserRef = doc(firestore, 'user', user?.email!);
