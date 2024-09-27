@@ -1186,10 +1186,7 @@ const handleConfirmDeleteTag = async () => {
       const notificationRef = doc(firestore, 'companies', companyId, 'assignmentNotifications', `${contact.id}_${assignedEmployeeName}`);
       const notificationSnapshot = await getDoc(notificationRef);
       
-      if (notificationSnapshot.exists()) {
-        console.log('Notification already sent for this assignment');
-        return;
-      }
+   
   
       // Find the employee in the employee list
       const assignedEmployee = employeeList.find(emp => emp.name.toLowerCase() === assignedEmployeeName.toLowerCase());
