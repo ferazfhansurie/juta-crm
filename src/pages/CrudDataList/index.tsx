@@ -706,6 +706,8 @@ const handleSaveNewContact = async () => {
       vehicleNumber: '',
       ic: '',
     });
+
+    await fetchContacts();
   } catch (error) {
     console.error('Error adding contact:', error);
     toast.error("An error occurred while adding the contact: " + error);
@@ -1589,6 +1591,7 @@ const chatId = tempphone + "@c.us"
         setDeleteConfirmationModal(false);
         setCurrentContact(null);
         toast.success("Contact deleted successfully!");
+        await fetchContacts();
       } catch (error) {
         console.error('Error deleting contact:', error);
         toast.error("An error occurred while deleting the contact.");
@@ -1634,6 +1637,7 @@ const chatId = tempphone + "@c.us"
       setSelectedContacts([]);
       setShowMassDeleteModal(false);
       toast.success(`${selectedContacts.length} contacts deleted successfully!`);
+      await fetchContacts();
     } catch (error) {
       console.error('Error deleting contacts:', error);
       toast.error("An error occurred while deleting the contacts.");
