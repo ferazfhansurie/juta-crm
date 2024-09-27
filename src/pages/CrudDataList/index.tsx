@@ -1119,9 +1119,12 @@ const handleConfirmDeleteTag = async () => {
       toast.success(`Tag "${tagName}" added to contact successfully!`);
   
       // Send assignment notification
-      if (employeeNames.includes(tagName.toLowerCase())) {
+      const employee = employeeList.find(emp => emp.name === tagName);
+      if (employee) {
         await sendAssignmentNotification(tagName, contact);
       }
+
+      await fetchContacts();
   
     } catch (error) {
       console.error('Error adding tag and assigning contact:', error);
@@ -1186,7 +1189,10 @@ const handleConfirmDeleteTag = async () => {
       const notificationRef = doc(firestore, 'companies', companyId, 'assignmentNotifications', `${contact.id}_${assignedEmployeeName}`);
       const notificationSnapshot = await getDoc(notificationRef);
       
-   
+      if (notificationSnapshot.exists()) {
+        console.log('Notification already sent for this assignment');
+        return;
+      }
   
       // Find the employee in the employee list
       const assignedEmployee = employeeList.find(emp => emp.name.toLowerCase() === assignedEmployeeName.toLowerCase());
@@ -1223,35 +1229,17 @@ const handleConfirmDeleteTag = async () => {
       if(companyId == '042'){
         message = `Hi ${assignedEmployee.employeeId || assignedEmployee.phoneNumber} ${assignedEmployee.name}.\n\nAnda telah diberi satu prospek baharu\n\nSila masuk ke https://web.jutasoftware.co/login untuk melihat perbualan di antara Zahin Travel dan prospek.\n\nTerima kasih.\n\nIkhlas,\nZahin Travel Sdn. Bhd. (1276808-W)\nNo. Lesen Pelancongan: KPK/LN 9159\nNo. MATTA: MA6018\n\n#zahintravel - Nikmati setiap detik..\n#diyakini\n#responsif\n#budibahasa`;
       }
-      let phoneIndex;
-      if (userData?.phone !== undefined) {
-          if (userData.phone === 0) {
-              // Handle case for phone index 0
-              phoneIndex = 0;
-          } else if (userData.phone === -1) {
-              // Handle case for phone index -1
-              phoneIndex = 0;
-          } else {
-              // Handle other cases
-              console.log(`User phone index is: ${userData.phone}`);
-              phoneIndex = userData.phone;
-          }
-      } else {
-          console.error('User phone is not defined');
-          phoneIndex = 0; // Default value if phone is not defined
-      }
+  
       let url;
       let requestBody;
       if (companyData.v2 === true) {
         console.log("v2 is true");
         url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${employeePhone}`;
-        requestBody = { message, 
-          phoneIndex  };
+        requestBody = { message };
         } else {
         console.log("v2 is false");
         url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${employeePhone}/${companyData.whapiToken}`;
-        requestBody = { message, 
-          phoneIndex  };
+        requestBody = { message };
       }
   
       console.log('Sending request to:', url);
@@ -1261,10 +1249,7 @@ const handleConfirmDeleteTag = async () => {
         url,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: message,
-          phoneIndex: phoneIndex,
-        })
+        body: JSON.stringify(requestBody)
       });
   
       // Send WhatsApp message to the employee
@@ -1306,6 +1291,7 @@ const handleConfirmDeleteTag = async () => {
       console.log('Assigned Employee Name:', assignedEmployeeName);
       console.log('Contact:', contact);
       console.log('Employee List:', employeeList);
+      console.log('Company ID:', companyId);
     }
   };
 
@@ -1413,6 +1399,7 @@ const handleConfirmDeleteTag = async () => {
       }
   
       toast.success(`Tag "${tagName}" removed successfully!`);
+      await fetchContacts();
     } catch (error) {
       console.error('Error removing tag:', error);
       toast.error('Failed to remove tag.');
@@ -2558,7 +2545,7 @@ const sendBlastMessage = async () => {
                     <Menu>
                       <Menu.Button as={Button} className="flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                         <Lucide icon="Filter" className="w-5 h-5 mr-2" />
-                        <span>Filter</span>
+                        <span>Filter Tags</span>
                       </Menu.Button>
                       <Menu.Items className="w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 min-w-[200px] p-2">
                         <div>
@@ -2709,12 +2696,10 @@ const sendBlastMessage = async () => {
                       <span className="font-medium">Add Contact</span>
                     </button>
                     <Menu className="w-full">
-                      {showAddUserButton && (
-                        <Menu.Button as={Button} className="flex items-center justify-start p-2 w-full !box bg-white text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                          <Lucide icon="User" className="w-5 h-5 mr-2" />
-                          <span>Assign User</span>
-                        </Menu.Button>
-                      )}
+                      <Menu.Button as={Button} className="flex items-center justify-start p-2 w-full !box bg-white text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <Lucide icon="User" className="w-5 h-5 mr-2" />
+                        <span>Assign User</span>
+                      </Menu.Button>
                       <Menu.Items className="w-full bg-white text-gray-800 dark:text-gray-200">
                         {employeeList.map((employee) => (
                           <Menu.Item key={employee.id}>
@@ -2733,7 +2718,7 @@ const sendBlastMessage = async () => {
                         ))}
                       </Menu.Items>
                     </Menu>
-                    <Menu className="w-full">
+                    <Menu>
                       {showAddUserButton && (
                         <Menu.Button as={Button} className="flex items-center justify-start p-2 w-full !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                           <Lucide icon="Tag" className="w-5 h-5 mr-2" />
@@ -2741,16 +2726,116 @@ const sendBlastMessage = async () => {
                         </Menu.Button>
                       )}
                       <Menu.Items className="w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-md mt-1 shadow-lg">
-                        {/* ... (same content as desktop view) ... */}
+                        <div className="p-2">
+                          <button className="flex items-center p-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 w-full rounded-md" onClick={() => setShowAddTagModal(true)}>
+                            <Lucide icon="Plus" className="w-4 h-4 mr-2" />
+                            Add
+                          </button>
+                        </div>
+                        {tagList.map((tag) => (
+                          <div key={tag.id} className="flex items-center justify-between w-full hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded-md">
+                            <button
+                              className="flex-grow p-2 text-sm text-left"
+                              onClick={() => {
+                                selectedContacts.forEach(contact => {
+                                  handleAddTagToSelectedContacts(tag.name, contact);
+                                });
+                              }}
+                            >
+                              {tag.name}
+                            </button>
+                            <button 
+                              className="p-2 text-sm"
+                              onClick={() => {
+                                setTagToDelete(tag);
+                                setShowDeleteTagModal(true);
+                              }}
+                            >
+                              <Lucide icon="Trash" className="w-4 h-4 text-red-400 hover:text-red-600" />
+                            </button>
+                          </div>
+                        ))}
                       </Menu.Items>
                     </Menu>
-                    <Menu className="w-full">
+                    <Menu>
                       <Menu.Button as={Button} className="flex items-center justify-start p-2 w-full !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                         <Lucide icon="Filter" className="w-5 h-5 mr-2" />
-                        <span>Filter by Tag</span>
+                        <span>Filter Tags</span>
                       </Menu.Button>
-                      <Menu.Items className="w-full bg-white text-gray-800 dark:text-gray-200">
-                        {/* ... (same content as desktop view) ... */}
+                      <Menu.Items className="w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 min-w-[200px] p-2">
+                        <div>
+                          <button
+                            className="flex items-center p-2 font-medium w-full rounded-md"
+                            onClick={clearAllFilters}
+                          >
+                            <Lucide icon="X" className="w-4 h-4 mr-1" />
+                            Clear All Filters
+                          </button>
+                        </div>
+                        <Tab.Group>
+                          <Tab.List className="flex p-1 space-x-1 bg-blue-900/20 rounded-xl mt-2">
+                            <Tab
+                              className={({ selected }) =>
+                                `w-full py-2.5 text-sm font-medium leading-5 text-blue-700 rounded-lg
+                                focus:outline-none focus:ring-2 ring-offset-2 ring-offset-blue-400 ring-white ring-opacity-60
+                                ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`
+                              }
+                              onClick={() => setActiveFilterTab('tags')}
+                            >
+                              Tags
+                            </Tab>
+                            <Tab
+                              className={({ selected }) =>
+                                `w-full py-2.5 text-sm font-medium leading-5 text-blue-700 rounded-lg
+                                focus:outline-none focus:ring-2 ring-offset-2 ring-offset-blue-400 ring-white ring-opacity-60
+                                ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`
+                              }
+                              onClick={() => setActiveFilterTab('users')}
+                            >
+                              Users
+                            </Tab>
+                          </Tab.List>
+                          <Tab.Panels className="mt-2">
+                            <Tab.Panel>
+                              {tagList.map((tag) => (
+                                <div key={tag.id} className={`flex items-center justify-between m-2 p-2 text-sm w-full rounded-md ${selectedTagFilters.includes(tag.name) ? 'bg-primary dark:bg-primary text-white' : ''}`}>
+                                  <div 
+                                    className="flex items-center cursor-pointer"
+                                    onClick={() => handleTagFilterChange(tag.name)}
+                                  >
+                                    {tag.name}
+                                  </div>
+                                  <button
+                                    className={`px-2 py-1 text-xs rounded ${
+                                      excludedTags.includes(tag.name)
+                                        ? 'bg-red-500 text-white'
+                                        : 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300'
+                                    }`}
+                                    onClick={() => 
+                                      excludedTags.includes(tag.name)
+                                        ? handleRemoveExcludedTag(tag.name)
+                                        : handleExcludeTag(tag.name)
+                                    }
+                                  >
+                                    {excludedTags.includes(tag.name) ? 'Excluded' : 'Exclude'}
+                                  </button>
+                                </div>
+                              ))}
+                            </Tab.Panel>
+                            <Tab.Panel>
+                              {employeeList.map((employee) => (
+                                <div key={employee.id} className={`flex items-center justify-between m-2 p-2 text-sm w-full rounded-md ${selectedUserFilters.includes(employee.name) ? 'bg-primary dark:bg-primary text-white' : ''}`}>
+                                  <div 
+                                    className={`flex items-center cursor-pointer capitalize ${selectedUserFilters.includes(employee.name) ? 'bg-primary dark:bg-primary text-white' : ''}`}
+                                    onClick={() => handleUserFilterChange(employee.name)}
+                                  >
+                                    {employee.name}
+                                  </div>
+                                </div>
+                              ))}
+                            </Tab.Panel>
+                          </Tab.Panels>
+                        </Tab.Group>
                       </Menu.Items>
                     </Menu>
                     <button className="flex items-center justify-start p-2 w-full !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setBlastMessageModal(true)}>
