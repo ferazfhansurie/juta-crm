@@ -4817,7 +4817,7 @@ console.log(prompt);
               {userData?.company}
             </div>
             <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
-              Total Contacts: {contacts.length}
+              Total Contacts: {initialContacts.length}
             </div>
           </div>
           {userData?.phone !== undefined && (
