@@ -6290,7 +6290,7 @@ console.log(prompt);
       </button>
 
       {isRecordingPopupOpen && (
-        <div className="absolute bottom-full left-0 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+        <div className="absolute bottom-full mb-2 left-0 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
           <div className="flex items-center mb-2">
             <button
               className={`p-2 rounded-md ${isRecording ? 'bg-red-500 text-white' : 'bg-primary text-white'}`}
