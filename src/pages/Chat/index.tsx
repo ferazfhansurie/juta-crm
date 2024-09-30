@@ -20,6 +20,7 @@ import LZString from 'lz-string';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import Tippy from "@/components/Base/Tippy";
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+import { ReactMic } from 'react-mic';
 import {  useNavigate } from "react-router-dom";
 import noti from "../../assets/audio/noti.mp3";
 import { Lock, MessageCircle } from "lucide-react";
@@ -494,6 +495,12 @@ function Main() {
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [caption, setCaption] = useState(''); // Add this line to define setCaption
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isRecordingPopupOpen, setIsRecordingPopupOpen] = useState(false);
+
+
 
   const filteredContactsSearch = useMemo(() => {
     return contacts.filter((contact) => {
@@ -517,6 +524,75 @@ function Main() {
       return matchesSearch && matchesTagFilters;
     });
   }, [contacts, searchQuery, activeTags]);
+
+  const toggleRecordingPopup = () => {
+    setIsRecordingPopupOpen(!isRecordingPopupOpen);
+    if (!isRecordingPopupOpen) {
+      setIsRecording(false);
+      setAudioBlob(null);
+      setAudioUrl(null);
+    }
+  };
+
+  const toggleRecording = () => {
+    setIsRecording(!isRecording);
+    if (isRecording) {
+      // If we're stopping the recording, don't do anything else
+      // The onStop handler will take care of the audio blob
+    } else {
+      // If we're starting a new recording, reset audio states
+      setAudioBlob(null);
+      setAudioUrl(null);
+    }
+  };
+
+  const cancelRecording = () => {
+    setIsRecording(false);
+    setAudioBlob(null);
+    setAudioUrl(null);
+  };
+
+  const onStop = (recordedBlob: { blob: Blob; }) => {
+    setAudioBlob(recordedBlob.blob);
+    setAudioUrl(URL.createObjectURL(recordedBlob.blob));
+  };
+
+  const sendVoiceMessage = async () => {
+    if (audioBlob && selectedChatId && userData) {
+      try {
+        const audioFile = new File([audioBlob], `voice_message_${Date.now()}.webm`, { type: audioBlob.type });
+        const uploadedAudioUrl = await uploadFile(audioFile);
+
+        const requestBody = {
+          audioUrl: uploadedAudioUrl,
+          caption: '',
+          phoneIndex: selectedContact?.phoneIndex || 0,
+          userName: userData.name
+        };
+
+        const response = await axios.post(
+          `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/audio/${userData.companyId}/${selectedChatId}`,
+          requestBody
+        );
+
+        if (response.data.success) {
+          console.log("Voice message sent successfully:", response.data.messageId);
+          toast.success("Voice message sent successfully");
+        } else {
+          console.error("Failed to send voice message");
+          toast.error("Failed to send voice message");
+        }
+
+        setAudioBlob(null);
+        setAudioUrl(null);
+        setIsRecordingPopupOpen(false);
+      } catch (error) {
+        console.error("Error sending voice message:", error);
+        toast.error("Error sending voice message");
+      }
+    }
+  };
+
 
   const uploadDocument = async (file: File): Promise<string> => {
     const storage = getStorage(); // Correctly initialize storage
@@ -6202,6 +6278,48 @@ console.log(prompt);
               <Lucide icon='Zap' className="w-5 h-5 text-gray-800 dark:text-gray-200" />
             </span>
           </button>
+          <button className="p-2 m-0 !box ml-2" onClick={toggleRecordingPopup}>
+        <span className="flex items-center justify-center w-5 h-5">
+          <Lucide icon="Mic" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+        </span>
+      </button>
+
+      {isRecordingPopupOpen && (
+       <div className="absolute bottom-full left-0 mb-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+          <ReactMic
+            record={isRecording}
+            className="w-full h-12 mb-2"
+            onStop={onStop}
+            strokeColor="#000000"
+            backgroundColor="#FF4081"
+          />
+          <div className="flex justify-between">
+            <button
+              className={`px-3 py-1 rounded ${isRecording ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}
+              onClick={toggleRecording}
+            >
+              {isRecording ? 'Stop' : 'Record'}
+            </button>
+            {audioUrl && (
+              <>
+                <audio src={audioUrl} controls className="h-8 w-32" />
+                <button
+                  className="px-3 py-1 rounded bg-gray-500 text-white"
+                  onClick={cancelRecording}
+                >
+                  Remove
+                </button>
+                <button
+                  className="px-3 py-1 rounded bg-green-500 text-white"
+                  onClick={sendVoiceMessage}
+                >
+                  Send
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
           {userData?.company === 'Juta Software' && (
         <button 
           className="p-2 m-0 !box ml-2" 
