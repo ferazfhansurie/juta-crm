@@ -499,6 +499,7 @@ function Main() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isRecordingPopupOpen, setIsRecordingPopupOpen] = useState(false);
+  
 
 
 
@@ -534,66 +535,54 @@ function Main() {
     }
   };
 
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-    if (isRecording) {
-      // If we're stopping the recording, don't do anything else
-      // The onStop handler will take care of the audio blob
-    } else {
-      // If we're starting a new recording, reset audio states
-      setAudioBlob(null);
-      setAudioUrl(null);
-    }
-  };
-
-  const cancelRecording = () => {
-    setIsRecording(false);
-    setAudioBlob(null);
-    setAudioUrl(null);
-  };
 
   const onStop = (recordedBlob: { blob: Blob; }) => {
-    setAudioBlob(recordedBlob.blob);
-    setAudioUrl(URL.createObjectURL(recordedBlob.blob));
+    // Convert WebM to Ogg Opus
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      if (e.target?.result instanceof ArrayBuffer) {
+        const view = new DataView(e.target.result);
+        // Change WebM header to Ogg header
+        view.setUint32(0, 0x4F676753, false); // "OggS" magic number
+        const newBlob = new Blob([view], { type: 'audio/ogg; codecs=opus' });
+        setAudioBlob(newBlob);
+      }
+    };
+    reader.readAsArrayBuffer(recordedBlob.blob);
   };
+
 
   const sendVoiceMessage = async () => {
     if (audioBlob && selectedChatId && userData) {
       try {
-        // Convert the audio blob to base64
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = async function() {
-          const base64AudioMessage = reader.result;
-          if (typeof base64AudioMessage === 'string') {
-            // Remove the data URL prefix
-            const base64Data = base64AudioMessage.split(',')[1];
-  
-            const requestBody = {
-              audioData: base64Data,
-              caption: '',
-              phoneIndex: selectedContact?.phoneIndex || 0,
-              userName: userData.name
-            };
-  
-            const response = await axios.post(
-              `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/audio/${userData.companyId}/${selectedChatId}`,
-              requestBody
-            );
-  
-            if (response.data.success) {
-              console.log("Voice message sent successfully:", response.data.messageId);
-              toast.success("Voice message sent successfully");
-            } else {
-              console.error("Failed to send voice message");
-              toast.error("Failed to send voice message");
-            }
-  
-            setAudioBlob(null);
-            setAudioUrl(null);
-            setIsRecordingPopupOpen(false);
-          }
+        // Create a File object from the Blob
+        const audioFile = new File([audioBlob], `voice_message_${Date.now()}.ogg`, { type: 'audio/ogg; codecs=opus' });
+
+        // Upload the audio file and get the URL
+        const audioUrl = await uploadFile(audioFile);
+        console.log(audioUrl)
+        const requestBody = {
+          audioUrl,
+          caption: '',
+          phoneIndex: selectedContact?.phoneIndex || 0,
+          userName: userData.name
         };
+
+        const response = await axios.post(
+          `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/audio/${userData.companyId}/${selectedChatId}`,
+          requestBody
+        );
+
+        if (response.data.success) {
+          console.log("Voice message sent successfully:", response.data.messageId);
+          toast.success("Voice message sent successfully");
+        } else {
+          console.error("Failed to send voice message");
+          toast.error("Failed to send voice message");
+        }
+
+        setAudioBlob(null);
+        setIsRecordingPopupOpen(false);
       } catch (error) {
         console.error("Error sending voice message:", error);
         toast.error("Error sending voice message");
@@ -6301,31 +6290,31 @@ console.log(prompt);
             backgroundColor="#FF4081"
           />
           <div className="flex justify-between">
-            <button
-              className={`px-3 py-1 rounded ${isRecording ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}
-              onClick={toggleRecording}
-            >
-              {isRecording ? 'Stop' : 'Record'}
-            </button>
-            {audioUrl && (
-              <>
-                <audio src={audioUrl} controls className="h-8 w-32" />
-                <button
-                  className="px-3 py-1 rounded bg-gray-500 text-white"
-                  onClick={cancelRecording}
-                >
-                  Remove
-                </button>
-                <button
-                  className="px-3 py-1 rounded bg-green-500 text-white"
-                  onClick={sendVoiceMessage}
-                >
-                  Send
-                </button>
-              </>
-            )}
-          </div>
+          <button
+            className={`px-3 py-1 rounded ${isRecording ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}
+            onClick={() => setIsRecording(!isRecording)}
+          >
+            {isRecording ? 'Stop' : 'Record'}
+          </button>
+          {audioBlob && (
+            <>
+              <audio src={URL.createObjectURL(audioBlob)} controls className="h-8 w-32" />
+              <button
+                className="px-3 py-1 rounded bg-gray-500 text-white"
+                onClick={() => setAudioBlob(null)}
+              >
+                Remove
+              </button>
+              <button
+                className="px-3 py-1 rounded bg-green-500 text-white"
+                onClick={sendVoiceMessage}
+              >
+                Send
+              </button>
+            </>
+          )}
         </div>
+      </div>
       )}
           {userData?.company === 'Juta Software' && (
         <button 
