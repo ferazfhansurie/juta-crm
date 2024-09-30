@@ -179,7 +179,7 @@ interface QuickReply {
   keyword: string;
   text: string;
   type:string;
-  document?: File | null;
+  document?: string | null;
   image?: string | null;
 }
 interface ImageModalProps {
@@ -499,6 +499,7 @@ function Main() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isRecordingPopupOpen, setIsRecordingPopupOpen] = useState(false);
+  const [selectedDocumentURL, setSelectedDocumentURL] = useState<string | null>(null);
   
 
 
@@ -1174,6 +1175,18 @@ const closePDFModal = () => {
     return await getDownloadURL(storageRef); // Return the download URL
 };
 
+const fetchFileFromURL = async (url: string): Promise<File | null> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const filename = url.split('/').pop() || 'document';
+    return new File([blob], filename, { type: blob.type });
+  } catch (error) {
+    console.error('Error fetching file from URL:', error);
+    return null;
+  }
+};
+
   const addQuickReply = async () => {
     if (newQuickReply.trim() === '') return;
   
@@ -1199,7 +1212,7 @@ const closePDFModal = () => {
         type: newQuickReplyType,
         createdAt: serverTimestamp(),
         createdBy: user.email,
-        document: selectedDocument ? await uploadDocument(selectedDocument) : null,
+        document: selectedDocument ? await uploadDocument(selectedDocument) : null, // URL stored
         image: selectedImage ? await uploadImage(selectedImage) : null,
       };
   
@@ -1285,25 +1298,21 @@ const closePDFModal = () => {
     }
   };
 
-  const handleQRClick = (reply: QuickReply, document: File | null, image: string | null) => {
-    if (document && image) {
-      console.warn('Cannot select both document and image.');
-      return; // Prevent setting both
-    }
-    
-    if (image) {
-      const imageFile = new File([image], "image.png", { type: "image/png" });
-      const imageUrl = URL.createObjectURL(imageFile);
-      setPastedImageUrl(imageUrl);
+  const handleQRClick = (reply: QuickReply) => {
+    if (reply.image) {
+      setPastedImageUrl(reply.image);
       setImageModalOpen2(true);
     }
-    
-    if (document) {
-      const documentFile = new File([document], "document", { type: document.type });
-      setSelectedDocument(documentFile);
-      setDocumentModalOpen(true);
+  
+    if (reply.document) {
+      fetchFileFromURL(reply.document).then(file => {
+        if (file) {
+          setSelectedDocument(file);
+          setDocumentModalOpen(true);
+        }
+      });
     }
-    
+  
     setNewMessage(reply.text);
     setIsQuickRepliesOpen(false);
   };
@@ -6281,40 +6290,46 @@ console.log(prompt);
       </button>
 
       {isRecordingPopupOpen && (
-       <div className="absolute bottom-full left-0 mb-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-          <ReactMic
-            record={isRecording}
-            className="w-full h-12 mb-2"
-            onStop={onStop}
-            strokeColor="#000000"
-            backgroundColor="#FF4081"
-          />
-          <div className="flex justify-between">
-          <button
-            className={`px-3 py-1 rounded ${isRecording ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}
-            onClick={() => setIsRecording(!isRecording)}
-          >
-            {isRecording ? 'Stop' : 'Record'}
-          </button>
-          {audioBlob && (
-            <>
-              <audio src={URL.createObjectURL(audioBlob)} controls className="h-8 w-32" />
-              <button
-                className="px-3 py-1 rounded bg-gray-500 text-white"
-                onClick={() => setAudioBlob(null)}
-              >
-                Remove
-              </button>
-              <button
-                className="px-3 py-1 rounded bg-green-500 text-white"
-                onClick={sendVoiceMessage}
-              >
-                Send
-              </button>
-            </>
-          )}
+        <div className="absolute bottom-full left-0 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+          <div className="flex items-center mb-2">
+            <button
+              className={`p-2 rounded-md ${isRecording ? 'bg-red-500 text-white' : 'bg-primary text-white'}`}
+              onClick={() => setIsRecording(!isRecording)}
+            >
+              <Lucide icon={isRecording ? "StopCircle" : "Mic"} className="w-5 h-5" />
+            </button>
+            <ReactMic
+              record={isRecording}
+              className="w-44 rounded-md h-10 mr-2 ml-2"
+              onStop={onStop}
+              strokeColor="#0000CD"
+              backgroundColor="#FFFFFF"
+              visualSetting="sinewave"
+              mimeType="audio/wav"
+            />
+          </div>
+          <div className="flex flex-col space-y-2">
+            {audioBlob && (
+              <>
+                <audio src={URL.createObjectURL(audioBlob)} controls className="w-full h-10 mb-2" />
+                <div className="flex justify-between">
+                  <button
+                    className="px-3 py-1 rounded bg-gray-500 text-white"
+                    onClick={() => setAudioBlob(null)}
+                  >
+                    Remove
+                  </button>
+                  <button
+                    className="px-3 py-1 rounded bg-green-700 text-white"
+                    onClick={sendVoiceMessage}
+                  >
+                    Send
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      </div>
       )}
           {userData?.company === 'Juta Software' && (
         <button 
@@ -6513,7 +6528,7 @@ console.log(prompt);
                       <span
                         className="px-2 py-1 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
                         onClick={() => {
-                          handleQRClick(reply, reply?.document ?? null, reply?.image ?? null);
+                          handleQRClick(reply);
                           let message = reply.text;
                           if (reply.image) {
                             const imageFile = new File([reply.image], "image.png", { type: "image/png" });
@@ -6522,7 +6537,7 @@ console.log(prompt);
                             setImageModalOpen2(true);
                           }
                           if (reply.document) {
-                            const documentFile = new File([reply.document], "document", { type: reply.document.type });
+                            const documentFile = new File([reply.document], "document", { type: reply.document });
                             setSelectedDocument(documentFile);
                             setDocumentModalOpen(true);
                           }
@@ -6586,7 +6601,7 @@ console.log(prompt);
                 rows={1}
                 style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'Arial, sans-serif', fontSize: '14px' }}
               />
-              {/* <input
+              <input
                 type="file"
                 className="hidden"
                 id="quickReplyFile"
@@ -6594,10 +6609,10 @@ console.log(prompt);
               />
               <label htmlFor="quickReplyFile" className="p-2 m-1 !box cursor-pointer">
                 <span className="flex items-center justify-center w-5 h-5">
-                  <Lucide icon="Paperclip" className="w-5 h-5 text-gray-800 dark:text-gray-200" />  
+                  <Lucide icon="File" className="w-5 h-5 text-gray-800 dark:text-gray-200" />  
                 </span>
               </label>  
-              <input
+              {/* <input
                 type="file"
                 accept="image/*"
                 className="hidden"
