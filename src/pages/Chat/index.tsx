@@ -560,39 +560,46 @@ function Main() {
   const sendVoiceMessage = async () => {
     if (audioBlob && selectedChatId && userData) {
       try {
-        const audioFile = new File([audioBlob], `voice_message_${Date.now()}.webm`, { type: audioBlob.type });
-        const uploadedAudioUrl = await uploadFile(audioFile);
-
-        const requestBody = {
-          audioUrl: uploadedAudioUrl,
-          caption: '',
-          phoneIndex: selectedContact?.phoneIndex || 0,
-          userName: userData.name
+        // Convert the audio blob to base64
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async function() {
+          const base64AudioMessage = reader.result;
+          if (typeof base64AudioMessage === 'string') {
+            // Remove the data URL prefix
+            const base64Data = base64AudioMessage.split(',')[1];
+  
+            const requestBody = {
+              audioData: base64Data,
+              caption: '',
+              phoneIndex: selectedContact?.phoneIndex || 0,
+              userName: userData.name
+            };
+  
+            const response = await axios.post(
+              `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/audio/${userData.companyId}/${selectedChatId}`,
+              requestBody
+            );
+  
+            if (response.data.success) {
+              console.log("Voice message sent successfully:", response.data.messageId);
+              toast.success("Voice message sent successfully");
+            } else {
+              console.error("Failed to send voice message");
+              toast.error("Failed to send voice message");
+            }
+  
+            setAudioBlob(null);
+            setAudioUrl(null);
+            setIsRecordingPopupOpen(false);
+          }
         };
-
-        const response = await axios.post(
-          `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/audio/${userData.companyId}/${selectedChatId}`,
-          requestBody
-        );
-
-        if (response.data.success) {
-          console.log("Voice message sent successfully:", response.data.messageId);
-          toast.success("Voice message sent successfully");
-        } else {
-          console.error("Failed to send voice message");
-          toast.error("Failed to send voice message");
-        }
-
-        setAudioBlob(null);
-        setAudioUrl(null);
-        setIsRecordingPopupOpen(false);
       } catch (error) {
         console.error("Error sending voice message:", error);
         toast.error("Error sending voice message");
       }
     }
   };
-
 
   const uploadDocument = async (file: File): Promise<string> => {
     const storage = getStorage(); // Correctly initialize storage
