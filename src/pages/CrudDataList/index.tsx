@@ -47,6 +47,7 @@ const firestore = getFirestore(app);
 
 function Main() {
   interface Contact {
+    assistantId?: string | null;
     additionalEmails?: string[] | null;
     address1?: string | null;
     assignedTo?: string | null;
@@ -1677,7 +1678,7 @@ const chatId = tempphone + "@c.us"
               'contactName', 'email', 'lastName', 'phone', 'address1', 'city', 
               'state', 'postalCode', 'website', 'dnd', 'dndSettings', 'tags', 
               'customFields', 'source', 'country', 'companyName', 'branch', 
-              'expiryDate', 'vehicleNumber', 'points', 'IC',
+              'expiryDate', 'vehicleNumber', 'points', 'IC','assistantId',
           ];
 
           fieldsToUpdate.forEach(field => {
@@ -3609,8 +3610,20 @@ const sendBlastMessage = async () => {
                         onChange={(e) => setCurrentContact({ ...currentContact, vehicleNumber: e.target.value } as Contact)}
                       />
                     </div>
+                
                   </>
                 )}  
+                {companyId === '001' && (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Assistant ID</label>
+    <input
+      type="text"
+      className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
+      value={currentContact?.assistantId || ''}
+      onChange={(e) => setCurrentContact({ ...currentContact, assistantId: e.target.value } as Contact)}
+    />
+  </div>
+)}
               </div>
               <div className="flex justify-end mt-6">
                 <button
