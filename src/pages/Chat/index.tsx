@@ -23,6 +23,8 @@ import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { ReactMic } from 'react-mic';
 import {  useNavigate } from "react-router-dom";
 import noti from "../../assets/audio/noti.mp3";
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
 import { Lock, MessageCircle } from "lucide-react";
 import { Menu as ContextMenu, Item, Separator, useContextMenu } from 'react-contexify';
 import 'react-contexify/dist/ReactContexify.css';
@@ -537,59 +539,71 @@ function Main() {
   };
 
 
-  const onStop = (recordedBlob: { blob: Blob; }) => {
-    // Convert WebM to Ogg Opus
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      if (e.target?.result instanceof ArrayBuffer) {
-        const view = new DataView(e.target.result);
-        // Change WebM header to Ogg header
-        view.setUint32(0, 0x4F676753, false); // "OggS" magic number
-        const newBlob = new Blob([view], { type: 'audio/ogg; codecs=opus' });
-        setAudioBlob(newBlob);
-      }
-    };
-    reader.readAsArrayBuffer(recordedBlob.blob);
+  const onStop = (recordedBlob: { blob: Blob; blobURL: string }) => {
+    console.log('recordedBlob is: ', recordedBlob);
+    setAudioBlob(recordedBlob.blob);
   };
-
-
-  const sendVoiceMessage = async () => {
-    if (audioBlob && selectedChatId && userData) {
-      try {
-        // Create a File object from the Blob
-        const audioFile = new File([audioBlob], `voice_message_${Date.now()}.ogg`, { type: 'audio/ogg; codecs=opus' });
-
-        // Upload the audio file and get the URL
-        const audioUrl = await uploadFile(audioFile);
-        console.log(audioUrl)
-        const requestBody = {
-          audioUrl,
-          caption: '',
-          phoneIndex: selectedContact?.phoneIndex || 0,
-          userName: userData.name
-        };
-
-        const response = await axios.post(
-          `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/audio/${userData.companyId}/${selectedChatId}`,
-          requestBody
-        );
-
-        if (response.data.success) {
-          console.log("Voice message sent successfully:", response.data.messageId);
-          toast.success("Voice message sent successfully");
-        } else {
-          console.error("Failed to send voice message");
-          toast.error("Failed to send voice message");
-        }
-
-        setAudioBlob(null);
-        setIsRecordingPopupOpen(false);
-      } catch (error) {
-        console.error("Error sending voice message:", error);
-        toast.error("Error sending voice message");
-      }
+  
+  const toggleRecording = () => {
+    setIsRecording(!isRecording);
+    if (isRecording) {
+      setAudioBlob(null);
     }
   };
+
+  const convertToOggOpus = async (blob: Blob): Promise<Blob> => {
+    const ffmpeg = new FFmpeg();
+    await ffmpeg.load();
+  
+    const inputFileName = 'input.webm';
+    const outputFileName = 'output.ogg';
+  
+    ffmpeg.writeFile(inputFileName, await fetchFile(blob));
+  
+    await ffmpeg.exec(['-i', inputFileName, '-c:a', 'libopus', outputFileName]);
+  
+    const data = await ffmpeg.readFile(outputFileName);
+    return new Blob([data], { type: 'audio/ogg; codecs=opus' });
+  };
+  
+const sendVoiceMessage = async () => {
+  if (audioBlob && selectedChatId && userData) {
+    try {
+      // Convert the audio Blob to a File
+      const audioFile = new File([audioBlob], `voice_message_${Date.now()}.webm`, { type: "audio/webm" });
+
+      // Upload the audio file using the provided uploadFile function
+      const audioUrl = await uploadFile(audioFile);
+      console.log(audioUrl)
+      const requestBody = {
+        audioUrl,
+        caption: '',
+        phoneIndex: selectedContact?.phoneIndex || 0,
+        userName: userData.name
+      };
+
+      const response = await axios.post(
+        `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/audio/${userData.companyId}/${selectedChatId}`,
+        requestBody
+      );
+
+      if (response.data.success) {
+        console.log("Voice message sent successfully:", response.data.messageId);
+        toast.success("Voice message sent successfully");
+      } else {
+        console.error("Failed to send voice message");
+        toast.error("Failed to send voice message");
+      }
+
+      setAudioBlob(null);
+      setIsRecordingPopupOpen(false);
+    } catch (error) {
+      console.error("Error sending voice message:", error);
+      toast.error("Error sending voice message");
+    }
+  }
+};
+
 
   const uploadDocument = async (file: File): Promise<string> => {
     const storage = getStorage(); // Correctly initialize storage
@@ -6294,7 +6308,7 @@ console.log(prompt);
           <div className="flex items-center mb-2">
             <button
               className={`p-2 rounded-md ${isRecording ? 'bg-red-500 text-white' : 'bg-primary text-white'}`}
-              onClick={() => setIsRecording(!isRecording)}
+              onClick={toggleRecording}
             >
               <Lucide icon={isRecording ? "StopCircle" : "Mic"} className="w-5 h-5" />
             </button>
@@ -6304,8 +6318,7 @@ console.log(prompt);
               onStop={onStop}
               strokeColor="#0000CD"
               backgroundColor="#FFFFFF"
-              visualSetting="sinewave"
-              mimeType="audio/wav"
+              mimeType="audio/webm"
             />
           </div>
           <div className="flex flex-col space-y-2">
