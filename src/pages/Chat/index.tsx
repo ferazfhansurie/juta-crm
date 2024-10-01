@@ -191,10 +191,11 @@ interface ImageModalProps {
 }
 interface DocumentModalProps {
   isOpen: boolean;
-  type:string;
   onClose: () => void;
   document: File | null;
-  onSend: (file: File, caption: string) => void;
+  onSend: (document: File | null, caption: string) => void;
+  type: string;
+  initialCaption?: string; // Add this prop
 }
 interface PDFModalProps {
   isOpen: boolean;
@@ -219,15 +220,21 @@ interface EditMessagePopupProps {
   handleEditMessage: () => void;
   cancelEditMessage: () => void;
 }
-const DocumentModal: React.FC<DocumentModalProps> = ({ isOpen, onClose, document, onSend }) => {
-  const [caption, setCaption] = useState('');
+
+const DocumentModal: React.FC<DocumentModalProps> = ({ isOpen, onClose, document, onSend, type, initialCaption }) => {
+  const [caption, setCaption] = useState(initialCaption); // Initialize with initialCaption
+
+  useEffect(() => {
+    // Update caption when initialCaption changes
+    setCaption(initialCaption);
+  }, [initialCaption]);
 
   const handleSendClick = () => {
     if (document) {
-      onSend(document, caption);
+      onSend(document, caption || '');
+      onClose();
     }
     setCaption('');
-    onClose();
   };
 
   if (!isOpen || !document) return null;
@@ -502,6 +509,7 @@ function Main() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isRecordingPopupOpen, setIsRecordingPopupOpen] = useState(false);
   const [selectedDocumentURL, setSelectedDocumentURL] = useState<string | null>(null);
+  const [documentCaption, setDocumentCaption] = useState('');
   
 
 
@@ -3087,7 +3095,6 @@ const addNotificationToUser = async (companyId: string, employeeName: string, no
 
 const sendAssignmentNotification = async (assignedEmployeeName: string, contact: Contact) => {
   try {
-
     const user = auth.currentUser;
     if (!user) {
       console.error('No authenticated user');
@@ -3108,7 +3115,6 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
       console.error('Invalid companyId:', companyId);
       throw new Error('Invalid companyId');
     }
-    
 
     // Check if notification has already been sent
     const notificationRef = doc(firestore, 'companies', companyId, 'assignmentNotifications', `${contact.id}_${assignedEmployeeName}`);
@@ -3127,20 +3133,11 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
       return;
     }
 
-    if (!assignedEmployee.phoneNumber) {
-      console.error(`Phone number missing for employee: ${assignedEmployeeName}`);
-      toast.error(`Failed to send assignment notification: Phone number missing for ${assignedEmployeeName}`);
-      return;
-    }
-
-    // Format the phone number for WhatsApp chat_id
-    const employeePhone = `${assignedEmployee.phoneNumber.replace(/[^\d]/g, '')}@c.us`;
-    console.log('Formatted employee chat_id:', employeePhone);
-
-    if (!employeePhone || !/^\d+@c\.us$/.test(employeePhone)) {
-      console.error('Invalid employeePhone:', employeePhone);
-      throw new Error('Invalid employeePhone');
-    }
+    // Fetch all admin users
+    const usersRef = collection(firestore, 'user');
+    const adminQuery = query(usersRef, where('companyId', '==', companyId), where('role', 'in', ['1', '2']));
+    const adminSnapshot = await getDocs(adminQuery);
+    const adminUsers = adminSnapshot.docs.map(doc => doc.data());
 
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
@@ -3150,49 +3147,50 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
     }
     const companyData = docSnapshot.data();
 
-    let message = `Hello ${assignedEmployee.name}, a new contact has been assigned to you:\n\nName: ${contact.contactName || contact.firstName || 'N/A'}\nPhone: ${contact.phone}\n\nPlease follow up with them as soon as possible.`;
-    if(companyId == '042'){
-      message = `Hi ${assignedEmployee.employeeId || assignedEmployee.phoneNumber} ${assignedEmployee.name}.\n\nAnda telah diberi satu prospek baharu\n\nSila masuk ke https://web.jutasoftware.co/login untuk melihat perbualan di antara Zahin Travel dan prospek.\n\nTerima kasih.\n\nIkhlas,\nZahin Travel Sdn. Bhd. (1276808-W)\nNo. Lesen Pelancongan: KPK/LN 9159\nNo. MATTA: MA6018\n\n#zahintravel - Nikmati setiap detik..\n#diyakini\n#responsif\n#budibahasa`;
-    }
-
-    let url;
-    let requestBody;
-    if (companyData.v2 === true) {
-      console.log("v2 is true");
-      url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${employeePhone}`;
-      requestBody = { message };
+    // Function to send WhatsApp message
+    const sendWhatsAppMessage = async (phoneNumber: string, message: string) => {
+      const chatId = `${phoneNumber.replace(/[^\d]/g, '')}@c.us`;
+      let url;
+      let requestBody;
+      if (companyData.v2 === true) {
+        url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${chatId}`;
+        requestBody = { message };
       } else {
-      console.log("v2 is false");
-      url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${employeePhone}/${companyData.whapiToken}`;
-      requestBody = { message };
+        url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chatId}/${companyData.whapiToken}`;
+        requestBody = { message };
+      }
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', response.status, errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      }
+
+      return await response.json();
+    };
+
+    // Send notification to assigned employee
+    if (assignedEmployee.phoneNumber) {
+      let employeeMessage = `Hello ${assignedEmployee.name}, a new contact has been assigned to you:\n\nName: ${contact.contactName || contact.firstName || 'N/A'}\nPhone: ${contact.phone}\n\nPlease follow up with them as soon as possible.`;
+      if(companyId == '042'){
+        employeeMessage = `Hi ${assignedEmployee.employeeId || assignedEmployee.phoneNumber} ${assignedEmployee.name}.\n\nAnda telah diberi satu prospek baharu\n\nSila masuk ke https://web.jutasoftware.co/login untuk melihat perbualan di antara Zahin Travel dan prospek.\n\nTerima kasih.\n\nIkhlas,\nZahin Travel Sdn. Bhd. (1276808-W)\nNo. Lesen Pelancongan: KPK/LN 9159\nNo. MATTA: MA6018\n\n#zahintravel - Nikmati setiap detik..\n#diyakini\n#responsif\n#budibahasa`;
+      }
+      await sendWhatsAppMessage(assignedEmployee.phoneNumber, employeeMessage);
     }
 
-    console.log('Sending request to:', url);
-    console.log('Request body:', JSON.stringify(requestBody));
-
-    console.log('Full request details:', {
-      url,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-
-    // Send WhatsApp message to the employee
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
-  
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response:', response.status, errorText);
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    // Send notification to all admins
+    for (const admin of adminUsers) {
+      if (admin.phoneNumber) {
+        const adminMessage = `Admin notification: A new contact has been assigned to ${assignedEmployee.name}:\n\nName: ${contact.contactName || contact.firstName || 'N/A'}\nPhone: ${contact.phone}`;
+        await sendWhatsAppMessage(admin.phoneNumber, adminMessage);
+      }
     }
-
-    const responseData = await response.json();
-    console.log('Assignment notification response:', responseData);
-    console.log('Sent to phone number:', employeePhone);
 
     // Mark notification as sent
     await setDoc(notificationRef, {
@@ -3201,18 +3199,16 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
       contactId: contact.id
     });
 
-    toast.success("Assignment notification sent successfully!");
+    toast.success("Assignment notifications sent successfully!");
   } catch (error) {
-    console.error('Error sending assignment notification:', error);
+    console.error('Error sending assignment notifications:', error);
     
-    // Instead of throwing the error, we'll handle it here
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
       toast.error('Network error. Please check your connection and try again.');
     } else {
-      toast.error('Failed to send assignment notification. Please try again.');
+      toast.error('Failed to send assignment notifications. Please try again.');
     }
     
-    // Log additional information that might be helpful
     console.log('Assigned Employee Name:', assignedEmployeeName);
     console.log('Contact:', contact);
     console.log('Employee List:', employeeList);
@@ -6553,6 +6549,7 @@ console.log(prompt);
                             const documentFile = new File([reply.document], "document", { type: reply.document });
                             setSelectedDocument(documentFile);
                             setDocumentModalOpen(true);
+                            setDocumentCaption(reply.text);
                           }
                           setNewMessage(message);
                           setIsQuickRepliesOpen(false);
@@ -6908,10 +6905,16 @@ console.log(prompt);
 
 <DocumentModal 
   isOpen={documentModalOpen} 
-  type={selectedDocument?.type || ''} // Provide a default empty string
+  type={selectedDocument?.type || ''}
   onClose={() => setDocumentModalOpen(false)} 
   document={selectedDocument} 
-  onSend={sendDocument} 
+  onSend={(document, caption) => {
+    if (document) {
+      sendDocument(document, caption);
+    }
+    setDocumentModalOpen(false);
+  }} 
+  initialCaption={documentCaption}
 />
       <ImageModal isOpen={isImageModalOpen} onClose={closeImageModal} imageUrl={modalImageUrl} />
       <ImageModal2 isOpen={isImageModalOpen2} onClose={() => setImageModalOpen2(false)} imageUrl={pastedImageUrl} onSend={sendImage} />
