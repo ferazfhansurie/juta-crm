@@ -3215,7 +3215,103 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
     console.log('Company ID:', companyId);
   }
 };
+
+useEffect(() => {
+  const checkAndSendDailySummary = async () => {
+    const now = new Date();
+    if (now.getHours() === 0 && now.getMinutes() === 0) {
+      const user = auth.currentUser;
+      if (user) {
+        const docUserRef = doc(firestore, 'user', user.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (docUserSnapshot.exists()) {
+          const userData = docUserSnapshot.data();
+          const companyId = userData.companyId;
+          if (companyId === '001') {
+            await sendDailyLeadsSummary(companyId);
+          }
+        }
+      }
+    }
+  };
+
+  const intervalId = setInterval(checkAndSendDailySummary, 60000); // Check every minute
+
+  return () => clearInterval(intervalId);
+}, []);
   
+
+const sendDailyLeadsSummary = async (companyId: string) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Query to get contacts created today
+    const contactsRef = collection(firestore, 'companies', companyId, 'contacts');
+    const todayQuery = query(
+      contactsRef,
+      where('createdAt', '>=', Timestamp.fromDate(today)),
+      where('createdAt', '<', Timestamp.fromDate(tomorrow))
+    );
+    const todaySnapshot = await getDocs(todayQuery);
+    const newLeadsCount = todaySnapshot.size;
+
+    // Get all admin users
+    const usersRef = collection(firestore, 'user');
+    const adminQuery = query(usersRef, where('companyId', '==', companyId), where('role', 'in', ['1', '2']));
+    const adminSnapshot = await getDocs(adminQuery);
+    const adminUsers = adminSnapshot.docs.map(doc => doc.data());
+
+    // Get company data
+    const companyRef = doc(firestore, 'companies', companyId);
+    const companySnapshot = await getDoc(companyRef);
+    if (!companySnapshot.exists()) {
+      throw new Error('Company document not found');
+    }
+    const companyData = companySnapshot.data();
+
+    // Send summary to all admin users
+    for (const admin of adminUsers) {
+      if (admin.phoneNumber) {
+        const summaryMessage = `Daily Lead Summary\n\nDate: ${today.toLocaleDateString()}\nNew Leads: ${newLeadsCount}\n\nThis is an automated message from your CRM system.`;
+        await sendWhatsAppMessage(admin.phoneNumber, summaryMessage, companyId, companyData);
+      }
+    }
+
+    console.log(`Daily lead summary sent to ${adminUsers.length} admin users.`);
+    } catch (error) {
+      console.error('Error sending daily leads summary:', error);
+    }
+  };
+
+  const sendWhatsAppMessage = async (phoneNumber: string, message: string, companyId: string, companyData: any) => {
+    const chatId = `${phoneNumber.replace(/[^\d]/g, '')}@c.us`;
+    let url;
+    let requestBody;
+    if (companyData.v2 === true) {
+      url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${chatId}`;
+      requestBody = { message };
+    } else {
+      url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chatId}/${companyData.whapiToken}`;
+      requestBody = { message };
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response:', response.status, errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+
+    return await response.json();
+  };
  
 const formatText = (text: string) => {
   const parts = text.split(/(\*[^*]+\*|\*\*[^*]+\*\*)/g);
