@@ -3026,25 +3026,25 @@ const fiveDaysFollowUpMalay = (contact: Contact) => {
         // Handle specific tags
         if (tagName === 'Before Quote Follow Up') {
           addTagBeforeQuote(contact);
-        } else if (tagName === 'Before Quote Follow Up (English)') {
+        } else if (tagName === 'Before Quote Follow Up EN') {
           addTagBeforeQuoteEnglish(contact);
-        } else if (tagName === 'Before Quote Follow Up (Malay)') {
+        } else if (tagName === 'Before Quote Follow Up BM') {
           addTagBeforeQuoteMalay(contact);
-        } else if (tagName === 'Before Quote Follow Up (Chinese)') {
+        } else if (tagName === 'Before Quote Follow Up CN') {
           addTagBeforeQuoteChinese(contact);
         } else if (tagName === 'After Quote Follow Up') {
           addTagAfterQuote(contact);
-        } else if (tagName === 'After Quote Follow Up (English)') {
+        } else if (tagName === 'After Quote Follow Up EN') {
           addTagAfterQuoteEnglish(contact);
-        } else if (tagName === 'After Quote Follow Up (Chinese)') {
+        } else if (tagName === 'After Quote Follow Up CN') {
           addTagAfterQuoteChinese(contact);
-        } else if (tagName === 'After Quote Follow Up (Malay)') {
+        } else if (tagName === 'After Quote Follow Up BM') {
           addTagAfterQuoteMalay(contact);
-        } else if (tagName === '5 Days Follow Up (English)') {
+        } else if (tagName === '5 Days Follow Up EN') {
           fiveDaysFollowUpEnglish(contact);
-        } else if (tagName === '5 Days Follow Up (Chinese)') {
+        } else if (tagName === '5 Days Follow Up CN') {
           fiveDaysFollowUpChinese(contact);
-        } else if (tagName === '5 Days Follow Up (Malay)') {
+        } else if (tagName === '5 Days Follow Up BM') {
           fiveDaysFollowUpMalay(contact);
         } else {
           // Check if the tag is an employee's name and send assignment notification
@@ -4204,25 +4204,25 @@ const handleForwardMessage = async () => {
       //handle specific tags
       if (tagName === 'Before Quote Follow Up') {
         removeTagBeforeQuote(contact);
-      } else if (tagName === 'Before Quote Follow Up (English)') {
+      } else if (tagName === 'Before Quote Follow Up EN') {
         removeTagBeforeQuote(contact);
-      } else if (tagName === 'Before Quote Follow Up (Malay)') {
+      } else if (tagName === 'Before Quote Follow Up BM') {
         removeTagBeforeQuote(contact);
-      } else if (tagName === 'Before Quote Follow Up (Chinese)') {
+      } else if (tagName === 'Before Quote Follow Up CN') {
         removeTagBeforeQuote(contact);
       } else if (tagName === 'After Quote Follow Up') {
         removeTagAfterQuote(contact);
-      } else if (tagName === 'After Quote Follow Up (English)') {
+      } else if (tagName === 'After Quote Follow Up EN') {
         removeTagAfterQuote(contact);
-      } else if (tagName === 'After Quote Follow Up (Chinese)') {
+      } else if (tagName === 'After Quote Follow Up CN') {
         removeTagAfterQuote(contact);
-      } else if (tagName === 'After Quote Follow Up (Malay)') {
+      } else if (tagName === 'After Quote Follow Up BM') {
         removeTagAfterQuote(contact);
-      } else if (tagName === '5 Days Follow Up (English)') {
+      } else if (tagName === '5 Days Follow Up EN') {
         removeTagAfterQuote(contact);
-      } else if (tagName === '5 Days Follow Up (Chinese)') {
+      } else if (tagName === '5 Days Follow Up CN') {
         removeTagAfterQuote(contact);
-      } else if (tagName === '5 Days Follow Up (Malay)') {
+      } else if (tagName === '5 Days Follow Up BM') {
         removeTagAfterQuote(contact);
       }
       // Update state
