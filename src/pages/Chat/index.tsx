@@ -3216,10 +3216,17 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
   }
 };
 
+
+//start of sending daily summary code
+
 useEffect(() => {
   const checkAndSendDailySummary = async () => {
     const now = new Date();
-    if (now.getHours() === 0 && now.getMinutes() === 0) {
+    const targetHour = 23; // 11 PM
+    const targetMinute = 59;
+
+    if (now.getHours() === targetHour && now.getMinutes() === targetMinute) {
+      console.log('It\'s 11:59 PM. Preparing to send daily summary...');
       const user = auth.currentUser;
       if (user) {
         const docUserRef = doc(firestore, 'user', user.email!);
@@ -3228,21 +3235,29 @@ useEffect(() => {
           const userData = docUserSnapshot.data();
           const companyId = userData.companyId;
           if (companyId === '001') {
+            console.log('Sending daily summary for company 001');
             await sendDailyLeadsSummary(companyId);
+          } else {
+            console.log('Company ID is not 001, skipping summary');
           }
+        } else {
+          console.log('User document does not exist');
         }
+      } else {
+        console.log('No authenticated user');
       }
     }
   };
 
-  const intervalId = setInterval(checkAndSendDailySummary, 60000); // Check every minute
+  // Check every minute
+  const intervalId = setInterval(checkAndSendDailySummary, 60000);
 
   return () => clearInterval(intervalId);
 }, []);
-  
 
 const sendDailyLeadsSummary = async (companyId: string) => {
   try {
+    console.log('Starting to send daily leads summary');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -3258,11 +3273,15 @@ const sendDailyLeadsSummary = async (companyId: string) => {
     const todaySnapshot = await getDocs(todayQuery);
     const newLeadsCount = todaySnapshot.size;
 
+    console.log(`New leads count: ${newLeadsCount}`);
+
     // Get all admin users
     const usersRef = collection(firestore, 'user');
     const adminQuery = query(usersRef, where('companyId', '==', companyId), where('role', 'in', ['1', '2']));
     const adminSnapshot = await getDocs(adminQuery);
     const adminUsers = adminSnapshot.docs.map(doc => doc.data());
+
+    console.log(`Found ${adminUsers.length} admin users`);
 
     // Get company data
     const companyRef = doc(firestore, 'companies', companyId);
@@ -3276,42 +3295,47 @@ const sendDailyLeadsSummary = async (companyId: string) => {
     for (const admin of adminUsers) {
       if (admin.phoneNumber) {
         const summaryMessage = `Daily Lead Summary\n\nDate: ${today.toLocaleDateString()}\nNew Leads: ${newLeadsCount}\n\nThis is an automated message from your CRM system.`;
+        console.log(`Sending summary to ${admin.phoneNumber}`);
         await sendWhatsAppMessage(admin.phoneNumber, summaryMessage, companyId, companyData);
+      } else {
+        console.log(`Admin ${admin.email} has no phone number`);
       }
     }
 
     console.log(`Daily lead summary sent to ${adminUsers.length} admin users.`);
-    } catch (error) {
-      console.error('Error sending daily leads summary:', error);
-    }
-  };
+  } catch (error) {
+    console.error('Error sending daily leads summary:', error);
+  }
+};
 
-  const sendWhatsAppMessage = async (phoneNumber: string, message: string, companyId: string, companyData: any) => {
-    const chatId = `${phoneNumber.replace(/[^\d]/g, '')}@c.us`;
-    let url;
-    let requestBody;
-    if (companyData.v2 === true) {
-      url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${chatId}`;
-      requestBody = { message };
-    } else {
-      url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chatId}/${companyData.whapiToken}`;
-      requestBody = { message };
-    }
+const sendWhatsAppMessage = async (phoneNumber: string, message: string, companyId: string, companyData: any) => {
+  const chatId = `${phoneNumber.replace(/[^\d]/g, '')}@c.us`;
+  let url;
+  let requestBody;
+  if (companyData.v2 === true) {
+    url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${chatId}`;
+    requestBody = { message };
+  } else {
+    url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chatId}/${companyData.whapiToken}`;
+    requestBody = { message };
+  }
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody),
+  });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response:', response.status, errorText);
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-    }
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Error response:', response.status, errorText);
+    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+  }
 
-    return await response.json();
-  };
+  return await response.json();
+};
+
+//end of sending daily summary code
  
 const formatText = (text: string) => {
   const parts = text.split(/(\*[^*]+\*|\*\*[^*]+\*\*)/g);
@@ -3856,6 +3880,8 @@ const handleForwardMessage = async () => {
   
   const sendImageMessage = async (chatId: string, imageUrl: string, caption?: string) => {
     try {
+      console.log(`Sending image message. ChatId: ${chatId}`);
+      
       const user = auth.currentUser;
       if (!user) throw new Error('No authenticated user');
   
@@ -3865,8 +3891,11 @@ const handleForwardMessage = async () => {
   
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-      const phoneIndex = userData.phone || 0;
+      const phoneIndex = userData.phone || 0; // Use the same approach as in sendMessage
       const userName = userData.name || userData.email || '';
+      
+      console.log(`Using phoneIndex: ${phoneIndex}`);
+  
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) throw new Error('No company document found');
@@ -3874,8 +3903,8 @@ const handleForwardMessage = async () => {
       const companyData = docSnapshot.data();
   
       let response;
-      // Try the new API first
       try {
+        console.log(`Attempting to send image via API. PhoneIndex: ${phoneIndex}`);
         response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/image/${companyId}/${chatId}`, {
           method: 'POST',
           headers: {
@@ -3884,35 +3913,20 @@ const handleForwardMessage = async () => {
           body: JSON.stringify({
             imageUrl: imageUrl,
             caption: caption || '',
-            phoneIndex: phoneIndex, // Assuming default phone index is 0
+            phoneIndex: phoneIndex,
             userName: userName,
           }),
         });
   
-        if (!response.ok) throw new Error(`New API failed with status ${response.status}`);
-      } catch (newApiError) {
-        console.warn('New API failed, falling back to old API', newApiError);
-  
-        // If the new API fails, fall back to the old API
-        response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/image/${companyData.whapiToken}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            chatId: chatId,
-            imageUrl: imageUrl,
-            caption: caption || '',
-            userName: userName,
-          }),
-        });
-  
-        if (!response.ok) throw new Error(`Old API failed with status ${response.status}`);
+        if (!response.ok) throw new Error(`API failed with status ${response.status}`);
+      } catch (error) {
+        console.error('Error sending image:', error);
+        throw error;
       }
   
       const data = await response.json();
-      fetchMessages(chatId, companyData.ghl_accessToken);
       console.log('Image message sent successfully:', data);
+      fetchMessages(chatId, companyData.ghl_accessToken);
     } catch (error) {
       console.error('Error sending image message:', error);
       toast.error(`Failed to send image: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -3920,8 +3934,10 @@ const handleForwardMessage = async () => {
     }
   };
   
-  const sendDocumentMessage = async (chatId: string, documentUrl: string, mimeType: string, fileName: string, caption?: string, phoneIndex: number = 0) => {
+  const sendDocumentMessage = async (chatId: string, documentUrl: string, mimeType: string, fileName: string, caption?: string) => {
     try {
+      console.log(`Sending document message. ChatId: ${chatId}`);
+      
       const user = auth.currentUser;
       if (!user) throw new Error('No authenticated user');
   
@@ -3931,7 +3947,11 @@ const handleForwardMessage = async () => {
   
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
+      const phoneIndex = userData.phone || 0; // Use the same approach as in sendMessage
       const userName = userData.name || userData.email || '';
+      
+      console.log(`Using phoneIndex: ${phoneIndex}`);
+  
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) throw new Error('No company document found');
@@ -3939,8 +3959,8 @@ const handleForwardMessage = async () => {
       const companyData = docSnapshot.data();
   
       let response;
-      // Try the new API first
       try {
+        console.log(`Attempting to send document via API. PhoneIndex: ${phoneIndex}`);
         response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/document/${companyId}/${chatId}`, {
           method: 'POST',
           headers: {
@@ -3955,32 +3975,15 @@ const handleForwardMessage = async () => {
           }),
         });
   
-        if (!response.ok) throw new Error(`New API failed with status ${response.status}`);
-      } catch (newApiError) {
-        console.warn('New API failed, falling back to old API', newApiError);
-  
-        // If the new API fails, fall back to the old API
-        response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/document/${companyData.whapiToken}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            chatId: chatId,
-            imageUrl: documentUrl,
-            mimeType: mimeType,
-            fileName: fileName,
-            caption: caption || '',
-            userName: userName,
-          }),
-        });
-  
-        if (!response.ok) throw new Error(`Old API failed with status ${response.status}`);
+        if (!response.ok) throw new Error(`API failed with status ${response.status}`);
+      } catch (error) {
+        console.error('Error sending document:', error);
+        throw error;
       }
   
       const data = await response.json();
-      fetchMessages(chatId, companyData.ghl_accessToken);
       console.log('Document message sent successfully:', data);
+      fetchMessages(chatId, companyData.ghl_accessToken);
     } catch (error) {
       console.error('Error sending document message:', error);
       toast.error(`Failed to send document: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -4359,12 +4362,13 @@ const handleForwardMessage = async () => {
       </div>
     </div>
   );
+  
   const sendDocument = async (file: File, caption: string) => {
     setLoading(true);
     try {
       const uploadedDocumentUrl = await uploadFile(file);
       if (uploadedDocumentUrl) {
-        await sendDocumentMessage(selectedChatId!, uploadedDocumentUrl, caption, file.name);
+        await sendDocumentMessage(selectedChatId!, uploadedDocumentUrl, file.type, file.name, caption);
       }
     } catch (error) {
       console.error('Error sending document:', error);
@@ -4374,6 +4378,7 @@ const handleForwardMessage = async () => {
       setDocumentModalOpen(false);
     }
   };
+
   const uploadLocalImageUrl = async (localUrl: string): Promise<string | null> => {
     try {
       const response = await fetch(localUrl);
@@ -4396,6 +4401,7 @@ const handleForwardMessage = async () => {
       return null;
     }
   };
+  
   const sendImage = async (imageUrl: string | null, caption: string) => {
     console.log('Image URL:', imageUrl);
     console.log('Caption:', caption);
