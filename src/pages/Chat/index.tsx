@@ -1201,7 +1201,8 @@ const fetchFileFromURL = async (url: string): Promise<File | null> => {
   try {
     const response = await fetch(url);
     const blob = await response.blob();
-    const filename = url.split('/').pop() || 'document';
+    const decodedUrl = decodeURIComponent(url);
+    const filename = decodedUrl.split('/').pop()?.split('?')[0] || 'document';
     return new File([blob], filename, { type: blob.type });
   } catch (error) {
     console.error('Error fetching file from URL:', error);
