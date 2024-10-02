@@ -3136,9 +3136,11 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
 
     // Fetch all admin users
     const usersRef = collection(firestore, 'user');
-    const adminQuery = query(usersRef, where('companyId', '==', companyId), where('role', 'in', ['1', '2']));
+    const adminQuery = query(usersRef, where('companyId', '==', companyId), where('role', '==', '1'));
     const adminSnapshot = await getDocs(adminQuery);
     const adminUsers = adminSnapshot.docs.map(doc => doc.data());
+
+    console.log(`Found ${adminUsers.length} admin users for notifications`);
 
     const docRef = doc(firestore, 'companies', companyId);
     const docSnapshot = await getDoc(docRef);
