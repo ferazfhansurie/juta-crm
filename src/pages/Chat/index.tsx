@@ -6306,7 +6306,7 @@ console.log(prompt);
          <div className="flex mb-1">
             <button
               className={`px-4 py-2 mr-1 rounded-lg ${
-                messageMode === 'reply'
+                messageMode === 'reply' || messageMode === `phone${selectedContact?.phoneIndex + 1}`
                   ? 'bg-primary text-white'
                   : 'bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
               }`}
