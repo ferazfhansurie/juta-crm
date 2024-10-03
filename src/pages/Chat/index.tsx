@@ -393,6 +393,8 @@ function Main() {
   const [isTabOpen, setIsTabOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchQuery2, setSearchQuery2] = useState('');
+  const [forwardDialogTags, setForwardDialogTags] = useState<string[]>([]);
+  const [filteredForwardingContacts, setFilteredForwardingContacts] = useState<Contact[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const baseMessageClass = "flex flex-col max-w-[auto] min-w-[auto] p-1 text-white";
   const myMessageClass = `${baseMessageClass} bg-primary self-end ml-auto text-left mb-1 mr-6 group`;
@@ -512,7 +514,18 @@ function Main() {
   const [documentCaption, setDocumentCaption] = useState('');
   
 
+  const [showAllForwardTags, setShowAllForwardTags] = useState(false);
+  const [visibleForwardTags, setVisibleForwardTags] = useState<typeof tagList>([]);
 
+  // Update this useEffect
+  useEffect(() => {
+    setVisibleForwardTags(showAllForwardTags ? tagList : tagList.slice(0, 5));
+  }, [tagList, showAllForwardTags]);
+
+  // Update this function name
+  const toggleForwardTagsVisibility = () => {
+    setShowAllForwardTags(!showAllForwardTags);
+  };
 
   const filteredContactsSearch = useMemo(() => {
     return contacts.filter((contact) => {
@@ -3538,19 +3551,30 @@ const sortContacts = (contacts: Contact[]) => {
     // We'll handle the filtering in the useEffect
   };
 
+  const filterForwardDialogContacts = (tag: string) => {
+    setForwardDialogTags(prevTags => 
+      prevTags.includes(tag) ? prevTags.filter(t => t !== tag) : [...prevTags, tag]
+    );
+  };
+  
+  // Modify the handleSearchChange2 function
   const handleSearchChange2 = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value.toLowerCase();
-    setSearchQuery2(query);
+    setSearchQuery2(e.target.value);
+  };
   
-    const filtered = contacts.filter((contact) => {
-      const name = (contact.contactName || contact.firstName || contact.phone || '').toLowerCase();
-      const phone = (contact.phone || '').toLowerCase();
-      const tags = (contact.tags || []).join(' ').toLowerCase();
+  // Add this function to get filtered contacts
+  const getFilteredForwardingContacts = () => {
+    return contacts.filter(contact => {
+      const matchesSearch = 
+        contact.contactName?.toLowerCase().includes(searchQuery2.toLowerCase()) ||
+        contact.firstName?.toLowerCase().includes(searchQuery2.toLowerCase()) ||
+        contact.phone?.toLowerCase().includes(searchQuery2.toLowerCase());
   
-      return name.includes(query) || phone.includes(query) || tags.includes(query);
+      const matchesTags = forwardDialogTags.length === 0 || 
+        contact.tags?.some(tag => forwardDialogTags.includes(tag));
+  
+      return matchesSearch && matchesTags;
     });
-  
-    setFilteredContactsForForwarding(filtered);
   };
 
   // Update the pagination logic
@@ -3748,64 +3772,78 @@ const sortContacts = (contacts: Contact[]) => {
             : [...prevSelectedMessages, message]
     );
   };
-const handleForwardMessage = async () => {
-  if (selectedMessages.length === 0 || selectedContactsForForwarding.length === 0) return;
 
-  try {
+  const handleForwardMessage = async () => {
+    if (selectedMessages.length === 0 || selectedContactsForForwarding.length === 0) return;
+  
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('No authenticated user');
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) throw new Error('No user document found');
+  
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
       for (const contact of selectedContactsForForwarding) {
-          for (const message of selectedMessages) {
-              let response;
-              if (message.type === 'image') {
-                  response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/image/${whapiToken}`, {
-                      method: 'POST',
-                      headers: {
-                          'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                          chatId: contact.chat_id,
-                          imageUrl: message.image?.link,
-                          caption: message.image?.caption || '',
-                      }),
-                  });
-              } else if (message.type === 'document') {
-                  response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/document/${whapiToken}`, {
-                      method: 'POST',
-                      headers: {
-                          'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                          chatId: contact.chat_id,
-                          imageUrl: message.document?.link,
-                          fileName: message.document?.file_name,
-                          mimeType: message.document?.mime_type,
-                      }),
-                  });
-              } else {
-                const message_string = message!.text?.body!;
-                  response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/text/${contact.chat_id}/${whapiToken}`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        message: message_string,
-              
-                      }),
-                  });
+        for (const message of selectedMessages) {
+          try {
+            if (message.type === 'image') {
+              // Ensure we have a valid image link
+              const imageLink = message.image?.link || message.image?.url;
+              if (!imageLink) {
+                throw new Error('Invalid image link');
               }
-              if (!response.ok) throw new Error('Failed to forward message');
+              await sendImageMessage(contact.chat_id ?? '', imageLink, message.image?.caption ?? '');
+            } else if (message.type === 'document') {
+              // Ensure we have a valid document link
+              const documentLink = message.document?.link;
+              if (!documentLink) {
+                throw new Error('Invalid document link');
+              }
+              await sendDocumentMessage(
+                contact.chat_id ?? '',
+                documentLink,
+                message.document?.mime_type ?? '',
+                message.document?.file_name ?? '',
+                message.document?.caption ?? ''
+              );
+            } else {
+              // For text messages, use the existing API call
+              const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${contact.chat_id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  message: message.text?.body || '',
+                  phoneIndex: userData.phone || 0,
+                  userName: userData.name || userData.email || ''
+                }),
+              });
+  
+              if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to forward text message: ${response.status} ${errorText}`);
+              }
+            }
+            console.log('Message forwarded successfully');
+          } catch (error) {
+            console.error('Error forwarding message:', error);
+            toast.error(`Failed to forward a message: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
+        }
       }
-
+  
       setIsForwardDialogOpen(false);
       setSelectedMessages([]);
       setSelectedContactsForForwarding([]);
       toast.success('Messages forwarded successfully');
-  } catch (error) {
-      console.error('Error forwarding messages:', error);
-      alert('Failed to forward messages');
-  }
-};
-
-
+    } catch (error) {
+      console.error('Error in forward process:', error);
+      toast.error(`Error in forward process: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
 
   const handleSelectContactForForwarding = (contact: Contact) => {
     setSelectedContactsForForwarding(prevContacts => 
@@ -5195,6 +5233,7 @@ console.log(prompt);
               </div>
               </div>
             )}
+
             {isForwardDialogOpen && (
               <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
                 <div className="bg-white dark:bg-gray-800 rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
@@ -5215,27 +5254,34 @@ console.log(prompt);
                             className="absolute top-2 right-3 w-5 h-5 text-gray-500 dark:text-gray-400"
                           />
                         </div>
-                        <div className="sticky top-0 bg-white dark:bg-gray-800 z-20 w-full">
-                          <div className="overflow-x-auto whitespace-nowrap pb-2 sticky top-0 z-20">
-                            <div className="flex gap-2 sticky top-0" style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none', position: 'sticky', top: 0 }}>
-                              {visibleTags.map((tag) => (
-                                <button
-                                  key={tag.id}
-                                  onClick={() => filterTagContact('mine')}
-                                  className={`px-3 py-1 rounded-full text-sm flex-shrink-0 ${
-                                    activeTags.includes(tag.name)
-                                      ? 'bg-primary text-white dark:bg-primary dark:text-white'
-                                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-                                  } transition-colors duration-200`}
-                                >
-                                  {tag.name}
-                                </button>
-          ))}
-        </div>
-      </div>
+                        <div className="mb-4">
+                          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filter by tags:</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {visibleForwardTags.map((tag) => (
+                              <button
+                                key={tag.id}
+                                onClick={() => filterForwardDialogContacts(tag.name)}
+                                className={`px-3 py-1 rounded-full text-sm flex-shrink-0 ${
+                                  forwardDialogTags.includes(tag.name)
+                                    ? 'bg-primary text-white dark:bg-primary dark:text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                                } transition-colors duration-200`}
+                              >
+                                {tag.name}
+                              </button>
+                            ))}
+                          </div>
+                          {tagList.length > 5 && (
+                            <button
+                              onClick={toggleForwardTagsVisibility}
+                              className="mt-2 text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              {showAllForwardTags ? 'Show Less' : 'Show More'}
+                            </button>
+                          )}
                         </div>
                         <div className="max-h-60 overflow-y-auto">
-                          {filteredContactsForForwarding.map((contact, index) => (
+                          {getFilteredForwardingContacts().map((contact, index) => (
                             <div
                               key={contact.id || `${contact.phone}-${index}`}
                               className="flex items-center p-2 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -5252,40 +5298,20 @@ console.log(prompt);
                                 </div>
                                 <div className="flex-grow">
                                   <div className="font-semibold capitalize">{contact.contactName || contact.firstName || contact.phone}</div>
+                                  {contact.tags && contact.tags.length > 0 && (
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                      Tags: {contact.tags.join(', ')}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
                           ))}
                         </div>
-                        <div className="mt-4 mb-2 px-1 h-40 overflow-y-auto">
-                          {/* Content goes here */}
-                        </div>
-                        {tagList.length > 5 && (
-                          <div className="sticky bottom-0 bg-white dark:bg-gray-800 py-2 z-10">
-                            <div className="flex justify-center">
-                              <button
-                                onClick={toggleTagsExpansion}
-                                className="text-primary dark:text-blue-400 hover:underline focus:outline-none flex items-center"
-                              >
-                                {isTagsExpanded ? (
-                                  <>
-                                    <Lucide icon="ChevronUp" className="z-99 w-4 h-4 mr-1" />
-                                    Show Less
-                                  </>
-                                ) : (
-                                  <>
-                                    <Lucide icon="ChevronDown" className="w-4 h-4 mr-1" />
-                                    Show More
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-            </div>
-          </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                     <Button
                       type="button"
                       className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary text-base font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
@@ -5295,7 +5321,7 @@ console.log(prompt);
                     </Button>
                     <Button
                       type="button"
-                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
+                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white dark:bg-gray-600 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
                       onClick={() => handleCloseForwardDialog()}
                     >
                       Cancel
@@ -5303,24 +5329,24 @@ console.log(prompt);
                   </div>
                 </div>
               </div>
-)} 
+            )}
 
     <div className="flex justify-end space-x-3">
-    { (
-  <div className="relative flex-grow">
-    <input
-      type="text"
-      className="!box w-full h-9 py-1 pl-10 pr-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
-      placeholder="Search..."
-      value={searchQuery}
-      onChange={handleSearchChange}
-    />
-  <Lucide
-    icon="Search"
-    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
-  />
-</div>
-)}
+    {(
+      <div className="relative flex-grow">
+        <input
+          type="text"
+          className="!box w-full h-9 py-1 pl-10 pr-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
+          placeholder="Search..."
+          value={searchQuery}
+          onChange={handleSearchChange}
+        />
+        <Lucide
+          icon="Search"
+          className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
+        />
+      </div>
+    )}
     {isAssistantAvailable && (
       <button 
         className={`flex items-center justify-start p-2 !box ${

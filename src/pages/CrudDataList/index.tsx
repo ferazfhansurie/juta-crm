@@ -2460,6 +2460,15 @@ const sendBlastMessage = async () => {
       </div>
     );
   };
+
+  const handleDownloadSampleCsv = () => {
+    const sampleCsvContent = `contactName,lastName,phone,email,companyName,address1,branch,expiryDate,vehicleNumber,ic,points
+John,Doe,60123456789,john@example.com,ABC Company,123 Main St,Branch A,2023-12-31,ABC1234,123456-78-9012,100
+Jane,Smith,60198765432,jane@example.com,XYZ Corp,456 Elm St,Branch B,2024-06-30,XYZ5678,987654-32-1098,200`;
+
+    const blob = new Blob([sampleCsvContent], { type: 'text/csv;charset=utf-8' });
+    saveAs(blob, 'sample_contacts.csv');
+  };
   
 
   return (
@@ -3735,7 +3744,7 @@ const sendBlastMessage = async () => {
                     </div>
                   </div>
                   <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Quantity</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contacts per Batch</label>
                     <input
                       type="number"
                       value={batchQuantity}
@@ -3926,6 +3935,14 @@ const sendBlastMessage = async () => {
                 onChange={handleCsvFileSelect}
                 className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
+              <div className="mt-2">
+                <button
+                  onClick={handleDownloadSampleCsv}
+                  className="text-sm text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  Download Sample CSV
+                </button>
+              </div>
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Select Tags</label>
                 <div className="mt-1 max-h-40 overflow-y-auto">
