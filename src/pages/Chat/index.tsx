@@ -3226,10 +3226,10 @@ useEffect(() => {
   const checkAndSendDailySummary = async () => {
     const now = new Date();
     const targetHour = 23; // 11 PM
-    const targetMinute = 59;
+    const targetMinute = 30;
 
     if (now.getHours() === targetHour && now.getMinutes() === targetMinute) {
-      console.log('It\'s 11:59 PM. Preparing to send daily summary...');
+      console.log('It\'s 11:30 PM. Preparing to send daily summary...');
       const user = auth.currentUser;
       if (user) {
         const docUserRef = doc(firestore, 'user', user.email!);
@@ -3237,11 +3237,15 @@ useEffect(() => {
         if (docUserSnapshot.exists()) {
           const userData = docUserSnapshot.data();
           const companyId = userData.companyId;
-          if (companyId === '001') {
-            console.log('Sending daily summary for company 001');
+          const companyRef = doc(firestore, 'companies', companyId);
+          const companySnapshot = await getDoc(companyRef);
+          if (companySnapshot.exists()) {
+            const companyData = companySnapshot.data();
+            const companyName = companyData.name;
+            console.log(`Sending daily summary for company ${companyName} (ID: ${companyId})`);
             await sendDailyLeadsSummary(companyId);
           } else {
-            console.log('Company ID is not 001, skipping summary');
+            console.log('Company document does not exist');
           }
         } else {
           console.log('User document does not exist');
