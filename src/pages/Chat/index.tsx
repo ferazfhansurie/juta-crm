@@ -182,10 +182,14 @@ interface QuickReply {
   text: string;
   type:string;
 <<<<<<< HEAD
+<<<<<<< HEAD
   document?: File | null;
 =======
   document?: string | null;
 >>>>>>> juta-crm/main
+=======
+  document?: string | null;
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   image?: string | null;
 }
 interface ImageModalProps {
@@ -199,7 +203,6 @@ interface DocumentModalProps {
   onClose: () => void;
   document: File | null;
   onSend: (document: File | null, caption: string) => void;
-  type: string;
   initialCaption?: string; // Add this prop
 }
 interface PDFModalProps {
@@ -512,7 +515,10 @@ function Main() {
   const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [caption, setCaption] = useState(''); // Add this line to define setCaption
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -521,8 +527,11 @@ function Main() {
   const [documentCaption, setDocumentCaption] = useState('');
   
 
+<<<<<<< HEAD
   const [showAllForwardTags, setShowAllForwardTags] = useState(false);
   const [visibleForwardTags, setVisibleForwardTags] = useState<typeof tagList>([]);
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
 
   // Update this useEffect
   useEffect(() => {
@@ -559,7 +568,10 @@ function Main() {
   }, [contacts, searchQuery, activeTags]);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   const toggleRecordingPopup = () => {
     setIsRecordingPopupOpen(!isRecordingPopupOpen);
     if (!isRecordingPopupOpen) {
@@ -636,7 +648,10 @@ const sendVoiceMessage = async () => {
 };
 
 
+<<<<<<< HEAD
 >>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   const uploadDocument = async (file: File): Promise<string> => {
     const storage = getStorage(); // Correctly initialize storage
     const storageRef = ref(storage, `quickReplies/${file.name}`); // Use the initialized storage
@@ -1222,7 +1237,10 @@ const closePDFModal = () => {
 };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
 const fetchFileFromURL = async (url: string): Promise<File | null> => {
   try {
     const response = await fetch(url);
@@ -1236,7 +1254,10 @@ const fetchFileFromURL = async (url: string): Promise<File | null> => {
   }
 };
 
+<<<<<<< HEAD
 >>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   const addQuickReply = async () => {
     if (newQuickReply.trim() === '') return;
   
@@ -1263,10 +1284,14 @@ const fetchFileFromURL = async (url: string): Promise<File | null> => {
         createdAt: serverTimestamp(),
         createdBy: user.email,
 <<<<<<< HEAD
+<<<<<<< HEAD
         document: selectedDocument ? await uploadDocument(selectedDocument) : null,
 =======
         document: selectedDocument ? await uploadDocument(selectedDocument) : null, // URL stored
 >>>>>>> juta-crm/main
+=======
+        document: selectedDocument ? await uploadDocument(selectedDocument) : null, // URL stored
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
         image: selectedImage ? await uploadImage(selectedImage) : null,
       };
   
@@ -1353,6 +1378,7 @@ const fetchFileFromURL = async (url: string): Promise<File | null> => {
   };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   const handleQRClick = (reply: QuickReply, document: File | null, image: string | null) => {
     if (document && image) {
       console.warn('Cannot select both document and image.');
@@ -1373,6 +1399,8 @@ const fetchFileFromURL = async (url: string): Promise<File | null> => {
     }
     
 =======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   const handleQRClick = (reply: QuickReply) => {
     if (reply.image) {
       setPastedImageUrl(reply.image);
@@ -1388,7 +1416,10 @@ const fetchFileFromURL = async (url: string): Promise<File | null> => {
       });
     }
   
+<<<<<<< HEAD
 >>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
     setNewMessage(reply.text);
     setIsQuickRepliesOpen(false);
   };
@@ -3081,6 +3112,7 @@ const fiveDaysFollowUpMalay = (contact: Contact) => {
         if (tagName === 'Before Quote Follow Up') {
           addTagBeforeQuote(contact);
 <<<<<<< HEAD
+<<<<<<< HEAD
         } else if (tagName === 'Before Quote Follow Up (English)') {
           addTagBeforeQuoteEnglish(contact);
         } else if (tagName === 'Before Quote Follow Up (Malay)') {
@@ -3101,6 +3133,8 @@ const fiveDaysFollowUpMalay = (contact: Contact) => {
           fiveDaysFollowUpChinese(contact);
         } else if (tagName === '5 Days Follow Up (Malay)') {
 =======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
         } else if (tagName === 'Before Quote Follow Up EN') {
           addTagBeforeQuoteEnglish(contact);
         } else if (tagName === 'Before Quote Follow Up BM') {
@@ -3120,7 +3154,10 @@ const fiveDaysFollowUpMalay = (contact: Contact) => {
         } else if (tagName === '5 Days Follow Up CN') {
           fiveDaysFollowUpChinese(contact);
         } else if (tagName === '5 Days Follow Up BM') {
+<<<<<<< HEAD
 >>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
           fiveDaysFollowUpMalay(contact);
         } else {
           // Check if the tag is an employee's name and send assignment notification
@@ -3294,8 +3331,11 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
   }
 };
 <<<<<<< HEAD
+<<<<<<< HEAD
   
 =======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
 
 
 //start of sending daily summary code
@@ -3421,7 +3461,10 @@ const sendWhatsAppMessage = async (phoneNumber: string, message: string, company
 };
 
 //end of sending daily summary code
+<<<<<<< HEAD
 >>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
  
 const formatText = (text: string) => {
   const parts = text.split(/(\*[^*]+\*|\*\*[^*]+\*\*)/g);
@@ -4020,10 +4063,14 @@ const handleForwardMessage = async () => {
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
 <<<<<<< HEAD
+<<<<<<< HEAD
       const phoneIndex = userData.phone || 0;
 =======
       const phoneIndex = userData.phone || 0; // Use the same approach as in sendMessage
 >>>>>>> juta-crm/main
+=======
+      const phoneIndex = userData.phone || 0; // Use the same approach as in sendMessage
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
       const userName = userData.name || userData.email || '';
       
       console.log(`Using phoneIndex: ${phoneIndex}`);
@@ -4046,10 +4093,14 @@ const handleForwardMessage = async () => {
             imageUrl: imageUrl,
             caption: caption || '',
 <<<<<<< HEAD
+<<<<<<< HEAD
             phoneIndex: phoneIndex, // Assuming default phone index is 0
 =======
             phoneIndex: phoneIndex,
 >>>>>>> juta-crm/main
+=======
+            phoneIndex: phoneIndex,
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
             userName: userName,
           }),
         });
@@ -4341,6 +4392,7 @@ const handleForwardMessage = async () => {
       if (tagName === 'Before Quote Follow Up') {
         removeTagBeforeQuote(contact);
 <<<<<<< HEAD
+<<<<<<< HEAD
       } else if (tagName === 'Before Quote Follow Up (English)') {
         removeTagBeforeQuote(contact);
       } else if (tagName === 'Before Quote Follow Up (Malay)') {
@@ -4361,6 +4413,8 @@ const handleForwardMessage = async () => {
         removeTagAfterQuote(contact);
       } else if (tagName === '5 Days Follow Up (Malay)') {
 =======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
       } else if (tagName === 'Before Quote Follow Up EN') {
         removeTagBeforeQuote(contact);
       } else if (tagName === 'Before Quote Follow Up BM') {
@@ -4380,7 +4434,10 @@ const handleForwardMessage = async () => {
       } else if (tagName === '5 Days Follow Up CN') {
         removeTagAfterQuote(contact);
       } else if (tagName === '5 Days Follow Up BM') {
+<<<<<<< HEAD
 >>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
         removeTagAfterQuote(contact);
       }
       // Update state
@@ -5169,10 +5226,14 @@ console.log(prompt);
             </div>
             <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
 <<<<<<< HEAD
+<<<<<<< HEAD
               Total Contacts: {contacts.length}
 =======
               Total Contacts: {initialContacts.length}
 >>>>>>> juta-crm/main
+=======
+              Total Contacts: {initialContacts.length}
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
             </div>
           </div>
           {userData?.phone !== undefined && (
@@ -6811,10 +6872,14 @@ console.log(prompt);
                         className="px-2 py-1 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
                         onClick={() => {
 <<<<<<< HEAD
+<<<<<<< HEAD
                           handleQRClick(reply, reply?.document ?? null, reply?.image ?? null);
 =======
                           handleQRClick(reply);
 >>>>>>> juta-crm/main
+=======
+                          handleQRClick(reply);
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
                           let message = reply.text;
                           if (reply.image) {
                             const imageFile = new File([reply.image], "image.png", { type: "image/png" });
@@ -6824,15 +6889,21 @@ console.log(prompt);
                           }
                           if (reply.document) {
 <<<<<<< HEAD
+<<<<<<< HEAD
                             const documentFile = new File([reply.document], "document", { type: reply.document.type });
                             setSelectedDocument(documentFile);
                             setDocumentModalOpen(true);
 =======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
                             const documentFile = new File([reply.document], "document", { type: reply.document });
                             setSelectedDocument(documentFile);
                             setDocumentModalOpen(true);
                             setDocumentCaption(reply.text);
+<<<<<<< HEAD
 >>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
                           }
                           setNewMessage(message);
                           setIsQuickRepliesOpen(false);
@@ -6895,10 +6966,14 @@ console.log(prompt);
                 style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'Arial, sans-serif', fontSize: '14px' }}
               />
 <<<<<<< HEAD
+<<<<<<< HEAD
               {/* <input
 =======
               <input
 >>>>>>> juta-crm/main
+=======
+              <input
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
                 type="file"
                 className="hidden"
                 id="quickReplyFile"
@@ -6907,16 +6982,22 @@ console.log(prompt);
               <label htmlFor="quickReplyFile" className="p-2 m-1 !box cursor-pointer">
                 <span className="flex items-center justify-center w-5 h-5">
 <<<<<<< HEAD
+<<<<<<< HEAD
                   <Lucide icon="Paperclip" className="w-5 h-5 text-gray-800 dark:text-gray-200" />  
                 </span>
               </label>  
               <input
 =======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
                   <Lucide icon="File" className="w-5 h-5 text-gray-800 dark:text-gray-200" />  
                 </span>
               </label>  
               {/* <input
+<<<<<<< HEAD
 >>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
                 type="file"
                 accept="image/*"
                 className="hidden"
@@ -7200,10 +7281,14 @@ console.log(prompt);
 <DocumentModal 
   isOpen={documentModalOpen} 
 <<<<<<< HEAD
+<<<<<<< HEAD
   type={selectedDocument?.type || ''} // Provide a default empty string
 =======
   type={selectedDocument?.type || ''}
 >>>>>>> juta-crm/main
+=======
+  type={selectedDocument?.type || ''}
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   onClose={() => setDocumentModalOpen(false)} 
   document={selectedDocument} 
   onSend={(document, caption) => {

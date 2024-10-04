@@ -1670,6 +1670,7 @@ const chatId = tempphone + "@c.us"
   const handleSaveContact = async () => {
     if (currentContact) {
 <<<<<<< HEAD
+<<<<<<< HEAD
         try {
             const user = auth.currentUser;
             const docUserRef = doc(firestore, 'user', user?.email!);
@@ -1726,6 +1727,8 @@ const chatId = tempphone + "@c.us"
             toast.error("Failed to update contact.");
         }
 =======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
 
       const requiredFields = ['contactName', 'phone'];
       const missingFields = requiredFields.filter(field => !currentContact[field as keyof Contact]);
@@ -1786,7 +1789,10 @@ const chatId = tempphone + "@c.us"
           console.error('Error saving contact:', error);
           toast.error("Failed to update contact.");
       }
+<<<<<<< HEAD
 >>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
     }
 };
 
