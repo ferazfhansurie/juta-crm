@@ -1788,6 +1788,9 @@ useEffect(() => {
   console.log('Search Query:', searchQuery);
 }, [contacts, filteredContactsSearch, searchQuery]);
 
+
+//faeez incompetent
+
 const sendBlastMessage = async () => {
   console.log('Starting sendBlastMessage function');
 
