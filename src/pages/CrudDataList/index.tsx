@@ -47,6 +47,8 @@ const firestore = getFirestore(app);
 
 function Main() {
   interface Contact {
+    threadid?: string | null;
+    assistantId?: string | null;
     additionalEmails?: string[] | null;
     address1?: string | null;
     assignedTo?: string | null;
@@ -706,6 +708,8 @@ const handleSaveNewContact = async () => {
       vehicleNumber: '',
       ic: '',
     });
+
+    await fetchContacts();
   } catch (error) {
     console.error('Error adding contact:', error);
     toast.error("An error occurred while adding the contact: " + error);
@@ -1119,9 +1123,12 @@ const handleConfirmDeleteTag = async () => {
       toast.success(`Tag "${tagName}" added to contact successfully!`);
   
       // Send assignment notification
-      if (employeeNames.includes(tagName.toLowerCase())) {
+      const employee = employeeList.find(emp => emp.name === tagName);
+      if (employee) {
         await sendAssignmentNotification(tagName, contact);
       }
+
+      await fetchContacts();
   
     } catch (error) {
       console.error('Error adding tag and assigning contact:', error);
@@ -1309,6 +1316,7 @@ const handleConfirmDeleteTag = async () => {
       console.log('Assigned Employee Name:', assignedEmployeeName);
       console.log('Contact:', contact);
       console.log('Employee List:', employeeList);
+      console.log('Company ID:', companyId);
     }
   };
 
@@ -1416,6 +1424,7 @@ const handleConfirmDeleteTag = async () => {
       }
   
       toast.success(`Tag "${tagName}" removed successfully!`);
+      await fetchContacts();
     } catch (error) {
       console.error('Error removing tag:', error);
       toast.error('Failed to remove tag.');
@@ -1605,6 +1614,7 @@ const chatId = tempphone + "@c.us"
         setDeleteConfirmationModal(false);
         setCurrentContact(null);
         toast.success("Contact deleted successfully!");
+        await fetchContacts();
       } catch (error) {
         console.error('Error deleting contact:', error);
         toast.error("An error occurred while deleting the contact.");
@@ -1650,6 +1660,7 @@ const chatId = tempphone + "@c.us"
       setSelectedContacts([]);
       setShowMassDeleteModal(false);
       toast.success(`${selectedContacts.length} contacts deleted successfully!`);
+      await fetchContacts();
     } catch (error) {
       console.error('Error deleting contacts:', error);
       toast.error("An error occurred while deleting the contacts.");
@@ -1658,6 +1669,7 @@ const chatId = tempphone + "@c.us"
 
   const handleSaveContact = async () => {
     if (currentContact) {
+<<<<<<< HEAD
         try {
             const user = auth.currentUser;
             const docUserRef = doc(firestore, 'user', user?.email!);
@@ -1713,6 +1725,68 @@ const chatId = tempphone + "@c.us"
             console.error('Error saving contact:', error);
             toast.error("Failed to update contact.");
         }
+=======
+
+      const requiredFields = ['contactName', 'phone'];
+      const missingFields = requiredFields.filter(field => !currentContact[field as keyof Contact]);
+
+      if (missingFields.length > 0) {
+        toast.error(`Missing required fields: ${missingFields.join(', ')}`);
+        return;
+      }
+      //
+      try {
+          const user = auth.currentUser;
+          const docUserRef = doc(firestore, 'user', user?.email!);
+          const docUserSnapshot = await getDoc(docUserRef);
+          if (!docUserSnapshot.exists()) {
+              console.log('No such document for user!');
+              return;
+          }
+          const userData = docUserSnapshot.data();
+          const companyId = userData.companyId;
+          const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
+
+          // Create an object with only the defined fields
+          const updateData: { [key: string]: any } = {
+              contactName: currentContact.contactName,
+              phone: currentContact.phone,
+          };
+
+          const fieldsToUpdate = [
+              'contactName', 'email', 'lastName', 'phone', 'address1', 'city', 
+              'state', 'postalCode', 'website', 'dnd', 'dndSettings', 'tags', 
+              'customFields', 'source', 'country', 'companyName', 'branch', 
+              'expiryDate', 'vehicleNumber', 'points', 'IC','assistantId','threadid',
+          ];
+
+          fieldsToUpdate.forEach(field => {
+              if (currentContact[field as keyof Contact] !== undefined) {
+                  updateData[field] = currentContact[field as keyof Contact];
+              }
+          });
+
+          // Update contact in Firebase
+          const contactDocRef = doc(contactsCollectionRef, currentContact.phone!); // Get the document reference
+          await updateDoc(contactDocRef, updateData); // Use the document reference
+
+          // Update local state immediately after saving
+          setContacts(prevContacts => 
+              prevContacts.map(contact => 
+                  contact.phone === currentContact.phone ? { ...contact, ...updateData } : contact
+              )
+          );
+          setCurrentContact(prevContact => ({ ...prevContact, ...updateData })); // Update currentContact state
+
+          setEditContactModal(false);
+          setCurrentContact(null);
+          await fetchContacts();
+          toast.success("Contact updated successfully!");
+      } catch (error) {
+          console.error('Error saving contact:', error);
+          toast.error("Failed to update contact.");
+      }
+>>>>>>> juta-crm/main
     }
 };
 
@@ -1792,6 +1866,9 @@ useEffect(() => {
   console.log('Filtered Contacts:', filteredContactsSearch);
   console.log('Search Query:', searchQuery);
 }, [contacts, filteredContactsSearch, searchQuery]);
+
+
+//faeez incompetent
 
 const sendBlastMessage = async () => {
   console.log('Starting sendBlastMessage function');
@@ -2465,6 +2542,15 @@ const sendBlastMessage = async () => {
       </div>
     );
   };
+
+  const handleDownloadSampleCsv = () => {
+    const sampleCsvContent = `contactName,lastName,phone,email,companyName,address1,branch,expiryDate,vehicleNumber,ic,points
+John,Doe,60123456789,john@example.com,ABC Company,123 Main St,Branch A,2023-12-31,ABC1234,123456-78-9012,100
+Jane,Smith,60198765432,jane@example.com,XYZ Corp,456 Elm St,Branch B,2024-06-30,XYZ5678,987654-32-1098,200`;
+
+    const blob = new Blob([sampleCsvContent], { type: 'text/csv;charset=utf-8' });
+    saveAs(blob, 'sample_contacts.csv');
+  };
   
 
   return (
@@ -2561,7 +2647,7 @@ const sendBlastMessage = async () => {
                     <Menu>
                       <Menu.Button as={Button} className="flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                         <Lucide icon="Filter" className="w-5 h-5 mr-2" />
-                        <span>Filter</span>
+                        <span>Filter Tags</span>
                       </Menu.Button>
                       <Menu.Items className="w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 min-w-[200px] p-2">
                         <div>
@@ -2712,12 +2798,10 @@ const sendBlastMessage = async () => {
                       <span className="font-medium">Add Contact</span>
                     </button>
                     <Menu className="w-full">
-                      {showAddUserButton && (
-                        <Menu.Button as={Button} className="flex items-center justify-start p-2 w-full !box bg-white text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                          <Lucide icon="User" className="w-5 h-5 mr-2" />
-                          <span>Assign User</span>
-                        </Menu.Button>
-                      )}
+                      <Menu.Button as={Button} className="flex items-center justify-start p-2 w-full !box bg-white text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <Lucide icon="User" className="w-5 h-5 mr-2" />
+                        <span>Assign User</span>
+                      </Menu.Button>
                       <Menu.Items className="w-full bg-white text-gray-800 dark:text-gray-200">
                         {employeeList.map((employee) => (
                           <Menu.Item key={employee.id}>
@@ -2736,7 +2820,7 @@ const sendBlastMessage = async () => {
                         ))}
                       </Menu.Items>
                     </Menu>
-                    <Menu className="w-full">
+                    <Menu>
                       {showAddUserButton && (
                         <Menu.Button as={Button} className="flex items-center justify-start p-2 w-full !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                           <Lucide icon="Tag" className="w-5 h-5 mr-2" />
@@ -2744,16 +2828,116 @@ const sendBlastMessage = async () => {
                         </Menu.Button>
                       )}
                       <Menu.Items className="w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-md mt-1 shadow-lg">
-                        {/* ... (same content as desktop view) ... */}
+                        <div className="p-2">
+                          <button className="flex items-center p-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 w-full rounded-md" onClick={() => setShowAddTagModal(true)}>
+                            <Lucide icon="Plus" className="w-4 h-4 mr-2" />
+                            Add
+                          </button>
+                        </div>
+                        {tagList.map((tag) => (
+                          <div key={tag.id} className="flex items-center justify-between w-full hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded-md">
+                            <button
+                              className="flex-grow p-2 text-sm text-left"
+                              onClick={() => {
+                                selectedContacts.forEach(contact => {
+                                  handleAddTagToSelectedContacts(tag.name, contact);
+                                });
+                              }}
+                            >
+                              {tag.name}
+                            </button>
+                            <button 
+                              className="p-2 text-sm"
+                              onClick={() => {
+                                setTagToDelete(tag);
+                                setShowDeleteTagModal(true);
+                              }}
+                            >
+                              <Lucide icon="Trash" className="w-4 h-4 text-red-400 hover:text-red-600" />
+                            </button>
+                          </div>
+                        ))}
                       </Menu.Items>
                     </Menu>
-                    <Menu className="w-full">
+                    <Menu>
                       <Menu.Button as={Button} className="flex items-center justify-start p-2 w-full !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                         <Lucide icon="Filter" className="w-5 h-5 mr-2" />
-                        <span>Filter by Tag</span>
+                        <span>Filter Tags</span>
                       </Menu.Button>
-                      <Menu.Items className="w-full bg-white text-gray-800 dark:text-gray-200">
-                        {/* ... (same content as desktop view) ... */}
+                      <Menu.Items className="w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 min-w-[200px] p-2">
+                        <div>
+                          <button
+                            className="flex items-center p-2 font-medium w-full rounded-md"
+                            onClick={clearAllFilters}
+                          >
+                            <Lucide icon="X" className="w-4 h-4 mr-1" />
+                            Clear All Filters
+                          </button>
+                        </div>
+                        <Tab.Group>
+                          <Tab.List className="flex p-1 space-x-1 bg-blue-900/20 rounded-xl mt-2">
+                            <Tab
+                              className={({ selected }) =>
+                                `w-full py-2.5 text-sm font-medium leading-5 text-blue-700 rounded-lg
+                                focus:outline-none focus:ring-2 ring-offset-2 ring-offset-blue-400 ring-white ring-opacity-60
+                                ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`
+                              }
+                              onClick={() => setActiveFilterTab('tags')}
+                            >
+                              Tags
+                            </Tab>
+                            <Tab
+                              className={({ selected }) =>
+                                `w-full py-2.5 text-sm font-medium leading-5 text-blue-700 rounded-lg
+                                focus:outline-none focus:ring-2 ring-offset-2 ring-offset-blue-400 ring-white ring-opacity-60
+                                ${selected ? 'bg-white shadow' : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'}`
+                              }
+                              onClick={() => setActiveFilterTab('users')}
+                            >
+                              Users
+                            </Tab>
+                          </Tab.List>
+                          <Tab.Panels className="mt-2">
+                            <Tab.Panel>
+                              {tagList.map((tag) => (
+                                <div key={tag.id} className={`flex items-center justify-between m-2 p-2 text-sm w-full rounded-md ${selectedTagFilters.includes(tag.name) ? 'bg-primary dark:bg-primary text-white' : ''}`}>
+                                  <div 
+                                    className="flex items-center cursor-pointer"
+                                    onClick={() => handleTagFilterChange(tag.name)}
+                                  >
+                                    {tag.name}
+                                  </div>
+                                  <button
+                                    className={`px-2 py-1 text-xs rounded ${
+                                      excludedTags.includes(tag.name)
+                                        ? 'bg-red-500 text-white'
+                                        : 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300'
+                                    }`}
+                                    onClick={() => 
+                                      excludedTags.includes(tag.name)
+                                        ? handleRemoveExcludedTag(tag.name)
+                                        : handleExcludeTag(tag.name)
+                                    }
+                                  >
+                                    {excludedTags.includes(tag.name) ? 'Excluded' : 'Exclude'}
+                                  </button>
+                                </div>
+                              ))}
+                            </Tab.Panel>
+                            <Tab.Panel>
+                              {employeeList.map((employee) => (
+                                <div key={employee.id} className={`flex items-center justify-between m-2 p-2 text-sm w-full rounded-md ${selectedUserFilters.includes(employee.name) ? 'bg-primary dark:bg-primary text-white' : ''}`}>
+                                  <div 
+                                    className={`flex items-center cursor-pointer capitalize ${selectedUserFilters.includes(employee.name) ? 'bg-primary dark:bg-primary text-white' : ''}`}
+                                    onClick={() => handleUserFilterChange(employee.name)}
+                                  >
+                                    {employee.name}
+                                  </div>
+                                </div>
+                              ))}
+                            </Tab.Panel>
+                          </Tab.Panels>
+                        </Tab.Group>
                       </Menu.Items>
                     </Menu>
                     <button className="flex items-center justify-start p-2 w-full !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setBlastMessageModal(true)}>
@@ -3518,8 +3702,31 @@ const sendBlastMessage = async () => {
                         onChange={(e) => setCurrentContact({ ...currentContact, vehicleNumber: e.target.value } as Contact)}
                       />
                     </div>
+                
                   </>
                 )}  
+                {companyId === '001' && (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Assistant ID</label>
+    <input
+      type="text"
+      className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
+      value={currentContact?.assistantId || ''}
+      onChange={(e) => setCurrentContact({ ...currentContact, assistantId: e.target.value } as Contact)}
+    />
+  </div>
+)}
+         {companyId === '001' && (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Thread ID</label>
+    <input
+      type="text"
+      className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
+      value={currentContact?.threadid || ''}
+      onChange={(e) => setCurrentContact({ ...currentContact, threadid: e.target.value } as Contact)}
+    />
+  </div>
+)}
               </div>
               <div className="flex justify-end mt-6">
                 <button
@@ -3619,7 +3826,7 @@ const sendBlastMessage = async () => {
                     </div>
                   </div>
                   <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Quantity</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contacts per Batch</label>
                     <input
                       type="number"
                       value={batchQuantity}
@@ -3810,6 +4017,14 @@ const sendBlastMessage = async () => {
                 onChange={handleCsvFileSelect}
                 className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
+              <div className="mt-2">
+                <button
+                  onClick={handleDownloadSampleCsv}
+                  className="text-sm text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  Download Sample CSV
+                </button>
+              </div>
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Select Tags</label>
                 <div className="mt-1 max-h-40 overflow-y-auto">

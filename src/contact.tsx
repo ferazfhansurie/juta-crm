@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { getAuth, User, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
-import { getFirestore, doc, getDoc, collection, getDocs,setDoc,query, startAfter, limit, QueryDocumentSnapshot, DocumentData ,Query,CollectionReference} from "firebase/firestore";
+import {orderBy, getFirestore, doc, getDoc, collection, getDocs,setDoc,query, startAfter, limit, QueryDocumentSnapshot, DocumentData ,Query,CollectionReference} from "firebase/firestore";
 import { initializeApp } from "firebase/app";
 import { useNavigate, useLocation } from "react-router-dom";
 import LZString from 'lz-string';
@@ -66,6 +66,8 @@ interface ContactsContextProps {
   contacts: any[];
   isLoading: boolean;
   refetchContacts: () => Promise<void>;
+  dataUser: any | null;  // Add this line
+  companyData: any | null;  // Add this line
 }
 
 const ContactsContext = createContext<ContactsContextProps | undefined>(undefined);
@@ -74,6 +76,8 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
   const [contacts, setContacts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [v2, setV2] = useState<boolean | undefined>(undefined);
+  const [dataUser, setDataUser] = useState<any | null>(null);  // Add this line
+  const [companyData, setCompanyData] = useState<any | null>(null);  // Add this line
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -81,6 +85,15 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     try {
       setIsLoading(true);
     
+      // Clear all localStorage and sessionStorage data
+      sessionStorage.removeItem('contactsFetched');
+      sessionStorage.removeItem('contacts');
+      localStorage.removeItem('contacts');
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('messages_')) {
+          sessionStorage.removeItem(key);
+        }
+      });
       const docUserRef = doc(firestore, 'user', user.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
@@ -89,6 +102,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
       }
     
       const dataUser = docUserSnapshot.data();
+      setDataUser(dataUser);  // Add this line
       const companyId = dataUser?.companyId;
       if (!companyId) {
         setIsLoading(false);
@@ -100,6 +114,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
       const companyDocSnapshot = await getDoc(companyDocRef);
       if (companyDocSnapshot.exists()) {
         const companyData = companyDocSnapshot.data();
+        setCompanyData(companyData);  // Add this line
         setV2(companyData.v2 || false);
         if (companyData.v2) {
           // If v2 is true, navigate to loading page and return
@@ -113,81 +128,62 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     
-      // Pagination settings
-      const batchSize = 4000;
-      let lastVisible: QueryDocumentSnapshot<DocumentData> | undefined = undefined;
-      const phoneSet = new Set<string>();
+      // Fetch 200 contacts with the latest last message timestamp
+      const contactLimit = 200;
       let allContacts: Contact[] = [];
     
-      // Fetch contacts in batches
-      while (true) {
-        let queryRef: Query<DocumentData>;
-        const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`) as CollectionReference<DocumentData>;
-          
-        if (lastVisible) {
-          queryRef = query(contactsCollectionRef, startAfter(lastVisible), limit(batchSize));
-        } else {
-          queryRef = query(contactsCollectionRef, limit(batchSize));
-        }
+      const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`) as CollectionReference<DocumentData>;
+      const queryRef = query(
+        contactsCollectionRef,
+        orderBy('last_message.timestamp', 'desc'),
+        //limit(contactLimit)
+      );
     
-        const contactsSnapshot = await getDocs(queryRef);
-        const contactsBatch: Contact[] = contactsSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            ...data,
-            id: doc.id,
-            additionalEmails: data.additionalEmails || [],
-            address1: data.address1 || null,
-            assignedTo: data.assignedTo || null,
-            businessId: data.businessId || null,
-            chat: data.chat || {},
-            name: data.name || '',
-            not_spam: data.not_spam || false,
-            timestamp: data.timestamp || 0,
-            type: data.type || '',
-            city: data.city || null,
-            companyName: data.companyName || null,
-            threadid: data.threadid || '',
-            unreadCount:data.unreadCount ||0,
-          } as Contact;
-        });
-    
-        if (contactsBatch.length === 0) break; // Exit if no more documents
-    
-        contactsBatch.forEach(contact => {
-          if (contact.phone && !phoneSet.has(contact.phone)) {
-            phoneSet.add(contact.phone);
-            allContacts.push(contact);
-          }
-        });
-    console.log(allContacts);
-        lastVisible = contactsSnapshot.docs[contactsSnapshot.docs.length - 1];
-      }
-    
+      const contactsSnapshot = await getDocs(queryRef);
+      allContacts = contactsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          ...data,
+          id: doc.id,
+          additionalEmails: data.additionalEmails || [],
+          address1: data.address1 || null,
+          assignedTo: data.assignedTo || null,
+          businessId: data.businessId || null,
+          chat: data.chat || {},
+          name: data.name || '',
+          not_spam: data.not_spam || false,
+          timestamp: data.timestamp || 0,
+          type: data.type || '',
+          city: data.city || null,
+          companyName: data.companyName || null,
+          threadid: data.threadid || '',
+          unreadCount: data.unreadCount || 0,
+        } as Contact;
+      });
 
-    
-      // Sort contactsData by pinned status and last_message timestamp
+      // Sort contactsData by pinned status
       allContacts.sort((a, b) => {
         if (a.pinned && !b.pinned) return -1;
         if (!a.pinned && b.pinned) return 1;
-        const dateA = a.last_message?.createdAt
-          ? new Date(a.last_message.createdAt)
-          : a.last_message?.timestamp
-            ? new Date(a.last_message.timestamp * 1000)
-            : new Date(0);
-        const dateB = b.last_message?.createdAt
-          ? new Date(b.last_message.createdAt)
-          : b.last_message?.timestamp
-            ? new Date(b.last_message.timestamp * 1000)
-            : new Date(0);
-        return dateB.getTime() - dateA.getTime();
+        return 0;
       });
     
-      console.log("all");
-      console.log(allContacts);
+      console.log("Fetched contacts:", allContacts.length);
+    
       setContacts(allContacts);
-      localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
-      sessionStorage.setItem('contactsFetched', 'true'); // Mark that contacts have been fetched in this session
+
+      // Fetch and store formatted messages for each contact
+      /*for (const contact of allContacts) {
+        try {
+          const rawMessages = await fetchMessagesFromFirebase(companyId, contact.chat_id);
+          const formattedMessages = formatMessages(rawMessages);
+          
+          // Store formatted messages in sessionStorage
+          sessionStorage.setItem(`messages_${contact.chat_id}`, LZString.compress(JSON.stringify(formattedMessages)));
+        } catch (messageError) {
+          console.warn(`Failed to fetch or store messages for contact ${contact.chat_id}:`, messageError);
+        }
+      }*/
     } catch (error) {
       console.error('Error fetching contacts:', error);
     } finally {
@@ -207,6 +203,12 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     window.addEventListener('beforeunload', () => {
       sessionStorage.removeItem('contactsFetched');
       sessionStorage.removeItem('contacts');
+      localStorage.removeItem('contacts');
+       Object.keys(sessionStorage).forEach(key => {
+      if (key.startsWith('messages_')) {
+        sessionStorage.removeItem(key);
+      }
+    });
     });
 
     
@@ -248,7 +250,7 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <ContactsContext.Provider value={{ contacts, isLoading, refetchContacts }}>
+    <ContactsContext.Provider value={{ contacts, isLoading, refetchContacts, dataUser, companyData }}>
       {children}
     </ContactsContext.Provider>
   );
@@ -263,3 +265,192 @@ export const useContacts = () => {
 };
 
 export { ContactsContext };
+
+// Updated fetchMessagesFromFirebase function
+async function fetchMessagesFromFirebase(companyId: string, chatId: string): Promise<any[]> {
+  const number = '+' + chatId.split('@')[0];
+  console.log(number);
+  const messagesRef = collection(firestore, `companies/${companyId}/contacts/${number}/messages`);
+  const messagesQuery = query(messagesRef, orderBy('timestamp', 'desc'), limit(10));
+  const messagesSnapshot = await getDocs(messagesQuery);
+  
+  const messages = messagesSnapshot.docs.map(doc => doc.data());
+
+  // Messages are already sorted by timestamp in descending order due to the query
+  return messages;
+}
+
+// New function to format messages
+function formatMessages(messages: any[]): any[] {
+  const formattedMessages: any[] = [];
+  const reactionsMap: Record<string, any[]> = {};
+
+  messages.forEach((message: any) => {
+    if (message.type === 'action' && message.action.type === 'reaction') {
+      const targetMessageId = message.action.target;
+      if (!reactionsMap[targetMessageId]) {
+        reactionsMap[targetMessageId] = [];
+      }
+      reactionsMap[targetMessageId].push({
+        emoji: message.action.emoji,
+        from_name: message.from_name
+      });
+    } else {
+      const formattedMessage: any = {
+        id: message.id,
+        from_me: message.from_me,
+        from_name: message.from_name,
+        from: message.from,
+        chat_id: message.chat_id,
+        type: message.type,
+        author: message.author,
+        name: message.name,
+        phoneIndex: message.phoneIndex,
+        userName: message.userName,
+        edited: message.edited
+      };
+
+      // Handle timestamp based on message type
+      if (message.type === 'privateNote') {
+        if (message.timestamp && message.timestamp.seconds) {
+          // Firestore Timestamp
+          formattedMessage.createdAt = new Date(message.timestamp.seconds * 1000).toISOString();
+      } else if (typeof message.timestamp === 'string') {
+          // String timestamp
+          const parsedDate = new Date(message.timestamp);
+          if (!isNaN(parsedDate.getTime())) {
+              formattedMessage.createdAt = parsedDate.toISOString();
+          } else {
+              console.warn('Invalid date string for private note:', message.timestamp);
+              formattedMessage.createdAt = message.timestamp; // Keep the original string
+          }
+      } else if (message.timestamp instanceof Date) {
+          // Date object
+          formattedMessage.createdAt = message.timestamp.toISOString();
+      } else if (typeof message.timestamp === 'number') {
+          // Unix timestamp (milliseconds)
+          formattedMessage.createdAt = new Date(message.timestamp).toISOString();
+      } else {
+          console.warn('Unexpected timestamp format for private note:', message.timestamp);
+          formattedMessage.createdAt = message.timestamp; // Keep the original value
+      }
+      } else {
+        formattedMessage.createdAt = new Date(message.timestamp * 1000).toISOString();
+      }
+
+      // Include message-specific content
+       // Include message-specific content
+       switch (message.type) {
+        case 'text':
+          formattedMessage.text = {
+              body: message.text ? message.text.body : '', // Include the message body
+              context: message.text && message.text.context ? {
+                  quoted_author: message.text.context.quoted_author,
+                  quoted_content: {
+                      body: message.text.context.quoted_content?.body || ''
+                  }
+              } : null
+            };                
+            break;
+        case 'image':
+            formattedMessage.image = message.image ? message.image : undefined;
+            break;
+        case 'video':
+            formattedMessage.video = message.video ? message.video : undefined;
+            break;
+        case 'gif':
+            formattedMessage.gif = message.gif ? message.gif : undefined;
+            break;
+        case 'audio':
+            formattedMessage.audio = message.audio ? message.audio : undefined;
+            break;
+        case 'voice':
+            formattedMessage.voice = message.voice ? message.voice : undefined;
+            break;
+        case 'document':
+            formattedMessage.document = message.document ? message.document : undefined;
+            break;
+        case 'link_preview':
+            formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
+            break;
+        case 'sticker':
+            formattedMessage.sticker = message.sticker ? message.sticker : undefined;
+            break;
+        case 'location':
+            formattedMessage.location = message.location ? message.location : undefined;
+            break;
+        case 'live_location':
+            formattedMessage.live_location = message.live_location ? message.live_location : undefined;
+            break;
+        case 'contact':
+            formattedMessage.contact = message.contact ? message.contact : undefined;
+            break;
+        case 'contact_list':
+            formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
+            break;
+        case 'interactive':
+            formattedMessage.interactive = message.interactive ? message.interactive : undefined;
+            break;
+        case 'ptt':
+            formattedMessage.ptt = message.ptt ? message.ptt : undefined;
+            break;
+        case 'poll':
+            formattedMessage.poll = message.poll ? message.poll : undefined;
+            break;
+        case 'hsm':
+            formattedMessage.hsm = message.hsm ? message.hsm : undefined;
+            break;
+        case 'system':
+            formattedMessage.system = message.system ? message.system : undefined;
+            break;
+        case 'order':
+            formattedMessage.order = message.order ? message.order : undefined;
+            break;
+        case 'group_invite':
+            formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
+            break;
+        case 'admin_invite':
+            formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
+            break;
+        case 'product':
+            formattedMessage.product = message.product ? message.product : undefined;
+            break;
+        case 'catalog':
+            formattedMessage.catalog = message.catalog ? message.catalog : undefined;
+            break;
+        case 'product_items':
+            formattedMessage.product_items = message.product_items ? message.product_items : undefined;
+            break;
+        case 'action':
+            formattedMessage.action = message.action ? message.action : undefined;
+            break;
+        case 'context':
+            formattedMessage.context = message.context ? message.context : undefined;
+            break;
+        case 'reactions':
+            formattedMessage.reactions = message.reactions ? message.reactions : undefined;
+            break;
+            case 'privateNote':
+console.log('Private note data:', message);
+formattedMessage.text = typeof message.text === 'string' ? message.text : message.text?.body || '';
+console.log('Formatted private note text:', formattedMessage.text);
+formattedMessage.from_me = true;
+formattedMessage.from_name = message.from;
+break;
+        default:
+            console.warn(`Unknown message type: ${message.type}`);
+    }
+
+      formattedMessages.push(formattedMessage);
+    }
+  });
+
+  // Add reactions to the respective messages
+  formattedMessages.forEach(message => {
+    if (reactionsMap[message.id]) {
+      message.reactions = reactionsMap[message.id];
+    }
+  });
+
+  return formattedMessages;
+}
