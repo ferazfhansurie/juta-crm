@@ -181,7 +181,15 @@ interface QuickReply {
   keyword: string;
   text: string;
   type:string;
+<<<<<<< HEAD
+<<<<<<< HEAD
+  document?: File | null;
+=======
   document?: string | null;
+>>>>>>> juta-crm/main
+=======
+  document?: string | null;
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   image?: string | null;
 }
 interface ImageModalProps {
@@ -191,10 +199,10 @@ interface ImageModalProps {
 }
 interface DocumentModalProps {
   isOpen: boolean;
+  type:string;
   onClose: () => void;
   document: File | null;
   onSend: (document: File | null, caption: string) => void;
-  type: string;
   initialCaption?: string; // Add this prop
 }
 interface PDFModalProps {
@@ -506,6 +514,11 @@ function Main() {
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [caption, setCaption] = useState(''); // Add this line to define setCaption
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -514,8 +527,11 @@ function Main() {
   const [documentCaption, setDocumentCaption] = useState('');
   
 
+<<<<<<< HEAD
   const [showAllForwardTags, setShowAllForwardTags] = useState(false);
   const [visibleForwardTags, setVisibleForwardTags] = useState<typeof tagList>([]);
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
 
   // Update this useEffect
   useEffect(() => {
@@ -526,6 +542,7 @@ function Main() {
   const toggleForwardTagsVisibility = () => {
     setShowAllForwardTags(!showAllForwardTags);
   };
+>>>>>>> juta-crm/main
 
   const filteredContactsSearch = useMemo(() => {
     return contacts.filter((contact) => {
@@ -550,6 +567,11 @@ function Main() {
     });
   }, [contacts, searchQuery, activeTags]);
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   const toggleRecordingPopup = () => {
     setIsRecordingPopupOpen(!isRecordingPopupOpen);
     if (!isRecordingPopupOpen) {
@@ -626,6 +648,10 @@ const sendVoiceMessage = async () => {
 };
 
 
+<<<<<<< HEAD
+>>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   const uploadDocument = async (file: File): Promise<string> => {
     const storage = getStorage(); // Correctly initialize storage
     const storageRef = ref(storage, `quickReplies/${file.name}`); // Use the initialized storage
@@ -1210,6 +1236,11 @@ const closePDFModal = () => {
     return await getDownloadURL(storageRef); // Return the download URL
 };
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
 const fetchFileFromURL = async (url: string): Promise<File | null> => {
   try {
     const response = await fetch(url);
@@ -1223,6 +1254,10 @@ const fetchFileFromURL = async (url: string): Promise<File | null> => {
   }
 };
 
+<<<<<<< HEAD
+>>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   const addQuickReply = async () => {
     if (newQuickReply.trim() === '') return;
   
@@ -1248,7 +1283,15 @@ const fetchFileFromURL = async (url: string): Promise<File | null> => {
         type: newQuickReplyType,
         createdAt: serverTimestamp(),
         createdBy: user.email,
+<<<<<<< HEAD
+<<<<<<< HEAD
+        document: selectedDocument ? await uploadDocument(selectedDocument) : null,
+=======
         document: selectedDocument ? await uploadDocument(selectedDocument) : null, // URL stored
+>>>>>>> juta-crm/main
+=======
+        document: selectedDocument ? await uploadDocument(selectedDocument) : null, // URL stored
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
         image: selectedImage ? await uploadImage(selectedImage) : null,
       };
   
@@ -1334,6 +1377,30 @@ const fetchFileFromURL = async (url: string): Promise<File | null> => {
     }
   };
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+  const handleQRClick = (reply: QuickReply, document: File | null, image: string | null) => {
+    if (document && image) {
+      console.warn('Cannot select both document and image.');
+      return; // Prevent setting both
+    }
+    
+    if (image) {
+      const imageFile = new File([image], "image.png", { type: "image/png" });
+      const imageUrl = URL.createObjectURL(imageFile);
+      setPastedImageUrl(imageUrl);
+      setImageModalOpen2(true);
+    }
+    
+    if (document) {
+      const documentFile = new File([document], "document", { type: document.type });
+      setSelectedDocument(documentFile);
+      setDocumentModalOpen(true);
+    }
+    
+=======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   const handleQRClick = (reply: QuickReply) => {
     if (reply.image) {
       setPastedImageUrl(reply.image);
@@ -1349,6 +1416,10 @@ const fetchFileFromURL = async (url: string): Promise<File | null> => {
       });
     }
   
+<<<<<<< HEAD
+>>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
     setNewMessage(reply.text);
     setIsQuickRepliesOpen(false);
   };
@@ -3070,6 +3141,30 @@ const pauseFiveDaysFollowUp = (contact: Contact) => {
         // Handle specific tags
         if (tagName === 'Before Quote Follow Up') {
           addTagBeforeQuote(contact);
+<<<<<<< HEAD
+<<<<<<< HEAD
+        } else if (tagName === 'Before Quote Follow Up (English)') {
+          addTagBeforeQuoteEnglish(contact);
+        } else if (tagName === 'Before Quote Follow Up (Malay)') {
+          addTagBeforeQuoteMalay(contact);
+        } else if (tagName === 'Before Quote Follow Up (Chinese)') {
+          addTagBeforeQuoteChinese(contact);
+        } else if (tagName === 'After Quote Follow Up') {
+          addTagAfterQuote(contact);
+        } else if (tagName === 'After Quote Follow Up (English)') {
+          addTagAfterQuoteEnglish(contact);
+        } else if (tagName === 'After Quote Follow Up (Chinese)') {
+          addTagAfterQuoteChinese(contact);
+        } else if (tagName === 'After Quote Follow Up (Malay)') {
+          addTagAfterQuoteMalay(contact);
+        } else if (tagName === '5 Days Follow Up (English)') {
+          fiveDaysFollowUpEnglish(contact);
+        } else if (tagName === '5 Days Follow Up (Chinese)') {
+          fiveDaysFollowUpChinese(contact);
+        } else if (tagName === '5 Days Follow Up (Malay)') {
+=======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
         } else if (tagName === 'Before Quote Follow Up EN') {
           addTagBeforeQuoteEnglish(contact);
         } else if (tagName === 'Before Quote Follow Up BM') {
@@ -3089,6 +3184,10 @@ const pauseFiveDaysFollowUp = (contact: Contact) => {
         } else if (tagName === '5 Days Follow Up CN') {
           fiveDaysFollowUpChinese(contact);
         } else if (tagName === '5 Days Follow Up BM') {
+<<<<<<< HEAD
+>>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
           fiveDaysFollowUpMalay(contact);
         } else if (tagName === 'Pause Follow Up') {
           pauseFiveDaysFollowUp(contact);
@@ -3263,6 +3362,12 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
     console.log('Company ID:', companyId);
   }
 };
+<<<<<<< HEAD
+<<<<<<< HEAD
+  
+=======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
 
 
 //start of sending daily summary code
@@ -3388,6 +3493,10 @@ const sendWhatsAppMessage = async (phoneNumber: string, message: string, company
 };
 
 //end of sending daily summary code
+<<<<<<< HEAD
+>>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
  
 const formatText = (text: string) => {
   const parts = text.split(/(\*[^*]+\*|\*\*[^*]+\*\*)/g);
@@ -3804,6 +3913,12 @@ const sortContacts = (contacts: Contact[]) => {
             : [...prevSelectedMessages, message]
     );
   };
+<<<<<<< HEAD
+const handleForwardMessage = async () => {
+  if (selectedMessages.length === 0 || selectedContactsForForwarding.length === 0) return;
+
+  try {
+=======
 
   const handleForwardMessage = async () => {
     if (selectedMessages.length === 0 || selectedContactsForForwarding.length === 0) return;
@@ -3819,6 +3934,7 @@ const sortContacts = (contacts: Contact[]) => {
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
   
+>>>>>>> juta-crm/main
       for (const contact of selectedContactsForForwarding) {
         for (const message of selectedMessages) {
           try {
@@ -3871,11 +3987,21 @@ const sortContacts = (contacts: Contact[]) => {
       setSelectedMessages([]);
       setSelectedContactsForForwarding([]);
       toast.success('Messages forwarded successfully');
+<<<<<<< HEAD
+  } catch (error) {
+      console.error('Error forwarding messages:', error);
+      alert('Failed to forward messages');
+  }
+};
+
+
+=======
     } catch (error) {
       console.error('Error in forward process:', error);
       toast.error(`Error in forward process: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
+>>>>>>> juta-crm/main
 
   const handleSelectContactForForwarding = (contact: Contact) => {
     setSelectedContactsForForwarding(prevContacts => 
@@ -3968,7 +4094,15 @@ const sortContacts = (contacts: Contact[]) => {
   
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
+<<<<<<< HEAD
+<<<<<<< HEAD
+      const phoneIndex = userData.phone || 0;
+=======
       const phoneIndex = userData.phone || 0; // Use the same approach as in sendMessage
+>>>>>>> juta-crm/main
+=======
+      const phoneIndex = userData.phone || 0; // Use the same approach as in sendMessage
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
       const userName = userData.name || userData.email || '';
       
       console.log(`Using phoneIndex: ${phoneIndex}`);
@@ -3990,7 +4124,15 @@ const sortContacts = (contacts: Contact[]) => {
           body: JSON.stringify({
             imageUrl: imageUrl,
             caption: caption || '',
+<<<<<<< HEAD
+<<<<<<< HEAD
+            phoneIndex: phoneIndex, // Assuming default phone index is 0
+=======
             phoneIndex: phoneIndex,
+>>>>>>> juta-crm/main
+=======
+            phoneIndex: phoneIndex,
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
             userName: userName,
           }),
         });
@@ -4281,6 +4423,30 @@ const sortContacts = (contacts: Contact[]) => {
       //handle specific tags
       if (tagName === 'Before Quote Follow Up') {
         removeTagBeforeQuote(contact);
+<<<<<<< HEAD
+<<<<<<< HEAD
+      } else if (tagName === 'Before Quote Follow Up (English)') {
+        removeTagBeforeQuote(contact);
+      } else if (tagName === 'Before Quote Follow Up (Malay)') {
+        removeTagBeforeQuote(contact);
+      } else if (tagName === 'Before Quote Follow Up (Chinese)') {
+        removeTagBeforeQuote(contact);
+      } else if (tagName === 'After Quote Follow Up') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === 'After Quote Follow Up (English)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === 'After Quote Follow Up (Chinese)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === 'After Quote Follow Up (Malay)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === '5 Days Follow Up (English)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === '5 Days Follow Up (Chinese)') {
+        removeTagAfterQuote(contact);
+      } else if (tagName === '5 Days Follow Up (Malay)') {
+=======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
       } else if (tagName === 'Before Quote Follow Up EN') {
         removeTagBeforeQuote(contact);
       } else if (tagName === 'Before Quote Follow Up BM') {
@@ -5089,7 +5255,15 @@ console.log(prompt);
               {userData?.company}
             </div>
             <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
+<<<<<<< HEAD
+<<<<<<< HEAD
+              Total Contacts: {contacts.length}
+=======
               Total Contacts: {initialContacts.length}
+>>>>>>> juta-crm/main
+=======
+              Total Contacts: {initialContacts.length}
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
             </div>
           </div>
           {userData?.phone !== undefined && (
@@ -5363,6 +5537,26 @@ console.log(prompt);
                   </div>
                 </div>
               </div>
+<<<<<<< HEAD
+)} 
+
+    <div className="flex justify-end space-x-3">
+    { (
+  <div className="relative flex-grow">
+    <input
+      type="text"
+      className="!box w-full h-9 py-1 pl-10 pr-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
+      placeholder="Search..."
+      value={searchQuery}
+      onChange={handleSearchChange}
+    />
+  <Lucide
+    icon="Search"
+    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
+  />
+</div>
+)}
+=======
             )}
 
     <div className="flex justify-end space-x-3">
@@ -5381,6 +5575,7 @@ console.log(prompt);
         />
       </div>
     )}
+>>>>>>> juta-crm/main
     {isAssistantAvailable && (
       <button 
         className={`flex items-center justify-start p-2 !box ${
@@ -6706,7 +6901,15 @@ console.log(prompt);
                       <span
                         className="px-2 py-1 flex-grow text-lg cursor-pointer text-gray-800 dark:text-gray-200"
                         onClick={() => {
+<<<<<<< HEAD
+<<<<<<< HEAD
+                          handleQRClick(reply, reply?.document ?? null, reply?.image ?? null);
+=======
                           handleQRClick(reply);
+>>>>>>> juta-crm/main
+=======
+                          handleQRClick(reply);
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
                           let message = reply.text;
                           if (reply.image) {
                             const imageFile = new File([reply.image], "image.png", { type: "image/png" });
@@ -6715,10 +6918,22 @@ console.log(prompt);
                             setImageModalOpen2(true);
                           }
                           if (reply.document) {
+<<<<<<< HEAD
+<<<<<<< HEAD
+                            const documentFile = new File([reply.document], "document", { type: reply.document.type });
+                            setSelectedDocument(documentFile);
+                            setDocumentModalOpen(true);
+=======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
                             const documentFile = new File([reply.document], "document", { type: reply.document });
                             setSelectedDocument(documentFile);
                             setDocumentModalOpen(true);
                             setDocumentCaption(reply.text);
+<<<<<<< HEAD
+>>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
                           }
                           setNewMessage(message);
                           setIsQuickRepliesOpen(false);
@@ -6780,7 +6995,15 @@ console.log(prompt);
                 rows={1}
                 style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'Arial, sans-serif', fontSize: '14px' }}
               />
+<<<<<<< HEAD
+<<<<<<< HEAD
+              {/* <input
+=======
               <input
+>>>>>>> juta-crm/main
+=======
+              <input
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
                 type="file"
                 className="hidden"
                 id="quickReplyFile"
@@ -6788,10 +7011,23 @@ console.log(prompt);
               />
               <label htmlFor="quickReplyFile" className="p-2 m-1 !box cursor-pointer">
                 <span className="flex items-center justify-center w-5 h-5">
+<<<<<<< HEAD
+<<<<<<< HEAD
+                  <Lucide icon="Paperclip" className="w-5 h-5 text-gray-800 dark:text-gray-200" />  
+                </span>
+              </label>  
+              <input
+=======
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
                   <Lucide icon="File" className="w-5 h-5 text-gray-800 dark:text-gray-200" />  
                 </span>
               </label>  
               {/* <input
+<<<<<<< HEAD
+>>>>>>> juta-crm/main
+=======
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
                 type="file"
                 accept="image/*"
                 className="hidden"
@@ -7074,7 +7310,15 @@ console.log(prompt);
 
 <DocumentModal 
   isOpen={documentModalOpen} 
+<<<<<<< HEAD
+<<<<<<< HEAD
+  type={selectedDocument?.type || ''} // Provide a default empty string
+=======
   type={selectedDocument?.type || ''}
+>>>>>>> juta-crm/main
+=======
+  type={selectedDocument?.type || ''}
+>>>>>>> 0c38473d8e190cc7b87f5c83b2d0ce89beb288da
   onClose={() => setDocumentModalOpen(false)} 
   document={selectedDocument} 
   onSend={(document, caption) => {

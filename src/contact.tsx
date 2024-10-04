@@ -122,7 +122,6 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
             
           }
           else{
-            navigate('/loading');
             return;
           }
        
@@ -212,12 +211,8 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     });
     });
 
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = 'Are you sure you want to leave? Changes you made may not be saved.';
-    };
+    
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
 
     const shouldFetchContacts = !sessionStorage.getItem('contactsFetched');
 
@@ -232,7 +227,6 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
     }
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [navigate]);
 

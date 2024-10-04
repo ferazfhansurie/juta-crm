@@ -172,14 +172,12 @@ function Router() {
     { path: "product-list", element: <ProductList /> },
     { path: "product-grid", element: <ProductGrid /> },
     { path: "/login", element: isLoggedIn ? <Navigate to="/loading" /> : <Login /> },
-    { path: "/register", element: isLoggedIn ? <Navigate to="/loading" /> : <Register /> },
+    { path: "/register", element: <Register /> },
     { path: "/error-page", element: <ErrorPage /> },
     { path: "*", element: <ErrorPage /> },
   ];
 
-  if (isLoading) {
-    return <LoadingIcon />;
-  }
+  
 
   return useRoutes(routes);
 }

@@ -43,7 +43,7 @@ function Main() {
  
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      await signInWithEmailAndPassword(auth, email, password);  
+      //await signInWithEmailAndPassword(auth, email, password);  
       // Fetch the current number of companies to generate a new company ID
       const querySnapshot = await getDocs(collection(firestore, "companies"));
       const companyCount = querySnapshot.size;
@@ -73,18 +73,19 @@ function Main() {
         role: "1",
         phoneNumber: phoneNumber // Add phone number
       });
+      await auth.signOut();
+
+      window.location.href='https://buy.stripe.com/dR628Jea2ddBdbO6op?locale=en&__embed_source=buy_btn_1Px3c7I6zMgQoYeCMdZzmWlN';
 
       const response2 = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/channel/create/${newCompanyId}`);
 
       console.log(response2);
 
       // Sign in the user after successful registration
-      navigate('/loading');
 
       // Navigate to the dashboard or home page
    
 
-      toast.success("Registration successful!");
 
     } catch (error) {
       if (axios.isAxiosError(error)) {
