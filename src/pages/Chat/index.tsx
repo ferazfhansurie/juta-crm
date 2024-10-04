@@ -2956,6 +2956,26 @@ const removeTagAfterQuote = (contact: Contact) => {
     handleBinaTag('removeAfterQuote', contact.phone, contact.contactName);
 };
 
+const removeTag5Days = (contact: Contact) => {
+    console.log('Removing tag 5 days for contact:', contact.phone);
+    console.log('Removing tag 5 days for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('remove5DaysFollowUp', contact.phone, contact.contactName);
+};
+
+const removeTagPause = (contact: Contact) => {
+    console.log('Removing tag pause for contact:', contact.phone);
+    console.log('Removing tag pause for contact:', contact.contactName);
+    if (!contact.phone || !contact.contactName) {
+      console.error('Phone or firstname is null or undefined');
+      return;
+    }
+    handleBinaTag('resumeFollowUp', contact.phone, contact.contactName);
+};
+
 const fiveDaysFollowUpEnglish = (contact: Contact) => {
     console.log('5 Days Follow Up (English) for contact:', contact.phone);
     console.log('5 Days Follow Up (English) for contact:', contact.contactName);
@@ -2986,16 +3006,6 @@ const fiveDaysFollowUpMalay = (contact: Contact) => {
     handleBinaTag('5DaysFollowUpMalay', contact.phone, contact.contactName);
 };
 
-const removeTagPause = (contact: Contact) => {
-  console.log('Removing tag pause for contact:', contact.phone);
-  console.log('Removing tag pause for contact:', contact.contactName);
-  if (!contact.phone || !contact.contactName) {
-    console.error('Phone or firstname is null or undefined');
-    return;
-  }
-  handleBinaTag('resumeFollowUp', contact.phone, contact.contactName);
-};
-
 const pauseFiveDaysFollowUp = (contact: Contact) => {
   console.log('Pausing 5 Days Follow Up for contact:', contact.phone);
   console.log('Pausing 5 Days Follow Up for contact:', contact.contactName);
@@ -3006,15 +3016,6 @@ const pauseFiveDaysFollowUp = (contact: Contact) => {
   handleBinaTag('pauseFollowUp', contact.phone, contact.contactName);
 };
 
-const removeTag5Days = (contact: Contact) => {
-  console.log('Removing tag 5 days for contact:', contact.phone);
-  console.log('Removing tag 5 days for contact:', contact.contactName);
-  if (!contact.phone || !contact.contactName) {
-    console.error('Phone or firstname is null or undefined');
-    return;
-  }
-  handleBinaTag('remove5DaysFollowUp', contact.phone, contact.contactName);
-};
 
 
   const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
