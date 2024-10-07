@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import logoImage from '@/assets/images/placeholder.svg';
-import { getFirestore,Timestamp,  collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp, runTransaction, increment } from "firebase/firestore";
+import { getFirestore,Timestamp,  collection, doc, getDoc, onSnapshot, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, arrayRemove,arrayUnion, writeBatch, serverTimestamp, runTransaction, increment, getCountFromServer } from "firebase/firestore";
 import {QueryDocumentSnapshot, DocumentData ,Query,CollectionReference, startAfter,limit,deleteField} from 'firebase/firestore'
 import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
@@ -515,6 +515,8 @@ function Main() {
 
   const [showAllForwardTags, setShowAllForwardTags] = useState(false);
   const [visibleForwardTags, setVisibleForwardTags] = useState<typeof tagList>([]);
+
+  const [totalContacts, setTotalContacts] = useState<number>(0);
 
   // Update this useEffect
   useEffect(() => {
@@ -5174,6 +5176,30 @@ console.log(prompt);
     }
   };
 
+  useEffect(() => {
+    const fetchTotalContacts = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const docUserRef = doc(firestore, 'user', user.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (!docUserSnapshot.exists()) return;
+
+        const userData = docUserSnapshot.data();
+        const companyId = userData.companyId;
+
+        const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+        const snapshot = await getCountFromServer(contactsRef);
+        setTotalContacts(snapshot.data().count);
+      } catch (error) {
+        console.error('Error fetching total contacts:', error);
+      }
+    };
+
+    fetchTotalContacts();
+  }, []);
+
   return (
     <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
       <audio ref={audioRef} src={noti} />
@@ -5184,7 +5210,7 @@ console.log(prompt);
               {userData?.company}
             </div>
             <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
-              Total Contacts: {initialContacts.length}
+              Total Contacts: {totalContacts}
             </div>
           </div>
           {userData?.phone !== undefined && (
