@@ -3862,12 +3862,23 @@ const sortContacts = (contacts: Contact[]) => {
         for (const message of selectedMessages) {
           try {
             if (message.type === 'image') {
-              // Ensure we have a valid image link
-              const imageLink = message.image?.link || message.image?.url;
-              if (!imageLink) {
-                throw new Error('Invalid image link');
+              let imageUrl = message.image?.link || message.image?.url;
+              
+              if (!imageUrl && message.image?.data) {
+                // If we have base64 data, upload it to get a URL
+                const base64Data = message.image.data.startsWith('data:') 
+                  ? message.image.data 
+                  : `data:${message.image?.mimetype};base64,${message.image?.data}`;
+                imageUrl = await uploadBase64Image(base64Data, message.image?.mimetype || '');
               }
-              await sendImageMessage(contact.chat_id ?? '', imageLink, message.image?.caption ?? '');
+  
+              if (!imageUrl) {
+                console.error('No valid image data found for message:', message);
+                toast.error(`Failed to forward image: No valid image data`);
+                continue;
+              }
+
+              await sendImageMessage(contact.chat_id ?? '', imageUrl, message.image?.caption ?? '');
             } else if (message.type === 'document') {
               // Ensure we have a valid document link
               const documentLink = message.document?.link;
@@ -3913,6 +3924,24 @@ const sortContacts = (contacts: Contact[]) => {
     } catch (error) {
       console.error('Error in forward process:', error);
       toast.error(`Error in forward process: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const uploadBase64Image = async (base64Data: string, mimeType: string): Promise<string> => {
+    try {
+      const response = await fetch(base64Data);
+      const blob = await response.blob();
+  
+      const storage = getStorage();
+      const storageRef = ref(storage, `images/${Date.now()}.${mimeType.split('/')[1]}`);
+      
+      await uploadBytes(storageRef, blob);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      return downloadURL;
+    } catch (error) {
+      console.error('Error uploading base64 image:', error);
+      throw error;
     }
   };
 
