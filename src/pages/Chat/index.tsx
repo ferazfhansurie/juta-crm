@@ -3726,6 +3726,12 @@ const sortContacts = (contacts: Contact[]) => {
             !contact.tags?.includes('snooze')
           );
           break;
+        case 'resolved':
+          filteredContacts = filteredContacts.filter(contact => 
+            contact.tags?.includes('resolved') && 
+            !contact.tags?.includes('snooze')
+          );
+          break;
         default:
           filteredContacts = filteredContacts.filter(contact => 
             contact.tags?.some(t => t.toLowerCase() === tag.toLowerCase()) && 
@@ -3836,6 +3842,91 @@ const sortContacts = (contacts: Contact[]) => {
       toast.error('Failed to unsnooze contact');
     }
   };
+
+  const handleResolveContact = async (contact: Contact) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      // Update Firestore
+      if (companyId && contact.id) {
+        const contactRef = doc(firestore, 'companies', companyId, 'contacts', contact.id);
+        await updateDoc(contactRef, {
+          tags: arrayUnion('resolved')
+        });
+      } else {
+        console.error('Invalid companyId or contact.id');
+      }
+      // Update local state
+      setContacts(prevContacts =>
+        prevContacts.map(c =>
+          c.id === contact.id
+            ? { ...c, tags: [...(c.tags || []), 'resolved'] }
+            : c
+        )
+      );
+  
+      toast.success('Contact marked as resolved');
+    } catch (error) {
+      console.error('Error resolving contact:', error);
+      toast.error('Failed to mark contact as resolved');
+    }
+  };
+
+  const handleUnresolveContact = async (contact: Contact) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+  
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error('No such document for user!');
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      // Update Firestore
+      if (companyId && contact.id) {
+        const contactRef = doc(firestore, 'companies', companyId, 'contacts', contact.id);
+        await updateDoc(contactRef, {
+          tags: arrayRemove('resolved')
+        });
+      } else {
+        console.error('Invalid companyId or contact.id');
+      }
+      // Update local state
+      setContacts(prevContacts =>
+        prevContacts.map(c =>
+          c.id === contact.id
+            ? { ...c, tags: c.tags?.filter(tag => tag !== 'resolved') }
+            : c
+        )
+      );
+  
+      toast.success('Contact unmarked as resolved');
+    } catch (error) {
+      console.error('Error unresolving contact:', error);
+      toast.error('Failed to unmark contact as resolved');
+    }
+  };
+
   const handleSelectMessage = (message: Message) => {
     setSelectedMessages(prevSelectedMessages =>
         prevSelectedMessages.includes(message)
@@ -4686,6 +4777,9 @@ const sortContacts = (contacts: Contact[]) => {
         onSnooze: () => handleSnoozeContact(contact),
         onUnsnooze: () => handleUnsnoozeContact(contact),
         isSnooze: contact.tags?.includes('snooze'),
+        onResolve: () => handleResolveContact(contact),
+        onUnresolve: () => handleUnresolveContact(contact),
+        isResolved: contact.tags?.includes('resolved'),
       },
     });
   };
@@ -5596,7 +5690,7 @@ console.log(prompt);
 <div className="flex flex-wrap gap-2">
   {['Mine', 'All', 'Unassigned',
     ...(isTagsExpanded ? [
-      'Group', 'Unread', 'Snooze', 'Stop Bot',
+      'Group', 'Unread', 'Snooze', 'Stop Bot', 'Resolved',
       ...(userData?.phone !== undefined && userData.phone !== -1 ? 
         [phoneNames[userData.phone] || `Phone ${userData.phone + 1}`] : 
         Object.values(phoneNames)
@@ -5625,6 +5719,7 @@ console.log(prompt);
         tagLower === 'mine' ? contactTags.includes(currentUserName.toLowerCase()) :
         tagLower === 'unassigned' ? !contactTags.some(t => employeeList.some(e => e.name.toLowerCase() === t)) :
         tagLower === 'snooze' ? contactTags.includes('snooze') :
+        tagLower === 'resolved' ? contactTags.includes('resolved') :
         tagLower === 'group' ? isGroup :
         tagLower === 'stop bot' ? contactTags.includes('stop bot') :
         phoneIndex !== -1 ? contact.phoneIndex === phoneIndex :
@@ -7301,6 +7396,10 @@ console.log(prompt);
           onClick={({ props }) => props.isSnooze ? props.onUnsnooze(props.contact) : props.onSnooze(props.contact)}
         >
           Snooze/Unsnooze
+        </Item>
+        <Separator />
+        <Item onClick={({ props }) => props.isResolved ? props.onUnresolve(props.contact) : props.onResolve(props.contact)}>
+          Resolve/Unresolve
         </Item>
       </ContextMenu>
       {isReminderModalOpen && (
