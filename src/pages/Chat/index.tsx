@@ -2856,6 +2856,33 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
 };
 
+const handleEdwardTag = async (requestType: string, phone: string, first_name: string) => {
+  console.log('Request Payload:', JSON.stringify({ requestType, phone, first_name }));
+  
+  try {
+      const response = await fetch('https://mighty-dane-newly.ngrok-free.app/api/edward/tag', {
+          method: 'POST', // Ensure this is set to POST
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+              requestType,
+              phone,
+              first_name,
+          }),
+      });
+
+      if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Response data:', data);
+  } catch (error) {
+      console.error('Error:', error);
+  }
+};
+
   const addTagBeforeQuote = (contact: Contact) => {
     console.log('Adding tag before quote for contact:', contact.phone);
     console.log('Adding tag before quote for contact:', contact.contactName);
@@ -2974,6 +3001,16 @@ const removeTagPause = (contact: Contact) => {
       return;
     }
     handleBinaTag('resumeFollowUp', contact.phone, contact.contactName);
+};
+
+const removeTagEdward = (contact: Contact) => {
+  console.log('Removing tag Edward for contact:', contact.phone);
+  console.log('Removing tag Edward for contact:', contact.contactName);
+  if (!contact.phone || !contact.contactName) {
+    console.error('Phone or firstname is null or undefined');
+    return;
+  }
+  handleEdwardTag('removeFollowUp', contact.phone, contact.contactName);
 };
 
 const fiveDaysFollowUpEnglish = (contact: Contact) => {
@@ -4303,6 +4340,8 @@ const sortContacts = (contacts: Contact[]) => {
         removeTag5Days(contact);
       } else if (tagName === 'Pause Follow Up') {
         removeTagPause(contact);
+      } else if (tagName === 'Edward Follow Up') {
+        removeTagEdward(contact);
       }
       // Update state
       setContacts(prevContacts => {
