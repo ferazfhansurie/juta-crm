@@ -3478,15 +3478,23 @@ const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
 const [paginatedContacts, setPaginatedContacts] = useState<Contact[]>([]);
 
 useEffect(() => {
-  setLoadingMessage("Loading contacts...");
-  const timer = setTimeout(() => {
-    if (paginatedContacts.length === 0) {
-      setLoadingMessage("There are a lot of contacts, fetching them might take some time...");
+  if (filteredContacts.length === 0) {
+    if (activeTags.length > 0) {
+      setLoadingMessage(`No contacts found for the ${activeTags[0]} tag.`);
+    } else {
+      setLoadingMessage("No contacts found.");
     }
-  }, 15000);
+  } else {
+    setLoadingMessage("Loading contacts...");
+    const timer = setTimeout(() => {
+      if (paginatedContacts.length === 0) {
+        setLoadingMessage("There are a lot of contacts, fetching them might take some time...");
+      }
+    }, 15000);
 
-  return () => clearTimeout(timer);
-}, [paginatedContacts]);
+    return () => clearTimeout(timer);
+  }
+}, [filteredContacts, paginatedContacts, activeTags]);
 
 useEffect(() => {
   let filtered = contacts;
