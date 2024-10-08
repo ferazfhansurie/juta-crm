@@ -2831,8 +2831,8 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     setFilteredContacts(contacts);
   }, [contacts]);
 
-  const handleBinaTag = async (requestType: string, phone: string, first_name: string) => {
-    console.log('Request Payload:', JSON.stringify({ requestType, phone, first_name }));
+  const handleBinaTag = async (requestType: string, phone: string, first_name: string, phoneIndex: number) => {
+    console.log('Request Payload:', JSON.stringify({ requestType, phone, first_name, phoneIndex }));
     
     try {
         const response = await fetch('https://mighty-dane-newly.ngrok-free.app/api/bina/tag', {
@@ -2844,6 +2844,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
                 requestType,
                 phone,
                 first_name,
+                phoneIndex,
             }),
         });
 
@@ -2858,8 +2859,8 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
 };
 
-const handleEdwardTag = async (requestType: string, phone: string, first_name: string) => {
-  console.log('Request Payload:', JSON.stringify({ requestType, phone, first_name }));
+const handleEdwardTag = async (requestType: string, phone: string, first_name: string, phoneIndex: number) => {
+  console.log('Request Payload:', JSON.stringify({ requestType, phone, first_name, phoneIndex }));
   
   try {
       const response = await fetch('https://mighty-dane-newly.ngrok-free.app/api/edward/tag', {
@@ -2871,6 +2872,7 @@ const handleEdwardTag = async (requestType: string, phone: string, first_name: s
               requestType,
               phone,
               first_name,
+              phoneIndex,
           }),
       });
 
@@ -2892,7 +2894,7 @@ const handleEdwardTag = async (requestType: string, phone: string, first_name: s
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
+    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
   };
 
   const addTagBeforeQuoteEnglish = (contact: Contact) => {
@@ -2902,7 +2904,7 @@ const handleEdwardTag = async (requestType: string, phone: string, first_name: s
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
+    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const addTagBeforeQuoteMalay = (contact: Contact) => {
@@ -2912,7 +2914,7 @@ const addTagBeforeQuoteMalay = (contact: Contact) => {
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
+    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const addTagBeforeQuoteChinese = (contact: Contact) => {
@@ -2922,14 +2924,14 @@ const addTagBeforeQuoteChinese = (contact: Contact) => {
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName);
+    handleBinaTag('addBeforeQuote', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
   
   const addTagAfterQuote = (contact: Contact) => {
     console.log('Adding tag after quote for contact:', contact.phone);
     console.log('Adding tag after quote for contact:', contact.contactName);
     if (contact.phone && contact.contactName) {
-      handleBinaTag('addAfterQuote', contact.phone, contact.contactName);
+      handleBinaTag('addAfterQuote', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
     } else {
       console.error('Phone or firstname is null or undefined');
     }
@@ -2942,7 +2944,7 @@ const addTagBeforeQuoteChinese = (contact: Contact) => {
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('addAfterQuoteEnglish', contact.phone, contact.contactName);
+    handleBinaTag('addAfterQuoteEnglish', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const addTagAfterQuoteChinese = (contact: Contact) => {
@@ -2952,7 +2954,7 @@ const addTagAfterQuoteChinese = (contact: Contact) => {
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('addAfterQuoteChinese', contact.phone, contact.contactName);
+    handleBinaTag('addAfterQuoteChinese', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const addTagAfterQuoteMalay = (contact: Contact) => {
@@ -2962,7 +2964,7 @@ const addTagAfterQuoteMalay = (contact: Contact) => {
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('addAfterQuoteMalay', contact.phone, contact.contactName);
+    handleBinaTag('addAfterQuoteMalay', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const removeTagBeforeQuote = (contact: Contact) => {
@@ -2972,7 +2974,7 @@ const removeTagBeforeQuote = (contact: Contact) => {
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('removeBeforeQuote', contact.phone, contact.contactName);
+    handleBinaTag('removeBeforeQuote', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const removeTagAfterQuote = (contact: Contact) => {
@@ -2982,7 +2984,7 @@ const removeTagAfterQuote = (contact: Contact) => {
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('removeAfterQuote', contact.phone, contact.contactName);
+    handleBinaTag('removeAfterQuote', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const removeTag5Days = (contact: Contact) => {
@@ -2992,7 +2994,7 @@ const removeTag5Days = (contact: Contact) => {
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('remove5DaysFollowUp', contact.phone, contact.contactName);
+    handleBinaTag('remove5DaysFollowUp', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const removeTagPause = (contact: Contact) => {
@@ -3002,7 +3004,7 @@ const removeTagPause = (contact: Contact) => {
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('resumeFollowUp', contact.phone, contact.contactName);
+    handleBinaTag('resumeFollowUp', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const removeTagEdward = (contact: Contact) => {
@@ -3012,7 +3014,7 @@ const removeTagEdward = (contact: Contact) => {
     console.error('Phone or firstname is null or undefined');
     return;
   }
-  handleEdwardTag('removeFollowUp', contact.phone, contact.contactName);
+  handleEdwardTag('removeFollowUp', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const fiveDaysFollowUpEnglish = (contact: Contact) => {
@@ -3022,7 +3024,7 @@ const fiveDaysFollowUpEnglish = (contact: Contact) => {
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('5DaysFollowUpEnglish', contact.phone, contact.contactName);
+    handleBinaTag('5DaysFollowUpEnglish', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const fiveDaysFollowUpChinese = (contact: Contact) => {
@@ -3032,7 +3034,7 @@ const fiveDaysFollowUpChinese = (contact: Contact) => {
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('5DaysFollowUpChinese', contact.phone, contact.contactName);
+    handleBinaTag('5DaysFollowUpChinese', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const fiveDaysFollowUpMalay = (contact: Contact) => {
@@ -3042,7 +3044,7 @@ const fiveDaysFollowUpMalay = (contact: Contact) => {
       console.error('Phone or firstname is null or undefined');
       return;
     }
-    handleBinaTag('5DaysFollowUpMalay', contact.phone, contact.contactName);
+    handleBinaTag('5DaysFollowUpMalay', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 const pauseFiveDaysFollowUp = (contact: Contact) => {
@@ -3052,7 +3054,7 @@ const pauseFiveDaysFollowUp = (contact: Contact) => {
     console.error('Phone or firstname is null or undefined');
     return;
   }
-  handleBinaTag('pauseFollowUp', contact.phone, contact.contactName);
+  handleBinaTag('pauseFollowUp', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
 
