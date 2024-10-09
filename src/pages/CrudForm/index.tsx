@@ -94,6 +94,7 @@ function Main() {
     invoiceNumber: string | null;
     phone: number;
     imageUrl: string;
+    weightage: number;
   }>({
     name: "",
     phoneNumber: "",
@@ -108,6 +109,7 @@ function Main() {
     invoiceNumber: null,
     phone: -1,
     imageUrl: "",
+    weightage: 0,
   });
 
   useEffect(() => {
@@ -126,6 +128,7 @@ function Main() {
         invoiceNumber: contact.invoiceNumber || null,
         phone: contact.phone || -1,
         imageUrl: contact.imageUrl || "",
+        weightage: contact.weightage || 0,
       });
       setCategories([contact.role]);
     }
@@ -324,6 +327,7 @@ function Main() {
           invoiceNumber: userData.invoiceNumber || null,
           phone: userData.phone || -1,
           imageUrl: imageUrl || "",
+          weightage: userData.weightage || 0,
         };
 
         if (contactId) {
@@ -359,6 +363,7 @@ function Main() {
               invoiceNumber: null,
               phone: -1,
               imageUrl: "",
+              weightage: 0,
             });
         
             const roleMap = {
@@ -686,6 +691,20 @@ function Main() {
               disabled={isFieldDisabled("invoiceNumber")}
             />
           </div>
+          {currentUserRole === "1" && (
+            <div>
+              <FormLabel htmlFor="weightage">Weightage</FormLabel>
+              <FormInput
+                id="weightage"
+                name="weightage"
+                type="number"
+                value={userData.weightage}
+                onChange={(e) => setUserData(prev => ({ ...prev, weightage: parseInt(e.target.value) || 0 }))}
+                placeholder="Weightage"
+                min="0"
+              />
+            </div>
+          )}
         </div>
         <div className="mt-4">
           <FormLabel htmlFor="notes">Notes</FormLabel>
