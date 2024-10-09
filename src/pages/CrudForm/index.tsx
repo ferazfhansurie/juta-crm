@@ -593,6 +593,8 @@ function Main() {
               {currentUserRole === "1" && <option value="1">Admin</option>}
               {currentUserRole === "1" && <option value="4">Manager</option>}
               {currentUserRole === "1" && <option value="5">Supervisor</option>}
+              {currentUserRole === "4" && <option value="4">Manager</option>}
+              {currentUserRole === "5" && <option value="5">Supervisor</option>}
               <option value="2">Sales</option>
               <option value="3">Observer</option>
             </select>

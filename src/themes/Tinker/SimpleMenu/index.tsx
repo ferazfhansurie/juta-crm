@@ -154,7 +154,7 @@ useEffect(() => {
 }, [auth.currentUser?.email]);
 
 useEffect(() => {
-  const MAX_NOTIFICATIONS = 150;
+  const MAX_NOTIFICATIONS = 50;
 
   const clearExcessNotifications = async () => {
     if (notifications.length > MAX_NOTIFICATIONS) {

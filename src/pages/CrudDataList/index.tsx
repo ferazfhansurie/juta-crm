@@ -2581,25 +2581,31 @@ Jane,Smith,60198765432,jane@example.com,XYZ Corp,456 Elm St,Branch B,2024-06-30,
                         <span>Assign User</span>
                       </Menu.Button>
                       <Menu.Items className="w-full bg-white text-gray-800 dark:text-gray-200">
-                        {employeeList.map((employee) => (
-                          <Menu.Item key={employee.id}>
-                            <span
-                              className="flex items-center p-2"
-                              onClick={() => {
-                                if (userRole !== "3") {
-                                  selectedContacts.forEach(contact => {
-                                    handleAddTagToSelectedContacts(employee.name, contact);
-                                  });
-                                } else {
-                                  toast.error("You don't have permission to assign users to contacts.");
-                                }
-                              }}
-                            >
-                              <Lucide icon="User" className="w-4 h-4" />
-                              <span className="truncate">{employee.name}</span>
-                            </span>
-                          </Menu.Item>
-                        ))}
+                        {employeeList
+                          .filter(employee => 
+                            userRole === '4' || userRole === '2' 
+                              ? employee.role === '2' 
+                              : true
+                          )
+                          .map((employee) => (
+                            <Menu.Item key={employee.id}>
+                              <span
+                                className="flex items-center p-2"
+                                onClick={() => {
+                                  if (userRole !== "3") {
+                                    selectedContacts.forEach(contact => {
+                                      handleAddTagToSelectedContacts(employee.name, contact);
+                                    });
+                                  } else {
+                                    toast.error("You don't have permission to assign users to contacts.");
+                                  }
+                                }}
+                              >
+                                <Lucide icon="User" className="w-4 h-4" />
+                                <span className="truncate">{employee.name}</span>
+                              </span>
+                            </Menu.Item>
+                          ))}
                       </Menu.Items>
                     </Menu>
                     <Menu>
