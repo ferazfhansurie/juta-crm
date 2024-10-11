@@ -23,7 +23,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import LZString from 'lz-string';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { format, compareAsc } from 'date-fns';
+import { format, compareAsc, parseISO } from 'date-fns';
 import { saveAs } from 'file-saver';
 import Papa from 'papaparse';
 import ReactPaginate from 'react-paginate';
@@ -84,7 +84,8 @@ function Main() {
     branch?:string | null;
     expiryDate?:string | null;
     vehicleNumber?:string | null;
-    ic?:string | null;
+    ic?: string | null;
+    createdAt?: string | null;
   }
   
   interface Employee {
@@ -296,6 +297,7 @@ function Main() {
   };
   
   const fetchContacts = useCallback(async () => {
+    setLoading(true);
     try {
       const auth = getAuth();
       const firestore = getFirestore();
@@ -319,19 +321,41 @@ function Main() {
       const userName = userData.name;
   
       const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const q = query(contactsRef, orderBy('contactName'));
+      const q = query(contactsRef);
   
       const querySnapshot = await getDocs(q);
       const fetchedContacts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
-
-      const filteredContacts = filterContactsByUserRole(fetchedContacts, userRole, userName);
+  
+      // Function to check if a chat_id is for an individual contact
+      const isIndividual = (chat_id: string | undefined) => {
+        return chat_id?.endsWith('@c.us') || false;
+      };
+  
+      // Separate contacts into categories
+      const individualsWithCreatedAt = fetchedContacts.filter(contact => isIndividual(contact.chat_id || '') && contact.createdAt);
+      const individualsWithoutCreatedAt = fetchedContacts.filter(contact => isIndividual(contact.chat_id || '') && !contact.createdAt);
+      const groups = fetchedContacts.filter(contact => !isIndividual(contact.chat_id || ''));
+  
+      // Sort individuals with createdAt
+      const sortedIndividuals = individualsWithCreatedAt.sort((a, b) => {
+        return new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime();
+      });
+  
+      // Combine all contacts in the desired order
+      const allSortedContacts = [
+        ...sortedIndividuals,
+        ...individualsWithoutCreatedAt,
+        ...groups
+      ];
+  
+      const filteredContacts = filterContactsByUserRole(allSortedContacts, userRole, userName);
   
       setContacts(filteredContacts);
       setFilteredContacts(filteredContacts);
-      setLoading(false);
     } catch (error) {
       console.error('Error fetching contacts:', error);
       toast.error('Failed to fetch contacts');
+    } finally {
       setLoading(false);
     }
   }, []);
@@ -339,29 +363,6 @@ function Main() {
   useEffect(() => {
     fetchContacts();
   }, [fetchContacts]);
-
-  const sortedContacts = useMemo(() => {
-    return filteredContacts.sort((a, b) => {
-      // First, prioritize contacts with names
-      const aHasName = !!(a.contactName || a.phone);
-      const bHasName = !!(b.contactName || b.phone);
-      
-      if (aHasName && !bHasName) return -1;
-      if (!aHasName && bHasName) return 1;
-      
-      // If both have names or both don't have names, sort by dateAdded
-      const aDate = a.dateAdded ? new Date(a.dateAdded).getTime() : 0;
-      const bDate = b.dateAdded ? new Date(b.dateAdded).getTime() : 0;
-      
-      return bDate - aDate; // Sort in descending order (most recent first)
-    });
-  }, [filteredContacts]);
-
-  useEffect(() => {
-    if (initialContacts.length > 0) {
-      loadMoreContacts();
-    }
-  }, [initialContacts]);
 
 
   useEffect(() => {
@@ -1826,7 +1827,7 @@ const clearAllFilters = () => {
 };
 
 const filteredContactsSearch = useMemo(() => {
-  return sortedContacts.filter((contact) => {
+  return contacts.filter((contact) => {
     const name = (contact.contactName || '').toLowerCase();
     const phone = (contact.phone || '').toLowerCase();
     const tags = (contact.tags || []).map(tag => tag.toLowerCase());
@@ -1843,7 +1844,7 @@ const filteredContactsSearch = useMemo(() => {
 
     return matchesSearch && matchesTagFilters && matchesUserFilters && notExcluded;
   });
-}, [sortedContacts, searchQuery, selectedTagFilters, selectedUserFilters, excludedTags]);
+}, [contacts, searchQuery, selectedTagFilters, selectedUserFilters, excludedTags]);
 
 const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   setSearchQuery(e.target.value);
