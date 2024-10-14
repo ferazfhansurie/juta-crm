@@ -6157,7 +6157,7 @@ console.log(prompt);
                     <Lucide icon="Users" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
                     <span className="text-gray-800 dark:text-gray-200">Assign Employee</span>
                   </Menu.Button>
-                  <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10">
+                  <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 overflow-y-auto max-h-96">
                     <div className="mb-2">
                       <input
                         type="text"
@@ -6197,7 +6197,7 @@ console.log(prompt);
                     <Lucide icon="Tag" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
                     <span className="text-gray-800 dark:text-gray-200">Add Tag</span>
                   </Menu.Button>
-                  <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10">
+                  <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 max-h-60 overflow-y-auto">
                     {tagList.map((tag) => (
                       <Menu.Item key={tag.id}>
                         <button

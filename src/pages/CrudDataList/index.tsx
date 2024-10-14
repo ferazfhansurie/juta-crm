@@ -321,7 +321,7 @@ function Main() {
       const userName = userData.name;
   
       const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const q = query(contactsRef);
+      const q = query(contactsRef, orderBy('createdAt', 'desc'));
   
       const querySnapshot = await getDocs(q);
       const fetchedContacts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
@@ -332,19 +332,12 @@ function Main() {
       };
   
       // Separate contacts into categories
-      const individualsWithCreatedAt = fetchedContacts.filter(contact => isIndividual(contact.chat_id || '') && contact.createdAt);
-      const individualsWithoutCreatedAt = fetchedContacts.filter(contact => isIndividual(contact.chat_id || '') && !contact.createdAt);
+      const individuals = fetchedContacts.filter(contact => isIndividual(contact.chat_id || ''));
       const groups = fetchedContacts.filter(contact => !isIndividual(contact.chat_id || ''));
-  
-      // Sort individuals with createdAt
-      const sortedIndividuals = individualsWithCreatedAt.sort((a, b) => {
-        return new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime();
-      });
   
       // Combine all contacts in the desired order
       const allSortedContacts = [
-        ...sortedIndividuals,
-        ...individualsWithoutCreatedAt,
+        ...individuals,
         ...groups
       ];
   
