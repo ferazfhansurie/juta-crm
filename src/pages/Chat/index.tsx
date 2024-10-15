@@ -1112,6 +1112,8 @@ const closePDFModal = () => {
   
       let successCount = 0;
       let failureCount = 0;
+
+      const phoneIndex = selectedContact?.phoneIndex || 0;
   
       for (const message of selectedMessages) {
         try {
@@ -1119,7 +1121,7 @@ const closePDFModal = () => {
           const response = await axios.delete(
             `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/${companyId}/${selectedChatId}/${message.id}`,
             {
-              data: { deleteForEveryone: true },
+              data: { deleteForEveryone: true, phoneIndex: phoneIndex },
               headers: {
                 'Authorization': `Bearer ${userData.accessToken}` // Ensure you're sending the correct authorization token
               }
