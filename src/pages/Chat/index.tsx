@@ -163,6 +163,7 @@ interface Employee {
   phone?: string;
   quotaLeads?: number;
   assignedContacts?: number;
+  group?: string;
   // Add other properties as needed
 }
 interface Tag {
@@ -1095,6 +1096,7 @@ const closePDFModal = () => {
       const user = auth.currentUser;
       if (!user) {
         console.error('No authenticated user');
+        toast.error('Authentication error. Please try logging in again.');
         return;
       }
   
@@ -1102,39 +1104,57 @@ const closePDFModal = () => {
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
         console.error('No such document for user!');
+        toast.error('User data not found. Please contact support.');
         return;
       }
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
   
+      let successCount = 0;
+      let failureCount = 0;
+  
       for (const message of selectedMessages) {
         try {
+          console.log(`Attempting to delete message: ${message.id}`);
           const response = await axios.delete(
             `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/${companyId}/${selectedChatId}/${message.id}`,
             {
-              data: { deleteForEveryone: true } // Set this to false if you want to delete only for the current user
+              data: { deleteForEveryone: true },
+              headers: {
+                'Authorization': `Bearer ${userData.accessToken}` // Ensure you're sending the correct authorization token
+              }
             }
           );
   
           if (response.data.success) {
+            console.log(`Successfully deleted message: ${message.id}`);
             setMessages((prevMessages) => prevMessages.filter((msg) => msg.id !== message.id));
+            successCount++;
           } else {
-            console.error(`Failed to delete message: ${message.id}`);
+            console.error(`Failed to delete message: ${message.id}`, response.data);
+            failureCount++;
           }
         } catch (error) {
-          console.error('Error deleting message:', error);
+          console.error('Error deleting message:', message.id, error);
           if (axios.isAxiosError(error) && error.response) {
             console.error('Error details:', error.response.status, error.response.data);
           }
+          failureCount++;
         }
       }
   
-      toast.success('Messages deleted successfully');
+      if (successCount > 0) {
+        toast.success(`Successfully deleted ${successCount} message(s)`);
+      }
+      if (failureCount > 0) {
+        toast.error(`Failed to delete ${failureCount} message(s)`);
+      }
+  
       setSelectedMessages([]);
       closeDeletePopup();
     } catch (error) {
       console.error('Error in delete operation:', error);
-      toast.error('Failed to delete messages');
+      toast.error('Failed to delete messages. Please try again.');
     }
   };
 
@@ -6079,12 +6099,22 @@ console.log(prompt);
                 </div>
                 {employeeList
                   .filter(employee => {
-                    if (userRole === '4' || userRole === '2') {
-                      const shouldInclude = employee.role === '2' && employee.name.toLowerCase().includes(employeeSearch.toLowerCase());
-                      return shouldInclude;
+                    if (userRole === '4') {
+                      if (userData?.group) {
+                        return employee.role === '2' && 
+                              employee.group === userData.group && 
+                              employee.name.toLowerCase().includes(employeeSearch.toLowerCase());
+                      } else {
+                        return employee.role === '2' && 
+                              employee.name.toLowerCase().includes(employeeSearch.toLowerCase());
+                      }
+                    } else if (userRole === '1' || userRole === '5') {
+                      return employee.name.toLowerCase().includes(employeeSearch.toLowerCase());
+                    } else if (userRole === '2' || userRole === '3') {
+                      return employee.role === userRole && 
+                            employee.name.toLowerCase().includes(employeeSearch.toLowerCase());
                     }
-                    const shouldInclude = employee.name.toLowerCase().includes(employeeSearch.toLowerCase());
-                    return shouldInclude;
+                    return false;
                   })
                   .map((employee) => {
                     return (
