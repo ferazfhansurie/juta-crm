@@ -3519,7 +3519,22 @@ useEffect(() => {
 }, [filteredContacts, paginatedContacts, activeTags]);
 
 useEffect(() => {
+  console.log('Filtering contacts', { 
+    contactsLength: contacts.length, 
+    userRole, 
+    userName: userData?.name,
+    activeTags,
+    searchQuery
+  });
+
   let filtered = contacts;
+
+  // Apply role-based filtering
+  if (userRole === "3") {
+    filtered = filtered.filter(contact => 
+      contact.assignedTo?.toLowerCase() === userData?.name?.toLowerCase()
+    );
+  }
 
   // Apply tag filter
   if (activeTags.length > 0) {
@@ -3556,7 +3571,7 @@ useEffect(() => {
   }
 
   console.log('Filtered contacts updated:', filtered);
-}, [contacts, searchQuery, activeTags, currentUserName, employeeList]);
+}, [contacts, searchQuery, activeTags, currentUserName, employeeList, userRole, userData]);
 
 // Update the pagination logic
 useEffect(() => {
@@ -4499,20 +4514,12 @@ const sortContacts = (contacts: Contact[]) => {
       }
       // Update state
       setContacts(prevContacts => {
-        if (userData?.role === '3') {
-          // For role 3, remove the contact if the removed tag matches their name
-          return prevContacts.filter(contact => 
-            contact.id !== contactId || 
-            (contact.tags && contact.tags.some(tag => tag.toLowerCase() === userData.name.toLowerCase()))
-          );
-        } else {
-          // For other roles, just update the tags
-          return prevContacts.map(contact =>
-            contact.id === contactId
-              ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName), assignedTo: undefined }
-              : contact
-          );
-        }
+        // For all roles, just update the tags
+        return prevContacts.map(contact =>
+          contact.id === contactId
+            ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName), assignedTo: undefined }
+            : contact
+        );
       });
   
       const updatedContacts = contacts.map((contact: Contact) =>

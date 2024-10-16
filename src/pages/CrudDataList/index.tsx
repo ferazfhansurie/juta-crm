@@ -220,7 +220,8 @@ function Main() {
   const [phoneIndex, setPhoneIndex] = useState<number>(0);
   const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
   const [phoneNames, setPhoneNames] = useState<{ [key: number]: string }>({});
-
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [selectedPhoneIndex, setSelectedPhoneIndex] = useState<number | null>(null);
 
  
 
@@ -2569,35 +2570,49 @@ Jane,Smith,60198765432,jane@example.com,XYZ Corp,456 Elm St,Branch B,2024-06-30,
                       <Lucide icon="Plus" className="w-5 h-5 mr-2" />
                       <span className="font-medium">Add Contact</span>
                     </button>
-                    <Menu>
-                      <Menu.Button as={Button} className={`flex items-center justify-start p-2 !box bg-white text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                    <Menu as="div" className="relative inline-block text-left">
+                      <Menu.Button as={Button} className="flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                         <Lucide icon="User" className="w-5 h-5 mr-2" />
                         <span>Assign User</span>
                       </Menu.Button>
-                      <Menu.Items className="w-full bg-white text-gray-800 dark:text-gray-200">
+                      <Menu.Items className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 overflow-y-auto max-h-96">
+                        <div className="mb-2">
+                          <input
+                            type="text"
+                            placeholder="Search employees..."
+                            value={employeeSearch}
+                            onChange={(e) => setEmployeeSearch(e.target.value)}
+                            className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                          />
+                        </div>
                         {employeeList
-                          .filter(employee => 
-                            userRole === '4' || userRole === '2' 
-                              ? employee.role === '2' 
-                              : true
-                          )
+                          .filter(employee => {
+                            if (userRole === '4' || userRole === '2') {
+                              return employee.role === '2' && employee.name.toLowerCase().includes(employeeSearch.toLowerCase());
+                            }
+                            return employee.name.toLowerCase().includes(employeeSearch.toLowerCase());
+                          })
                           .map((employee) => (
                             <Menu.Item key={employee.id}>
-                              <span
-                                className="flex items-center p-2"
-                                onClick={() => {
-                                  if (userRole !== "3") {
-                                    selectedContacts.forEach(contact => {
-                                      handleAddTagToSelectedContacts(employee.name, contact);
-                                    });
-                                  } else {
-                                    toast.error("You don't have permission to assign users to contacts.");
-                                  }
-                                }}
-                              >
-                                <Lucide icon="User" className="w-4 h-4" />
-                                <span className="truncate">{employee.name}</span>
-                              </span>
+                              {({ active }) => (
+                                <button
+                                  className={`${
+                                    active ? 'bg-gray-100 dark:bg-gray-700' : ''
+                                  } group flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 transition-colors duration-200`}
+                                  onClick={() => {
+                                    if (userRole !== "3") {
+                                      selectedContacts.forEach(contact => {
+                                        handleAddTagToSelectedContacts(employee.name, contact);
+                                      });
+                                    } else {
+                                      toast.error("You don't have permission to assign users to contacts.");
+                                    }
+                                  }}
+                                >
+                                  <Lucide icon="User" className="mr-3 h-5 w-5" />
+                                  <span className="truncate">{employee.name}</span>
+                                </button>
+                              )}
                             </Menu.Item>
                           ))}
                       </Menu.Items>

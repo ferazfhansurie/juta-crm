@@ -481,18 +481,12 @@ function Main() {
             <FormLabel htmlFor="phoneNumber">Phone Number *</FormLabel>
             <div className="flex">
               <FormInput
-                type="text"
-                value="+6"
-                readOnly
-                className="w-12 mr-2"
-              />
-              <FormInput
                 id="phoneNumber"
                 name="phoneNumber"
                 type="text"
                 value={userData.phoneNumber}
                 onChange={handleChange}
-                placeholder="Phone Number"
+                placeholder="+60123456789"
                 className="flex-grow"
                 disabled={isFieldDisabled("phoneNumber")}
                 required
