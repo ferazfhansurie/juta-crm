@@ -322,11 +322,11 @@ function Main() {
       const userName = userData.name;
   
       const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const q = query(contactsRef, orderBy('createdAt', 'desc'));
+      const q = query(contactsRef,);
   
       const querySnapshot = await getDocs(q);
       const fetchedContacts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
-  
+      console.log('Fetched contacts2:', fetchedContacts);
       // Function to check if a chat_id is for an individual contact
       const isIndividual = (chat_id: string | undefined) => {
         return chat_id?.endsWith('@c.us') || false;
@@ -341,9 +341,26 @@ function Main() {
         ...individuals,
         ...groups
       ];
-  
+// Helper function to get timestamp value
+const getTimestamp = (createdAt: any): number => {
+  if (!createdAt) return 0;
+  if (typeof createdAt === 'string') {
+    return new Date(createdAt).getTime();
+  }
+  if (createdAt.seconds) {
+    return createdAt.seconds * 1000 + (createdAt.nanoseconds || 0) / 1000000;
+  }
+  return 0;
+};
+
+// Sort contacts based on createdAt
+allSortedContacts.sort((a, b) => {
+  const dateA = getTimestamp(a.createdAt);
+  const dateB = getTimestamp(b.createdAt);
+  return dateB - dateA; // For descending order
+});
       const filteredContacts = filterContactsByUserRole(allSortedContacts, userRole, userName);
-  
+      
       setContacts(filteredContacts);
       setFilteredContacts(filteredContacts);
     } catch (error) {
