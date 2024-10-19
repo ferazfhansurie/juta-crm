@@ -20,7 +20,7 @@ import axios from 'axios';
 import { getFirebaseToken, messaging } from "../../firebaseconfig";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { DocumentData, DocumentReference, getDoc, getDocs, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { DocumentData, DocumentReference, getDoc,where, query, limit,getDocs, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { getFirestore, collection, setDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { onMessage } from "firebase/messaging";
 import { useNavigate } from "react-router-dom";
@@ -102,6 +102,72 @@ let companyId = "";
 let total_contacts = 0;
 let role = 2;
 
+function EmployeeSearch({ 
+  employees,
+  onSelect,
+  currentUser
+}: {
+  employees: Array<{ id: string; name: string; assignedContacts?: number }>;
+  onSelect: (employee: { id: string; name: string; assignedContacts?: number }) => void;
+  currentUser: { id: string } | null;
+}) {
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(employee => 
+      employee.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [employees, searchQuery]);
+
+  useEffect(() => {
+    function handleClickOutside(event: { target: Node | null; }) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside as EventListener);
+    return () => document.removeEventListener("mousedown", handleClickOutside as EventListener);
+  }, []);
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <FormInput
+        type="text"
+        placeholder="Search employees..."
+        value={searchQuery}
+        onChange={(e) => {
+          setSearchQuery(e.target.value);
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+        className="w-full"
+      />
+      {isOpen && (
+        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
+          {filteredEmployees.map((employee) => (
+            <div
+              key={employee.id}
+              className={`p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
+                employee.id === currentUser?.id ? 'bg-blue-100 dark:bg-blue-900' : ''
+              }`}
+              onClick={() => {
+                onSelect(employee);
+                setIsOpen(false);
+                setSearchQuery(employee.name);
+              }}
+            >
+                           <span className="text-gray-900 dark:text-gray-100">{employee.name}</span>
+                           <span className="text-gray-600 dark:text-gray-400"> ({employee.assignedContacts || 0} assigned contacts)</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Main() {
 
   interface Contact {
@@ -147,7 +213,25 @@ function Main() {
     phoneNumber: string;
     monthlyAssignments?: { [key: string]: number };
   }
-  
+  interface Appointment {
+    id: string;
+    title: string;
+    startTime: string;
+    endTime: string;
+    address: string;
+    appointmentStatus: string;
+    staff: string[];
+    tags: Tag[];
+    color: string;
+    packageId: string | null;
+    dateAdded: string;
+    contacts: { id: string, name: string, session: number }[];
+  }
+
+interface Tag {
+  id: string;
+  name: string;
+}
   const importantNotesRef = useRef<TinySliderElement>();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,18 +251,49 @@ function Main() {
   const [contactsOverTime, setContactsOverTime] = useState<{ date: string; count: number }[]>([]);
   const [contactsTimeFilter, setContactsTimeFilter] = useState<'today' | '7days' | '1month' | '3months' | 'all'>('7days');
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
-
+  const [totalAppointments, setTotalAppointments] = useState(0);
   // Add these new state variables
   const [responseRate, setResponseRate] = useState(0);
   const [averageRepliesPerLead, setAverageRepliesPerLead] = useState(0);
   const [engagementScore, setEngagementScore] = useState(0);
+  // Add this new state variable for the search query
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
+
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(employee => 
+      employee.name.toLowerCase().includes(employeeSearchQuery.toLowerCase())
+    );
+  }, [employees, employeeSearchQuery]);
 
   useEffect(() => {
     fetchCompanyData();
     fetchEmployees();
   }, []);
-  
+  async function fetchAppointments() {
+    try {
+      let totalAppointments = 0;
 
+      for (const employee of employees) {
+        const userRef = doc(firestore, 'user', employee.email);
+        const appointmentsCollectionRef = collection(userRef, 'appointments');
+
+        // Fetch all appointments for this employee
+        const querySnapshot = await getDocs(appointmentsCollectionRef);
+        totalAppointments += querySnapshot.size;
+      }
+
+      setTotalAppointments(totalAppointments);
+      console.log('Total Appointments:', totalAppointments);
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+    }
+  }
+  // Add a new useEffect to fetch appointments after employees are loaded
+  useEffect(() => {
+    if (employees.length > 0) {
+      fetchAppointments();
+    }
+  }, [employees]);
   const filteredNotifications = notifications.filter((notification) => {
     return (
       notification.from_name.toLowerCase().includes(searchQuery) ||
@@ -279,32 +394,31 @@ function Main() {
         return;
       }
   
-      // Fetch the number of replies from the messages subcollection
+      // Fetch the number of contacts with replies
       const contactsRef = collection(firestore, 'companies', companyId, 'contacts');
       const contactsSnapshot = await getDocs(contactsRef);
       
-      let totalReplies = 0;
+      let contactsWithReplies = 0;
   
-      for (const contactDoc of contactsSnapshot.docs) {
+      const checkRepliesPromises = contactsSnapshot.docs.map(async (contactDoc) => {
         const contactData = contactDoc.data();
         // Skip if it's a group
         if (contactData.type === 'group') {
-          continue;
+          return false;
         }
   
         const messagesRef = collection(contactDoc.ref, 'messages');
-        const messagesSnapshot = await getDocs(messagesRef);
+        const q = query(messagesRef, where('id', '>=', ''), limit(1));
+        const messageSnapshot = await getDocs(q);
         
-        messagesSnapshot.forEach(messageDoc => {
-          const messageId = messageDoc.id;
-          if (!messageId.startsWith('false')) {
-            totalReplies++;
-          }
-        });
-      }
+        return !messageSnapshot.empty;
+      });
   
-      setReplies(totalReplies);
-      console.log('Total replies:', totalReplies);
+      const results = await Promise.all(checkRepliesPromises);
+      contactsWithReplies = results.filter(Boolean).length;
+  
+      setReplies(contactsWithReplies);
+      console.log('Contacts with replies:', contactsWithReplies);
   
     } catch (error) {
       console.error('Error fetching config:', error);
@@ -388,7 +502,7 @@ function Main() {
       employeeListData.sort((a, b) => (b.assignedContacts || 0) - (a.assignedContacts || 0));
 
       // Take top 10 employees for the leaderboard
-      const topEmployees = employeeListData.slice(0, 10);
+      const topEmployees = employeeListData;
       
       setEmployees(topEmployees);
     
@@ -638,18 +752,28 @@ function Main() {
 
   // Add this function to calculate additional stats
   const calculateAdditionalStats = useCallback(() => {
-    // Response Rate
+    // Response Rate (percentage of contacts that have replied)
     const newResponseRate = totalContacts > 0 ? (numReplies / totalContacts) * 100 : 0;
-    setResponseRate(Number(newResponseRate.toFixed(0)));
-
+    setResponseRate(Number(newResponseRate.toFixed(1))); // Use 1 decimal place for percentage
+  
     // Average Replies per Lead
-    const newAverageRepliesPerLead = totalContacts > 0 ? numReplies / totalContacts : 0;
-    setAverageRepliesPerLead(Number(newAverageRepliesPerLead.toFixed(0)));
+   // const newAverageRepliesPerLead = totalContacts > 0 ? numReplies / totalContacts : 0;
+   // setAverageRepliesPerLead(Number(newAverageRepliesPerLead.toFixed(2))); // Use 2 decimal places
+    const newBookAppointmentsRate = totalContacts > 0 ? (totalAppointments / totalContacts) * 100 : 0;
+    setAverageRepliesPerLead(Number(newBookAppointmentsRate.toFixed(2)));
+ // Engagement Score (weighted sum of response rate and booking appointments rate)
+  // Adjust weights as needed; the sum should be 1 for better scaling
+  const responseWeight = 0.15; // weight for response rate
+  const appointmentWeight = 0.35; // weight for booking appointments rate
+  const closedContactsWeight = 0.5;
+  const newClosedContactsRate = totalContacts > 0 ? (closedContacts / totalContacts) * 100 : 0;
 
-    // Engagement Score (example: weighted sum of response rate and average replies)
-    const newEngagementScore = (newResponseRate * 0.4) + (newAverageRepliesPerLead * 0.6);
-    setEngagementScore(Number(newEngagementScore.toFixed(2)));
-  }, [numReplies, totalContacts]);
+  const newEngagementScore = (newResponseRate * responseWeight) + 
+  (newBookAppointmentsRate * appointmentWeight) + 
+  (newClosedContactsRate * closedContactsWeight);
+
+setEngagementScore(Number(newEngagementScore.toFixed(2)));
+  }, [numReplies, totalContacts, totalAppointments]);
 
   // Update useEffect to call calculateAdditionalStats
   useEffect(() => {
@@ -660,30 +784,13 @@ function Main() {
   }, [companyId, calculateAdditionalStats]);
 
   // Modify the handleEmployeeSelect function
-  const handleEmployeeSelect = async (event: React.MouseEvent, employee: Employee) => {
-    event.stopPropagation();
+  const handleEmployeeSelect = async (employee: Employee) => {
     console.log("Employee selected:", employee);
     const fullEmployeeData = await fetchEmployeeData(employee.id);
     if (fullEmployeeData) {
       setSelectedEmployee(fullEmployeeData);
     }
   };
-
-  // Add this new function
-  const handleOutsideClick = useCallback((event: MouseEvent) => {
-    const target = event.target as HTMLElement;
-    if (!target.closest('.employee-card')) {
-      setSelectedEmployee(null);
-    }
-  }, []);
-
-  // Add this new useEffect
-  useEffect(() => {
-    document.addEventListener('click', handleOutsideClick);
-    return () => {
-      document.removeEventListener('click', handleOutsideClick);
-    };
-  }, [handleOutsideClick]);
 
   const fetchContactsOverTime = async (filter: 'today' | '7days' | '1month' | '3months' | 'all') => {
     if (!companyId) {
@@ -871,7 +978,7 @@ const getEarliestContactDate = async () => {
       title: 'Engagement Metrics',
       content: [
         { label: "Response Rate", value: `${responseRate}%` },
-        { label: "Avg. Replies per Lead", value: averageRepliesPerLead },
+        { label: "Book Appointments Rate", value: `${averageRepliesPerLead}%` },
         { label: "Engagement Score", value: engagementScore },
         { label: "Conversion Rate", value: `${closedContacts > 0 ? ((closedContacts / totalContacts) * 100).toFixed(2) : 0}%` },
       ],
@@ -895,8 +1002,16 @@ const getEarliestContactDate = async () => {
     },
     {
       id: 'employee-assignments',
-      title: 'Top Performers',
-      content: { employees, chartData, lineChartOptions, currentUser, selectedEmployee, handleEmployeeSelect }
+      title: 'Employee Metrics',
+      content: { 
+        employees, 
+        filteredEmployees, 
+        chartData, 
+        lineChartOptions, 
+        currentUser, 
+        selectedEmployee, 
+        handleEmployeeSelect
+      }
     },
     // Add more cards here as needed
   ];
@@ -948,35 +1063,22 @@ const getEarliestContactDate = async () => {
                   ) : card.id === 'employee-assignments' ? (
                     <div>
                       <div className="mb-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          {employees.slice(0, 3).map((employee) => (
-                            <div
-                              key={employee.id}
-                              className={`bg-gray-100 dark:bg-gray-700 rounded-lg p-4 cursor-pointer ${
-                                selectedEmployee?.id === employee.id ? 'ring-2 ring-blue-500' : ''
-                              }`}
-                              onClick={(e) => handleEmployeeSelect(e, employee)}
-                            >
-                              <div className="font-medium text-gray-800 dark:text-gray-200">{employee.name}</div>
-                              <div className="text-sm text-gray-600 dark:text-gray-400">
-                                {Array.isArray(employee.assignedContacts) ? employee.assignedContacts.length : 0} assigned contacts
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        <EmployeeSearch 
+                          employees={employees}
+                          onSelect={(employee: { id: string; name: string; assignedContacts?: number | undefined; }) => handleEmployeeSelect(employee as Employee)}
+                          currentUser={currentUser}
+                        />
                       </div>
                       <div className="h-64">
-                      {selectedEmployee ? (
-                        chartData ? (
-                          <Line data={chartData} options={lineChartOptions} />
+                        {selectedEmployee ? (
+                          chartData ? (
+                            <Line data={chartData} options={lineChartOptions} />
+                          ) : (
+                            <div className="text-center text-gray-600 dark:text-gray-400">No data available for this employee</div>
+                          )
                         ) : (
-                          <div className="text-center text-gray-600 dark:text-gray-400">No data available for this employee</div>
-                        )
-                      ) : currentUser && chartData ? (
-                        <Line data={chartData} options={lineChartOptions} />
-                      ) : (
-                        <div className="text-center text-gray-600 dark:text-gray-400">Select an employee to view their chart</div>
-                      )}
+                          <div className="text-center text-gray-600 dark:text-gray-400">Select an employee to view their chart</div>
+                        )}
                       </div>
                     </div>
                   ) : (
