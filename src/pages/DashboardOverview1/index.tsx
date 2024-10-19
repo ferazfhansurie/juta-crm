@@ -212,6 +212,7 @@ function Main() {
     companyId: string;
     phoneNumber: string;
     monthlyAssignments?: { [key: string]: number };
+    closedContacts?: number;
   }
   interface Appointment {
     id: string;
@@ -527,11 +528,21 @@ interface Tag {
         monthlyAssignmentsSnapshot.forEach((doc) => {
           monthlyAssignments[doc.id] = doc.data().assignments;
         });
-
+  
+        // Fetch closed contacts
+        const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+        const contactsSnapshot = await getDocs(contactsRef);
+        
+        const closedContacts = contactsSnapshot.docs.filter(doc => {
+          const tags = doc.data().tags || [];
+          return tags.includes('closed') && tags.includes(employeeData.name);
+        }).length;
+  
         return {
           ...employeeData,
           id: employeeSnapshot.id,
-          monthlyAssignments: monthlyAssignments
+          monthlyAssignments: monthlyAssignments,
+          closedContacts: closedContacts
         };
       } else {
         console.log('No such employee!');
@@ -611,30 +622,36 @@ interface Tag {
     console.log("Chart data calculated:", last12MonthsData);
     return {
       labels: last12MonthsData.map(d => `${d.month} ${d.year}`),
-      datasets: [{
-        label: 'Assigned Contacts',
-        data: last12MonthsData.map(d => d.assignments),
-        borderColor: 'rgb(75, 192, 192)',
-        tension: 0.1,
-        fill: false
-      }]
+      datasets: [
+        {
+          label: 'Assigned Contacts',
+          data: last12MonthsData.map(d => d.assignments),
+          borderColor: 'rgb(75, 192, 192)',
+          tension: 0.1,
+          fill: false
+        },
+        {
+          label: 'Closed Contacts',
+          data: Array(12).fill(selectedEmployee.closedContacts || 0),
+          borderColor: 'rgb(255, 99, 132)',
+          tension: 0.1,
+          fill: false
+        }
+      ]
     };
   }, [selectedEmployee, selectedEmployee?.monthlyAssignments]);
 
   const lineChartOptions = useMemo(() => {
-    // Generate a random color when the selected employee changes
-    const randomColor = `rgb(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)})`;
-
     return {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
         y: {
           beginAtZero: true,
-          min: 0, // Add this line to set the minimum value to 0
+          min: 0,
           title: {
             display: true,
-            text: 'Assigned Contacts',
+            text: 'Number of Contacts',
             color: 'rgb(75, 85, 99)',
           },
           ticks: {
@@ -655,22 +672,12 @@ interface Tag {
       },
       plugins: {
         legend: {
-          display: false,
+          display: true,
         },
         title: {
           display: true,
-          text: `Monthly Contact Assignments for ${selectedEmployee?.name || 'Employee'}`,
+          text: `Contact Metrics for ${selectedEmployee?.name || 'Employee'}`,
           color: 'rgb(31, 41, 55)',
-        },
-      },
-      elements: {
-        line: {
-          borderColor: randomColor,
-          backgroundColor: randomColor,
-        },
-        point: {
-          backgroundColor: randomColor,
-          borderColor: randomColor,
         },
       },
     } as const;
@@ -780,6 +787,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
     if (companyId) {
       fetchContactsData();
       calculateAdditionalStats();
+      fetchClosedContactsByEmployee();
     }
   }, [companyId, calculateAdditionalStats]);
 
@@ -962,6 +970,91 @@ const getEarliestContactDate = async () => {
     } as const;
   }, [contactsOverTime, contactsTimeFilter]);
 
+  const [closedContactsByEmployee, setClosedContactsByEmployee] = useState<{ [key: string]: number }>({});
+
+  async function fetchClosedContactsByEmployee() {
+    if (!companyId) {
+      console.error('CompanyId is not set. Unable to fetch closed contacts data.');
+      return;
+    }
+    try {
+      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
+      const contactsSnapshot = await getDocs(contactsRef);
+      
+      const closedContacts: { [key: string]: number } = {};
+
+      contactsSnapshot.forEach((doc) => {
+        const contactData = doc.data();
+        if (contactData.tags && contactData.tags.includes('closed') && contactData.assignedTo) {
+          closedContacts[contactData.assignedTo] = (closedContacts[contactData.assignedTo] || 0) + 1;
+        }
+      });
+
+      setClosedContactsByEmployee(closedContacts);
+    } catch (error) {
+      console.error('Error fetching closed contacts data:', error);
+    }
+  }
+
+  const closedContactsChartData = useMemo(() => {
+    if (!employees || !closedContactsByEmployee) return null;
+
+    const labels = employees.map(emp => emp.name);
+    const data = employees.map(emp => closedContactsByEmployee[emp.id] || 0);
+
+    return {
+      labels: labels,
+      datasets: [{
+        label: 'Closed Contacts',
+        data: data,
+        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        borderWidth: 1
+      }]
+    };
+  }, [employees, closedContactsByEmployee]);
+
+  const closedContactsChartOptions = useMemo(() => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Number of Closed Contacts',
+            color: 'rgb(75, 85, 99)',
+          },
+          ticks: {
+            color: 'rgb(107, 114, 128)',
+            stepSize: 1,
+          },
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Employees',
+            color: 'rgb(75, 85, 99)',
+          },
+          ticks: {
+            color: 'rgb(107, 114, 128)',
+          },
+        },
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+        title: {
+          display: true,
+          text: 'Closed Contacts by Employee',
+          color: 'rgb(31, 41, 55)',
+        },
+      },
+    } as const;
+  }, []);
+
   const dashboardCards = [
     {
       id: 'kpi',
@@ -1010,7 +1103,9 @@ const getEarliestContactDate = async () => {
         lineChartOptions, 
         currentUser, 
         selectedEmployee, 
-        handleEmployeeSelect
+        handleEmployeeSelect,
+        closedContactsChartData,
+        closedContactsChartOptions
       }
     },
     // Add more cards here as needed
