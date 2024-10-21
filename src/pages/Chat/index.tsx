@@ -7312,12 +7312,37 @@ console.log(prompt);
           <div className="p-4">
             <div className="grid grid-cols-2 gap-4">
               {[
-                { label: "First Name", key: "contactName" },
-                { label: "Last Name", key: "lastName" },
-                { label: "Email", key: "email" },
-                { label: "Company", key: "companyName" },
-                { label: "Address", key: "address1" },
-                { label: "Website", key: "website" }
+                  { label: "First Name", key: "contactName" },
+                  { label: "Last Name", key: "lastName" },
+                  { label: "Email", key: "email" },
+                  { label: "Phone", key: "phone" },
+                  { label: "Company", key: "companyName" },
+                  { label: "Address", key: "address1" },
+                  { label: "Website", key: "website" },
+                  ...(userData?.companyId === '095' ? [
+                    { label: "Country", key: "country" },
+                    { label: "Nationality", key: "nationality" },
+                    { label: "Highest Education", key: "highestEducation" },
+                    { label: "Program of Study", key: "programOfStudy" },
+                    { label: "Intake Preference", key: "intakePreference" },
+                    { label: "English Proficiency", key: "englishProficiency" },
+                    { label: "Passport Validity", key: "passport" },
+                  ] : []),
+                  ...((['079', '001'].includes(userData?.companyId ?? '')) ? [
+                    { label: "IC", key: "ic" },
+                    { label: "Points", key: "points" },
+                    { label: "Branch", key: "branch" },
+                    { label: "Expiry Date", key: "expiryDate" },
+                    { label: "Vehicle Number", key: "vehicleNumber" },
+                  ] : []),
+                  ...(userData?.companyId === '001' ? [
+                    { label: "Assistant ID", key: "assistantId" },
+                    { label: "Thread ID", key: "threadid" },
+                  ] : []),
+                  ...(selectedContact.customFields ? Object.entries(selectedContact.customFields).map(([key, value]) => (
+                    { label: key, key: `customFields.${key}`, isCustom: true }
+                  )) : []),
+                  
               ].map((item, index) => (
                 <div key={index} className="col-span-1">
                   <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{item.label}</p>
