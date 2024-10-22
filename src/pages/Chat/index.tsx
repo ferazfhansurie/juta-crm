@@ -5450,7 +5450,7 @@ console.log(prompt);
           )}
   
         </div>
-        <div className="sticky top-20 z-1 bg-gray-100 dark:bg-gray-900 p-2">
+        <div className="sticky top-20 z-5 bg-gray-100 dark:bg-gray-900 p-2">
           <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
             {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
             {isDeletePopupOpen && <DeleteConfirmationPopup />}
@@ -5579,139 +5579,152 @@ console.log(prompt);
               </div>
             </Dialog>
             <PDFModal isOpen={isPDFModalOpen} onClose={closePDFModal} pdfUrl={pdfUrl} />
-            {editingMessage && (
-              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-                <div className="bg-white dark:bg-gray-800 rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
-                  <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                    <div className="sm:flex sm:items-start">
-                      <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                        <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200 mb-4">Edit message</h3>
-                        <textarea
-                          className="w-full h-24 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                          placeholder="Edit your message"
-                          value={editedMessageText}
-                          onChange={(e) => setEditedMessageText(e.target.value)}
-                          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                    <Button
-                      type="button"
-                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-500 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-                      onClick={handleEditMessage}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      type="button"
-                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:w-auto sm:text-sm"
-                      onClick={cancelEditMessage}
-                    >
-                      Cancel
-                    </Button>
-              </div>
-              </div>
-              </div>
-            )}
+            <Dialog
+  open={editingMessage !== null}
+  onClose={cancelEditMessage}
+  className="fixed inset-0 z-100 overflow-y-auto"
+>
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="fixed inset-0 bg-black opacity-30" />
+    <div className="bg-white dark:bg-gray-800 rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
+      <Dialog.Title
+        as="h3"
+        className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200 px-4 pt-5"
+      >
+        Edit message
+      </Dialog.Title>
+      <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <textarea
+          className="w-full h-24 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-info text-md resize-none overflow-hidden bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+          placeholder="Edit your message"
+          value={editedMessageText}
+          onChange={(e) => setEditedMessageText(e.target.value)}
+          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+        />
+      </div>
+      <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <Button
+          type="button"
+          className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-500 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+          onClick={handleEditMessage}
+        >
+          Save
+        </Button>
+        <Button
+          type="button"
+          className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:w-auto sm:text-sm"
+          onClick={cancelEditMessage}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  </div>
+</Dialog>
 
-            {isForwardDialogOpen && (
-              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-                <div className="bg-white dark:bg-gray-800 rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
-                  <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                    <div className="sm:flex sm:items-start">
-                      <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                        <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200 mb-4">Forward message to</h3>
-                        <div className="relative mb-4">
-                          <input
-                            type="text"
-                            className="w-full py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                            placeholder="Search..."
-                            value={searchQuery2}
-                            onChange={handleSearchChange2}
-                          />
-                          <Lucide
-                            icon="Search"
-                            className="absolute top-2 right-3 w-5 h-5 text-gray-500 dark:text-gray-400"
-                          />
-                        </div>
-                        <div className="mb-4">
-                          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filter by tags:</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {visibleForwardTags.map((tag) => (
-                              <button
-                                key={tag.id}
-                                onClick={() => filterForwardDialogContacts(tag.name)}
-                                className={`px-3 py-1 rounded-full text-sm flex-shrink-0 ${
-                                  forwardDialogTags.includes(tag.name)
-                                    ? 'bg-primary text-white dark:bg-primary dark:text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-                                } transition-colors duration-200`}
-                              >
-                                {tag.name}
-                              </button>
-                            ))}
-                          </div>
-                          {tagList.length > 5 && (
-                            <button
-                              onClick={toggleForwardTagsVisibility}
-                              className="mt-2 text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
-                            >
-                              {showAllForwardTags ? 'Show Less' : 'Show More'}
-                            </button>
-                          )}
-                        </div>
-                        <div className="max-h-60 overflow-y-auto">
-                          {getFilteredForwardingContacts().map((contact, index) => (
-                            <div
-                              key={contact.id || `${contact.phone}-${index}`}
-                              className="flex items-center p-2 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
-                            >
-                              <input
-                                type="checkbox"
-                                className="mr-3"
-                                checked={selectedContactsForForwarding.includes(contact)}
-                                onChange={() => handleSelectContactForForwarding(contact)}
-                              />
-                              <div className="flex items-center">
-                                <div className="w-8 h-8 flex items-center justify-center bg-gray-300 dark:bg-gray-600 rounded-full mr-3 text-white">
-                                  {contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"}
-                                </div>
-                                <div className="flex-grow">
-                                  <div className="font-semibold capitalize">{contact.contactName || contact.firstName || contact.phone}</div>
-                                  {contact.tags && contact.tags.length > 0 && (
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                                      Tags: {contact.tags.join(', ')}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+<Dialog
+  open={isForwardDialogOpen}
+  onClose={() => handleCloseForwardDialog()}
+  className="fixed inset-0 z-50 overflow-y-auto"
+>
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-75" />
+    <div className="bg-white dark:bg-gray-800 rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full relative z-10">
+      <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div className="sm:flex sm:items-start">
+          <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+            <Dialog.Title as="h3" className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200 mb-4">
+              Forward message to
+            </Dialog.Title>
+            <div className="relative mb-4">
+              <input
+                type="text"
+                className="w-full py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                placeholder="Search..."
+                value={searchQuery2}
+                onChange={handleSearchChange2}
+              />
+              <Lucide
+                icon="Search"
+                className="absolute top-2 right-3 w-5 h-5 text-gray-500 dark:text-gray-400"
+              />
+            </div>
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filter by tags:</h4>
+              <div className="flex flex-wrap gap-2">
+                {visibleForwardTags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    onClick={() => filterForwardDialogContacts(tag.name)}
+                    className={`px-3 py-1 rounded-full text-sm flex-shrink-0 ${
+                      forwardDialogTags.includes(tag.name)
+                        ? 'bg-primary text-white dark:bg-primary dark:text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                    } transition-colors duration-200`}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+              </div>
+              {tagList.length > 5 && (
+                <button
+                  onClick={toggleForwardTagsVisibility}
+                  className="mt-2 text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  {showAllForwardTags ? 'Show Less' : 'Show More'}
+                </button>
+              )}
+            </div>
+            <div className="max-h-60 overflow-y-auto">
+              {getFilteredForwardingContacts().map((contact, index) => (
+                <div
+                  key={contact.id || `${contact.phone}-${index}`}
+                  className="flex items-center p-2 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <input
+                    type="checkbox"
+                    className="mr-3"
+                    checked={selectedContactsForForwarding.includes(contact)}
+                    onChange={() => handleSelectContactForForwarding(contact)}
+                  />
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 flex items-center justify-center bg-gray-300 dark:bg-gray-600 rounded-full mr-3 text-white">
+                      {contact.contactName ? contact.contactName.charAt(0).toUpperCase() : "?"}
                     </div>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                    <Button
-                      type="button"
-                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary text-base font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-                      onClick={handleForwardMessage}
-                    >
-                      Forward
-                    </Button>
-                    <Button
-                      type="button"
-                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white dark:bg-gray-600 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
-                      onClick={() => handleCloseForwardDialog()}
-                    >
-                      Cancel
-                    </Button>
+                    <div className="flex-grow">
+                      <div className="font-semibold capitalize">{contact.contactName || contact.firstName || contact.phone}</div>
+                      {contact.tags && contact.tags.length > 0 && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Tags: {contact.tags.join(', ')}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <Button
+          type="button"
+          className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary text-base font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+          onClick={handleForwardMessage}
+        >
+          Forward
+        </Button>
+        <Button
+          type="button"
+          className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white dark:bg-gray-600 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
+          onClick={() => handleCloseForwardDialog()}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  </div>
+</Dialog>
 
     <div className="flex justify-end space-x-3">
     {(
