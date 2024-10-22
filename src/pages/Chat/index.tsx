@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import logoImage from '@/assets/images/placeholder.svg';
@@ -32,6 +32,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import ReactPaginate from 'react-paginate';
 import { getFileTypeFromMimeType } from '../../utils/fileUtils';
+import { Transition } from "@headlessui/react";
 
 interface Label {
   id: string;
@@ -512,7 +513,7 @@ function Main() {
   const [isRecordingPopupOpen, setIsRecordingPopupOpen] = useState(false);
   const [selectedDocumentURL, setSelectedDocumentURL] = useState<string | null>(null);
   const [documentCaption, setDocumentCaption] = useState('');
-  
+  const [isPhoneDropdownOpen, setIsPhoneDropdownOpen] = useState(false);
 
   const [showAllForwardTags, setShowAllForwardTags] = useState(false);
   const [visibleForwardTags, setVisibleForwardTags] = useState<typeof tagList>([]);
@@ -855,7 +856,39 @@ const sendVoiceMessage = async () => {
         return [];
     }
   }, []);
+// Add this function to handle phone change
+const handlePhoneChange = async (newPhoneIndex: number) => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('No authenticated user');
+      return;
+    }
 
+    const docUserRef = doc(firestore, 'user', user.email!);
+    await updateDoc(docUserRef, { phone: newPhoneIndex });
+    // Update local state
+    setUserData(prevState => {
+      if (prevState === null) {
+        return {
+          phone: newPhoneIndex,
+          companyId: '',
+          name: '',
+          role: ''
+        };
+      }
+      return {
+        ...prevState,
+        phone: newPhoneIndex
+      };
+    });
+
+    toast.success('Phone updated successfully');
+  } catch (error) {
+    console.error('Error updating phone:', error);
+    toast.error('Failed to update phone');
+  }
+};
   const filterAndSetContacts = useCallback((contactsToFilter: Contact[]) => {
     console.log('Filtering contacts', { 
       contactsLength: contactsToFilter.length, 
@@ -5383,16 +5416,41 @@ console.log(prompt);
             </div>
           </div>
           {userData?.phone !== undefined && (
-            <div className="flex items-center space-x-2 text-lg font-semibold opacity-75">
-              <Lucide icon="Phone" className="w-5 h-5 text-gray-800 dark:text-white" />
-              <span className="text-gray-800 font-medium dark:text-white">
-                {phoneNames[userData.phone] || 'No phone assigned'}
-              </span>
-            </div>
+            <Menu as="div" className="relative inline-block text-left">
+              <div>
+                <Menu.Button className="flex items-center space-x-2 text-lg font-semibold opacity-75 bg-white dark:bg-gray-800 px-3 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-blue-500">
+                  <Lucide icon="Phone" className="w-5 h-5 text-gray-800 dark:text-white" />
+                  <span className="text-gray-800 font-medium dark:text-white">
+                    {phoneNames[userData.phone] || 'No phone assigned'}
+                  </span>
+                  <Lucide icon="ChevronDown" className="w-4 h-4 text-gray-500" />
+                </Menu.Button>
+              </div>
+           
+                <Menu.Items className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50">
+                  <div className="py-1 max-h-60 overflow-y-auto" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+                    {Object.entries(phoneNames).map(([index, phoneName]) => (
+                      <Menu.Item key={index}>
+                        {({ active }) => (
+                          <button
+                            onClick={() => handlePhoneChange(parseInt(index))}
+                            className={`${
+                              active ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-200'
+                            } block w-full text-left px-4 py-2 text-sm`}
+                          >
+                            {phoneName}
+                          </button>
+                        )}
+                      </Menu.Item>
+                    ))}
+                  </div>
+                </Menu.Items>
+           
+            </Menu>
           )}
   
         </div>
-        <div className="sticky top-20 z-10 bg-gray-100 dark:bg-gray-900 p-2">
+        <div className="sticky top-20 z-1 bg-gray-100 dark:bg-gray-900 p-2">
           <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
             {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
             {isDeletePopupOpen && <DeleteConfirmationPopup />}
