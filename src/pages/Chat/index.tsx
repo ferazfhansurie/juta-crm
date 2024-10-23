@@ -3242,6 +3242,7 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
 
     const userData = docUserSnapshot.data();
     const companyId = userData.companyId;
+    console.log('Company ID:', companyId); // New log
 
     if (!companyId || typeof companyId !== 'string') {
       console.error('Invalid companyId:', companyId);
@@ -3280,25 +3281,31 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
       return;
     }
     const companyData = docSnapshot.data();
-    console.log(userData.phone)
-    // Function to send WhatsApp message
+    console.log('Company Data:', companyData); // New log
+    console.log('User Phone:', userData.phone);
+    console.log('WhatsApp API Token:', companyData.whapiToken); // New log
+    console.log('Using API v2:', companyData.v2); // New log
+
     // Function to send WhatsApp message
     const sendWhatsAppMessage = async (phoneNumber: string, message: string) => {
       const chatId = `${phoneNumber.replace(/[^\d]/g, '')}@c.us`;
+      console.log('Employee Phone Number:', phoneNumber); // New log
+      console.log('Formatted Chat ID:', chatId); // New log
       let url;
       let requestBody;
       if (companyData.v2 === true) {
         url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${chatId}`;
-        // Add phoneIndex to the request body
         requestBody = { 
           message,
-          phoneIndex: userData.phone || 0, // Use user's phone index or default to 0
-          userName: userData.name || '' // Also include userName for consistency
+          phoneIndex: userData.phone || 0,
+          userName: userData.name || ''
         };
       } else {
         url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chatId}/${companyData.whapiToken}`;
         requestBody = { message };
       }
+      console.log('API URL:', url); // New log
+      console.log('Request Body:', requestBody); // New log
 
       const response = await fetch(url, {
         method: 'POST',
@@ -3308,7 +3315,7 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Error response:', response.status, errorText);
+        console.error('Full error response:', errorText); // Updated log
         throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
 
@@ -3342,13 +3349,6 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
     toast.success("Assignment notifications sent successfully!");
   } catch (error) {
     console.error('Error sending assignment notifications:', error);
-    
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      toast.error('Network error. Please check your connection and try again.');
-    } else {
-      toast.error('Failed to send assignment notifications. Please check employee phone number.');
-    }
-    
     console.log('Assigned Employee Name:', assignedEmployeeName);
     console.log('Contact:', contact);
     console.log('Employee List:', employeeList);
