@@ -3346,7 +3346,7 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
       toast.error('Network error. Please check your connection and try again.');
     } else {
-      toast.error('Failed to send assignment notifications. Please try again.');
+      toast.error('Failed to send assignment notifications. Please check employee phone number.');
     }
     
     console.log('Assigned Employee Name:', assignedEmployeeName);
@@ -5104,9 +5104,10 @@ const sortContacts = (contacts: Contact[]) => {
         status: "scheduled",
         v2: isV2,
         whapiToken: isV2 ? null : whapiToken,
-    
       };
-
+  
+      console.log('Sending scheduledMessageData:', JSON.stringify(scheduledMessageData, null, 2));
+  
       // Make API call to schedule the message
       const response = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}`, scheduledMessageData);
 
@@ -5114,6 +5115,7 @@ const sortContacts = (contacts: Contact[]) => {
 
       toast.success('Reminder set successfully');
       setIsReminderModalOpen(false);
+      setReminderText('');
       setReminderDate(null);
 
     } catch (error) {
@@ -5121,6 +5123,7 @@ const sortContacts = (contacts: Contact[]) => {
       toast.error("An error occurred while setting the reminder. Please try again.");
     }
   };
+  
   const handleGenerateAIResponse = async () => {
     if (messages.length === 0) return;
   
@@ -5947,7 +5950,7 @@ console.log(prompt);
               {((contact.contactName ?? contact.firstName ?? contact.phone ?? "").slice(0, 20))}
               {((contact.contactName ?? contact.firstName ?? contact.phone ?? "").length > 20 ? '...' : '')}
             </span>
-            {!contact.chat_id?.includes('@g.us') && userData?.role === '1' && (
+            {!contact.chat_id?.includes('@g.us') && (userData?.role === '1' || userData?.role === '2') && (
               <span className="text-xs text-gray-600 dark:text-gray-400 truncate" style={{ 
                 visibility: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'hidden' : 'visible',
                 display: (contact.contactName === contact.phone || contact.firstName === contact.phone) ? 'flex' : 'block',
@@ -6169,11 +6172,11 @@ console.log(prompt);
     <Lucide icon="Send" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
   </span>
 </button>
-            <button className="p-2 m-0 !box" onClick={handleReminderClick}>
+            {/* <button className="p-2 m-0 !box" onClick={handleReminderClick}>
               <span className="flex items-center justify-center w-5 h-5">
                 <Lucide icon="BellRing" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
               </span>
-            </button>
+            </button> */}
             <Menu as="div" className="relative inline-block text-left">
               <Menu.Button as={Button} className="p-2 !box m-0">
                 <span className="flex items-center justify-center w-5 h-5">
@@ -6268,12 +6271,12 @@ console.log(prompt);
               </span>
             </Menu.Button>
             <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10">
-              <Menu.Item>
+              {/* <Menu.Item>
                 <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md" onClick={handleReminderClick}>
                   <Lucide icon="BellRing" className="w-4 h-4 mr-2 text-gray-800 dark:text-gray-200" />
                   <span className="text-gray-800 dark:text-gray-200">Reminder</span>
                 </button>
-              </Menu.Item>
+              </Menu.Item> */}
               <Menu.Item>
                 <Menu as="div" className="relative inline-block text-left w-full">
                   <Menu.Button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
@@ -6515,8 +6518,8 @@ console.log(prompt);
                             }}
                           />
                             {message.image?.caption && (
-                <p className="mt-2 text-sm">{message.image.caption}</p>
-              )}
+                              <p className="mt-2 text-sm">{message.image.caption}</p>
+                            )}
                         </div>
                       )}
                       {message.type === 'video' && message.video && (
@@ -7579,51 +7582,51 @@ console.log(prompt);
         </Item>
       </ContextMenu>
       {isReminderModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsReminderModalOpen(false)}>
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
-      <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Set Reminder</h2>
-      <textarea
-        placeholder="Enter reminder message..."
-        className="w-full md:w-96 lg:w-120 p-2 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700 mb-4"
-        rows={3}
-        onChange={(e) => setReminderText(e.target.value)}
-        value={reminderText}
-      />
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Reminder Date and Time
-        </label>
-        <DatePicker
-          selected={reminderDate}
-          onChange={(date: Date) => setReminderDate(date)}
-          showTimeSelect
-          timeFormat="HH:mm"
-          timeIntervals={15}
-          dateFormat="MMMM d, yyyy h:mm aa"
-          className="w-full md:w-96 lg:w-120 p-2 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700"
-          placeholderText="Select date and time"
-        />
-      </div>
-      <div className="flex justify-end space-x-2 mt-4">
-        <button
-          onClick={() => {
-            setIsReminderModalOpen(false);
-            setReminderText('');
-          }}
-          className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition duration-200"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={() => handleSetReminder(reminderText)}
-          className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded transition duration-200"
-        >
-          Set Reminder
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsReminderModalOpen(false)}>
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Set Reminder</h2>
+            <textarea
+              placeholder="Enter reminder message..."
+              className="w-full md:w-96 lg:w-120 p-2 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700 mb-4"
+              rows={3}
+              onChange={(e) => setReminderText(e.target.value)}
+              value={reminderText}
+            />
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Reminder Date and Time
+              </label>
+              <DatePicker
+                selected={reminderDate}
+                onChange={(date: Date) => setReminderDate(date)}
+                showTimeSelect
+                timeFormat="HH:mm"
+                timeIntervals={15}
+                dateFormat="MMMM d, yyyy h:mm aa"
+                className="w-full md:w-96 lg:w-120 p-2 border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700"
+                placeholderText="Select date and time"
+              />
+            </div>
+            <div className="flex justify-end space-x-2 mt-4">
+              <button
+                onClick={() => {
+                  setIsReminderModalOpen(false);
+                  setReminderText('');
+                }}
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSetReminder(reminderText)}
+                className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded transition duration-200"
+              >
+                Set Reminder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
