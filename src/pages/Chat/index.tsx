@@ -3280,7 +3280,8 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
       return;
     }
     const companyData = docSnapshot.data();
-
+    console.log(userData.phone)
+    // Function to send WhatsApp message
     // Function to send WhatsApp message
     const sendWhatsAppMessage = async (phoneNumber: string, message: string) => {
       const chatId = `${phoneNumber.replace(/[^\d]/g, '')}@c.us`;
@@ -3288,7 +3289,12 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
       let requestBody;
       if (companyData.v2 === true) {
         url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${chatId}`;
-        requestBody = { message };
+        // Add phoneIndex to the request body
+        requestBody = { 
+          message,
+          phoneIndex: userData.phone || 0, // Use user's phone index or default to 0
+          userName: userData.name || '' // Also include userName for consistency
+        };
       } else {
         url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chatId}/${companyData.whapiToken}`;
         requestBody = { message };
