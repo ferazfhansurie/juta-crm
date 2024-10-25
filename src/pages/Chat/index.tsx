@@ -1126,7 +1126,7 @@ const closePDFModal = () => {
   
       let successCount = 0;
       let failureCount = 0;
-
+  
       const phoneIndex = selectedContact?.phoneIndex || 0;
   
       for (const message of selectedMessages) {
@@ -1135,9 +1135,14 @@ const closePDFModal = () => {
           const response = await axios.delete(
             `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/${companyId}/${selectedChatId}/${message.id}`,
             {
-              data: { deleteForEveryone: true, phoneIndex: phoneIndex },
+              data: { 
+                deleteForEveryone: true, 
+                phoneIndex: phoneIndex,
+                messageId: message.id, // Add the message ID to ensure it's passed to the API
+                chatId: selectedChatId // Add the chat ID for additional context
+              },
               headers: {
-                'Authorization': `Bearer ${userData.accessToken}` // Ensure you're sending the correct authorization token
+                'Authorization': `Bearer ${userData.accessToken}`
               }
             }
           );
@@ -1161,6 +1166,8 @@ const closePDFModal = () => {
   
       if (successCount > 0) {
         toast.success(`Successfully deleted ${successCount} message(s)`);
+        // Refresh the chat to ensure WhatsApp changes are reflected
+        await fetchMessages(selectedChatId!, whapiToken!);
       }
       if (failureCount > 0) {
         toast.error(`Failed to delete ${failureCount} message(s)`);
@@ -3421,7 +3428,7 @@ const sendDailyLeadsSummary = async (companyId: string) => {
 
     // Get all admin users
     const usersRef = collection(firestore, 'user');
-    const adminQuery = query(usersRef, where('companyId', '==', companyId), where('role', 'in', ['1', '2']));
+    const adminQuery = query(usersRef, where('companyId', '==', companyId), where('role', '==', '1'));
     const adminSnapshot = await getDocs(adminQuery);
     const adminUsers = adminSnapshot.docs.map(doc => doc.data());
 
@@ -4657,37 +4664,6 @@ const sortContacts = (contacts: Contact[]) => {
     }
   };
   
-  const DeleteConfirmationPopup = () => (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75 flex items-center justify-center z-50 rounded-lg">
-      <div className="bg-white dark:bg-gray-800 rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
-        <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 rounded-lg">
-          <div className="sm:flex sm:items-start">
-            <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100 mb-4">Delete message</h3>
-              <p className="text-gray-700 dark:text-gray-300">Are you sure you want to delete this message?</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse rounded-b-lg">
-          <Button
-            type="button"
-            className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-red-600 sm:ml-3 sm:w-auto sm:text-sm"
-           onClick={deleteMessages}
-          >
-            Delete
-          </Button>
-          <Button
-            type="button"
-            className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-indigo-600 sm:mt-0 sm:w-auto sm:text-sm"
-            onClick={closeDeletePopup}
-          >
-            Cancel
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-  
   const sendDocument = async (file: File, caption: string) => {
     setLoading(true);
     try {
@@ -5462,7 +5438,45 @@ console.log(prompt);
         <div className="sticky top-20 z-5 bg-gray-100 dark:bg-gray-900 p-2">
           <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
             {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
-            {isDeletePopupOpen && <DeleteConfirmationPopup />}
+
+            <Dialog
+              open={isDeletePopupOpen}
+              onClose={closeDeletePopup}
+              className="fixed inset-0 z-100 overflow-y-auto"
+            >
+              <div className="flex items-center justify-center min-h-screen">
+                <div className="fixed inset-0 bg-black opacity-30" />
+                <div className="bg-white dark:bg-gray-800 rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200 px-4 pt-5"
+                  >
+                    Delete Messages
+                  </Dialog.Title>
+                  <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Are you sure you want to delete {selectedMessages.length} message(s)? This action cannot be undone.
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse rounded-b-lg">
+                    <Button
+                      type="button"
+                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                      onClick={deleteMessages}
+                    >
+                      Delete
+                    </Button>
+                    <Button
+                      type="button"
+                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:w-auto sm:text-sm"
+                      onClick={closeDeletePopup}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Dialog>
             <Dialog open={blastMessageModal} onClose={() => setBlastMessageModal(false)}>
             <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
               <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-40 text-gray-900 dark:text-white">
@@ -5630,6 +5644,8 @@ console.log(prompt);
     </div>
   </div>
 </Dialog>
+
+
 
 <Dialog
   open={isForwardDialogOpen}
