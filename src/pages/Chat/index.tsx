@@ -378,8 +378,20 @@ const firestore = getFirestore(app);
 const auth = getAuth(app);
 
 function Main() {
-  const { contacts: initialContacts, isLoading } = useContacts();
-  const [contacts, setContacts] = useState<Contact[]>([]);
+   // Initial state setup with localStorage
+  const { contacts: contextContacts, isLoading: contextLoading } = useContacts();
+  const [contacts, setContacts] = useState<Contact[]>(() => {
+    const storedContacts = localStorage.getItem('contacts');
+    if (storedContacts) {
+      try {
+        return JSON.parse(LZString.decompress(storedContacts)!);
+      } catch (error) {
+        console.error('Error parsing stored contacts:', error);
+        return [];
+      }
+    }
+    return [];
+  });
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
@@ -519,6 +531,98 @@ function Main() {
   const [visibleForwardTags, setVisibleForwardTags] = useState<typeof tagList>([]);
 
   const [totalContacts, setTotalContacts] = useState<number>(0);
+
+  // Update contacts when context contacts change
+  useEffect(() => {
+    if (contextContacts.length > 0) {
+      setContacts(contextContacts);
+    }
+  }, [contextContacts]);
+
+
+  // Filter contacts effect
+  useEffect(() => {
+    const filterContacts = () => {
+      let filtered = [...contacts];
+      
+      if (searchQuery) {
+        const searchTerms = searchQuery.toLowerCase().split(' ');
+        filtered = filtered.filter(contact => {
+          const searchableFields = [
+            contact.contactName?.toLowerCase(),
+            contact.firstName?.toLowerCase(),
+            contact.phone?.toLowerCase(),
+            ...(contact.tags?.map(tag => tag.toLowerCase()) || [])
+          ];
+          return searchTerms.every(term =>
+            searchableFields.some(field => field?.includes(term))
+          );
+        });
+      }
+
+      // Apply tag filters
+      if (activeTags.length > 0 && !activeTags.includes('all')) {
+        filtered = filtered.filter(contact =>
+          contact.tags?.some(tag => activeTags.includes(tag))
+        );
+      }
+
+      // Apply additional filters
+      if (showUnreadContacts) {
+        filtered = filtered.filter(contact => (contact.unreadCount || 0) > 0);
+      }
+
+      if (showMineContacts) {
+        filtered = filtered.filter(contact => 
+          contact.tags?.includes(currentUserName)
+        );
+      }
+
+      if (showGroupContacts) {
+        filtered = filtered.filter(contact => 
+          contact.chat_id?.includes('@g.us')
+        );
+      }
+
+      if (showUnassignedContacts) {
+        filtered = filtered.filter(contact => 
+          !contact.tags?.some(tag => 
+            employeeList.some(employee => 
+              employee.name.toLowerCase() === tag.toLowerCase()
+            )
+          )
+        );
+      }
+
+      setFilteredContacts(filtered);
+    };
+
+    filterContacts();
+  }, [
+    contacts, 
+    searchQuery, 
+    activeTags, 
+    showUnreadContacts, 
+    showMineContacts, 
+    showGroupContacts, 
+    showUnassignedContacts,
+    currentUserName,
+    employeeList
+  ]);
+
+  // Initial chat selection from URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const chatIdFromUrl = params.get('chatId');
+    
+    if (chatIdFromUrl && contacts.length > 0) {
+      const fullChatId = `${chatIdFromUrl}@c.us`;
+      const contact = contacts.find(c => c.chat_id === fullChatId);
+      if (contact && contact.id) {
+        selectChat(fullChatId, contact.id, contact);
+      }
+    }
+  }, [location.search, contacts]);
 
   // Update this useEffect
   useEffect(() => {
@@ -833,9 +937,9 @@ const sendVoiceMessage = async () => {
     setIsPrivateNotesMentionOpen(false);
   };
 
-  useEffect(() => {
-    console.log('Initial contacts:', initialContacts);
-  }, []);
+  // useEffect(() => {
+  //   console.log('Initial contacts:', initialContacts);
+  // }, []);
 
   const filterContactsByUserRole = useCallback((contacts: Contact[], userRole: string, userName: string) => {
     console.log('Filtering contacts by user role', { userRole, userName, contactsCount: contacts.length });
@@ -945,15 +1049,15 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
     fetchContacts();
   }, [userData, filterAndSetContacts]);
 
-  useEffect(() => {
-    if (initialContacts.length > 0) {
-      console.log('Initial contacts:', initialContacts.length);
-      setContacts(initialContacts);
-      filterAndSetContacts(initialContacts);
-      localStorage.setItem('contacts', LZString.compress(JSON.stringify(initialContacts)));
-      sessionStorage.setItem('contactsFetched', 'true');
-    }
-  }, [initialContacts, userRole, userData, filterAndSetContacts]);
+  // useEffect(() => {
+  //   if (initialContacts.length > 0) {
+  //     console.log('Initial contacts:', initialContacts.length);
+  //     setContacts(initialContacts);
+  //     filterAndSetContacts(initialContacts);
+  //     localStorage.setItem('contacts', LZString.compress(JSON.stringify(initialContacts)));
+  //     sessionStorage.setItem('contactsFetched', 'true');
+  //   }
+  // }, [initialContacts, userRole, userData, filterAndSetContacts]);
 
 
 
@@ -1000,21 +1104,21 @@ useEffect(() => {
   }
 }, [activeTags, employeeList]);
 
-const loadMoreContacts = () => {
-  if (initialContacts.length <= contacts.length) return;
+// const loadMoreContacts = () => {
+//   if (initialContacts.length <= contacts.length) return;
 
-  const nextPage = currentPage + 1;
-  const newContacts = initialContacts.slice(
-    contacts.length,
-    nextPage * contactsPerPage
-  );
+//   const nextPage = currentPage + 1;
+//   const newContacts = initialContacts.slice(
+//     contacts.length,
+//     nextPage * contactsPerPage
+//   );
 
-  setContacts((prevContacts) => {
-    const updatedContacts = [...prevContacts, ...newContacts];
-    return filterContactsByUserRole(updatedContacts, userRole, userData?.name || '');
-  });
-  setCurrentPage(nextPage);
-};
+//   setContacts((prevContacts) => {
+//     const updatedContacts = [...prevContacts, ...newContacts];
+//     return filterContactsByUserRole(updatedContacts, userRole, userData?.name || '');
+//   });
+//   setCurrentPage(nextPage);
+// };
 
 const handleEmojiClick = (emojiObject: EmojiClickData) => {
   setNewMessage(prevMessage => prevMessage + emojiObject.emoji);
@@ -1668,9 +1772,9 @@ useEffect(() => {
   
         let contact;
         if (companyData.v2) {
-          contact = initialContacts.find(c => c.phone === phone || c.chat_id === chatIdFromUrl);
-          if (!contact) throw new Error('Contact not found in initialContacts');
-        } 
+          contact = contacts.find(c => c.phone === phone || c.chat_id === chatIdFromUrl);
+          if (!contact) throw new Error('Contact not found in contacts');
+        }
   
         setSelectedContact(contact);
         setSelectedChatId(chatIdFromUrl);
@@ -1805,125 +1909,107 @@ async function fetchConfigFromDatabase() {
     }
   };
 
-  const selectChat = async (chatId: string, contactId?: string, contactSelect?: Contact) => {
+  const selectChat = useCallback(async (chatId: string, contactId?: string, contactSelect?: Contact) => {
     console.log('Attempting to select chat:', { chatId, userRole, userName: userData?.name });
-    if (userRole === "3" && contactSelect && contactSelect.assignedTo?.toLowerCase() !== userData?.name.toLowerCase()) {
-      console.log('Permission denied for role 3 user');
-      toast.error("You don't have permission to view this chat.");
-      return;
-    }
-
-    const updatedContacts = contacts.map(contact =>
-      contact.chat_id === chatId ? { ...contact, unreadCount: 0 } : contact
-    );
-    console.log('Updated Contacts:', updatedContacts);
-    setContacts(updatedContacts);
-  
-    console.log('Updating local storage');
-    localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
-    sessionStorage.setItem('contactsFetched', 'true');
-
-    let contact = contacts.find(contact => contact.chat_id === chatId || contact.id === contactId);
-    console.log('Selected Contact:', contact);
-
-    if(contactSelect){
-      contact = contactSelect;
-      console.log('Using provided contactSelect:', contact);
-    }
-    
-    if (contact) {
-      // Update unreadCount in Firebase
-      try {
-        const user = auth.currentUser;
-        if (user) {
-          const docUserRef = doc(firestore, 'user', user.email!);
-          const docUserSnapshot = await getDoc(docUserRef);
-          if (docUserSnapshot.exists()) {
-            const userData = docUserSnapshot.data();
-            const companyId = userData.companyId;
-            
-            const contactRef = doc(firestore, `companies/${companyId}/contacts`, contact.id!);
-            await updateDoc(contactRef, { unreadCount: 0 });
-            console.log('Updated unreadCount in Firebase for contact:', contact.id);
-          }
-        }
-
-        setContacts(prevContacts => {
-          const updatedContacts = prevContacts.map(c =>
-            c.chat_id === chatId ? { ...c, unreadCount: 0 } : c
-          );
-          
-          // Sort contacts: pinned first, then by last message timestamp
-          return updatedContacts.sort((a, b) => {
-            if (a.pinned && !b.pinned) return -1;
-            if (!a.pinned && b.pinned) return 1;
-            
-            const timestampA = getTimestamp(a.last_message?.timestamp || a.last_message?.createdAt);
-            const timestampB = getTimestamp(b.last_message?.timestamp || b.last_message?.createdAt);
-            
-            return timestampB - timestampA;
-          });
-        });
-
-        console.log('Setting state variables');
-        setSelectedContact(contact);
-        setSelectedChatId(chatId);
-        setIsChatActive(true);
-
-        console.log('Deleting notifications');
-        deleteNotifications(chatId);
-      } catch (error) {
-        console.error('Error updating unreadCount in Firebase:', error);
-      }
-    }
-
-    setSelectedContact(contact);
-    setSelectedChatId(chatId);
-    setIsChatActive(true);
-    setSelectedChatId(chatId);
     
     try {
-      const user = auth.currentUser;
-      if (user) {
-        console.log('Fetching notifications for user:', user.email);
-        const notificationsRef = collection(firestore, 'user', user.email!, 'notifications');
-        console.log('Notifications Reference Path:', notificationsRef.path);
-  
-        const notificationsSnapshot = await getDocs(notificationsRef);
-        if (notificationsSnapshot.empty) {
-          console.log('No notifications found for user:', user.email);
-        } else {
-          const notifications = notificationsSnapshot.docs.map(doc => ({
-            docId: doc.id,
-            ...doc.data()
-          }));
-          console.log('Fetched Notifications:', notifications);
-  
-          const notificationsToDelete = notifications.filter((notification: any) => notification.chat_id === chatId);
-  
-          // Delete each notification document in the subcollection
-          for (const notification of notificationsToDelete) {
-            const notificationDocRef = doc(firestore, 'user', user.email!, 'notifications', notification.docId);
-            await deleteDoc(notificationDocRef);
-            console.log('Deleted notification:', notification.docId);
-          }
-        }
+      // Permission check
+      if (userRole === "3" && contactSelect && contactSelect.assignedTo?.toLowerCase() !== userData?.name.toLowerCase()) {
+        console.log('Permission denied for role 3 user');
+        toast.error("You don't have permission to view this chat.");
+        return;
       }
+  
+      // Find contact - prioritize contactSelect if provided
+      let contact = contactSelect || contacts.find(c => c.chat_id === chatId || c.id === contactId);
+      if (!contact) {
+        console.error('Contact not found');
+        return;
+      }
+  
+      // Update local state first for immediate UI response
+      setContacts(prevContacts => {
+        const updatedContacts = prevContacts.map(c =>
+          c.chat_id === chatId ? { ...c, unreadCount: 0 } : c
+        ).sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          
+          const timestampA = getTimestamp(a.last_message?.timestamp || a.last_message?.createdAt);
+          const timestampB = getTimestamp(b.last_message?.timestamp || b.last_message?.createdAt);
+          
+          return timestampB - timestampA;
+        });
+  
+        // Update localStorage with new contacts
+        localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
+        return updatedContacts;
+      });
+  
+      // Update Firebase in parallel
+      const updateFirebasePromise = (async () => {
+        const user = auth.currentUser;
+        if (!user?.email) return;
+  
+        const docUserRef = doc(firestore, 'user', user.email);
+        const docUserSnapshot = await getDoc(docUserRef);
+        
+        if (docUserSnapshot.exists()) {
+          const userData = docUserSnapshot.data();
+          const contactRef = doc(firestore, `companies/${userData.companyId}/contacts`, contact.id!);
+          await updateDoc(contactRef, { unreadCount: 0 });
+          console.log('Updated unreadCount in Firebase for contact:', contact.id);
+        }
+      })();
+  
+      // Delete notifications in parallel
+      const deleteNotificationsPromise = (async () => {
+        const user = auth.currentUser;
+        if (!user?.email) return;
+  
+        const notificationsRef = collection(firestore, 'user', user.email, 'notifications');
+        const notificationsSnapshot = await getDocs(notificationsRef);
+        
+        const deletePromises = notificationsSnapshot.docs
+          .filter(doc => doc.data().chat_id === chatId)
+          .map(doc => deleteDoc(doc.ref));
+        
+        await Promise.all(deletePromises);
+        console.log('Deleted notifications for chat:', chatId);
+      })();
+  
+      // Update UI state
+      setSelectedContact(contact);
+      setSelectedChatId(chatId);
+      setIsChatActive(true);
+  
+      // Wait for background operations to complete
+      await Promise.all([
+        updateFirebasePromise,
+        deleteNotificationsPromise
+      ]);
+  
+      // Update URL without triggering a page reload
+      const newUrl = `/chat?chatId=${chatId.replace('@c.us', '')}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+  
     } catch (error) {
-      console.error('Error deleting notifications:', error);
+      console.error('Error in selectChat:', error);
+      toast.error('An error occurred while loading the chat. Please try again.');
+    }
+  }, [contacts, userRole, userData?.name]);
+
+  const getTimestamp = (timestamp: any): number => {
+    if (typeof timestamp === 'number') {
+      return timestamp < 10000000000 ? timestamp * 1000 : timestamp;
+    } else if (typeof timestamp === 'object' && timestamp.seconds) {
+      return timestamp.seconds * 1000;
+    } else if (typeof timestamp === 'string') {
+      return new Date(timestamp).getTime();
+    } else {
+      return 0;
     }
   };
-const getTimestamp = (timestamp: any): number => {
-  if (typeof timestamp === 'number') {
-    return timestamp < 10000000000 ? timestamp * 1000 : timestamp;
-  } else if (typeof timestamp === 'object' && timestamp.seconds) {
-    return timestamp.seconds * 1000;
-  } else if (typeof timestamp === 'string') {
-    return new Date(timestamp).getTime();
-  } else {
-    return 0;
-  }
-};
 
 const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string, role: string, userEmail: string | null | undefined) => {
   try {
@@ -3537,13 +3623,9 @@ const [paginatedContacts, setPaginatedContacts] = useState<Contact[]>([]);
 
 useEffect(() => {
   if (filteredContacts.length === 0) {
-    if (activeTags.length > 0) {
-      setLoadingMessage(`No contacts found for the ${activeTags[0]} tag.`);
-    } else {
-      setLoadingMessage("No contacts found.");
-    }
+    setLoadingMessage("Fetching contacts...");
   } else {
-    setLoadingMessage("Loading contacts...");
+    setLoadingMessage("Fetching contacts...");
     const timer = setTimeout(() => {
       if (paginatedContacts.length === 0) {
         setLoadingMessage("There are a lot of contacts, fetching them might take some time...");
@@ -6383,7 +6465,7 @@ console.log(prompt);
               <div role="status">
                 <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
                   <LoadingIcon icon="three-dots" className="w-20 h-20 p-4 text-gray-800 dark:text-gray-200" />
-                  <div className="mt-2 text-xs text-center text-gray-800 dark:text-gray-200">Fetching Data...</div>
+                  <div className="mt-2 text-xs text-center text-gray-800 dark:text-gray-200">Fetching Conversation...</div>
                 </div>
               </div>
             </div>

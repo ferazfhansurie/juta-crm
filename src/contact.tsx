@@ -84,16 +84,16 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
   const fetchContacts = async (user: User) => {
     try {
       setIsLoading(true);
-    
-      // Clear all localStorage and sessionStorage data
-      sessionStorage.removeItem('contactsFetched');
-      sessionStorage.removeItem('contacts');
-      localStorage.removeItem('contacts');
-      Object.keys(sessionStorage).forEach(key => {
-        if (key.startsWith('messages_')) {
-          sessionStorage.removeItem(key);
-        }
-      });
+      
+      const storedContacts = localStorage.getItem('contacts');
+      if (storedContacts) {
+        const parsedContacts = JSON.parse(LZString.decompress(storedContacts)!);
+        setContacts(parsedContacts);
+        setIsLoading(false);
+        return;
+      }
+  
+      // If no stored contacts, fetch from Firestore (existing code)
       const docUserRef = doc(firestore, 'user', user.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
@@ -102,89 +102,55 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
       }
     
       const dataUser = docUserSnapshot.data();
-      setDataUser(dataUser);  // Add this line
+      setDataUser(dataUser);
       const companyId = dataUser?.companyId;
       if (!companyId) {
         setIsLoading(false);
         return;
       }
-
+  
       // Check for v2
       const companyDocRef = doc(firestore, 'companies', companyId);
       const companyDocSnapshot = await getDoc(companyDocRef);
       if (companyDocSnapshot.exists()) {
         const companyData = companyDocSnapshot.data();
-        setCompanyData(companyData);  // Add this line
+        setCompanyData(companyData);
         setV2(companyData.v2 || false);
         if (companyData.v2) {
-          // If v2 is true, navigate to loading page and return
-          if (location.pathname.includes('/chat')) {
-            
-          }
-          else{
+          if (!location.pathname.includes('/chat')) {
             navigate('/loading');
             return;
           }
-       
         }
       }
-    
-      // Fetch 200 contacts with the latest last message timestamp
-      const contactLimit = 200;
-      let allContacts: Contact[] = [];
-    
+  
+      // Fetch all contacts without pagination
       const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`) as CollectionReference<DocumentData>;
-      const queryRef = query(
-        contactsCollectionRef,
-        orderBy('last_message.timestamp', 'desc'),
-        //limit(contactLimit)
-      );
-    
-      const contactsSnapshot = await getDocs(queryRef);
-      allContacts = contactsSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          ...data,
-          id: doc.id,
-          additionalEmails: data.additionalEmails || [],
-          address1: data.address1 || null,
-          assignedTo: data.assignedTo || null,
-          businessId: data.businessId || null,
-          chat: data.chat || {},
-          name: data.name || '',
-          not_spam: data.not_spam || false,
-          timestamp: data.timestamp || 0,
-          type: data.type || '',
-          city: data.city || null,
-          companyName: data.companyName || null,
-          threadid: data.threadid || '',
-          unreadCount: data.unreadCount || 0,
-        } as Contact;
-      });
-
-      // Sort contactsData by pinned status
+      const contactsSnapshot = await getDocs(contactsCollectionRef);
+      
+      let allContacts: Contact[] = contactsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Contact));
+  
+      // Sort contactsData by pinned status and last_message timestamp
       allContacts.sort((a, b) => {
         if (a.pinned && !b.pinned) return -1;
         if (!a.pinned && b.pinned) return 1;
-        return 0;
+        const dateA = a.last_message?.createdAt
+          ? new Date(a.last_message.createdAt)
+          : a.last_message?.timestamp
+            ? new Date(a.last_message.timestamp * 1000)
+            : new Date(0);
+        const dateB = b.last_message?.createdAt
+          ? new Date(b.last_message.createdAt)
+          : b.last_message?.timestamp
+            ? new Date(b.last_message.timestamp * 1000)
+            : new Date(0);
+        return dateB.getTime() - dateA.getTime();
       });
-    
+  
       console.log("Fetched contacts:", allContacts.length);
-    
       setContacts(allContacts);
-
-      // Fetch and store formatted messages for each contact
-      /*for (const contact of allContacts) {
-        try {
-          const rawMessages = await fetchMessagesFromFirebase(companyId, contact.chat_id);
-          const formattedMessages = formatMessages(rawMessages);
-          
-          // Store formatted messages in sessionStorage
-          sessionStorage.setItem(`messages_${contact.chat_id}`, LZString.compress(JSON.stringify(formattedMessages)));
-        } catch (messageError) {
-          console.warn(`Failed to fetch or store messages for contact ${contact.chat_id}:`, messageError);
-        }
-      }*/
+      localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
+  
     } catch (error) {
       console.error('Error fetching contacts:', error);
     } finally {
