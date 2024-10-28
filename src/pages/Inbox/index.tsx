@@ -11,6 +11,7 @@ import logoUrl from "@/assets/images/logo.png";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { Tab } from '@headlessui/react'
 import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from 'firebase/storage';
+import { Link } from "react-router-dom";
 
 
 const firebaseConfig = {
@@ -647,15 +648,22 @@ const Main: React.FC = () => {
                     </ul>
                   </div>
                   <div>
-                    <button 
-                      ref={updateButtonRef}
-                      onClick={updateAssistantInfo} 
-                      className={`px-4 py-2 bg-primary text-white rounded-lg transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95 ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      onFocus={handleFocus}
-                      disabled={userRole === "3"}
-                    >
-                      Update Assistant
-                    </button>
+                  <div className="flex items-center gap-4">
+                      <button 
+                        ref={updateButtonRef}
+                        onClick={updateAssistantInfo} 
+                        className={`px-4 py-2 bg-primary text-white rounded-lg transition-transform ${isFloating ? 'fixed bottom-4 left-20' : 'relative'} hover:bg-primary active:scale-95 ${userRole === "3" ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onFocus={handleFocus}
+                        disabled={userRole === "3"}
+                      >
+                        Update Assistant
+                      </button>
+                      <Link to="/users-layout-2/builder">
+                        <Button variant="primary" className="shadow-md">
+                          Prompt Builder
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                   {error && <div className="mt-4 text-red-500">{error}</div>}
                 </>
@@ -744,6 +752,7 @@ const Main: React.FC = () => {
                       <label className="mb-2 text-lg font-medium dark:text-gray-200" htmlFor="instructions">
                         Instructions
                       </label>
+                   
                       <textarea
                         id="instructions"
                         name="instructions"
@@ -794,6 +803,11 @@ const Main: React.FC = () => {
                       >
                         Update Assistant
                       </button>
+                      <Link to="builder">
+              <Button variant="primary" className="mr-2 shadow-md">
+                Prompt Builder
+              </Button>
+            </Link>
                     </div>
                     {error && <div className="mt-4 text-red-500">{error}</div>}
                   </>

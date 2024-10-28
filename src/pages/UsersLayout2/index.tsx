@@ -331,6 +331,11 @@ const paginatedEmployees = filteredEmployees
                 </Button>
               )}
             </Link>
+            <Link to="builder">
+              <Button variant="primary" className="mr-2 shadow-md">
+                Prompt Builder
+              </Button>
+            </Link>
             <Link to="quick-replies">
             <Button variant="primary" className="mr-2 shadow-md">
                   Quick Replies
