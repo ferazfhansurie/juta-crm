@@ -1155,33 +1155,7 @@ const handleConfirmDeleteTag = async () => {
     }
   };
 
-  // Add this function to handle adding notifications
-  const addNotificationToUser = async (companyId: string, employeeName: string, notificationData: any) => {
-    try {
-      // Find the user with the specified companyId and name
-      const usersRef = collection(firestore, 'user');
-      const q = query(usersRef, 
-        where('companyId', '==', companyId),
-        where('name', '==', employeeName)
-      );
-      const querySnapshot = await getDocs(q);
 
-      if (querySnapshot.empty) {
-        console.log('No matching user found for:', employeeName);
-        return;
-      }
-
-      // Add the new notification to the notifications subcollection of the user's document
-      querySnapshot.forEach(async (doc) => {
-        const userRef = doc.ref;
-        const notificationsRef = collection(userRef, 'notifications');
-        await addDoc(notificationsRef, notificationData);
-        console.log(`Notification added for user: ${employeeName}`);
-      });
-    } catch (error) {
-      console.error('Error adding notification: ', error);
-    }
-  };
 
   const sendAssignmentNotification = async (assignedEmployeeName: string, contact: Contact) => {
     try {

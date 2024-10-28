@@ -1475,40 +1475,7 @@ const fetchFileFromURL = async (url: string): Promise<File | null> => {
     setIsQuickRepliesOpen(false);
   };
 
-  
-  // Modify the notification listener
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(firestore, 'user', auth.currentUser?.email!, 'notifications'),
-      async (snapshot) => {
-        const currentNotifications = snapshot.docs.map(doc => doc.data() as Notification);
 
-        // Prevent running on initial mount
-        if (isInitialMount.current) {
-          isInitialMount.current = false;
-          prevNotificationsRef.current = currentNotifications.length;
-          return;
-        }
-
-        // Check if a new notification has been added
-        if (prevNotificationsRef.current !== null && currentNotifications.length > prevNotificationsRef.current) {
-          // Sort notifications by timestamp to ensure the latest one is picked
-          currentNotifications.sort((a, b) => b.timestamp - a.timestamp);
-          const latestNotification = currentNotifications[0];
-
-          // Update the contact's last_message
-          updateContactLastMessage(latestNotification);
-
-          // ... rest of the existing notification handling code ...
-        }
-
-        // Update the previous notifications count
-        prevNotificationsRef.current = currentNotifications.length;
-      }
-    );
-
-    return () => unsubscribe();
-  }, [companyId, selectedChatId, whapiToken]);
 
   const updateContactLastMessage = async (notification: Notification) => {
     if (!userData?.companyId) return;
@@ -1608,51 +1575,7 @@ const showNotificationToast = (notification: Notification, index: number) => {
   setActiveNotifications(prev => [...prev, toastId]);
 };
 
-// Update the useEffect for notifications
-useEffect(() => {
-  const unsubscribe = onSnapshot(
-    collection(firestore, 'user', auth.currentUser?.email!, 'notifications'),
-    async (snapshot) => {
-      const currentNotifications = snapshot.docs.map(doc => doc.data() as Notification);
 
-      // Prevent running on initial mount
-      if (isInitialMount.current) {
-        isInitialMount.current = false;
-        prevNotificationsRef.current = currentNotifications.length;
-        return;
-      }
-
-      // Check if a new notification has been added
-      if (prevNotificationsRef.current !== null && currentNotifications.length > prevNotificationsRef.current) {
-        // Sort notifications by timestamp to ensure the latest one is picked
-        currentNotifications.sort((a, b) => b.timestamp - a.timestamp);
-        const latestNotification = currentNotifications[0];
-
-        // Check for duplicate notifications
-        setNotifications(prev => {
-          const isDuplicate = prev.some(notification => notification.timestamp === latestNotification.timestamp && notification.from === latestNotification.from);
-          if (isDuplicate) {
-            return prev;
-          }
-          return [...prev, latestNotification];
-        });
-        
-        // Play notification sound
-        if (audioRef.current) {
-          audioRef.current.play();
-        }
-
-        // Show toast notification
-        showNotificationToast(latestNotification, notifications.length);
-      }
-
-      // Update the previous notifications count
-      prevNotificationsRef.current = currentNotifications.length;
-    }
-  );
-
-  return () => unsubscribe();
-}, [companyId, selectedChatId, whapiToken]);
 
 
 // New separate useEffect for message listener
@@ -1940,15 +1863,7 @@ async function fetchConfigFromDatabase() {
       const deleteNotificationsPromise = (async () => {
         const user = auth.currentUser;
         if (!user?.email) return;
-  
-        const notificationsRef = collection(firestore, 'user', user.email, 'notifications');
-        const notificationsSnapshot = await getDocs(notificationsRef);
-        
-        const deletePromises = notificationsSnapshot.docs
-          .filter(doc => doc.data().chat_id === chatId)
-          .map(doc => deleteDoc(doc.ref));
-        
-        await Promise.all(deletePromises);
+
         console.log('Deleted notifications for chat:', chatId);
       })();
   
