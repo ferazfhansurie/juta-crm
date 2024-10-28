@@ -532,83 +532,53 @@ function Main() {
 
   const [totalContacts, setTotalContacts] = useState<number>(0);
 
-  // Update contacts when context contacts change
   useEffect(() => {
     if (contextContacts.length > 0) {
-      setContacts(contextContacts);
+      setContacts(contextContacts as Contact[]);
     }
   }, [contextContacts]);
 
 
-  // Filter contacts effect
   useEffect(() => {
-    const filterContacts = () => {
-      let filtered = [...contacts];
-      
-      if (searchQuery) {
-        const searchTerms = searchQuery.toLowerCase().split(' ');
-        filtered = filtered.filter(contact => {
-          const searchableFields = [
-            contact.contactName?.toLowerCase(),
-            contact.firstName?.toLowerCase(),
-            contact.phone?.toLowerCase(),
-            ...(contact.tags?.map(tag => tag.toLowerCase()) || [])
-          ];
-          return searchTerms.every(term =>
-            searchableFields.some(field => field?.includes(term))
+    let filteredResults = contacts;
+  
+    // Only keep filtering logic
+    if (searchQuery) {
+      filteredResults = filteredResults.filter((contact) => {
+        const searchLower = searchQuery.toLowerCase();
+        return (
+          contact.contactName?.toLowerCase().includes(searchLower) ||
+          contact.phone?.toLowerCase().includes(searchLower) ||
+          contact.tags?.some((tag: string) => tag.toLowerCase().includes(searchLower))
+        );
+      });
+    }
+  
+    if (activeTags.length > 0) {
+      filteredResults = filteredResults.filter((contact) => {
+        return activeTags.every((tag) => {
+          const tagLower = tag.toLowerCase();
+          const isGroup = contact.chat_id?.endsWith('@g.us');
+          const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => name.toLowerCase() === tagLower);
+          
+          return (
+            tagLower === 'all' ? !isGroup :
+            tagLower === 'unread' ? contact.unreadCount && contact.unreadCount > 0 :
+            tagLower === 'mine' ? contact.tags?.includes(currentUserName) :
+            tagLower === 'unassigned' ? !contact.tags?.some(t => employeeList.some(e => e.name.toLowerCase() === t.toLowerCase())) :
+            tagLower === 'snooze' ? contact.tags?.includes('snooze') :
+            tagLower === 'resolved' ? contact.tags?.includes('resolved') :
+            tagLower === 'group' ? isGroup :
+            tagLower === 'stop bot' ? contact.tags?.includes('stop bot') :
+            phoneIndex !== -1 ? contact.phoneIndex === phoneIndex :
+            contact.tags?.map(t => t.toLowerCase()).includes(tagLower)
           );
         });
-      }
+      });
+    }
 
-      // Apply tag filters
-      if (activeTags.length > 0 && !activeTags.includes('all')) {
-        filtered = filtered.filter(contact =>
-          contact.tags?.some(tag => activeTags.includes(tag))
-        );
-      }
-
-      // Apply additional filters
-      if (showUnreadContacts) {
-        filtered = filtered.filter(contact => (contact.unreadCount || 0) > 0);
-      }
-
-      if (showMineContacts) {
-        filtered = filtered.filter(contact => 
-          contact.tags?.includes(currentUserName)
-        );
-      }
-
-      if (showGroupContacts) {
-        filtered = filtered.filter(contact => 
-          contact.chat_id?.includes('@g.us')
-        );
-      }
-
-      if (showUnassignedContacts) {
-        filtered = filtered.filter(contact => 
-          !contact.tags?.some(tag => 
-            employeeList.some(employee => 
-              employee.name.toLowerCase() === tag.toLowerCase()
-            )
-          )
-        );
-      }
-
-      setFilteredContacts(filtered);
-    };
-
-    filterContacts();
-  }, [
-    contacts, 
-    searchQuery, 
-    activeTags, 
-    showUnreadContacts, 
-    showMineContacts, 
-    showGroupContacts, 
-    showUnassignedContacts,
-    currentUserName,
-    employeeList
-  ]);
+    setFilteredContacts(filteredResults);
+  }, [contacts, searchQuery, activeTags, currentUserName, employeeList, phoneNames]);
 
   // Initial chat selection from URL
   useEffect(() => {
