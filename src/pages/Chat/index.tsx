@@ -333,30 +333,34 @@ const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageUrl }) =>
     </div>
   );
 };
-const PDFModal: React.FC<PDFModalProps> = ({ isOpen, onClose, pdfUrl }) => {
-  if (!isOpen) return null;
 
+const PDFModal = ({ isOpen, onClose, pdfUrl }: PDFModalProps) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75" onClick={onClose}>
-      <div
-        className="relative mt-10 p-2 bg-white rounded-lg shadow-lg w-full max-w-5xl h-4/5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          className="absolute top-4 right-4 text-white bg-gray-800 hover:bg-gray-900 rounded-full p-2"
-          onClick={onClose}
-        >
-          <Lucide icon="X" className="w-6 h-6" />
-        </button>
-        <iframe
-          src={pdfUrl}
-          width="100%"
-          height="100%"
-          title="PDF Document"
-          className="border rounded"
-        />
-      </div>
-    </div>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+    >
+      <Dialog.Panel className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed flex inset-0 bg-black/70 transition-opacity" onClick={onClose} />
+        
+        <div className="relative mt-10 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-5xl h-4/5">
+          <button
+            className="absolute top-4 right-4 text-white bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-full p-2 transition-colors"
+            onClick={onClose}
+          >
+            <Lucide icon="X" className="w-6 h-6" />
+          </button>
+
+          <iframe
+            src={pdfUrl}
+            width="100%"
+            height="100%"
+            title="PDF Document"
+            className="border rounded"
+          />
+        </div>
+      </Dialog.Panel>
+    </Dialog>
   );
 };
 
@@ -3354,13 +3358,18 @@ const sendAssignmentNotification = async (assignedEmployeeName: string, contact:
       const chatId = `${phoneNumber.replace(/[^\d]/g, '')}@c.us`;
       console.log('Employee Phone Number:', phoneNumber); // New log
       console.log('Formatted Chat ID:', chatId); // New log
+
+      let userPhoneIndex = userData?.phone >= 0 ? userData?.phone : 0;
+      if (userPhoneIndex === -1) {
+        userPhoneIndex = 0;
+      }
       let url;
       let requestBody;
       if (companyData.v2 === true) {
         url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${chatId}`;
         requestBody = { 
           message,
-          phoneIndex: userData.phone || 0,
+          phoneIndex: userPhoneIndex,
           userName: userData.name || ''
         };
       } else {
@@ -3515,34 +3524,50 @@ const sendDailyLeadsSummary = async (companyId: string) => {
   }
 };
 
+
 const sendWhatsAppMessage = async (phoneNumber: string, message: string, companyId: string, companyData: any) => {
-  const chatId = `${phoneNumber.replace(/[^\d]/g, '')}@c.us`;
-  let url;
-  let requestBody;
-  if (companyData.v2 === true) {
-    url = `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${chatId}`;
-    requestBody = { message };
-  } else {
-    url = `https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chatId}/${companyData.whapiToken}`;
-    requestBody = { message };
+  try {
+    const chatId = `${phoneNumber.replace(/[^\d]/g, '')}@c.us`;
+    
+    // Get current user's phone index, defaulting to 0 if invalid
+    let userPhoneIndex = userData?.phone >= 0 ? userData?.phone : 0;
+    const userName = userData?.name || userData?.email || '';
+
+    if (userPhoneIndex === -1) {
+      userPhoneIndex = 0;
+    }
+
+    console.log('Sending WhatsApp message:', {
+      url: `https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${chatId}`,
+      phoneIndex: userPhoneIndex, // Using adjusted phone index
+      userName,
+      chatId
+    });
+
+    const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${companyId}/${chatId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message,
+        phoneIndex: userPhoneIndex, // Using adjusted phone index
+        userName
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error sending WhatsApp message:', error);
+    throw error;
   }
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(requestBody),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Error response:', response.status, errorText);
-    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-  }
-
-  return await response.json();
 };
 
-//end of sending daily summary code
  
 const formatText = (text: string) => {
   const parts = text.split(/(\*[^*]+\*|\*\*[^*]+\*\*)/g);

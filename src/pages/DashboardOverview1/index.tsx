@@ -238,8 +238,8 @@ interface Tag {
   const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
   const { contacts: initialContacts} = useContacts();
-  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
-  const [totalContacts, setTotalContacts] = useState(initialContacts.length);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [totalContacts, setTotalContacts] = useState(0);
   const [closed, setClosed] = useState(0);
   const [unclosed, setUnclosed] = useState(0);
   const [numReplies, setReplies] = useState(0);
