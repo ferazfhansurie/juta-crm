@@ -2607,6 +2607,14 @@ const sendBlastMessage = async () => {
     }
   };
 
+  const handleDeselectPage = () => {
+    // Deselect all contacts from current page
+    const currentContactIds = new Set(currentContacts.map(contact => contact.id));
+    setSelectedContacts(prevSelected => 
+      prevSelected.filter(contact => !currentContactIds.has(contact.id))
+    );
+  };
+
   const renderTags = (tags: string[] | undefined, contact: Contact) => {
     if (!tags || tags.length === 0) return null;
     return (
@@ -3296,6 +3304,22 @@ Jane,Smith,60198765432,jane@example.com,XYZ Corp,456 Elm St,Branch B,2024-06-30,
                       Select All
                     </span>
                   </button>
+                  {selectedContacts.length > 0 && currentContacts.some(contact => 
+                    selectedContacts.map(c => c.id).includes(contact.id)
+                  ) && (
+                    <button
+                      onClick={handleDeselectPage}
+                      className="inline-flex items-center p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg cursor-pointer transition-colors duration-200"
+                    >
+                      <Lucide 
+                        icon="X" 
+                        className="w-4 h-4 mr-1 text-gray-600 dark:text-gray-300" 
+                      />
+                      <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">
+                        Deselect Page
+                      </span>
+                    </button>
+                  )}
                   {selectedTagFilter && (
                     <span className="px-2 py-1 text-sm font-semibold rounded-lg bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200">
                       {selectedTagFilter}

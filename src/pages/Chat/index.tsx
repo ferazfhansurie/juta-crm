@@ -536,6 +536,9 @@ function Main() {
 
   const [totalContacts, setTotalContacts] = useState<number>(0);
 
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [reactionMessage, setReactionMessage] = useState<any>(null);
+
   useEffect(() => {
     if (contextContacts.length > 0) {
       setContacts(contextContacts as Contact[]);
@@ -704,6 +707,91 @@ const sendVoiceMessage = async () => {
       toast.error("Error sending voice message");
     }
   }
+};
+
+const handleReaction = async (message: any, emoji: string) => {
+  try {
+    // Ensure we have all required data
+    if (!userData?.companyId || !message.id) {
+      throw new Error('Missing required data: companyId or messageId');
+    }
+
+    // Use the full message ID from Firebase
+    const messageId = message.id;
+    
+    console.log('Reaction details:', {
+      emoji,
+      messageId,
+      companyId: userData.companyId,
+      phoneIndex: selectedContact?.phoneIndex
+    });
+    
+    // Construct the endpoint with the full message ID
+    const endpoint = `https://mighty-dane-newly.ngrok-free.app/api/messages/react/${userData.companyId}/${messageId}`;
+    
+    const payload = {
+      reaction: emoji,
+      phoneIndex: selectedContact?.phoneIndex || 0
+    };
+
+    console.log('Sending reaction request:', {
+      endpoint,
+      payload
+    });
+
+    const response = await axios.post(endpoint, payload);
+
+    if (response.data.success) {
+      setMessages(prevMessages => prevMessages.map(msg => {
+        if (msg.id === message.id) {
+          return {
+            ...msg,
+            reactions: [...(msg.reactions || []), { emoji, from_name: userData.name }]
+          };
+        }
+        return msg;
+      }));
+      
+      toast.success('Reaction added successfully');
+    }
+  } catch (error) {
+    console.error('Error adding reaction:', error);
+    if (axios.isAxiosError(error) && error.response?.data) {
+      console.error('Error response:', error.response.data);
+      const errorMessage = error.response.data.details || error.response.data.error || 'Failed to add reaction';
+      toast.error(errorMessage);
+    } else {
+      toast.error('Failed to add reaction. Please try again.');
+    }
+  } finally {
+    setShowReactionPicker(false);
+  }
+};
+
+const ReactionPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => void, onClose: () => void }) => {
+  const commonEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+  
+  return (
+    <div className="absolute bottom-40 right-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2 z-50">
+      <div className="flex items-center justify-between align-middle space-x-2">
+        {commonEmojis.map((emoji) => (
+          <button
+            key={emoji}
+            onClick={() => onSelect(emoji)}
+            className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-full transition-colors text-2xl"
+          >
+            {emoji}
+          </button>
+        ))}
+        <button
+          onClick={onClose}
+          className="p-2 rounded-full transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+        >
+          <Lucide icon="X" className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+  );
 };
 
 
@@ -6460,6 +6548,18 @@ console.log(prompt);
                       onMouseEnter={() => setHoveredMessageId(message.id)}
                       onMouseLeave={() => setHoveredMessageId(null)}
                     >
+                      {hoveredMessageId === message.id && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReactionMessage(message);
+                            setShowReactionPicker(true);
+                          }}
+                          className="absolute top-0 right-0 -mt-2 -mr-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Lucide icon="Smile" className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                      )}
                       {message.isPrivateNote && (
                         <div className="flex items-center mb-1">
                           <Lock size={16} className="mr-1" />
@@ -6708,19 +6808,24 @@ console.log(prompt);
                           )}
                         </div>
                       )}
+
+                      {showReactionPicker && reactionMessage?.id === message.id && (
+                        <ReactionPicker
+                          onSelect={(emoji) => handleReaction(message, emoji)}
+                          onClose={() => setShowReactionPicker(false)}
+                        />
+                      )}
                       {message.reactions && message.reactions.length > 0 && (
-                        <div className="flex items-center space-x-2 mt-1">
-                          {message.reactions.map((reaction, index) => (
-                            <div key={index} className="text-gray-500 dark:text-gray-400 text-sm flex items-center space-x-1">
-                              <span
-                                className="inline-flex items-center justify-center border border-white rounded-full bg-gray-200 dark:bg-gray-700"
-                                style={{ padding: '10px' }}
-                              >
-                                {reaction.emoji}
-                              </span>
-            </div>
-          ))}
-        </div>
+                        <div className="flex flex-wrap gap-1 mt-1 rounded-full px-2 py-0.5 w-fit">
+                          {message.reactions.map((reaction: any, index: number) => (
+                            <span 
+                              key={index}
+                              className="text-lg"
+                            >
+                              {reaction.emoji}
+                            </span>
+                          ))}
+                        </div>
                       )}
                       <div className="flex justify-between items-center mt-1">
                       
@@ -6728,11 +6833,25 @@ console.log(prompt);
                           <div className="flex items-center mr-2">
                             {(hoveredMessageId === message.id || selectedMessages.includes(message)) && (
                               <>
-                                <input type="checkbox" className="form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full" checked={selectedMessages.includes(message)} onChange={() => handleSelectMessage(message)} />
-                                <button className="ml-2 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors duration-200 mr-2" onClick={() => setReplyToMessage(message)}><Lucide icon="MessageSquare" className="w-5 h-5 fill-current" /></button>
-                                {message.from_me && message.createdAt && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && userRole !== "3" && (
-                                  <button className="ml-2 mr-2 text-black hover:text-black dark:text-gray-300 dark:hover:text-black transition-colors duration-200" onClick={() => openEditMessage(message)}><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z" /></svg></button>
+                                <button className="ml-2 text-white hover:text-blue-600 dark:text-white dark:hover:text-blue-300 transition-colors duration-200 mr-2" onClick={() => setReplyToMessage(message)}><Lucide icon="MessageCircleReply" className="w-6 h-6" /></button>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setReactionMessage(message);
+                                    setShowReactionPicker(true);
+                                  }}
+                                  className="mr-2 p-1 text-white hover:text-blue-500 dark:text-white dark:hover:text-blue-300"
+                                ><Lucide icon="Heart" className="w-6 h-6" /></button>
+                                {showReactionPicker && reactionMessage?.id === message.id && (
+                                  <ReactionPicker
+                                    onSelect={(emoji) => handleReaction(message, emoji)}
+                                    onClose={() => setShowReactionPicker(false)}
+                                  />
                                 )}
+                                {message.from_me && message.createdAt && new Date().getTime() - new Date(message.createdAt).getTime() < 15 * 60 * 1000 && userRole !== "3" && (
+                                  <button className="ml-2 mr-2 text-white hover:text-blue-500 dark:text-white dark:hover:text-blue-300 transition-colors duration-200" onClick={() => openEditMessage(message)}><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z" /></svg></button>
+                                )}
+                                <input type="checkbox" className="mr-2 form-checkbox h-5 w-5 text-blue-500 transition duration-150 ease-in-out rounded-full" checked={selectedMessages.includes(message)} onChange={() => handleSelectMessage(message)} />
                               </>
                             )}
                             {message.name && <span className="ml-2 text-gray-400 dark:text-gray-600">{message.name}</span>}
