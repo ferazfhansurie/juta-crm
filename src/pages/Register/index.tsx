@@ -53,19 +53,21 @@ function Main() {
       const querySnapshot = await getDocs(collection(firestore, "companies"));
       const companyCount = querySnapshot.size;
       const newCompanyId = `0${companyCount + 1}`;
-
+    // Save user data to Firestore
+    const trialStartDate = new Date();
+    const trialEndDate = new Date(trialStartDate);
+    trialEndDate.setDate(trialEndDate.getDate() + 7);
       // Create a new company document in Firestore
       await setDoc(doc(firestore, "companies", newCompanyId), {
         id: newCompanyId,
         name: companyName,
         plan: selectedPlan,
         whapiToken: "", // Initialize with any default values you need
+        trialStartDate: trialStartDate,
+        trialEndDate: trialEndDate,
       });
 
-      // Save user data to Firestore
-      const trialStartDate = new Date();
-      const trialEndDate = new Date(trialStartDate);
-      trialEndDate.setDate(trialEndDate.getDate() + 7);
+  
 
       await setDoc(doc(firestore, "user", user.email!), {
         name: name,
@@ -85,9 +87,8 @@ function Main() {
         email: user.email!,
         role: "1",
         phoneNumber: phoneNumber,
-        plan: selectedPlan,
-        trialStartDate: trialStartDate,
-        trialEndDate: trialEndDate,
+
+
       });
 
       const response2 = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/channel/create/${newCompanyId}`);
