@@ -849,7 +849,9 @@ const ReactionPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => vo
             if (companyData) {
               setIsAssistantAvailable(!!companyData.assistantId);
             }
-            setStopbot(companyData.stopbot)
+            if(companyData.plan === 'blaster'){
+              setIsAssistantAvailable(false);
+            }
             const phoneCount = companyData.phoneCount || 0;
             const newPhoneNames: Record<number, string> = {};
             for (let i = 0; i < phoneCount; i++) {
