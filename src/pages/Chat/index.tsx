@@ -5984,17 +5984,16 @@ console.log(prompt);
                   <div
                     key={result.id}
                     className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    onClick={() => {
+                    onClick={async () => {
                       // Find and select the contact
                       const contact = contacts.find(c => c.id === result.contactId);
                       if (contact) {
-                        selectChat(contact.chat_id!, contact.id!, contact);
+                        await selectChat(contact.chat_id!, contact.id!, contact);
                         setIsGlobalSearchActive(false);
                         setSearchQuery('');
-                        setTimeout(() => {
-                          scrollToMessage(result.id);
-                        }, 0);
                       }
+                      // Scroll to the message that was clicked on in the chat
+                      scrollToMessage(result.id);
                     }}
                   >
                     <div className="flex-grow w-full justify-between items-start">
@@ -6770,7 +6769,20 @@ console.log(prompt);
                       {message.type === 'text' && message.text?.context && (
                         <div 
                           className="p-2 mb-2 rounded bg-gray-200 dark:bg-gray-800 cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700"
-                          onClick={() => message.text?.context?.quoted_message_id && scrollToMessage(message.text.context.quoted_message_id)}
+                          onClick={() => {
+                            const quotedMessageId = message.text?.context?.quoted_message_id;
+                            if (quotedMessageId) {
+                              scrollToMessage(quotedMessageId);
+                              // Optionally add visual feedback
+                              const element = messageListRef.current?.querySelector(`[data-message-id="${quotedMessageId}"]`);
+                              if (element) {
+                                element.classList.add('highlight-message');
+                                setTimeout(() => {
+                                  element.classList.remove('highlight-message');
+                                }, 2000);
+                              }
+                            }
+                          }}
                         >
                           <div 
                             className="text-sm font-medium" 
