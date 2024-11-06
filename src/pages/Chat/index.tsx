@@ -5616,7 +5616,7 @@ console.log(prompt);
                 </Menu.Button>
               </div>
            
-                <Menu.Items className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50">
+                <Menu.Items className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5">
                   <div className="py-1 max-h-60 overflow-y-auto" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
                     {Object.entries(phoneNames).map(([index, phoneName]) => (
                       <Menu.Item key={index}>
@@ -5639,7 +5639,7 @@ console.log(prompt);
           )}
   
         </div>
-        <div className="sticky top-20 z-50 bg-gray-100 dark:bg-gray-900 p-2">
+        <div className="sticky top-20 bg-gray-100 dark:bg-gray-900 p-2">
           <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
             {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
 
