@@ -544,6 +544,9 @@ function Main() {
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const [globalSearchPage, setGlobalSearchPage] = useState(1);
   const [totalGlobalSearchPages, setTotalGlobalSearchPages] = useState(1);
+  const [messageUsage, setMessageUsage] = useState<number>(0);
+  const [companyPlan, setCompanyPlan] = useState<string>('');
+
 
   useEffect(() => {
     if (contextContacts.length > 0) {
@@ -1821,6 +1824,22 @@ async function fetchConfigFromDatabase() {
     if (!data) {
       console.error('Company data is missing');
       return;
+    }
+    setCompanyPlan(data.plan || '');
+     // Add message usage tracking for enterprise plan
+     if (data.plan === 'enterprise') {
+      const currentDate = new Date();
+      const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      const usageRef = doc(firestore, `companies/${companyId}/usage/${monthKey}`);
+      const usageSnapshot = await getDoc(usageRef);
+      
+      if (usageSnapshot.exists()) {
+        const totalMessages = usageSnapshot.data().total_messages || 0;
+        setMessageUsage(totalMessages);
+      } else {
+        setMessageUsage(0);
+      }
     }
     setPhoneCount(data.phoneCount);
     if(data.phoneCount >=2){
@@ -5639,6 +5658,28 @@ console.log(prompt);
           )}
   
         </div>
+        {companyPlan === 'enterprise' && (
+  <div className="px-4 py-2">
+    <div className="flex items-center justify-between mb-1">
+      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+        Monthly Message Usage
+      </span>
+      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+        {messageUsage}/500
+      </span>
+    </div>
+    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+      <div 
+        className={`h-2.5 rounded-full ${
+          messageUsage > 450 ? 'bg-red-600' : 
+          messageUsage > 350 ? 'bg-yellow-400' : 
+          'bg-green-600'
+        }`}
+        style={{ width: `${Math.min((messageUsage / 500) * 100, 100)}%` }}
+      ></div>
+    </div>
+  </div>
+)}
         <div className="sticky top-20 bg-gray-100 dark:bg-gray-900 p-2">
           <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
             {notifications.length > 0 && <NotificationPopup notifications={notifications} />}
@@ -5956,6 +5997,7 @@ console.log(prompt);
 </Dialog>
 
     <div className="flex justify-end space-x-2 w-full mr-2">
+      
     {(
       // Replace or update the existing search input section
       <div className="relative flex-grow">
