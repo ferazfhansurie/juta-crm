@@ -1,5 +1,5 @@
 import ThemeSwitcher from "@/components/ThemeSwitcher";
-import logoUrl from "@/assets/images/logo.png";
+import logoUrl from "@/assets/images/logo3.png";
 import { FormInput } from "@/components/Base/Form";
 import Button from "@/components/Base/Button";
 import clsx from "clsx";
@@ -139,10 +139,10 @@ function Main() {
           <div className="block grid-cols-2 gap-4 xl:grid">
             {/* BEGIN: Register Info */}
             <div className="flex-col hidden min-h-screen xl:flex">
-                <div className="my-auto flex flex-col items-left w-full">
+            <div className="my-auto flex flex-col items-center w-full">
                   <img
                     alt="Juta Software Logo"
-                    className="w-2/4 -mt-16"
+                    className="w-[80%] -mt-16 -ml-64"
                     src={logoUrl}
                   />
                 </div>

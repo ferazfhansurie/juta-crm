@@ -91,7 +91,7 @@ module.exports = {
 },
         // Default dark-mode colors
         ".dark": {
-          "--color-primary": toRGB(colors.blue["700"]),
+          "--color-primary": toRGB(colors.black),
           "--color-darkmode-50": "87 103 132",
           "--color-darkmode-100": "74 90 121",
           "--color-darkmode-200": "65 81 114",

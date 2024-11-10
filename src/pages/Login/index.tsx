@@ -84,7 +84,7 @@ const firebaseConfig = {
               <div className="my-auto flex flex-col items-center w-full">
                   <img
                     alt="Juta Software Logo"
-                    className="w-[100%] -mt-16 -ml-64"
+                    className="w-[80%] -mt-16 -ml-64"
                     src={logoUrl2}
                   />
                 </div>
