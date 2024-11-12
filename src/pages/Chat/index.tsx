@@ -7613,8 +7613,8 @@ console.log(prompt);
   ) : (
     <div className="hidden md:flex flex-col w-full h-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 items-center justify-center">
       <div className="flex flex-col items-center justify-center p-8 rounded-lg shadow-lg bg-gray-100 dark:bg-gray-700">
-        <Lucide icon="MessageSquare" className="w-16 h-16 text-blue-500 dark:text-blue-400 mb-4" />
-        <p className="text-gray-700 dark:text-gray-300 text-lg text-center mb-6">Select a chat to start messaging</p>
+        <Lucide icon="MessageSquare" className="w-16 h-16 text-black dark:text-white mb-4" />
+        <p className="text-black dark:text-white text-lg text-center mb-6">Select a chat to start messaging</p>
         <button
           onClick={openNewChatModal}
           className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded transition duration-200"
