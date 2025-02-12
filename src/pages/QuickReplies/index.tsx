@@ -14,6 +14,7 @@ interface QuickReply {
     keyword: string;
     text: string;
     type: string;
+    category?: string;
     documents?: {
         name: string;
         type: string;
@@ -62,6 +63,12 @@ const QuickRepliesPage: React.FC = () => {
     title: string;
   } | null>(null);
 
+  const [newCategory, setNewCategory] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
   const firebaseConfig = {
     apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
     authDomain: "onboarding-a5fcb.firebaseapp.com",
@@ -80,6 +87,10 @@ const QuickRepliesPage: React.FC = () => {
 
   useEffect(() => {
     fetchQuickReplies();
+  }, []);
+
+  useEffect(() => {
+    fetchCategories();
   }, []);
 
   const fetchQuickReplies = async () => {
@@ -131,6 +142,28 @@ const QuickRepliesPage: React.FC = () => {
       setQuickReplies(fetchedQuickReplies);
     } catch (error) {
       console.error('Error fetching quick replies:', error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) return;
+      
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+      // Fetch categories from a separate collection
+      const categoriesRef = collection(firestore, `companies/${companyId}/categories`);
+      const categoriesSnapshot = await getDocs(categoriesRef);
+      const fetchedCategories = categoriesSnapshot.docs.map(doc => doc.data().name);
+      setCategories(['all', ...fetchedCategories]);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
     }
   };
 
@@ -277,6 +310,7 @@ const QuickRepliesPage: React.FC = () => {
         text: newQuickReply,
         keyword: newQuickReplyKeyword,
         type: activeTab,
+        category: newCategory,
         createdAt: serverTimestamp(),
         createdBy: user.email,
         documents: [],
@@ -332,7 +366,8 @@ const QuickRepliesPage: React.FC = () => {
     id: string,
     keyword: string,
     text: string,
-    type: 'all' | 'self'
+    type: 'all' | 'self',
+    category: string
   ) => {
     const user = auth.currentUser;
     if (!user) return;
@@ -357,6 +392,7 @@ const QuickRepliesPage: React.FC = () => {
       const updatedData: Partial<QuickReply> = {
         text,
         keyword,
+        category: editingReply?.category || "",
       };
 
       if (editingDocuments.length > 0) {
@@ -374,9 +410,11 @@ const QuickRepliesPage: React.FC = () => {
       setEditingDocuments([]);
       setEditingImages([]);
       setPreviewUrls({});
+      toast.success('Quick reply updated successfully');
       fetchQuickReplies();
     } catch (error) {
       console.error('Error updating quick reply:', error);
+      toast.error('Failed to update quick reply');
     }
   };
 
@@ -419,12 +457,15 @@ const QuickRepliesPage: React.FC = () => {
   };
 
   const filteredQuickReplies = quickReplies
-    .filter(reply => activeTab === 'all' || reply.type === activeTab)
-    .filter(reply => 
-      reply.keyword.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      reply.text.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a, b) => a.keyword.localeCompare(b.keyword));
+  .filter(reply => activeTab === 'all' || reply.type === activeTab)
+  .filter(reply => 
+    selectedCategory === 'all' || reply.category === selectedCategory
+  )
+  .filter(reply => 
+    reply.keyword.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    reply.text.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+  .sort((a, b) => a.keyword.localeCompare(b.keyword));
 
   const handleTextFormat = (format: 'bold' | 'strikethrough') => {
     const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
@@ -446,6 +487,67 @@ const QuickRepliesPage: React.FC = () => {
     }
   };
 
+  const addCategory = async () => {
+    if (!newCategoryName.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
+
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) return;
+      
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+      const categoriesRef = collection(firestore, `companies/${companyId}/categories`);
+      await addDoc(categoriesRef, {
+        name: newCategoryName,
+        createdAt: serverTimestamp(),
+        createdBy: user.email
+      });
+
+      setNewCategoryName('');
+      fetchCategories();
+      toast.success('Category added successfully');
+    } catch (error) {
+      console.error('Error adding category:', error);
+      toast.error('Failed to add category');
+    }
+  };
+
+  const deleteCategory = async (categoryName: string) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) return;
+      
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+      const categoriesRef = collection(firestore, `companies/${companyId}/categories`);
+      const q = query(categoriesRef, where('name', '==', categoryName));
+      const querySnapshot = await getDocs(q);
+      
+      querySnapshot.forEach(async (doc) => {
+        await deleteDoc(doc.ref);
+      });
+
+      fetchCategories();
+      toast.success('Category deleted successfully');
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      toast.error('Failed to delete category');
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="flex-grow overflow-y-auto">
@@ -453,6 +555,13 @@ const QuickRepliesPage: React.FC = () => {
           <div className="flex justify-between items-center mb-5">
             <h2 className="text-2xl font-bold">Quick Replies</h2>
             <div className="flex items-center space-x-4">
+              <Button
+                variant="outline-primary"
+                onClick={() => setShowCategoryModal(true)}
+              >
+                <Lucide icon="Tags" className="w-4 h-4 mr-2" />
+                Manage Categories
+              </Button>
               <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
                 <button
                   className={`px-4 py-2 rounded-lg transition-all duration-200 ${
@@ -475,6 +584,17 @@ const QuickRepliesPage: React.FC = () => {
                   Personal
                 </button>
               </div>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                {categories.map(category => (
+                  <option key={category} value={category}>
+                    {category === 'all' ? 'All Categories' : category}
+                  </option>
+                ))}
+              </select>
               <div className="relative">
                 <input
                   type="text"
@@ -496,12 +616,31 @@ const QuickRepliesPage: React.FC = () => {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
               <h3 className="text-lg font-semibold mb-4">Add New Quick Reply</h3>
               <div className="space-y-4">
-                <input
-                  className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="Keyword (required)"
-                  value={newQuickReplyKeyword}
-                  onChange={(e) => setNewQuickReplyKeyword(e.target.value)}
-                />
+                <div className="flex space-x-4">
+                  <input
+                    className="flex-1 px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Keyword (required)"
+                    value={newQuickReplyKeyword}
+                    onChange={(e) => setNewQuickReplyKeyword(e.target.value)}
+                  />
+
+<div className="relative flex-1">
+  <select
+    className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+    value={newCategory}
+    onChange={(e) => setNewCategory(e.target.value)}
+  >
+    <option value="">Select Category</option>
+    {categories
+      .filter(cat => cat !== 'all')
+      .map(category => (
+        <option key={category} value={category}>
+          {category}
+        </option>
+    ))}
+  </select>
+</div>
+                </div>
                 <div className="relative">
                   <div className="absolute right-2 top-2 flex space-x-2 z-10">
                     <button
@@ -624,12 +763,30 @@ const QuickRepliesPage: React.FC = () => {
                 <div key={reply.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow">
                   {editingReply?.id === reply.id ? (
                     <div className="space-y-4">
-                      <input
-                        className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
-                        value={editingReply.keyword}
-                        onChange={(e) => setEditingReply({ ...editingReply, keyword: e.target.value })}
-                        placeholder="Keyword (required)"
-                      />
+                      <div className="flex space-x-4">
+                        <input
+                          className="flex-1 px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                          value={editingReply.keyword}
+                          onChange={(e) => setEditingReply({ ...editingReply, keyword: e.target.value })}
+                          placeholder="Keyword (required)"
+                        />
+                        <div className="relative flex-1">
+                          <select
+                            className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                            value={editingReply.category || ""}
+                            onChange={(e) => setEditingReply({ ...editingReply, category: e.target.value })}
+                          >
+                            <option value="">Select Category</option>
+                            {categories
+                              .filter(cat => cat !== 'all')
+                              .map(category => (
+                                <option key={category} value={category}>
+                                  {category}
+                                </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                       <textarea
                         className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
                         value={editingReply.text}
@@ -676,7 +833,7 @@ const QuickRepliesPage: React.FC = () => {
                         <div className="flex space-x-2">
                           <button
                             className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                            onClick={() => updateQuickReply(reply.id, editingReply.keyword, editingReply.text, editingReply.type as "all" | "self")}
+                            onClick={() => updateQuickReply(reply.id, editingReply.keyword, editingReply.text, editingReply.type as "all" | "self", editingReply.category || "")}
                           >
                             Save
                           </button>
@@ -733,6 +890,11 @@ const QuickRepliesPage: React.FC = () => {
                             <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
                               {reply.keyword}
                             </span>
+                            {reply.category && (
+                              <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full text-sm">
+                                {reply.category}
+                              </span>
+                            )}
                             <span className="text-gray-500 dark:text-gray-400 text-sm">
                               {reply.createdBy && `Added by ${reply.createdBy}`}
                             </span>
@@ -831,6 +993,66 @@ const QuickRepliesPage: React.FC = () => {
                   frameBorder="0"
                 />
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Management Modal */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Manage Categories</h3>
+              <button
+                onClick={() => setShowCategoryModal(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+              >
+                <Lucide icon="X" className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Add new category */}
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="New category name"
+                  className="flex-1 px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+                <Button
+                  variant="primary"
+                  onClick={addCategory}
+                >
+                  <Lucide icon="Plus" className="w-4 h-4 mr-2" />
+                  Add
+                </Button>
+              </div>
+
+              {/* Category list */}
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-500 mb-2">Existing Categories</h4>
+                <div className="space-y-2">
+                  {categories
+                    .filter(category => category !== 'all')
+                    .map(category => (
+                      <div
+                        key={category}
+                        className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                      >
+                        <span>{category}</span>
+                        <button
+                          onClick={() => deleteCategory(category)}
+                          className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                        >
+                          <Lucide icon="Trash2" className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
