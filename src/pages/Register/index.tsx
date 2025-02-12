@@ -113,7 +113,7 @@ function Main() {
         return;
       }
       const data2 = docSnapshot.data();
-      const baseUrl = data2.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
+      const baseUrl = data2.apiUrl || 'https://juta.ngrok.app';
       const response = await fetch(`${baseUrl}/api/v2/messages/text/001/${formattedPhone}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -187,6 +187,7 @@ function Main() {
         id: newCompanyId,
         name: companyName,
         plan: selectedPlan,
+        apiUrl: "https://juta.ngrok.app",
         whapiToken: "", // Initialize with any default values you need
         trialStartDate: trialStartDate,
         trialEndDate: trialEndDate,
@@ -244,7 +245,7 @@ function Main() {
         return;
       }
       const data2 = docSnapshot.data();
-      const baseUrl = data2.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
+      const baseUrl = data2.apiUrl || 'https://juta.ngrok.app';
       const response2 = await axios.post(`${baseUrl}/api/channel/create/${newCompanyId}`);
 
       
