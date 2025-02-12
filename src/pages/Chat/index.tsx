@@ -4267,13 +4267,30 @@ const sendWhatsAppMessage = async (phoneNumber: string, message: string, company
 
  
 const formatText = (text: string) => {
-  const parts = text.split(/(\*[^*]+\*|\*\*[^*]+\*\*)/g);
-  return parts.map((part: string, index: any) => {
- if (part.startsWith('*') && part.endsWith('*')) {
-      return <strong key={index}>{part.slice(1, -1)}</strong>;
-    } else {
-      return part;
+  // Split text into segments that need formatting and those that don't
+  const segments = text.split(/(\*[^*]+\*|~[^~]+~)/g);
+  
+  return segments.map((segment, index) => {
+    // Check if segment is bold (surrounded by *)
+    if (segment.startsWith('*') && segment.endsWith('*')) {
+      return (
+        <span key={index} className="font-bold">
+          {segment.slice(1, -1)}
+        </span>
+      );
     }
+    
+    // Check if segment is strikethrough (surrounded by ~)
+    if (segment.startsWith('~') && segment.endsWith('~')) {
+      return (
+        <span key={index} className="line-through">
+          {segment.slice(1, -1)}
+        </span>
+      );
+    }
+    
+    // Return regular text
+    return segment;
   });
 };
 const openEditMessage = (message: Message) => {

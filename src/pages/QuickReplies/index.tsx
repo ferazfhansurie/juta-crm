@@ -426,6 +426,26 @@ const QuickRepliesPage: React.FC = () => {
     )
     .sort((a, b) => a.keyword.localeCompare(b.keyword));
 
+  const handleTextFormat = (format: 'bold' | 'strikethrough') => {
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = newQuickReply.substring(start, end);
+    
+    if (selectedText) {
+      const symbol = format === 'bold' ? '*' : '~';
+      const formattedText = `${symbol}${selectedText}${symbol}`;
+      const newText = newQuickReply.substring(0, start) + formattedText + newQuickReply.substring(end);
+      setNewQuickReply(newText);
+      
+      // Restore cursor position after formatting
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + 1, end + 1);
+      }, 0);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="flex-grow overflow-y-auto">
@@ -482,13 +502,31 @@ const QuickRepliesPage: React.FC = () => {
                   value={newQuickReplyKeyword}
                   onChange={(e) => setNewQuickReplyKeyword(e.target.value)}
                 />
-                <textarea
-                  className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="Message text (optional)"
-                  value={newQuickReply}
-                  onChange={(e) => setNewQuickReply(e.target.value)}
-                  rows={3}
-                />
+                <div className="relative">
+                  <div className="absolute right-2 top-2 flex space-x-2 z-10">
+                    <button
+                      className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={() => handleTextFormat('bold')}
+                      title="Bold"
+                    >
+                      <Lucide icon="Bold" className="w-4 h-4" />
+                    </button>
+                    <button
+                      className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={() => handleTextFormat('strikethrough')}
+                      title="Strikethrough"
+                    >
+                      <Lucide icon="Strikethrough" className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <textarea
+                    className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Message text (optional)"
+                    value={newQuickReply}
+                    onChange={(e) => setNewQuickReply(e.target.value)}
+                    rows={3}
+                  />
+                </div>
                 <div className="flex items-center space-x-4">
                   <div className="flex-1 flex space-x-4">
                     <div>
