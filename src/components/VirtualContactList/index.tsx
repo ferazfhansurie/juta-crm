@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FixedSizeList as List } from 'react-window';
+import { FixedSizeList as List, ListOnScrollProps } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { Contact } from '@/types';
 
@@ -28,7 +28,7 @@ const VirtualContactList: React.FC<VirtualContactListProps> = ({
   onLoadMore,
   hasMore
 }) => {
-  const listRef = useRef<List>(null);
+  const listRef = useRef<List<any>>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const ContactItem = ({ index, style }: { index: number; style: React.CSSProperties }) => {
@@ -62,7 +62,7 @@ const VirtualContactList: React.FC<VirtualContactListProps> = ({
     );
   };
 
-  const handleScroll = ({ scrollOffset, scrollUpdateWasRequested }: { scrollOffset: number; scrollUpdateWasRequested: boolean }) => {
+  const handleScroll = ({ scrollOffset, scrollUpdateWasRequested }: ListOnScrollProps) => {
     if (scrollUpdateWasRequested || isLoadingMore || !hasMore) return;
 
     const scrollThreshold = contacts.length * ITEM_HEIGHT - LOAD_MORE_THRESHOLD * ITEM_HEIGHT;
@@ -88,7 +88,7 @@ const VirtualContactList: React.FC<VirtualContactListProps> = ({
             width={width}
             onScroll={handleScroll}
           >
-            {(props) => <ContactItem {...props} />}
+            {ContactItem}
           </List>
         )}
       </AutoSizer>
