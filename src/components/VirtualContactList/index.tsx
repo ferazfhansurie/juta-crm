@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FixedSizeList as List, ListOnScrollProps } from 'react-window';
+import { FixedSizeList as List, ListChildComponentProps, ListOnScrollProps } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { Contact } from '@/types';
 
@@ -28,10 +28,10 @@ const VirtualContactList: React.FC<VirtualContactListProps> = ({
   onLoadMore,
   hasMore
 }) => {
-  const listRef = useRef<List<any>>(null);
+  const listRef = useRef<List>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const ContactItem = ({ index, style }: { index: number; style: React.CSSProperties }) => {
+  const ContactItem: React.FC<ListChildComponentProps> = ({ index, style }) => {
     const contact = contacts[index];
     if (!contact) return null;
 
