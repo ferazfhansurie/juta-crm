@@ -88,7 +88,7 @@ const VirtualContactList: React.FC<VirtualContactListProps> = ({
             width={width}
             onScroll={handleScroll}
           >
-            {ContactItem}
+            {(props) => <ContactItem {...props} />}
           </List>
         )}
       </AutoSizer>
