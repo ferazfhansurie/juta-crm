@@ -1,6 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { FixedSizeList as List, ListChildComponentProps, ListOnScrollProps } from 'react-window';
-import AutoSizer from 'react-virtualized-auto-sizer';
+import React, { useEffect, useState } from 'react';
 import { Contact } from '@/types';
 
 interface VirtualContactListProps {
@@ -12,13 +10,7 @@ interface VirtualContactListProps {
   hasMore: boolean;
 }
 
-interface Size {
-  width: number;
-  height: number;
-}
-
-const ITEM_HEIGHT = 72; // Height of each contact item
-const LOAD_MORE_THRESHOLD = 10; // Number of items before the end to trigger load more
+const LOAD_MORE_THRESHOLD = 200; // pixels from bottom to trigger load more
 
 const VirtualContactList: React.FC<VirtualContactListProps> = ({
   contacts,
@@ -28,45 +20,16 @@ const VirtualContactList: React.FC<VirtualContactListProps> = ({
   onLoadMore,
   hasMore
 }) => {
-  const listRef = useRef<List>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
-  const ContactItem: React.FC<ListChildComponentProps> = ({ index, style }) => {
-    const contact = contacts[index];
-    if (!contact) return null;
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    if (isLoadingMore || !hasMore) return;
 
-    const isSelected = contact.chat_id === selectedChatId;
-    const lastMessage = contact.last_message?.text?.body || '';
-    const timestamp = contact.last_message?.timestamp 
-      ? new Date(contact.last_message.timestamp * 1000).toLocaleString()
-      : '';
+    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+    const scrollThreshold = scrollHeight - clientHeight - LOAD_MORE_THRESHOLD;
 
-    return (
-      <div
-        style={style}
-        className={`flex items-center p-4 cursor-pointer border-b ${
-          isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
-        }`}
-        onClick={() => onContactClick(contact)}
-      >
-        <div className="flex-1 min-w-0">
-          <div className="flex justify-between">
-            <span className="font-medium truncate">
-              {contact.contactName || contact.phone}
-            </span>
-            <span className="text-sm text-gray-500">{timestamp}</span>
-          </div>
-          <div className="text-sm text-gray-500 truncate">{lastMessage}</div>
-        </div>
-      </div>
-    );
-  };
-
-  const handleScroll = ({ scrollOffset, scrollUpdateWasRequested }: ListOnScrollProps) => {
-    if (scrollUpdateWasRequested || isLoadingMore || !hasMore) return;
-
-    const scrollThreshold = contacts.length * ITEM_HEIGHT - LOAD_MORE_THRESHOLD * ITEM_HEIGHT;
-    if (scrollOffset > scrollThreshold) {
+    if (scrollTop > scrollThreshold) {
       setIsLoadingMore(true);
       onLoadMore();
     }
@@ -77,21 +40,38 @@ const VirtualContactList: React.FC<VirtualContactListProps> = ({
   }, [contacts.length]);
 
   return (
-    <div style={{ height: '100%', width: '100%' }}>
-      <AutoSizer>
-        {({ height, width }: Size) => (
-          <List
-            ref={listRef}
-            height={height}
-            itemCount={contacts.length}
-            itemSize={ITEM_HEIGHT}
-            width={width}
-            onScroll={handleScroll}
+    <div 
+      ref={containerRef}
+      className="h-full overflow-y-auto"
+      onScroll={handleScroll}
+    >
+      {contacts.map((contact) => {
+        const isSelected = contact.chat_id === selectedChatId;
+        const lastMessage = contact.last_message?.text?.body || '';
+        const timestamp = contact.last_message?.timestamp 
+          ? new Date(contact.last_message.timestamp * 1000).toLocaleString()
+          : '';
+
+        return (
+          <div
+            key={contact.chat_id}
+            className={`flex items-center p-4 cursor-pointer border-b ${
+              isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+            }`}
+            onClick={() => onContactClick(contact)}
           >
-            {ContactItem}
-          </List>
-        )}
-      </AutoSizer>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between">
+                <span className="font-medium truncate">
+                  {contact.contactName || contact.phone}
+                </span>
+                <span className="text-sm text-gray-500">{timestamp}</span>
+              </div>
+              <div className="text-sm text-gray-500 truncate">{lastMessage}</div>
+            </div>
+          </div>
+        );
+      })}
       {isLoading && (
         <div className="flex justify-center p-4">
           <div className="loader">Loading...</div>
