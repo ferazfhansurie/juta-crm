@@ -33,6 +33,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 import ReactPaginate from 'react-paginate';
 import { getFileTypeFromMimeType } from '../../utils/fileUtils';
 import { Transition } from "@headlessui/react";
+import VirtualContactList from '../../components/VirtualContactList';
+import SearchModal from '@/components/SearchModal';
 
 interface Label {
   id: string;
@@ -41,7 +43,7 @@ interface Label {
   count: number;
 }
 
-interface Contact {
+export interface Contact {
   conversation_id?: string | null;
   additionalEmails?: string[] | null;
   address1?: string | null;
@@ -80,25 +82,8 @@ interface Contact {
   points?:number |null;
   phoneIndexes?:number[] |null;
 }
-interface GhlConfig {
-  ghl_id: string;
-  ghl_secret: string;
-  refresh_token: string;
-  ghl_accessToken: string;
-  ghl_location: string;
-  whapiToken: string;
-  v2?: boolean;
-}
-interface Chat {
-  id?: string;
-  name?: string;
-  last_message?: Message | null;
-  labels?: Label[];
-  contact_id?: string;
-  tags?: string[];
-}
 
-interface Message {
+export interface Message {
   chat_id: string;
   dateAdded?: number | 0;
   timestamp: number | 0;
@@ -129,8 +114,8 @@ interface Message {
     sha256: string;
     data?:string;
     caption?:string;
-  mimetype?: string;
-  fileSize?: number;
+    mimetype?: string;
+    fileSize?: number;
   };
   link_preview?: { link: string; title: string; description: string ,body:string,preview:string};
   sticker?: { link: string; emoji: string;mimetype:string;data:string };
@@ -157,6 +142,16 @@ interface Message {
   isPrivateNote?: boolean;
   call_log?: any;
 }
+
+interface Chat {
+  id?: string;
+  name?: string;
+  last_message?: Message | null;
+  labels?: Label[];
+  contact_id?: string;
+  tags?: string[];
+}
+
 interface Employee {
   id: string;
   name: string;
@@ -418,8 +413,16 @@ const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
 const auth = getAuth(app);
 
+interface ContactsState {
+  items: Contact[];
+  hasMore: boolean;
+  lastVisible: any;
+  isLoading: boolean;
+  currentPage: number;
+}
+
 function Main() {
-   // Initial state setup with localStorage
+  // Initial state setup with localStorage
   const { contacts: contextContacts, isLoading: contextLoading } = useContacts();
   const [contacts, setContacts] = useState<Contact[]>(() => {
     const storedContacts = localStorage.getItem('contacts');
@@ -599,6 +602,17 @@ function Main() {
   const [qrCodes, setQrCodes] = useState<QRCodeData[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [quickReplyCategory, setQuickReplyCategory] = useState<string>('all');
+  const [contactsState, setContactsState] = useState<ContactsState>({
+    items: [],
+    hasMore: true,
+    lastVisible: null,
+    isLoading: false,
+    currentPage: 1
+  });
+  const CONTACTS_PER_PAGE = 50;
+
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -665,54 +679,6 @@ function Main() {
     return () => clearInterval(intervalId);
 }, []);
 
-  useEffect(() => {
-    const checkTrialStatus = async () => {
-      try {
-        const auth = getAuth();
-        const user = auth.currentUser;
-        
-        if (!user?.email) {
-          return;
-        }
-  
-        const docUserRef = doc(firestore, 'user', user.email);
-        const docUserSnapshot = await getDoc(docUserRef);
-        
-        if (!docUserSnapshot.exists()) {
-          throw new Error("User document not found");
-        }
-  
-        const userData = docUserSnapshot.data();
-        const companyId = userData.companyId;
-  
-        const companyRef = doc(firestore, 'companies', companyId);
-        const companySnapshot = await getDoc(companyRef);
-  
-        if (!companySnapshot.exists()) {
-          throw new Error("Company document not found");
-        }
-  
-        const companyData = companySnapshot.data();
-        
-        if (companyData.trialEndDate) {
-          const trialEnd = companyData.trialEndDate.toDate();
-          const now = new Date();
-          
-          if (now > trialEnd) {
-            setTrialExpired(true);
-            toast.error("Your trial period has expired. Please contact support to continue using the service.");
-            await signOut(auth);
-            navigate('/login');
-          }
-        }
-      } catch (error) {
-        console.error("Error checking trial status:", error);
-        toast.error("Error checking subscription status");
-      }
-    };
-  
-    checkTrialStatus();
-  }, []); // Run once when component mounts
   useEffect(() => {
     if (contextContacts.length > 0) {
       setContacts(contextContacts as Contact[]);
@@ -2291,32 +2257,32 @@ const updateFirebaseUnreadCount = async (contact: Contact) => {
     await updateDoc(contactRef, { unreadCount: 0 });
   }
 };
-const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string, role: string, userEmail: string | null | undefined) => {
-  try {
-    if (!userEmail) throw new Error("User email is not provided.");
-    
-    const docUserRef = doc(firestore, 'user', userEmail);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
+  const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string, role: string, userEmail: string | null | undefined) => {
+    try {
+      if (!userEmail) throw new Error("User email is not provided.");
       
-      return;
-    }
-
-    const dataUser = docUserSnapshot.data();
-    const companyId = dataUser?.companyId;
-    if (!companyId) {
+      const docUserRef = doc(firestore, 'user', userEmail);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
       
-      return;
-    }
+        return;
+      }
 
-    // Pagination settings
+      const dataUser = docUserSnapshot.data();
+      const companyId = dataUser?.companyId;
+      if (!companyId) {
+      
+        return;
+      }
+
+      // Pagination settings
     const batchSize = 4000;
     let lastVisible: QueryDocumentSnapshot<DocumentData> | null = null;
     const phoneSet = new Set<string>();
     let allContacts: Contact[] = [];
 
     // Fetch contacts in batches
-    const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
+      const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
     while (true) {
       let queryRef: Query<DocumentData> = lastVisible
         ? query(contactsCollectionRef, startAfter(lastVisible), limit(batchSize))
@@ -2336,14 +2302,14 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       lastVisible = contactsSnapshot.docs[contactsSnapshot.docs.length - 1];
     }
 
-    // Fetch pinned chats
-    const pinnedChatsRef = collection(firestore, `user/${userEmail}/pinned`);
-    const pinnedChatsSnapshot = await getDocs(pinnedChatsRef);
-    const pinnedChats = pinnedChatsSnapshot.docs.map(doc => doc.data() as Contact);
+      // Fetch pinned chats
+      const pinnedChatsRef = collection(firestore, `user/${userEmail}/pinned`);
+      const pinnedChatsSnapshot = await getDocs(pinnedChatsRef);
+      const pinnedChats = pinnedChatsSnapshot.docs.map(doc => doc.data() as Contact);
 
     // Update pinned status in Firebase and local contacts
     const updatePromises = allContacts.map(async contact => {
-      const isPinned = pinnedChats.some(pinned => pinned.chat_id === contact.chat_id);
+        const isPinned = pinnedChats.some(pinned => pinned.chat_id === contact.chat_id);
       if (isPinned !== contact.pinned) {
         const contactDocRef = doc(contactsCollectionRef, contact.id!);
         await updateDoc(contactDocRef, { pinned: isPinned });
@@ -2356,9 +2322,9 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
 
     allContacts.sort((a, b) => {
       // First priority: pinned status
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-      
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        
       // Second priority: unread messages
       if (a.unreadCount && !b.unreadCount) return -1;
       if (!a.unreadCount && b.unreadCount) return 1;
@@ -2380,8 +2346,8 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
       timestampB = timestampB || 0;
 
       // Sort descending (newest first)
-      return timestampB - timestampA;
-    });
+        return timestampB - timestampA;
+      });
 
     // Add debugging after sorting
 
@@ -2419,18 +2385,18 @@ const fetchContactsBackground = async (whapiToken: string, locationId: string, g
 
     // Store all contacts in localStorage
     localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
-    sessionStorage.setItem('contactsFetched', 'true');
-    
+      sessionStorage.setItem('contactsFetched', 'true');
+      
     // If you need to limit the displayed contacts, implement pagination in the UI component
     // For example, you could add a state variable for the current page:
     // const [currentPage, setCurrentPage] = useState(1);
     // const contactsPerPage = 200;
     // const displayedContacts = allContacts.slice((currentPage - 1) * contactsPerPage, currentPage * contactsPerPage);
     
-  } catch (error) {
-    console.error('Error fetching contacts:', error);
-  }
-};
+    } catch (error) {
+      console.error('Error fetching contacts:', error);
+    }
+  };
 
 
 
@@ -2621,17 +2587,17 @@ useEffect(() => {
     setLoading(true);
     setSelectedIcon('ws');
     const auth = getAuth(app);
-    const user = auth.currentUser;
-    
+      const user = auth.currentUser;
+
     try {
         const docUserRef = doc(firestore, 'user', user?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        
+      const docUserSnapshot = await getDoc(docUserRef);
+
         if (!docUserSnapshot.exists()) {
             
             return;
         }
-        const dataUser = docUserSnapshot.data();
+      const dataUser = docUserSnapshot.data();
 
         
         
@@ -3117,8 +3083,8 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         timestamp: note.timestamp
       }))
     }));
-    
-  } catch (error) {
+
+    } catch (error) {
     console.error('Failed to fetch messages:', error);
   }
 }
@@ -4364,7 +4330,7 @@ const handlePageChange = ({ selected }: { selected: number }) => {
 const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
 const [paginatedContacts, setPaginatedContacts] = useState<Contact[]>([]);
 
-useEffect(() => {
+  useEffect(() => {
   if (filteredContacts.length === 0) {
     setLoadingMessage("Fetching contacts...");
   } else {
@@ -4553,46 +4519,52 @@ const sortContacts = (contacts: Contact[]) => {
       const contactsRef = collection(firestore, 'companies', companyId, 'contacts');
       const contactsSnapshot = await getDocs(contactsRef);
 
-      let allResults: any[] = [];
-
-      // Search through each contact's messages
-      for (const contactDoc of contactsSnapshot.docs) {
+      // Get messages for each contact with a larger limit
+      const searchPromises = contactsSnapshot.docs.map(async (contactDoc) => {
         const messagesRef = collection(firestore, 'companies', companyId, 'contacts', contactDoc.id, 'messages');
         
-        // Simplified query that only uses orderBy
+        // Query messages with a larger limit and no text-only filter
         const messagesQuery = query(
           messagesRef,
           orderBy('timestamp', 'desc'),
-          limit(100)
+          limit(100) // Increased limit to get more messages
         );
 
         const messagesSnapshot = await getDocs(messagesQuery);
         
         // Filter messages client-side
-        const contactResults = messagesSnapshot.docs
+        return messagesSnapshot.docs
           .filter(doc => {
-            const data = doc.data() as { text?: { body?: string } };
-            const messageText = data.text?.body?.toLowerCase() || '';
-            return messageText.includes(searchQuery.toLowerCase());
+            const data = doc.data() as { text?: { body?: string }, type?: string };
+            // Only include messages with text content
+            if (data.type !== 'text' || !data.text?.body) return false;
+            
+            const messageText = data.text.body.toLowerCase();
+            const searchTerms = searchQuery.toLowerCase().split(' ');
+            
+            // Match all search terms (AND search)
+            return searchTerms.every(term => messageText.includes(term));
           })
           .map(doc => ({
-            ...(doc.data() as Record<string, any>),
+            ...(doc.data() as Message),
             id: doc.id,
             contactId: contactDoc.id
           }));
+      });
 
-        allResults = [...allResults, ...contactResults];
-      }
+      const searchResults = await Promise.all(searchPromises);
+      const allResults = searchResults.flat();
 
       // Format and sort results
       const formattedResults = allResults.map(result => ({
-        ...result,
+        id: result.id,
+        contactId: result.contactId,
         text: {
-          body: result.text?.body || result.message || result.content || '',
+          body: result.text?.body || '',
         },
-        timestamp: result.timestamp || result.created_at || Date.now(),
+        timestamp: result.timestamp || Date.now(),
         from_me: result.from_me || false,
-        chat_id: result.chat_id || result.chatId || '',
+        chat_id: result.chat_id || '',
         type: result.type || 'text'
       }));
 
@@ -4603,7 +4575,12 @@ const sortContacts = (contacts: Contact[]) => {
       });
 
       setGlobalSearchResults(sortedResults);
-      toast.success(`Found ${sortedResults.length} message${sortedResults.length === 1 ? '' : 's'}`);
+      
+      if (sortedResults.length > 0) {
+        toast.success(`Found ${sortedResults.length} message${sortedResults.length === 1 ? '' : 's'}`);
+      } else {
+        toast.info('No messages found');
+      }
 
     } catch (error) {
       console.error('Search failed:', error);
@@ -5130,7 +5107,7 @@ const sortContacts = (contacts: Contact[]) => {
     };
   
     window.addEventListener("keydown", handleKeyDown);
-  
+
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -5449,8 +5426,8 @@ interface Template {
 }
 
  const handleRemoveTag = async (contactId: string, tagName: string) => {
-    try {
-      const user = auth.currentUser;
+      try {
+        const user = auth.currentUser;
       const docUserRef = doc(firestore, 'user', user?.email!);
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
@@ -5639,13 +5616,13 @@ interface Template {
 
       const user = auth.currentUser;
       if (!user) throw new Error('No authenticated user');
-
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
+  
+        const docUserRef = doc(firestore, 'user', user.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) throw new Error('No such document for user');
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+        
+        const userData = docUserSnapshot.data();
+        const companyId = userData.companyId;
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) throw new Error('No company document found');
@@ -5677,7 +5654,7 @@ interface Template {
       } else {
         throw new Error(response.data.error || 'Failed to edit message');
       }
-    } catch (error) {
+      } catch (error) {
       console.error('Error editing message:', error);
       toast.error('Failed to edit message. Please try again.');
     }
@@ -5812,14 +5789,14 @@ interface Template {
 useEffect(() => {
   let isMounted = true;
   const fetchCompanyStopBot = async () => {
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
-
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+  
+        const docUserRef = doc(firestore, 'user', user.email!);
+        const docUserSnapshot = await getDoc(docUserRef);
+        if (!docUserSnapshot.exists()) return;
+  
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
       const currentPhoneIndex = userData.phone || 0;
@@ -6056,11 +6033,11 @@ const toggleBot = async () => {
         
         return;
       }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
+        const userData = docUserSnapshot.data();
+        const companyId = userData.companyId;
+  
+        const docRef = doc(firestore, 'companies', companyId);
+        const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) throw new Error('No company document found');
       const companyData = docSnapshot.data();
       const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
@@ -6184,7 +6161,7 @@ const toggleBot = async () => {
       }
 
       const companyData = companySnapshot.data();
-      const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
+        const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
       const isV2 = companyData.v2 || false;
       const whapiToken = companyData.whapiToken || '';
       const phone = userData.phoneNumber.split('+')[1];
@@ -6281,7 +6258,7 @@ ${context}
       // Set the AI's response as the new message
       setNewMessage(aiResponse);
   
-    } catch (error) {
+      } catch (error) {
       console.error('Error generating AI response:', error);
       toast.error("Failed to generate AI response");
     } finally {
@@ -6543,7 +6520,7 @@ ${context}
     };
 
     fetchTotalContacts();
-  }, []);
+}, []);
 
   return (
     <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
@@ -7004,84 +6981,47 @@ ${context}
     <div className="flex justify-end space-x-2 w-full mr-2">
       
     {(
-      // Replace or update the existing search input section
       <div className="relative flex-grow">
-        <input
-          type="text"
-          className="flex-grow box w-full h-9 py-1 pl-10 pr-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800"
-          placeholder="Search messages..."
-          value={searchQuery}
-          onChange={handleSearchChange}
+        <button
+          onClick={() => setIsSearchModalOpen(true)}
+          className="flex items-center w-full h-9 py-1 pl-10 pr-4 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-800"
+        >
+          <Lucide
+            icon="Search"
+            className="absolute left-3 w-5 h-5"
+          />
+          <span className="ml-2">Search contacts...</span>
+        </button>
+
+        <SearchModal
+          isOpen={isSearchModalOpen}
+          onClose={() => setIsSearchModalOpen(false)}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onSelectResult={(type, id) => {
+            if (type === 'contact' || type === 'chat') {
+              const contact = contacts.find(c => type === 'contact' ? c.id === id : c.chat_id === id);
+              if (contact) {
+                selectChat(contact.chat_id!, contact.id!, contact);
+              }
+            } else if (type === 'message') {
+              const result = globalSearchResults.find(r => r.id === id);
+              if (result) {
+                const contact = contacts.find(c => c.id === result.contactId);
+                if (contact) {
+                  selectChat(contact.chat_id!, contact.id!, contact);
+                  scrollToMessage(result.id);
+                }
+              }
+            }
+            setIsSearchModalOpen(false);
+            setSearchQuery('');
+          }}
+          contacts={contacts}
+          // messages={messages}
+          // globalSearchLoading={globalSearchLoading}
+          // globalSearchResults={globalSearchResults}
         />
-        <Lucide
-          icon="Search"
-          className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400"
-        />
-        
-        {/* Global Search Results Dropdown */}
-        {isGlobalSearchActive && searchQuery && (
-          <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg max-h-96 overflow-y-auto">
-            {globalSearchLoading ? (
-              <div className="w-full p-4 text-center text-gray-500">
-                Searching...
-              </div>
-            ) : globalSearchResults.length > 0 ? (
-              <>
-                {globalSearchResults.map((result) => (
-                  <div
-                    key={result.id}
-                    className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    onClick={async () => {
-                      // Find and select the contact
-                      const contact = contacts.find(c => c.id === result.contactId);
-                      if (contact) {
-                        await selectChat(contact.chat_id!, contact.id!, contact);
-                        setIsGlobalSearchActive(false);
-                        setSearchQuery('');
-                      }
-                      // Scroll to the message that was clicked on in the chat
-                      scrollToMessage(result.id);
-                    }}
-                  >
-                    <div className="flex-grow w-full justify-between items-start">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium">
-                          {contacts.find(c => c.id === result.contactId)?.contactName || result.contactId}
-                        </div>
-                        <div className="text-sm text-gray-500 truncate">
-                          {result.text?.body ? (
-                            <span dangerouslySetInnerHTML={{ __html: result.text.body.replace(new RegExp(`(${searchQuery})`, 'gi'), '<mark>$1</mark>') }} />
-                          ) : (
-                            result.caption || 'Media message'
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                
-                {/* Pagination */}
-                {totalGlobalSearchPages > 1 && (
-                  <div className="pagination">
-                    {Array.from({ length: totalGlobalSearchPages }, (_, i) => i + 1).map(pageNum => (
-                      <button
-                        key={pageNum}
-                        onClick={() => loadMoreSearchResults(pageNum)}
-                        disabled={pageNum === globalSearchPage}
-                      >
-                        {pageNum}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="p-4 text-center text-gray-500">
-                No messages found
-              </div>
-            )}
-          </div>
-        )}
       </div>
     )}
     {isAssistantAvailable && (
@@ -8377,11 +8317,6 @@ ${context}
 </button>
             </Menu.Items>
           </Menu>
-          <button className="p-2 m-0 !box" onClick={handleQR}>
-            <span className="flex items-center justify-center w-5 h-5">
-              <Lucide icon='Zap' className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-            </span>
-          </button>
           <button className="p-2 m-0 !box ml-2" onClick={toggleRecordingPopup}>
         <span className="flex items-center justify-center w-5 h-5">
           <Lucide icon="Mic" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
