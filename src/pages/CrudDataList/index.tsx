@@ -2636,17 +2636,36 @@ const combineScheduledMessages = (messages: ScheduledMessage[]): ScheduledMessag
   const combinedMessages: { [key: string]: ScheduledMessage } = {};
 
   messages.forEach(message => {
-    const key = `${message.message}-${message.scheduledTime.toDate().getTime()}`;
+    // Convert scheduledTime to Timestamp if needed
+    let scheduledTime: any = message.scheduledTime;
+    let timestamp: Timestamp;
+
+    if (scheduledTime instanceof Timestamp) {
+      timestamp = scheduledTime;
+    } else if (scheduledTime instanceof Date) {
+      timestamp = Timestamp.fromDate(scheduledTime);
+    } else if (scheduledTime && typeof scheduledTime === 'object' && 'seconds' in scheduledTime) {
+      timestamp = new Timestamp(
+        scheduledTime.seconds as number,
+        (scheduledTime as { nanoseconds?: number }).nanoseconds || 0
+      );
+    } else {
+      // Default to current time if invalid
+      timestamp = Timestamp.now();
+      console.warn('Invalid scheduledTime found, defaulting to current time');
+    }
+
+    const key = `${message.message}-${timestamp.toMillis()}`;
     if (combinedMessages[key]) {
       combinedMessages[key].count = (combinedMessages[key].count || 1) + 1;
     } else {
-      combinedMessages[key] = { ...message, count: 1 };
+      combinedMessages[key] = { ...message, scheduledTime: timestamp, count: 1 };
     }
   });
 
   // Convert the object to an array and sort it
   return Object.values(combinedMessages).sort((a, b) => 
-    compareAsc(a.scheduledTime.toDate(), b.scheduledTime.toDate())
+    a.scheduledTime.toMillis() - b.scheduledTime.toMillis()
   );
 };
 
@@ -3336,12 +3355,13 @@ const resetForm = () => {
       const companyData = docSnapshot.data();
       const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
   
-      // Upload new media/document files if needed
+      // Upload new media file if it exists
       let newMediaUrl = currentScheduledMessage.mediaUrl;
       if (editMediaFile) {
         newMediaUrl = await uploadFile(editMediaFile);
       }
   
+      // Upload new document file if it exists
       let newDocumentUrl = currentScheduledMessage.documentUrl;
       let newFileName = currentScheduledMessage.fileName;
       if (editDocumentFile) {
@@ -3353,11 +3373,12 @@ const resetForm = () => {
       const processedMessages = await Promise.all(
         currentScheduledMessage.chatIds.map(async (chatId) => {
           const phoneNumber = chatId.split('@')[0];
-          const contact = contacts.find(c => c.phone?.replace(/\D/g, '') === phoneNumber);
+          const contact = contacts.find(c => c.phone?.replace(/\D/g, '') === 
+          phoneNumber);
           
           if (!contact) {
             console.warn(`No contact found for chatId: ${chatId}`);
-            return { text: blastMessage }; // Return unprocessed message as fallback
+            return { text: blastMessage };
           }
   
           // Process message with contact data
@@ -3376,6 +3397,26 @@ const resetForm = () => {
         })
       );
   
+      // Ensure scheduledTime is a proper Firestore Timestamp
+      let scheduledTime: any = currentScheduledMessage.scheduledTime;
+      if (!(scheduledTime instanceof Timestamp)) {
+        // If it's a date object
+        if (scheduledTime instanceof Date) {
+          scheduledTime = Timestamp.fromDate(scheduledTime);
+        }
+        // If it's a timestamp-like object with seconds and nanoseconds
+        else if (scheduledTime && typeof scheduledTime === 'object' && 'seconds' in scheduledTime) {
+          scheduledTime = new Timestamp(
+            scheduledTime.seconds as number,
+            (scheduledTime as { nanoseconds?: number }).nanoseconds || 0
+          );
+        }
+        // If it's something else, default to current time
+        else {
+          scheduledTime = Timestamp.now();
+        }
+      }
+  
       // Prepare the updated message data
       const updatedMessageData: ScheduledMessage = {
         ...currentScheduledMessage,
@@ -3390,7 +3431,7 @@ const resetForm = () => {
         mimeType: editMediaFile ? editMediaFile.type : (editDocumentFile ? editDocumentFile.type : currentScheduledMessage.mimeType),
         repeatInterval: currentScheduledMessage.repeatInterval || 0,
         repeatUnit: currentScheduledMessage.repeatUnit || 'days',
-        scheduledTime: currentScheduledMessage.scheduledTime,
+        scheduledTime: scheduledTime,
         status: 'scheduled',
         v2: currentScheduledMessage.v2 || false,
         whapiToken: currentScheduledMessage.whapiToken || undefined,
