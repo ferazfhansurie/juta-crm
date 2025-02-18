@@ -7886,7 +7886,7 @@ ${context}
                             }}
                           />
                             {message.image?.caption && (
-                              <p className="mt-2 text-sm">{message.image.caption}</p>
+                              <p className="mt-2 text-sm text-gray-800 dark:text-gray-200">{message.image.caption}</p>
                             )}
                         </div>
                       )}
