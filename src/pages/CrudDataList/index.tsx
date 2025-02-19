@@ -290,7 +290,7 @@ function Main() {
   const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [companyId, setCompanyId] = useState<string>("");
   const [showAllMessages, setShowAllMessages] = useState(false);
-  const [phoneIndex, setPhoneIndex] = useState<number>(0);
+  const [phoneIndex, setPhoneIndex] = useState<number | null>(null);
   const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
   const [phoneNames, setPhoneNames] = useState<{ [key: number]: string }>({});
   const [employeeSearch, setEmployeeSearch] = useState('');
@@ -2636,36 +2636,17 @@ const combineScheduledMessages = (messages: ScheduledMessage[]): ScheduledMessag
   const combinedMessages: { [key: string]: ScheduledMessage } = {};
 
   messages.forEach(message => {
-    // Convert scheduledTime to Timestamp if needed
-    let scheduledTime: any = message.scheduledTime;
-    let timestamp: Timestamp;
-
-    if (scheduledTime instanceof Timestamp) {
-      timestamp = scheduledTime;
-    } else if (scheduledTime instanceof Date) {
-      timestamp = Timestamp.fromDate(scheduledTime);
-    } else if (scheduledTime && typeof scheduledTime === 'object' && 'seconds' in scheduledTime) {
-      timestamp = new Timestamp(
-        scheduledTime.seconds as number,
-        (scheduledTime as { nanoseconds?: number }).nanoseconds || 0
-      );
-    } else {
-      // Default to current time if invalid
-      timestamp = Timestamp.now();
-      console.warn('Invalid scheduledTime found, defaulting to current time');
-    }
-
-    const key = `${message.message}-${timestamp.toMillis()}`;
+    const key = `${message.message}-${message.scheduledTime.toDate().getTime()}`;
     if (combinedMessages[key]) {
       combinedMessages[key].count = (combinedMessages[key].count || 1) + 1;
     } else {
-      combinedMessages[key] = { ...message, scheduledTime: timestamp, count: 1 };
+      combinedMessages[key] = { ...message, count: 1 };
     }
   });
 
   // Convert the object to an array and sort it
   return Object.values(combinedMessages).sort((a, b) => 
-    a.scheduledTime.toMillis() - b.scheduledTime.toMillis()
+    compareAsc(a.scheduledTime.toDate(), b.scheduledTime.toDate())
   );
 };
 
@@ -3336,6 +3317,16 @@ const resetForm = () => {
     }
   };
 
+  interface MessageContent {
+    [key: string]: string;
+    text: string;
+    type: string;
+    url: string;
+    mimeType: string;
+    fileName: string;
+    caption: string;
+  }
+
   const handleSaveScheduledMessage = async () => {
     if (!currentScheduledMessage) return;
   
@@ -3361,7 +3352,7 @@ const resetForm = () => {
         newMediaUrl = await uploadFile(editMediaFile);
       }
   
-      // Upload new document file if it exists
+      // Upload new document file if exists
       let newDocumentUrl = currentScheduledMessage.documentUrl;
       let newFileName = currentScheduledMessage.fileName;
       if (editDocumentFile) {
@@ -3373,12 +3364,11 @@ const resetForm = () => {
       const processedMessages = await Promise.all(
         currentScheduledMessage.chatIds.map(async (chatId) => {
           const phoneNumber = chatId.split('@')[0];
-          const contact = contacts.find(c => c.phone?.replace(/\D/g, '') === 
-          phoneNumber);
+          const contact = contacts.find(c => c.phone?.replace(/\D/g, '') === phoneNumber);
           
           if (!contact) {
             console.warn(`No contact found for chatId: ${chatId}`);
-            return { text: blastMessage };
+            return { text: blastMessage, type: 'text' };
           }
   
           // Process message with contact data
@@ -3393,9 +3383,48 @@ const resetForm = () => {
             .replace(/@{expiryDate}/g, contact.expiryDate || '')
             .replace(/@{ic}/g, contact.ic || '');
   
-          return { text: processedMessage };
+          return { text: processedMessage, type: 'text' };
         })
       );
+
+      // Create an array of messages with media/document first
+      const orderedMessages: MessageContent[] = [];
+      
+      // Add media message if exists
+      if (newMediaUrl) {
+        orderedMessages.push({
+          type: 'media',
+          text: '', // Required by interface
+          url: newMediaUrl || '',
+          mimeType: editMediaFile?.type || currentScheduledMessage.mimeType || '',
+          caption: '', // You can add caption if needed
+          fileName: '' // Required by index signature
+        });
+      }
+
+      // Add document message if exists
+      if (newDocumentUrl) {
+        orderedMessages.push({
+          type: 'document',
+          text: '', // Required by interface
+          url: newDocumentUrl || '',
+          fileName: newFileName || '',
+          mimeType: editDocumentFile?.type || currentScheduledMessage.mimeType || '',
+          caption: '' // You can add caption if needed
+        });
+      }
+
+      // Add text messages
+      processedMessages.forEach(msg => {
+        orderedMessages.push({
+          type: 'text',
+          text: msg.text,
+          url: '',
+          mimeType: '',
+          fileName: '',
+          caption: ''
+        });
+      });
   
       // Ensure scheduledTime is a proper Firestore Timestamp
       let scheduledTime: any = currentScheduledMessage.scheduledTime;
@@ -3421,7 +3450,7 @@ const resetForm = () => {
       const updatedMessageData: ScheduledMessage = {
         ...currentScheduledMessage,
         message: blastMessage, // Store the main message
-        messages: processedMessages.slice(1), // Store additional messages if any
+        messages: orderedMessages, // Use the ordered messages array
         messageDelays: currentScheduledMessage.messageDelays || [],
         batchQuantity: currentScheduledMessage.batchQuantity || 10,
         createdAt: currentScheduledMessage.createdAt || Timestamp.now(),
@@ -3897,8 +3926,47 @@ const resetForm = () => {
 
   // Add these to your existing state declarations
   const [qrCodes, setQrCodes] = useState<QRCodeData[]>([]);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
+  const [selectedPhone, setSelectedPhone] = useState<number | null>(null);
 
-  // Add this helper function
+  // Add this helper function to get status color and text
+  const getStatusInfo = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'ready':
+      case 'authenticated':
+        return {
+          color: 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200',
+          text: 'Connected',
+          icon: 'CheckCircle' as const
+        };
+      case 'qr':
+        return {
+          color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200',
+          text: 'Needs QR Scan',
+          icon: 'QrCode' as const
+        };
+      case 'connecting':
+        return {
+          color: 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200',
+          text: 'Connecting',
+          icon: 'Loader' as const
+        };
+      case 'disconnected':
+        return {
+          color: 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200',
+          text: 'Disconnected',
+          icon: 'XCircle' as const
+        };
+      default:
+        return {
+          color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+          text: 'Unknown',
+          icon: 'HelpCircle' as const
+        };
+    }
+  };
+
+  // Add this helper function to get phone name
   const getPhoneName = (phoneIndex: number) => {
     if (companyId === '0123') {
       return phoneIndex === 0 ? 'Revotrend' : phoneIndex === 1 ? 'Storeguru' : 'ShipGuru';
@@ -3906,9 +3974,11 @@ const resetForm = () => {
     return `Phone ${phoneIndex + 1}`;
   };
 
+  // Add this effect to fetch phone statuses periodically
   useEffect(() => {
     const fetchPhoneStatuses = async () => {
       try {
+        setIsLoadingStatus(true);
         const docRef = doc(firestore, 'companies', companyId);
         const docSnapshot = await getDoc(docRef);
         
@@ -3932,20 +4002,33 @@ const resetForm = () => {
         if (botStatusResponse.status === 200) {
           const qrCodesData = Array.isArray(botStatusResponse.data) 
             ? botStatusResponse.data 
-            : [];
+            : [botStatusResponse.data];
           setQrCodes(qrCodesData);
+
+          // If no phone is selected and we have connected phones, select the first connected one
+          if (selectedPhone === null) {
+            const connectedPhoneIndex = qrCodesData.findIndex(
+              phone => phone.status === 'ready' || phone.status === 'authenticated'
+            );
+            if (connectedPhoneIndex !== -1) {
+              setSelectedPhone(connectedPhoneIndex);
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching phone statuses:', error);
+      } finally {
+        setIsLoadingStatus(false);
       }
     };
 
     if (companyId) {
       fetchPhoneStatuses();
+      // Refresh status every 30 seconds
+      const intervalId = setInterval(fetchPhoneStatuses, 30000);
+      return () => clearInterval(intervalId);
     }
-  }, [companyId]);
-
-  
+  }, [companyId, selectedPhone]);
 
   const filterRecipients = (chatIds: string[], search: string) => {
     return chatIds.filter(chatId => {
@@ -6258,40 +6341,39 @@ const getFilteredScheduledMessages = () => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="phone">
               Phone
             </label>
-            <select
-              id="phone"
-              name="phone"
-              value={phoneIndex}
-              onChange={(e) => setPhoneIndex(parseInt(e.target.value))}
-              className="mt-1 text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
-            >
-              <option value="">Select a phone</option>
-              {Object.entries(phoneNames).map(([index, phoneName]) => {
-                return (
-                  <option 
-                    key={index} 
-                    value={parseInt(index) - 1}
-                  >
-                    {phoneName}
-                  </option>
-                );
-              })}
-            </select>
-            {phoneIndex !== null && phoneIndex >= 0 && (
-              <div className="mt-1">
-                <span 
-                  className={
-                    qrCodes[phoneIndex]?.status === 'ready' || qrCodes[phoneIndex]?.status === 'authenticated'
-                      ? 'text-green-600 text-sm'
-                      : 'text-red-600 text-sm'
-                  }
-                >
-                  Status: {
-                    qrCodes[phoneIndex]?.status === 'ready' || qrCodes[phoneIndex]?.status === 'authenticated'
-                      ? 'Connected'
-                      : 'Not Connected'
-                  }
-                </span>
+            <div className="relative mt-1">
+              <select
+                id="phone"
+                name="phone"
+                value={phoneIndex || 0}
+                onChange={(e) => setPhoneIndex(Number(e.target.value))}
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200"
+              >
+                {qrCodes.map((phone, index) => {
+                  const statusInfo = getStatusInfo(phone.status);
+                  return (
+                    <option 
+                      key={index} 
+                      value={index}
+                    >
+                      {`${getPhoneName(index)} - ${statusInfo.text}`}
+                    </option>
+                  );
+                })}
+              </select>
+              {isLoadingStatus && (
+                <div className="absolute right-10 top-1/2 transform -translate-y-1/2">
+                  <LoadingIcon icon="three-dots" className="w-4 h-4" />
+                </div>
+              )}
+              <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                <Lucide icon="ChevronDown" className="w-4 h-4 text-gray-400" />
+              </div>
+            </div>
+            {phoneIndex !== null && qrCodes[phoneIndex] && (
+              <div className={`mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusInfo(qrCodes[phoneIndex].status).color}`}>
+                <Lucide icon={getStatusInfo(qrCodes[phoneIndex].status).icon} className="w-4 h-4 mr-1" />
+                {getStatusInfo(qrCodes[phoneIndex].status).text}
               </div>
             )}
           </div>
