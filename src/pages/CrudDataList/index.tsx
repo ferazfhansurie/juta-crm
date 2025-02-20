@@ -2722,8 +2722,16 @@ const sendBlastMessage = async () => {
     return;
   }
 
+  // Set phoneIndex to 0 if it's null or undefined
   if (phoneIndex === undefined || phoneIndex === null) {
-    toast.error("Please select a phone to send from");
+    setPhoneIndex(0);
+  }
+
+  const effectivePhoneIndex = phoneIndex ?? 0;
+
+  // Check if the selected phone is connected
+  if (!qrCodes[effectivePhoneIndex] || !['ready', 'authenticated'].includes(qrCodes[effectivePhoneIndex].status?.toLowerCase())) {
+    toast.error("Selected phone is not connected. Please select a connected phone.");
     return;
   }
 
@@ -2799,9 +2807,8 @@ const sendBlastMessage = async () => {
     const scheduledMessageData = {
       chatIds,
       phoneIndex,
-      // First message goes in the original message field
+      // Only include text messages, since media is sent separately
       message: messages[0].text,
-      // Additional messages go in the messages array
       messages: messages.slice(1).map(msg => ({
         text: msg.text
       })),
@@ -2809,10 +2816,6 @@ const sendBlastMessage = async () => {
       batchQuantity,
       companyId,
       createdAt: Timestamp.now(),
-      documentUrl,
-      fileName,
-      mediaUrl,
-      mimeType,
       repeatInterval,
       repeatUnit,
       scheduledTime: Timestamp.fromDate(new Date(
@@ -2838,9 +2841,66 @@ const sendBlastMessage = async () => {
       numberOfBatches: 1
     };
 
+    // If there's media, send it first
+    if (mediaUrl || documentUrl) {
+      // Set media message to be sent 1 minute before the text messages
+      const mediaScheduledTime = new Date(
+        blastStartDate.getFullYear(),
+        blastStartDate.getMonth(),
+        blastStartDate.getDate(),
+        blastStartTime?.getHours() || 0,
+        (blastStartTime?.getMinutes() || 0) - 1 // Schedule 1 minute earlier
+      );
 
+      const mediaMessageData = {
+        chatIds,
+        phoneIndex,
+        mediaUrl,
+        documentUrl,
+        fileName,
+        mimeType,
+        message: '', // No caption
+        companyId,
+        createdAt: Timestamp.now(),
+        scheduledTime: Timestamp.fromDate(mediaScheduledTime),
+        status: "scheduled",
+        v2: isV2,
+        whapiToken: isV2 ? null : whapiToken,
+        batchQuantity: batchQuantity || 1,
+        minDelay: minDelay || 0,
+        maxDelay: maxDelay || 0,
+        // Add these required fields that were missing
+        repeatInterval: 0,
+        repeatUnit: 'days',
+        activateSleep: false,
+        sleepAfterMessages: null,
+        sleepDuration: null,
+        activeHours: {
+          start: activeTimeStart,
+          end: activeTimeEnd
+        },
+        infiniteLoop: false,
+        numberOfBatches: 1,
+        messages: [], // Empty array for additional messages
+        messageDelays: [], // Empty array for delays
+      };
 
-    // Make API call to schedule the messages
+      try {
+        // Send media first
+        const mediaResponse = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, mediaMessageData);
+        if (!mediaResponse.data.success) {
+          throw new Error(mediaResponse.data.message || "Failed to schedule media message");
+        }
+      } catch (error) {
+        console.error('Error scheduling media message:', error);
+        if (axios.isAxiosError(error) && error.response?.data) {
+          console.error('Server error details:', error.response.data);
+        }
+        throw error; // Re-throw to be caught by outer try-catch
+      }
+    }
+
+    // Then schedule the text messages with original scheduled time
     const response = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, scheduledMessageData);
 
     if (response.data.success) {
