@@ -7000,24 +7000,25 @@ ${context}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           companyId={currentCompanyId || ''}
-          onSelectResult={(type, id) => {
-            if (type === 'contact' || type === 'chat') {
-              const contact = contacts.find(c => type === 'contact' ? c.id === id : c.chat_id === id);
+          onSelectResult={(type, id, contactId) => {
+            if (type === 'contact') {
+              const contact = contacts.find(c => c.id === id);
               if (contact) {
                 selectChat(contact.chat_id!, contact.id!, contact);
               }
             } else if (type === 'message') {
-              const result = globalSearchResults.find(r => r.id === id);
-              if (result) {
-                const contact = contacts.find(c => c.id === result.contactId);
-                if (contact) {
-                  selectChat(contact.chat_id!, contact.id!, contact);
-                  scrollToMessage(result.id);
-                }
+              const contact = contacts.find(c => c.id === contactId);
+              if (contact) {
+                // First select the chat
+                selectChat(contact.chat_id!, contact.id!, contact).then(() => {
+                  // After chat is loaded and messages are fetched, scroll to the message
+                  setTimeout(() => {
+                    scrollToMessage(id);
+                  }, 1000); // Give time for messages to load
+                });
               }
             }
             setIsSearchModalOpen(false);
-            setSearchQuery('');
           }}
           contacts={contacts}
         />
@@ -8316,12 +8317,6 @@ ${context}
 </button>
             </Menu.Items>
           </Menu>
-          <button className="p-2 m-0 !box" onClick={handleQR}>
-            <span className="flex items-center justify-center w-5 h-5">
-              <Lucide icon='Zap' className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-            </span>
-          </button>
-
           <button className="p-2 m-0 !box ml-2" onClick={toggleRecordingPopup}>
         <span className="flex items-center justify-center w-5 h-5">
           <Lucide icon="Mic" className="w-5 h-5 text-gray-800 dark:text-gray-200" />

@@ -312,33 +312,64 @@ function Main() {
   const [infiniteLoop, setInfiniteLoop] = useState(false);
   const [showScheduledMessages, setShowScheduledMessages] = useState<boolean>(true);
   // First, add a state to track visible columns
-  const [visibleColumns, setVisibleColumns] = useState<{ [key: string]: boolean }>({
-    checkbox: true,  // Make sure this is included and set to true
+  const defaultVisibleColumns = {
+    checkbox: true,
     contact: true,
     phone: true,
     tags: true,
+    ic: true,
+    expiryDate: true,
+    vehicleNumber: true,
+    branch: true,
+    points: true,
     notes: true,
+    actions: true
+  };
+
+  const defaultColumnOrder = [
+    'checkbox',
+    'contact',
+    'phone',
+    'tags',
+    'ic',
+    'expiryDate',
+    'vehicleNumber',
+    'branch',
+    'points',
+    'notes',
+    'actions'
+  ];
+
+  const [visibleColumns, setVisibleColumns] = useState<{ [key: string]: boolean }>({
+    ...defaultVisibleColumns,
     ...contacts[0]?.customFields ? 
     Object.keys(contacts[0].customFields).reduce((acc, field) => ({
       ...acc,
       [`customField_${field}`]: true
-    }), {}) : {},
-    actions: true,
+    }), {}) : {}
   });
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     const saved = localStorage.getItem('contactsColumnOrder');
-    return saved ? JSON.parse(saved) : [
-      'checkbox',
-      'contact',
-      'phone',
-      'tags',
-      'points',
-      'notes',
-      'actions',
+    if (saved) {
+      const parsedOrder = JSON.parse(saved);
+      // Ensure all default columns are included
+      const missingColumns = defaultColumnOrder.filter(col => !parsedOrder.includes(col));
+      return [...parsedOrder, ...missingColumns];
+    }
+    return [
+      ...defaultColumnOrder,
       ...Object.keys(contacts[0]?.customFields || {}).map(field => `customField_${field}`)
     ];
   });
+
+  // Add a useEffect to ensure columns stay visible after data updates
+  useEffect(() => {
+    setVisibleColumns(prev => ({
+      ...defaultVisibleColumns,
+      ...prev
+    }));
+  }, []);
 
   // Add this handler function
   const handleColumnReorder = (result: DropResult) => {
@@ -3857,118 +3888,163 @@ const resetForm = () => {
         'postalCode': ['postalcode', 'postal code', 'zip', 'zip code', 'postcode'],
         'country': ['country', 'nation'],
         'branch': ['branch', 'department', 'location'],
-        'expiryDate': ['expirydate', 'expiry date', 'expiration', 'expire date'],
+        'expiryDate': ['expirydate', 'expiry date', 'expiration', 'expire date', 'expiry', 'expiryDate'],
         'vehicleNumber': ['vehiclenumber', 'vehicle number', 'vehicle no', 'car number'],
         'points': ['points', 'reward points'],
-        'IC': ['ic', 'identification', 'id number'],
-        'Notes': ['notes', 'note', 'comments', 'remarks'] // Added Notes field mapping
+        'ic': ['ic', 'identification', 'id number', 'IC'],
+        'Notes': ['notes', 'note', 'comments', 'remarks']
       };
   
        // Validate and prepare contacts for import
       const validContacts = csvContacts.map(contact => {
         const baseContact: any = {
           customFields: {},
-          tags: [...selectedImportTags], // Add selected import tags here
+          tags: [...selectedImportTags],
           updatedAt: Timestamp.now(),
           updatedBy: user.email,
           createdAt: Timestamp.now(),
-          createdBy: user.email
+          createdBy: user.email,
+          // Initialize these fields explicitly
+          ic: null,
+          expiryDate: null,
+          vehicleNumber: null,
+          branch: null,
+          contactName: null,
+          email: null,
+          phone: null,
+          address1: null
         };
 
         // Process each field in the CSV contact
-      Object.entries(contact).forEach(([header, value]) => {
-        const headerLower = header.toLowerCase().trim();
-        
-                // Check if the header is a tag column (tag 1 through tag 10)
-                const tagMatch = headerLower.match(/^tag\s*(\d+)$/);
-                if (tagMatch && Number(tagMatch[1]) <= 10) {
-                  // If value exists and isn't empty, add it to tags array
-                  if (value && typeof value === 'string' && value.trim()) {
-                    baseContact.tags.push(value.trim());
-                  }
-                  return; // Skip further processing for tag columns
-                }
-        
-        // Try to match with standard fields
-        let matched = false;
-        for (const [fieldName, aliases] of Object.entries(standardFields)) {
-          // Convert both the header and aliases to lowercase for comparison
-          if (aliases.includes(headerLower) || headerLower === fieldName.toLowerCase()) {
-            if (fieldName === 'phone') {
-              const cleanedPhone = cleanPhoneNumber(value as string);
-              if (cleanedPhone) {
-                baseContact[fieldName] = cleanedPhone;
-              }
-            } else if (fieldName === 'Notes') {
-              // Ensure Notes field is properly capitalized
-              baseContact['Notes'] = value || '';
-            } else {
-              baseContact[fieldName] = value || '';
+        Object.entries(contact).forEach(([header, value]) => {
+          const headerLower = header.toLowerCase().trim();
+          
+          // Debug logging
+          console.log('Processing header:', header, 'with value:', value);
+          
+          // Check if the header is a tag column (tag 1 through tag 10)
+          const tagMatch = headerLower.match(/^tag\s*(\d+)$/);
+          if (tagMatch && Number(tagMatch[1]) <= 10) {
+            if (value && typeof value === 'string' && value.trim()) {
+              baseContact.tags.push(value.trim());
             }
-            matched = true;
-            break;
+            return;
           }
-        }
+          
+          // Try to match with standard fields
+          let matched = false;
+          for (const [fieldName, aliases] of Object.entries(standardFields)) {
+            // Convert both the header and aliases to lowercase for comparison
+            const fieldNameLower = fieldName.toLowerCase();
+            if (aliases.map(a => a.toLowerCase()).includes(headerLower) || headerLower === fieldNameLower) {
+              console.log('Matched field:', fieldName, 'for header:', header); // Debug logging
+              
+              if (fieldName === 'phone') {
+                const cleanedPhone = cleanPhoneNumber(value as string);
+                if (cleanedPhone) {
+                  baseContact[fieldName] = cleanedPhone;
+                  console.log(`Set phone to: ${cleanedPhone}`);
+                }
+              } else if (fieldName === 'Notes') {
+                baseContact['Notes'] = value || '';
+              } else if (fieldName === 'expiryDate' || fieldName === 'ic') {
+                // Handle these fields explicitly and log the assignment
+                baseContact[fieldName] = value || null;
+                console.log(`Setting ${fieldName} to:`, value);
+              } else {
+                baseContact[fieldName] = value || '';
+                console.log(`Set ${fieldName} to: ${value}`);
+              }
+              matched = true;
+              break;
+            }
+          }
 
-        // If no match found and value exists, add as custom field
-        if (!matched && value && !header.match(/^\d+$/)) {
-          baseContact.customFields[header] = value;
-        }
+          // If no match found and value exists, add as custom field
+          if (!matched && value && !header.match(/^\d+$/)) {
+            console.log('Adding as custom field:', header); // Debug logging
+            baseContact.customFields[header] = value;
+          }
+        });
+
+        // Debug logging for final contact
+        console.log('Final contact object:', JSON.stringify(baseContact, null, 2));
+
+        baseContact.tags = [...new Set(baseContact.tags)];
+        return baseContact;
       });
 
-      baseContact.tags = [...new Set(baseContact.tags)];
+      // Log the first contact after processing
+      if (validContacts.length > 0) {
+        console.log('First processed contact:', JSON.stringify(validContacts[0], null, 2));
+      }
 
-
-      return baseContact;
-    });
-  
       // Filter out contacts without valid phone numbers
-      const validContactsWithPhone = validContacts.filter(contact => contact.phone);
-  
-      if (validContactsWithPhone.length === 0) {
+      const contactsWithValidPhones = validContacts.filter(contact => contact.phone);
+
+      if (contactsWithValidPhones.length === 0) {
         throw new Error('No valid contacts found in CSV. Please ensure phone numbers are present.');
       }
-  
-      if (validContactsWithPhone.length < validContacts.length) {
-        toast.warning(`Skipped ${validContacts.length - validContactsWithPhone.length} contacts due to invalid phone numbers.`);
+
+      if (contactsWithValidPhones.length < validContacts.length) {
+        toast.warning(`Skipped ${validContacts.length - contactsWithValidPhones.length} contacts due to invalid phone numbers.`);
       }
-  
+
       // Create contacts in batches
       const batchSize = 500;
       const batches = [];
-      
-      for (let i = 0; i < validContactsWithPhone.length; i += batchSize) {
+
+      for (let i = 0; i < contactsWithValidPhones.length; i += batchSize) {
         const batch = writeBatch(firestore);
-        const batchContacts = validContactsWithPhone.slice(i, i + batchSize);
-  
+        const batchContacts = contactsWithValidPhones.slice(i, i + batchSize);
+
         for (const contact of batchContacts) {
           const contactRef = doc(firestore, `companies/${companyId}/contacts`, contact.phone);
           batch.set(contactRef, contact, { merge: true });
         }
-  
+
         batches.push(batch.commit());
       }
   
       await Promise.all(batches);
-  
+
       // Update UI with new custom fields
       const newCustomFields = new Set<string>();
-      validContactsWithPhone.forEach(contact => {
-        Object.keys(contact.customFields).forEach(field => newCustomFields.add(field));
+      const standardFieldsToShow = new Set<string>();
+
+      // Add all standard fields that have data
+      contactsWithValidPhones.forEach((contact: Contact) => {
+        // Add custom fields
+        Object.keys(contact.customFields || {}).forEach(field => newCustomFields.add(field));
+        
+        // Add standard fields that have values
+        Object.entries(contact).forEach(([key, value]) => {
+          if (value !== null && value !== undefined && key !== 'customFields' && key !== 'tags' && 
+              key !== 'updatedAt' && key !== 'updatedBy' && key !== 'createdAt' && key !== 'createdBy') {
+            standardFieldsToShow.add(key);
+          }
+        });
       });
-  
-      if (newCustomFields.size > 0) {
+
+      // Update visible columns with both standard and custom fields
+      if (newCustomFields.size > 0 || standardFieldsToShow.size > 0) {
         setVisibleColumns(prev => ({
           ...prev,
+          // Add standard fields
+          ...Array.from(standardFieldsToShow).reduce((acc, field) => ({
+            ...acc,
+            [field]: true
+          }), {}),
+          // Add custom fields
           ...Array.from(newCustomFields).reduce((acc, field) => ({
             ...acc,
             [field]: true
           }), {})
         }));
       }
-  
+
       // Success cleanup
-      toast.success(`Successfully imported ${validContactsWithPhone.length} contacts!`);
+      toast.success(`Successfully imported ${contactsWithValidPhones.length} contacts!`);
       setShowCsvImportModal(false);
       setSelectedCsvFile(null);
       setSelectedImportTags([]);
@@ -5153,9 +5229,11 @@ const getFilteredScheduledMessages = () => {
                 contact: true,
                 phone: true,
                 tags: true,
-                points: true,
+                ic: true,
+                expiryDate: true,
+                vehicleNumber: true,
+                branch: true,
                 notes: true,
-                actions: true,
                 // Add any other default columns you want to include
               });
             }
@@ -5248,9 +5326,7 @@ const getFilteredScheduledMessages = () => {
                                 {columnId === 'checkbox' && (
                                   <input
                                     type="checkbox"
-                                    checked={currentContacts.length > 0 && currentContacts.every(contact => 
-                                      selectedContacts.some(sc => sc.phone === contact.phone)
-                                    )}
+                                    checked={currentContacts.length > 0 && currentContacts.every(contact => selectedContacts.some(c => c.phone === contact.phone))}
                                     onChange={() => handleSelectCurrentPage()}
                                     className="rounded border-gray-300"
                                   />
@@ -5290,6 +5366,62 @@ const getFilteredScheduledMessages = () => {
                                   >
                                     Tags
                                     {sortField === 'tags' && (
+                                      <Lucide 
+                                        icon={sortDirection === 'asc' ? 'ChevronUp' : 'ChevronDown'} 
+                                        className="w-4 h-4 ml-1"
+                                      />
+                                    )}
+                                  </div>
+                                )}
+                                {columnId === 'ic' && (
+                                  <div 
+                                    className="flex items-center"
+                                    onClick={() => handleSort('ic')}
+                                  >
+                                    IC
+                                    {sortField === 'ic' && (
+                                      <Lucide 
+                                        icon={sortDirection === 'asc' ? 'ChevronUp' : 'ChevronDown'} 
+                                        className="w-4 h-4 ml-1"
+                                      />
+                                    )}
+                                  </div>
+                                )}
+                                {columnId === 'expiryDate' && (
+                                  <div 
+                                    className="flex items-center"
+                                    onClick={() => handleSort('expiryDate')}
+                                  >
+                                    Expiry Date
+                                    {sortField === 'expiryDate' && (
+                                      <Lucide 
+                                        icon={sortDirection === 'asc' ? 'ChevronUp' : 'ChevronDown'} 
+                                        className="w-4 h-4 ml-1"
+                                      />
+                                    )}
+                                  </div>
+                                )}
+                                {columnId === 'vehicleNumber' && (
+                                  <div 
+                                    className="flex items-center"
+                                    onClick={() => handleSort('vehicleNumber')}
+                                  >
+                                    Vehicle Number
+                                    {sortField === 'vehicleNumber' && (
+                                      <Lucide 
+                                        icon={sortDirection === 'asc' ? 'ChevronUp' : 'ChevronDown'} 
+                                        className="w-4 h-4 ml-1"
+                                      />
+                                    )}
+                                  </div>
+                                )}
+                                {columnId === 'branch' && (
+                                  <div 
+                                    className="flex items-center"
+                                    onClick={() => handleSort('branch')}
+                                  >
+                                    Branch
+                                    {sortField === 'branch' && (
                                       <Lucide 
                                         icon={sortDirection === 'asc' ? 'ChevronUp' : 'ChevronDown'} 
                                         className="w-4 h-4 ml-1"
@@ -5472,6 +5604,16 @@ const getFilteredScheduledMessages = () => {
                                 <Lucide icon="Trash" className="w-5 h-5" />
                               </button>
                             </div>
+                          )}
+                          {columnId === 'ic' && (
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {contact.ic || '-'}
+                            </span>
+                          )}
+                          {columnId === 'expiryDate' && (
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {contact.expiryDate || '-'}
+                            </span>
                           )}
                           {columnId.startsWith('customField_') && (
                             <span className="text-gray-600 dark:text-gray-400">
