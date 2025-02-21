@@ -8317,6 +8317,11 @@ ${context}
 </button>
             </Menu.Items>
           </Menu>
+          <button className="p-2 m-0 !box" onClick={handleQR}>
+            <span className="flex items-center justify-center w-5 h-5">
+              <Lucide icon='Zap' className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+            </span>
+          </button>
           <button className="p-2 m-0 !box ml-2" onClick={toggleRecordingPopup}>
         <span className="flex items-center justify-center w-5 h-5">
           <Lucide icon="Mic" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
