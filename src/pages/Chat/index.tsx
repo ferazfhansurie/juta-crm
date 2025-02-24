@@ -4347,6 +4347,15 @@ const [paginatedContacts, setPaginatedContacts] = useState<Contact[]>([]);
 }, [filteredContacts, paginatedContacts, activeTags]);
 
 useEffect(() => {
+
+  console.log('userData', userData);
+
+  if(userData?.viewEmployee){
+    setPaginatedContacts(contacts.filter(contact => 
+      contact.assignedTo?.toLowerCase() === userData?.viewEmployee?.name?.toLowerCase() ||
+      contact.tags?.some(tag => tag.toLowerCase() === userData?.viewEmployee?.name?.toLowerCase())
+    ));
+  }
   let filtered = contacts;
 
   // Apply role-based filtering

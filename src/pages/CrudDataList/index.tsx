@@ -2199,8 +2199,8 @@ if (matchingTemplate) {
 
   const navigate = useNavigate(); // Initialize useNavigate
   const handleClick = (phone: any) => {
-const tempphone = phone.split('+')[1];
-const chatId = tempphone + "@c.us"
+  const tempphone = phone.split('+')[1];
+  const chatId = tempphone + "@c.us"
     navigate(`/chat/?chatId=${chatId}`);
   };
   async function searchContacts(accessToken: string, locationId: string) {
@@ -5720,7 +5720,7 @@ const getFilteredScheduledMessages = () => {
                                 </span>
                                 <button
                                   className="absolute right-0 top-0 transform translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-red-500 hover:text-red-700"
-                                  onClick={(e) => {
+                                onClick={(e) => {
                                     e.stopPropagation();
                                     handleRemoveTag(contact.id!, tag);
                                   }}
