@@ -340,14 +340,33 @@ function Main() {
     'actions'
   ];
 
-  const [visibleColumns, setVisibleColumns] = useState<{ [key: string]: boolean }>({
-    ...defaultVisibleColumns,
-    ...contacts[0]?.customFields ? 
-    Object.keys(contacts[0].customFields).reduce((acc, field) => ({
-      ...acc,
-      [`customField_${field}`]: true
-    }), {}) : {}
+  const [visibleColumns, setVisibleColumns] = useState<{ [key: string]: boolean }>(() => {
+    const saved = localStorage.getItem('contactsVisibleColumns');
+    if (saved) {
+      const parsedColumns = JSON.parse(saved);
+      // Ensure essential columns are always visible
+      return {
+        ...parsedColumns,
+        checkbox: true,
+        contact: true,
+        phone: true,
+        actions: true
+      };
+    }
+    return {
+      ...defaultVisibleColumns,
+      ...contacts[0]?.customFields ? 
+      Object.keys(contacts[0].customFields).reduce((acc, field) => ({
+        ...acc,
+        [`customField_${field}`]: true
+      }), {}) : {}
+    };
   });
+
+  // Add this useEffect to save visible columns when they change
+  useEffect(() => {
+    localStorage.setItem('contactsVisibleColumns', JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     const saved = localStorage.getItem('contactsColumnOrder');
@@ -1813,7 +1832,7 @@ if (matchingTemplate) {
      } else {
        toast.info(`Tag "${tagName}" already exists for this contact`);
      }
-    } catch (error) {
+     } catch (error) {
       console.error('Error adding tag to contact:', error);
       toast.error('Failed to add tag to contact');
     }
@@ -2975,7 +2994,7 @@ const resetForm = () => {
   setActivateSleep(false);
   setSleepAfterMessages(10);
   setSleepDuration(30);
-};
+  };
 
   const sendImageMessage = async (id: string, imageUrl: string,caption?: string) => {
     try {
@@ -3678,21 +3697,25 @@ const resetForm = () => {
     if (contacts.length > 0) {
       const firstContact = contacts[0];
       
-      // Update visible columns
-      setVisibleColumns(prev => ({
-        ...prev,
-        ...(firstContact.customFields ? 
-          Object.keys(firstContact.customFields).reduce((acc, field) => ({
-            ...acc,
-            [field]: true
-          }), {})
-        : {})
-      }));
+      // Only add new custom fields to visible columns
+      if (firstContact.customFields) {
+        setVisibleColumns(prev => {
+          const newColumns = { ...prev };
+          Object.keys(firstContact.customFields || {}).forEach(field => {
+            if (!(field in prev)) {
+              newColumns[field] = true;
+            }
+          });
+          // Save to localStorage after updating
+          localStorage.setItem('contactsVisibleColumns', JSON.stringify(newColumns));
+          return newColumns;
+        });
+      }
 
       // Update column order if new fields are found
       setColumnOrder(prev => {
         const customFields = firstContact.customFields ? 
-          Object.keys(firstContact.customFields).map(field => `customField_${field}`) 
+          Object.keys(firstContact.customFields).map(field => `customField_${field}`)
           : [];
         
         const existingCustomFields = prev.filter(col => col.startsWith('customField_'));
@@ -3702,7 +3725,9 @@ const resetForm = () => {
         
         // Remove existing custom fields and add all custom fields before 'actions'
         const baseColumns = prev.filter(col => !col.startsWith('customField_') && col !== 'actions');
-        return [...baseColumns, ...customFields, 'actions'];
+        const newOrder = [...baseColumns, ...customFields, 'actions'];
+        localStorage.setItem('contactsColumnOrder', JSON.stringify(newOrder));
+        return newOrder;
       });
     }
   }, [contacts]);
