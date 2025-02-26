@@ -125,8 +125,9 @@ function Main() {
     chatIds: string[];
     message: string;
     messages?: Array<{
-      [x: string]: string; text: string 
-}>;
+      [x: string]: string | boolean; // Changed to allow boolean values for isMain
+      text: string 
+    }>;
     messageDelays?: number[];
     mediaUrl?: string;
     documentUrl?: string;
@@ -179,6 +180,7 @@ function Main() {
       hasPlaceholders: boolean;
       placeholdersUsed: string[];
     };
+    isConsolidated?: boolean; // Added to indicate the new message structure
   }
   interface Message {
     text: string;
@@ -2853,15 +2855,39 @@ const sendBlastMessage = async () => {
       return phoneNumber ? phoneNumber + "@c.us" : null;
     }).filter(chatId => chatId !== null);
 
-    // Format the data in the original structure with support for multiple messages
+    // FIXED: Restructured to avoid duplicate message sends
+    // Instead of having both 'message' and 'messages', we'll only use 'messages'
+    // and make sure the server only processes this array
+    const allMessages = [];
+    
+    // Add first message to the array, which was previously in 'message' field
+    if (messages.length > 0 && messages[0].text.trim()) {
+      allMessages.push({
+        text: messages[0].text,
+        isMain: true, // Flag to indicate it's the main message
+        delayAfter: 0
+      });
+    }
+    
+    // Add additional messages
+    if (messages.length > 1) {
+      messages.slice(1).forEach((msg, idx) => {
+        if (msg.text.trim()) {
+          allMessages.push({
+            text: msg.text,
+            isMain: false,
+            delayAfter: msg.delayAfter || 0
+          });
+        }
+      });
+    }
+
     const scheduledMessageData = {
       chatIds,
       phoneIndex,
-      // Only include text messages, since media is sent separately
-      message: messages[0].text,
-      messages: messages.slice(1).map(msg => ({
-        text: msg.text
-      })),
+      // Include a comment indicating this is for backward compatibility
+      message: messages[0].text, // Keep for backward compatibility, but server should use messages array
+      messages: allMessages, // Use the consolidated messages array
       messageDelays: messages.slice(1).map(msg => msg.delayAfter),
       batchQuantity,
       companyId,
@@ -2888,7 +2914,9 @@ const sendBlastMessage = async () => {
         end: activeTimeEnd
       },
       infiniteLoop,
-      numberOfBatches: 1
+      numberOfBatches: 1,
+      // Flag to indicate the new message structure to avoid duplicates
+      isConsolidated: true
     };
 
     // If there's media, send it first
@@ -2933,6 +2961,7 @@ const sendBlastMessage = async () => {
         numberOfBatches: 1,
         messages: [], // Empty array for additional messages
         messageDelays: [], // Empty array for delays
+        isConsolidated: true // Add this flag for the new structure
       };
 
       try {
@@ -3325,33 +3354,64 @@ const resetForm = () => {
       const companyData = docSnapshot.data();
       const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
   
-      // Send messages to all recipients
-      const sendPromises = message.chatIds.map(async (chatId: string) => {
-        const response = await fetch(`${baseUrl}/api/v2/messages/text/${companyId}/${chatId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: message.message || '',
-            phoneIndex: message.phoneIndex || userData.phone || 0,
-            userName: userData.name || userData.email || ''
-          }),
+      // FIXED: Handle consolidated message structure to avoid duplicate sends
+      // Handle the new consolidated message structure
+      const isConsolidated = message.isConsolidated === true;
+      
+      // If using consolidated structure, only process the messages array
+      if (isConsolidated && Array.isArray(message.messages) && message.messages.length > 0) {
+        // Send messages to all recipients with proper structure
+        const sendPromises = message.chatIds.map(async (chatId: string) => {
+          // Only send the main message or first message from the array
+          const mainMessage = message.messages.find((msg: any) => msg.isMain === true) || message.messages[0];
+          
+          const response = await fetch(`${baseUrl}/api/v2/messages/text/${companyId}/${chatId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: mainMessage.text || '',
+              phoneIndex: message.phoneIndex || userData.phone || 0,
+              userName: userData.name || userData.email || ''
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to send message to ${chatId}`);
+          }
         });
-  
-        if (!response.ok) {
-          throw new Error(`Failed to send message to ${chatId}`);
-        }
-      });
-  
-      // Wait for all messages to be sent
-      await Promise.all(sendPromises);
-  
+
+        // Wait for all messages to be sent
+        await Promise.all(sendPromises);
+      } else {
+        // Backward compatibility: Handle the old message structure
+        // Send messages to all recipients
+        const sendPromises = message.chatIds.map(async (chatId: string) => {
+          const response = await fetch(`${baseUrl}/api/v2/messages/text/${companyId}/${chatId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: message.message || '',
+              phoneIndex: message.phoneIndex || userData.phone || 0,
+              userName: userData.name || userData.email || ''
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to send message to ${chatId}`);
+          }
+        });
+
+        // Wait for all messages to be sent
+        await Promise.all(sendPromises);
+      }
+
       // Delete the scheduled message
       if (message.id) {
         await deleteDoc(doc(firestore, `companies/${companyId}/scheduledMessages/${message.id}`));
         // Update local state to remove the message
         setScheduledMessages(prev => prev.filter(msg => msg.id !== message.id));
       }
-  
+
       toast.success('Messages sent successfully!');
     } catch (error) {
       console.error('Error sending messages:', error);
@@ -3427,8 +3487,7 @@ const resetForm = () => {
     }
   };
 
-  interface MessageContent {
-    [key: string]: string;
+  interface BaseMessageContent {
     text: string;
     type: string;
     url: string;
@@ -3437,39 +3496,82 @@ const resetForm = () => {
     caption: string;
   }
 
+  interface MessageContent extends BaseMessageContent {
+    isMain?: boolean;
+    [key: string]: string | boolean | undefined;
+  }
+
   const handleSaveScheduledMessage = async () => {
-    if (!currentScheduledMessage) return;
-  
     try {
+      // Validate required fields
+      if (!blastMessage.trim()) {
+        toast.error("Message text cannot be empty");
+        return;
+      }
+
+      if (!currentScheduledMessage) {
+        toast.error("No message selected for editing");
+        return;
+      }
+
+      if (currentScheduledMessage.chatIds.length === 0) {
+        toast.error("No recipients for this message");
+        return;
+      }
+
+      // Upload new media or document if provided
+      let newMediaUrl = currentScheduledMessage.mediaUrl || '';
+      let newDocumentUrl = currentScheduledMessage.documentUrl || '';
+      let newFileName = currentScheduledMessage.fileName || '';
+
+      if (editMediaFile) {
+        try {
+          newMediaUrl = await uploadFile(editMediaFile);
+        } catch (error) {
+          console.error('Error uploading media file:', error);
+          toast.error("Failed to upload media file");
+          return;
+        }
+      }
+
+      if (editDocumentFile) {
+        try {
+          newDocumentUrl = await uploadFile(editDocumentFile);
+          newFileName = editDocumentFile.name;
+        } catch (error) {
+          console.error('Error uploading document file:', error);
+          toast.error("Failed to upload document file");
+          return;
+        }
+      }
+
+      // Get user data and API URL
       const user = auth.currentUser;
-      if (!user) return;
-  
+      if (!user) {
+        toast.error("User not authenticated");
+        return;
+      }
+
       const docUserRef = doc(firestore, 'user', user.email!);
       const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
-  
+      if (!docUserSnapshot.exists()) {
+        toast.error("User data not found");
+        return;
+      }
+
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error('No company document found');
-      const companyData = docSnapshot.data();
+
+      const companyRef = doc(firestore, 'companies', companyId);
+      const companySnapshot = await getDoc(companyRef);
+      if (!companySnapshot.exists()) {
+        toast.error("Company data not found");
+        return;
+      }
+
+      const companyData = companySnapshot.data();
       const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-  
-      // Upload new media file if it exists
-      let newMediaUrl = currentScheduledMessage.mediaUrl;
-      if (editMediaFile) {
-        newMediaUrl = await uploadFile(editMediaFile);
-      }
-  
-      // Upload new document file if exists
-      let newDocumentUrl = currentScheduledMessage.documentUrl;
-      let newFileName = currentScheduledMessage.fileName;
-      if (editDocumentFile) {
-        newDocumentUrl = await uploadFile(editDocumentFile);
-        newFileName = editDocumentFile.name;
-      }
-  
+
       // Process messages for each contact
       const processedMessages = await Promise.all(
         currentScheduledMessage.chatIds.map(async (chatId) => {
@@ -3480,7 +3582,7 @@ const resetForm = () => {
             console.warn(`No contact found for chatId: ${chatId}`);
             return { text: blastMessage, type: 'text' };
           }
-  
+
           // Process message with contact data
           let processedMessage = blastMessage
             .replace(/@{contactName}/g, contact.contactName || '')
@@ -3492,50 +3594,51 @@ const resetForm = () => {
             .replace(/@{branch}/g, contact.branch || '')
             .replace(/@{expiryDate}/g, contact.expiryDate || '')
             .replace(/@{ic}/g, contact.ic || '');
-  
+
           return { text: processedMessage, type: 'text' };
         })
       );
 
-      // Create an array of messages with media/document first
-      const orderedMessages: MessageContent[] = [];
+      // FIXED: Create a consolidated messages array
+      const consolidatedMessages = [];
       
       // Add media message if exists
       if (newMediaUrl) {
-        orderedMessages.push({
+        consolidatedMessages.push({
           type: 'media',
           text: '', // Required by interface
           url: newMediaUrl || '',
           mimeType: editMediaFile?.type || currentScheduledMessage.mimeType || '',
           caption: '', // You can add caption if needed
-          fileName: '' // Required by index signature
+          fileName: '', // Required by index signature
+          isMain: false
         });
       }
 
       // Add document message if exists
       if (newDocumentUrl) {
-        orderedMessages.push({
+        consolidatedMessages.push({
           type: 'document',
           text: '', // Required by interface
           url: newDocumentUrl || '',
           fileName: newFileName || '',
           mimeType: editDocumentFile?.type || currentScheduledMessage.mimeType || '',
-          caption: '' // You can add caption if needed
+          caption: '', // You can add caption if needed
+          isMain: false
         });
       }
 
-      // Add text messages
-      processedMessages.forEach(msg => {
-        orderedMessages.push({
-          type: 'text',
-          text: msg.text,
-          url: '',
-          mimeType: '',
-          fileName: '',
-          caption: ''
-        });
+      // Add main text message
+      consolidatedMessages.push({
+        type: 'text',
+        text: blastMessage,
+        url: '',
+        mimeType: '',
+        fileName: '',
+        caption: '',
+        isMain: true
       });
-  
+
       // Ensure scheduledTime is a proper Firestore Timestamp
       let scheduledTime: any = currentScheduledMessage.scheduledTime;
       if (!(scheduledTime instanceof Timestamp)) {
@@ -3555,12 +3658,12 @@ const resetForm = () => {
           scheduledTime = Timestamp.now();
         }
       }
-  
+
       // Prepare the updated message data
       const updatedMessageData: ScheduledMessage = {
         ...currentScheduledMessage,
         message: blastMessage, // Store the main message
-        messages: orderedMessages, // Use the ordered messages array
+        messages: consolidatedMessages, // Use the consolidated messages array
         messageDelays: currentScheduledMessage.messageDelays || [],
         batchQuantity: currentScheduledMessage.batchQuantity || 10,
         createdAt: currentScheduledMessage.createdAt || Timestamp.now(),
@@ -3582,15 +3685,16 @@ const resetForm = () => {
         activeHours: currentScheduledMessage.activeHours || { start: '09:00', end: '17:00' },
         infiniteLoop: currentScheduledMessage.infiniteLoop || false,
         numberOfBatches: currentScheduledMessage.numberOfBatches || 1,
-        chatIds: currentScheduledMessage.chatIds
+        chatIds: currentScheduledMessage.chatIds,
+        isConsolidated: true // Add the flag to indicate this is using the new structure
       };
-  
+
       // Send PUT request to update the scheduled message
       const response = await axios.put(
         `${baseUrl}/api/schedule-message/${companyId}/${currentScheduledMessage.id}`,
         updatedMessageData
       );
-  
+
       if (response.status === 200) {
         // Update local state
         setScheduledMessages(prev => 
@@ -3600,7 +3704,7 @@ const resetForm = () => {
               : msg
           )
         );
-  
+
         setEditScheduledMessageModal(false);
         setEditMediaFile(null);
         setEditDocumentFile(null);
@@ -3611,7 +3715,7 @@ const resetForm = () => {
       } else {
         throw new Error("Failed to update scheduled message");
       }
-  
+
     } catch (error) {
       console.error("Error updating scheduled message:", error);
       toast.error("Failed to update scheduled message.");

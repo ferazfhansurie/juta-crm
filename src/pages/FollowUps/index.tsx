@@ -8,8 +8,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import Select from 'react-select';
 import { useNavigate } from 'react-router-dom';
 import MessagePreview from '@/components/MessagePreview';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { followUpService } from '@/services/FollowUpService';
+import { getFunctions } from 'firebase/functions';
 
 interface FollowUpTemplate {
     id: string;
@@ -185,7 +184,6 @@ const FollowUpsPage: React.FC = () => {
         },
         isNeverending: false
     });
-    const [isTestingFollowUp, setIsTestingFollowUp] = useState(false);
 
     useEffect(() => {
         fetchTags();
@@ -871,39 +869,6 @@ const FollowUpsPage: React.FC = () => {
         );
     };
 
-    const testFollowUpExecution = async (templateId: string) => {
-        try {
-            setIsTestingFollowUp(true);
-            
-            // First try the cloud function
-            const testFollowUpFn = httpsCallable(functions, 'testFollowUpExecution');
-            
-            try {
-                // Try cloud function first
-                const result = await testFollowUpFn({ templateId });
-                toast.success('Test follow-up scheduled successfully via cloud function!');
-                return;
-            } catch (cloudError) {
-                console.log('Cloud function error, falling back to client service...', cloudError);
-                
-                // Fall back to client-side service
-                const result = await followUpService.testFollowUpExecution(templateId);
-                
-                if (result.success) {
-                    toast.success(result.message);
-                } else {
-                    toast.error(result.message);
-                }
-            }
-        } catch (error) {
-            console.error('Error testing follow-up execution:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            toast.error(`Failed to test follow-up execution: ${errorMessage}`);
-        } finally {
-            setIsTestingFollowUp(false);
-        }
-    };
-
     return (
         <div className="flex flex-col h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
             {/* Header */}
@@ -986,16 +951,6 @@ const FollowUpsPage: React.FC = () => {
                                                 className="text-white bg-primary hover:bg-primary-dark"
                                             >
                                                 Edit
-                                            </Button>
-                                            <Button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    testFollowUpExecution(template.id);
-                                                }}
-                                                disabled={isTestingFollowUp}
-                                                className="text-white bg-amber-500 hover:bg-amber-600"
-                                            >
-                                                Test
                                             </Button>
                                             <Button
                                                 onClick={(e) => {
@@ -2215,38 +2170,6 @@ const FollowUpsPage: React.FC = () => {
                                 Create Template
                             </Button>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Testing Dialog */}
-            {isTestingFollowUp && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96 text-center">
-                        <svg
-                            className="animate-spin h-10 w-10 text-primary mx-auto mb-4"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                        >
-                            <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                            ></circle>
-                            <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                        </svg>
-                        <p className="text-lg font-semibold">Testing Follow-Up</p>
-                        <p className="text-sm text-gray-500 mt-2">
-                            Please wait while we schedule test messages...
-                        </p>
                     </div>
                 </div>
             )}
