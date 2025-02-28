@@ -2885,9 +2885,8 @@ const sendBlastMessage = async () => {
     const scheduledMessageData = {
       chatIds,
       phoneIndex,
-      // Include a comment indicating this is for backward compatibility
-      message: messages[0].text, // Keep for backward compatibility, but server should use messages array
-      messages: allMessages, // Use the consolidated messages array
+      // Remove the duplicate message field since we're using the consolidated messages array
+      messages: allMessages, // This will contain all messages including the main message
       messageDelays: messages.slice(1).map(msg => msg.delayAfter),
       batchQuantity,
       companyId,
