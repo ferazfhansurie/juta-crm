@@ -210,8 +210,8 @@ function Main() {
                 setPhoneCount(apiPhoneCount);
               } else {
                 // Fallback to existing data if no matching bot found
-                for (let i = 1; i <= phoneCount; i++) {
-                  newPhoneNames[i] = data[`phone${i}`] || `Phone ${i}`;
+                for (let i = 0; i < phoneCount; i++) {
+                  newPhoneNames[i] = data[`phone${i + 1}`] || `Phone ${i + 1}`;
                 }
                 setPhoneCount(phoneCount);
               }
@@ -224,8 +224,8 @@ function Main() {
               console.error('Error fetching bot data:', error);
               // Fallback to existing phone names
               const newPhoneNames: { [key: number]: string } = {};
-              for (let i = 1; i <= phoneCount; i++) {
-                newPhoneNames[i] = data[`phone${i}`] || `Phone ${i}`;
+              for (let i = 0; i < phoneCount; i++) {
+                newPhoneNames[i] = data[`phone${i + 1}`] || `Phone ${i + 1}`;
               }
               setPhoneNames(newPhoneNames);
               setPhoneCount(phoneCount);
@@ -266,11 +266,12 @@ function Main() {
 
       // Fetch phone names
       const phoneNamesData: { [key: number]: string } = {};
-      for (let i = 1; i <= companyData.phoneCount; i++) {
-        if (companyData[`phone${i}Name`]) {
-          phoneNamesData[i] = companyData[`phone${i}Name`];
+      for (let i = 0; i < companyData.phoneCount; i++) {
+        const phoneName = companyData[`phone${i + 1}`] || companyData[`phone${i + 1}Name`];
+        if (phoneName) {
+          phoneNamesData[i] = phoneName;
         } else {
-          phoneNamesData[i] = `Phone ${i}`;
+          phoneNamesData[i] = `Phone ${i + 1}`;
         }
       }
       setPhoneNames(phoneNamesData);
@@ -323,10 +324,10 @@ function Main() {
     try {
       const docRef = doc(firestore, 'companies', companyId);
       await updateDoc(docRef, {
-        [`phone${index}`]: name
+        [`phone${index + 1}`]: name
       });
       setPhoneNames(prev => ({ ...prev, [index]: name }));
-      toast.success(`Phone ${index} name updated successfully`);
+      toast.success(`Phone ${index + 1} name updated successfully`);
     } catch (error) {
       console.error('Error updating phone name:', error);
       toast.error('Failed to update phone name');
