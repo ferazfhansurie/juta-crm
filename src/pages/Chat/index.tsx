@@ -7720,7 +7720,7 @@ ${context}
                               ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
                               : 'text-gray-700 dark:text-gray-200'
                           }`}
-                          onClick={() => setSelectedEmployee(employee.name === selectedEmployee ? null : employee.name)}
+                          onClick={() => handleAddTagToSelectedContacts(employee.name, selectedContact)}
                         >
                           <span>{employee.name}</span>
                           <div className="flex items-center space-x-2 text-xs">
