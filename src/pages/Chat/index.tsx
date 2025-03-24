@@ -1050,7 +1050,22 @@ const ReactionPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => vo
       const q = query(contactsRef, orderBy("last_message.timestamp", "desc"));
   
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        const updatedContacts = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Contact));
+        const updatedContacts = snapshot.docs.map(doc => {
+          const contactData = { ...doc.data(), id: doc.id } as Contact;
+          
+          // Find the contact in the current state to check if it had a snooze tag
+          const existingContact = contacts.find(c => c.id === doc.id);
+          
+          // If the contact had a snooze tag before but doesn't have it now, add it back
+          if (existingContact?.tags?.includes('snooze') && !contactData.tags?.includes('snooze')) {
+            return {
+              ...contactData,
+              tags: [...(contactData.tags || []), 'snooze']
+            };
+          }
+          
+          return contactData;
+        });
         setContacts(updatedContacts);
       });
   
