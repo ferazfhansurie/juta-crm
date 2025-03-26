@@ -112,23 +112,29 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
 
       <div className="flex-1 overflow-y-auto p-4 dark:bg-gray-900">
         {messages.slice().reverse().map((message, index) => (
-          <div
-            className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
-            key={index}
-            style={{
-              maxWidth: '70%',
-              width: `${message.type === 'image' || message.type === 'document' ? '350' : Math.min((message.text?.length || 0) * 10, 350)}px`,
-              minWidth: '75px'
-            }}
-          >
-            {message.type === 'text' && (
-              <div className="whitespace-pre-wrap break-words">
-                {message.text}
+          <div key={index}>
+            {message.text.split('||').map((splitText, splitIndex) => (
+              <div
+                key={`${index}-${splitIndex}`}
+                className={`p-2 mb-2 rounded ${message.from_me ? myMessageClass : otherMessageClass}`}
+                style={{
+                  maxWidth: '70%',
+                  width: `${message.type === 'image' || message.type === 'document' ? '350' : Math.min((splitText.trim().length || 0) * 10, 350)}px`,
+                  minWidth: '75px'
+                }}
+              >
+                {message.type === 'text' && (
+                  <div className="whitespace-pre-wrap break-words">
+                    {splitText.trim()}
+                  </div>
+                )}
+                {splitIndex === message.text.split('||').length - 1 && (
+                  <div className="message-timestamp text-xs text-gray-500 dark:text-gray-300 mt-1">
+                    {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
               </div>
-            )}
-            <div className="message-timestamp text-xs text-gray-500 dark:text-gray-300 mt-1">
-              {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </div>
+            ))}
           </div>
         ))}
       </div>
