@@ -1381,7 +1381,18 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
       const q = query(contactsRef, orderBy("last_message.timestamp", "desc"));
   
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        const updatedContacts = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Contact));
+        const updatedContacts = snapshot.docs.map(doc => {
+          const contactData = doc.data();
+          
+          // Filter out empty tags
+          if (contactData.tags) {
+            contactData.tags = contactData.tags.filter((tag: any) => 
+              tag && tag.trim() !== '' && tag !== null && tag !== undefined
+            );
+          }
+          
+          return { ...contactData, id: doc.id } as Contact;
+        });
         
         setContacts(updatedContacts);
         filterAndSetContacts(updatedContacts);

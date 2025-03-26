@@ -718,7 +718,18 @@ const resetSort = () => {
       const q = query(contactsRef,);
   
       const querySnapshot = await getDocs(q);
-      const fetchedContacts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
+      const fetchedContacts = querySnapshot.docs.map(doc => {
+        const contactData = doc.data();
+        
+        // Filter out empty tags
+        if (contactData.tags) {
+          contactData.tags = contactData.tags.filter((tag: any) => 
+            tag && tag.trim() !== '' && tag !== null && tag !== undefined
+          );
+        }
+        
+        return { id: doc.id, ...contactData } as Contact;
+      });
       
       // Function to check if a chat_id is for an individual contact
       const isIndividual = (chat_id: string | undefined) => {
@@ -3845,9 +3856,15 @@ const resetForm = () => {
 
   const renderTags = (tags: string[] | undefined, contact: Contact) => {
     if (!tags || tags.length === 0) return null;
+    
+    // Filter out empty tags
+    const filteredTags = tags.filter(tag => tag && tag.trim() !== '');
+    
+    if (filteredTags.length === 0) return null;
+    
     return (
       <div className="flex flex-wrap gap-1 mt-1">
-        {tags.map((tag, index) => (
+        {filteredTags.map((tag, index) => (
           <span
             key={index}
             className={`px-2 py-1 text-xs font-semibold rounded-full ${
