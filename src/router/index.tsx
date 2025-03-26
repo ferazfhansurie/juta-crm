@@ -224,7 +224,9 @@ function Router() {
     { path: "/error-page", element: <ErrorPage /> },
     { path: "*", element: <ErrorPage /> },
   ];
-
+  if (isLoading) {
+    return <LoadingIcon />;
+  }
   return useRoutes(routes);
 }
 
