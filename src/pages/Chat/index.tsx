@@ -682,13 +682,6 @@ function Main() {
 }, []);
 
   useEffect(() => {
-    if (contextContacts.length > 0) {
-      setContacts(contextContacts as Contact[]);
-    }
-  }, [contextContacts]);
-
-
-  useEffect(() => {
     let filteredResults = contacts;
   
     // Only keep filtering logic
@@ -734,8 +727,23 @@ function Main() {
 
   // Update this useEffect
   useEffect(() => {
-    setVisibleForwardTags(showAllForwardTags ? tagList : tagList.slice(0, 5));
-  }, [tagList, showAllForwardTags]);
+    filterAndSetContacts(contacts);
+  }, [contacts, filterAndSetContacts]);
+
+  // Add new useEffect to restore scroll position
+  useEffect(() => {
+    // After selecting a contact or when filtered contacts change, restore the scroll position
+    const restoreScrollPosition = () => {
+      if (contactListRef.current) {
+        const savedScrollPosition = sessionStorage.getItem('chatContactListScrollPosition');
+        if (savedScrollPosition) {
+          contactListRef.current.scrollTop = parseInt(savedScrollPosition);
+        }
+      }
+    };
+  
+    restoreScrollPosition();
+  }, [selectedContact, filteredContacts]);
 
   // Update this function name
   const toggleForwardTagsVisibility = () => {
@@ -1428,6 +1436,11 @@ useEffect(() => {
     ) {
       // loadMoreContacts();
     }
+    
+    // Store the current scroll position when user scrolls
+    if (contactListRef.current) {
+      sessionStorage.setItem('chatContactListScrollPosition', contactListRef.current.scrollTop.toString());
+    }
   };
 
   if (contactListRef.current) {
@@ -1460,22 +1473,6 @@ useEffect(() => {
     setTagsError(true);
   }
 }, [activeTags, employeeList]);
-
-// const loadMoreContacts = () => {
-//   if (initialContacts.length <= contacts.length) return;
-
-//   const nextPage = currentPage + 1;
-//   const newContacts = initialContacts.slice(
-//     contacts.length,
-//     nextPage * contactsPerPage
-//   );
-
-//   setContacts((prevContacts) => {
-//     const updatedContacts = [...prevContacts, ...newContacts];
-//     return filterContactsByUserRole(updatedContacts, userRole, userData?.name || '');
-//   });
-//   setCurrentPage(nextPage);
-// };
 
 const handleEmojiClick = (emojiObject: EmojiClickData) => {
   setNewMessage(prevMessage => prevMessage + emojiObject.emoji);
@@ -2294,6 +2291,11 @@ async function fetchConfigFromDatabase() {
  
     
     try {
+      // Save current scroll position before making any state changes
+      if (contactListRef.current) {
+        sessionStorage.setItem('chatContactListScrollPosition', contactListRef.current.scrollTop.toString());
+      }
+    
       // Permission check
       if (userRole === "3" && contactSelect && contactSelect.assignedTo?.toLowerCase() !== userData?.name.toLowerCase()) {
         
@@ -2330,6 +2332,16 @@ async function fetchConfigFromDatabase() {
       // Update URL
       const newUrl = `/chat?chatId=${chatId.replace('@c.us', '')}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
+  
+      // Restore scroll position after a short delay to allow rendering
+      setTimeout(() => {
+        if (contactListRef.current) {
+          const savedScrollPosition = sessionStorage.getItem('chatContactListScrollPosition');
+          if (savedScrollPosition) {
+            contactListRef.current.scrollTop = parseInt(savedScrollPosition);
+          }
+        }
+      }, 50);
   
     } catch (error) {
       console.error('Error in selectChat:', error);
