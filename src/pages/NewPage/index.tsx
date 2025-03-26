@@ -53,7 +53,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
     </div>
   );
-
+  //hi hi hi hi
   const handleSendMessage = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
