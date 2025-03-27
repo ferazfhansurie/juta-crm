@@ -87,7 +87,7 @@ import PublicTaskForm from "../pages/PublicTaskForm";
 import Settings from "../pages/Settings";
 import ScheduledMessages from "../pages/ScheduledMessages";
 import AppointmentRequests from "../pages/AppointmentRequests";
-import GuestChat from "../pages/NewPage";
+import GuestChat from "../pages/GuestChat";
 
 function Router() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);

@@ -1022,6 +1022,15 @@ const Main: React.FC = () => {
                           Prompt Builder
                         </Button>
                       </Link>
+                      <a 
+                        href={`https://web.jutasoftware.co/guest-chat/${companyId}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                      >
+                        <Button variant="primary" className="shadow-md">
+                          Guest Chat
+                        </Button>
+                      </a>
                     </div>
                   </div>
                   {error && <div className="mt-4 text-red-500">{error}</div>}
