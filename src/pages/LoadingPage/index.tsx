@@ -100,7 +100,7 @@ function LoadingPage() {
     setError(null);
     try {
       if (!user?.email) {
-        navigate('/login');
+       // navigate('/login');
         return;
       }
 
@@ -619,7 +619,7 @@ useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setIsAuthReady(true);
       if (!user) {
-        navigate('/login');
+       // navigate('/login');
       }
     });
 

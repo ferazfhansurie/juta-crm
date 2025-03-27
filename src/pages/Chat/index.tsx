@@ -238,6 +238,69 @@ type Notification = {
   type: string;
 };
 
+//testing
+interface ScheduledMessage {
+  id?: string;
+  chatIds: string[];
+  message: string;
+  messages?: Array<{
+    [x: string]: string | boolean; // Changed to allow boolean values for isMain
+    text: string 
+  }>;
+  messageDelays?: number[];
+  mediaUrl?: string;
+  documentUrl?: string;
+  mimeType?: string;
+  fileName?: string;
+  scheduledTime: Timestamp;
+  batchQuantity: number;
+  repeatInterval: number;
+  repeatUnit: 'minutes' | 'hours' | 'days';
+  additionalInfo: {
+    contactName?: string;
+    phone?: string;
+    email?: string;
+    // ... any other contact fields you want to include
+  };
+  status: 'scheduled' | 'sent' | 'failed';
+  createdAt: Timestamp;
+  sentAt?: Timestamp;
+  error?: string;
+  count?: number;
+  v2?:boolean;
+  whapiToken?:string;
+  minDelay: number;
+  maxDelay: number;
+  activateSleep: boolean;
+  sleepAfterMessages: number | null;
+  sleepDuration: number | null;
+  activeHours: {
+    start: string;
+    end: string;
+  };
+  infiniteLoop: boolean;
+  numberOfBatches: number;
+  processedMessages?: {
+    chatId: string;
+    message: string;
+    contactData?: {
+      contactName: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+      vehicleNumber: string;
+      branch: string;
+      expiryDate: string;
+      ic: string;
+    };
+  }[];
+  templateData?: {
+    hasPlaceholders: boolean;
+    placeholdersUsed: string[];
+  };
+  isConsolidated?: boolean; // Added to indicate the new message structure
+}
 
 interface EditMessagePopupProps {
   editedMessageText: string;
@@ -573,15 +636,11 @@ function Main() {
   const [selectedDocumentURL, setSelectedDocumentURL] = useState<string | null>(null);
   const [documentCaption, setDocumentCaption] = useState('');
   const [isPhoneDropdownOpen, setIsPhoneDropdownOpen] = useState(false);
-
   const [showAllForwardTags, setShowAllForwardTags] = useState(false);
   const [visibleForwardTags, setVisibleForwardTags] = useState<typeof tagList>([]);
-
   const [totalContacts, setTotalContacts] = useState<number>(0);
-
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [reactionMessage, setReactionMessage] = useState<any>(null);
-
   const [isGlobalSearchActive, setIsGlobalSearchActive] = useState(false);
   const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
@@ -598,6 +657,12 @@ function Main() {
   const [activateSleep, setActivateSleep] = useState(false);
   const [sleepAfterMessages, setSleepAfterMessages] = useState(20);
   const [sleepDuration, setSleepDuration] = useState(5);
+
+  //testing
+  const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([]);
+  const [currentScheduledMessage, setCurrentScheduledMessage] = useState<ScheduledMessage | null>(null);
+  const [editScheduledMessageModal, setEditScheduledMessageModal] = useState(false);
+  
 
   const [qrCodes, setQrCodes] = useState<QRCodeData[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -639,6 +704,129 @@ function Main() {
   
     fetchCategories();
   }, []);
+  
+  //testing
+  const handleSendNow = async (message: any) => {
+    try {
+      // Get user and company data
+      const user = auth.currentUser;
+      if (!user?.email) throw new Error('User not authenticated');
+  
+      const docUserRef = doc(firestore, 'user', user.email);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) throw new Error('User document not found');
+  
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+  
+      // Get company data for baseUrl
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) throw new Error('Company document not found');
+      const companyData = docSnapshot.data();
+      const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
+  
+      // FIXED: Handle consolidated message structure to avoid duplicate sends
+      // Handle the new consolidated message structure
+      const isConsolidated = message.isConsolidated === true;
+      
+      // If using consolidated structure, only process the messages array
+      if (isConsolidated && Array.isArray(message.messages) && message.messages.length > 0) {
+        // Send messages to all recipients with proper structure
+        const sendPromises = message.chatIds.map(async (chatId: string) => {
+          // Only send the main message or first message from the array
+          const mainMessage = message.messages.find((msg: any) => msg.isMain === true) || message.messages[0];
+          
+          const response = await fetch(`${baseUrl}/api/v2/messages/text/${companyId}/${chatId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: mainMessage.text || '',
+              phoneIndex: message.phoneIndex || userData.phone || 0,
+              userName: userData.name || userData.email || ''
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to send message to ${chatId}`);
+          }
+        });
+
+        // Wait for all messages to be sent
+        await Promise.all(sendPromises);
+      } else {
+        // Backward compatibility: Handle the old message structure
+        // Send messages to all recipients
+        const sendPromises = message.chatIds.map(async (chatId: string) => {
+          const response = await fetch(`${baseUrl}/api/v2/messages/text/${companyId}/${chatId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: message.message || '',
+              phoneIndex: message.phoneIndex || userData.phone || 0,
+              userName: userData.name || userData.email || ''
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to send message to ${chatId}`);
+          }
+        });
+
+        // Wait for all messages to be sent
+        await Promise.all(sendPromises);
+      }
+
+      // Delete the scheduled message
+      if (message.id) {
+        await deleteDoc(doc(firestore, `companies/${companyId}/scheduledMessages/${message.id}`));
+        // Update local state to remove the message
+        setScheduledMessages(prev => prev.filter(msg => msg.id !== message.id));
+      }
+
+      toast.success('Messages sent successfully!');
+    } catch (error) {
+      console.error('Error sending messages:', error);
+      toast.error('Failed to send messages. Please try again.');
+    }
+  };
+  const handleEditScheduledMessage = (message: ScheduledMessage) => {
+    setCurrentScheduledMessage(message);
+    setBlastMessage(message.message || ''); // Set the blast message to the current message text
+    setEditScheduledMessageModal(true);
+  };
+  const handleDeleteScheduledMessage = async (messageId: string) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) return;
+
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+      const docRef = doc(firestore, 'companies', companyId);
+      const docSnapshot = await getDoc(docRef);
+      if (!docSnapshot.exists()) throw new Error('No company document found');
+      const companyData = docSnapshot.data();
+      const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
+      // Call the backend API to delete the scheduled message
+      const response = await axios.delete(`${baseUrl}/api/schedule-message/${companyId}/${messageId}`);
+      if (response.status === 200) {
+        setScheduledMessages(scheduledMessages.filter(msg => msg.id !== messageId));
+        toast.success("Scheduled message deleted successfully!");
+      } else {
+        throw new Error("Failed to delete scheduled message.");
+      }
+    } catch (error) {
+      console.error("Error deleting scheduled message:", error);
+      toast.error("Failed to delete scheduled message.");
+    }
+  };
+  //testing
+  
+
   useEffect(() => {
     const fetchPhoneStatuses = async () => {
       try {
@@ -4400,6 +4588,43 @@ const sendWhatsAppMessage = async (phoneNumber: string, message: string, company
   }
 };
 
+//testing
+const fetchScheduledMessages = async (chatId: string) => {
+  try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) return;
+
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+      const scheduledMessagesRef = collection(firestore, `companies/${companyId}/scheduledMessages`);
+      const q = query(scheduledMessagesRef, where("status", "==", "scheduled"), where("chatIds", "array-contains", chatId)); // Correct usage of array-contains
+      const querySnapshot = await getDocs(q);
+
+      const messages: ScheduledMessage[] = [];
+      querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          messages.push({ 
+              id: doc.id, 
+              ...data,
+              chatIds: data.chatIds || [],
+              message: data.message || '', // Ensure message is included
+          } as ScheduledMessage);
+      });
+
+      // Sort messages by scheduledTime
+      messages.sort((a, b) => a.scheduledTime.toDate().getTime() - b.scheduledTime.toDate().getTime());
+
+      return messages; // Return the messages
+  } catch (error) {
+      console.error("Error fetching scheduled messages:", error);
+      return []; // Return an empty array on error
+  }
+};
  
 const formatText = (text: string) => {
   // Split text into segments that need formatting and those that don't
@@ -4455,6 +4680,13 @@ function formatDate(timestamp: string | number | Date) {
 }
   const handleEyeClick = () => {
     setIsTabOpen(!isTabOpen);
+    const fetchAndDisplayScheduledMessages = async () => {
+      const messages = await fetchScheduledMessages(selectedContact.chat_id); // Assuming fetchScheduledMessages is modified to accept a contact ID
+      setScheduledMessages(messages|| [] );
+      console.log (messages) // Store the messages in state
+  };
+
+  fetchAndDisplayScheduledMessages();
   };
 
   
@@ -9323,6 +9555,59 @@ const toggleBot = async () => {
           </div>
           
         </div>
+        <div className="bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden">
+    <div className="bg-yellow-50 dark:bg-yellow-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Scheduled Messages</h3>
+    </div>
+    <div className="p-4">
+        {scheduledMessages.length > 0 ? (
+            <div className="overflow-x-auto">
+                <div className="flex gap-3 pb-2" style={{ minWidth: 'min-content' }}>
+                    {scheduledMessages.map((message) => (
+                        <div 
+                        key={message.id} 
+                        className="flex-none w-[300px] bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-600"
+                    >
+                        <div className="flex flex-col h-full">
+                            <span className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                                {message.scheduledTime.toDate().toLocaleString()}
+                            </span>
+                            <p className="text-gray-800 dark:text-gray-200 break-words flex-grow">
+                                {message.message}
+                            </p>
+                            <div className="flex gap-2 mt-4">
+                                <button
+                                    onClick={() => handleSendNow(message)}
+                                    className="flex-1 px-3 py-1 bg-green-500 text-white text-sm rounded-md hover:bg-green-600 transition duration-200"
+                                >
+                                    Send Now
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        handleEditScheduledMessage(message);
+                                        setEditScheduledMessageModal(true);
+                                    }}
+                                    className="flex-1 px-3 py-1 bg-primary text-white text-sm rounded-md hover:bg-primary-dark transition duration-200"
+                                >
+                                    Edit
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteScheduledMessage(message.id!)}
+                                    className="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 transition duration-200"
+                                >
+                                    Delete
+                                </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        ) : (
+            <p className="text-gray-500 dark:text-gray-400">No scheduled messages for this contact.</p>
+        )}
+    </div>
+</div>
             {/* Add the new Notes section */}
             <div className="bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden ">
           <div className="bg-yellow-50 dark:bg-yellow-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
