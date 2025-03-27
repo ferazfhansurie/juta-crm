@@ -913,10 +913,7 @@ function Main() {
   // Initial chat selection from URL
 
 
-  // Update this useEffect
-  useEffect(() => {
-    filterAndSetContacts(contacts);
-  }, [contacts, filterAndSetContacts]);
+
 
   // Add new useEffect to restore scroll position
   useEffect(() => {
@@ -1564,6 +1561,11 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
   
     setFilteredContacts(filtered);
   }, [userRole, userData, activeTags, filterContactsByUserRole, selectedEmployee, employeeList]);
+
+    // Update this useEffect
+    useEffect(() => {
+      filterAndSetContacts(contacts);
+    }, [contacts, filterAndSetContacts]);
 
   useEffect(() => {
     const fetchContacts = async () => {
