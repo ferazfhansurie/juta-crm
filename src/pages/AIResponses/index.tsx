@@ -453,6 +453,16 @@ function AIResponses() {
 
     const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
+        
+        // Check file sizes (20MB = 20 * 1024 * 1024 bytes)
+        const MAX_FILE_SIZE = 20 * 1024 * 1024;
+        const oversizedFiles = files.filter(file => file.size > MAX_FILE_SIZE);
+        
+        if (oversizedFiles.length > 0) {
+            toast.error(`Some files exceed the 20MB limit: ${oversizedFiles.map(f => f.name).join(', ')}`);
+            return;
+        }
+
         const urls = files.map(file => URL.createObjectURL(file));
         setSelectedVideos(files);
         setSelectedVideoUrls(urls);
@@ -1055,24 +1065,16 @@ function AIResponses() {
                                                                                 <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-darkmode-400 rounded">
                                                                                     <div className="flex items-center">
                                                                                         <Lucide icon="FileText" className="w-4 h-4 mr-2" />
-                                                                                        <span>{(response as AIDocumentResponse).documentNames?.[idx] || 'Document'}</span>
+                                                                                        <span>{(response as AIDocumentResponse).documentNames[idx]}</span>
                                                                                     </div>
-                                                                                    <div className="flex">
-                                                                                        <a 
-                                                                                            href={url}
-                                                                                            target="_blank"
-                                                                                            rel="noopener noreferrer"
-                                                                                            className="text-primary hover:underline mr-2"
-                                                                                        >
-                                                                                            <Lucide icon="Download" className="w-4 h-4" />
-                                                                                        </a>
-                                                                                        <Button
-                                                                                            variant="danger"
-                                                                                            onClick={() => removeExistingMedia(idx)}
-                                                                                        >
-                                                                                            <Lucide icon="X" className="w-4 h-4" />
-                                                                                        </Button>
-                                                                                    </div>
+                                                                                    <a 
+                                                                                        href={url}
+                                                                                        target="_blank"
+                                                                                        rel="noopener noreferrer"
+                                                                                        className="text-primary hover:underline"
+                                                                                    >
+                                                                                        <Lucide icon="Download" className="w-4 h-4" />
+                                                                                    </a>
                                                                                 </div>
                                                                             ))}
                                                                         </div>
