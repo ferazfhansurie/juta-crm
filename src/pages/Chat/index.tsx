@@ -4714,97 +4714,98 @@ const [paginatedContacts, setPaginatedContacts] = useState<Contact[]>([]);
   }
 }, [filteredContacts, paginatedContacts, activeTags]);
 
-useEffect(() => {
+// useEffect(() => {
 
-  console.log('userData', userData);
+//   console.log('userData', userData);
 
-  if(userData?.viewEmployee){
-    // Fix: Check if viewEmployee is an array or an object with name property or a string
-    if (Array.isArray(userData.viewEmployee)) {
-      // If it's an array of employee IDs, we need to find the corresponding employee names
-      const viewEmployeeNames = employeeList
-        .filter(emp => userData.viewEmployee.includes(emp.id))
-        .map(emp => emp.name.toLowerCase());
+//   if(userData?.viewEmployee){
+//     // Fix: Check if viewEmployee is an array or an object with name property or a string
+//     if (Array.isArray(userData.viewEmployee)) {
+//       // If it's an array of employee IDs, we need to find the corresponding employee names
+//       const viewEmployeeNames = employeeList
+//         .filter(emp => userData.viewEmployee.includes(emp.id))
+//         .map(emp => emp.name.toLowerCase());
       
-      setPaginatedContacts(contacts.filter(contact => 
-        viewEmployeeNames.some(empName => 
-          contact.assignedTo?.toLowerCase() === empName ||
-          contact.tags?.some(tag => tag.toLowerCase() === empName)
-        )
-      ));
-    } else if (typeof userData.viewEmployee === 'object' && userData.viewEmployee.name) {
-      // If it's an object with a name property
-      const empName = userData.viewEmployee.name.toLowerCase();
-      setPaginatedContacts(contacts.filter(contact => 
-        contact.assignedTo?.toLowerCase() === empName ||
-        contact.tags?.some(tag => tag.toLowerCase() === empName)
-      ));
-    } else if (typeof userData.viewEmployee === 'string') {
-      // If it's a single employee ID string
-      const employee = employeeList.find(emp => emp.id === userData.viewEmployee);
-      if (employee) {
-        const empName = employee.name.toLowerCase();
-        setPaginatedContacts(contacts.filter(contact => 
-          contact.assignedTo?.toLowerCase() === empName ||
-          contact.tags?.some(tag => tag.toLowerCase() === empName)
-        ));
-      }
-    }
-  } else if (selectedEmployee) {
-    setPaginatedContacts(contacts.filter(contact => 
-      contact.assignedTo?.toLowerCase() === selectedEmployee.toLowerCase()
-    ));
-  } else {
-    let filtered = contacts;
+//       setPaginatedContacts(contacts.filter(contact => 
+//         viewEmployeeNames.some(empName => 
+//           contact.assignedTo?.toLowerCase() === empName ||
+//           contact.tags?.some(tag => tag.toLowerCase() === empName)
+//         )
+//       ));
+//     } else if (typeof userData.viewEmployee === 'object' && userData.viewEmployee.name) {
+//       // If it's an object with a name property
+//       const empName = userData.viewEmployee.name.toLowerCase();
+//       setPaginatedContacts(contacts.filter(contact => 
+//         contact.assignedTo?.toLowerCase() === empName ||
+//         contact.tags?.some(tag => tag.toLowerCase() === empName)
+//       ));
+//     } else if (typeof userData.viewEmployee === 'string') {
+//       // If it's a single employee ID string
+//       const employee = employeeList.find(emp => emp.id === userData.viewEmployee);
+//       if (employee) {
+//         const empName = employee.name.toLowerCase();
+//         setPaginatedContacts(contacts.filter(contact => 
+//           contact.assignedTo?.toLowerCase() === empName ||
+//           contact.tags?.some(tag => tag.toLowerCase() === empName)
+//         ));
+//       }
+//     }
+//   } else if (selectedEmployee) {
+//     setPaginatedContacts(contacts.filter(contact => 
+//       contact.assignedTo?.toLowerCase() === selectedEmployee.toLowerCase()
+//     ));
+//   } else {
+//     let filtered = contacts;
 
-    // Apply role-based filtering
-    if (userRole === "3") {
-      filtered = filtered.filter(contact => 
-        contact.assignedTo?.toLowerCase() === userData?.name?.toLowerCase() ||
-        contact.tags?.some(tag => tag.toLowerCase() === userData?.name?.toLowerCase())
-      );
-    }
+//     // Apply role-based filtering
+//     if (userRole === "3") {
+//       filtered = filtered.filter(contact => 
+//         contact.assignedTo?.toLowerCase() === userData?.name?.toLowerCase() ||
+//         contact.tags?.some(tag => tag.toLowerCase() === userData?.name?.toLowerCase())
+//       );
+//     }
 
-    // Apply tag filter
-    if (activeTags.length > 0) {
-      filtered = filtered.filter((contact) => {
-        if (activeTags.includes('Mine')) {
-          return contact.assignedTo?.toLowerCase() === userData?.name?.toLowerCase() ||
-                 contact.tags?.some(tag => tag.toLowerCase() === userData?.name?.toLowerCase());
-        }
-        if (activeTags.includes('Unassigned')) {
-          return !contact.assignedTo && !contact.tags?.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()));
-        }
-        if (activeTags.includes('All')) {
-          return true;
-        }
-        return contact.tags?.some(tag => activeTags.includes(tag));
-      });
-    }
+//     // Apply tag filter
+//     if (activeTags.length > 0) {
+//       filtered = filtered.filter((contact) => {
+//         if (activeTags.includes('Mine')) {
+//           return contact.assignedTo?.toLowerCase() === userData?.name?.toLowerCase() ||
+//                  contact.tags?.some(tag => tag.toLowerCase() === userData?.name?.toLowerCase());
+//         }
+//         if (activeTags.includes('Unassigned')) {
+//           return !contact.assignedTo && !contact.tags?.some(tag => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()));
+//         }
+//         if (activeTags.includes('All')) {
+//           return true;
+//         }
+//         return contact.tags?.some(tag => activeTags.includes(tag));
+//       });
+//     }
 
-    // Apply search filter
-    if (searchQuery.trim() !== '') {
-      filtered = filtered.filter((contact) =>
-        (contact.contactName?.toLowerCase() || '')
-          .includes(searchQuery.toLowerCase()) ||
-        (contact.firstName?.toLowerCase() || '')
-          .includes(searchQuery.toLowerCase()) ||
-        (contact.phone?.toLowerCase() || '')
-          .includes(searchQuery.toLowerCase()) ||
-        (contact.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
-      );
-    }
+//     // Apply search filter
+//     if (searchQuery.trim() !== '') {
+//       filtered = filtered.filter((contact) =>
+//         (contact.contactName?.toLowerCase() || '')
+//           .includes(searchQuery.toLowerCase()) ||
+//         (contact.firstName?.toLowerCase() || '')
+//           .includes(searchQuery.toLowerCase()) ||
+//         (contact.phone?.toLowerCase() || '')
+//           .includes(searchQuery.toLowerCase()) ||
+//         (contact.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
+//       );
+//     }
 
-    setFilteredContacts(filtered);
-    if (searchQuery.trim() !== '') {
-      setCurrentPage(0); // Reset to first page when searching
-    }
+//     setFilteredContacts(filtered);
+//     if (searchQuery.trim() !== '') {
+//       setCurrentPage(0); // Reset to first page when searching
+//     }
 
-    setPaginatedContacts(filtered);
-  }
-}, [contacts, searchQuery, activeTags, currentUserName, employeeList, userRole, userData, selectedEmployee]);
+//     setPaginatedContacts(filtered);
+//   }
+// }, [contacts, searchQuery, activeTags, currentUserName, employeeList, userRole, userData, selectedEmployee]);
 
 // Update the pagination logic
+
 useEffect(() => {
   const startIndex = currentPage * contactsPerPage;
   const endIndex = startIndex + contactsPerPage;
