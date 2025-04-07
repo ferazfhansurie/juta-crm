@@ -47,7 +47,7 @@ export interface Contact {
   conversation_id?: string | null;
   additionalEmails?: string[] | null;
   address1?: string | null;
-  assignedTo?: string | null;
+  assignedTo?: string[] | null;
   businessId?: string | null;
   city?: string | null;
   companyName?: string | null;
@@ -1505,7 +1505,7 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
         
         filteredByEmployee = contactsToFilter.filter(contact => 
           viewEmployeeNames.some(empName => 
-            contact.assignedTo?.toLowerCase() === empName ||
+            contact.assignedTo?.some(assignedTo => assignedTo.toLowerCase() === empName) ||
             contact.tags?.some(tag => tag.toLowerCase() === empName)
           )
         );
@@ -1513,7 +1513,7 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
         // If it's an object with a name property
         const empName = userData.viewEmployee.name.toLowerCase();
         filteredByEmployee = contactsToFilter.filter(contact => 
-          contact.assignedTo?.toLowerCase() === empName ||
+          contact.assignedTo?.some(assignedTo => assignedTo.toLowerCase() === empName) ||
           contact.tags?.some(tag => tag.toLowerCase() === empName)
         );
       } else if (typeof userData.viewEmployee === 'string') {
@@ -1522,7 +1522,7 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
         if (employee) {
           const empName = employee.name.toLowerCase();
           filteredByEmployee = contactsToFilter.filter(contact => 
-            contact.assignedTo?.toLowerCase() === empName ||
+            contact.assignedTo?.some(assignedTo => assignedTo.toLowerCase() === empName) ||
             contact.tags?.some(tag => tag.toLowerCase() === empName)
           );
         }
@@ -1548,7 +1548,7 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
     // Apply employee-based filtering if an employee is selected
     if (selectedEmployee) {
       filtered = filtered.filter(contact => 
-        contact.assignedTo === selectedEmployee
+        contact.assignedTo?.some(assignedTo => assignedTo === selectedEmployee)
       );
     }
     
@@ -2487,7 +2487,7 @@ async function fetchConfigFromDatabase() {
       }
     
       // Permission check
-      if (userRole === "3" && contactSelect && contactSelect.assignedTo?.toLowerCase() !== userData?.name.toLowerCase()) {
+      if (userRole === "3" && contactSelect && !contactSelect.assignedTo?.some(assignedTo => assignedTo === userData?.name)) {
         
         toast.error("You don't have permission to view this chat.");
         return;
@@ -4157,45 +4157,34 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
         return;
       }
 
-      const currentTags = contactDoc.data().tags || [];
-      const oldEmployeeTag = currentTags.find((tag: string) => 
-        employeeList.some(emp => emp.name === tag)
-      );
-
-      // If contact was assigned to another employee, update their quota
-      if (oldEmployeeTag) {
-        const oldEmployee = employeeList.find(emp => emp.name === oldEmployeeTag);
-        if (oldEmployee) {
-          const oldEmployeeRef = doc(firestore, `companies/${companyId}/employee/${oldEmployee.id}`);
-          const oldEmployeeDoc = await getDoc(oldEmployeeRef);
-          
-          if (oldEmployeeDoc.exists()) {
-            const oldEmployeeData = oldEmployeeDoc.data();
-            await updateDoc(oldEmployeeRef, {
-              assignedContacts: (oldEmployeeData.assignedContacts || 1) - 1,
-              quotaLeads: (oldEmployeeData.quotaLeads || 0) + 1
-            });
-          }
-        }
+      const contactData = contactDoc.data();
+      const currentTags = contactData.tags || [];
+      const currentAssignedTo = Array.isArray(contactData.assignedTo) ? contactData.assignedTo : 
+                               contactData.assignedTo ? [contactData.assignedTo] : [];
+      
+      // Check if employee is already assigned
+      if (currentAssignedTo.includes(tagName)) {
+        toast.info(`${tagName} is already assigned to this contact`);
+        return;
       }
-
-      // Remove any existing employee tags and add new one
-      const updatedTags = [
-        ...currentTags.filter((tag: string) => !employeeList.some(emp => emp.name === tag)),
-        tagName
-      ];
-
+      
+      // Add the new employee tag to tags
+      let updatedTags = [...currentTags];
+      if (!updatedTags.includes(tagName)) {
+        updatedTags.push(tagName);
+      }
+      
       // Use batch write for atomic update
       const batch = writeBatch(firestore);
 
-      // Update contact
+      // Update contact with new assigned employee
       batch.update(contactRef, {
         tags: updatedTags,
-        assignedTo: tagName,
+        assignedTo: arrayUnion(tagName),
         lastAssignedAt: serverTimestamp()
       });
 
-      // Update new employee's quota and assigned contacts
+      // Update new employee's assigned contacts count
       batch.update(employeeRef, {
         quotaLeads: Math.max(0, (employeeData.quotaLeads || 0) - 1), // Prevent negative quota
         assignedContacts: (employeeData.assignedContacts || 0) + 1
@@ -4207,7 +4196,13 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
       setContacts(prevContacts =>
         prevContacts.map(c =>
           c.id === contact.id
-            ? { ...c, tags: updatedTags, assignedTo: tagName }
+            ? { 
+                ...c, 
+                tags: updatedTags, 
+                assignedTo: Array.isArray(c.assignedTo) 
+                  ? [...c.assignedTo, tagName] 
+                  : c.assignedTo ? [c.assignedTo, tagName] : [tagName]
+              }
             : c
         )
       );
@@ -4217,16 +4212,10 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
           emp.id === employee.id
             ? {
                 ...emp,
-                quotaLeads: Math.max(0, (emp.quotaLeads || 0) - 1), // Prevent negative quota
+                quotaLeads: Math.max(0, (emp.quotaLeads || 0) - 1),
                 assignedContacts: (emp.assignedContacts || 0) + 1
               }
-            : oldEmployeeTag && emp.name === oldEmployeeTag
-              ? {
-                  ...emp,
-                  quotaLeads: (emp.quotaLeads || 0) + 1,
-                  assignedContacts: (emp.assignedContacts || 1) - 1
-                }
-              : emp
+            : emp
         )
       );
 
