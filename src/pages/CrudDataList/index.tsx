@@ -282,6 +282,7 @@ function Main() {
   const itemsPerPage = 50;
   const [employeeNames, setEmployeeNames] = useState<string[]>([]);
   const [showMassDeleteModal, setShowMassDeleteModal] = useState(false);
+  const [isMassDeleting, setIsMassDeleting] = useState(false);
   const [userFilter, setUserFilter] = useState<string>("");
   const [activeTab, setActiveTab] = useState<'tags' | 'users'>('tags');
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
@@ -2467,10 +2468,23 @@ if (matchingTemplate) {
       toast.error("No contacts selected for deletion.");
       return;
     }
+    
+    // Set loading state and show initial notification
+    setIsMassDeleting(true);
+    toast.info(`Starting to delete ${selectedContacts.length} contacts. This may take some time...`);
+    
+    // Optimistic UI update - remove contacts immediately for better UX
+    setContacts(prevContacts => 
+      prevContacts.filter(contact => 
+        !selectedContacts.some(selected => selected.id === contact.id)
+      )
+    );
+    
     try {
       const user = auth.currentUser;
       if (!user) {
         console.error('No authenticated user');
+        setIsMassDeleting(false);
         return;
       }
   
@@ -2478,15 +2492,19 @@ if (matchingTemplate) {
       const docUserSnapshot = await getDoc(docUserRef);
       if (!docUserSnapshot.exists()) {
         console.error('No such document for user!');
+        setIsMassDeleting(false);
         return;
       }
+  
       const userData = docUserSnapshot.data();
       const companyId = userData.companyId;
       const docRef = doc(firestore, 'companies', companyId);
       const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error('No company document found');
-      const companyData = docSnapshot.data();
-      const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
+      if (!docSnapshot.exists()) {
+        console.error('No such document for company!');
+        setIsMassDeleting(false);
+        return;
+      }
   
       // Get all active templates once
       const templatesRef = collection(firestore, `companies/${companyId}/followUpTemplates`);
@@ -2500,9 +2518,22 @@ if (matchingTemplate) {
   
       // Create batch for contact deletion
       const batch = writeBatch(firestore);
+
+      const companyData = docSnapshot.data();
+      const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
+
   
       // Process each contact
+      let contactsProcessed = 0;
+      const totalToProcess = selectedContacts.length;
+      
       for (const contact of selectedContacts) {
+        // Show progress to user
+        contactsProcessed++;
+        if (contactsProcessed % 50 === 0 || contactsProcessed === totalToProcess) {
+          toast.info(`Processing ${contactsProcessed} of ${totalToProcess} contacts...`, 
+            { autoClose: 2000, updateId: "mass-delete-progress" });
+        }
         // Remove follow-up templates
         for (const template of activeTemplates) {
           try {
@@ -2595,6 +2626,11 @@ if (matchingTemplate) {
     } catch (error) {
       console.error('Error deleting contacts:', error);
       toast.error("An error occurred while deleting the contacts and associated messages.");
+      // Refresh to get accurate data
+      fetchContacts();
+    } finally {
+      // Always reset loading state
+      setIsMassDeleting(false);
     }
   };
 
