@@ -1170,7 +1170,7 @@ const Main: React.FC = () => {
                                 className="form-checkbox h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                                 disabled={userRole === "3"}
                               />
-                              <span>Enable AI Auto-Response for New Contacts</span>
+                              <span>Disable AI Auto-Response for New Contacts</span>
                             </label>
                           </div>
 
@@ -1459,7 +1459,7 @@ const Main: React.FC = () => {
                               className="form-checkbox h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                               disabled={userRole === "3"}
                             />
-                            <span>Enable AI Auto-Response for New Contacts</span>
+                            <span>Disable AI Auto-Response for New Contacts</span>
                           </label>
                         </div>
 
