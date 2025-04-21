@@ -562,6 +562,12 @@ function AIResponses() {
                                 return tag ? tag.name : '';
                             }).filter(name => name !== '');
                             updatedTags = [...new Set([...existingTags, ...newTags])];
+
+                            // Only check for empty tags when adding tags and the result is empty
+                            if (updatedTags.length === 0) {
+                                toast.error('Cannot have zero tags when adding tags.');
+                                return;
+                            }
                         } else {
                             // Remove selected tags
                             const tagsToRemove = selectedTags.map(tagId => {
@@ -569,11 +575,7 @@ function AIResponses() {
                                 return tag ? tag.name : '';
                             }).filter(name => name !== '');
                             updatedTags = existingTags.filter(tag => !tagsToRemove.includes(tag));
-                        }
-
-                        if (updatedTags.length === 0) {
-                            toast.error('Cannot remove all tags. At least one tag must remain.');
-                            return;
+                            // No validation needed when removing tags - it's valid to remove all tags
                         }
 
                         updatedData.tags = updatedTags;
