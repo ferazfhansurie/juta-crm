@@ -160,11 +160,6 @@ function Main() {
 
   const handleRegister = async () => {
     try {
-      // Verify the code before proceeding
-     
-
-
-
       // Validate plan selection
       if (!selectedPlan) {
         toast.error("Please select a plan to continue");
@@ -174,14 +169,20 @@ function Main() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       await signInWithEmailAndPassword(auth, email, password);  
-      // Fetch the current number of companies to generate a new company ID
-      const querySnapshot = await getDocs(collection(firestore, "companies"));
-      const companyCount = querySnapshot.size;
-      const newCompanyId = `0${companyCount + 1}`;
-    // Save user data to Firestore
-    const trialStartDate = new Date();
-    const trialEndDate = new Date(trialStartDate);
-    trialEndDate.setDate(trialEndDate.getDate() + 7);
+      
+      // Generate a unique company ID with proper padding
+      // First get a timestamp-based ID component for uniqueness
+      const timestamp = Date.now().toString().slice(-6);
+      // Create a random component
+      const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      // Combine for a unique ID with proper format
+      const newCompanyId = `${randomPart}${timestamp.slice(-3)}`;
+    
+      // Save user data to Firestore
+      const trialStartDate = new Date();
+      const trialEndDate = new Date(trialStartDate);
+      trialEndDate.setDate(trialEndDate.getDate() + 7);
+      
       // Create a new company document in Firestore
       await setDoc(doc(firestore, "companies", newCompanyId), {
         id: newCompanyId,
@@ -192,8 +193,6 @@ function Main() {
         trialStartDate: trialStartDate,
         trialEndDate: trialEndDate,
       });
-
-  
 
       await setDoc(doc(firestore, "user", user.email!), {
         name: name,
