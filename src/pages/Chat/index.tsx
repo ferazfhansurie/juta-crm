@@ -6252,6 +6252,37 @@ interface Template {
   }, [contacts]);
 
   const [companyStopBot, setCompanyStopBot] = useState(false);
+  const [companyBaseUrl, setCompanyBaseUrl] = useState<string>('');
+
+// Fetch company base URL on component mount
+useEffect(() => {
+  const fetchCompanyBaseUrl = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const docUserRef = doc(firestore, 'user', user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) return;
+
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+      const companyRef = doc(firestore, 'companies', companyId);
+      const companySnapshot = await getDoc(companyRef);
+      if (!companySnapshot.exists()) return;
+
+      const companyData = companySnapshot.data();
+      const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
+      setCompanyBaseUrl(baseUrl);
+    } catch (error) {
+      console.error('Error fetching company base URL:', error);
+      setCompanyBaseUrl('https://mighty-dane-newly.ngrok-free.app'); // Fallback
+    }
+  };
+
+  fetchCompanyBaseUrl();
+}, []);
 
 // Update the useEffect that fetches company stop bot status
 useEffect(() => {
@@ -6362,6 +6393,23 @@ const getCompanyData = async () => {
     companyData: companySnapshot.data(),
     currentPhoneIndex,
   };
+};
+
+// Helper function to construct full image URL
+const getFullImageUrl = (imageUrl: string): string => {
+  // If it's already a full URL (starts with http/https), return as is
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://') || imageUrl.startsWith('data:')) {
+    return imageUrl;
+  }
+  
+  // If it's a relative URL, combine with base URL
+  if (imageUrl.startsWith('/') && companyBaseUrl) {
+    return `${companyBaseUrl}${imageUrl}`;
+  }
+  
+  // Fallback to default base URL if companyBaseUrl is not set
+  const defaultBaseUrl = 'https://mighty-dane-newly.ngrok-free.app';
+  return imageUrl.startsWith('/') ? `${defaultBaseUrl}${imageUrl}` : imageUrl;
 };
 
 const toggleBot = async () => {
@@ -8390,14 +8438,40 @@ const toggleBot = async () => {
                       {message.type === 'image' && message.image && (
                         <div className="p-0 message-content image-message">
                           <img
-                            src={message.image.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image.link || ''}
+                            src={(() => {
+                              // Priority: base64 data > url > link
+                              if (message.image.data && message.image.mimetype) {
+                                return `data:${message.image.mimetype};base64,${message.image.data}`;
+                              }
+                              if (message.image.url) {
+                                return getFullImageUrl(message.image.url);
+                              }
+                              if (message.image.link) {
+                                return getFullImageUrl(message.image.link);
+                              }
+                              console.warn("No valid image source found:", message.image);
+                              return logoImage; // Fallback to placeholder
+                            })()}
                             alt="Image"
                             className="rounded-lg message-image cursor-pointer"
                             style={{ maxWidth: 'auto', maxHeight: 'auto', objectFit: 'contain' }}
-                            onClick={() => openImageModal(message.image?.data ? `data:${message.image.mimetype};base64,${message.image.data}` : message.image?.link || '')}
+                            onClick={() => {
+                              const imageUrl = message.image?.data && message.image?.mimetype 
+                                ? `data:${message.image.mimetype};base64,${message.image.data}`
+                                : message.image?.url ? getFullImageUrl(message.image.url)
+                                : message.image?.link ? getFullImageUrl(message.image.link) : '';
+                              if (imageUrl) {
+                                openImageModal(imageUrl);
+                              }
+                            }}
                             onError={(e) => {
-                              console.error("Error loading image:", e.currentTarget.src);
-                              e.currentTarget.src = logoImage; // Replace with your fallback image path
+                              const originalSrc = e.currentTarget.src;
+                              console.error("Error loading image:", originalSrc);
+                              console.error("Image object:", message.image);
+                              // Prevent infinite loop by checking if we're already showing the fallback
+                              if (originalSrc !== logoImage) {
+                                e.currentTarget.src = logoImage;
+                              }
                             }}
                           />
                             {message.image?.caption && (
@@ -8413,8 +8487,12 @@ const toggleBot = async () => {
                               alt="Order"
                               className="w-12 h-12 rounded-lg object-cover"
                               onError={(e) => {
-                                console.error("Error loading order image:", e.currentTarget.src);
-                                e.currentTarget.src = logoImage;
+                                const originalSrc = e.currentTarget.src;
+                                console.error("Error loading order image:", originalSrc);
+                                // Prevent infinite loop by checking if we're already showing the fallback
+                                if (originalSrc !== logoImage) {
+                                  e.currentTarget.src = logoImage;
+                                }
                               }}
                             />
                             <div className="text-white">
@@ -9404,6 +9482,60 @@ const toggleBot = async () => {
                       className="px-3 py-1 bg-primary text-white rounded-md hover:bg-primary-dark transition duration-200"
                     >
                       Edit
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const user = auth.currentUser;
+                          const docUserRef = doc(firestore, 'user', user?.email!);
+                          const docUserSnapshot = await getDoc(docUserRef);
+                          if (!docUserSnapshot.exists()) {
+                            toast.error("User document not found");
+                            return;
+                          }
+                          const userData = docUserSnapshot.data();
+                          const companyId = userData.companyId;
+                          const docRef = doc(firestore, 'companies', companyId);
+                          const docSnapshot = await getDoc(docRef);
+                          if (!docSnapshot.exists()) throw new Error('No company document found');
+                          const companyData = docSnapshot.data();
+                          const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
+                          
+                          if (!selectedContact.phone) {
+                            toast.error("Contact phone number is required for sync");
+                            return;
+                          }
+
+                          const phoneNumber = selectedContact.phone.replace(/\D/g, '');
+                          const response = await fetch(`${baseUrl}/api/sync-a-contact/${companyId}`, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              companyId: companyId,
+                              phoneNumber: phoneNumber,
+                              phoneIndex: selectedContact.phoneIndex ?? 0
+                            }),
+                          });
+
+                          if (response.ok) {
+                            const responseData = await response.json();
+                            toast.success("Contact synced successfully!");
+                            // Optionally refresh contact data here
+                          } else {
+                            const errorText = await response.text();
+                            console.error('Sync failed:', errorText);
+                            toast.error("Failed to sync contact");
+                          }
+                        } catch (error) {
+                          console.error('Error syncing contact:', error);
+                          toast.error("An error occurred while syncing contact");
+                        }
+                      }}
+                      className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200"
+                    >
+                      Sync
                     </button>
                     <button
                       onClick={() => {
