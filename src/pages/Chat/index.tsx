@@ -8498,7 +8498,16 @@ const toggleBot = async () => {
                             }}
                           />
                             {message.image?.caption && (
-                              <p className="mt-2 text-sm text-black dark:text-gray-200">{message.image.caption}</p>
+                              <div
+                                className="mt-2 text-sm font-medium text-gray-200 dark:text-gray-200 break-words"
+                                style={{
+                                  maxWidth: '100%',
+                                  wordBreak: 'break-word',
+                                }}
+                                data-testid="image-caption"
+                              >
+                                {message.image.caption}
+                              </div>
                             )}
                         </div>
                       )}
