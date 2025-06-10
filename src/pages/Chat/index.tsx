@@ -9630,30 +9630,136 @@ const toggleBot = async () => {
                       Sync
                     </button>
                     <button
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this contact? This action cannot be undone.')) {
+                     // ... existing code ...
+                     onClick={async () => {
+                      if (window.confirm('Are you sure you want to delete this contact? This action cannot be undone.')) {
+                        try {
                           const user = auth.currentUser;
-                          const docUserRef = doc(firestore, 'user', user?.email!);
-                          getDoc(docUserRef).then((docUserSnapshot) => {
-                            if (!docUserSnapshot.exists()) {
-                              
-                              return;
+                          if (!user) {
+                            console.error('No authenticated user');
+                            return;
+                          }
+                          toast.success('Deleting contact...');
+                          setIsTabOpen(false);
+                          setSelectedContact(null);
+                          setSelectedChatId(null);
+                          const docUserRef = doc(firestore, 'user', user.email!);
+                          const docUserSnapshot = await getDoc(docUserRef);
+                          
+                          if (!docUserSnapshot.exists()) {
+                            console.error('No such document for user!');
+                            return;
+                          }
+
+                          const userData = docUserSnapshot.data();
+                          const companyId = userData.companyId;
+
+                          // Get company data for base URL
+                          const docRef = doc(firestore, 'companies', companyId);
+                          const docSnapshot = await getDoc(docRef);
+                          if (!docSnapshot.exists()) throw new Error('No company document found');
+                          const companyData = docSnapshot.data();
+                          const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
+
+                          // Format the contact's phone number for comparison with chatIds
+                          const contactChatId = selectedContact.phone?.replace(/\D/g, '') + "@s.whatsapp.net";
+
+                          // Check and delete scheduled messages containing this contact
+                          const scheduledMessagesRef = collection(firestore, `companies/${companyId}/scheduledMessages`);
+                          const scheduledSnapshot = await getDocs(scheduledMessagesRef);
+
+                          const deletePromises = scheduledSnapshot.docs.map(async (doc) => {
+                            const messageData = doc.data();
+                            if (messageData.chatIds?.includes(contactChatId)) {
+                              if (messageData.chatIds.length === 1) {
+                                // If this is the only recipient, delete the entire scheduled message
+                                try {
+                                  await axios.delete(`${baseUrl}/api/schedule-message/${companyId}/${doc.id}`);
+                                } catch (error) {
+                                  console.error(`Error deleting scheduled message ${doc.id}:`, error);
+                                }
+                              } else {
+                                // If there are other recipients, remove this contact from the recipients list
+                                const updatedChatIds = messageData.chatIds.filter((id: string) => id !== contactChatId);
+                                const updatedMessages = messageData.messages?.filter((msg: any) => msg.chatId !== contactChatId) || [];
+                                try {
+                                  await axios.put(
+                                    `${baseUrl}/api/schedule-message/${companyId}/${doc.id}`,
+                                    {
+                                      ...messageData,
+                                      chatIds: updatedChatIds,
+                                      messages: updatedMessages
+                                    }
+                                  );
+                                } catch (error) {
+                                  console.error(`Error updating scheduled message ${doc.id}:`, error);
+                                }
+                              }
                             }
-                            const userData = docUserSnapshot.data();
-                            const companyId = userData.companyId;
-                            const contactRef = doc(firestore, `companies/${companyId}/contacts`, selectedContact.id);
-                            deleteDoc(contactRef).then(() => {
-                              toast.success('Contact deleted successfully');
-                              setIsTabOpen(false);
-                              setContacts(contacts.filter(contact => contact.id !== selectedContact.id));
-                              navigate('/chat');
-                            }).catch((error) => {
-                              console.error('Error deleting contact:', error);
-                              toast.error('Failed to delete contact');
-                            });
                           });
+
+                          // Wait for all scheduled message updates/deletions to complete
+                          await Promise.all(deletePromises);
+
+                          // Check for active templates
+                          const templatesRef = collection(firestore, `companies/${companyId}/followUpTemplates`);
+                          const templatesSnapshot = await getDocs(templatesRef);
+
+                          // Get all active templates
+                          const activeTemplates = templatesSnapshot.docs
+                            .filter(doc => doc.data().status === 'active')
+                            .map(doc => ({
+                              id: doc.id,
+                              ...doc.data()
+                            }));
+
+                          // Remove templates for this contact
+                          if (activeTemplates.length > 0) {
+                            const phoneNumber = selectedContact.phone?.replace(/\D/g, '');
+                            for (const template of activeTemplates) {
+                              try {
+                                const response = await fetch(`${baseUrl}/api/tag/followup`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                  },
+                                  body: JSON.stringify({
+                                    requestType: 'removeTemplate',
+                                    phone: phoneNumber,
+                                    first_name: selectedContact.contactName || phoneNumber,
+                                    phoneIndex: userData.phone || 0,
+                                    templateId: template.id,
+                                    idSubstring: companyId
+                                  }),
+                                });
+                                if (!response.ok) {
+                                  const errorText = await response.text();
+                                  console.error('Failed to remove template messages:', errorText);
+                                }
+                              } catch (error) {
+                                console.error('Error removing template messages:', error);
+                              }
+                            }
+                          }
+
+                          // Delete the contact from Firestore
+                          const contactRef = doc(firestore, `companies/${companyId}/contacts`, selectedContact.id);
+                          await deleteDoc(contactRef);
+
+                          // Update local state
+                          toast.success('Contact and associated scheduled messages deleted successfully');
+                 
+                          setContacts(contacts.filter(contact => contact.id !== selectedContact.id));
+                          setScheduledMessages(prev => prev.filter(msg => !msg.chatIds.includes(contactChatId)));
+
+
+                        } catch (error) {
+                          console.error('Error deleting contact:', error);
+                          toast.error('Failed to delete contact');
                         }
-                      }}
+                      }
+                    }}
+
                       className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-200"
                     >
                       Delete
