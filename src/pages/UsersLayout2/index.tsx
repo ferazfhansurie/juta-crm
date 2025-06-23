@@ -238,86 +238,80 @@ function Main() {
     fetchCompanyData();
   }, []);
 
-  
-  async function fetchEmployees() {
-    const auth = getAuth(app);
-    const user = auth.currentUser;
-    setCurrentUserEmail(user?.email || null);
-    try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        return;
-      }
-    
-      const dataUser = docUserSnapshot.data();
-      companyId = dataUser.companyId;
-      setRole(dataUser.role);
-      
+// Assuming axios is imported: import axios from 'axios';
+// Also ensure you have proper state management (e.g., useState for setRole, setPhoneCount, etc.)
 
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        return;
-      }
-      const companyData = docSnapshot.data();
-      setPhoneCount(companyData.phoneCount);
-      accessToken = companyData.ghl_accessToken;
-
-      // Fetch phone names
-      const phoneNamesData: { [key: number]: string } = {};
-      for (let i = 0; i < companyData.phoneCount; i++) {
-        const phoneName = companyData[`phone${i + 1}`] || companyData[`phone${i + 1}Name`];
-        if (phoneName) {
-          phoneNamesData[i] = phoneName;
-        } else {
-          phoneNamesData[i] = `Phone ${i + 1}`;
-        }
-      }
-      setPhoneNames(phoneNamesData);
-
-      const employeeRef = collection(firestore, `companies/${companyId}/employee`);
-      const employeeSnapshot = await getDocs(employeeRef);
-
-      const employeeListData: Employee[] = [];
-      const groupSet = new Set<string>();
-
-      employeeSnapshot.forEach((doc) => {
-        const data = doc.data();
-        const employeeGroup = data.group || '';
-        if (employeeGroup) {
-          groupSet.add(employeeGroup);
-        }
-        employeeListData.push({ 
-          id: doc.id, 
-          ...data,
-          group: employeeGroup,
-          email: data.email,
-          name: data.name,
-          employeeId: data.employeeId,
-          phoneNumber: data.phoneNumber,
-          role: data.role
-        } as Employee);
-      });
-
-      
-      
-
-      const filteredEmployeeList = dataUser.role === "3"
-        ? employeeListData.filter(employee => employee.email === user?.email)
-        : employeeListData;
-      
-      
-      setEmployeeList(filteredEmployeeList);
-      setGroups(Array.from(groupSet));
-      
-      setShowAddUserButton(dataUser.role === "1");
-    
-    } catch (error) {
-      console.error('Error fetching employees:', error);
-      throw error;
+async function fetchEmployees() {
+  const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      toast.error("No user email found");
+      return;
     }
+  
+  try {
+    // 1. Fetch user data
+    const userResponse = await axios.get(`http://localhost:8443/api/user-data/${userEmail}`);
+    const dataUser = userResponse.data;
+
+    if (!dataUser) {
+      console.error("User data not found for email:", userEmail);
+      return;
+    }
+
+    const companyId = dataUser.company_id; // Note: SQL column is company_id
+    setRole(dataUser.role); // Assuming setRole is a state setter
+
+    // 2. Fetch company configuration (includes phoneCount, ghl_accessToken, phone names)
+    const companyConfigResponse = await axios.get(`http://localhost:8443/api/company-config/${companyId}`);
+    const { companyData } = companyConfigResponse.data;
+
+    setPhoneCount(companyData.phoneCount); // Assuming setPhoneCount is a state setter
+    // Assuming accessToken is a global variable or state setter
+    // If accessToken is a state, you'd use setAccessToken(companyData.ghl_accessToken);
+    accessToken = companyData.ghl_accessToken; 
+
+    // Fetch phone names from companyData
+    const phoneNamesData: { [key: number]: string } = {};
+    for (let i = 0; i < companyData.phoneCount; i++) {
+      const phoneName = companyData[`phone${i + 1}`]; // Accessing phone1, phone2, etc. from companyData
+      if (phoneName) {
+        phoneNamesData[i] = phoneName;
+      } else {
+        phoneNamesData[i] = `Phone ${i + 1}`;
+      }
+    }
+    setPhoneNames(phoneNamesData); // Assuming setPhoneNames is a state setter
+
+    // 3. Fetch employee list
+    const employeesResponse = await axios.get(`http://localhost:8443/api/employees-data/${companyId}`);
+    const employeeListData: Employee[] = employeesResponse.data.map((employee: any) => ({
+      id: employee.id,
+      ...employee,
+      phoneNumber: employee.phoneNumber, // Ensure consistent naming if different from DB
+      // group: employee.group || '', // Omitted for now as 'group' is not in SQL schema.
+                                      // Re-add if you clarify its source in DB.
+    }));
+console.log(employeesResponse);
+    const groupSet = new Set<string>();
+    // If 'group' is added later to employee objects, you'll iterate here to populate groupSet
+    // employeeListData.forEach(emp => { if (emp.group) groupSet.add(emp.group); });
+
+    const filteredEmployeeList = dataUser.role === "3"
+      ? employeeListData.filter(employee => employee.email === userEmail)
+      : employeeListData;
+    
+    setEmployeeList(filteredEmployeeList); // Assuming setEmployeeList is a state setter
+    setGroups(Array.from(groupSet)); // Assuming setGroups is a state setter (will be empty if 'group' is not present)
+    
+    setShowAddUserButton(dataUser.role === "1"); // Assuming setShowAddUserButton is a state setter
+  
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    // Ensure setError is defined in your component's scope
+    // setError("Failed to fetch employees data"); 
+    throw error;
   }
+}
 
   // Update the updatePhoneName function
   const updatePhoneName = async (index: number, name: string) => {

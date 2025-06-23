@@ -51,6 +51,8 @@ const firestore = getFirestore(app);
 
 function Main() {
   interface Contact {
+    name:any;
+    contact_id: any;
     threadid?: string | null;
     assistantId?: string | null;
     additionalEmails?: string[] | null;
@@ -80,7 +82,7 @@ function Main() {
     type?: string | null;
     website?: string | null;
     chat_pic_full?: string | null;
-    profilePicUrl?: string | null;
+    profileUrl?: string | null;
     chat_id?:string | null;
     points?:number | null;
     phoneIndex?:number | null;
@@ -588,6 +590,12 @@ const resetSort = () => {
     switch (userRole) {
       case '1':
         return contacts; // Admin sees all contacts
+        case 'admin': // Admin
+        return contacts; // Admin sees all contacts
+        case 'user': // Admin
+        return contacts.filter(contact => 
+          contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
+        );
       case '2':
         // Sales sees only contacts assigned to them
         return contacts.filter(contact => 
@@ -710,90 +718,123 @@ const resetSort = () => {
     }
   };
   
-  const fetchContacts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const auth = getAuth();
-      const firestore = getFirestore();
-      const user = auth.currentUser;
-  
-      if (!user) {
-        console.error('No authenticated user');
-        return;
-      }
-  
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
-        return;
-      }
-  
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const userRole = userData.role;
-      const userName = userData.name;
-  
-      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const q = query(contactsRef,);
-  
-      const querySnapshot = await getDocs(q);
-      const fetchedContacts = querySnapshot.docs.map(doc => {
-        const contactData = doc.data();
-        
-        // Filter out empty tags
-        if (contactData.tags) {
-          contactData.tags = contactData.tags.filter((tag: any) => 
-            tag && tag.trim() !== '' && tag !== null && tag !== undefined
-          );
-        }
-        
-        return { id: doc.id, ...contactData } as Contact;
-      });
-      
-      // Function to check if a chat_id is for an individual contact
-      const isIndividual = (chat_id: string | undefined) => {
-        return chat_id?.endsWith('@c.us') || false;
-      };
-  
-      // Separate contacts into categories
-      const individuals = fetchedContacts.filter(contact => isIndividual(contact.chat_id || ''));
-      const groups = fetchedContacts.filter(contact => !isIndividual(contact.chat_id || ''));
-  
-      // Combine all contacts in the desired order
-      const allSortedContacts = [
-        ...individuals,
-        ...groups
-      ];
-// Helper function to get timestamp value
-const getTimestamp = (createdAt: any): number => {
-  if (!createdAt) return 0;
-  if (typeof createdAt === 'string') {
-    return new Date(createdAt).getTime();
-  }
-  if (createdAt.seconds) {
-    return createdAt.seconds * 1000 + (createdAt.nanoseconds || 0) / 1000000;
-  }
-  return 0;
-};
-
-// Sort contacts based on createdAt
-allSortedContacts.sort((a, b) => {
-  const dateA = getTimestamp(a.createdAt);
-  const dateB = getTimestamp(b.createdAt);
-  return dateB - dateA; // For descending order
-});
-      const filteredContacts = filterContactsByUserRole(allSortedContacts, userRole, userName);
-      
-      setContacts(filteredContacts);
-      setFilteredContacts(filteredContacts);
-    } catch (error) {
-      console.error('Error fetching contacts:', error);
-      toast.error('Failed to fetch contacts');
-    } finally {
-      setLoading(false);
+const fetchContacts = useCallback(async () => {
+  setLoading(true);
+  try {
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      toast.error("No user email found");
+      return;
     }
-  }, []);
+
+    // Get user config to get companyId
+    const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+    if (!userResponse.ok) {
+      toast.error("Failed to fetch user config");
+      return;
+    }
+
+    const userData = await userResponse.json();
+    const companyId = userData.company_id;
+    const userRole = userData.role;
+    const userName = userData.name;
+
+    // Fetch contacts from SQL database
+    const contactsResponse = await fetch(`http://localhost:8443/api/companies/${companyId}/contacts?email=${userEmail}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+    if (!contactsResponse.ok) {
+      toast.error("Failed to fetch contacts");
+      return;
+    }
+
+    const data = await contactsResponse.json();
+
+    const fetchedContacts = data.contacts.map((contact: any) => {
+      // Filter out empty tags
+      if (contact.tags) {
+        contact.tags = contact.tags.filter((tag: any) => 
+          tag && tag.trim() !== '' && tag !== null && tag !== undefined
+        );
+      }
+    
+      // Map SQL fields to match your Contact interface
+      return {
+        ...contact,
+        id: contact.id,
+        chat_id: contact.chat_id,
+        contactName: contact.name,
+        phone: contact.phone,
+        email: contact.email,
+        profile: contact.profile,
+        tags: contact.tags,
+        createdAt: contact.createdAt,
+        lastUpdated: contact.lastUpdated,
+        last_message: contact.last_message,
+        isIndividual: contact.isIndividual
+      } as Contact;
+    });
+    console.log(fetchedContacts);
+
+    // Function to check if a chat_id is for an individual contact
+    const isIndividual = (chat_id: string | undefined) => {
+      return chat_id?.endsWith('@c.us') || false;
+    };
+
+    // Separate contacts into categories
+    const individuals = fetchedContacts.filter((contact: { chat_id: any; }) => isIndividual(contact.chat_id || ''));
+    const groups = fetchedContacts.filter((contact: { chat_id: any; }) => !isIndividual(contact.chat_id || ''));
+
+    // Combine all contacts in the desired order
+    const allSortedContacts = [
+      ...individuals,
+      ...groups
+    ];
+
+    // Helper function to get timestamp value
+    const getTimestamp = (createdAt: any): number => {
+      if (!createdAt) return 0;
+      if (typeof createdAt === 'string') {
+        return new Date(createdAt).getTime();
+      }
+      if (createdAt.seconds) {
+        return createdAt.seconds * 1000 + (createdAt.nanoseconds || 0) / 1000000;
+      }
+      return 0;
+    };
+
+    // Sort contacts based on createdAt
+    allSortedContacts.sort((a, b) => {
+      const dateA = getTimestamp(a.createdAt);
+      const dateB = getTimestamp(b.createdAt);
+      return dateB - dateA; // For descending order
+    });
+
+    const filteredContacts = filterContactsByUserRole(allSortedContacts, userRole, userName);
+    
+    setContacts(filteredContacts);
+    setFilteredContacts(filteredContacts);
+  } catch (error) {
+    console.error('Error fetching contacts:', error);
+    toast.error('Failed to fetch contacts');
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     fetchContacts();
@@ -833,7 +874,7 @@ allSortedContacts.sort((a, b) => {
       nextPage * contactsPerPage
     );
 
-    setContacts((prevContacts) => [...prevContacts, ...newContacts]);
+    setContacts((prevContacts: Contact[]) => [...prevContacts, ...newContacts] as Contact[]);
     setCurrentPage(nextPage);
   };
   const handleExportContacts = () => {
@@ -1080,12 +1121,13 @@ const formatPhoneNumber = (phone: string): string => {
   return `+${formattedNumber}`;
 };
 
+// ... existing code ...
 const handleSaveNewContact = async () => {
   if (userRole === "3") {
     toast.error("You don't have permission to add contacts.");
     return;
   }
-
+console.log(newContact);
   try {
     if (!newContact.phone) {
       toast.error("Phone number is required.");
@@ -1095,150 +1137,148 @@ const handleSaveNewContact = async () => {
     // Format the phone number
     const formattedPhone = formatPhoneNumber(newContact.phone);
 
-    const user = auth.currentUser;
-    const docUserRef = doc(firestore, 'user', user?.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      
+    // Get user/company info from localStorage or your app state
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      toast.error("No user email found");
       return;
     }
 
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-    const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
-
-    // Use the formatted phone number as the document ID
-    const contactDocRef = doc(contactsCollectionRef, formattedPhone);
-
-    // Check if a contact with this phone number already exists
-    const existingContact = await getDoc(contactDocRef);
-    if (existingContact.exists()) {
-      toast.error("A contact with this phone number already exists.");
-      return;
-    }
-    const chat_id = formattedPhone.split('+')[1]+"@c.us";
-    // Prepare the contact data with the formatted phone number
-    const contactData: { [key: string]: any } = {
-      id: formattedPhone,
-      chat_id: chat_id,
-      contactName: newContact.contactName,
-      lastName: newContact.lastName,
-      email: newContact.email,
-      phone: formattedPhone,
-      address1: newContact.address1,
-      companyName: newContact.companyName,
-      locationId: newContact.locationId,
-      dateAdded: new Date().toISOString(),
-      unreadCount: 0,
-      points: newContact.points || 0,
-      branch: newContact.branch,
-      expiryDate: newContact.expiryDate,
-      vehicleNumber: newContact.vehicleNumber,
-      ic: newContact.ic,
-    };
-
-    // Add new contact to Firebase
-    await setDoc(contactDocRef, contactData);
-
-    toast.success("Contact added successfully!");
-    setAddContactModal(false);
-    setContacts(prevContacts => [...prevContacts, contactData]);
-    setNewContact({
-      contactName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      address1: '',
-      companyName: '',
-      locationId: '',
-      points: 0,
-      branch: '',
-      expiryDate: '',
-      vehicleNumber: '',
-      ic: '',
-      notes: '',  // Add this line
+    // Fetch user config to get companyId
+    const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include'
     });
 
-    await fetchContacts();
-  } catch (error) {
-    console.error('Error adding contact:', error);
-    toast.error("An error occurred while adding the contact: " + error);
-  }
+    if (!userResponse.ok) {
+      toast.error("Failed to fetch user config");
+      return;
+    }
+
+    const userData = await userResponse.json();
+    const companyId = userData?.company_id;
+    if (!companyId) {
+      toast.error("Company ID not found!");
+      return;
+    }
+
+    // Prepare the contact data
+// Generate contact_id as companyId + phone
+const contact_id = companyId + '-'+formattedPhone.split('+')[1];
+
+// Prepare the contact data
+const chat_id = formattedPhone.split('+')[1] + "@c.us";
+const contactData: { [key: string]: any } = {
+  contact_id, // <-- include the generated contact_id
+  companyId,
+  contactName: newContact.contactName,
+  name:newContact.contactName,
+  last_name: newContact.lastName,
+  email: newContact.email,
+  phone: formattedPhone,
+  address1: newContact.address1,
+  companyName: newContact.companyName,
+  locationId: newContact.locationId,
+  dateAdded: new Date().toISOString(),
+  unreadCount: 0,
+  points: newContact.points || 0,
+  branch: newContact.branch,
+  expiryDate: newContact.expiryDate,
+  vehicleNumber: newContact.vehicleNumber,
+  ic: newContact.ic,
+  chat_id: chat_id,
+  notes: newContact.notes,
 };
+    // Send POST request to your SQL backend
+    const response = await axios.post('http://localhost:8443/api/contacts', contactData);
 
-const handleSaveNewTag = async () => {
-  try {
-    const user = auth.currentUser;
-    if (!user) {
-      
-      return;
-    }
-
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      
-      return;
-    }
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-
-    const companyRef = doc(firestore, 'companies', companyId);
-    const companySnapshot = await getDoc(companyRef);
-    if (!companySnapshot.exists()) {
-      
-      return;
-    }
-    const companyData = companySnapshot.data();
-    
-    if (companyData.v2) {
-      // For v2 users, add tag to Firestore under the company's tags collection
-      const tagsCollectionRef = collection(firestore, `companies/${companyId}/tags`);
-      const newTagRef = await addDoc(tagsCollectionRef, {
-        name: newTag,
-        createdAt: serverTimestamp()
+    if (response.data.success) {
+      toast.success("Contact added successfully!");
+      setAddContactModal(false);
+      setContacts(prevContacts => [
+        ...prevContacts,
+        contactData as Contact
+      ]);
+      setNewContact({
+        contactName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        address1: '',
+        companyName: '',
+        locationId: '',
+        points: 0,
+        branch: '',
+        expiryDate: '',
+        vehicleNumber: '',
+        ic: '',
+        notes: '',
       });
 
-      setTagList([...tagList, { id: newTagRef.id, name: newTag }]);
+      await fetchContacts();
     } else {
-      // Existing code for non-v2 users (using GHL API)
-      const accessToken = companyData.ghl_accessToken;
-      if (!accessToken) {
-        console.error('Access token not found in company data');
-        toast.error("Access token not found. Please check your configuration.");
-        return;
-      }
-      const locationId = companyData.ghl_location;
-      if (!locationId) {
-        console.error('Location ID not found in company data');
-        toast.error("Location ID not found. Please check your configuration.");
-        return;
-      }
-
-      const apiUrl = `https://services.leadconnectorhq.com/locations/${locationId}/tags`;
-      const response = await axios.post(apiUrl, 
-        { name: newTag },
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Version: '2021-07-28',
-            'Content-Type': 'application/json',
-            Accept: 'application/json'
-          }
-        }
-      );
-      
-      setTagList([...tagList, response.data.tag]);
+      toast.error(response.data.message || "Failed to add contact");
     }
+  } catch (error: any) {
+    console.error('Error adding contact:', error);
+    toast.error("An error occurred while adding the contact: " + (error.response?.data?.message || error.message));
+  }
+};
+const handleSaveNewTag = async () => {
+  console.log('adding tag');
+  try {
+    // Get user email from localStorage or context
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      toast.error("User not authenticated");
+      return;
+    }
+
+    // Fetch user/company info from your backend
+    const userResponse = await fetch(`http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    });
+    if (!userResponse.ok) {
+      toast.error("Failed to fetch user/company info");
+      return;
+    }
+    const userJson = await userResponse.json();
+    console.log(userJson);
+    const companyData = userJson.companyData;
+    const companyId = userJson.userData.companyId;
+    if (!companyId) {
+      toast.error("Company ID not found");
+      return;
+    }
+
+    // Add tag via your SQL backend
+    const response = await fetch(`http://localhost:8443/api/companies/${companyId}/tags`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name: newTag })
+    });
+
+    if (!response.ok) {
+      toast.error("Failed to add tag");
+      return;
+    }
+
+    const data = await response.json();
+    // Assume the backend returns the new tag as { id, name }
+    setTagList([...tagList, { id: data.id, name: data.name }]);
 
     setShowAddTagModal(false);
     setNewTag("");
     toast.success("Tag added successfully!");
   } catch (error) {
     console.error('Error adding tag:', error);
-    if (axios.isAxiosError(error)) {
-      console.error('Error details:', error.response?.data);
-    }
     toast.error("An error occurred while adding the tag.");
   }
 };
@@ -1322,83 +1362,55 @@ const handleConfirmDeleteTag = async () => {
       setSelectedContacts([]);
     }
   };
-  const fetchTags = async (token: string, location: string, employeeList: string[]) => {
+  const fetchTags = async (employeeList: string[]) => {
     setLoading(true);
+    console.log('fetching tags');
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        
+      // Get user email from localStorage or context
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
         setLoading(false);
         return;
       }
-
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
+  
+      // Fetch user/company info from your backend
+      const userResponse = await fetch(`http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      if (!userResponse.ok) {
         setLoading(false);
         return;
       }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      const companyRef = doc(firestore, 'companies', companyId);
-      const companySnapshot = await getDoc(companyRef);
-      if (!companySnapshot.exists()) {
-        
+      const userJson = await userResponse.json();
+      console.log(userJson);
+      const companyData = userJson.userData;
+      const companyId = companyData.companyId;
+      if (!companyId) {
         setLoading(false);
         return;
       }
-      const companyData = companySnapshot.data();
-
-      let tags: Tag[] = [];
-
-      if (companyData.v2) {
-        // For v2 users, fetch tags from Firestore
-        const tagsCollectionRef = collection(firestore, `companies/${companyId}/tags`);
-        const tagsSnapshot = await getDocs(tagsCollectionRef);
-        tags = tagsSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
-      } else {
-        // For non-v2 users, fetch tags from GHL API
-        const maxRetries = 5;
-        const baseDelay = 1000;
-
-        const fetchData = async (url: string, retries: number = 0): Promise<any> => {
-          const options = {
-            method: 'GET',
-            url: url,
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Version: '2021-07-28',
-            },
-          };
-          await rateLimiter();
-          try {
-            const response = await axios.request(options);
-            return response;
-          } catch (error: any) {
-            if (error.response && error.response.status === 429 && retries < maxRetries) {
-              const delay = baseDelay * Math.pow(2, retries);
-              console.warn(`Rate limit hit, retrying in ${delay}ms...`);
-              await new Promise(resolve => setTimeout(resolve, delay));
-              return fetchData(url, retries + 1);
-            } else {
-              throw error;
-            }
-          }
-        };
-
-        const url = `https://services.leadconnectorhq.com/locations/${location}/tags`;
-        const response = await fetchData(url);
-        tags = response.data.tags;
+  
+      // Fetch tags from your SQL backend
+      const tagsResponse = await fetch(`http://localhost:8443/api/companies/${companyId}/tags`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      if (!tagsResponse.ok) {
+        setLoading(false);
+        return;
       }
-
+      console.log(tagsResponse);
+      const tags: Tag[] = await tagsResponse.json();
+  
+      // Filter out tags that match employee names (case-insensitive)
       const normalizedEmployeeNames = employeeList.map(name => name.toLowerCase());
-
-      const filteredTags = tags.filter((tag: Tag) => 
+      const filteredTags = tags.filter((tag: Tag) =>
         !normalizedEmployeeNames.includes(tag.name.toLowerCase())
       );
-
+  
       setTagList(filteredTags);
       setLoading(false);
     } catch (error) {
@@ -1411,71 +1423,88 @@ const handleConfirmDeleteTag = async () => {
     const normalizedEmployeeNames = employeeList.map(employee => employee.name.toLowerCase());
     setEmployeeNames(normalizedEmployeeNames);
   }, [employeeList]);
-  async function fetchCompanyData() {
-    const user = auth.currentUser;
-    try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
+  const getCompanyData = async () => {
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) throw new Error('No authenticated user');
+  
+    const response = await fetch(
+      `http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+      {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       }
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      role = userData.role;
-      userName = userData.name;
-      setShowAddUserButton(userData.role === "1");
-      setUserRole(userData.role); // Set the user's role
-      
-      // Set companyId state
-      setCompanyId(companyId);
-
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        
-        return;
-      }
-      const companyData = docSnapshot.data();
-      
-      // Fetch phone names data
-      await fetchPhoneIndex(companyId);
-      
-      setStopbot(companyData.stopbot || false);
-      
-      const employeeRef = collection(firestore, `companies/${companyId}/employee`);
-      const employeeSnapshot = await getDocs(employeeRef);
-
-      const employeeListData: Employee[] = [];
-      employeeSnapshot.forEach((doc) => {
-        employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
-      });
-     
-      setEmployeeList(employeeListData);
-      const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
-      setEmployeeNames(employeeNames);
-    
-      if (companyData.v2 !== true) {
-        await fetchTags(companyData.ghl_accessToken, companyData.ghl_location, employeeNames);
-      } else {
-        
-        const tagsCollectionRef = collection(firestore, `companies/${companyId}/tags`);
-        const tagsSnapshot = await getDocs(tagsCollectionRef);
-        const tagsArray = tagsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name
-        }));
-        setTagList(tagsArray);
-      }
-      setLoading(false);
-     // await searchContacts(companyData.ghl_accessToken, companyData.ghl_location);
-
-
-    } catch (error) {
-      console.error('Error fetching company data:', error);
-    }
+    );
+  
+    if (!response.ok) throw new Error('Failed to fetch company data');
+  
+    const data = await response.json();
+  
+    // You can adjust the return structure as needed for your app
+    return {
+      companyData: data.companyData,
+      userData: data.userData,
+      currentPhoneIndex: data.userData.phone || 0,
+    };
+  };
+async function fetchCompanyData() {
+  const userEmail = localStorage.getItem('userEmail');
+  if (!userEmail) {
+    console.error('No user email found');
+    return;
   }
+
+  try {
+    const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+
+    if (!userResponse.ok) {
+      throw new Error('Failed to fetch company data');
+    }
+
+    const data = await userResponse.json();
+    console.log(data)
+    // Set user data
+    const userData = data.userData;
+    const companyId = data.company_id;
+    const role = data.role;
+    const userName = data.name;
+
+    setShowAddUserButton(data.role === "1");
+    setUserRole(data.role);
+    setCompanyId(companyId);
+
+    // Set company data
+    const { companyData, } = await getCompanyData();
+    setStopbot(companyData.stopbot || false);
+
+    // Fetch phone names data
+    await fetchPhoneIndex(companyId);
+
+    // Set employee data
+    const employeeListData = data.employees || [];
+    setEmployeeList(employeeListData);
+    const employeeNames = employeeListData.map((employee: Employee) => employee.name.trim().toLowerCase());
+    setEmployeeNames(employeeNames);
+
+    await fetchTags(employeeListData);
+
+    setLoading(false);
+  } catch (error) {
+    console.error('Error fetching company data:', error);
+    toast.error('Failed to fetch company data');
+  }
+}
+
   const toggleBot = async () => {
     try {
       const user = auth.currentUser;
@@ -2097,58 +2126,81 @@ if (matchingTemplate) {
 
   const handleSyncContact = async () => {
     try {
-      
+      console.log('test');
       setFetching(true);
-      const user = auth.currentUser;
-      if (!user) {
-        
-        setFetching(false);
-        toast.error("User not authenticated");
-        return;
-      }
-
       
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
         setFetching(false);
-        toast.error("User document not found");
+        toast.error("No user email found");
         return;
       }
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData?.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error('No company document found');
-      const companyData = docSnapshot.data();
-      const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-      if (!companyId) {
-        
+  
+      // Get user config to get companyId
+      const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include'
+      });
+  
+      if (!userResponse.ok) {
         setFetching(false);
-        toast.error("Company ID not found");
+        toast.error("Failed to fetch user config");
         return;
       }
-
-      
-      // Call the new API endpoint
-      const response = await axios.post(`${baseUrl}/api/sync-contacts/${companyId}`);
-
-      if (response.status === 200 && response.data.success) {
-        
+  
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+      setCompanyId(companyId);
+  
+      // Get company data
+      const companyResponse = await fetch(`http://localhost:8443/api/companies/${companyId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include'
+      });
+  
+      if (!companyResponse.ok) {
+        setFetching(false);
+        toast.error("Failed to fetch company data");
+        return;
+      }
+  
+      const companyData = await companyResponse.json();
+     
+  
+      // Call the sync contacts endpoint
+      const syncResponse = await fetch(`http://localhost:8443/api/sync-contacts/${companyId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include'
+      });
+  
+      if (!syncResponse.ok) {
+        const errorData = await syncResponse.json();
+        throw new Error(errorData.error || "Failed to start contact synchronization");
+      }
+  
+      const responseData = await syncResponse.json();
+      if (responseData.success) {
         toast.success("Contact synchronization started successfully");
-        // You might want to add some UI indication that sync is in progress
       } else {
-        console.error('Failed to start contact synchronization:', response.data.error);
-        throw new Error(response.data.error || "Failed to start contact synchronization");
+        throw new Error(responseData.error || "Failed to start contact synchronization");
       }
-
+  
     } catch (error) {
       console.error('Error syncing contacts:', error);
       toast.error("An error occurred while syncing contacts: " + (error instanceof Error ? error.message : String(error)));
     } finally {
-      
       setFetching(false);
     }
   };
@@ -2412,127 +2464,63 @@ if (matchingTemplate) {
     }
     if (currentContact) {
       try {
-        const user = auth.currentUser;
-        if (!user) {
-          console.error('No authenticated user');
+        // Get user/company info from localStorage or your app state
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
+          toast.error("No user email found");
           return;
         }
   
-        const docUserRef = doc(firestore, 'user', user.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          console.error('No such document for user!');
-          return;
-        }
-        const userData = docUserSnapshot.data();
-        const companyId = userData.companyId;
-        const docRef = doc(firestore, 'companies', companyId);
-        const docSnapshot = await getDoc(docRef);
-        if (!docSnapshot.exists()) throw new Error('No company document found');
-        const companyData = docSnapshot.data();
-        const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-
-        // Format the contact's phone number for comparison with chatIds
-        const contactChatId = currentContact.phone?.replace(/\D/g, '') + "@s.whatsapp.net";
-  
-        // Check and delete scheduled messages containing this contact
-        const scheduledMessagesRef = collection(firestore, `companies/${companyId}/scheduledMessages`);
-        const scheduledSnapshot = await getDocs(scheduledMessagesRef);
-        
-        const deletePromises = scheduledSnapshot.docs.map(async (doc) => {
-          const messageData = doc.data();
-          if (messageData.chatIds?.includes(contactChatId)) {
-            if (messageData.chatIds.length === 1) {
-              // If this is the only recipient, delete the entire scheduled message
-              try {
-                await axios.delete(`https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}/${doc.id}`);
-                
-              } catch (error) {
-                console.error(`Error deleting scheduled message ${doc.id}:`, error);
-              }
-            } else {
-              // If there are other recipients, remove this contact from the recipients list
-              const updatedChatIds = messageData.chatIds.filter((id: string) => id !== contactChatId);
-              const updatedMessages = messageData.messages?.filter((msg: any) => msg.chatId !== contactChatId) || [];
-              
-              try {
-                await axios.put(
-                  `https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}/${doc.id}`,
-                  {
-                    ...messageData,
-                    chatIds: updatedChatIds,
-                    messages: updatedMessages
-                  }
-                );
-                
-              } catch (error) {
-                console.error(`Error updating scheduled message ${doc.id}:`, error);
-              }
-            }
-          }
+        // Fetch user config to get companyId
+        const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          credentials: 'include'
         });
-
-        // Wait for all scheduled message updates/deletions to complete
-        await Promise.all(deletePromises);
   
-        // Check for active templates
-        const templatesRef = collection(firestore, `companies/${companyId}/followUpTemplates`);
-        const templatesSnapshot = await getDocs(templatesRef);
-        
-        // Get all active templates
-        const activeTemplates = templatesSnapshot.docs
-          .filter(doc => doc.data().status === 'active')
-          .map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-  
-        // Remove templates for this contact
-        if (activeTemplates.length > 0) {
-          const phoneNumber = currentContact.phone?.replace(/\D/g, '');
-          
-          for (const template of activeTemplates) {
-            try {
-              const response = await fetch(`${baseUrl}/api/tag/followup`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  requestType: 'removeTemplate',
-                  phone: phoneNumber,
-                  first_name: currentContact.contactName || phoneNumber,
-                  phoneIndex: userData.phone || 0,
-                  templateId: template.id,
-                  idSubstring: companyId
-                }),
-              });
-  
-              if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Failed to remove template messages:', errorText);
-              } else {
-                
-              }
-            } catch (error) {
-              console.error('Error removing template messages:', error);
-            }
-          }
+        if (!userResponse.ok) {
+          toast.error("Failed to fetch user config");
+          return;
         }
   
-        // Delete the contact from Firestore
-        const contactRef = doc(firestore, `companies/${companyId}/contacts`, currentContact.id!);
-        await deleteDoc(contactRef);
+        const userData = await userResponse.json();
+        const companyId = userData?.company_id;
+        if (!companyId) {
+          toast.error("Company ID not found!");
+          return;
+        }
   
-        // Update local state
-        setContacts(prevContacts => prevContacts.filter(contact => contact.id !== currentContact.id));
-        setScheduledMessages(prev => prev.filter(msg => !msg.chatIds.includes(contactChatId)));
-        setDeleteConfirmationModal(false);
-        setCurrentContact(null);
-        
-        toast.success("Contact and associated scheduled messages deleted successfully!");
-        await fetchContacts();
-        await fetchScheduledMessages(); // Refresh scheduled messages list
+        // Get the contact_id
+        const contact_id = currentContact.contact_id;
+  
+        // 1. Delete associated scheduled messages for this contact
+        // (Optional: Only if your backend supports this endpoint)
+        try {
+          await axios.delete(`http://localhost:8443/api/schedule-message/${companyId}/contact/${contact_id}`);
+        } catch (error) {
+          console.error('Error deleting scheduled messages for contact:', error);
+          // Not fatal, continue to delete contact
+        }
+  
+        // 2. Delete the contact from your SQL backend
+        const response = await axios.delete(`http://localhost:8443/api/contacts/${contact_id}?companyId=${companyId}`);
+  
+        if (response.data.success) {
+          // Update local state
+          setContacts(prevContacts => prevContacts.filter(contact => contact.contact_id !== contact_id));
+          setScheduledMessages(prev => prev.filter(msg => !msg.chatIds.includes(contact_id)));
+          setDeleteConfirmationModal(false);
+          setCurrentContact(null);
+  
+          toast.success("Contact and associated scheduled messages deleted successfully!");
+          await fetchContacts();
+          await fetchScheduledMessages();
+        } else {
+          toast.error(response.data.message || "Failed to delete contact.");
+        }
       } catch (error) {
         console.error('Error deleting contact:', error);
         toast.error("An error occurred while deleting the contact.");
@@ -2713,26 +2701,50 @@ if (matchingTemplate) {
       setIsMassDeleting(false);
     }
   };
-
   const handleSaveContact = async () => {
     if (currentContact) {
       try {
-        const user = auth.currentUser;
-        const docUserRef = doc(firestore, 'user', user?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          
+        // Get user/company info from localStorage or your app state
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
+          toast.error("No user email found");
           return;
         }
-        const userData = docUserSnapshot.data();
-        const companyId = userData.companyId;
-        const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
   
+        // Fetch user config to get companyId
+        const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          credentials: 'include'
+        });
+  
+        if (!userResponse.ok) {
+          toast.error("Failed to fetch user config");
+          return;
+        }
+  
+        const userData = await userResponse.json();
+        const companyId = userData?.company_id;
+        if (!companyId) {
+          toast.error("Company ID not found!");
+          return;
+        }
+  
+        // Generate contact_id as companyId + phone
+        const formattedPhone = formatPhoneNumber(currentContact.phone || "");
+        const contact_id = currentContact.contact_id;
+
         // Create an object with all fields, including custom fields
-        const updateData: { [key: string]: any } = {};
+        const updateData: { [key: string]: any } = {
+          contact_id,
+          companyId,
+        };
   
         const fieldsToUpdate = [
-          'contactName', 'email', 'lastName', 'phone', 'address1', 'city', 
+          'name', 'email', 'last_name', 'phone', 'address1', 'city', 
           'state', 'postalCode', 'website', 'dnd', 'dndSettings', 'tags', 
           'source', 'country', 'companyName', 'branch', 
           'expiryDate', 'vehicleNumber', 'points', 'IC', 'assistantId', 'threadid',
@@ -2749,22 +2761,26 @@ if (matchingTemplate) {
         if (currentContact.customFields && Object.keys(currentContact.customFields).length > 0) {
           updateData.customFields = currentContact.customFields;
         }
+        console.log(updateData);
+        // Send PUT request to your SQL backend
+        // (Assume your backend expects /api/contacts/:contact_id for update)
+        const response = await axios.put(`http://localhost:8443/api/contacts/${contact_id}`, updateData);
   
-        // Update contact in Firebase
-        const contactDocRef = doc(contactsCollectionRef, currentContact.phone!);
-        await updateDoc(contactDocRef, updateData);
+        if (response.data.success) {
+          // Update local state immediately after saving
+          setContacts(prevContacts => 
+            prevContacts.map(contact => 
+              contact.contact_id === contact_id ? { ...contact, ...updateData } : contact
+            )
+          );
   
-        // Update local state immediately after saving
-        setContacts(prevContacts => 
-          prevContacts.map(contact => 
-            contact.phone === currentContact.phone ? { ...contact, ...updateData } : contact
-          )
-        );
-  
-        setEditContactModal(false);
-        setCurrentContact(null);
-        await fetchContacts();
-        toast.success("Contact updated successfully!");
+          setEditContactModal(false);
+          setCurrentContact(null);
+          await fetchContacts();
+          toast.success("Contact updated successfully!");
+        } else {
+          toast.error(response.data.message || "Failed to update contact.");
+        }
       } catch (error) {
         console.error('Error saving contact:', error);
         toast.error("Failed to update contact.");
@@ -3030,9 +3046,8 @@ const handlePageClick = (event: { selected: number }) => {
 };
 
 
+// ... existing code ...
 const sendBlastMessage = async () => {
-  
-
   // Validation checks
   if (selectedContacts.length === 0) {
     toast.error("No contacts selected!");
@@ -3053,7 +3068,6 @@ const sendBlastMessage = async () => {
   if (phoneIndex === undefined || phoneIndex === null) {
     setPhoneIndex(0);
   }
-
   const effectivePhoneIndex = phoneIndex ?? 0;
 
   // Check if the selected phone is connected
@@ -3070,295 +3084,124 @@ const sendBlastMessage = async () => {
     let fileName = '';
     let mimeType = '';
 
-    // Handle media and document uploads...
     if (selectedMedia) {
-      try {
-        mediaUrl = await uploadFile(selectedMedia);
-        mimeType = selectedMedia.type;
-      } catch (error) {
-        console.error('Error uploading media:', error);
-        toast.error("Failed to upload media file");
-        return;
-      }
+      mediaUrl = await uploadFile(selectedMedia);
+      mimeType = selectedMedia.type;
     }
 
     if (selectedDocument) {
-      try {
-        documentUrl = await uploadFile(selectedDocument);
-        fileName = selectedDocument.name;
-        mimeType = selectedDocument.type;
-      } catch (error) {
-        console.error('Error uploading document:', error);
-        toast.error("Failed to upload document");
-        return;
-      }
+      documentUrl = await uploadFile(selectedDocument);
+      fileName = selectedDocument.name;
+      mimeType = selectedDocument.type;
     }
 
-    // Authentication and company data checks...
-    const user = auth.currentUser;
-    if (!user) {
-      toast.error("User not authenticated");
+    // Use localhost:8443 instead of Firebase
+    const baseUrl = 'http://localhost:8443';
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      toast.error("No user email found");
       return;
     }
 
-    // Get company data...
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      toast.error("User data not found");
+    // Get user config to get companyId
+    const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+    if (!userResponse.ok) {
+      toast.error("Failed to fetch user config");
       return;
     }
 
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-
-    const companyRef = doc(firestore, 'companies', companyId);
-    const companySnapshot = await getDoc(companyRef);
-    if (!companySnapshot.exists()) {
-      toast.error("Company data not found");
+    const userData = await userResponse.json();
+    // Get companyId and phoneIndex from your local state/props
+    // (Assume you have userData or similar in your component)
+    const companyId = userData?.company_id;
+    console.log(userData);
+    if (!companyId) {
+      toast.error("Company ID not found!");
       return;
     }
 
-    const companyData = companySnapshot.data();
-    const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-    const isV2 = companyData.v2 || false;
-    const whapiToken = companyData.whapiToken || '';
-
-    // Process contact IDs
+    // Prepare chatIds
     const chatIds = selectedContacts.map(contact => {
-      const phoneNumber = contact.phone?.replace(/\D/g, '');
-      return phoneNumber ? phoneNumber + "@c.us" : null;
+      const phoneNumber = contact.contact_id;
+      return phoneNumber;
     }).filter(chatId => chatId !== null);
 
-    // FIXED: Restructured to avoid duplicate message sends
-    // Instead of having both 'message' and 'messages', we'll only use 'messages'
-    // and make sure the server only processes this array
-    const allMessages: Array<{
-      text: string;
-      isMain: boolean;
-      delayAfter: number;
-    }> = [];
-    
-    // Add first message to the array, which was previously in 'message' field
-    if (messages.length > 0 && messages[0].text.trim()) {
-      allMessages.push({
-        text: messages[0].text,
-        isMain: true, // Flag to indicate it's the main message
-        delayAfter: 0
-      });
-    }
-    
-    // Add additional messages
-    if (messages.length > 1) {
-      messages.slice(1).forEach((msg, idx) => {
-        if (msg.text.trim()) {
-          allMessages.push({
-            text: msg.text,
-            isMain: false,
-            delayAfter: msg.delayAfter || 0
-          });
-        }
-      });
-    }
+    // Prepare processedMessages (replace placeholders)
+    const processedMessages = selectedContacts.map(contact => {
+      let processedMessage = messages[0]?.text || '';
+      processedMessage = processedMessage
+        .replace(/@{contactName}/g, contact.contactName || '')
+        .replace(/@{firstName}/g, contact.firstName || '')
+        .replace(/@{lastName}/g, contact.lastName || '')
+        .replace(/@{email}/g, contact.email || '')
+        .replace(/@{phone}/g, contact.phone || '')
+        .replace(/@{vehicleNumber}/g, contact.vehicleNumber || '')
+        .replace(/@{branch}/g, contact.branch || '')
+        .replace(/@{expiryDate}/g, contact.expiryDate || '')
+        .replace(/@{ic}/g, contact.ic || '');
+      // Add more placeholders as needed
+      return {
+        chatId: contact.phone?.replace(/\D/g, '') + "@c.us",
+        message: processedMessage,
+        contactData: contact
+      };
+    });
 
-    // Process messages for each contact to replace placeholders
-    const processedMessages = await Promise.all(
-      selectedContacts.map(async (contact) => {
-        // Create contact data with all standard fields
-        const contactData: {
-          contactName: string;
-          firstName: string;
-          lastName: string;
-          email: string;
-          phone: string;
-          vehicleNumber: string;
-          branch: string;
-          expiryDate: string;
-          ic: string;
-          customFields?: { [key: string]: string };
-        } = {
-          contactName: contact.contactName || '',
-          firstName: contact.contactName?.split(' ')[0] || '',
-          lastName: contact.lastName || '',
-          email: contact.email || '',
-          phone: contact.phone || '',
-          vehicleNumber: contact.vehicleNumber || '',
-          branch: contact.branch || '',
-          expiryDate: contact.expiryDate || '',
-          ic: contact.ic || '',
-        };
-        
-        // Add custom fields
-        if (contact.customFields) {
-          contactData.customFields = contact.customFields;
-        }
-        
-        // Get chatId from phone number
-        const phoneNumber = contact.phone?.replace(/\D/g, '');
-        const chatId = phoneNumber ? phoneNumber + "@c.us" : null;
-        if (!chatId) return null;
-        
-        // Process main message with contact data (first message in allMessages array)
-        const mainMessageText = allMessages.length > 0 && allMessages[0] && allMessages[0].text 
-          ? allMessages[0].text 
-          : '';
-        
-        // Process message with contact data
-        let processedMessage = mainMessageText
-          .replace(/@{contactName}/g, contactData.contactName)
-          .replace(/@{firstName}/g, contactData.firstName)
-          .replace(/@{lastName}/g, contactData.lastName)
-          .replace(/@{email}/g, contactData.email)
-          .replace(/@{phone}/g, contactData.phone)
-          .replace(/@{vehicleNumber}/g, contactData.vehicleNumber)
-          .replace(/@{branch}/g, contactData.branch)
-          .replace(/@{expiryDate}/g, contactData.expiryDate)
-          .replace(/@{ic}/g, contactData.ic);
-          
-        // Process custom fields placeholders
-        if (contact.customFields) {
-          Object.entries(contact.customFields).forEach(([fieldName, value]) => {
-            const placeholder = new RegExp(`@{${fieldName}}`, 'g');
-            processedMessage = processedMessage.replace(placeholder, value || '');
-          });
-        }
-
-        return {
-          chatId,
-          contactData,
-          message: processedMessage
-        };
-      })
-    ).then(results => results.filter((item): item is {
-      chatId: string;
-      contactData: any;
-      message: string;
-    } => item !== null));
-    
+    // Prepare scheduledMessageData
+    const scheduledTime = blastStartTime || new Date();
     const scheduledMessageData = {
       chatIds,
-      phoneIndex,
-      // Remove the duplicate message field since we're using the consolidated messages array
-      messages: allMessages, // This will contain all messages including the main message
-      messageDelays: messages.slice(1).map(msg => msg.delayAfter),
+      message: messages[0]?.text || '',
+      messages: processedMessages,
       batchQuantity,
       companyId,
-      createdAt: Timestamp.now(),
+      createdAt: new Date().toISOString(),
+      documentUrl: documentUrl || "",
+      fileName: fileName || null,
+      mediaUrl: mediaUrl || "",
+      mimeType: mimeType || null,
       repeatInterval,
       repeatUnit,
-      scheduledTime: Timestamp.fromDate(new Date(
-        blastStartDate.getFullYear(),
-        blastStartDate.getMonth(),
-        blastStartDate.getDate(),
-        blastStartTime?.getHours() || 0,
-        blastStartTime?.getMinutes() || 0
-      )),
+      scheduledTime: scheduledTime.toISOString(),
       status: "scheduled",
-      v2: isV2,
-      whapiToken: isV2 ? null : whapiToken,
+      v2: true,
+      whapiToken: null,
+      phoneIndex: effectivePhoneIndex,
       minDelay,
       maxDelay,
       activateSleep,
       sleepAfterMessages: activateSleep ? sleepAfterMessages : null,
       sleepDuration: activateSleep ? sleepDuration : null,
-      activeHours: {
-        start: activeTimeStart,
-        end: activeTimeEnd
-      },
-      infiniteLoop,
-      numberOfBatches: 1,
-      // Flag to indicate the new message structure to avoid duplicates
-      isConsolidated: true,
-      processedMessages
     };
 
-    // If there's media, send it first
-    if (mediaUrl || documentUrl) {
-      // Set media message to be sent 1 minute before the text messages
-      const mediaScheduledTime = new Date(
-        blastStartDate.getFullYear(),
-        blastStartDate.getMonth(),
-        blastStartDate.getDate(),
-        blastStartTime?.getHours() || 0,
-        (blastStartTime?.getMinutes() || 0) - 1 // Schedule 1 minute earlier
-      );
-
-      const mediaMessageData = {
-        chatIds,
-        phoneIndex,
-        mediaUrl,
-        documentUrl,
-        fileName,
-        mimeType,
-        message: '', // No caption
-        companyId,
-        createdAt: Timestamp.now(),
-        scheduledTime: Timestamp.fromDate(mediaScheduledTime),
-        status: "scheduled",
-        v2: isV2,
-        whapiToken: isV2 ? null : whapiToken,
-        batchQuantity: batchQuantity || 1,
-        minDelay: minDelay || 0,
-        maxDelay: maxDelay || 0,
-        // Add these required fields that were missing
-        repeatInterval: 0,
-        repeatUnit: 'days',
-        activateSleep: false,
-        sleepAfterMessages: null,
-        sleepDuration: null,
-        activeHours: {
-          start: activeTimeStart,
-          end: activeTimeEnd
-        },
-        infiniteLoop: false,
-        numberOfBatches: 1,
-        messages: [], // Empty array for additional messages
-        messageDelays: [], // Empty array for delays
-        isConsolidated: true // Add this flag for the new structure
-      };
-
-      try {
-        // Send media first
-        const mediaResponse = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, mediaMessageData);
-        if (!mediaResponse.data.success) {
-          throw new Error(mediaResponse.data.message || "Failed to schedule media message");
-        }
-      } catch (error) {
-        console.error('Error scheduling media message:', error);
-        if (axios.isAxiosError(error) && error.response?.data) {
-          console.error('Server error details:', error.response.data);
-        }
-        throw error; // Re-throw to be caught by outer try-catch
-      }
-    }
-
-    // Then schedule the text messages with original scheduled time
+    // Make API call to localhost:8443
     const response = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, scheduledMessageData);
 
     if (response.data.success) {
       toast.success(`Blast messages scheduled successfully for ${selectedContacts.length} contacts.`);
-      toast.info(`Messages will be sent at: ${scheduledMessageData.scheduledTime.toDate().toLocaleString()} (local time)`);
-
-      // Refresh and reset
+      toast.info(`Messages will be sent at: ${scheduledTime.toLocaleString()} (local time)`);
       await fetchScheduledMessages();
       setBlastMessageModal(false);
       resetForm();
     } else {
       toast.error(response.data.message || "Failed to schedule messages");
     }
-
   } catch (error) {
     console.error('Error scheduling blast messages:', error);
-    if (axios.isAxiosError(error) && error.response) {
-      const errorMessage = error.response.data.error || 'Unknown server error';
-      toast.error(`Failed to schedule message: ${errorMessage}`);
-    } else {
-      toast.error("An unexpected error occurred while scheduling blast messages.");
-    }
+    toast.error("An error occurred while scheduling the blast message. Please try again.");
   } finally {
     setIsScheduling(false);
   }
 };
+// ... existing code ...
 
 // Helper function to reset the form
 const resetForm = () => {
@@ -4501,15 +4344,22 @@ const resetForm = () => {
       setLoading(true);
   
       // Get user and company data
-      const user = auth.currentUser;
-      if (!user?.email) throw new Error('User not authenticated');
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) throw new Error('User not authenticated');
   
-      const docUserRef = doc(firestore, 'user', user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) throw new Error('User document not found');
+      const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include'
+      });
   
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      if (!userResponse.ok) throw new Error('Failed to fetch user config');
+      const userData = await userResponse.json();
+      const companyId = userData?.company_id;
+      if (!companyId) throw new Error('Company ID not found!');
   
       // Parse CSV data
       const csvContacts = await parseCSV();
@@ -4534,16 +4384,11 @@ const resetForm = () => {
         'Notes': ['notes', 'note', 'comments', 'remarks']
       };
   
-       // Validate and prepare contacts for import
+      // Validate and prepare contacts for import
       const validContacts = csvContacts.map(contact => {
         const baseContact: any = {
           customFields: {},
           tags: [...selectedImportTags],
-          updatedAt: Timestamp.now(),
-          updatedBy: user.email,
-          createdAt: Timestamp.now(),
-          createdBy: user.email,
-          // Initialize these fields explicitly
           ic: null,
           expiryDate: null,
           vehicleNumber: null,
@@ -4553,14 +4398,10 @@ const resetForm = () => {
           phone: null,
           address1: null
         };
-
-        // Process each field in the CSV contact
+  
         Object.entries(contact).forEach(([header, value]) => {
           const headerLower = header.toLowerCase().trim();
-          
-          // Debug logging
-          console.log('Processing header:', header, 'with value:', value); // Debug logging
-          
+  
           // Check if the header is a tag column (tag 1 through tag 10)
           const tagMatch = headerLower.match(/^tag\s*(\d+)$/);
           if (tagMatch && Number(tagMatch[1]) <= 10) {
@@ -4569,127 +4410,93 @@ const resetForm = () => {
             }
             return;
           }
-          
+  
           // Try to match with standard fields
           let matched = false;
           for (const [fieldName, aliases] of Object.entries(standardFields)) {
-            // Convert both the header and aliases to lowercase for comparison
             const fieldNameLower = fieldName.toLowerCase();
             if (aliases.map(a => a.toLowerCase()).includes(headerLower) || headerLower === fieldNameLower) {
-              console.log('Matched field:', fieldName, 'for header:', header); // Debug logging
-              
               if (fieldName === 'phone') {
                 const cleanedPhone = cleanPhoneNumber(value as string);
                 if (cleanedPhone) {
                   baseContact[fieldName] = cleanedPhone;
-                  console.log(`Set phone to: ${cleanedPhone}`);
                 }
               } else if (fieldName === 'Notes') {
                 baseContact['Notes'] = value || '';
               } else if (fieldName === 'expiryDate' || fieldName === 'ic') {
-                // Handle these fields explicitly and log the assignment
                 baseContact[fieldName] = value || null;
-                console.log(`Setting ${fieldName} to:`, value);
               } else {
                 baseContact[fieldName] = value || '';
-                console.log(`Set ${fieldName} to: ${value}`);
               }
               matched = true;
               break;
             }
           }
-
+  
           // If no match found and value exists, add as custom field
           if (!matched && value && !header.match(/^\d+$/)) {
-            console.log('Adding as custom field:', header); // Debug logging
             baseContact.customFields[header] = value;
           }
         });
-
-        // Debug logging for final contact
-        console.log('Final contact object:', JSON.stringify(baseContact, null, 2));
-
+  
         baseContact.tags = [...new Set(baseContact.tags)];
         return baseContact;
       });
-
-      // Log the first contact after processing
-      if (validContacts.length > 0) {
-        console.log('First processed contact:', JSON.stringify(validContacts[0], null, 2));
-      }
-
+  
       // Filter out contacts without valid phone numbers
       const contactsWithValidPhones = validContacts.filter(contact => contact.phone);
-
+  
       if (contactsWithValidPhones.length === 0) {
         throw new Error('No valid contacts found in CSV. Please ensure phone numbers are present.');
       }
-
+  
       if (contactsWithValidPhones.length < validContacts.length) {
         toast.warning(`Skipped ${validContacts.length - contactsWithValidPhones.length} contacts due to invalid phone numbers.`);
       }
-
-      // Create contacts in batches
-      const batchSize = 500;
-      const batches = [];
-
-      for (let i = 0; i < contactsWithValidPhones.length; i += batchSize) {
-        const batch = writeBatch(firestore);
-        const batchContacts = contactsWithValidPhones.slice(i, i + batchSize);
-
-        for (const contact of batchContacts) {
-          const contactRef = doc(firestore, `companies/${companyId}/contacts`, contact.phone);
-          batch.set(contactRef, contact, { merge: true });
-        }
-
-        batches.push(batch.commit());
-      }
   
-      await Promise.all(batches);
-
-      // Update UI with new custom fields
-      const newCustomFields = new Set<string>();
-      const standardFieldsToShow = new Set<string>();
-
-      // Add all standard fields that have data
-      contactsWithValidPhones.forEach((contact: Contact) => {
-        // Add custom fields
-        Object.keys(contact.customFields || {}).forEach(field => newCustomFields.add(field));
-        
-        // Add standard fields that have values
-        Object.entries(contact).forEach(([key, value]) => {
-          if (value !== null && value !== undefined && key !== 'customFields' && key !== 'tags' && 
-              key !== 'updatedAt' && key !== 'updatedBy' && key !== 'createdAt' && key !== 'createdBy') {
-            standardFieldsToShow.add(key);
-          }
-        });
+      // Prepare contacts for SQL backend
+      const contactsToImport = contactsWithValidPhones.map(contact => {
+        const formattedPhone = formatPhoneNumber(contact.phone);
+        const contact_id = companyId + '-' + formattedPhone.split('+')[1];
+        const chat_id = formattedPhone.split('+')[1] + "@c.us";
+        return {
+          contact_id,
+          companyId,
+          contactName: contact.contactName,
+          name: contact.contactName,
+          last_name: contact.lastName,
+          email: contact.email,
+          phone: formattedPhone,
+          address1: contact.address1,
+          companyName: contact.companyName,
+          locationId: contact.locationId,
+          dateAdded: new Date().toISOString(),
+          unreadCount: 0,
+          points: contact.points || 0,
+          branch: contact.branch,
+          expiryDate: contact.expiryDate,
+          vehicleNumber: contact.vehicleNumber,
+          ic: contact.ic,
+          chat_id: chat_id,
+          notes: contact.notes,
+          customFields: contact.customFields,
+          tags: contact.tags
+        };
       });
-
-      // Update visible columns with both standard and custom fields
-      if (newCustomFields.size > 0 || standardFieldsToShow.size > 0) {
-        setVisibleColumns(prev => ({
-          ...prev,
-          // Add standard fields
-          ...Array.from(standardFieldsToShow).reduce((acc, field) => ({
-            ...acc,
-            [field]: true
-          }), {}),
-          // Add custom fields
-          ...Array.from(newCustomFields).reduce((acc, field) => ({
-            ...acc,
-            [field]: true
-          }), {})
-        }));
+  
+      // Send contacts in bulk to your SQL backend
+      const response = await axios.post('http://localhost:8443/api/contacts/bulk', { contacts: contactsToImport });
+  
+      if (response.data.success) {
+        toast.success(`Successfully imported ${contactsToImport.length} contacts!`);
+        setShowCsvImportModal(false);
+        setSelectedCsvFile(null);
+        setSelectedImportTags([]);
+        setImportTags([]);
+        await fetchContacts();
+      } else {
+        toast.error(response.data.message || "Failed to import contacts");
       }
-
-      // Success cleanup
-      toast.success(`Successfully imported ${contactsWithValidPhones.length} contacts!`);
-      setShowCsvImportModal(false);
-      setSelectedCsvFile(null);
-      setSelectedImportTags([]);
-      setImportTags([]);
-      
-      await fetchContacts();
   
     } catch (error) {
       console.error('CSV Import Error:', error);
@@ -4769,53 +4576,43 @@ const resetForm = () => {
 
   // Add this effect to fetch phone statuses periodically
   useEffect(() => {
-    const fetchPhoneStatuses = async () => {
-      try {
-        setIsLoadingStatus(true);
-        const docRef = doc(firestore, 'companies', companyId);
-        const docSnapshot = await getDoc(docRef);
-        
-        if (!docSnapshot.exists()) {
-          throw new Error("Company document does not exist");
+// ... existing code ...
+const fetchPhoneStatuses = async () => {
+  try {
+    console.log('fetching status');
+    setIsLoadingStatus(true);
+    
+    // Get phone statuses from the localhost API
+    const response = await axios.get(`http://localhost:8443/api/phone-status/${companyId}`);
+    console.log('Phone status API response data:', response.data); // <-- Add this line
+
+    if (response.status === 200) {
+      // Map the database response to QR code format
+      const qrCodesData = response.data.map((status: any) => ({
+        phoneIndex: parseInt(status.phone_number.split('_')[1] || '0'),
+        status: status.status,
+        qrCode: status.metadata?.qrCode || null
+      }));
+   
+      setQrCodes(qrCodesData);
+
+      // If no phone is selected and we have connected phones, select the first connected one
+      if (selectedPhone === null) {
+        const connectedPhoneIndex = qrCodesData.findIndex(
+          (          phone: { status: string; }) => phone.status === 'ready' || phone.status === 'authenticated'
+        );
+        if (connectedPhoneIndex !== -1) {
+          setSelectedPhone(connectedPhoneIndex);
         }
-
-        const companyData = docSnapshot.data();
-        const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-        
-        const botStatusResponse = await axios.get(`${baseUrl}/api/bot-status/${companyId}`, {
-          headers: companyId === '0123' 
-            ? {
-                'ngrok-skip-browser-warning': 'true',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-              }
-            : {}
-        });
-
-        if (botStatusResponse.status === 200) {
-          // Ensure we always have an array of QR codes
-          const qrCodesData = Array.isArray(botStatusResponse.data) 
-            ? botStatusResponse.data 
-            : botStatusResponse.data ? [botStatusResponse.data] : [];
-          
-          setQrCodes(qrCodesData);
-
-          // If no phone is selected and we have connected phones, select the first connected one
-          if (selectedPhone === null) {
-            const connectedPhoneIndex = qrCodesData.findIndex(
-              phone => phone.status === 'ready' || phone.status === 'authenticated'
-            );
-            if (connectedPhoneIndex !== -1) {
-              setSelectedPhone(connectedPhoneIndex);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching phone statuses:', error);
-      } finally {
-        setIsLoadingStatus(false);
       }
-    };
+    }
+  } catch (error) {
+    console.error('Error fetching phone statuses:', error);
+  } finally {
+    setIsLoadingStatus(false);
+  }
+};
+// ... existing code ...
 
     if (companyId) {
       fetchPhoneStatuses();
@@ -6346,9 +6143,9 @@ const getFilteredScheduledMessages = () => {
                           )}
                           {columnId === 'contact' && (
                             <div className="flex items-center">
-                              {contact.profilePicUrl ? (
+                              {contact.profileUrl ? (
                                 <img 
-                                  src={contact.profilePicUrl} 
+                                  src={contact.profileUrl} 
                                   alt={contact.contactName || "Profile"} 
                                   className="w-8 h-8 rounded-full object-cover mr-3" 
                                 />
@@ -6519,9 +6316,9 @@ const getFilteredScheduledMessages = () => {
                             onChange={() => toggleContactSelection(contact)}
                             className="rounded border-gray-300"
                           />
-                          {contact.profilePicUrl ? (
+                          {contact.profileUrl ? (
                             <img 
-                              src={contact.profilePicUrl} 
+                              src={contact.profileUrl} 
                               alt={contact.contactName || "Profile"} 
                               className="w-10 h-10 rounded-full object-cover" 
                             />
@@ -6754,9 +6551,9 @@ const getFilteredScheduledMessages = () => {
     <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-10 text-gray-900 dark:text-white overflow-y-auto max-h-[90vh]">
       <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-white mr-4">
-          {currentContact?.profilePicUrl ? (
+          {currentContact?.profileUrl ? (
             <img 
-              src={currentContact.profilePicUrl} 
+              src={currentContact.profileUrl} 
               alt={currentContact.contactName || "Profile"} 
               className="w-full h-full object-cover"
             />
@@ -6767,7 +6564,7 @@ const getFilteredScheduledMessages = () => {
           )}
         </div>
         <div>
-          <div className="font-semibold text-gray-900 dark:text-white text-lg capitalize">{currentContact?.contactName} {currentContact?.lastName}</div>
+          <div className="font-semibold text-gray-900 dark:text-white text-lg capitalize">{currentContact?.name} {currentContact?.lastName}</div>
           <div className="text-sm text-gray-500 dark:text-gray-400">{currentContact?.phone}</div>
         </div>
       </div>
@@ -6777,8 +6574,8 @@ const getFilteredScheduledMessages = () => {
           <input
             type="text"
             className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
-            value={currentContact?.contactName || ''}
-            onChange={(e) => setCurrentContact({ ...currentContact, contactName: e.target.value } as Contact)}
+            value={currentContact?.name || ''}
+            onChange={(e) => setCurrentContact({ ...currentContact, name: e.target.value } as Contact)}
           />
         </div>
         <div>

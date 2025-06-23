@@ -51,48 +51,37 @@ const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
 const auth = getAuth(app);
 
+// Ensure axios is imported: import axios from 'axios';
+// Ensure getAuth and app are imported from your Firebase setup (for user authentication)
+
 export const updateMonthlyAssignments = async (employeeName: string, incrementValue: number) => {
   try {
+    const auth = getAuth(app); // Still uses Firebase Auth for current user
     const user = auth.currentUser;
-    if (!user) {
-      console.error('No authenticated user');
+    if (!user || !user.email) {
+      console.error('No authenticated user or user email available');
       return;
     }
 
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.error('No such document for user!');
+    // Fetch companyId from SQL user data via your existing API
+    const userResponse = await axios.get(`http://localhost:8443/api/user-data/${user.email}`);
+    const userData = userResponse.data;
+
+    if (!userData || !userData.company_id) {
+      console.error('User data or company ID not found for email:', user.email);
       return;
     }
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
+    const companyId = userData.company_id; // Use company_id from SQL
 
-    // Check if the employee exists
-    const employeeRef = doc(firestore, 'companies', companyId, 'employee', employeeName);
-    const employeeDoc = await getDoc(employeeRef);
-
-    if (!employeeDoc.exists()) {
-      console.error(`Employee ${employeeName} does not exist`);
-      return;
-    }
-
-    const currentDate = new Date();
-    const currentMonthKey = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}`;
-
-    // Update existing employee document
-    await updateDoc(employeeRef, {
-      assignedContacts: increment(incrementValue)
+    // Call the new SQL API endpoint to update monthly assignments
+    await axios.post('http://localhost:8443/api/employees/update-monthly-assignments', {
+      companyId: companyId,
+      employeeName: employeeName, // This is the employee's name which serves as their identifier in the Firebase context. In SQL, it maps to the 'name' column.
+      incrementValue: incrementValue
     });
 
-    // Update or create the monthly assignment document
-    const monthlyAssignmentRef = doc(employeeRef, 'monthlyAssignments', currentMonthKey);
-    await setDoc(monthlyAssignmentRef, {
-      assignments: increment(incrementValue),
-      lastUpdated: serverTimestamp()
-    }, { merge: true });
+    console.log(`Monthly assignments updated successfully for ${employeeName} by ${incrementValue}`);
 
-    
   } catch (error) {
     console.error('Error updating monthly assignments:', error);
   }
@@ -308,50 +297,16 @@ interface Tag {
 
   const fetchMonthlyTokens = async () => {
     try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      if (!user) {
-        console.error('User not authenticated');
-        return;
-      }
-
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('User document does not exist');
-        return;
-      }
-
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-
-      // Fetch all usage documents for the company
-      const usageCollectionRef = collection(firestore, 'companies', companyId, 'usage');
-      const usageSnapshot = await getDocs(usageCollectionRef);
-
-      const labels: string[] = [];
-      const data: number[] = [];
-
-      usageSnapshot.forEach(doc => {
-        const usageData = doc.data();
-        const tokens = usageData.total_tokens || 0;
-        const price = (tokens / 1000) * 0.003;
-
-        
-        
-        
-
-        labels.push(doc.id); // Assuming doc.id is in the format 'YYYY-MM'
-        data.push(price);
-      });
-
-      
-      
-
-      if (labels.length === 0) {
-        console.warn('No usage data available');
-      }
-
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) return;
+      const userRes = await axios.get(`http://localhost:8443/api/user-data/${userEmail}`);
+      const companyId = userRes.data.company_id;
+      const res = await axios.get(`http://localhost:8443/api/companies/${companyId}/monthly-usage`);
+      const usage = res.data.usage;
+  
+      const labels = usage.map((row: any) => row.month);
+      const data = usage.map((row: any) => (row.total_tokens / 1000) * 0.003);
+  
       setMonthlySpendData({
         labels,
         datasets: [
@@ -366,7 +321,6 @@ interface Tag {
       console.error('Error fetching monthly tokens:', error);
     }
   };
-
 
   const calculateMonthlyPrice = (tokens: number) => {
     const price = (tokens / 1000) * 0.003;
@@ -434,101 +388,81 @@ interface Tag {
 
   useEffect(() => {
     fetchConfigFromDatabase();
-
-    const unsubscribe = onSnapshot(doc(firestore, "user", auth.currentUser?.email!), (doc) => {
-      const data = doc.data();
-      if (data?.notifications) {
-        setNotifications(data.notifications);
-      }
-    });
-
-    const unsubscribeMessage = onMessage(messaging, (payload) => {
-      
-      setNotifications((prevNotifications) => [
-        ...prevNotifications,
-        payload.notification,
-      ]);
-    });
-
     return () => {
-      unsubscribe();
-      unsubscribeMessage();
+
     };
   }, []);
 
   async function fetchConfigFromDatabase() {
-    const user = auth.currentUser;
-  
-    if (!user) {
-      console.error("No user is currently authenticated.");
-      return;
-    }
-  
-    const userEmail = user.email;
-  
+    // Get the stored user email from your login response
+    const userEmail = localStorage.getItem('userEmail'); // or however you store it after login
+    
     if (!userEmail) {
-      console.error("Authenticated user has no email.");
+      console.error("No user email found.");
       return;
     }
   
     try {
-      const docUserRef = doc(firestore, 'user', userEmail);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      if (!dataUser) {
-        
-        return;
-      }
-  
-      companyId = dataUser.companyId;
-      role = dataUser.role;
-  
-      if (!companyId) {
-        
-        return;
-      }
-  
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        
-        return;
-      }
-      const data = docSnapshot.data();
-      if (!data) {
-        
-        return;
-      }
-  
-      // Fetch the number of contacts with replies
-      const contactsRef = collection(firestore, 'companies', companyId, 'contacts');
-      const contactsSnapshot = await getDocs(contactsRef);
-      
-      let contactsWithReplies = 0;
-  
-      const checkRepliesPromises = contactsSnapshot.docs.map(async (contactDoc) => {
-        const contactData = contactDoc.data();
-        // Skip if it's a group
-        if (contactData.type === 'group') {
-          return false;
+      // Fetch user data from SQL database
+      const response = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json'
         }
-  
-        const messagesRef = collection(contactDoc.ref, 'messages');
-        const q = query(messagesRef, where('id', '>=', ''), limit(1));
-        const messageSnapshot = await getDocs(q);
-        
-        return !messageSnapshot.empty;
       });
   
-      const results = await Promise.all(checkRepliesPromises);
-      contactsWithReplies = results.filter(Boolean).length;
   
-      setReplies(contactsWithReplies);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user config');
+      }
+  
+      const dataUser = await response.json();
       
+      if (!dataUser) {
+        return;
+      }
+  
+      const companyId = dataUser.company_id;
+      const role = dataUser.role;
+  
+      if (!companyId) {
+        return;
+      }
+  
+      // Fetch company data
+      const companyResponse = await fetch(`http://localhost:8443/api/companies/${companyId}`, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+  
+      if (!companyResponse.ok) {
+        throw new Error('Failed to fetch company data');
+      }
+  
+      const data = await companyResponse.json();
+      
+      if (!data) {
+        return;
+      }
+  
+      // Fetch contacts with replies
+   /*   const repliesResponse = await fetch(`http://localhost:8443/api/companies/${companyId}/replies`, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+  
+      if (!repliesResponse.ok) {
+        throw new Error('Failed to fetch replies data');
+      }
+  
+      const repliesData = await repliesResponse.json();
+     // setReplies(repliesData.contactsWithReplies);*/
   
     } catch (error) {
       console.error('Error fetching config:', error);
@@ -541,111 +475,7 @@ interface Tag {
     fetchCompanyData();
   }, []);
 
-  async function fetchCompanyData() {
-    const user = auth.currentUser;
- 
-    try {
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
-      }
-     
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-    
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        
-        return;
-      }
-      const companyData = docSnapshot.data();
- 
-
-      // Assuming refreshAccessToken is defined elsewhere
-      
-
-
-    } catch (error) {
-      console.error('Error fetching company data:', error);
-    }
-
-  }
-
-  async function fetchEmployees() {
-    const auth = getAuth(app);
-    const user = auth.currentUser;
-    try {
-      // Get current user's company ID
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      companyId = dataUser.companyId;
-
-      // Get all employees
-      const employeeRef = collection(firestore, `companies/${companyId}/employee`);
-      const employeeSnapshot = await getDocs(employeeRef);
-
-      // Get all contacts
-      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const contactsSnapshot = await getDocs(contactsRef);
-
-      // Create a map to count contacts per employee
-      const contactCountMap: { [key: string]: number } = {};
-
-      // Count contacts based on tags matching employee names
-      contactsSnapshot.forEach((doc) => {
-        const contactData = doc.data();
-        if (contactData.tags && Array.isArray(contactData.tags)) {
-          contactData.tags.forEach((tag: string) => {
-            if (contactCountMap[tag]) {
-              contactCountMap[tag]++;
-            } else {
-              contactCountMap[tag] = 1;
-            }
-          });
-        }
-      });
-
-      // Process employee data
-      const employeeListData: Employee[] = [];
-      employeeSnapshot.forEach((doc) => {
-        const employeeData = doc.data() as Employee;
-        employeeListData.push({
-          ...employeeData,
-          id: doc.id,
-          assignedContacts: contactCountMap[employeeData.name] || 0
-        });
-
-        // Update the employee document with the correct count
-        updateDoc(doc.ref, {
-          assignedContacts: contactCountMap[employeeData.name] || 0
-        });
-      });
-
-      // Find current user
-      const currentUserData = employeeListData.find(emp => emp.email === user?.email);
-      if (currentUserData) {
-        setCurrentUser(currentUserData);
-        setSelectedEmployee(currentUserData);
-      }
-
-      // Sort employees by number of assigned contacts (descending)
-      employeeListData.sort((a, b) => (b.assignedContacts || 0) - (a.assignedContacts || 0));
-
-      setEmployees(employeeListData);
-      
-
-    } catch (error) {
-      console.error('Error fetching employees and contacts:', error);
-    }
-  }
+  
 
   async function fetchEmployeeData(employeeId: string): Promise<Employee | null> {
     try {
@@ -741,7 +571,7 @@ interface Tag {
   }, [selectedEmployee]);
 
   // Modify the existing useEffect for selectedEmployee
-  useEffect(() => {
+ /* useEffect(() => {
     if (selectedEmployee) {
       const employeeRef = doc(firestore, `companies/${companyId}/employee/${selectedEmployee.id}`);
       const monthlyAssignmentsRef = collection(employeeRef, 'monthlyAssignments');
@@ -760,7 +590,7 @@ interface Tag {
 
       return () => unsubscribe();
     }
-  }, [selectedEmployee?.id, companyId]);
+  }, [selectedEmployee?.id, companyId]);*/
   
   // Usage in your component
   useEffect(() => {
@@ -1380,170 +1210,41 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
   // Add this new function to fetch blast message data
   const fetchBlastMessageData = async () => {
     try {
-      console.log("Starting fetchBlastMessageData");
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      if (!user) {
-        console.error('User not authenticated');
-        return;
-      }
-
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('User document does not exist');
-        return;
-      }
-
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      console.log("Company ID:", companyId);
-
-      // Fetch scheduled messages collection
-      const scheduledMessagesRef = collection(firestore, 'companies', companyId, 'scheduledMessages');
-      const scheduledMessagesSnapshot = await getDocs(scheduledMessagesRef);
-      console.log("Total messages found:", scheduledMessagesSnapshot.size);
-
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) return;
+      const userRes = await axios.get(`http://localhost:8443/api/user-data/${userEmail}`);
+      const companyId = userRes.data.company_id;
+      const res = await axios.get(`http://localhost:8443/api/companies/${companyId}/scheduled-messages-summary`);
+      const summary = res.data.summary;
+  
+      // Process into chart data
       const monthlyData: { [key: string]: { scheduled: number; completed: number; failed: number } } = {};
-      let messageCount = 0;
-      let invalidDateCount = 0;
-
-      scheduledMessagesSnapshot.forEach(doc => {
-        try {
-          messageCount++;
-          const messageData = doc.data();
-          console.log(`Processing message ${messageCount}:`, {
-            id: doc.id,
-            status: messageData.status,
-            scheduledTime: messageData.scheduledTime
-          });
-          
-          // Check if scheduledTime is a Firestore Timestamp or a regular Date
-          let scheduledTime;
-          let isValidDate = true;
-          
-          if (messageData.scheduledTime && typeof messageData.scheduledTime.toDate === 'function') {
-            scheduledTime = messageData.scheduledTime.toDate();
-            console.log("Parsed scheduledTime from Firestore Timestamp:", scheduledTime);
-          } else if (messageData.scheduledTime instanceof Date) {
-            scheduledTime = messageData.scheduledTime;
-            console.log("Using scheduledTime as Date:", scheduledTime);
-          } else if (messageData.scheduledTime) {
-            // If it's a string or timestamp number, convert to Date
-            try {
-              scheduledTime = new Date(messageData.scheduledTime);
-              if (isNaN(scheduledTime.getTime())) {
-                console.log("Invalid date detected, using current date as fallback");
-                scheduledTime = new Date();
-                isValidDate = false;
-                invalidDateCount++;
-              } else {
-                console.log("Converted scheduledTime from other format:", scheduledTime);
-              }
-            } catch (error) {
-              console.log("Error parsing date, using current date as fallback:", error);
-              scheduledTime = new Date();
-              isValidDate = false;
-              invalidDateCount++;
-            }
-          } else {
-            scheduledTime = new Date(); // Fallback to current date
-            console.log("Using current date as fallback for scheduledTime");
-            isValidDate = false;
-            invalidDateCount++;
-          }
-          
-          // Only proceed with valid dates
-          if (isValidDate) {
-            let monthKey;
-            try {
-              monthKey = format(scheduledTime, 'MMM yyyy');
-              console.log("Month key:", monthKey);
-            } catch (error) {
-              console.log("Error formatting date, skipping this message:", error);
-              return; // Skip this message
-            }
-            
-            const status = messageData.status || 'unknown';
-            console.log("Message status:", status);
-
-            if (!monthlyData[monthKey]) {
-              monthlyData[monthKey] = { scheduled: 0, completed: 0, failed: 0 };
-            }
-
-            // Count messages based on their status
-            if (status === 'completed') {
-              monthlyData[monthKey].completed++;
-            } else if (status === 'failed') {
-              monthlyData[monthKey].failed++;
-            } else if (status === 'scheduled') {
-              monthlyData[monthKey].scheduled++;
-            } else {
-              console.log("Unknown status:", status);
-              // Default to scheduled if status is unknown
-              monthlyData[monthKey].scheduled++;
-            }
-            
-            console.log("Updated monthly data for", monthKey, ":", monthlyData[monthKey]);
-          }
-        } catch (error) {
-          console.error(`Error processing message ${messageCount}:`, error);
-          // Continue with the next message
+      summary.forEach((row: any) => {
+        if (!monthlyData[row.month_key]) {
+          monthlyData[row.month_key] = { scheduled: 0, completed: 0, failed: 0 };
         }
+        if (row.status === 'completed') monthlyData[row.month_key].completed = Number(row.count);
+        else if (row.status === 'failed') monthlyData[row.month_key].failed = Number(row.count);
+        else monthlyData[row.month_key].scheduled = Number(row.count);
       });
-
-      console.log("Final monthly data:", monthlyData);
-      console.log("Invalid date count:", invalidDateCount);
-
-      // Convert month strings to Date objects for proper sorting
+  
       const sortedMonths = Object.keys(monthlyData).sort((a, b) => {
-        // Parse the month strings to dates for comparison
         const [monthA, yearA] = a.split(' ');
         const [monthB, yearB] = b.split(' ');
-        
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        
         const yearDiff = parseInt(yearA) - parseInt(yearB);
         if (yearDiff !== 0) return yearDiff;
-        
         return monthNames.indexOf(monthA) - monthNames.indexOf(monthB);
       });
-      
-      console.log("Sorted labels:", sortedMonths);
-      
-      const scheduledData = sortedMonths.map(key => monthlyData[key].scheduled);
-      const completedData = sortedMonths.map(key => monthlyData[key].completed);
-      const failedData = sortedMonths.map(key => monthlyData[key].failed);
-      
-      console.log("Data arrays:", {
-        scheduledData,
-        completedData,
-        failedData
-      });
-
+  
       setBlastMessageData({
         labels: sortedMonths,
         datasets: [
-          {
-            label: 'Scheduled',
-            data: scheduledData,
-            backgroundColor: 'rgba(54, 162, 235, 0.8)',
-          },
-          {
-            label: 'Completed',
-            data: completedData,
-            backgroundColor: 'rgba(75, 192, 192, 0.8)',
-          },
-          {
-            label: 'Failed',
-            data: failedData,
-            backgroundColor: 'rgba(255, 99, 132, 0.8)',
-          },
+          { label: 'Scheduled', data: sortedMonths.map(m => monthlyData[m].scheduled), backgroundColor: 'rgba(54, 162, 235, 0.8)' },
+          { label: 'Completed', data: sortedMonths.map(m => monthlyData[m].completed), backgroundColor: 'rgba(75, 192, 192, 0.8)' },
+          { label: 'Failed', data: sortedMonths.map(m => monthlyData[m].failed), backgroundColor: 'rgba(255, 99, 132, 0.8)' },
         ],
       });
-
-      console.log("Blast message data set successfully");
-
     } catch (error) {
       console.error('Error fetching scheduled messages data:', error);
     }
@@ -1564,76 +1265,104 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
   // Add this new state
   const [employeeStats, setEmployeeStats] = useState<EmployeeStats | null>(null);
+  async function fetchCompanyData() {
+    try {
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) return;
+  
+      // Get companyId from user-data endpoint
+      const userRes = await axios.get(`http://localhost:8443/api/user-data/${userEmail}`);
+      const companyId = userRes.data.company_id;
+      if (!companyId) return;
+  
+      // Get company data from company-config endpoint
+      const companyRes = await axios.get(`http://localhost:8443/api/company-config/${companyId}`);
+      const companyData = companyRes.data.companyData;
+  
+      // Use companyData as needed, e.g.:
+      // setCompanyData(companyData);
+      // setPhoneCount(companyData.phoneCount);
+      // setBaseUrl(companyData.apiUrl);
+  
+      // If you have a refreshAccessToken function, call it here if needed
+      // refreshAccessToken(companyData.ghl_accessToken);
+  
+    } catch (error) {
+      console.error('Error fetching company data:', error);
+    }
+  }
 
+
+async function fetchEmployees() {
+  try {
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) return;
+
+    // Get companyId from user-data endpoint
+    const userRes = await axios.get(`http://localhost:8443/api/user-data/${userEmail}`);
+    const companyId = userRes.data.company_id;
+    if (!companyId) return;
+
+    // Get all employees
+    const empRes = await axios.get(`http://localhost:8443/api/employees-data/${companyId}`);
+    const employees: Employee[] = empRes.data;
+
+    // Get all contacts
+    const contactsRes = await axios.get(`http://localhost:8443/api/contacts-data/${companyId}`);
+    const contacts: { tags: string[] }[] = contactsRes.data;
+
+    // Create a map to count contacts per employee
+    const contactCountMap: { [key: string]: number } = {};
+    contacts.forEach(contact => {
+      if (contact.tags && Array.isArray(contact.tags)) {
+        contact.tags.forEach(tag => {
+          contactCountMap[tag] = (contactCountMap[tag] || 0) + 1;
+        });
+      }
+    });
+
+    // Process employee data
+    const employeeListData: Employee[] = employees.map(emp => ({
+      ...emp,
+      assignedContacts: contactCountMap[emp.name] || 0
+    }));
+
+    // Sort employees by assigned contacts
+    employeeListData.sort((a, b) => (b.assignedContacts || 0) - (a.assignedContacts || 0));
+
+    setEmployees(employeeListData);
+
+    // Find current user
+    const currentUserData = employeeListData.find(emp => emp.email === userEmail);
+    if (currentUserData) {
+      setCurrentUser(currentUserData);
+      setSelectedEmployee(currentUserData);
+    }
+
+  } catch (error) {
+    console.error('Error fetching employees and contacts:', error);
+  }
+}
   // Add this new function
   const fetchEmployeeStats = async (employeeId: string) => {
     try {
-      const user = getAuth().currentUser;
-      if (!user) {
-        console.error("User not authenticated");
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
         setError("User not authenticated");
         return;
       }
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        return;
-      }
-      const data2 = docSnapshot.data();
-      
-      // Try to get the API URL from the company data
-      const baseUrl = data2.apiUrl || 'https://juta.ngrok.app';
-      
-      try {
-        // Try to fetch from the API with a timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-        
-        const response = await axios.get(
-          `${baseUrl}/api/stats/${companyId}?employeeId=${employeeId}`,
-          { signal: controller.signal }
-        );
-        
-        clearTimeout(timeoutId);
-        setEmployeeStats(response.data);
-      } catch (apiError) {
-        console.error('Error fetching employee stats from API:', apiError);
-        
-        // Fallback to local data if API call fails
-        // Generate placeholder stats based on local data
-        const fallbackStats: EmployeeStats = {
-          conversationsAssigned: 0,
-          outgoingMessagesSent: 0,
-          averageResponseTime: 0,
-          closedContacts: 0
-        };
-        
-        // Try to get some real data from Firestore
-        try {
-          // Get assigned contacts count
-          const employee = employees.find(emp => emp.id === employeeId);
-          if (employee) {
-            fallbackStats.conversationsAssigned = employee.assignedContacts || 0;
-            fallbackStats.closedContacts = employee.closedContacts || 0;
-          }
-          
-          // Set the fallback stats
-          setEmployeeStats(fallbackStats);
-        } catch (fallbackError) {
-          console.error('Error generating fallback stats:', fallbackError);
-          setEmployeeStats(fallbackStats);
-        }
-      }
+      // Get companyId from user-data endpoint
+      const userRes = await axios.get(`http://localhost:8443/api/user-data/${userEmail}`);
+      const companyId = userRes.data.company_id;
+      if (!companyId) return;
+  
+      // Fetch stats from new endpoint
+      const response = await axios.get(
+        `http://localhost:8443/api/companies/${companyId}/employee-stats/${employeeId}`
+      );
+      setEmployeeStats(response.data);
     } catch (error) {
-      console.error('Error in fetchEmployeeStats:', error);
-      // Set default stats as fallback
+      console.error('Error fetching employee stats:', error);
       setEmployeeStats({
         conversationsAssigned: 0,
         outgoingMessagesSent: 0,

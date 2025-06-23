@@ -35,6 +35,7 @@ import { getFileTypeFromMimeType } from '../../utils/fileUtils';
 import { Transition } from "@headlessui/react";
 import VirtualContactList from '../../components/VirtualContactList';
 import SearchModal from '@/components/SearchModal';
+import { time } from "console";
 
 interface Label {
   id: string;
@@ -44,6 +45,7 @@ interface Label {
 }
 
 export interface Contact {
+  [x: string]: any;
   conversation_id?: string | null;
   additionalEmails?: string[] | null;
   address1?: string | null;
@@ -585,6 +587,7 @@ function Main() {
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
   const [visibleTags, setVisibleTags] = useState<typeof tagList>([]);
   const [currentCompanyId, setCurrentCompanyId] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string>("");
   const [isPrivateNote, setIsPrivateNote] = useState(false);
   const [privateNotes, setPrivateNotes] = useState<Record<string, Array<{ id: string; text: string; timestamp: number }>>>({});
   const [isPrivateNotesExpanded, setIsPrivateNotesExpanded] = useState(false);
@@ -665,13 +668,18 @@ function Main() {
   const [activateSleep, setActivateSleep] = useState(false);
   const [sleepAfterMessages, setSleepAfterMessages] = useState(20);
   const [sleepDuration, setSleepDuration] = useState(5);
-
+  const [wsVersion, setWsVersion] = useState(0);
   //testing
   const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([]);
   const [currentScheduledMessage, setCurrentScheduledMessage] = useState<ScheduledMessage | null>(null);
   const [editScheduledMessageModal, setEditScheduledMessageModal] = useState(false);
-  
-
+  // Add these after your existing state declarations, before the useEffect hooks
+const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
+const [wsConnected, setWsConnected] = useState(false);
+const [wsReconnectAttempts, setWsReconnectAttempts] = useState(0);
+const [wsError, setWsError] = useState<string | null>(null);
+const maxReconnectAttempts = 5;
+const [scrollToMessageId, setScrollToMessageId] = useState<string | null>(null);
   const [qrCodes, setQrCodes] = useState<QRCodeData[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [quickReplyCategory, setQuickReplyCategory] = useState<string>('all');
@@ -712,7 +720,121 @@ function Main() {
   
     fetchCategories();
   }, []);
+  // Add WebSocket status indicator component
+const WebSocketStatusIndicator = () => {
+  if (!wsConnected) {
+    return (
+      <div className="flex items-center gap-2 text-red-500 text-sm">
+        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+        <span>Connecting...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-green-500 text-sm">
+      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+      <span>Connected</span>
+    </div>
+  );
+};
+// Add reconnect button component
+const ReconnectButton = () => {
+  if (wsConnected) return null;
   
+  const handleReconnect = () => {
+    if (wsConnection) {
+      wsConnection.close(1000, 'Manual reconnect');
+    }
+    setWsReconnectAttempts(0);
+    setWsConnected(false);
+    setWsConnection(null);
+    setWsError(null);
+  
+    // This will trigger the useEffect to re-run and reconnect
+    setWsVersion(v => v + 1);
+  };
+  return (
+    <button
+      onClick={handleReconnect}
+      className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+      disabled={wsReconnectAttempts >= maxReconnectAttempts}
+    >
+      {wsReconnectAttempts >= maxReconnectAttempts ? 'Max retries reached' : 'Reconnect'}
+    </button>
+  );
+};
+// Add WebSocket error handler
+const handleWebSocketError = (error: Event) => {
+  console.error('WebSocket error:', error);
+  setWsError('Connection error. Messages may not update in real-time.');
+  setWsConnected(false);
+  
+  // Show toast notification to user
+  toast.error('WebSocket connection lost. Attempting to reconnect...', {
+    autoClose: 5000,
+  });
+};
+// Add the handleNewMessage function
+const handleNewMessage = (data: any) => {
+  const { chatId, message, whapiToken } = data;
+console.log(selectedChatId);
+  // If the message is for the currently viewed chat, fetch latest messages from backend
+  if (chatId === selectedChatId) {
+    if (selectedChatId !== null) {
+      fetchMessagesBackground(selectedChatId, whapiToken);
+    }
+
+    // Show notification if chat is not currently active
+    showNotificationToast({
+      from: message.from_name || 'Unknown',
+      text: { body: message.text?.body || 'New message' },
+      from_name: message.from_name || 'Unknown',
+      timestamp: message.timestamp || Date.now(),
+      chat_id: '',
+      type: 'text'
+    }, 0);
+    // Scroll to bottom to show new message
+    setTimeout(() => {
+      if (messageListRef.current) {
+        messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+      }
+    }, 100);
+  } else {
+    // Message is for a different chat - update contact list only
+    setContacts(prevContacts => 
+      prevContacts.map(contact => {
+        if (contact.chat_id === chatId) {
+          return {
+            ...contact,
+            last_message: message,
+            unreadCount: (contact.unreadCount || 0) + 1
+          };
+        }
+        return contact;
+      })
+    );
+
+    // Show notification for other chats
+    showNotificationToast({
+      from: message.from_name || 'Unknown',
+      text: { body: message.text?.body || 'New message' },
+      from_name: message.from_name || 'Unknown',
+      timestamp: message.timestamp || Date.now(),
+      chat_id: chatId,
+      type: 'text'
+    }, 0);
+  }
+};
+// Add WebSocket utility functions
+const sendWebSocketMessage = (message: any) => {
+  if (wsConnection && wsConnected) {
+    wsConnection.send(JSON.stringify(message));
+  } else {
+    console.warn('WebSocket not connected, cannot send message');
+  }
+};
+
   //testing
   const handleSendNow = async (message: any) => {
     try {
@@ -903,7 +1025,7 @@ function Main() {
             tagLower === 'all' ? !isGroup :
             tagLower === 'unread' ? contact.unreadCount && contact.unreadCount > 0 :
             tagLower === 'mine' ? contact.tags?.includes(currentUserName) :
-            tagLower === 'unassigned' ? !contact.tags?.some(t => employeeList.some(e => e.name.toLowerCase() === t.toLowerCase())) :
+            tagLower === 'unassigned' ? !contact.tags?.some(t => employeeList.some(e => (e.name?.toLowerCase() || '') === t.toLowerCase())) :
             tagLower === 'snooze' ? contact.tags?.includes('snooze') :
             tagLower === 'resolved' ? contact.tags?.includes('resolved') :
             tagLower === 'group' ? isGroup :
@@ -1276,33 +1398,36 @@ const ReactionPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => vo
 
   useEffect(() => {
     const fetchCompanyData = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        const docUserRef = doc(firestore, 'user', user.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (docUserSnapshot.exists()) {
-          const userData = docUserSnapshot.data();
-          const companyId = userData.companyId;
-          setCurrentCompanyId(companyId);
-
-          const companyRef = doc(firestore, 'companies', companyId);
-          const companySnapshot = await getDoc(companyRef);
-          if (companySnapshot.exists()) {
-            const companyData = companySnapshot.data();
-            if (companyData) {
-              setIsAssistantAvailable(!!companyData.assistantId);
+      const userEmail = localStorage.getItem('userEmail');
+      if (userEmail) {
+        try {
+          const response = await fetch(
+            `http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+            {
+              method: 'GET',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json'
+              }
             }
-            if(companyData.plan === 'blaster'){
-              setIsAssistantAvailable(false);
-            }
-            const phoneCount = companyData.phoneCount || 0;
-            const newPhoneNames: Record<number, string> = {};
-            for (let i = 0; i < phoneCount; i++) {
-              newPhoneNames[i] = companyData[`phone${i + 1}`] || `Phone ${i + 1}`;
-            }
-            setPhoneNames(newPhoneNames);
-            setPhoneCount(phoneCount);
+          );
+  
+          if (!response.ok) {
+            throw new Error('Failed to fetch company data');
           }
+  
+          const data = await response.json();
+       console.log('comapnya',data);
+          // Set all the state values from the response
+          setCurrentCompanyId(data.userData.companyId);
+          setCompanyName(data.companyData.name);
+          const ai = data.companyData.assistants_ids;
+          setIsAssistantAvailable(Array.isArray(ai) && ai.length > 0);
+  
+          setPhoneCount(data.phoneCount);
+        } catch (error) {
+          console.error('Error fetching company data:', error);
+          // Handle error appropriately
         }
       }
     };
@@ -1321,8 +1446,22 @@ const ReactionPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => vo
       setMessageSearchResults([]);
     }
   }, [messageSearchQuery, messages]);
-
+  useEffect(() => {
+    if (scrollToMessageId && messageListRef.current) {
+      const messageElement = messageListRef.current.querySelector(`[data-message-id="${scrollToMessageId}"]`);
+      if (messageElement) {
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        messageElement.classList.add('highlight-message');
+        setTimeout(() => {
+          messageElement.classList.remove('highlight-message');
+        }, 2000);
+        setScrollToMessageId(null); // Reset after scrolling
+        setIsMessageSearchOpen(false);
+      }
+    }
+  }, [messages, scrollToMessageId]);
   const scrollToMessage = (messageId: string) => {
+    console.log('scrolling message',messageId);
     if (messageListRef.current) {
       const messageElement = messageListRef.current.querySelector(`[data-message-id="${messageId}"]`);
       if (messageElement) {
@@ -1330,7 +1469,7 @@ const ReactionPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => vo
         messageElement.classList.add('highlight-message');
         setTimeout(() => {
           messageElement.classList.remove('highlight-message');
-        }, 2000);
+        }, 100);
       }
     }
     setIsMessageSearchOpen(false); // Close the search panel after clicking a result
@@ -1345,7 +1484,7 @@ const ReactionPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => vo
 
 
   useEffect(() => {
-    updateEmployeeAssignedContacts();
+    /*updateEmployeeAssignedContacts();
     const initializeActiveTags = async () => {
       const user = auth.currentUser;
       if (user) {
@@ -1367,7 +1506,7 @@ const ReactionPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => vo
       }
     };
   
-    initializeActiveTags();
+    initializeActiveTags();*/
   }, []); 
 
   const handleBack = () => {
@@ -1449,11 +1588,20 @@ const ReactionPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => vo
   // }, []);
 
   const filterContactsByUserRole = useCallback((contacts: Contact[], userRole: string, userName: string) => {
-    
+    console.log('role',userRole);
     switch (userRole) {
       case '1': // Admin
         return contacts; // Admin sees all contacts
+        case 'admin': // Admin
+        return contacts; // Admin sees all contacts
+        case 'user': // Admin
+        return contacts.filter(contact => 
+          contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
+        );
       case '2': // Sales
+      return contacts.filter(contact => 
+        contact.tags?.some(tag => tag.toLowerCase() === userName.toLowerCase())
+      );
       case '3': // Observer
       case '4': // Manager
         // Sales, Observer, and Manager see only contacts assigned to them
@@ -1502,6 +1650,7 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
 };
   const filterAndSetContacts = useCallback((contactsToFilter: Contact[]) => {
     // Check for viewEmployee first
+ 
     if (userData?.viewEmployee) {
       let filteredByEmployee: Contact[] = [];
       
@@ -1540,14 +1689,14 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
       filteredByEmployee = filteredByEmployee.filter(contact => 
         contact.chat_id && !contact.chat_id.includes('@g.us')
       );
-      
+   
       setFilteredContacts(filteredByEmployee);
       return;
     }
     
     // Apply role-based filtering first
     let filtered = filterContactsByUserRole(contactsToFilter, userRole, userData?.name || '');
-    
+ 
     // Filter out group chats
     filtered = filtered.filter(contact => 
       contact.chat_id && !contact.chat_id.includes('@g.us')
@@ -1559,7 +1708,7 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
         Array.isArray(contact.assignedTo) && contact.assignedTo.some(assignedTo => assignedTo === selectedEmployee)
       );
     }
-    
+   
     // Apply tag-based filtering only if activeTags is not empty and doesn't include 'all'
     if (activeTags.length > 0 && !activeTags.includes('all')) {
       filtered = filtered.filter(contact => 
@@ -1567,50 +1716,99 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
       );
     }
   
-    setFilteredContacts(filtered);
+    setFilteredContacts(contactsToFilter);
   }, [userRole, userData, activeTags, filterContactsByUserRole, selectedEmployee, employeeList]);
 
     // Update this useEffect
     useEffect(() => {
       filterAndSetContacts(contacts);
+  
     }, [contacts, filterAndSetContacts]);
 
-  useEffect(() => {
-    const fetchContacts = async () => {
-      if (!userData?.companyId) {
-        
-        return;
-      }
-  
-      
-      const contactsRef = collection(firestore, `companies/${userData.companyId}/contacts`);
-      const q = query(contactsRef, orderBy("last_message.timestamp", "desc"));
-  
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const updatedContacts = snapshot.docs.map(doc => {
-          const contactData = doc.data();
-          
-          // Filter out empty tags
-          if (contactData.tags) {
-            contactData.tags = contactData.tags.filter((tag: any) => 
-              tag && tag.trim() !== '' && tag !== null && tag !== undefined
-            );
+    
+    useEffect(() => {
+      const fetchContacts = async () => {
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
+          toast.error("No user email found");
+          return;
+        }
+    console.log('fetching contacts');
+        try {
+          // Get user config to get companyId
+          const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            credentials: 'include'
+          });
+    
+          if (!userResponse.ok) {
+            toast.error("Failed to fetch user config");
+            return;
           }
+    
+          const userData = await userResponse.json();
+          const companyId = userData.company_id;
+    
+          // Fetch contacts from SQL database
+          const contactsResponse = await fetch(`http://localhost:8443/api/companies/${companyId}/contacts?email=${userEmail}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            credentials: 'include'
+          });
+  
+          if (!contactsResponse.ok) {
+            toast.error("Failed to fetch contacts");
+            return;
+          }
+    
+          const data = await contactsResponse.json();
+          console.log('contacts before',data);
+          const updatedContacts = data.contacts.map((contact: any) => {
+            // Filter out empty tags
+      
+            // Map SQL fields to match your Contact interface
+            return {
+              ...contact,
+              id: contact.id,
+              chat_id: contact.chat_id,
+              contactName: contact.name,
+              phone: contact.phone,
+              email: contact.email,
+              profile: contact.profile,
+              profilePicUrl: contact.profileUrl,
+              tags: contact.tags,
+              createdAt: contact.createdAt,
+              lastUpdated: contact.lastUpdated,
+              last_message:contact.last_message,
+              isIndividual: contact.isIndividual
+            } as Contact;
+          });
           
-          return { ...contactData, id: doc.id } as Contact;
-        });
-        
-        setContacts(updatedContacts);
-        filterAndSetContacts(updatedContacts);
-      }, (error) => {
-        console.error('Error fetching contacts:', error);
-      });
-  
-      return () => unsubscribe();
-    };
-  
-    fetchContacts();
-  }, [userData, filterAndSetContacts]);
+          setTotalContacts(updatedContacts.length);
+          setContacts(updatedContacts);
+          filterAndSetContacts(updatedContacts);
+        } catch (error) {
+          console.error('Error fetching contacts:', error);
+          toast.error("Error fetching contacts");
+        }
+      };
+    
+      // Set up polling to refresh contacts periodically
+      const pollInterval = setInterval(fetchContacts, 30000); // Poll every 30 seconds
+      
+      // Initial fetch
+      fetchContacts();
+      
+      // Cleanup
+      return () => clearInterval(pollInterval);
+    }, [filterAndSetContacts]);
 
   // useEffect(() => {
   //   if (initialContacts.length > 0) {
@@ -1652,14 +1850,15 @@ useEffect(() => {
   };
 }, [contacts]);
 
+// ... existing code ...
 useEffect(() => {
   try {
     const pinned = activeTags.filter(tag => tag === 'pinned');
     const employees = activeTags.filter(tag => 
-      employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+      employeeList.some(employee => (employee.name?.toLowerCase() || '') === (tag?.toLowerCase() || ''))
     );
     const others = activeTags.filter(tag => 
-      tag !== 'pinned' && !employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+      tag !== 'pinned' && !employeeList.some(employee => (employee.name?.toLowerCase() || '') === (tag?.toLowerCase() || ''))
     );
 
     setPinnedTags(pinned);
@@ -1671,7 +1870,7 @@ useEffect(() => {
     setTagsError(true);
   }
 }, [activeTags, employeeList]);
-
+// ... existing code ...
 const handleEmojiClick = (emojiObject: EmojiClickData) => {
   setNewMessage(prevMessage => prevMessage + emojiObject.emoji);
 };
@@ -1850,14 +2049,16 @@ const closePDFModal = () => {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
     }
   }, [selectedChatId, messages]);
-
+  useEffect(() => {
+    console.log('userRole changed:', userRole);
+  }, [userRole]);
   useEffect(() => {
    fetchConfigFromDatabase().catch(error => {
      console.error('Error in fetchConfigFromDatabase:', error);
      // Handle the error appropriately (e.g., show an error message to the user)
    });
-    fetchQuickReplies();
-    
+   // fetchQuickReplies();
+
   }, []);
   const fetchQuickReplies = async () => {
     try {
@@ -2183,7 +2384,6 @@ const showNotificationToast = (notification: Notification, index: number) => {
   }
   const toastId = toast(
     <div id={`toast-${Date.now()}`} className="flex flex-col mr-2 pr-2">
-      <strong className="font-semibold capitalize">{notification?.from}</strong>
       <p className="truncate max-w-xs pr-6">{displayText}</p>
     </div>,
     {
@@ -2209,68 +2409,140 @@ const showNotificationToast = (notification: Notification, index: number) => {
 
 
 // New separate useEffect for message listener
+// Main WebSocket connection useEffect
 useEffect(() => {
-  let unsubscribeMessages: (() => void) | null = null;
+  let ws: WebSocket | null = null;
+  let reconnectTimeout: NodeJS.Timeout | null = null;
 
-  const setupMessageListener = async () => {
-    if (selectedChatId && auth.currentUser) {
-   
-      const phone = "+"+selectedChatId.split('@')[0];
-      
-      const userDocRef = doc(firestore, 'user', auth.currentUser.email!);
-      const userDocSnapshot = await getDoc(userDocRef);
-      
-      if (!userDocSnapshot.exists()) {
-        
+  const connectWebSocket = async () => {
+    try {
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
+        console.error('No user email found for WebSocket connection');
         return;
       }
-      
-      const dataUser = userDocSnapshot.data();
-      const newCompanyId = dataUser.companyId;
-      
-      const companyDocRef = doc(firestore, 'companies', newCompanyId);
-      const companyDocSnapshot = await getDoc(companyDocRef);
-      
-      if (!companyDocSnapshot.exists()) {
-        
-        return;
+
+      // Get user config to get companyId
+      const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include'
+      });
+
+      if (!userResponse.ok) {
+        throw new Error('Failed to fetch user config');
       }
-      
-      const data = companyDocSnapshot.data();
-      
 
-      let prevMessagesCount = 0;
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
 
-      unsubscribeMessages = onSnapshot(
-        collection(firestore, `companies/${newCompanyId}/contacts/${phone}/messages`),
-        async (snapshot) => {
-          const currentMessages = snapshot.docs;
-          
-          // Check if new messages have been added
-          if (currentMessages.length > prevMessagesCount) {
-           
-            fetchMessagesBackground(selectedChatId, data.whapiToken);
-          }
+      // Create WebSocket connection
+      ws = new WebSocket(`ws://localhost:8443/ws/${userEmail}/${companyId}`);
+      setWsConnection(ws);
 
-          // Update the previous messages count
-          prevMessagesCount = currentMessages.length;
+      ws.onopen = () => {
+        console.log('WebSocket connected successfully');
+        setWsConnected(true);
+        setWsError(null);
+        setWsReconnectAttempts(0);
+        
+        // Subscribe to the current chat if one is selected
+        if (selectedChatId) {
+          ws?.send(JSON.stringify({ 
+            type: 'subscribe', 
+            chatId: selectedChatId 
+          }));
         }
-      );
+        
+        // Show success notification
+        toast.success('Real-time connection established', {
+          autoClose: 200,
+        });
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('WebSocket message received:', data);
+
+          if (data.type === 'new_message') {
+            handleNewMessage(data);
+          } else if (data.type === 'subscribed') {
+            console.log('Successfully subscribed to chat:', data.chatId);
+          } else if (data.type === 'error') {
+            console.error('WebSocket error message:', data.message);
+            setWsError(data.message);
+          }
+        } catch (err) {
+          console.error('WebSocket message parsing error:', err);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        handleWebSocketError(error);
+      };
+
+      ws.onclose = (event) => {
+        console.log('WebSocket connection closed:', event.code, event.reason);
+        setWsConnected(false);
+        setWsConnection(null);
+
+        // Attempt to reconnect if not a normal closure and under max attempts
+        if (event.code !== 1000 && wsReconnectAttempts < maxReconnectAttempts) {
+          const delay = Math.min(1000 * Math.pow(2, wsReconnectAttempts), 30000); // Exponential backoff, max 30s
+          console.log(`Attempting to reconnect in ${delay}ms (attempt ${wsReconnectAttempts + 1}/${maxReconnectAttempts})`);
+          
+          toast.info(`Connection lost. Reconnecting in ${Math.round(delay/1000)}s...`, {
+            autoClose: delay,
+          });
+          
+          reconnectTimeout = setTimeout(() => {
+            setWsReconnectAttempts(prev => prev + 1);
+            connectWebSocket();
+          }, delay);
+        } else if (wsReconnectAttempts >= maxReconnectAttempts) {
+          toast.error('Failed to reconnect after multiple attempts. Please refresh the page.', {
+            autoClose: false,
+          });
+        }
+      };
+
+    } catch (error) {
+      console.error('Error establishing WebSocket connection:', error);
+      setWsConnected(false);
+      setWsError('Failed to establish connection');
     }
   };
 
-  if (selectedChatId) {
-    setupMessageListener();
-  }
+  // Connect when component mounts
+  connectWebSocket();
 
+  // Cleanup function
   return () => {
-    if (unsubscribeMessages) {
-      unsubscribeMessages();
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+    }
+    if (ws) {
+      ws.close(1000, 'Component unmounting');
     }
   };
-}, [selectedChatId]); 
+}, [wsVersion]); // Empty dependency array - only run on mount
+// Subscribe to chat when selectedChatId changes
+useEffect(() => {
+  if (wsConnection && wsConnected && selectedChatId) {
+    console.log('Subscribing to chat:', selectedChatId);
+    wsConnection.send(JSON.stringify({ 
+      type: 'subscribe', 
+      chatId: selectedChatId 
+    }));
+  }
+}, [selectedChatId, wsConnection, wsConnected]);
 
-  useEffect(() => {
+  /*useEffect(() => {
     const fetchContact = async () => {
       const params = new URLSearchParams(location.search);
       const chatIdFromUrl = params.get('chatId');
@@ -2315,164 +2587,98 @@ useEffect(() => {
   
     fetchContact();
   }, [location.search]);
-async function fetchConfigFromDatabase() {
-  const user = auth.currentUser;
-
-  if (!user) {
-    console.error('No user is authenticated');
-    return;
-  }
-
-  try {
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.error('No such document for user!');
-      return;
+  */
+  async function fetchConfigFromDatabase() {
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      throw new Error("No user email found");
     }
-    const dataUser = docUserSnapshot.data() as UserData;
-    setUserData(dataUser);
-    user_role = dataUser.role;
-    companyId = dataUser.companyId;
-    setUserRole(dataUser.role);
-    if (!dataUser || !dataUser.companyId) {
-      console.error('Invalid user data or companyId');
-      return;
-    }
-
-    
-
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      console.error('No such document for company!');
-      return;
-    }
-    const data = docSnapshot.data();
-
-    
-
-    if (!data) {
-      console.error('Company data is missing');
-      return;
-    }
-    setCompanyPlan(data.plan || '');
-     // Add message usage tracking for enterprise plan
-     if (data.plan === 'enterprise') {
-      const currentDate = new Date();
-      const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-      
-      const usageRef = doc(firestore, `companies/${companyId}/usage/${monthKey}`);
-      const usageSnapshot = await getDoc(usageRef);
-      
-      if (usageSnapshot.exists()) {
-        const totalMessages = usageSnapshot.data().total_messages || 0;
-        setMessageUsage(totalMessages);
-      } else {
-        setMessageUsage(0);
-      }
-    }
-    setPhoneCount(data.phoneCount);
-    if(data.phoneCount >=2){
-      setMessageMode('phone1');
-    }
-    
-
-
-    
-
-    setToken(data.whapiToken);
-    user_name = dataUser.name;
-
-
-    const employeeRef = doc(firestore, `companies/${companyId}/employee`, dataUser.name);
-    const employeeDoc = await getDoc(employeeRef);
-    if (employeeDoc.exists()) {
-      const employeeData = employeeDoc.data();
-      setUserPhone(employeeData.phone || null);
-    }
-
-    const employeeCollectionRef = collection(firestore, `companies/${companyId}/employee`);
-    const employeeSnapshot = await getDocs(employeeCollectionRef);
-
-    const employeeListData: Employee[] = [];
-    employeeSnapshot.forEach((doc) => {
-      employeeListData.push({ id: doc.id, ...doc.data() } as Employee);
-    });
-
-    setEmployeeList(employeeListData);
-    
-    const employeeNames = employeeListData.map(employee => employee.name.trim().toLowerCase());
-
-    // Set selectedEmployee based on viewEmployee if it exists
-    if (dataUser.viewEmployee) {
-      // If viewEmployee is a string (email address)
-      if (typeof dataUser.viewEmployee === 'string') {
-        // Try to find employee where id matches the email (in some cases, id is the email)
-        const employee = employeeListData.find(emp => emp.id === dataUser.viewEmployee);
-        if (employee) {
-          setSelectedEmployee(employee.name);
-          console.log('Set selected employee to:', employee.name);
-        } else {
-          // If no match by id, try to find by checking if the id contains the email username
-          // For example, if viewEmployee is "firaz@juta.com", look for an id containing "firaz"
-          const emailUsername = dataUser.viewEmployee.split('@')[0];
-          const employeeByUsername = employeeListData.find(emp => 
-            emp.id.toLowerCase().includes(emailUsername.toLowerCase())
-          );
-          
-          if (employeeByUsername) {
-            setSelectedEmployee(employeeByUsername.name);
-            console.log('Set selected employee by username to:', employeeByUsername.name);
+  
+    try {
+      const response = await fetch(
+        `http://localhost:8443/api/user-config?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
           }
         }
-      } 
-      // If viewEmployee is an array of emails
-      else if (Array.isArray(dataUser.viewEmployee) && dataUser.viewEmployee.length > 0) {
-        // Just use the first email in the array for now
-        const viewEmployeeEmail = dataUser.viewEmployee[0];
-        const employee = employeeListData.find(emp => emp.id === viewEmployeeEmail);
-        
-        if (employee) {
-          setSelectedEmployee(employee.name);
-          console.log('Set selected employee from array to:', employee.name);
-        } else {
-          // Try by username part of email
-          const emailUsername = viewEmployeeEmail.split('@')[0];
-          const employeeByUsername = employeeListData.find(emp => 
-            emp.id.toLowerCase().includes(emailUsername.toLowerCase())
-          );
-          
-          if (employeeByUsername) {
-            setSelectedEmployee(employeeByUsername.name);
-            console.log('Set selected employee from array by username to:', employeeByUsername.name);
+      );
+  
+      if (!response.ok) {
+        throw new Error('Failed to fetch config data');
+      }
+  
+      const data = await response.json();
+  
+      // Set user data
+      setUserData(data.userData);
+      console.log(data.userData);
+    
+      //console.log('role',data.userData.role);
+
+      user_role = data.userData.role;
+      companyId = data.userData.companyId;
+      user_name = data.userData.name;
+
+      // Set company data
+      setCompanyPlan(data.companyData.plan);
+      setPhoneCount(data.companyData.phoneCount);
+      if (data.companyData.phoneCount >= 2) {
+        setMessageMode('phone1');
+      }
+      setToken(data.companyData.whapiToken);
+  
+      // Set message usage for enterprise plan
+      if (data.companyData.plan === 'enterprise') {
+        setMessageUsage(data.messageUsage);
+      }
+  
+      // Set employee list
+      setEmployeeList(data.employeeList);
+  
+      // Handle selected employee based on viewEmployee
+      if (data.userData.viewEmployee) {
+        if (typeof data.userData.viewEmployee === 'string') {
+          const employee = data.employeeList.find((emp: { id: any; }) => emp.id === data.userData.viewEmployee);
+          if (employee) {
+            setSelectedEmployee(employee.name);
+          } else {
+            const emailUsername = data.userData.viewEmployee.split('@')[0];
+            const employeeByUsername = data.employeeList.find((emp: { id: string; }) => 
+              emp.id.toLowerCase().includes(emailUsername.toLowerCase())
+            );
+            if (employeeByUsername) {
+              setSelectedEmployee(employeeByUsername.name);
+            }
+          }
+        } else if (Array.isArray(data.userData.viewEmployee) && data.userData.viewEmployee.length > 0) {
+          const viewEmployeeEmail = data.userData.viewEmployee[0];
+          const employee = data.employeeList.find((emp: { id: any; }) => emp.id === viewEmployeeEmail);
+          if (employee) {
+            setSelectedEmployee(employee.name);
+          } else {
+            const emailUsername = viewEmployeeEmail.split('@')[0];
+            const employeeByUsername = data.employeeList.find((emp: { id: string; }) => 
+              emp.id.toLowerCase().includes(emailUsername.toLowerCase())
+            );
+            if (employeeByUsername) {
+              setSelectedEmployee(employeeByUsername.name);
+            }
           }
         }
       }
+  
+      // Set tags if company is using v2
+      if (data.companyData.v2) {
+        setTagList(data.tags);
+      }
+  
+    } catch (error) {
+      console.error('Error fetching config:', error);
     }
-
-    // Check if the company is using v2
-    if (data.v2) {
-      
-      // For v2, fetch tags from Firebase
-      const tagsRef = collection(firestore, `companies/${companyId}/tags`);
-      const tagsSnapshot = await getDocs(tagsRef);
-      const tags = tagsSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
-      const filteredTags = tags.filter((tag: Tag) => !employeeNames.includes(tag.name.toLowerCase()));
-      
-      setTagList(filteredTags);
-    } else {
-      
-      // For non-v2, fetch from GHL API
- 
-    }
-
-    
-    
-  } catch (error) {
-    console.error('Error fetching config:', error);
   }
-}
   
 
   const deleteNotifications = async (chatId: string) => {
@@ -2501,7 +2707,7 @@ async function fetchConfigFromDatabase() {
 
   const selectChat = useCallback(async (chatId: string, contactId?: string, contactSelect?: Contact) => {
     setMessages([]);
- 
+ console.log('selecting chat');
     
     try {
       // Save current scroll position before making any state changes
@@ -2516,19 +2722,15 @@ async function fetchConfigFromDatabase() {
         return;
       }
   
-      const user = auth.currentUser;
-      if (!user) {
-        console.error('No authenticated user');
-        return;
-      }
+ 
   
       // Find contact
-      let contact = contactSelect || contacts.find(c => c.chat_id === chatId || c.id === contactId);
+      let contact = contactSelect || contacts.find(c => c.id === contactId);
       if (!contact) {
         console.error('Contact not found');
         return;
       }
-  
+  console.log(contact);
       // Update UI state immediately
       setSelectedContact(contact);
       setSelectedChatId(chatId);
@@ -2544,7 +2746,7 @@ async function fetchConfigFromDatabase() {
   
       // Update URL
       const newUrl = `/chat?chatId=${chatId.replace('@c.us', '')}`;
-      window.history.pushState({ path: newUrl }, '', newUrl);
+   window.history.pushState({ path: newUrl }, '', newUrl);
   
       // Restore scroll position after a short delay to allow rendering
       setTimeout(() => {
@@ -2602,164 +2804,102 @@ const updateFirebaseUnreadCount = async (contact: Contact) => {
     await updateDoc(contactRef, { unreadCount: 0 });
   }
 };
-  const fetchContactsBackground = async (whapiToken: string, locationId: string, ghlToken: string, user_name: string, role: string, userEmail: string | null | undefined) => {
-    try {
-      if (!userEmail) throw new Error("User email is not provided.");
-      
-      const docUserRef = doc(firestore, 'user', userEmail);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-      
-        return;
-      }
-
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser?.companyId;
-      if (!companyId) {
-      
-        return;
-      }
-
-      // Pagination settings
-    const batchSize = 4000;
-    let lastVisible: QueryDocumentSnapshot<DocumentData> | null = null;
-    const phoneSet = new Set<string>();
-    let allContacts: Contact[] = [];
-
-    // Fetch contacts in batches
-      const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
-    while (true) {
-      let queryRef: Query<DocumentData> = lastVisible
-        ? query(contactsCollectionRef, startAfter(lastVisible), limit(batchSize))
-        : query(contactsCollectionRef, limit(batchSize));
-
-      const contactsSnapshot = await getDocs(queryRef);
-      if (contactsSnapshot.empty) break;
-
-      contactsSnapshot.docs.forEach(doc => {
-        const contact = { ...doc.data(), id: doc.id } as Contact;
-        if (contact.phone && !phoneSet.has(contact.phone)) {
-          phoneSet.add(contact.phone);
-          allContacts.push(contact);
-        }
-      });
-
-      lastVisible = contactsSnapshot.docs[contactsSnapshot.docs.length - 1];
-    }
-
-      // Fetch pinned chats
-      const pinnedChatsRef = collection(firestore, `user/${userEmail}/pinned`);
-      const pinnedChatsSnapshot = await getDocs(pinnedChatsRef);
-      const pinnedChats = pinnedChatsSnapshot.docs.map(doc => doc.data() as Contact);
-
-    // Update pinned status in Firebase and local contacts
-    const updatePromises = allContacts.map(async contact => {
-        const isPinned = pinnedChats.some(pinned => pinned.chat_id === contact.chat_id);
-      if (isPinned !== contact.pinned) {
-        const contactDocRef = doc(contactsCollectionRef, contact.id!);
-        await updateDoc(contactDocRef, { pinned: isPinned });
-        contact.pinned = isPinned;
-      }
+const fetchContactsBackground = async () => {
+  const userEmail = localStorage.getItem('userEmail');
+  if (!userEmail) {
+    toast.error("No user email found");
+    return;
+  }
+  try {
+    // Get user config to get companyId
+    const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include'
     });
 
-    await Promise.all(updatePromises);
+    if (!userResponse.ok) {
+      toast.error("Failed to fetch user config");
+      return;
+    }
 
+    const userData = await userResponse.json();
+    const companyId = userData.company_id;
 
-    allContacts.sort((a, b) => {
-      // First priority: pinned status
-        if (a.pinned && !b.pinned) return -1;
-        if (!a.pinned && b.pinned) return 1;
-        
-      // Second priority: unread messages
-      if (a.unreadCount && !b.unreadCount) return -1;
-      if (!a.unreadCount && b.unreadCount) return 1;
-      
-      // Get timestamps with validation
-      let timestampA = a.last_message?.timestamp;
-      let timestampB = b.last_message?.timestamp;
-
-      // Convert string timestamps to numbers if needed
-      if (typeof timestampA === 'string') timestampA = parseInt(timestampA, 10);
-      if (typeof timestampB === 'string') timestampB = parseInt(timestampB, 10);
-
-      // Ensure timestamps are in seconds
-      if (timestampA && timestampA > 9999999999) timestampA = Math.floor(timestampA / 1000);
-      if (timestampB && timestampB > 9999999999) timestampB = Math.floor(timestampB / 1000);
-
-      // If either timestamp is invalid, use 0
-      timestampA = timestampA || 0;
-      timestampB = timestampB || 0;
-
-      // Sort descending (newest first)
-        return timestampB - timestampA;
-      });
-
-    // Add debugging after sorting
-
-
-    // Before setting contacts, ensure all timestamps are in the correct format
-    allContacts = allContacts.map(contact => {
-      if (!contact.last_message) return contact;
-
-      let timestamp = contact.last_message.timestamp;
-      
-      // Convert string timestamps to numbers
-      if (typeof timestamp === 'string') {
-        timestamp = parseInt(timestamp, 10);
-      }
-
-      // Ensure timestamp is in seconds
-      if (timestamp && timestamp > 9999999999) {
-        timestamp = Math.floor(timestamp / 1000);
-      }
-
-      return {
-        ...contact,
-        last_message: {
-          ...contact.last_message,
-          timestamp
-        }
-      };
+    // Fetch contacts from SQL database
+    const contactsResponse = await fetch(`http://localhost:8443/api/companies/${companyId}/contacts?email=${userEmail}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include'
     });
 
-    
-    
-
-    // Set all contacts to state instead of just the first 200
-    setContacts(allContacts);
-
-    // Store all contacts in localStorage
-    localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
-      sessionStorage.setItem('contactsFetched', 'true');
-      
-    // If you need to limit the displayed contacts, implement pagination in the UI component
-    // For example, you could add a state variable for the current page:
-    // const [currentPage, setCurrentPage] = useState(1);
-    // const contactsPerPage = 200;
-    // const displayedContacts = allContacts.slice((currentPage - 1) * contactsPerPage, currentPage * contactsPerPage);
-    
-    } catch (error) {
-      console.error('Error fetching contacts:', error);
+    if (!contactsResponse.ok) {
+      toast.error("Failed to fetch contacts");
+      return;
     }
-  };
+
+    const data = await contactsResponse.json();
+    const updatedContacts = data.contacts.map((contact: any) => ({
+      ...contact,
+      id: contact.id,
+      chat_id: contact.chat_id,
+      contactName: contact.name,
+      phone: contact.phone,
+      email: contact.email,
+      profile: contact.profile,
+      profilePicUrl: contact.profileUrl,
+      tags: contact.tags,
+      createdAt: contact.createdAt,
+      lastUpdated: contact.lastUpdated,
+      last_message: contact.last_message,
+      isIndividual: contact.isIndividual
+    }));
+
+    setContacts(updatedContacts);
+    localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
+    sessionStorage.setItem('contactsFetched', 'true');
+  } catch (error) {
+    console.error('Error fetching contacts:', error);
+    toast.error("Error fetching contacts");
+  }
+};
 
 
 
-useEffect(() => {
-  const fetchUserRole = async () => {
-    const user = auth.currentUser;
-    if (user) {
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (docUserSnapshot.exists()) {
-        const userData = docUserSnapshot.data();
-        setUserRole(userData.role);
-        
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const userEmail = localStorage.getItem('userEmail');
+      if (userEmail) {
+        try {
+          const response = await fetch(`http://localhost:8443/api/user-role?email=${encodeURIComponent(userEmail)}`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch user role');
+          }
+          
+          const data = await response.json();
+         setUserRole(data.role);
+        } catch (error) {
+          console.error('Error fetching user role:', error);
+          // Handle error appropriately
+        }
       }
-    }
-  };
-  fetchUserRole();
-}, []);
+    };
+    
+    fetchUserRole();
+  }, []);
 
   useEffect(() => {
     const cleanupStorage = () => {
@@ -2931,240 +3071,176 @@ useEffect(() => {
   async function fetchMessages(selectedChatId: string, whapiToken: string) {
     setLoading(true);
     setSelectedIcon('ws');
-    const auth = getAuth(app);
-      const user = auth.currentUser;
 
+    const userEmail = localStorage.getItem('userEmail');
     try {
-        const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-
-        if (!docUserSnapshot.exists()) {
-            
-            return;
-        }
-      const dataUser = docUserSnapshot.data();
-
-        
-        
-        const companyId = dataUser.companyId;
-        const docRef = doc(firestore, 'companies', companyId);
-        const docSnapshot = await getDoc(docRef);
-        if (!docSnapshot.exists()) {
-            
-            return;
-        }
-        const data2 = docSnapshot.data();
-        
-        setToken(data2.whapiToken);
-        
-        let messages = await fetchMessagesFromFirebase(companyId, selectedChatId);
-        
-        
-        
-        const formattedMessages: any[] = [];
-        const reactionsMap: Record<string, any[]> = {};
-
-        messages.forEach(async (message: any) => {
-            if (message.type === 'action' && message.action.type === 'reaction') {
-                const targetMessageId = message.action.target;
-                if (!reactionsMap[targetMessageId]) {
-                    reactionsMap[targetMessageId] = [];
-                }
-                reactionsMap[targetMessageId].push({
-                    emoji: message.action.emoji,
-                    from_name: message.from_name
-                });
-            } else {
-              const formattedMessage: any = {
-                id: message.id,
-                from_me: message.from_me,
-                from_name: message.from_name,
-                from: message.from,
-                chat_id: message.chat_id,
-                type: message.type,
-                author: message.author,
-                name: message.name,
-                phoneIndex: message.phoneIndex,
-                userName: message.userName,
-                edited: message.edited // Add this line to include phoneIndex
-              };
+      // Get user data and company info from SQL
+      const userResponse = await fetch(`http://localhost:8443/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
+        credentials: 'include'
+      });
+      
+      if (!userResponse.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+      
+      const userData = await userResponse.json();
     
-            // Handle timestamp based on message type
-            if (message.type === 'privateNote') {
-              if (message.timestamp && message.timestamp.seconds) {
-                  // Firestore Timestamp
-                  formattedMessage.createdAt = new Date(message.timestamp.seconds * 1000).toISOString();
-              } else if (typeof message.timestamp === 'string') {
-                  // String timestamp
-                  const parsedDate = new Date(message.timestamp);
-                  if (!isNaN(parsedDate.getTime())) {
-                      formattedMessage.createdAt = parsedDate.toISOString();
-                  } else {
-                      console.warn('Invalid date string for private note:', message.timestamp);
-                      formattedMessage.createdAt = message.timestamp; // Keep the original string
+      const companyId = userData.company_id;
+      console.log(userData);
+      console.log(companyId);
+      // Get company data
+      const companyResponse = await fetch(`http://localhost:8443/api/company-data?companyId=${companyId}`, {
+        credentials: 'include'
+      });
+      
+      if (!companyResponse.ok) {
+        throw new Error('Failed to fetch company data');
+      }
+      
+      const companyData = await companyResponse.json();
+      setToken(companyData.whapiToken);
+  
+      // Fetch messages from SQL
+      const messagesResponse = await fetch(`http://localhost:8443/api/messages?chatId=${selectedChatId}&companyId=${companyId}`, {
+        credentials: 'include'
+      });
+      
+      if (!messagesResponse.ok) {
+        throw new Error('Failed to fetch messages');
+      }
+      
+      const messages = await messagesResponse.json();
+      console.log('meesages:',messages);
+      const formattedMessages: any[] = [];
+      const reactionsMap: Record<string, any[]> = {};
+  
+      messages.forEach(async (message: any) => {
+        if (message.message_type === 'action' && message.content?.type === 'reaction') {
+          const targetMessageId = message.content.target;
+          if (!reactionsMap[targetMessageId]) {
+            reactionsMap[targetMessageId] = [];
+          }
+          reactionsMap[targetMessageId].push({
+            emoji: message.content.emoji,
+            from_name: message.author
+          });
+        } else {
+          const formattedMessage: any = {
+            id: message.message_id,
+            from_me: message.from_me,
+            from_name: message.author,
+            from: message.customer_phone,
+            chat_id: message.chat_id,
+            type: message.message_type,
+            author: message.author,
+            name: message.author,
+            phoneIndex: message.phone_index,
+            userName: message.author,
+            edited: message.edited
+          };
+  
+          // Handle timestamp
+          const timestamp = new Date(message.timestamp).getTime() / 1000;
+          formattedMessage.createdAt = timestamp;
+          formattedMessage.timestamp = timestamp;
+  
+          // Include message-specific content
+          switch (message.message_type) {
+              case 'text':
+                formattedMessage.text = {
+                  body: message.content || '',
+                  context: message.context ? {
+                    quoted_author: message.context.quoted_author,
+                    quoted_content: {
+                      body: message.context.quoted_content?.body || ''
+                    }
+                  } : null
+                };
+                break;
+            case 'chat':
+              formattedMessage.text = {
+                body: message.content || '',
+                context: message.context ? {
+                  quoted_author: message.context.quoted_author,
+                  quoted_content: {
+                    body: message.context.quoted_content?.body || ''
                   }
-              } else if (message.timestamp instanceof Date) {
-                  // Date object
-                  formattedMessage.createdAt = message.timestamp.toISOString();
-              } else if (typeof message.timestamp === 'number') {
-                  // Unix timestamp (milliseconds)
-                  formattedMessage.createdAt = new Date(message.timestamp).toISOString();
-              } else {
-                  console.warn('Unexpected timestamp format for private note:', message.timestamp);
-                  formattedMessage.createdAt = message.timestamp; // Keep the original value
-              }
-          }else {
-                // For regular messages, multiply timestamp by 1000
-                formattedMessage.createdAt = new Date(message.timestamp * 1000).toISOString();
-            }
-        
-                // Include message-specific content
-                switch (message.type) {
-                    case 'text':
-                      formattedMessage.text = {
-                          body: message.text ? message.text.body : '', // Include the message body
-                          context: message.text && message.text.context ? {
-                              quoted_author: message.text.context.quoted_author,
-                              quoted_content: {
-                                  body: message.text.context.quoted_content?.body || ''
-                              }
-                          } : null
-                        };                
-                        break;
-                        case 'chat':
-                          formattedMessage.text = {
-                              body: message.text ? message.text.body : '', // Include the message body
-                              context: message.text && message.text.context ? {
-                                  quoted_author: message.text.context.quoted_author,
-                                  quoted_content: {
-                                      body: message.text.context.quoted_content?.body || ''
-                                  }
-                              } : null
-                          }; 
-                    case 'image':
-                        formattedMessage.image = message.image ? message.image : undefined;
-                        break;
-                    case 'video':
-                        formattedMessage.video = message.video ? message.video : undefined;
-                        break;
-                    case 'gif':
-                        formattedMessage.gif = message.gif ? message.gif : undefined;
-                        break;
-                    case 'audio':
-                        formattedMessage.audio = message.audio ? message.audio : undefined;
-                        break;
-                    case 'voice':
-                        formattedMessage.voice = message.voice ? message.voice : undefined;
-                        break;
-                    case 'document':
-                        formattedMessage.document = message.document ? message.document : undefined;
-                        break;
-                    case 'link_preview':
-                        formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
-                        break;
-                    case 'sticker':
-                        formattedMessage.sticker = message.sticker ? message.sticker : undefined;
-                        break;
-                    case 'location':
-                        formattedMessage.location = message.location ? message.location : undefined;
-                        break;
-                    case 'live_location':
-                        formattedMessage.live_location = message.live_location ? message.live_location : undefined;
-                        break;
-                    case 'contact':
-                        formattedMessage.contact = message.contact ? message.contact : undefined;
-                        break;
-                    case 'contact_list':
-                        formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
-                        break;
-                    case 'interactive':
-                        formattedMessage.interactive = message.interactive ? message.interactive : undefined;
-                        break;
-                    case 'ptt':
-                        formattedMessage.ptt = message.ptt ? message.ptt : undefined;
-                        break;
-                    case 'poll':
-                        formattedMessage.poll = message.poll ? message.poll : undefined;
-                        break;
-                    case 'hsm':
-                        formattedMessage.hsm = message.hsm ? message.hsm : undefined;
-                        break;
-                    case 'system':
-                        formattedMessage.system = message.system ? message.system : undefined;
-                        break;
-                    case 'order':
-                        formattedMessage.order = message.order ? message.order : undefined;
-                        break;
-                    case 'group_invite':
-                        formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
-                        break;
-                    case 'admin_invite':
-                        formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
-                        break;
-                    case 'product':
-                        formattedMessage.product = message.product ? message.product : undefined;
-                        break;
-                    case 'catalog':
-                        formattedMessage.catalog = message.catalog ? message.catalog : undefined;
-                        break;
-                    case 'product_items':
-                        formattedMessage.product_items = message.product_items ? message.product_items : undefined;
-                        break;
-                    case 'call_log':
-                        formattedMessage.call_log = {
-                            status: message.call_log?.status || 'missed',
-                            duration: message.call_log?.duration,
-                            timestamp: message.call_log?.timestamp || message.timestamp,
-                        };
-                        break;
-                    case 'action':
-                        formattedMessage.action = message.action ? message.action : undefined;
-                        break;
-                    case 'context':
-                        formattedMessage.context = message.context ? message.context : undefined;
-                        break;
-                    case 'reactions':
-                        formattedMessage.reactions = message.reactions ? message.reactions : undefined;
-                        break;
-                    case 'privateNote':
-                        
-                        formattedMessage.text = typeof message.text === 'string' ? message.text : message.text?.body || '';
-                        
-                        formattedMessage.from_me = true;
-                        formattedMessage.from_name = message.from;
-                        break;
-                    default:
-                        console.warn(`Unknown message type: ${message.type}`);
-                }
-        
-                formattedMessages.push(formattedMessage);
-            }
-        });
-        
-        // Add reactions to the respective messages
-        formattedMessages.forEach(message => {
-            if (reactionsMap[message.id]) {
-                message.reactions = reactionsMap[message.id];
-            }
-        });
-
-        storeMessagesInLocalStorage(selectedChatId, formattedMessages);
-        
-        setMessages(formattedMessages);
-        fetchContactsBackground(
-          data2.whapiToken,
-          data2.ghl_location,
-          data2.ghl_accessToken,
-          user_name,
-          dataUser.role,
-          dataUser.email
-        );
+                } : null
+              };
+              break;
+            case 'image':
+            case 'video':
+            case 'gif':
+            case 'audio':
+            case 'voice':
+            case 'document':
+            case 'link_preview':
+            case 'sticker':
+            case 'location':
+            case 'live_location':
+            case 'contact':
+            case 'contact_list':
+            case 'interactive':
+            case 'ptt':
+            case 'poll':
+            case 'hsm':
+            case 'system':
+            case 'order':
+            case 'group_invite':
+            case 'admin_invite':
+            case 'product':
+            case 'catalog':
+            case 'product_items':
+              formattedMessage[message.message_type] = message.content;
+              break;
+            case 'call_log':
+              formattedMessage.call_log = {
+                status: message.content?.status || 'missed',
+                duration: message.content?.duration,
+                timestamp: message.content?.timestamp || message.timestamp,
+              };
+              break;
+            case 'action':
+              formattedMessage.action = message.content;
+              break;
+            case 'context':
+              formattedMessage.context = message.content;
+              break;
+            case 'reactions':
+              formattedMessage.reactions = message.content;
+              break;
+            case 'privateNote':
+              formattedMessage.text = typeof message.content === 'string' ? message.content : message.content?.body || '';
+              formattedMessage.from_me = true;
+              formattedMessage.from_name = message.author;
+              break;
+            default:
+              console.warn(`Unknown message type: ${message.message_type}`);
+          }
+  
+          formattedMessages.push(formattedMessage);
+        }
+      });
+  
+      // Add reactions to the respective messages
+      formattedMessages.forEach(message => {
+        if (reactionsMap[message.id]) {
+          message.reactions = reactionsMap[message.id];
+        }
+      });
+  
+      storeMessagesInLocalStorage(selectedChatId, formattedMessages);
+      setMessages(formattedMessages);
+      
+     fetchContactsBackground(
+     
+      );
     } catch (error) {
-        console.error('Failed to fetch messages:', error);
+      console.error('Failed to fetch messages:', error);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-}
+  }
 
 async function fetchMessagesFromFirebase(companyId: string, chatId: string): Promise<any[]> {
   const number = '+' + chatId.split('@')[0];
@@ -3184,215 +3260,153 @@ async function fetchMessagesFromFirebase(companyId: string, chatId: string): Pro
 
 
 async function fetchMessagesBackground(selectedChatId: string, whapiToken: string) {
-  setSelectedIcon('ws');
-  const auth = getAuth(app);
-  const user = auth.currentUser;
-  
+  const userEmail = localStorage.getItem('userEmail');
   try {
-    const docUserRef = doc(firestore, 'user', user?.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
+    // Get user data and company info from SQL
+    const userResponse = await fetch(`http://localhost:8443/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
+      credentials: 'include'
+    });
     
-    if (!docUserSnapshot.exists()) {
-      
-      return;
+    if (!userResponse.ok) {
+      throw new Error('Failed to fetch user data');
     }
-    const dataUser = docUserSnapshot.data();
     
-    const companyId = dataUser.companyId;
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      
-      return;
+    const userData = await userResponse.json();
+    const companyId = userData.company_id;
+
+    // Get company data
+    const companyResponse = await fetch(`http://localhost:8443/api/company-data?companyId=${companyId}`, {
+      credentials: 'include'
+    });
+    
+    if (!companyResponse.ok) {
+      throw new Error('Failed to fetch company data');
     }
-    const data2 = docSnapshot.data();
     
-    setToken(data2.whapiToken);
+    const companyData = await companyResponse.json();
+
+    // Fetch messages from SQL
+    const messagesResponse = await fetch(`http://localhost:8443/api/messages?chatId=${selectedChatId}&companyId=${companyId}`, {
+      credentials: 'include'
+    });
     
-    let messages;
-    messages = await fetchMessagesFromFirebase(companyId, selectedChatId);
+    if (!messagesResponse.ok) {
+      throw new Error('Failed to fetch messages');
+    }
     
-    
+    const messages = await messagesResponse.json();
     
     const formattedMessages: any[] = [];
     const reactionsMap: Record<string, any[]> = {};
 
     messages.forEach(async (message: any) => {
-      if (message.type === 'action' && message.action.type === 'reaction') {
-        const targetMessageId = message.action.target;
+      if (message.message_type === 'action' && message.content?.type === 'reaction') {
+        const targetMessageId = message.content.target;
         if (!reactionsMap[targetMessageId]) {
           reactionsMap[targetMessageId] = [];
         }
         reactionsMap[targetMessageId].push({
-          emoji: message.action.emoji,
-          from_name: message.from_name
+          emoji: message.content.emoji,
+          from_name: message.author
         });
       } else {
         const formattedMessage: any = {
-          id: message.id,
+          id: message.message_id,
           from_me: message.from_me,
-          from_name: message.from_name,
-          from: message.from,
+          from_name: message.author,
+          from: message.customer_phone,
           chat_id: message.chat_id,
-          createdAt: new Date(message.timestamp * 1000).toISOString(), // Ensure the timestamp is correctly formatted
-          type: message.type,
-          author:message.author,
-          name: message.name,
-          phoneIndex: message.phoneIndex,
-          userName: message.userName,
-          edited: message.edited // Add this line to include phoneIndex
+          type: message.message_type,
+          author: message.author,
+          name: message.author,
+          phoneIndex: message.phone_index,
+          userName: message.author,
+          edited: message.edited
         };
-        if (message.type === 'privateNote') {
-          if (message.timestamp && message.timestamp.seconds) {
-              // Firestore Timestamp
-              formattedMessage.createdAt = new Date(message.timestamp.seconds * 1000).toISOString();
-          } else if (typeof message.timestamp === 'string') {
-              // String timestamp
-              const parsedDate = new Date(message.timestamp);
-              if (!isNaN(parsedDate.getTime())) {
-                  formattedMessage.createdAt = parsedDate.toISOString();
-              } else {
-                  console.warn('Invalid date string for private note:', message.timestamp);
-                  formattedMessage.createdAt = message.timestamp; // Keep the original string
-              }
-          } else if (message.timestamp instanceof Date) {
-              // Date object
-              formattedMessage.createdAt = message.timestamp.toISOString();
-          } else if (typeof message.timestamp === 'number') {
-              // Unix timestamp (milliseconds)
-              formattedMessage.createdAt = new Date(message.timestamp).toISOString();
-          } else {
-              console.warn('Unexpected timestamp format for private note:', message.timestamp);
-              formattedMessage.createdAt = message.timestamp; // Keep the original value
-          }
-      }else {
-          // For regular messages, multiply timestamp by 1000
-          formattedMessage.createdAt = new Date(message.timestamp * 1000).toISOString();
-      }
-  
+
+        // Handle timestamp
+        const timestamp = new Date(message.timestamp).getTime() / 1000;
+        formattedMessage.createdAt = timestamp;
+        formattedMessage.timestamp = timestamp;
+        
         // Include message-specific content
-        switch (message.type) {
+        switch (message.message_type) {
           case 'text':
             formattedMessage.text = {
-                body: message.text ? message.text.body : '', // Include the message body
-                context: message.text && message.text.context ? {
-                    quoted_author: message.text.context.quoted_author,
-                    quoted_content: {
-                        body: message.text.context.quoted_content?.body || ''
-                    }
-                } : null // Include the context with quoted content
+              body: message.content || '',
+              context: message.context ? {
+                quoted_author: message.context.quoted_author,
+                quoted_content: {
+                  body: message.context.quoted_content?.body || ''
+                }
+              } : null
             };
             break;
-            case 'chat':
-              formattedMessage.text = {
-                  body: message.text ? message.text.body : '', // Include the message body
-                  context: message.text && message.text.context ? {
-                      quoted_author: message.text.context.quoted_author,
-                      quoted_content: {
-                          body: message.text.context.quoted_content?.body || ''
-                      }
-                  } : null
-              }; 
+          case 'chat':
+            formattedMessage.text = {
+              body: message.content || '',
+              context: message.context ? {
+                quoted_author: message.context.quoted_author,
+                quoted_content: {
+                  body: message.context.quoted_content?.body || ''
+                }
+              } : null
+            };
+            break;
           case 'image':
-            formattedMessage.image = message.image ? message.image : undefined;
-            break;
           case 'video':
-            formattedMessage.video = message.video ? message.video : undefined;
-            break;
           case 'gif':
-            formattedMessage.gif = message.gif ? message.gif : undefined;
-            break;
           case 'audio':
-            formattedMessage.audio = message.audio ? message.audio : undefined;
-            break;
           case 'voice':
-            formattedMessage.voice = message.voice ? message.voice : undefined;
-            break;
           case 'document':
-            formattedMessage.document = message.document ? message.document : undefined;
-            break;
           case 'link_preview':
-            formattedMessage.link_preview = message.link_preview ? message.link_preview : undefined;
-            break;
           case 'sticker':
-            formattedMessage.sticker = message.sticker ? message.sticker : undefined;
-            break;
           case 'location':
-            formattedMessage.location = message.location ? message.location : undefined;
-            break;
           case 'live_location':
-            formattedMessage.live_location = message.live_location ? message.live_location : undefined;
-            break;
           case 'contact':
-            formattedMessage.contact = message.contact ? message.contact : undefined;
-            break;
           case 'contact_list':
-            formattedMessage.contact_list = message.contact_list ? message.contact_list : undefined;
-            break;
           case 'interactive':
-            formattedMessage.interactive = message.interactive ? message.interactive : undefined;
-            break;
-          case 'poll':
-            formattedMessage.poll = message.poll ? message.poll : undefined;
-            break;
-          case 'hsm':
-            formattedMessage.hsm = message.hsm ? message.hsm : undefined;
-            break;
           case 'ptt':
-            formattedMessage.ptt = message.ptt ? message.ptt : undefined;
-            break;
+          case 'poll':
+          case 'hsm':
           case 'system':
-            formattedMessage.system = message.system ? message.system : undefined;
-            break;
           case 'order':
-            formattedMessage.order = message.order ? message.order : undefined;
-            break;
           case 'group_invite':
-            formattedMessage.group_invite = message.group_invite ? message.group_invite : undefined;
-            break;
           case 'admin_invite':
-            formattedMessage.admin_invite = message.admin_invite ? message.admin_invite : undefined;
-            break;
           case 'product':
-            formattedMessage.product = message.product ? message.product : undefined;
-            break;
           case 'catalog':
-            formattedMessage.catalog = message.catalog ? message.catalog : undefined;
-            break;
           case 'product_items':
-            formattedMessage.product_items = message.product_items ? message.product_items : undefined;
+            formattedMessage[message.message_type] = message.content;
             break;
           case 'call_log':
             formattedMessage.call_log = {
-              status: message.call_log?.status || 'missed',
-              duration: message.call_log?.duration,
-              timestamp: message.call_log?.timestamp || message.timestamp,
+              status: message.content?.status || 'missed',
+              duration: message.content?.duration,
+              timestamp: message.content?.timestamp || message.timestamp,
             };
             break;
           case 'action':
-            formattedMessage.action = message.action ? message.action : undefined;
+            formattedMessage.action = message.content;
             break;
           case 'context':
-            formattedMessage.context = message.context ? message.context : undefined;
+            formattedMessage.context = message.content;
             break;
           case 'reactions':
-            formattedMessage.reactions = message.reactions ? message.reactions : undefined;
+            formattedMessage.reactions = message.content;
             break;
-            case 'privateNote':
-              
-              formattedMessage.text = typeof message.text === 'string' ? message.text : message.text?.body || '';
-              
-              formattedMessage.from_me = true;
-              formattedMessage.from_name = message.from;
-              break;
+          case 'privateNote':
+            formattedMessage.text = typeof message.content === 'string' ? message.content : message.content?.body || '';
+            formattedMessage.from_me = true;
+            formattedMessage.from_name = message.author;
+            break;
           default:
-            console.warn(`Unknown message type: ${message.type}`);
+            console.warn(`Unknown message type: ${message.message_type}`);
         }
-  
+
         formattedMessages.push(formattedMessage);
       }
     });
-    
+
     // Add reactions to the respective messages
     formattedMessages.forEach(message => {
       if (reactionsMap[message.id]) {
@@ -3400,36 +3414,13 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       }
     });
 
-    // Fetch private notes for the selected chat
-    const privateNotesRef = collection(firestore, 'companies', companyId, 'contacts', selectedChatId, 'privateNotes');
-    const privateNotesSnapshot = await getDocs(privateNotesRef);
-    const chatPrivateNotes = privateNotesSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      timestamp: doc.data().timestamp.toDate().getTime(),
-      type: 'privateNote'
-    }));
-
-    // Combine regular messages and private notes
-    const allMessages = [...formattedMessages, ...chatPrivateNotes].sort((a, b) => 
-      a.timestamp - b.timestamp
-    );
-
-    storeMessagesInLocalStorage(selectedChatId, allMessages);
-
-    setMessages(allMessages);
+    storeMessagesInLocalStorage(selectedChatId, formattedMessages);
+    setMessages(formattedMessages);
+    console.log(messages);
+    fetchContactsBackground(
     
-    // Update private notes state
-    setPrivateNotes(prevNotes => ({
-      ...prevNotes,
-      [selectedChatId]: chatPrivateNotes.map(note => ({
-        id: note.id,
-        text: 'text' in note && typeof note.text === 'string' ? note.text : '',
-        timestamp: note.timestamp
-      }))
-    }));
-
-    } catch (error) {
+    );
+  } catch (error) {
     console.error('Failed to fetch messages:', error);
   }
 }
@@ -3543,7 +3534,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
   
     // Get the current phoneIndex the user is using
     const currentPhoneIndex = userData?.phone;
-    
+    const userEmail = localStorage.getItem('userEmail');
     // Create temporary message object for immediate display
     const tempMessage = {
       id: `temp_${Date.now()}`,
@@ -3553,161 +3544,157 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       type: 'text',
       phoneIndex: currentPhoneIndex,
       chat_id: selectedChatId,
-      from_name: userData?.name || '',
+      from_name: userEmail || '',
       timestamp: Math.floor(Date.now() / 1000)
     };
-   // Update UI immediately
-   setMessages(prevMessages => [
-    ...prevMessages, 
-    { 
-      ...tempMessage, 
-      createdAt: new Date(tempMessage.createdAt).getTime() 
-    } as unknown as Message
-  ]);
-
-
+      // Update UI immediately
+      setMessages(prevMessages => [
+        ...prevMessages, 
+        { 
+          ...tempMessage, 
+        } as unknown as Message
+      ]);
+    
+      const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
+      const updatedMessages = [...currentMessages, tempMessage];
+      storeMessagesInLocalStorage(selectedChatId, updatedMessages);
   
-    const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
-    
-    
-    const updatedMessages = [...currentMessages, tempMessage];
-    
-    
-    storeMessagesInLocalStorage(selectedChatId, updatedMessages);
-    
-
- 
     try {
-      const user = auth.currentUser;
-      if (!user) throw new Error('No authenticated user');
-  
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) throw new Error('No user document found');
-  
-      const dataUser = docUserSnapshot.data();
-      companyId = dataUser.companyId;
+      const userEmail = localStorage.getItem('userEmail');
+   
+      // Get user data from SQL
+      const userResponse = await fetch(`http://localhost:8443/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
+        credentials: 'include'
+      });
+      
+      if (!userResponse.ok) throw new Error('Failed to fetch user data');
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
       const phoneIndex = currentPhoneIndex;
-      const userName = dataUser.name || dataUser.email || '';
+      const userName = userData.name || userData.email || '';
   
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error('No company document found');
-  
-      const data2 = docSnapshot.data();
-      const baseUrl = data2.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
+      // Get company data from SQL
+      const companyResponse = await fetch(`http://localhost:8443/api/company-data?companyId=${companyId}`, {
+        credentials: 'include'
+      });
+      
+      if (!companyResponse.ok) throw new Error('Failed to fetch company data');
+      const companyData = await companyResponse.json();
+      const baseUrl = companyData.api_url || 'https://mighty-dane-newly.ngrok-free.app';
   
       if (messageMode === 'privateNote') {
         handleAddPrivateNote(messageText);
         return;
       }
   
-     const url = `${baseUrl}/api/v2/messages/text/${companyId}/${selectedChatId}`;
-    const requestBody = {
-      message: messageText,
-      quotedMessageId: replyToMessage?.id || null,
-      phoneIndex: phoneIndex,
-      userName: userData?.name || ''
-    };
-
+      // Send message to API
+      const url = `http://localhost:8443/api/v2/messages/text/${companyId}/${selectedChatId}`;
+      const requestBody = {
+        message: messageText,
+        quotedMessageId: replyToMessage?.id || null,
+        phoneIndex: phoneIndex,
+        userName: userData?.name || ''
+      };
+  
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        credentials: 'include', // Include credentials if needed
+        credentials: 'include',
         body: JSON.stringify(requestBody)
       });
+      
       if (!response.ok) throw new Error('Failed to send message');
   
       const now = new Date();
       const data = await response.json();
-      
+
+      // Create the final message object with the server response
+      const finalMessage: Message = {
+        id: data.message_id || tempMessage.id,
+        from_me: true,
+        text: { body: messageText },
+        createdAt: new Date().getTime(),
+        type: 'text',
+        phoneIndex: phoneIndex,
+        chat_id: selectedChatId,
+        from_name: userName,
+        timestamp: Math.floor(now.getTime() / 1000),
+        author: userName
+      };
+
   
-      // Update contacts list
-      setContacts(prevContacts => 
-        prevContacts.map(contact => 
-          contact.id === selectedContact?.id 
-            ? updateContactWithNewMessage(contact, messageText, now, phoneIndex)
-            : contact
-        )
-      );
+
   
       // Handle special case for company 0123
       if (companyId === '0123' && selectedContact?.id) {
-        const contactRef = doc(firestore, `companies/${companyId}/contacts`, selectedContact.id);
-        const contactSnapshot = await getDoc(contactRef);
-        
-        if (contactSnapshot.exists()) {
-          const currentTags = contactSnapshot.data().tags || [];
-          const updatedLastMessage = {
-            text: { body: messageText },
-            chat_id: selectedContact.chat_id || '',
-            timestamp: Math.floor(now.getTime() / 1000),
-            id: selectedContact.last_message?.id || `temp_${now.getTime()}`,
-            from_me: true,
-            type: 'text',
-            phoneIndex,
-          };
+        // Update contact in SQL
+        const updateResponse = await fetch(`http://localhost:8443/api/contacts/${selectedContact.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            company_id: companyId,
+            tags: ['stop bot'],
+            last_message: {
+              text: { body: messageText },
+              chat_id: selectedContact.chat_id || '',
+              timestamp: Math.floor(now.getTime() / 1000),
+              id: selectedContact.last_message?.id || `temp_${now.getTime()}`,
+              from_me: true,
+              type: 'text',
+              phoneIndex,
+            }
+          })
+        });
   
-          if (!currentTags.includes('stop bot')) {
-            await updateDoc(contactRef, {
-              tags: arrayUnion('stop bot'),
-              last_message: updatedLastMessage
-            });
-            
-            setContacts(prevContacts =>
-              prevContacts.map(contact =>
-                contact.id === selectedContact.id
-                  ? { ...contact, tags: [...(contact.tags || []), 'stop bot'] }
-                  : contact
-              )
-            );
-          } else {
-            await updateDoc(contactRef, { last_message: updatedLastMessage });
-          }
+        if (updateResponse.ok) {
+          setContacts(prevContacts =>
+            prevContacts.map(contact =>
+              contact.id === selectedContact.id
+                ? { ...contact, tags: [...(contact.tags || []), 'stop bot'] }
+                : contact
+            )
+          );
         }
       } else {
-        // Update for non-0123 companies
-        const contactRef = doc(firestore, `companies/${companyId}/contacts`, selectedContact?.id);
-        const updatedLastMessage: Message = {
-          text: { body: messageText },
-          chat_id: selectedContact?.chat_id || '',
-          timestamp: Math.floor(now.getTime() / 1000),
-          id: selectedContact?.last_message?.id || `temp_${now.getTime()}`,
-          from_me: true,
-          type: 'text',
-          phoneIndex,
-        };
-        
-        await updateDoc(contactRef, { last_message: updatedLastMessage });
+        // Update contact's last message in SQL
+       /* const updateResponse = await fetch(`http://localhost:8443/api/contacts/${selectedContact?.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            company_id: companyId,
+            last_message: {
+              text: { body: messageText },
+              chat_id: selectedContact?.chat_id || '',
+              timestamp: Math.floor(now.getTime() / 1000),
+              id: selectedContact?.last_message?.id || `temp_${now.getTime()}`,
+              from_me: true,
+              type: 'text',
+              phoneIndex,
+            }
+          })
+        });*/
       }
   
-      // Fetch updated messages and update local storage
-      fetchMessagesBackground(selectedChatId, data2.apiToken);
-
-      // After successful API call
-      
-
-      // Verify local storage was updated
-      const storedMessages = getMessagesFromLocalStorage(selectedChatId);
-   
+      // Fetch updated messages in the background
+      fetchMessagesBackground(selectedChatId, companyData.api_token);
   
     } catch (error) {
       console.error('Error sending message:', error);
-      //toast.error("Failed to send message");
       
       // Remove temporary message from local storage and UI if send failed
-      
       const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
       const filteredMessages = currentMessages.filter(msg => msg.id !== tempMessage.id);
       storeMessagesInLocalStorage(selectedChatId, filteredMessages);
       
-      // Verify removal
-      const updatedStoredMessages = getMessagesFromLocalStorage(selectedChatId);
-   
-
       setMessages(prevMessages => prevMessages.filter(msg => msg.id !== tempMessage.id));
     }
   };
@@ -3802,87 +3789,96 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     }
   };
   const actionPerformedRef = useRef(false);
-  const toggleStopBotLabel = useCallback(async (contact: Contact, index: number, event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+// ... existing code ...
+const toggleStopBotLabel = useCallback(
+  async (contact: Contact, index: number, event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     event.preventDefault();
     event.stopPropagation();
-  
+
     if (actionPerformedRef.current) return;
     actionPerformedRef.current = true;
-  
-    
+
     if (userRole === "3") {
       toast.error("You don't have permission to control the bot.");
       return;
     }
-  
+
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        
+      const userEmail = localStorage.getItem('userEmail');
+   
+      // Get user data from SQL
+      const userResponse = await fetch(`http://localhost:8443/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
+        credentials: 'include'
+      });
+      
+      if (!userResponse.ok) throw new Error('Failed to fetch user data');
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+
+      console.log(companyId);
+      if (!companyId || !contact.contact_id) {
+        toast.error("Missing company or contact ID");
         return;
       }
-  
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-  
-      if (companyId && contact.id) {
-        const docRef = doc(firestore, 'companies', companyId, 'contacts', contact.id);
-        const docSnapshot = await getDoc(docRef);
-        if (!docSnapshot.exists()) {
-          
-          return;
-        }
-  
-        const hasLabel = contact.tags?.includes('stop bot') || false;
-        const newHasLabel = !hasLabel;
-  
-        // Update Firestore
-        await updateDoc(docRef, {
-          tags: newHasLabel ? arrayUnion('stop bot') : arrayRemove('stop bot')
+
+      const hasLabel = contact.tags?.includes('stop bot') || false;
+      let response, data, newTags;
+
+      if (!hasLabel) {
+        // Add the tag
+        response = await fetch(`http://localhost:8443/api/contacts/${companyId}/${contact.contact_id}/tags`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags: ["stop bot"] }),
         });
-  
-        // Update both contacts and filteredContacts states
-        const updateContactsList = (prevContacts: Contact[]) => 
-          prevContacts.map(c => 
-            c.id === contact.id
-              ? {
-                  ...c,
-                  tags: newHasLabel
-                    ? [...(c.tags || []), "stop bot"]
-                    : (c.tags || []).filter(tag => tag !== "stop bot")
-                }
-              : c
-          );
-    
-        setContacts(updateContactsList);
-        setFilteredContacts(prevFilteredContacts => updateContactsList(prevFilteredContacts));
-  
-        // Update localStorage
-        const updatedContacts = updateContactsList(contacts);
-        localStorage.setItem('contacts', LZString.compress(JSON.stringify(updatedContacts)));
-
-        sessionStorage.setItem('contactsFetched', 'true');
-
-        // Show a success toast
-        toast.success(`Bot ${newHasLabel ? 'disabled' : 'enabled'} for ${contact.contactName || contact.firstName || contact.phone}`);
       } else {
-        console.error('companyId or contact.id is null or undefined');
+        // Remove the tag
+        response = await fetch(`http://localhost:8443/api/contacts/${companyId}/${contact.contact_id}/tags`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags: ["stop bot"] }),
+        });
       }
+
+      if (!response.ok) {
+        throw new Error("Failed to toggle bot status");
+      }
+
+      data = await response.json();
+      newTags = data.tags || [];
+
+      // Update both contacts and filteredContacts states
+      const updateContactsList = (prevContacts: Contact[]) =>
+        prevContacts.map((c) =>
+          c.id === contact.id
+            ? { ...c, tags: newTags }
+            : c
+        );
+
+      setContacts(updateContactsList);
+      setFilteredContacts((prevFilteredContacts) => updateContactsList(prevFilteredContacts));
+
+      // Update localStorage
+      const updatedContacts = updateContactsList(contacts);
+      localStorage.setItem("contacts", LZString.compress(JSON.stringify(updatedContacts)));
+      sessionStorage.setItem("contactsFetched", "true");
+
+      // Show a success toast
+      toast.success(
+        `Bot ${!hasLabel ? "disabled" : "enabled"} for ${contact.contactName || contact.firstName || contact.phone}`
+      );
     } catch (error) {
-      console.error('Error toggling label:', error);
-      toast.error('Failed to toggle bot status');
+      console.error("Error toggling label:", error);
+      toast.error("Failed to toggle bot status");
     } finally {
       setTimeout(() => {
         actionPerformedRef.current = false;
       }, 100);
     }
-  }, [contacts, userRole]);
+  },
+  [contacts, userRole]
+);
+// ... existing code ...
   
   // Add this useEffect to update filteredContacts when contacts change
   useEffect(() => {
@@ -4141,245 +4137,71 @@ const pauseFiveDaysFollowUp = (contact: Contact) => {
   handleBinaTag('pauseFollowUp', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
+// ... existing code ...
 const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
+  console.log(contact);
   try {
-    const user = auth.currentUser;
-    if (!user) {
-      console.error('No authenticated user');
-      return;
-    }
+    // Get company and user data from your backend
+    const userEmail = localStorage.getItem('userEmail');
+   
+    // Get user data from SQL
+    const userResponse = await fetch(`http://localhost:8443/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
+      credentials: 'include'
+    });
+    
+    if (!userResponse.ok) throw new Error('Failed to fetch user data');
+    const userData = await userResponse.json();
+    const companyId = userData.company_id;
 
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      console.error('No such document for user!');
+    if (!companyId || !contact.contact_id) {
+      toast.error("Missing company or contact ID");
       return;
     }
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
 
     // Check if the tag is an employee name
     const employee = employeeList.find(emp => emp.name === tagName);
-    
+
     if (employee) {
-      // Handle employee assignment
-      const employeeRef = doc(firestore, `companies/${companyId}/employee/${employee.id}`);
-      const employeeDoc = await getDoc(employeeRef);
-      
-      if (!employeeDoc.exists()) {
-        toast.error(`Employee document not found for ${tagName}`);
-        return;
-      }
-
-      const employeeData = employeeDoc.data();
-      const contactRef = doc(firestore, `companies/${companyId}/contacts/${contact.id}`);
-      const contactDoc = await getDoc(contactRef);
-
-      if (!contactDoc.exists()) {
-        toast.error('Contact not found');
-        return;
-      }
-
-      const contactData = contactDoc.data();
-      const currentTags = contactData.tags || [];
-      const currentAssignedTo = Array.isArray(contactData.assignedTo) ? contactData.assignedTo : 
-                               contactData.assignedTo ? [contactData.assignedTo] : [];
-      
-      // Special handling for companyId 0123
-      if (companyId === '0123') {
-        // Assignment fields mapping
-        const assignmentFields = ['assignedRevotrend', 'assignedStoreGuru', 'assignedShipGuru'];
-        let phoneIndex = 0;
-        if (typeof contact.phoneIndex === 'number' && contact.phoneIndex >= 0 && contact.phoneIndex < assignmentFields.length) {
-          phoneIndex = contact.phoneIndex;
-        }
-        const assignmentField = assignmentFields[phoneIndex];
-
-        // Use batch write for atomic update
-        const batch = writeBatch(firestore);
-        // Filter out any existing employee tags and add the new one
-        const updatedTags = currentTags.filter((tag: string) => 
-          !employeeList.some(emp => emp.name === tag)
-        ).concat(tagName);
-        // Overwrite the assignment field and assignedTo (only for current phoneIndex)
-        const newAssignedTo = [employee.name];
-        batch.update(contactRef, {
-          tags: updatedTags,
-          [assignmentField]: employee.name,
-          assignedTo: newAssignedTo,
-          lastAssignedAt: serverTimestamp()
-        });
-        // Update new employee's count
-        batch.update(employeeRef, {
-          quotaLeads: Math.max(0, (employeeData.quotaLeads || 0) - 1),
-          assignedContacts: (employeeData.assignedContacts || 0) + 1
-        });
-        await batch.commit();
-        // Update local states
-        setContacts(prevContacts =>
-          prevContacts.map(c =>
-            c.id === contact.id
-              ? {
-                  ...c,
-                  tags: updatedTags,
-                  [assignmentField]: employee.name,
-                  assignedTo: newAssignedTo
-                }
-              : c
-          )
-        );
-        setEmployeeList(prevList =>
-          prevList.map(emp =>
-            emp.id === employee.id
-              ? {
-                  ...emp,
-                  quotaLeads: Math.max(0, (emp.quotaLeads || 0) - 1),
-                  assignedContacts: (emp.assignedContacts || 0) + 1
-                }
-              : emp
-          )
-        );
-        toast.success(`Contact assigned to ${tagName} for ${assignmentField}`);
-        await sendAssignmentNotification(tagName, contact);
-        return;
-      }
-
-      // Regular handling for other companies or when no previous assignment exists
-      // Check if employee is already assigned
-      if (currentAssignedTo.includes(tagName)) {
-        toast.info(`${tagName} is already assigned to this contact`);
-        return;
-      }
-      
-      // Add the new employee tag to tags
-      let updatedTags = [...currentTags];
-      if (!updatedTags.includes(tagName)) {
-        updatedTags.push(tagName);
-      }
-      
-      // Use batch write for atomic update
-      const batch = writeBatch(firestore);
-
-      // Update contact with new assigned employee
-      batch.update(contactRef, {
-        tags: updatedTags,
-        assignedTo: arrayUnion(tagName),
-        lastAssignedAt: serverTimestamp()
+      // Assign employee to contact (requires backend endpoint for assignment logic)
+      const response = await fetch(`http://localhost:8443/api/contacts/${companyId}/${contact.contact_id}/assign-employee`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: employee.id, employeeName: employee.name }),
       });
-
-      // Update new employee's assigned contacts count
-      batch.update(employeeRef, {
-        quotaLeads: Math.max(0, (employeeData.quotaLeads || 0) - 1),
-        assignedContacts: (employeeData.assignedContacts || 0) + 1
-      });
-
-      await batch.commit();
-
-      // Update local states
-      setContacts(prevContacts =>
-        prevContacts.map(c =>
-          c.id === contact.id
-            ? { 
-                ...c, 
-                tags: updatedTags, 
-                assignedTo: Array.isArray(c.assignedTo) 
-                  ? [...c.assignedTo, tagName] 
-                  : c.assignedTo ? [c.assignedTo, tagName] : [tagName]
-              }
-            : c
-        )
-      );
-
-      setEmployeeList(prevList =>
-        prevList.map(emp =>
-          emp.id === employee.id
-            ? {
-                ...emp,
-                quotaLeads: Math.max(0, (emp.quotaLeads || 0) - 1),
-                assignedContacts: (emp.assignedContacts || 0) + 1
-              }
-            : emp
-        )
-      );
-
+      if (!response.ok) {
+        toast.error(`Failed to assign ${tagName} to contact`);
+        return;
+      }
       toast.success(`Contact assigned to ${tagName}`);
       await sendAssignmentNotification(tagName, contact);
+      // Optionally update local state for employeeList and contacts here if your backend returns updated info
       return;
     }
 
-    // Handle non-employee tags
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      return;
-    }
-    const data2 = docSnapshot.data();
-    const baseUrl = data2.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-
-    // Check for trigger tags
-    const templatesRef = collection(firestore, 'companies', companyId, 'followUpTemplates');
-    const templatesSnapshot = await getDocs(templatesRef);
-    
-    let matchingTemplate: any = null;
-    templatesSnapshot.forEach(doc => {
-      const template = doc.data();
-      if (template.triggerTags?.includes(tagName) && template.status === 'active') {
-        matchingTemplate = { id: doc.id, ...template };
-      }
-    });
-
-    // Update contact's tags
-    const contactRef = doc(firestore, `companies/${companyId}/contacts/${contact.id}`);
-    const contactDoc = await getDoc(contactRef);
-
-    if (!contactDoc.exists()) {
-      toast.error('Contact not found');
-      return;
-    }
-
-    const currentTags = contactDoc.data().tags || [];
-
-    if (!currentTags.includes(tagName)) {
-      await updateDoc(contactRef, {
-        tags: arrayUnion(tagName)
+    // Handle non-employee tags (add tag to contact)
+    const hasTag = contact.tags?.includes(tagName) || false;
+    if (!hasTag) {
+      const response = await fetch(`http://localhost:8443/api/contacts/${companyId}/${contact.contact_id}/tags`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: [tagName] }),
       });
+      if (!response.ok) {
+        toast.error('Failed to add tag to contact');
+        return;
+      }
+      const data = await response.json();
+      const newTags = data.tags || [];
 
       setContacts(prevContacts =>
         prevContacts.map(c =>
           c.id === contact.id
-            ? { ...c, tags: [...(c.tags || []), tagName] }
+            ? { ...c, tags: newTags }
             : c
         )
       );
 
-      // Handle trigger tags
-      if (matchingTemplate) {
-        try {
-          const response = await fetch(`${baseUrl}/api/tag/followup`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              requestType: 'startTemplate',
-              phone: contact.phone,
-              first_name: contact.contactName || contact.firstName || contact.phone,
-              phoneIndex: contact.phoneIndex || 0,
-              templateId: matchingTemplate.id,
-              idSubstring: companyId
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error(`Follow-up API error: ${response.statusText}`);
-          }
-
-          toast.success('Follow-up sequence started');
-        } catch (error) {
-          console.error('Error starting follow-up sequence:', error);
-          toast.error('Failed to start follow-up sequence');
-        }
-      }
-
-      // Handle specific tags
+      // Optionally: handle special tags (call your backend or local functions as needed)
       switch (tagName) {
         case 'Before Quote Follow Up':
           await addTagBeforeQuote(contact);
@@ -4402,12 +4224,12 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
     } else {
       toast.info(`Tag "${tagName}" already exists for this contact`);
     }
-
   } catch (error) {
     console.error('Error adding tag to contact:', error);
     toast.error('Failed to add tag to contact');
   }
 };
+// ... existing code ...
 
 
   
@@ -4910,16 +4732,16 @@ const sortContacts = (contacts: Contact[]) => {
     userPhoneIndex = 0;
   }
   
-  
+
   // Filter by user's selected phone first
-  if (userPhoneIndex !== -1) {
+  if (userPhoneIndex !== -1 && phoneCount >1 ) {
     fil = fil.filter(contact => 
       contact.phoneIndexes 
         ? contact.phoneIndexes.includes(userPhoneIndex)
         : contact.phoneIndex === userPhoneIndex
     );
   }
-  
+
   // Check if the active tag matches any of the phone names
   const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => 
     name.toLowerCase() === activeTag
@@ -4967,7 +4789,7 @@ const sortContacts = (contacts: Contact[]) => {
 };
 
   const filterTagContact = (tag: string) => {
-    if (employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())) {
+    if (employeeList.some(employee => (employee.name?.toLowerCase() || '')  === tag.toLowerCase())) {
       setSelectedEmployee(tag === selectedEmployee ? null : tag);
     } else {
       setActiveTags([tag.toLowerCase()]);
@@ -5143,9 +4965,9 @@ const sortContacts = (contacts: Contact[]) => {
     const tag = activeTags[0]?.toLowerCase() || 'all';
     let filteredContacts = filterContactsByUserRole(contacts, userRole, userData?.name || '');
     setMessageMode('reply');
-  
-    
-  
+    console.log('filteredContacts');
+
+
     // First, filter contacts based on the employee's assigned phone
     if (userData?.phone !== undefined && userData.phone !== -1) {
       const userPhoneIndex = parseInt(userData.phone, 10);
@@ -5164,7 +4986,7 @@ const sortContacts = (contacts: Contact[]) => {
         contact.tags?.some(tag => tag.toLowerCase() === selectedEmployee.toLowerCase())
       );
     }
-  
+
     // Filtering logic
     if (Object.values(phoneNames).map(name => name.toLowerCase()).includes(tag)) {
       const phoneIndex = Object.entries(phoneNames).findIndex(([_, name]) => 
@@ -5204,7 +5026,7 @@ const sortContacts = (contacts: Contact[]) => {
           break;
         case 'unassigned':
           filteredContacts = filteredContacts.filter(contact => 
-            !contact.tags?.some(t => employeeList.some(e => e.name.toLowerCase() === t.toLowerCase())) && 
+            !contact.tags?.some(t => employeeList.some(e => (e.name?.toLowerCase() || '') === t.toLowerCase())) && 
             !contact.tags?.includes('snooze')
           );
           break;
@@ -5247,7 +5069,7 @@ const sortContacts = (contacts: Contact[]) => {
     }
   
     filteredContacts = sortContacts(filteredContacts);
-    
+    console.log(filteredContacts);
   
     if (searchQuery) {
       filteredContacts = filteredContacts.filter((contact) => {
@@ -5889,7 +5711,49 @@ const sortContacts = (contacts: Contact[]) => {
   };
   
   const formatDateHeader = (timestamp: string | number | Date) => {
-    const date = new Date(timestamp);
+
+    let date: Date;
+    
+    if (typeof timestamp === 'number') {
+  
+      
+      // Try as milliseconds first
+      date = new Date(timestamp);
+    
+      // If that gives an invalid date, try as seconds
+      if (isNaN(date.getTime())) {
+      
+        date = new Date(timestamp * 1000);
+
+      }
+    } else if (typeof timestamp === 'string') {
+  
+      // Try to parse as number first
+      const numTimestamp = parseFloat(timestamp);
+      if (!isNaN(numTimestamp)) {
+        
+        // For reasonable Unix timestamps (between 1970 and 2100), multiply by 1000
+        if (numTimestamp > 0 && numTimestamp < 4102444800) { // 2100 in seconds
+   
+          date = new Date(numTimestamp * 1000);
+        } else {
+       
+          date = new Date(numTimestamp);
+        }
+      } else {
+        // Try as date string
+        date = new Date(timestamp);
+      }
+    } else {
+    
+      date = new Date(timestamp);
+    }
+   
+    if (isNaN(date.getTime())) {
+      console.log('Invalid date detected');
+      return 'Invalid date';
+    }
+    
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   };
   useEffect(() => {
@@ -5987,7 +5851,7 @@ interface Template {
       }
   
       // Check if the removed tag is an employee name
-      const isEmployeeTag = employeeList.some(employee => employee.name.toLowerCase() === tagName.toLowerCase());
+      const isEmployeeTag = employeeList.some(employee => (employee.name?.toLowerCase() || '') === tagName.toLowerCase());
       if (isEmployeeTag) {
         const employeeRef = doc(firestore, 'companies', companyId, 'employee', tagName);
         const employeeDoc = await getDoc(employeeRef);
@@ -6180,7 +6044,7 @@ interface Template {
       const uploadResult = await uploadBytes(storageRef, blob);
   
       
-  
+      
       const publicUrl = await getDownloadURL(storageRef);
       
       return publicUrl;
@@ -6396,30 +6260,39 @@ useEffect(() => {
 }, [userData?.phone]);
 
 const getCompanyData = async () => {
-  const user = auth.currentUser;
-  if (!user) throw new Error('No authenticated user');
+  const userEmail = localStorage.getItem('userEmail');
+  if (!userEmail) throw new Error('No authenticated user');
 
-  const docUserRef = doc(firestore, 'user', user.email!);
-  const docUserSnapshot = await getDoc(docUserRef);
-  if (!docUserSnapshot.exists()) throw new Error('User document not found');
+  const response = await fetch(
+    `http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+    {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }
+  );
 
-  const userData = docUserSnapshot.data();
-  const companyId = userData.companyId;
-  const currentPhoneIndex = userData.phone || 0;
+  if (!response.ok) throw new Error('Failed to fetch company data');
 
-  const companyRef = doc(firestore, 'companies', companyId);
-  const companySnapshot = await getDoc(companyRef);
-  if (!companySnapshot.exists()) throw new Error('Company document not found');
+  const data = await response.json();
 
+  // You can adjust the return structure as needed for your app
   return {
-    companyRef,
-    companyData: companySnapshot.data(),
-    currentPhoneIndex,
+    companyData: data.companyData,
+    userData: data.userData,
+    currentPhoneIndex: data.userData.phone || 0,
   };
 };
 
 // Helper function to construct full image URL
-const getFullImageUrl = (imageUrl: string): string => {
+const getFullImageUrl = (imageUrl: string | undefined | null): string => {
+  // Handle cases where imageUrl is not a string
+  if (!imageUrl || typeof imageUrl !== 'string') {
+    return '';
+  }
+  
   // If it's already a full URL (starts with http/https), return as is
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://') || imageUrl.startsWith('data:')) {
     return imageUrl;
@@ -6437,7 +6310,8 @@ const getFullImageUrl = (imageUrl: string): string => {
 
 const toggleBot = async () => {
   try {
-    const { companyRef, companyData, currentPhoneIndex } = await getCompanyData();
+    const { companyData, userData, currentPhoneIndex } = await getCompanyData();
+
     
     if (companyData.phoneCount) {
       const currentStopbots = companyData.stopbots || {};
@@ -6446,11 +6320,11 @@ const toggleBot = async () => {
         [currentPhoneIndex]: !currentStopbots[currentPhoneIndex]
       };
       
-      await updateDoc(companyRef, { stopbots: newStopbots });
+     // await updateDoc(companyRef, { stopbots: newStopbots });
       setCompanyStopBot(!companyStopBot); // Update local state immediately
       toast.success(`Bot for ${phoneNames[currentPhoneIndex]} ${companyStopBot ? 'enabled' : 'disabled'} successfully`);
     } else {
-      await updateDoc(companyRef, { stopbot: !companyData.stopbot });
+      //await updateDoc(companyRef, { stopbot: !companyData.stopbot });
       setCompanyStopBot(!companyStopBot); // Update local state immediately
       toast.success(`Bot ${companyStopBot ? 'enabled' : 'disabled'} successfully`);
     }
@@ -6532,54 +6406,42 @@ const toggleBot = async () => {
     }
   };
   const sendBlastMessage = async () => {
-    
-
     // Ensure selectedChatId is valid
     if (!selectedChatId) {
-      
       toast.error("No chat selected!");
       return;
     }
+    
     // Combine date and time
     const scheduledTime = blastStartTime || new Date();
     const now = new Date();
     if (scheduledTime <= now) {
-      
       toast.error("Please select a future time for the blast message.");
       return;
     }
+    
     setIsScheduling(true);
     try {
       let mediaUrl = '';
       let documentUrl = '';
-      if (selectedMedia) {
-        
-        mediaUrl = await uploadFile(selectedMedia);
-        
-      }
-      if (selectedDocument) {
-        
-        documentUrl = await uploadFile(selectedDocument);
-        
-      }
-
-      const user = auth.currentUser;
       
-
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
+      if (selectedMedia) {
+        mediaUrl = await uploadFile(selectedMedia);
+      }
+      
+      if (selectedDocument) {
+        documentUrl = await uploadFile(selectedDocument);
+      }
+  
+      // Use localhost:8443 instead of Firebase
+      const baseUrl = 'http://localhost:8443';
+      const companyId = userData?.companyId; // Get from your existing userData state
+      
+      if (!companyId) {
+        toast.error("Company ID not found!");
         return;
       }
-        const userData = docUserSnapshot.data();
-        const companyId = userData.companyId;
   
-        const docRef = doc(firestore, 'companies', companyId);
-        const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error('No company document found');
-      const companyData = docSnapshot.data();
-      const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
       const chatIds = [selectedChatId]; // Use selectedChatId directly
       const processedMessages = [selectedContact].map(contact => {
         let processedMessage = blastMessage;
@@ -6595,14 +6457,14 @@ const toggleBot = async () => {
         // Add more placeholders as needed
         return { chatId: contact.phone?.replace(/\D/g, '') + "@s.whatsapp.net", message: processedMessage };
       });
-
+  
       const scheduledMessageData = {
         chatIds: chatIds,
         message: blastMessage,
         messages: processedMessages,
         batchQuantity: batchQuantity,
         companyId: companyId,
-        createdAt: Timestamp.now(),
+        createdAt: new Date().toISOString(), // Use ISO string instead of Firebase Timestamp
         documentUrl: documentUrl || "",
         fileName: selectedDocument ? selectedDocument.name : null,
         image: selectedImage ? await uploadImage(selectedImage) : null,
@@ -6610,26 +6472,24 @@ const toggleBot = async () => {
         mimeType: selectedMedia ? selectedMedia.type : (selectedDocument ? selectedDocument.type : null),
         repeatInterval: repeatInterval,
         repeatUnit: repeatUnit,
-        scheduledTime: Timestamp.fromDate(scheduledTime),
+        scheduledTime: scheduledTime.toISOString(), // Use ISO string instead of Firebase Timestamp
         status: "scheduled",
-        v2: true, // Adjust as needed
-        whapiToken: null, // Adjust as needed
-        phoneIndex: userData.phoneIndex,
+        v2: true,
+        whapiToken: null,
+        phoneIndex: userData?.phoneIndex,
         minDelay,
         maxDelay,
         activateSleep,
         sleepAfterMessages: activateSleep ? sleepAfterMessages : null,
         sleepDuration: activateSleep ? sleepDuration : null,
       };
-
-
-      // Make API call to schedule the message
+  
+      // Make API call to localhost:8443
       const response = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, scheduledMessageData);
-
-      
+  console.log(response);
       toast.success(`Blast message scheduled successfully.`);
       toast.info(`Message will be sent at: ${scheduledTime.toLocaleString()} (local time)`);
-
+  
       // Close the modal and reset state
       setBlastMessageModal(false);
       setBlastMessage("");
@@ -6646,7 +6506,6 @@ const toggleBot = async () => {
       setIsScheduling(false);
     }
   };
-
   const handleReminderClick = () => {
     setIsReminderModalOpen(true);
   };
@@ -6766,7 +6625,30 @@ const toggleBot = async () => {
   
     return parts.join(' ');
   };
-  
+  // Track chat activity
+useEffect(() => {
+  const handleVisibilityChange = () => {
+    setIsChatActive(!document.hidden);
+  };
+
+  const handleFocus = () => {
+    setIsChatActive(true);
+  };
+
+  const handleBlur = () => {
+    setIsChatActive(false);
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('focus', handleFocus);
+  window.addEventListener('blur', handleBlur);
+
+  return () => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('focus', handleFocus);
+    window.removeEventListener('blur', handleBlur);
+  };
+}, []);
   const handleGenerateAIResponse = async () => {
     if (messages.length === 0) return;
   
@@ -6887,84 +6769,62 @@ const toggleBot = async () => {
   
   const updateEmployeeAssignedContacts = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
+      // 1. Get user and company info
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
         console.error('No authenticated user');
         return;
       }
-  
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
-        return;
-      }
-      const userData = docUserSnapshot.data();
+      const userRes = await fetch(`http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+      if (!userRes.ok) throw new Error('Failed to fetch user/company data');
+      const { userData, companyData } = await userRes.json();
       const companyId = userData.companyId;
   
-      // Get all contacts
-      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const contactsSnapshot = await getDocs(contactsRef);
+      // 2. Get all contacts
+      const contactsRes = await fetch(`http://localhost:8443/api/companies/${companyId}/contacts`);
+      if (!contactsRes.ok) throw new Error('Failed to fetch contacts');
+      const contacts = await contactsRes.json();
   
-      // Object to store employee assignment counts
+      // 3. Get all employees
+      const employeesRes = await fetch(`http://localhost:8443/api/companies/${companyId}/employees`);
+      if (!employeesRes.ok) throw new Error('Failed to fetch employees');
+      const employeeList = await employeesRes.json();
+  
+      // 4. Count assignments
       const employeeAssignments: { [key: string]: number } = {};
+      employeeList.forEach((emp: any) => {
+        employeeAssignments[emp.id] = 0;
+      });
   
-      const employeeRef = collection(firestore, `companies/${companyId}/employee`);
-      const employeeSnapshot = await getDocs(employeeRef);
-      const employeeList = employeeSnapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        name: doc.data().name,
-        quotaLeads: doc.data().quotaLeads || 0,
-        assignedContacts: doc.data().assignedContacts || 0
-      }));
-  
- 
-  
-      // Count assignments
-      contactsSnapshot.forEach((doc) => {
-        const contact = doc.data();
+      contacts.forEach((contact: any) => {
         if (contact.tags) {
           contact.tags.forEach((tag: string) => {
-            const employee = employeeList.find(emp => emp.name.toLowerCase() === tag.toLowerCase());
+            const employee = employeeList.find((emp: any) => emp.name.toLowerCase() === tag.toLowerCase());
             if (employee) {
               employeeAssignments[employee.id] = (employeeAssignments[employee.id] || 0) + 1;
-              
             }
           });
         }
       });
   
-
-  
-      // Update employee documents
-      const employeeUpdates = employeeList.map(async (employee) => {
+      // 5. Update employees
+      await Promise.all(employeeList.map(async (employee: any) => {
         const newAssignedCount = employeeAssignments[employee.id] || 0;
-        const employeeDocRef = doc(firestore, `companies/${companyId}/employee`, employee.id);
-        
-        // If assigned contacts increased, decrease quota leads
-        const assignedDiff = newAssignedCount - employee.assignedContacts;
-        const newQuotaLeads = Math.max(0, employee.quotaLeads - (assignedDiff > 0 ? assignedDiff : 0));
-        
-
+        const assignedDiff = newAssignedCount - (employee.assignedContacts || 0);
+        const newQuotaLeads = Math.max(0, (employee.quotaLeads || 0) - (assignedDiff > 0 ? assignedDiff : 0));
   
-        if (assignedDiff > 0) {
-
-        }
-  
-        await updateDoc(employeeDocRef, {
-          assignedContacts: newAssignedCount,
-          quotaLeads: newQuotaLeads
+        await fetch(`http://localhost:8443/api/companies/${companyId}/employees/${employee.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assignedContacts: newAssignedCount,
+            quotaLeads: newQuotaLeads
+          })
         });
-        
-        // Verify the update
-        const updatedDoc = await getDoc(employeeDocRef);
-        const updatedData = updatedDoc.data();
- 
-      });
+      }));
   
-      await Promise.all(employeeUpdates);
-      
-      
+      // Optionally show a success toast here
+      // toast.success('Employee assigned contacts and quota leads updated!');
     } catch (error) {
       console.error('❌ Error updating employee assigned contacts and quota leads:', error);
       toast.error('Failed to update employee assigned contacts and quota leads.');
@@ -7035,88 +6895,137 @@ const toggleBot = async () => {
     }
   };
 
-  useEffect(() => {
-    const fetchTotalContacts = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-
-        const docUserRef = doc(firestore, 'user', user.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) return;
-
-        const userData = docUserSnapshot.data();
-        const companyId = userData.companyId;
-
-        const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-        const snapshot = await getCountFromServer(contactsRef);
-        setTotalContacts(snapshot.data().count);
-      } catch (error) {
-        console.error('Error fetching total contacts:', error);
-      }
-    };
-
-    fetchTotalContacts();
-}, []);
 
   return (
     <div className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200" style={{ height: '100vh' }}>
       <audio ref={audioRef} src={noti} />
         <div className={`flex flex-col w-full md:min-w-[30%] md:max-w-[30%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700 ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
-        <div className="flex items-center justify-between pl-4 pr-4 pt-6 pb-2 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
-          <div>
-            <div className="text-start text-2xl font-semibold capitalize text-gray-800 dark:text-gray-200">
-              {userData?.company}
-            </div>
-            <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
-              Total Contacts: {totalContacts}
-            </div>
-          </div>
-          {userData?.phone !== undefined && (
-            <Menu as="div" className="relative inline-block text-left">
-              <div>
-                <Menu.Button className="flex items-center space-x-2 text-lg font-semibold opacity-75 bg-white dark:bg-gray-800 px-3 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-blue-500">
-                  <Lucide icon="Phone" className="w-5 h-5 text-gray-800 dark:text-white" />
-                  <span className="text-gray-800 font-medium dark:text-white">
-                    {phoneNames[userData.phone] || 'No phone assigned'}
-                  </span>
-                  <Lucide icon="ChevronDown" className="w-4 h-4 text-gray-500" />
-                </Menu.Button>
-              </div>
-              <Menu.Items className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5">
-                <div className="py-1 max-h-60 overflow-y-auto" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
-                  {Object.entries(phoneNames).map(([index, phoneName]) => {
-                    const phoneStatus = qrCodes[parseInt(index)]?.status;
-                    const isConnected = phoneStatus === 'ready' || phoneStatus === 'authenticated';
-                    
-                    return (
-                      <Menu.Item key={index}>
-                        {({ active }) => (
-                          <button
-                            onClick={() => handlePhoneChange(parseInt(index))}
-                            className={`${
-                              active ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-200'
-                            } block w-full text-left px-4 py-2 text-sm flex items-center justify-between`}
-                          >
-                            <span>{phoneName}</span>
-                            <span className={`text-xs px-2 py-1 rounded-full ${
-                              isConnected 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200'
-                                : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200'
-                            }`}>
-                              {isConnected ? 'Connected' : 'Not Connected'}
-                            </span>
-                          </button>
-                        )}
-                      </Menu.Item>
-                    );
-                  })}
-                </div>
-              </Menu.Items>
-            </Menu>
-          )}
-  
+<div className="flex items-center justify-between pl-4 pr-4 pt-6 pb-2 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
+  <div className="flex items-center gap-4">
+    <div>
+      <div className="text-start text-2xl font-semibold capitalize text-gray-800 dark:text-gray-200">
+        {companyName}
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
+          Total Contacts: {totalContacts}
         </div>
+        
+{/* WebSocket Status - Clickable to disconnect */}
+<div className="flex items-center gap-2">
+  <button
+    onClick={() => {
+      if (wsConnection && wsConnected) {
+        wsConnection.close(1000, 'Manual disconnect');
+        setWsConnected(false);
+        setWsConnection(null);
+        setWsError(null);
+      }
+    }}
+    className={`flex items-center gap-1.5 px-2 py-1 rounded-full shadow-sm border transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer ${
+      wsConnected 
+        ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700' 
+        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
+    }`}
+    disabled={!wsConnected}
+  >
+    {wsConnected ? (
+      <>
+        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+        <span className="text-xs font-medium text-green-600 dark:text-green-400">Live</span>
+        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </>
+    ) : (
+      <>
+        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+        <span className="text-xs font-medium text-red-600 dark:text-red-400">Offline</span>
+      </>
+    )}
+  </button>
+          
+          {/* Reconnect Button - Only show when disconnected */}
+          {!wsConnected && (
+  <button
+    onClick={() => {
+      if (wsConnection) {
+        wsConnection.close(1000, 'Manual reconnect');
+      }
+      setWsReconnectAttempts(0);
+      setWsConnected(false);
+      setWsConnection(null);
+      setWsError(null);
+      // This will trigger the useEffect to re-run and create a new connection
+      setWsVersion(prev => prev + 1);
+    }}
+    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+    disabled={wsReconnectAttempts >= maxReconnectAttempts}
+  >
+    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    </svg>
+    {wsReconnectAttempts >= maxReconnectAttempts ? 'Max retries' : 'Reconnect'}
+  </button>
+)}
+        </div>
+        
+        {/* Error Message - Show below if there's an error */}
+        {wsError && (
+          <div className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
+            {wsError}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+  
+  <div className="flex items-center gap-2">
+    {userData?.phone !== undefined && (
+      <Menu as="div" className="relative inline-block text-left">
+        <div>
+          <Menu.Button className="flex items-center space-x-2 text-lg font-semibold opacity-75 bg-white dark:bg-gray-800 px-3 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-blue-500">
+            <Lucide icon="Phone" className="w-5 h-5 text-gray-800 dark:text-white" />
+            <span className="text-gray-800 font-medium dark:text-white">
+              {phoneNames[userData.phone] || 'No phone assigned'}
+            </span>
+            <Lucide icon="ChevronDown" className="w-4 h-4 text-gray-500" />
+          </Menu.Button>
+        </div>
+        <Menu.Items className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5">
+          <div className="py-1 max-h-60 overflow-y-auto" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+            {Object.entries(phoneNames).map(([index, phoneName]) => {
+              const phoneStatus = qrCodes[parseInt(index)]?.status;
+              const isConnected = phoneStatus === 'ready' || phoneStatus === 'authenticated';
+              
+              return (
+                <Menu.Item key={index}>
+                  {({ active }) => (
+                    <button
+                      onClick={() => handlePhoneChange(parseInt(index))}
+                      className={`${
+                        active ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-200'
+                      } block w-full text-left px-4 py-2 text-sm flex items-center justify-between`}
+                    >
+                      <span>{phoneName}</span>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        isConnected 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200'
+                          : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200'
+                      }`}>
+                        {isConnected ? 'Connected' : 'Not Connected'}
+                      </span>
+                    </button>
+                  )}
+                </Menu.Item>
+              );
+            })}
+          </div>
+        </Menu.Items>
+      </Menu>
+    )}
+  </div>
+</div>
         {companyPlan === 'enterprise' && (
   <div className="px-4 py-2">
     <div className="flex items-center justify-between mb-1">
@@ -7536,6 +7445,7 @@ const toggleBot = async () => {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           companyId={currentCompanyId || ''}
+          initial={contacts}
           onSelectResult={(type, id, contactId) => {
             if (type === 'contact') {
               const contact = contacts.find(c => c.id === id);
@@ -7543,17 +7453,18 @@ const toggleBot = async () => {
                 selectChat(contact.chat_id!, contact.id!, contact);
               }
             } else if (type === 'message') {
-              const contact = contacts.find(c => c.id === contactId);
+              const contact = contacts.find(c => c.contact_id === contactId);
               if (contact) {
                 // First select the chat
-                selectChat(contact.chat_id!, contact.id!, contact).then(() => {
+                selectChat(contact.contact_id!, contact.id!, contact).then(() => {
                   // After chat is loaded and messages are fetched, scroll to the message
                   setTimeout(() => {
                     scrollToMessage(id);
-                  }, 1000); // Give time for messages to load
+                  }, 5000); // Give time for messages to load
                 });
               }
             }
+            setSearchQuery('');
             setIsSearchModalOpen(false);
           }}
           contacts={contacts}
@@ -7611,10 +7522,10 @@ const toggleBot = async () => {
           )}
         </Menu.Item>
         {employeeList
-          .filter(employee => 
-            employee.name.toLowerCase().includes(employeeSearch.toLowerCase()) &&
-            (userRole === "1" || employee.name === currentUserName)
-          )
+  .filter(employee => 
+    (employee.name?.toLowerCase() || '').includes((employeeSearch || '').toLowerCase()) &&
+    (userRole === "1" || employee.name === currentUserName)
+  )
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((employee) => (
             <Menu.Item key={employee.id}>
@@ -7690,7 +7601,9 @@ const toggleBot = async () => {
         (tagLower === 'all' ? !isGroup :
         tagLower === 'unread' ? contact.unreadCount && contact.unreadCount > 0 :
         tagLower === 'mine' ? contactTags.includes(currentUserName.toLowerCase()) :
-        tagLower === 'unassigned' ? !contactTags.some(t => employeeList.some(e => e.name.toLowerCase() === t)) :
+        tagLower === 'unassigned' ? contact.tags?.some(t => employeeList.some(e => 
+          (typeof e.name === 'string' ? e.name.toLowerCase() : '') === (typeof t === 'string' ? t.toLowerCase() : '')
+        )) :
         tagLower === 'snooze' ? contactTags.includes('snooze') :
         tagLower === 'resolved' ? contactTags.includes('resolved') :
         tagLower === 'group' ? isGroup :
@@ -7745,18 +7658,18 @@ const toggleBot = async () => {
       )}
     </div>
   ) : ((paginatedContacts).map((contact, index) => (
-    <React.Fragment key={`${contact.id}-${index}` || `${contact.phone}-${index}`}>
+    <React.Fragment key={`${contact.contact_id}-${index}` || `${contact.phone}-${index}`}>
     <div
       className={`m-2 pr-3 pb-2 pt-2 rounded-lg cursor-pointer flex items-center space-x-3 group ${
-        contact.chat_id !== undefined
-          ? selectedChatId === contact.chat_id
+        contact.contact_id !== undefined
+          ? selectedChatId === contact.contact_id
             ? 'bg-slate-300 text-white dark:bg-gray-800 dark:text-gray-200'
             : 'hover:bg-gray-300 dark:hover:bg-gray-700'
-          : selectedChatId === contact.phone
+          : selectedChatId === contact.contact_id
           ? 'bg-slate-300 text-white dark:bg-gray-800 dark:text-gray-200'
           : 'hover:bg-gray-300 dark:hover:bg-gray-700'
       }`}
-      onClick={() => selectChat(contact.chat_id!, contact.id!)}
+      onClick={() => selectChat(contact.contact_id!, contact.id!)}
       onContextMenu={(e) => handleContextMenu(e, contact)}
     >
     <div
@@ -7771,11 +7684,11 @@ const toggleBot = async () => {
         {contact && (
           contact.chat_id && contact.chat_id.includes('@g.us') ? (
             contact.profilePicUrl ? (
-              <img 
-                src={contact.profilePicUrl} 
-                alt={contact.contactName || "Group"} 
-                className="w-full h-full object-cover"
-              />
+              <img
+              src={contact.profilePicUrl}
+              alt="Profile"
+              onError={(e) => { e.currentTarget.src = '/default-avatar.png'; }}
+            />
             ) : (
               <Lucide icon="Users" className="w-8 h-8 text-white dark:text-gray-200" />
             )
@@ -7820,11 +7733,15 @@ const toggleBot = async () => {
             <div className="flex flex-grow items-center">
               {(() => {
                 const employeeTags = contact.tags?.filter(tag =>
-                  employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+                  employeeList.some(employee => 
+                    (employee.name?.toLowerCase() || '') === (tag?.toLowerCase() || '')
+                  )
                 ) || [];
               
                 const otherTags = contact.tags?.filter(tag =>
-                  !employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+                  !employeeList.some(employee => 
+                    (employee.name?.toLowerCase() || '') === (tag?.toLowerCase() || '')
+                  )
                 ) || [];
               
                 // Create a unique set of all tags
@@ -7871,7 +7788,7 @@ const toggleBot = async () => {
                     {employeeTags.length > 0 && (
                       <Tippy
                           content={employeeTags.map(tag => {
-                            const employee = employeeList.find(e => e.name.toLowerCase() === tag.toLowerCase());
+                            const employee = employeeList.find(e => (e.name?.toLowerCase() || '') === (tag?.toLowerCase() || ''));
                             return employee ? employee.name : tag;
                           }).join(', ')}
                         options={{ 
@@ -7883,8 +7800,8 @@ const toggleBot = async () => {
                           <Lucide icon="Users" className="w-4 h-4 inline-block" />
                           <span className="ml-1 text-xxs capitalize">
                             {employeeTags.length === 1 
-                              ? (employeeList.find(e => e.name.toLowerCase() === employeeTags[0].toLowerCase())?.employeeId || 
-                                 (employeeTags[0].length > 8 ? employeeTags[0].slice(0, 6) : employeeTags[0]))
+                              ? (employeeList.find(e => (e.name?.toLowerCase() || '') === (employeeTags[0]?.toLowerCase() || ''))?.employeeId || 
+                                 (employeeTags[0]?.length > 8 ? employeeTags[0].slice(0, 6) : employeeTags[0]))
                               : employeeTags.length}
                           </span>
                         </span>
@@ -7917,7 +7834,7 @@ const toggleBot = async () => {
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                 )}
-                {contact.last_message.type === "text" ? (
+                {contact.last_message.type === "chat" ? (
                   contact.last_message.text?.body
                 ) : contact.last_message.type === "image" ? (
                   "Photo"
@@ -8003,18 +7920,23 @@ const toggleBot = async () => {
       {selectedContact?.contactName ? selectedContact.contactName.charAt(0).toUpperCase() : "?"}
     </span>
   )}
+  
 </div>
+
           <div>
           <div className="font-semibold text-gray-800 dark:text-gray-200 capitalize">
   {(selectedContact.contactName && selectedContact.lastName 
     ? `${selectedContact.contactName} ${selectedContact.lastName}`
     : selectedContact.contactName || selectedContact.firstName || selectedContact.phone)}
 </div>
+  
             {userRole === '1' && (
               <div className="text-sm text-gray-600 dark:text-gray-400">{selectedContact.phone}</div>
             )}
           </div>
+          
         </div>
+
         <div className="flex items-center space-x-3">
           <div className="hidden sm:flex space-x-3">
           <button 
@@ -8071,10 +7993,10 @@ const toggleBot = async () => {
                 </Menu.Item>
                 {employeeList
                   .filter(employee => 
-                    employee.name.toLowerCase().includes(employeeSearch.toLowerCase()) &&
+                    (employee.name?.toLowerCase() || '').includes((employeeSearch?.toLowerCase() || '')) &&
                     (userRole === "1" || employee.name === currentUserName)
                   )
-                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .sort((a, b) => (a.name?.toLowerCase() || '').localeCompare(b.name?.toLowerCase() || ''))
                   .map((employee) => (
                     <Menu.Item key={employee.id}>
                       {({ active }) => (
@@ -8167,10 +8089,10 @@ const toggleBot = async () => {
                     {employeeList
                       .filter(employee => {
                         if (userRole === '4' || userRole === '2') {
-                          const shouldInclude = employee.role === '2' && employee.name.toLowerCase().includes(employeeSearch.toLowerCase());
+                          const shouldInclude = employee.role === '2' && (employee.name?.toLowerCase() || '').includes((employeeSearch?.toLowerCase() || ''));
                           return shouldInclude;
                         }
-                        const shouldInclude = employee.name.toLowerCase().includes(employeeSearch.toLowerCase());
+                        const shouldInclude = (employee.name?.toLowerCase() || '').includes((employeeSearch?.toLowerCase() || ''));
                         return shouldInclude;
                       })
                       .map((employee) => {
@@ -8256,8 +8178,6 @@ const toggleBot = async () => {
                 message.phoneIndex === undefined || 
                 message.phoneIndex === null || 
                 message.phoneIndex.toString() === userData?.phone.toString())))
-              .slice()
-              .reverse()
               .map((message, index, array) => {
                 //
                 const previousMessage = messages[index - 1];
@@ -8778,7 +8698,7 @@ const toggleBot = async () => {
                                   {phoneNames[message.phoneIndex] || `Phone ${message.phoneIndex + 1}`}
                                 </div>
                           )}
-                            {formatTimestamp(message.createdAt || message.dateAdded)}
+                            {formatTimestamp(message.createdAt || message.dateAdded|| message.timestamp)}
                           
                           </div>
                           </div>
@@ -8941,11 +8861,6 @@ const toggleBot = async () => {
 </button>
             </Menu.Items>
           </Menu>
-          <button className="p-2 m-0 !box" onClick={handleQR}>
-            <span className="flex items-center justify-center w-5 h-5">
-              <Lucide icon='Zap' className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-            </span>
-          </button>
           <button className="p-2 m-0 !box ml-2" onClick={toggleRecordingPopup}>
         <span className="flex items-center justify-center w-5 h-5">
           <Lucide icon="Mic" className="w-5 h-5 text-gray-800 dark:text-gray-200" />
@@ -9881,12 +9796,12 @@ const toggleBot = async () => {
               ))}         
             </div>
             <div className="border-t border-gray-200 dark:border-gray-600 mt-4 pt-4"></div>
-            {selectedContact.tags.some((tag: string) => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())) && (
+            {selectedContact.tags.some((tag: string) => employeeList.some(employee => (employee.name?.toLowerCase() || '') === (tag?.toLowerCase() || ''))) && (
                     <div className="w-full">
                       <h4 className="font-semibold text-gray-500 dark:text-gray-400 inline-block mr-2">Employees Assigned:</h4>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {selectedContact.tags
-                          .filter((tag: string) => employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase()))
+                          ?.filter((tag: string) => employeeList.some(employee => (employee.name?.toLowerCase() || '') === (tag?.toLowerCase() || '')))
                           .map((employeeTag: string, index: number) => (
                             <div key={index} className="inline-flex items-center bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 text-sm font-semibold px-3 py-1 rounded-full border border-green-400 dark:border-green-600">
                               <span>{employeeTag}</span>
@@ -9913,8 +9828,8 @@ const toggleBot = async () => {
                 <>
                   {selectedContact.tags
                     .filter((tag: string) => 
-                      tag.toLowerCase() !== 'stop bot' && 
-                      !employeeList.some(employee => employee.name.toLowerCase() === tag.toLowerCase())
+                      (tag?.toLowerCase() || '') !== 'stop bot' && 
+                      !employeeList.some(employee => (employee.name?.toLowerCase() || '') === (tag?.toLowerCase() || ''))
                     )
                     .map((tag: string, index: number) => (
                       <div key={index} className="inline-flex items-center bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-sm font-semibold px-3 py-1 rounded-full border border-blue-400 dark:border-blue-600">

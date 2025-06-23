@@ -32,36 +32,31 @@ const firebaseConfig = {
     const [resetEmail, setResetEmail] = useState("");
     const [resetMessage, setResetMessage] = useState("");
     const [showResetModal, setShowResetModal] = useState(false);
-    const handleSignIn = () => {
+    const handleSignIn = async () => {
       setError(""); // Clear previous errors
-      const auth = getAuth(app);
-      signInWithEmailAndPassword(auth, email, password)
-        .then((userCredential) => {
-          const user = userCredential.user;
-          
-          // Instead of directly navigating here, set a state indicating successful sign-in
-          navigate(`/loading`);
-        })
-        .catch((error) => {
-          const errorCode = error.code;
-          switch (errorCode) {
-            case "auth/invalid-email":
-              setError("Please enter a valid email address.");
-              break;
-            case "auth/user-disabled":
-              setError("This account has been disabled. Please contact support.");
-              break;
-            case "auth/user-not-found":
-              setError("No account found with this email. Please check your email or sign up.");
-              break;
-            case "auth/wrong-password":
-              setError("Incorrect password. Please try again.");
-              break;
-            default:
-              setError("An error occurred during sign-in. Please try again later.");
-          }
+      try {
+        console.log('Sending login request with:', { email }); // Don't log passwords!
+        const response = await fetch('http://localhost:8443/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
         });
-    }
+        const data = await response.json();
+        console.log('Login response:', data);
+        if (response.ok) {
+          // Store email in localStorage
+          localStorage.setItem('userEmail', email);
+          // Store user data if needed
+          localStorage.setItem('userData', JSON.stringify(data.user));
+          navigate('/loading');
+        } else {
+          setError(data.error || "An error occurred during sign-in. Please try again later.");
+        }
+      } catch (err) {
+        console.error('Login error:', err);
+        setError("An error occurred during sign-in. Please try again later.");
+      }
+    };
 
     const handleKeyDown = (event: { key: string; }) => {
       if (event.key === "Enter") {

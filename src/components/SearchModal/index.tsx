@@ -14,6 +14,8 @@ import { getFirestore, doc, getDoc } from 'firebase/firestore';
 interface Message {
   id: string;
   contactId: string;
+  content:string;
+  contact_id:string;
   text?: {
     body: string;
   };
@@ -40,6 +42,7 @@ interface SearchModalProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   contacts: Contact[];
+  initial:Contact[];
   companyId: string;
 }
 
@@ -50,6 +53,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
   searchQuery,
   setSearchQuery,
   contacts,
+  initial,
   companyId,
 }) => {
   const [selectedTab, setSelectedTab] = useState(0);
@@ -60,6 +64,8 @@ const SearchModal: React.FC<SearchModalProps> = ({
   const [hasMore, setHasMore] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
   const observer = useRef<IntersectionObserver | null>(null);
+  // In SearchModal
+const [contacts2, setContacts] = useState<Contact[]>(contacts || []);
   const lastMessageElementRef = useCallback((node: HTMLDivElement | null) => {
     if (loading) return;
     
@@ -79,84 +85,90 @@ const SearchModal: React.FC<SearchModalProps> = ({
   };
 
   // Debounced message search function
-  const debouncedSearch = debounce(async (query: string, page: number, isNewSearch: boolean) => {
-    if (!query || query.length < 2) {
-      setMessages([]);
-      setLoading(false);
-      setHasMore(false);
-      return;
+ // Debounced message search function
+const debouncedSearch = debounce(async (query: string, page: number, isNewSearch: boolean) => {
+  if (!query || query.length < 2) {
+    setMessages([]);
+    setLoading(false);
+    setHasMore(false);
+    return;
+  }
+  const userEmail = localStorage.getItem('userEmail');
+  if (!userEmail) {
+    setError('User email is required');
+    setLoading(false);
+    setHasMore(false);
+    return;
+  }
+  console.log('contacts',contacts2);
+  // Get user config to get companyId
+  const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+    const userData = await userResponse.json();
+    const companyId = userData.company_id;
+  if (!companyId) {
+    setError('Company ID is required');
+    return;
+  }
+
+  setLoading(true);
+  setError(null);
+
+  try {
+    // Directly use your backend base URL
+    const baseUrl = 'http://localhost:8443'; // or your production base URL
+
+    const params = new URLSearchParams({
+      query,
+      page: page.toString()
+    });
+
+    const url = `${baseUrl}/api/search-messages/${companyId}?${params.toString()}`;
+    console.log('Making request to:', url, 'Company ID:', companyId);
+
+    const response = await fetch(url);
+    console.log('Response status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
+      throw new Error(`Failed to fetch messages: ${response.status} ${errorText}`);
     }
 
-    if (!companyId) {
-      setError('Company ID is required');
-      return;
-    }
+    const data: SearchResponse = await response.json();
+    console.log('Search results:', data);
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const auth = getAuth();
-      const firestore = getFirestore();
-      const user = auth.currentUser;
-      
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      
-      if (!docSnapshot.exists()) {
-        throw new Error('Company configuration not found');
-      }
-      
-      const companyData = docSnapshot.data();
-      const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-
-      const params = new URLSearchParams({
-        query,
-        page: page.toString()
-      });
-
-      const url = `${baseUrl}/api/search-messages/${companyId}?${params.toString()}`;
-      console.log('Making request to:', url, 'Company ID:', companyId);
-
-      const response = await fetch(url);
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
-        throw new Error(`Failed to fetch messages: ${response.status} ${errorText}`);
-      }
-
-      const data: SearchResponse = await response.json();
-      console.log('Search results:', data);
-      
-      // Enhance messages with contact information
-      const enhancedMessages = data.results.map(message => {
-        const contact = contacts.find(c => c.id === message.contactId);
-        return {
-          ...message,
-          contactName: contact?.contactName || 'Unknown',
-          profilePicUrl: contact?.profilePicUrl,
-        };
-      }).filter(message => {
-        const messageText = (message.text?.body || message.caption || '').toLowerCase();
-        return messageText.includes(query.toLowerCase());
-      });
-
-      setMessages(prevMessages => isNewSearch ? enhancedMessages : [...prevMessages, ...enhancedMessages]);
-      setHasMore(data.page < data.totalPages);
-      setInitialLoad(false);
-    } catch (err) {
-      console.error('Search error details:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
-    }
-  }, 100);
+    // Enhance messages with contact information
+// Enhance messages with contact information
+const enhancedMessages = data.results.map(message => {
+  const contact = initial.find(c => c.contact_id === message.contact_id);
+  console.log(initial);
+  return {
+    ...message,
+    contactName: contact?.contactName || 'Unknown',
+    profilePicUrl: contact?.profilePicUrl,
+  };
+}).filter(message => {
+  const messageText = (message.content || '').toLowerCase();
+  return messageText.includes(query.toLowerCase());
+});
+    setMessages(prevMessages => isNewSearch ? enhancedMessages : [...prevMessages, ...enhancedMessages]);
+    setHasMore(data.page < data.totalPages);
+    setInitialLoad(false);
+  } catch (err) {
+    console.error('Search error details:', err);
+ //   setError(err instanceof Error ? err.message : 'An error occurred');
+  } finally {
+    setLoading(false);
+  }
+}, 100);
 
   // Effect to reset state when search query changes
   useEffect(() => {
@@ -354,7 +366,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                           key={message.id} 
                           ref={index === messages.length - 1 ? lastMessageElementRef : null}
                           className="p-4 border dark:border-gray-700 rounded cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
-                          onClick={() => onSelectResult('message', message.id, message.contactId)}
+                          onClick={() => onSelectResult('message', message.id, message.contact_id)}
                         >
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center space-x-3">
@@ -386,7 +398,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                           </div>
                           <div className="pl-11">
                             <p className="text-gray-900 dark:text-white">
-                              {highlightText(message.text?.body || message.caption || '', searchQuery)}
+                              {highlightText(message.text?.body || message.content || '', searchQuery)}
                             </p>
                           </div>
                         </div>

@@ -35,6 +35,7 @@ function Main() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const [employeeId, setEmployeeId] = useState("");
   const [notes, setNotes] = useState("");
@@ -160,102 +161,32 @@ function Main() {
 
   const handleRegister = async () => {
     try {
+      setIsLoading(true);
       // Validate plan selection
       if (!selectedPlan) {
         toast.error("Please select a plan to continue");
+        setIsLoading(false);
         return;
       }
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      await signInWithEmailAndPassword(auth, email, password);  
-      
-      // Generate a unique company ID with proper padding
-      // First get a timestamp-based ID component for uniqueness
-      const timestamp = Date.now().toString().slice(-6);
-      // Create a random component
-      const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      // Combine for a unique ID with proper format
-      const newCompanyId = `${randomPart}${timestamp.slice(-3)}`;
-    
-      // Save user data to Firestore
-      const trialStartDate = new Date();
-      const trialEndDate = new Date(trialStartDate);
-      trialEndDate.setDate(trialEndDate.getDate() + 7);
-      
-      // Create a new company document in Firestore
-      await setDoc(doc(firestore, "companies", newCompanyId), {
-        id: newCompanyId,
-        name: companyName,
-        plan: selectedPlan,
-        apiUrl: "https://juta.ngrok.app",
-        whapiToken: "", // Initialize with any default values you need
-        trialStartDate: trialStartDate,
-        trialEndDate: trialEndDate,
-      });
+      // Call the localhost API endpoint to create user
+      const userResponse = await axios.post(`http://localhost:8443/api/create-user/${encodeURIComponent(email)}/${encodeURIComponent(formatPhoneNumber(phoneNumber))}/${encodeURIComponent(password)}/1`);
 
-      await setDoc(doc(firestore, "user", user.email!), {
-        name: name,
-        company: companyName,
-        email: user.email!,
-        role: "1",
-        companyId: newCompanyId,
-        phone: 0,
-        phoneNumber: formatPhoneNumber(phoneNumber),
-        plan: selectedPlan,
-        trialStartDate: trialStartDate,
-        trialEndDate: trialEndDate,
-        employeeId: employeeId || null,
-        notes: notes || null,
-        quotaLeads: quotaLeads || 0,
-        invoiceNumber: invoiceNumber || null,
-        weightage: weightage || 0,
-      });
+      if (userResponse.data) {
+        // Generate a unique company ID with proper padding
+        const timestamp = Date.now().toString().slice(-6);
+        const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        const newCompanyId = `${randomPart}${timestamp.slice(-3)}`;
 
-      // Save user data under the new company's employee collection
-      await setDoc(doc(firestore, `companies/${newCompanyId}/employee`, user.email!), {
-        name: name,
-        email: user.email!,
-        role: "1",
-        phoneNumber: formatPhoneNumber(phoneNumber),
+        // Call the channel create endpoint
+        const channelResponse = await axios.post(`http://localhost:8443/api/channel/create/${newCompanyId}`);
 
-        employeeId: employeeId || null,
-        notes: notes || null,
-        quotaLeads: quotaLeads || 0,
-        invoiceNumber: invoiceNumber || null,
-        weightage: weightage || 0,
-      });
-   
-      if (!user) {
-        console.error("User not authenticated");
+        if (channelResponse.data) {
+          // Sign in the user after successful registration
+          navigate('/loading');
+          toast.success("Registration successful!");
+        }
       }
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        
-        return;
-      }
-      const data2 = docSnapshot.data();
-      const baseUrl = data2.apiUrl || 'https://juta.ngrok.app';
-      const response2 = await axios.post(`${baseUrl}/api/channel/create/${newCompanyId}`);
-
-      
-
-      // Sign in the user after successful registration
-      navigate('/loading');
-
-      // Navigate to the dashboard or home page
-   
-
-      toast.success("Registration successful!");
 
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -270,6 +201,8 @@ function Main() {
         setRegisterResult("Unexpected error occurred");
         toast.error("Failed to register user: Unexpected error occurred");
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -390,8 +323,16 @@ function Main() {
                     variant="primary"
                     className="w-full px-4 py-3 align-top xl:w-32 xl:mr-3"
                     onClick={handleRegister}
+                    disabled={isLoading}
                   >
-                    Start Free Trial
+                    {isLoading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="w-5 h-5 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Loading...
+                      </div>
+                    ) : (
+                      "Start Free Trial"
+                    )}
                   </Button>
                   <Link to="/login">
                     <Button

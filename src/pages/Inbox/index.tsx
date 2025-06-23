@@ -204,7 +204,7 @@ const Main: React.FC = () => {
 
   useEffect(() => {
     if (companyId) {
-      fetchFirebaseConfig(companyId);
+      fetchFirebaseConfig();
       fetchFiles();
     }
   }, [companyId]);
@@ -244,76 +244,89 @@ const Main: React.FC = () => {
   }, [companyId]);
 
   const fetchCompanyId = async () => {
-    const user = getAuth().currentUser;
-    if (!user) {
-      console.error("No user is logged in");
-      setError("No user is logged in");
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      toast.error("No user email found");
       return;
     }
-  
+
     try {
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("User document does not exist");
-        setError("User document does not exist");
+      // Get user config to get companyId
+      const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include'
+      });
+
+      if (!userResponse.ok) {
+        toast.error("Failed to fetch user config");
         return;
       }
-  
-      const dataUser = docUserSnapshot.data();
-      setCompanyId(dataUser.companyId);
-      setThreadId(dataUser.threadid); // Set threadId here
-      setUserRole(dataUser.role); // Set the user's role
+
+      const userData = await userResponse.json();
+      console.log(userData);
+      setCompanyId(userData.company_id);
+      setThreadId(userData.thread_id);
+      setUserRole(userData.role);
     } catch (error) {
       console.error("Error fetching company ID:", error);
-      setError("Failed to fetch company ID");
+      toast.error("Failed to fetch company ID");
     }
   };
 
-  const fetchFirebaseConfig = async (companyId: string) => {
-    try {
-      const companyDoc = await getDoc(doc(firestore, "companies", companyId));
-      const tokenDoc = await getDoc(doc(firestore, "setting", "token"));
-      
-      if (companyDoc.exists() && tokenDoc.exists()) {
-        const companyData = companyDoc.data();
-        const tokenData = tokenDoc.data();
-        
-        // Initialize assistants array with the primary assistant
-        const assistantConfigs: AssistantConfig[] = [
-          { id: companyData.assistantId, name: companyData.phone1 || 'Assistant 1' }
-        ];
+// Assuming axios is imported: import axios from 'axios';
 
-        // Check phoneCount and add additional assistants if they exist
-        const phoneCount = parseInt(companyData.phoneCount || '1');
-        if (phoneCount >= 2 && companyData.assistantId2) {
-          assistantConfigs.push({ 
-            id: companyData.assistantId2, 
-            name: companyData.phone2 || 'Assistant 2' 
-          });
-        }
-        if (phoneCount >= 3 && companyData.assistantId3) {
-          assistantConfigs.push({ 
-            id: companyData.assistantId3, 
-            name: companyData.phone3 || 'Assistant 3' 
-          });
-        }
+const fetchFirebaseConfig = async () => {
+  try {
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      setError("No user email found");
+      return;
+    }
 
-        setAssistants(assistantConfigs);
-        setApiKey(tokenData.openai);
-        
-        // Set default selected assistant
-        setSelectedAssistant(companyData.assistantId);
-        setAssistantId(companyData.assistantId);
+    const response = await axios.get(`http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+
+    if (response.status === 200) {
+      const { companyData } = response.data;
+console.log(companyData);
+      // Parse assistant IDs (handle both string and array)
+      let assistantIds: string[] = [];
+      if (Array.isArray(companyData.assistants_ids)) {
+        assistantIds = companyData.assistants_ids;
+      } else if (typeof companyData.assistants_ids === 'string') {
+        // If stored as a comma-separated string in DB
+        assistantIds = companyData.assistants_ids.split(',').map((id: string) => id.trim());
       }
-    } catch (error) {
-      console.error("Error fetching Firebase config:", error);
-      setError("Failed to fetch Firebase config");
-    }
-  };
 
-  const fetchAssistantInfo = async (assistantId: string, apiKey: string) => {
+      // If you have phone names, use them; otherwise, default names
+      const assistantConfigs: AssistantConfig[] = assistantIds.map((id, idx) => ({
+        id,
+        name: `Assistant ${idx + 1}`
+      }));
+
+      setAssistants(assistantConfigs);
+      const response2 = await axios.get(`http://localhost:8443/api/company-config/${companyId}`);
     
+
+        const { openaiApiKey } = response2.data;
+        setApiKey(openaiApiKey);
+      console.log(assistantConfigs);
+      // Set default selected assistant
+      if (assistantConfigs.length > 0) {
+        setSelectedAssistant(assistantConfigs[0].id);
+        setAssistantId(assistantConfigs[0].id);
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching company config:", error);
+    setError("Failed to fetch company configuration");
+  }
+};
+  const fetchAssistantInfo = async (assistantId: string, apiKey: string) => {
+    console.log('fetching id');
     setLoading(true);
     try {
       const response = await axios.get(`https://api.openai.com/v1/assistants/${assistantId}`, {
@@ -403,33 +416,14 @@ const Main: React.FC = () => {
      // Log assistantId
   
     try {
-      const user = getAuth().currentUser;
-      if (!user) {
-        console.error("User not authenticated");
-        setError("User not authenticated");
-        return;
-      }
-   
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        
-        return;
-      }
-      const data2 = docSnapshot.data();
-      const baseUrl = data2.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-      const res = await axios.get(`${baseUrl}/api/assistant-test/`, {
+
+      const userEmail = localStorage.getItem('userEmail');
+ 
+
+      const res = await axios.get(`http://localhost:8443/api/assistant-test/`, {
         params: {
           message: messageText,
-          email: user.email!,
+          email: userEmail,
           assistantid: assistantId
         },
       });
@@ -444,7 +438,7 @@ const Main: React.FC = () => {
       };
   
       setMessages(prevMessages => [assistantResponse, ...prevMessages]);
-      setThreadId(user.email!); // Update the threadId to user email as a placeholder
+      setThreadId(userEmail); // Update the threadId to user email as a placeholder
   
     } catch (error) {
       console.error('Error:', error);
@@ -720,15 +714,15 @@ const Main: React.FC = () => {
 
   const fetchTemplates = async () => {
     if (!companyId) return;
-    
+  
     try {
-      const templatesCollectionRef = collection(firestore, 'companies', companyId, 'instructionTemplates');
-      const querySnapshot = await getDocs(templatesCollectionRef);
-      const templatesList = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as InstructionTemplate[];
-      setTemplates(templatesList);
+      // Fetch templates from your SQL backend
+      const response = await axios.get(`http://localhost:8443/api/instruction-templates?companyId=${encodeURIComponent(companyId)}`);
+      if (response.status === 200 && Array.isArray(response.data.templates)) {
+        setTemplates(response.data.templates);
+      } else {
+        toast.error('Failed to fetch templates');
+      }
     } catch (error) {
       console.error('Error fetching templates:', error);
       toast.error('Failed to fetch templates');
@@ -740,17 +734,23 @@ const Main: React.FC = () => {
       toast.error('Please provide instructions to save');
       return;
     }
-
+  
     try {
       const timestamp = new Date().toLocaleString(); // Format: M/D/YYYY, H:MM:SS AM/PM
-      const templatesCollectionRef = collection(firestore, 'companies', companyId, 'instructionTemplates');
-      await setDoc(doc(templatesCollectionRef), {
+  
+      // Send to your SQL backend
+      const response = await axios.post('http://localhost:8443/api/instruction-templates', {
+        companyId,
         name: timestamp,
         instructions: assistantInfo.instructions
       });
-
-      toast.success('Template saved successfully');
-      fetchTemplates(); // Refresh templates list
+  
+      if (response.data.success) {
+        toast.success('Template saved successfully');
+        fetchTemplates(); // Refresh templates list
+      } else {
+        toast.error('Failed to save template');
+      }
     } catch (error) {
       console.error('Error saving template:', error);
       toast.error('Failed to save template');
@@ -1121,17 +1121,7 @@ const Main: React.FC = () => {
                               </span>
                             </Button>
                           </Link>
-                          <Link to="/a-i-generative-responses">
-                            <Button variant="secondary" className="shadow-sm bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/50 px-4 py-2">
-                              <span className="flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                  <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                                  <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
-                                </svg>
-                                AI Generative Responses
-                              </span>
-                            </Button>
-                          </Link>
+                     
                           <Link to="/follow-ups">
                             <Button variant="secondary" className="shadow-sm bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/50 px-4 py-2">
                               <span className="flex items-center">

@@ -30,50 +30,61 @@ function SettingsPage() {
     fetchSettings();
   }, []);
 
-  const fetchSettings = async () => {
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      
-      if (!user) throw new Error('No authenticated user');
+// Assuming axios is imported: import axios from 'axios';
+// Also ensure you have proper state management (e.g., useState for setCompanyId, setRole, etc.)
 
-      // Get user data
-      const userDoc = await getDoc(doc(firestore, 'user', user.email!));
-      if (!userDoc.exists()) throw new Error('User document not found');
-      
-      const userData = userDoc.data();
-      const userCompanyId = userData.companyId;
-      setCompanyId(userCompanyId);
-      setShowAddUserButton(userData.role === "1");
-      setRole(userData.role);
+const fetchSettings = async () => {
+  try {
+    const userEmail = localStorage.getItem('userEmail');
 
-      // Get company settings
-      const companyDoc = await getDoc(doc(firestore, 'companies', userCompanyId));
-      if (!companyDoc.exists()) throw new Error('Company document not found');
-      
-      const companyData = companyDoc.data();
-      setBaseUrl(companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app');
-      setPhoneCount(companyData.phoneCount || 0);
-      setAiDelay(companyData.aiDelay || 0);
-      setAiAutoResponse(companyData.aiAutoResponse || false);
 
-      // Get reporting settings
-      const settingsDoc = await getDoc(doc(firestore, `companies/${userCompanyId}/settings/reporting`));
-      if (settingsDoc.exists()) {
-        const data = settingsDoc.data().dailyReport;
-        setEnabled(data?.enabled || false);
-        setTime(data?.time || '09:00');
-        setGroupId(data?.groupId || '');
-        setLastRun(data?.lastRun?.toDate().toLocaleString() || null);
-      }
+    setIsLoading(true); // Assuming setIsLoading is a state setter
 
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error fetching settings:', error);
-      setError('Failed to load settings');
-      setIsLoading(false);
+    // 1. Get user data (companyId and role)
+    const userResponse = await axios.get(`http://localhost:8443/api/user-data/${userEmail}`);
+    const userData = userResponse.data;
+
+    if (!userData) {
+      throw new Error('User data not found');
     }
-  };
+    
+    const userCompanyId = userData.company_id; // Note: SQL column is company_id
+    setCompanyId(userCompanyId); // Assuming setCompanyId is a state setter
+    setShowAddUserButton(userData.role === "1" || userData.role === 'admin'); // Assuming setShowAddUserButton is a state setter
+    setRole(userData.role); // Assuming setRole is a state setter
+
+    // 2. Get company settings (using the already existing company-config API)
+    const companyConfigResponse = await axios.get(`http://localhost:8443/api/company-config/${userCompanyId}`);
+    const { companyData } = companyConfigResponse.data;
+
+    setBaseUrl(companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app'); // Assuming setBaseUrl is a state setter
+    setPhoneCount(companyData.phoneCount || 0); // Assuming setPhoneCount is a state setter
+    setAiDelay(companyData.aiDelay || 0); // Assuming setAiDelay is a state setter
+    setAiAutoResponse(companyData.aiAutoResponse || false); // Assuming setAiAutoResponse is a state setter
+
+    // 3. Get reporting settings from dailyReport JSONB
+    if (companyData.dailyReport) {
+      const dailyReportData = companyData.dailyReport;
+      setEnabled(dailyReportData.enabled || false); // Assuming setEnabled is a state setter
+      setTime(dailyReportData.time || '09:00'); // Assuming setTime is a state setter
+      setGroupId(dailyReportData.groupId || ''); // Assuming setGroupId is a state setter
+      setLastRun(dailyReportData.lastRun ? new Date(dailyReportData.lastRun).toLocaleString() : null); // Assuming setLastRun is a state setter
+    } else {
+        // If dailyReport is null or empty, set defaults
+        setEnabled(false);
+        setTime('09:00');
+        setGroupId('');
+        setLastRun(null);
+    }
+
+    setIsLoading(false);
+  } catch (error) {
+    console.error('Error fetching settings:', error);
+    // Ensure setError is defined in your component's scope
+    setError('Failed to load settings'); 
+    setIsLoading(false);
+  }
+};
 
   const handleSave = async () => {
     setIsSaving(true);

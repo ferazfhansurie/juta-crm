@@ -93,60 +93,71 @@ function Main() {
 
 
   async function fetchConfigFromDatabase() {
-    const user = auth.currentUser;
-  
-    if (!user) {
-      console.error("No user is currently authenticated.");
-      return;
-    }
-  
-    const userEmail = user.email;
-    setUserEmail(userEmail || "");
-  
+    const userEmail = localStorage.getItem('userEmail');
+    
     if (!userEmail) {
-      console.error("Authenticated user has no email.");
+      console.error("No user email found.");
       return;
     }
+  
+    setUserEmail(userEmail);
   
     try {
-      const docUserRef = doc(firestore, 'user', userEmail);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        return;
+      // Fetch user data from SQL database
+      const response = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json'
+        }
+      });
+  
+  
+      if (!response.ok) {
+        throw new Error('Failed to fetch user config');
       }
-      const dataUser = docUserSnapshot.data();
-      if (!dataUser) {
+  
+      const data = await response.json();
+      
+      if (!data) {
+        console.error("No data found for user.");
         return;
       }
   
-      setUserName(dataUser.name);
-      companyId = dataUser.companyId;
-      role = dataUser.role;
+      // Set the user data
+      setUserName(data.name);
+      const companyId = data.company_id;
+      const role = data.role;
   
       if (!companyId) {
         return;
       }
   
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        return;
+      // Fetch company data
+      const companyResponse = await fetch(`http://localhost:8443/api/companies/${companyId}`, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      if (!companyResponse.ok) {
+        throw new Error('Failed to fetch company data');
       }
-      const data = docSnapshot.data();
-      if (!data) {
-        console.error("No data found in company document.");
+  
+      const companyData = await companyResponse.json();
+      
+      if (!companyData) {
+        console.error("No company data found.");
         return;
       }
   
-      setCompanyName(data.companyName); // Set companyName
+      setCompanyName(companyData.name);
   
-
     } catch (error) {
       console.error('Error fetching config:', error);
       throw error;
     }
   }
-
 
   return (
     <>

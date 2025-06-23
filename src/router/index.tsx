@@ -92,7 +92,7 @@ import GuestChat from "../pages/GuestChat";
 function Router() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const auth = getAuth();
-  const { isLoading } = useContacts();
+
   const location = useLocation();
 
   useEffect(() => {
@@ -127,6 +127,7 @@ function Router() {
         { path: "a-i-generative-responses", element: <AIGenerativeResponses /> },
         { path: "storage-pricing", element: <StoragePricing /> },
         { path: "/client-ticket", element: <PublicTaskForm /> },
+
         {path: "/loading2", element: <LoadingIcon2 />},
         { path: "opportunities", element: <Opportunities /> },
         { path: "appointment-requests", element: <AppointmentRequests /> },
@@ -220,13 +221,11 @@ function Router() {
     { path: "product-grid", element: <ProductGrid /> },
     { path: "/login", element: <Login /> },
     { path: "/register", element: <Register /> },
-   
+    { path: "/loading", element: <LoadingIcon />},
     { path: "/error-page", element: <ErrorPage /> },
     { path: "*", element: <ErrorPage /> },
   ];
-  if (isLoading) {
-    return <LoadingIcon />;
-  }
+
   return useRoutes(routes);
 }
 
