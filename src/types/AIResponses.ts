@@ -10,36 +10,36 @@ export interface BaseAIResponse {
 }
 
 export interface AITagResponse extends BaseAIResponse {
-  type: 'Tag';
+  type: 'tag';
   tags: string[];
   tagActionMode?: 'add' | 'delete';
   removeTags?: string[];
 }
 
 export interface AIImageResponse extends BaseAIResponse {
-  type: 'Image';
+  type: 'image';
   imageUrl?: string;
   imageUrls?: string[];
 }
 
 export interface AIVoiceResponse extends BaseAIResponse {
-  type: 'Voice';
+  type: 'voice';
   voiceUrls: string[];
   captions?: string[];
 }
 
 export interface AIDocumentResponse extends BaseAIResponse {
-  type: 'Document';
+  type: 'document';
   documentUrls: string[];
   documentNames: string[];
 }
 export interface AIAssignResponse extends BaseAIResponse {
-  type: 'Assign';
+  type: 'assign';
   assignedEmployees: string[];
 }
 
 export interface AIVideoResponse extends BaseAIResponse {
-  type: 'Video';
+  type: 'video';
   videoUrls: string[];
   videoTitles?: string[];
 }
