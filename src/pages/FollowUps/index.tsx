@@ -9,12 +9,15 @@ import Select from 'react-select';
 import { useNavigate } from 'react-router-dom';
 import MessagePreview from '@/components/MessagePreview';
 import { getFunctions } from 'firebase/functions';
+import axios from "axios";
 
 interface FollowUpTemplate {
     id: string;
+    templateId:string;
     name: string;
     status: 'active' | 'inactive';
     createdAt: Date;
+    created_at:Date;
     startTime: Date;
     isCustomStartTime: boolean;
     triggerTags?: string[];
@@ -54,6 +57,11 @@ interface FollowUpMessage {
     image?: string | null;
     video?: string | null;
     delayAfter?: {
+        value: number;
+        unit: 'minutes' | 'hours' | 'days';
+        isInstantaneous: boolean;
+    };
+    delay_after?: {
         value: number;
         unit: 'minutes' | 'hours' | 'days';
         isInstantaneous: boolean;
@@ -148,6 +156,7 @@ const FollowUpsPage: React.FC = () => {
     const [templates, setTemplates] = useState<FollowUpTemplate[]>([]);
     const [messages, setMessages] = useState<FollowUpMessage[]>([]);
     const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+    const [selectedTemplate2, setSelectedTemplate2] = useState<string | null>(null);
     const [isAddingTemplate, setIsAddingTemplate] = useState(false);
     const [newTemplateName, setNewTemplateName] = useState('');
     const [followUps, setFollowUps] = useState<FollowUp[]>([]);
@@ -210,25 +219,35 @@ const FollowUpsPage: React.FC = () => {
     
     const fetchTags = async () => {
         try {
-            const user = auth.currentUser;
-            if (!user) return;
-
-            const userRef = doc(firestore, 'user', user.email!);
-            const userData = (await getDoc(userRef)).data() as User;
-            
-            const tagsRef = collection(firestore, `companies/${userData.companyId}/tags`);
-            const tagsSnapshot = await getDocs(tagsRef);
-            
-            const fetchedTags = tagsSnapshot.docs.map(doc => ({
-                id: doc.id,
-                name: doc.data().name
-            }));
-
-            setTags(fetchedTags);
+          // Get user email from localStorage or context
+          const userEmail = localStorage.getItem('userEmail');
+          if (!userEmail) return;
+      
+          // Fetch user/company info from your backend
+          const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+          });
+          if (!userResponse.ok) return;
+          const userJson = await userResponse.json();
+          const companyId = userJson.userData.companyId;
+          if (!companyId) return;
+      
+          // Fetch tags from your SQL backend
+          const tagsResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/tags`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+          });
+          if (!tagsResponse.ok) return;
+          const tags: Tag[] = await tagsResponse.json();
+      
+          setTags(tags);
         } catch (error) {
-            console.error('Error fetching tags:', error);
+          console.error('Error fetching tags:', error);
         }
-    };
+      };
 
     const [newTemplate, setNewTemplate] = useState({
         name: '',
@@ -299,7 +318,7 @@ const FollowUpsPage: React.FC = () => {
     const functions = getFunctions();
 
     useEffect(() => {
-        fetchFollowUps();
+       // fetchFollowUps();
         fetchTemplates();
     }, []);
 
@@ -497,59 +516,65 @@ const FollowUpsPage: React.FC = () => {
     // Add new template
     const addTemplate = async () => {
         if (!newTemplate.name.trim()) return;
-    
+      
         try {
-            const user = auth.currentUser;
-            if (!user) return;
-    
-            const userRef = doc(firestore, 'user', user.email!);
-            const userData = (await getDoc(userRef)).data() as User;
-            
-            let startTime: Date;
-            switch (newTemplate.startType) {
-                case 'immediate':
-                    startTime = new Date();
-                    break;
-                case 'delayed':
-                    startTime = new Date();
-                    startTime.setHours(startTime.getHours() + 24);
-                    break;
-                case 'custom':
-                    startTime = new Date(customStartTime);
-                    break;
-                default:
-                    startTime = new Date();
-            }
-            
-            const templateData = {
-                name: newTemplate.name,
-                status: 'active',
-                createdAt: serverTimestamp(),
-                startTime: startTime,
-                isCustomStartTime: newTemplate.startType === 'custom',
-                triggerTags: newTemplate.triggerTags,
-                triggerKeywords: newTemplate.triggerKeywords,
-                batchSettings: batchSettings
-            };
-
-            const templateRef = collection(firestore, `companies/${userData.companyId}/followUpTemplates`);
-            await addDoc(templateRef, templateData);
-            
+          // Get user/company info
+          const userEmail = localStorage.getItem('userEmail');
+          if (!userEmail) return;
+      
+          // Get companyId from backend
+          const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+          const companyId = userResponse.data.userData.companyId;
+      
+          let startTime: Date;
+          switch (newTemplate.startType) {
+            case 'immediate':
+              startTime = new Date();
+              break;
+            case 'delayed':
+              startTime = new Date();
+              startTime.setHours(startTime.getHours() + 24);
+              break;
+            case 'custom':
+              startTime = new Date(customStartTime);
+              break;
+            default:
+              startTime = new Date();
+          }
+      
+          const templateData = {
+            companyId,
+            name: newTemplate.name,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            startTime: startTime.toISOString(),
+            isCustomStartTime: newTemplate.startType === 'custom',
+            trigger_tags: newTemplate.triggerTags,
+            trigger_keywords: newTemplate.triggerKeywords,
+            batchSettings: batchSettings
+          };
+      
+          const response = await axios.post('https://juta-dev.ngrok.dev/api/followup-templates', templateData);
+      
+          if (response.data.success) {
             setIsAddingTemplate(false);
             setNewTemplate({
-                name: '',
-                triggerTags: [],
-                triggerKeywords: [],
-                startType: 'immediate'
+              name: '',
+              triggerTags: [],
+              triggerKeywords: [],
+              startType: 'immediate'
             });
             setCustomStartTime('');
             fetchTemplates();
             toast.success('Template created successfully');
-        } catch (error) {
-            console.error('Error adding template:', error);
+          } else {
             toast.error('Failed to create template');
+          }
+        } catch (error) {
+          console.error('Error adding template:', error);
+          toast.error('Failed to create template');
         }
-    };
+      };
     const updateMessage = async (messageId: string) => {
         if (!editingMessage || !selectedTemplate) {
             console.error('No editing message or selected template');
@@ -702,59 +727,40 @@ const FollowUpsPage: React.FC = () => {
     // Fetch templates
     const fetchTemplates = async () => {
         try {
-            const user = auth.currentUser;
-            if (!user) return;
-
-            const userRef = doc(firestore, 'user', user.email!);
-            const userData = (await getDoc(userRef)).data() as User;
-            
-            const templatesRef = collection(firestore, `companies/${userData.companyId}/followUpTemplates`);
-            const templatesSnapshot = await getDocs(query(templatesRef, orderBy('createdAt', 'desc')));
-            
-            const fetchedTemplates = templatesSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                createdAt: doc.data().createdAt.toDate()
-            })) as FollowUpTemplate[];
-
-            setTemplates(fetchedTemplates);
+          const userEmail = localStorage.getItem('userEmail');
+          if (!userEmail) return;
+      
+          const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+          const companyId = userResponse.data.userData.companyId;
+      
+          const response = await axios.get(`https://juta-dev.ngrok.dev/api/followup-templates?companyId=${encodeURIComponent(companyId)}`);
+          if (response.data.success) {
+            console.log(response.data.templates);
+            setTemplates(response.data.templates);
+          }
         } catch (error) {
-            console.error('Error fetching templates:', error);
+          console.error('Error fetching templates:', error);
         }
-    };
+      };
 
     // Fetch messages for selected template
     const fetchMessages = async (templateId: string) => {
         try {
-            const user = auth.currentUser;
-        if (!user) return;
-
-        const userRef = doc(firestore, 'user', user.email!);
-        const userData = (await getDoc(userRef)).data() as User;
-        
-        // Update: Use subcollection path
-        const messagesRef = collection(firestore, 
-            `companies/${userData.companyId}/followUpTemplates/${templateId}/messages`
-        );
-        const messagesSnapshot = await getDocs(
-            query(
-                messagesRef,
-                orderBy('dayNumber'),
-                orderBy('sequence')
-            )
-        );
-        
-        const fetchedMessages = messagesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt.toDate()
-        })) as FollowUpMessage[];
-
-        setMessages(fetchedMessages);
-    } catch (error) {
-        console.error('Error fetching messages:', error);
+          const response = await axios.get(
+            `https://juta-dev.ngrok.dev/api/followup-templates/${templateId}/messages`
+          );
+          if (response.data.success && Array.isArray(response.data.messages)) {
+            // If createdAt is a string, convert to Date for display
+            const fetchedMessages = response.data.messages.map((msg: any) => ({
+              ...msg,
+              createdAt: msg.createdAt ? new Date(msg.createdAt) : null
+            }));
+            setMessages(fetchedMessages);
+          }
+        } catch (error) {
+          console.error('Error fetching messages:', error);
         }
-    };
+      };
 
     // Add this helper function to check for duplicate messages
     const isDuplicateMessage = (dayNumber: number, sequence: number) => {
@@ -767,87 +773,86 @@ const FollowUpsPage: React.FC = () => {
     // Add message to template
     const addMessage = async () => {
         if (!selectedTemplate || !newMessage.message.trim()) return;
-
+      
         // Double-check for duplicates before saving
         if (isDuplicateMessage(newMessage.dayNumber, newMessage.sequence)) {
-            toast.error('A message with this day and sequence number already exists');
-            return;
+          toast.error('A message with this day and sequence number already exists');
+          return;
         }
         try {
-            const user = auth.currentUser;
-            if (!user) return;
-
-            const userRef = doc(firestore, 'user', user.email!);
-            const userData = (await getDoc(userRef)).data() as User;
-            
-            // Create message data with explicit specificNumbers structure
-            const messageData = {
-                message: newMessage.message,
-                dayNumber: newMessage.dayNumber,
-                sequence: newMessage.sequence,
-                status: 'active',
-                createdAt: serverTimestamp(),
-                document: selectedDocument ? await uploadDocument(selectedDocument) : null,
-                image: selectedImage ? await uploadImage(selectedImage) : null,
-                video: selectedVideo ? await uploadVideo(selectedVideo) : null,
-                delayAfter: newMessage.useScheduledTime ? {
-                    value: 0,
-                    unit: 'minutes',
-                    isInstantaneous: false
-                } : {
-                    value: newMessage.delayAfter.value,
-                    unit: newMessage.delayAfter.unit,
-                    isInstantaneous: newMessage.delayAfter.isInstantaneous
-                },
-                specificNumbers: {
-                    enabled: newMessage.specificNumbers.enabled,
-                    numbers: newMessage.specificNumbers.numbers
-                },
-                useScheduledTime: newMessage.useScheduledTime,
-                scheduledTime: newMessage.useScheduledTime ? newMessage.scheduledTime : '',
-                addTags: newMessage.addTags || [],
-                removeTags: newMessage.removeTags || []
-            };
-
-            const messagesRef = collection(firestore, 
-                `companies/${userData.companyId}/followUpTemplates/${selectedTemplate}/messages`
-            );
-            
-            await addDoc(messagesRef, messageData);
-            
+          // Prepare message data
+          const messageData = {
+            templateId: selectedTemplate2,
+            message: newMessage.message,
+            dayNumber: newMessage.dayNumber,
+            sequence: newMessage.sequence,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            document: selectedDocument ? await uploadDocument(selectedDocument) : null,
+            image: selectedImage ? await uploadImage(selectedImage) : null,
+            video: selectedVideo ? await uploadVideo(selectedVideo) : null,
+            delayAfter: newMessage.useScheduledTime ? {
+              value: 0,
+              unit: 'minutes',
+              isInstantaneous: false
+            } : {
+              value: newMessage.delayAfter.value,
+              unit: newMessage.delayAfter.unit,
+              isInstantaneous: newMessage.delayAfter.isInstantaneous
+            },
+            specificNumbers: {
+              enabled: newMessage.specificNumbers.enabled,
+              numbers: newMessage.specificNumbers.numbers
+            },
+            useScheduledTime: newMessage.useScheduledTime,
+            scheduledTime: newMessage.useScheduledTime ? newMessage.scheduledTime : '',
+            addTags: newMessage.addTags || [],
+            removeTags: newMessage.removeTags || []
+          };
+      
+          // Send to backend
+          const response = await axios.post(
+            `https://juta-dev.ngrok.dev/api/followup-templates/${selectedTemplate2}/messages`,
+            messageData
+          );
+      
+          if (response.data.success) {
             // Reset form
             setNewMessage({
-                message: '',
-                dayNumber: 1,
-                sequence: getNextSequenceNumber(newMessage.dayNumber),
-                templateId: selectedTemplate,
-                status: 'active',
-                delayAfter: {
-                    value: 5,
-                    unit: 'minutes',
-                    isInstantaneous: false
-                },
-                specificNumbers: {
-                    enabled: false,
-                    numbers: []
-                },
-                useScheduledTime: false,
-                scheduledTime: '',
-                addTags: [],
-                removeTags: []
+              message: '',
+              dayNumber: 1,
+              sequence: getNextSequenceNumber(newMessage.dayNumber),
+              templateId: selectedTemplate,
+              status: 'active',
+              delayAfter: {
+                value: 5,
+                unit: 'minutes',
+                isInstantaneous: false
+              },
+              specificNumbers: {
+                enabled: false,
+                numbers: []
+              },
+              useScheduledTime: false,
+              scheduledTime: '',
+              addTags: [],
+              removeTags: []
             });
             setNewNumber('');
             setSelectedDocument(null);
             setSelectedImage(null);
             setSelectedVideo(null);
-            
+      
             fetchMessages(selectedTemplate);
             toast.success('Message added successfully');
-        } catch (error) {
-            console.error('Error adding message:', error);
+          } else {
             toast.error('Failed to add message');
+          }
+        } catch (error) {
+          console.error('Error adding message:', error);
+          toast.error('Failed to add message');
         }
-    };
+      };
 
     // Add this helper function to get the next available sequence number for a given day
     const getNextSequenceNumber = (dayNumber: number) => {
@@ -940,6 +945,7 @@ const FollowUpsPage: React.FC = () => {
                                     }`}
                                     onClick={() => {
                                         setSelectedTemplate(template.id);
+                                        setSelectedTemplate2(template.templateId)
                                         fetchMessages(template.id);
                                     }}
                                 >
@@ -947,8 +953,8 @@ const FollowUpsPage: React.FC = () => {
                                         <div className="flex-grow">
                                             <h3 className="text-lg font-semibold text-gray-800 dark:text-white">{template.name}</h3>
                                             <p className="text-sm text-gray-500">
-                                                Created: {template.createdAt.toLocaleDateString()}
-                                            </p>
+  Created: {template.created_at ? new Date(template.created_at).toLocaleDateString() : 'N/A'}
+</p>
                                             
                                             {/* Tags */}
                                             {template.triggerTags && template.triggerTags.length > 0 && (
@@ -1847,9 +1853,9 @@ const FollowUpsPage: React.FC = () => {
                                                                         timestamp={
                                                                             message.useScheduledTime
                                                                                 ? `Scheduled: ${formatTime(message.scheduledTime)}`
-                                                                                : message.delayAfter?.isInstantaneous
+                                                                                : message.delay_after?.isInstantaneous
                                                                                 ? 'Sends immediately'
-                                                                                : `After: ${message.delayAfter?.value} ${message.delayAfter?.unit}`
+                                                                                : `After: ${message.delay_after?.value} ${message.delay_after?.unit}`
                                                                         }
                                                                     />
                                                                     

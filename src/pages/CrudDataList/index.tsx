@@ -126,6 +126,8 @@ function Main() {
     id?: string;
     chatIds: string[];
     message: string;
+    contactId:string;
+    messageContent:string;
     messages?: Array<{
       [x: string]: string | boolean; // Changed to allow boolean values for isMain
       text: string 
@@ -135,7 +137,8 @@ function Main() {
     documentUrl?: string;
     mimeType?: string;
     fileName?: string;
-    scheduledTime: Timestamp;
+    scheduledTime: string;
+    
     batchQuantity: number;
     repeatInterval: number;
     repeatUnit: 'minutes' | 'hours' | 'days';
@@ -728,7 +731,7 @@ const fetchContacts = useCallback(async () => {
     }
 
     // Get user config to get companyId
-    const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -748,7 +751,7 @@ const fetchContacts = useCallback(async () => {
     const userName = userData.name;
 
     // Fetch contacts from SQL database
-    const contactsResponse = await fetch(`http://localhost:8443/api/companies/${companyId}/contacts?email=${userEmail}`, {
+    const contactsResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts?email=${userEmail}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -1145,7 +1148,7 @@ console.log(newContact);
     }
 
     // Fetch user config to get companyId
-    const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -1194,7 +1197,7 @@ const contactData: { [key: string]: any } = {
   notes: newContact.notes,
 };
     // Send POST request to your SQL backend
-    const response = await axios.post('http://localhost:8443/api/contacts', contactData);
+    const response = await axios.post('https://juta-dev.ngrok.dev/api/contacts', contactData);
 
     if (response.data.success) {
       toast.success("Contact added successfully!");
@@ -1239,7 +1242,7 @@ const handleSaveNewTag = async () => {
     }
 
     // Fetch user/company info from your backend
-    const userResponse = await fetch(`http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
+    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include'
@@ -1258,7 +1261,7 @@ const handleSaveNewTag = async () => {
     }
 
     // Add tag via your SQL backend
-    const response = await fetch(`http://localhost:8443/api/companies/${companyId}/tags`, {
+    const response = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/tags`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -1374,7 +1377,7 @@ const handleConfirmDeleteTag = async () => {
       }
   
       // Fetch user/company info from your backend
-      const userResponse = await fetch(`http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
+      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -1393,7 +1396,7 @@ const handleConfirmDeleteTag = async () => {
       }
   
       // Fetch tags from your SQL backend
-      const tagsResponse = await fetch(`http://localhost:8443/api/companies/${companyId}/tags`, {
+      const tagsResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/tags`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -1428,7 +1431,7 @@ const handleConfirmDeleteTag = async () => {
     if (!userEmail) throw new Error('No authenticated user');
   
     const response = await fetch(
-      `http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+      `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
       {
         method: 'GET',
         credentials: 'include',
@@ -1457,7 +1460,7 @@ async function fetchCompanyData() {
   }
 
   try {
-    const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -2137,7 +2140,7 @@ if (matchingTemplate) {
       }
   
       // Get user config to get companyId
-      const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -2157,7 +2160,7 @@ if (matchingTemplate) {
       setCompanyId(companyId);
   
       // Get company data
-      const companyResponse = await fetch(`http://localhost:8443/api/companies/${companyId}`, {
+      const companyResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -2176,7 +2179,7 @@ if (matchingTemplate) {
      
   
       // Call the sync contacts endpoint
-      const syncResponse = await fetch(`http://localhost:8443/api/sync-contacts/${companyId}`, {
+      const syncResponse = await fetch(`https://juta-dev.ngrok.dev/api/sync-contacts/${companyId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2472,7 +2475,7 @@ if (matchingTemplate) {
         }
   
         // Fetch user config to get companyId
-        const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+        const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -2499,14 +2502,14 @@ if (matchingTemplate) {
         // 1. Delete associated scheduled messages for this contact
         // (Optional: Only if your backend supports this endpoint)
         try {
-          await axios.delete(`http://localhost:8443/api/schedule-message/${companyId}/contact/${contact_id}`);
+          await axios.delete(`https://juta-dev.ngrok.dev/api/schedule-message/${companyId}/contact/${contact_id}`);
         } catch (error) {
           console.error('Error deleting scheduled messages for contact:', error);
           // Not fatal, continue to delete contact
         }
   
         // 2. Delete the contact from your SQL backend
-        const response = await axios.delete(`http://localhost:8443/api/contacts/${contact_id}?companyId=${companyId}`);
+        const response = await axios.delete(`https://juta-dev.ngrok.dev/api/contacts/${contact_id}?companyId=${companyId}`);
   
         if (response.data.success) {
           // Update local state
@@ -2712,7 +2715,7 @@ if (matchingTemplate) {
         }
   
         // Fetch user config to get companyId
-        const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+        const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -2764,7 +2767,7 @@ if (matchingTemplate) {
         console.log(updateData);
         // Send PUT request to your SQL backend
         // (Assume your backend expects /api/contacts/:contact_id for update)
-        const response = await axios.put(`http://localhost:8443/api/contacts/${contact_id}`, updateData);
+        const response = await axios.put(`https://juta-dev.ngrok.dev/api/contacts/${contact_id}`, updateData);
   
         if (response.data.success) {
           // Update local state immediately after saving
@@ -2834,11 +2837,15 @@ const addCustomFieldToAllContacts = async (fieldName: string) => {
   }
 };
 // Add this function to combine similar scheduled messages
+// Add this function to combine similar scheduled messages
 const combineScheduledMessages = (messages: ScheduledMessage[]): ScheduledMessage[] => {
   const combinedMessages: { [key: string]: ScheduledMessage } = {};
 
   messages.forEach(message => {
-    const key = `${message.message}-${message.scheduledTime.toDate().getTime()}`;
+    // Since scheduledTime is now always a string
+    const scheduledTime = new Date(message.scheduledTime).getTime();
+    
+    const key = `${message.messageContent}-${scheduledTime}`;
     if (combinedMessages[key]) {
       combinedMessages[key].count = (combinedMessages[key].count || 1) + 1;
     } else {
@@ -2846,10 +2853,14 @@ const combineScheduledMessages = (messages: ScheduledMessage[]): ScheduledMessag
     }
   });
 
+  console.log('combinedMessages', combinedMessages);
+  
   // Convert the object to an array and sort it
-  return Object.values(combinedMessages).sort((a, b) => 
-    compareAsc(a.scheduledTime.toDate(), b.scheduledTime.toDate())
-  );
+  return Object.values(combinedMessages).sort((a, b) => {
+    const timeA = new Date(a.scheduledTime).getTime();
+    const timeB = new Date(b.scheduledTime).getTime();
+    return timeA - timeB;
+  });
 };
 
 useEffect(() => {
@@ -3095,8 +3106,8 @@ const sendBlastMessage = async () => {
       mimeType = selectedDocument.type;
     }
 
-    // Use localhost:8443 instead of Firebase
-    const baseUrl = 'http://localhost:8443';
+    // Use juta-dev.ngrok.dev instead of Firebase
+    const baseUrl = 'https://juta-dev.ngrok.dev';
     const userEmail = localStorage.getItem('userEmail');
     if (!userEmail) {
       toast.error("No user email found");
@@ -3104,7 +3115,7 @@ const sendBlastMessage = async () => {
     }
 
     // Get user config to get companyId
-    const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -3182,7 +3193,7 @@ const sendBlastMessage = async () => {
       sleepDuration: activateSleep ? sleepDuration : null,
     };
 
-    // Make API call to localhost:8443
+    // Make API call to juta-dev.ngrok.dev
     const response = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, scheduledMessageData);
 
     if (response.data.success) {
@@ -3511,36 +3522,53 @@ const resetForm = () => {
   };
   const fetchScheduledMessages = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) return;
   
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
-  
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-  
-      const scheduledMessagesRef = collection(firestore, `companies/${companyId}/scheduledMessages`);
-      const q = query(scheduledMessagesRef, where("status", "==", "scheduled"));
-      const querySnapshot = await getDocs(q);
-  
-      const messages: ScheduledMessage[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        messages.push({ 
-          id: doc.id, 
-          ...data,
-          chatIds: data.chatIds || [],
-          message: data.message || '', // Ensure message is included
-        } as ScheduledMessage);
+      // Get user/company data from your backend
+      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
       });
   
-      // Sort messages by scheduledTime
-      messages.sort((a, b) => a.scheduledTime.toDate().getTime() - b.scheduledTime.toDate().getTime());
+      if (!userResponse.ok) {
+        console.error('Failed to fetch user/company data');
+        return;
+      }
   
+      const userData = await userResponse.json();
+      const companyId = userData.userData.companyId;
+  
+      if (!companyId) {
+        console.error('No company ID found');
+        return;
+      }
+  
+      // Fetch scheduled messages from your localhost API
+      const scheduledMessagesResponse = await fetch(`https://juta-dev.ngrok.dev/api/scheduled-messages?companyId=${encodeURIComponent(companyId)}&status=scheduled`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+  
+      if (!scheduledMessagesResponse.ok) {
+        console.error('Failed to fetch scheduled messages');
+        return;
+      }
+  
+      const scheduledMessagesData = await scheduledMessagesResponse.json();
+      console.log('Scheduled messages fetched:', scheduledMessagesData);
+      const messages: ScheduledMessage[] = scheduledMessagesData.messages || scheduledMessagesData || [];
+  
+      // Sort messages by scheduledTime - handle string dates properly
+      messages.sort((a, b) => {
+        const timeA = new Date(a.scheduledTime).getTime();
+        const timeB = new Date(b.scheduledTime).getTime();
+        return timeA - timeB;
+      });
       setScheduledMessages(messages);
-       // Add this log
+      console.log('Scheduled messages fetched:', messages);
     } catch (error) {
       console.error("Error fetching scheduled messages:", error);
     }
@@ -4347,7 +4375,7 @@ const resetForm = () => {
       const userEmail = localStorage.getItem('userEmail');
       if (!userEmail) throw new Error('User not authenticated');
   
-      const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -4485,7 +4513,7 @@ const resetForm = () => {
       });
   
       // Send contacts in bulk to your SQL backend
-      const response = await axios.post('http://localhost:8443/api/contacts/bulk', { contacts: contactsToImport });
+      const response = await axios.post('https://juta-dev.ngrok.dev/api/contacts/bulk', { contacts: contactsToImport });
   
       if (response.data.success) {
         toast.success(`Successfully imported ${contactsToImport.length} contacts!`);
@@ -4583,7 +4611,7 @@ const fetchPhoneStatuses = async () => {
     setIsLoadingStatus(true);
     
     // Get phone statuses from the localhost API
-    const response = await axios.get(`http://localhost:8443/api/phone-status/${companyId}`);
+    const response = await axios.get(`https://juta-dev.ngrok.dev/api/phone-status/${companyId}`);
     console.log('Phone status API response data:', response.data); // <-- Add this line
 
     if (response.status === 200) {
@@ -5232,9 +5260,7 @@ const getFilteredScheduledMessages = () => {
                               <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
                                 {message.status === 'scheduled' ? 'Scheduled' : message.status}
                               </span>
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {formatDate(message.scheduledTime.toDate())}
-                              </span>
+                          
                               <input
                 type="checkbox"
                 checked={selectedScheduledMessages.includes(message.id!)}
@@ -5245,9 +5271,22 @@ const getFilteredScheduledMessages = () => {
                             <div className="text-gray-800 dark:text-gray-200 mb-2 font-medium text-md">
                             {/* First Message */}
                             <p className="line-clamp-2">
-                              {message.message ? message.message : 'No message content'}
+                              {message.messageContent ? message.messageContent : 'No message content'}
                             </p>
 
+  {/* Scheduled Time and Contact Info */}
+  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+    <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
+    <div>
+      <span className="font-semibold">Scheduled:</span> {message.scheduledTime ? new Date(message.scheduledTime).toLocaleString() : 'Not set'}
+    </div>
+
+      <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
+                              <Lucide icon="Users" className="w-4 h-4 mr-1" />
+                              <span className="font-semibold"></span> {message.contactId?.split('-')[1] || 'Unknown'}
+                            </div>
+    </div>
+  </div>
                             {/* Additional Messages */}
                             {message.messages && message.messages.length > 0 && message.messages.some(msg => msg.message !== message.message) && (
                               <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
@@ -5276,14 +5315,20 @@ const getFilteredScheduledMessages = () => {
                               <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                                 <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
                                   {/* Batch Settings */}
-                                  <div>
-                                    <span className="font-semibold">Batch Size:</span> {message.batchQuantity}
-                                  </div>
-                                  
+                               
+                                  {message.batchQuantity != undefined && (
+                                     <div>
+                                     <span className="font-semibold">Batch Size:</span> {message.batchQuantity}
+                                   </div>
+                                  )}
                                   {/* Delay Settings */}
-                                  <div>
-                                    <span className="font-semibold">Delay:</span> {message.minDelay}-{message.maxDelay}s
-                                  </div>
+                                  {message.minDelay != undefined && (
+                                   <div>
+                                   <span className="font-semibold">Delay:</span> {message.minDelay}-{message.maxDelay}s
+                                 </div>
+                                  )}
+
+                                
 
                                   {/* Repeat Settings */}
                                   {message.repeatInterval > 0 && (
@@ -5293,7 +5338,7 @@ const getFilteredScheduledMessages = () => {
                                   )}
 
                                   {/* Sleep Settings */}
-                                  {message.activateSleep && (
+                                  {message.activateSleep != undefined && (
                                     <>
                                       <div>
                                         <span className="font-semibold">Sleep After:</span> {message.sleepAfterMessages} messages
@@ -5305,10 +5350,12 @@ const getFilteredScheduledMessages = () => {
                                   )}
 
                                   {/* Active Hours */}
-                                  <div className="col-span-2">
-                                    <span className="font-semibold">Active Hours:</span> {message.activeHours?.start} - {message.activeHours?.end}
-                                  </div>
-
+                                
+                                  {message.activeHours != undefined && (
+                                   <div className="col-span-2">
+                                   <span className="font-semibold">Active Hours:</span> {message.activeHours?.start} - {message.activeHours?.end}
+                                 </div>
+                                  )}
                                   {/* Infinite Loop */}
                                   {message.infiniteLoop && (
                                     <div className="col-span-2 text-indigo-600 dark:text-indigo-400 flex items-center">
@@ -5319,20 +5366,7 @@ const getFilteredScheduledMessages = () => {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
-                              <Lucide icon="Users" className="w-4 h-4 mr-1" />
-                              <div className="ml-5 max-h-20 overflow-y-auto">
-                                {message.chatIds.map(chatId => {
-                                  const phoneNumber = chatId && typeof chatId === 'string' ? chatId.split('@')[0] : '';
-                                  const contact = contacts.find(c => c.phone?.replace(/\D/g, '') === phoneNumber);
-                                  return (
-                                    <div key={chatId} className="truncate">
-                                      {contact?.contactName || phoneNumber}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
+                            
                             {message.mediaUrl && (
                               <div className="flex items-center text-xs text-gray-600 dark:text-gray-400 mt-1">
                                 <Lucide icon="Image" className="w-4 h-4 mr-1" />
@@ -5483,23 +5517,23 @@ const getFilteredScheduledMessages = () => {
                     <div className="mt-4">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Scheduled Time</label>
                       <div className="flex space-x-2">
-                        <DatePickerComponent
-                          selected={currentScheduledMessage?.scheduledTime.toDate()}
-                          onChange={(date: Date | null) => date && setCurrentScheduledMessage({...currentScheduledMessage!, scheduledTime: Timestamp.fromDate(date)})}
-                          dateFormat="MMMM d, yyyy"
-                          className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
-                        <DatePickerComponent
-                          selected={currentScheduledMessage?.scheduledTime.toDate()}
-                          onChange={(date: Date | null) => date && setCurrentScheduledMessage({...currentScheduledMessage!, scheduledTime: Timestamp.fromDate(date)})}
-                          showTimeSelect
-                          showTimeSelectOnly
-                          timeIntervals={15}
-                          timeCaption="Time"
-                          dateFormat="h:mm aa"
-                          className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
-                      </div>
+  <DatePickerComponent
+    selected={currentScheduledMessage?.scheduledTime ? new Date(currentScheduledMessage.scheduledTime) : null}
+    onChange={(date: Date | null) => date && setCurrentScheduledMessage({...currentScheduledMessage!, scheduledTime: date.toISOString()})}
+    dateFormat="MMMM d, yyyy"
+    className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+  />
+  <DatePickerComponent
+    selected={currentScheduledMessage?.scheduledTime ? new Date(currentScheduledMessage.scheduledTime) : null}
+    onChange={(date: Date | null) => date && setCurrentScheduledMessage({...currentScheduledMessage!, scheduledTime: date.toISOString()})}
+    showTimeSelect
+    showTimeSelectOnly
+    timeIntervals={15}
+    timeCaption="Time"
+    dateFormat="h:mm aa"
+    className="w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+  />
+</div>
                     </div>
                     <div className="mt-4">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attach Media (Image or Video)</label>

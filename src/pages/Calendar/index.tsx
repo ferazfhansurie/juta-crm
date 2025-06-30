@@ -350,130 +350,119 @@ const generateTimeSlots = (isWeekend: boolean): string[] => {
 
 
 
-  const fetchEmployees = async () => {
-    try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-
-      if(!user) return;
-
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
-      }
-
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        
-        return;
-      }
-      const companyData = docSnapshot.data();
-      const accessToken = companyData.ghl_accessToken;
-
-      const employeeRef = collection(firestore, `companies/${companyId}/employee`);
-      const employeeSnapshot = await getDocs(employeeRef);
-
-      const employeeListData: Employee[] = [];
-      const colors = ["#FF5733", "#006400", "#3357FF", "#FF33A1", "#33FFF5", "#FF8C33", "#8C33FF", "#33FF8C"];
-      const backgroundStyles = ["linear-gradient(to right, #1F3A8A 0%, #1F3A8A 50%, #2196F3 50%, #2196F3 100%)",
-        "linear-gradient(to right, #8A2BE2 0%, #8A2BE2 50%, #9C27B0 50%, #9C27B0 100%)",
-        "linear-gradient(to right, #00BCD4 0%, #00BCD4 50%, #795548 50%, #795548 100%)",
-        "linear-gradient(to right, #607D8B 0%, #607D8B 50%, #E91E63 50%, #E91E63 100%)"];
-      let colorIndex = 0;
-  
-      employeeSnapshot.forEach((doc) => {
-        employeeListData.push({ id: doc.id, ...doc.data(), color: colors[colorIndex % colors.length], backgroundStyle: backgroundStyles[colorIndex % backgroundStyles.length] } as Employee);
-        colorIndex++;
-      });
-
-      setEmployees(employeeListData);
-      fetchAppointments(user?.email!);
-    } catch (error) {
-      console.error('Error fetching employees:', error);
-      throw error;
+// ... existing code ...
+const fetchEmployees = async () => {
+  try {
+    // Get the current user's email (from Firebase Auth or however you store it)
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      console.error('No user email found');
+      return;
     }
-  };
+    // First, fetch user config to get companyId
+    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include'
+    });
 
-  const fetchAppointments = async (selectedUserId: string) => {
-    setLoading(true);
-    
-    
-    try {
-      const userRef = doc(firestore, 'user', selectedUserId);
-      const userSnapshot = await getDoc(userRef);
-      
-      if (!userSnapshot.exists()) {
-        console.error('User document not found');
-        return;
-      }
-  
-      const userData = userSnapshot.data();
-      const companyId = userData.companyId;
-      let appointmentsQuery;
-      if (selectedEmployeeId) {
-        // If an employee is selected, fetch only their appointments
-        
-        appointmentsQuery = query(
-          collection(firestore, `user/${selectedUserId}/appointments`)
-        );
-      } else {
-        // If no employee is selected, fetch all appointments
-        
-        appointmentsQuery = collection(firestore, `user/${selectedUserId}/appointments`);
-      }
-      
-      const querySnapshot = await getDocs(appointmentsQuery);
-      
-      
-      const allAppointments = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        console.log('Appointment data:', {
-          id: doc.id,
-          title: data.title,
-          staff: data.staff,
-          startTime: data.startTime,
-          endTime: data.endTime
-        });
-        return {
-          id: doc.id,
-          ...data,
-        } as Appointment;
-      });
-  
-      // Fetch package details for each appointment
-      const appointmentsWithPackages = await Promise.all(allAppointments.map(async (appointment: Appointment) => {
-        if (appointment.packageId) {
-          const packageRef = doc(firestore, `companies/${companyId}/packages`, appointment.packageId);
-          const packageSnapshot = await getDoc(packageRef);
-          if (packageSnapshot.exists()) {
-            const packageData = packageSnapshot.data();
-            return {
-              ...appointment,
-              package: {
-                id: packageSnapshot.id,
-                name: packageData.name,
-                sessions: packageData.sessions
-              }
-            };
-          }
-        }
-        return appointment;
-      }));
-  
-      setAppointments(appointmentsWithPackages.sort((a, b) => 
+    if (!userResponse.ok) {
+      throw new Error('Failed to fetch company data');
+    }
+
+    const userData = await userResponse.json();
+    const companyId = userData.company_id || userData.companyId;
+    if (!companyId) {
+      console.error('No companyId found in user config');
+      return;
+    }
+
+    // Now fetch employees from the new endpoint
+    const employeesResponse = await fetch(`https://juta-dev.ngrok.dev/api/employees-data/${encodeURIComponent(companyId)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+    if (!employeesResponse.ok) {
+      throw new Error('Failed to fetch employees data');
+    }
+
+    const employeeListData = await employeesResponse.json();
+    console.log(employeeListData);
+    // Optionally, add color/backgroundStyle as before
+    const colors = ["#FF5733", "#006400", "#3357FF", "#FF33A1", "#33FFF5", "#FF8C33", "#8C33FF", "#33FF8C"];
+    const backgroundStyles = [
+      "linear-gradient(to right, #1F3A8A 0%, #1F3A8A 50%, #2196F3 50%, #2196F3 100%)",
+      "linear-gradient(to right, #8A2BE2 0%, #8A2BE2 50%, #9C27B0 50%, #9C27B0 100%)",
+      "linear-gradient(to right, #00BCD4 0%, #00BCD4 50%, #795548 50%, #795548 100%)",
+      "linear-gradient(to right, #607D8B 0%, #607D8B 50%, #E91E63 50%, #E91E63 100%)"
+    ];
+    let colorIndex = 0;
+
+    const employeesWithColors = employeeListData.map((emp: any) => ({
+      ...emp,
+      color: colors[colorIndex % colors.length],
+      backgroundStyle: backgroundStyles[colorIndex % backgroundStyles.length],
+      id: emp.id || emp._id // adjust if your API uses _id
+    }));
+
+    setEmployees(employeesWithColors);
+    // If you need to fetch appointments, update that logic as well
+    fetchAppointments(userEmail);
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+  }
+};
+
+
+// ... existing code ...
+const fetchAppointments = async (userEmail: string) => {
+  setLoading(true);
+  try {
+    // Build the API URL, optionally with employee filter
+    let url = `https://juta-dev.ngrok.dev/api/appointments?email=${encodeURIComponent(userEmail)}`;
+    if (selectedEmployeeId) {
+      url += `&employeeId=${encodeURIComponent(selectedEmployeeId)}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch appointments');
+    }
+
+    const data = await response.json();
+    // If your API returns an array of appointments directly:
+    // const appointments = data.appointments || data; // adjust if needed
+
+    // If you need to fetch package details, you can do it here (or have your API include them)
+    // For now, just set the appointments
+    setAppointments(
+      (data.appointments || data).sort((a: any, b: any) =>
         new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
-      ));
-    } catch (error) {
-      console.error('Error fetching appointments:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      )
+    );
+  } catch (error) {
+    console.error('Error fetching appointments:', error);
+  } finally {
+    setLoading(false);
+  }
+};
+// ... existing code ...
   const handleEmployeeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const employeeId = event.target.value;
     setSelectedEmployeeId(employeeId);
@@ -1148,151 +1137,141 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
     }
   };
   
-  const handleAddAppointment = async () => {
-    try {
-      const firstEmployeeId = selectedEmployeeIds[0];
-      const secondEmployeeId = selectedEmployeeIds[1];
-      const firstEmployee = employees.find(emp => emp.id === firstEmployeeId);
-      const secondEmployee = employees.find(emp => emp.id === secondEmployeeId);
+// ... existing code ...
 
-      let color;
-      if (firstEmployee && secondEmployee) {
-        color = `linear-gradient(to right, ${firstEmployee.color} 50%, ${secondEmployee.color} 50%)`;
-      } else if (firstEmployee) {
-        color = firstEmployee.color;
-      } else {
-        color = '#51484f'; // Default color
-      }
+const handleAddAppointment = async () => {
+  try {
+    const firstEmployeeId = selectedEmployeeIds[0];
+    const secondEmployeeId = selectedEmployeeIds[1];
+    const firstEmployee = employees.find(emp => emp.id === firstEmployeeId);
+    const secondEmployee = employees.find(emp => emp.id === secondEmployeeId);
+
+    let color;
+    if (firstEmployee && secondEmployee) {
+      color = `linear-gradient(to right, ${firstEmployee.color} 50%, ${secondEmployee.color} 50%)`;
+    } else if (firstEmployee) {
+      color = firstEmployee.color;
+    } else {
+      color = '#51484f'; // Default color
+    }
+
     // Combine title and address
     const combinedTitle = currentEvent.extendedProps.units 
       ? `${currentEvent.title} | ${currentEvent.extendedProps.type} | ${currentEvent.extendedProps.units} Units`
       : currentEvent.title;
 
-      const newEvent = {
-        title: combinedTitle,
-        startTime: new Date(`${currentEvent.dateStr}T${currentEvent.startTimeStr}`).toISOString(),
-        endTime: new Date(`${currentEvent.dateStr}T${currentEvent.endTimeStr}`).toISOString(),
-        address: currentEvent.extendedProps.address,
-        appointmentStatus: currentEvent.extendedProps.appointmentStatus,
-        staff: selectedEmployeeIds,
-        tags: currentEvent.extendedProps.tags || [],
-        color: color,
-        contacts: selectedContacts.map(contact => ({
-          id: contact.id,
-          name: contact.contactName,
-          session: contactSessions[contact.id] || getPackageSessions(currentEvent.extendedProps.package)
-        })),
-        packageId: currentEvent.extendedProps.package?.id || null,
-        minyak: currentEvent.extendedProps?.minyak || 0,
-        toll: currentEvent.extendedProps?.toll || 0,
-        details: currentEvent.extendedProps?.details || '',
-        meetLink: currentEvent.extendedProps?.meetLink || '',
-      };
-      const phoneRegex = /(?:\/|\\)?(\d{10,11})/;
-      const match = combinedTitle.match(phoneRegex);
-      let phoneNumber = match ? match[1] : '';
-      
-      // If number doesn't start with 6, add it
-      if (phoneNumber && !phoneNumber.startsWith('6')) {
-        phoneNumber = '6' + phoneNumber;
-      }
+    const newEvent = {
+      title: combinedTitle,
+      startTime: new Date(`${currentEvent.dateStr}T${currentEvent.startTimeStr}`).toISOString(),
+      endTime: new Date(`${currentEvent.dateStr}T${currentEvent.endTimeStr}`).toISOString(),
+      address: currentEvent.extendedProps.address,
+      appointmentStatus: currentEvent.extendedProps.appointmentStatus,
+      staff: selectedEmployeeIds,
+      tags: currentEvent.extendedProps.tags || [],
+      color: color,
+      contacts: selectedContacts.map(contact => ({
+        id: contact.id,
+        name: contact.contactName,
+        session: contactSessions[contact.id] || getPackageSessions(currentEvent.extendedProps.package)
+      })),
+      packageId: currentEvent.extendedProps.package?.id || null,
+      minyak: currentEvent.extendedProps?.minyak || 0,
+      toll: currentEvent.extendedProps?.toll || 0,
+      details: currentEvent.extendedProps?.details || '',
+      meetLink: currentEvent.extendedProps?.meetLink || '',
+    };
 
-      const newAppointment = await createAppointment(newEvent);
-      
-      if (newAppointment) {
-        if (phoneNumber) {
-          try {
-            await scheduleMessages(
-              phoneNumber,
-              new Date(newAppointment.startTime)
-            );
-          } catch (error) {
-            console.error('Error scheduling reminder:', error);
-            toast.error('Appointment created but failed to schedule reminder');
-          }
-        }
-        
-        // Process reminders for this appointment
-        await processAppointmentReminders(newAppointment);
-        
-        // Update the calendar immediately
-        if (calendarRef.current) {
-          const calendarApi = (calendarRef.current as any).getApi();
-          calendarApi.addEvent({
-            id: newAppointment.id,
-            title: newAppointment.title,
-            start: new Date(newAppointment.startTime),
-            end: new Date(newAppointment.endTime),
-            backgroundColor: newAppointment.color,
-            borderColor: 'transparent',
-            extendedProps: {
-              appointmentStatus: newAppointment.appointmentStatus,
-              staff: newAppointment.staff,
-              tags: newAppointment.tags || [],
-              details: newAppointment.details || '',
-              meetLink: newAppointment.meetLink || '',
-            }
-          });
-        }
-        setAddModalOpen(false);
-      }
-    } catch (error) {
-      console.error('Error adding appointment:', error);
-      toast.error('Failed to add appointment');
+    const phoneRegex = /(?:\/|\\)?(\d{10,11})/;
+    const match = combinedTitle.match(phoneRegex);
+    let phoneNumber = match ? match[1] : '';
+    if (phoneNumber && !phoneNumber.startsWith('6')) {
+      phoneNumber = '6' + phoneNumber;
     }
-  };
 
-  const createAppointment = async (newEvent: any) => {
-    try {
-      const user = auth.currentUser;
-      if (!user || !user.email) {
-        console.error('No authenticated user or email found');
-        return null;
-      }
-      const userRef = doc(firestore, 'user', user.email);
+    // Use the new local API
+    const newAppointment = await createAppointment(newEvent);
 
-      const appointmentsCollectionRef = collection(userRef, 'appointments');
-      const newAppointmentRef = doc(appointmentsCollectionRef);
-
-      const newAppointment = {
-        id: newAppointmentRef.id,
-        title: newEvent.title,
-        startTime: newEvent.startTime,
-        endTime: newEvent.endTime,
-        address: newEvent.address,
-        appointmentStatus: newEvent.appointmentStatus,
-        staff: newEvent.staff,
-        color: newEvent.color,
-        packageId: newEvent.packageId,
-        dateAdded: new Date().toISOString(),
-        contacts: newEvent.contacts,
-        tags: newEvent.tags || [],
-        details: newEvent.details || '',
-        meetLink: newEvent.meetLink || '',
-      };
-
-      await setDoc(newAppointmentRef, newAppointment);
-
-      const companyRef = doc(firestore, 'companies', user.email);
-      const sessionsCollectionRef = collection(companyRef, 'session');
-
-      for (const contact of newEvent.contacts) {
-        const newSessionsRef = doc(sessionsCollectionRef, contact.id);
-        const newSessions = {
-          id: contact.id,
-          session: contact.session
-        };
-
-        await setDoc(newSessionsRef, newSessions);
+    if (newAppointment) {
+      if (phoneNumber) {
+        try {
+          await scheduleMessages(
+            phoneNumber,
+            new Date(newAppointment.startTime)
+          );
+        } catch (error) {
+          console.error('Error scheduling reminder:', error);
+          toast.error('Appointment created but failed to schedule reminder');
+        }
       }
 
-      setAppointments(prevAppointments => [...prevAppointments, newAppointment as Appointment]);
-      return newAppointment; // Return the new appointment
-    } catch (error) {
-      console.error('Error creating appointment:', error);
+      // Process reminders for this appointment
+      await processAppointmentReminders(newAppointment);
+
+      // Update the calendar immediately
+      if (calendarRef.current) {
+        const calendarApi = (calendarRef.current as any).getApi();
+        calendarApi.addEvent({
+          id: newAppointment.id,
+          title: newAppointment.title,
+          start: new Date(newAppointment.startTime),
+          end: new Date(newAppointment.endTime),
+          backgroundColor: newAppointment.color,
+          borderColor: 'transparent',
+          extendedProps: {
+            appointmentStatus: newAppointment.appointmentStatus,
+            staff: newAppointment.staff,
+            tags: newAppointment.tags || [],
+            details: newAppointment.details || '',
+            meetLink: newAppointment.meetLink || '',
+          }
+        });
+      }
+      setAddModalOpen(false);
+    }
+  } catch (error) {
+    console.error('Error adding appointment:', error);
+    toast.error('Failed to add appointment');
+  }
+};
+
+const createAppointment = async (newEvent: any) => {
+  try {
+    // Get user email from localStorage (or however you store it)
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      console.error('No authenticated user or email found');
       return null;
     }
-  };
+
+    // Call your local API to create the appointment
+    const response = await fetch('https://juta-dev.ngrok.dev/api/appointments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        ...newEvent,
+        userEmail, // pass user email if your backend needs it
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create appointment');
+    }
+
+    const newAppointment = await response.json();
+
+    setAppointments(prevAppointments => [...prevAppointments, newAppointment]);
+    return newAppointment;
+  } catch (error) {
+    console.error('Error creating appointment:', error);
+    return null;
+  }
+};
+
+// ... existing code ...
 
   const handleEventDrop = async (eventDropInfo: any) => {
     const { event } = eventDropInfo;
@@ -3302,21 +3281,6 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                             </div>
                           </div>
 
-                          <div className="flex flex-wrap gap-1.5 mb-2">
-                            {appointment.staff.map((employeeId) => {
-                              const employee = employees.find(e => e.id === employeeId);
-                              return employee ? (
-                                <span 
-                                  key={employee.id} 
-                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize"
-                                  style={{ backgroundColor: employee.color, color: '#fff' }}
-                                >
-                                  {employee.name}
-                                </span>
-                              ) : null;
-                            })}
-                          </div>
-
                           {appointment.tags && appointment.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mb-2">
                               {appointment.tags.slice(0, 2).map(tag => (
@@ -3342,18 +3306,7 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                             </div>
                           )}
 
-                          <div className="space-y-1">
-                            {appointment.contacts.map(contact => (
-                              <div key={contact.id} className="text-sm text-gray-600 dark:text-gray-400">
-                                <span className="font-medium">{contact.name}</span>
-                                {contact.session > 0 && 
-                                  <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                                    Session {contact.session}
-                                  </span>
-                                }
-                              </div>
-                            ))}
-                          </div>
+            
 
                           {appointment.details && (
                             <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">

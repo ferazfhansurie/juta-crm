@@ -1402,7 +1402,7 @@ const ReactionPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => vo
       if (userEmail) {
         try {
           const response = await fetch(
-            `http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+            `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
             {
               method: 'GET',
               credentials: 'include',
@@ -1736,7 +1736,7 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
     console.log('fetching contacts');
         try {
           // Get user config to get companyId
-          const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+          const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
@@ -1754,7 +1754,7 @@ const handlePhoneChange = async (newPhoneIndex: number) => {
           const companyId = userData.company_id;
     
           // Fetch contacts from SQL database
-          const contactsResponse = await fetch(`http://localhost:8443/api/companies/${companyId}/contacts?email=${userEmail}`, {
+          const contactsResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts?email=${userEmail}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
@@ -2423,7 +2423,7 @@ useEffect(() => {
       }
 
       // Get user config to get companyId
-      const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -2440,7 +2440,7 @@ useEffect(() => {
       const companyId = userData.company_id;
 
       // Create WebSocket connection
-      ws = new WebSocket(`ws://localhost:8443/ws/${userEmail}/${companyId}`);
+      ws = new WebSocket(`ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`);
       setWsConnection(ws);
 
       ws.onopen = () => {
@@ -2596,7 +2596,7 @@ useEffect(() => {
   
     try {
       const response = await fetch(
-        `http://localhost:8443/api/user-config?email=${encodeURIComponent(userEmail)}`,
+        `https://juta-dev.ngrok.dev/api/user-config?email=${encodeURIComponent(userEmail)}`,
         {
           method: 'GET',
           credentials: 'include',
@@ -2617,11 +2617,11 @@ useEffect(() => {
       console.log(data.userData);
     
       //console.log('role',data.userData.role);
-
+  
       user_role = data.userData.role;
       companyId = data.userData.companyId;
       user_name = data.userData.name;
-
+  
       // Set company data
       setCompanyPlan(data.companyData.plan);
       setPhoneCount(data.companyData.phoneCount);
@@ -2670,9 +2670,9 @@ useEffect(() => {
         }
       }
   
-      // Set tags if company is using v2
+      // Set tags if company is using v2 - use fetchTags instead of data.tags
       if (data.companyData.v2) {
-        setTagList(data.tags);
+        await fetchTags(data.employeeList.map((emp: any) => emp.name));
       }
   
     } catch (error) {
@@ -2680,7 +2680,66 @@ useEffect(() => {
     }
   }
   
+// Add the fetchTags function
+const fetchTags = async (employeeList: string[]) => {
+  setLoading(true);
+  console.log('fetching tags');
+  try {
+    // Get user email from localStorage or context
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      setLoading(false);
+      return;
+    }
 
+    // Fetch user/company info from your backend
+    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    });
+    if (!userResponse.ok) {
+      setLoading(false);
+      return;
+    }
+    const userJson = await userResponse.json();
+    console.log(userJson);
+    const companyData = userJson.userData;
+    const companyId = companyData.companyId;
+    if (!companyId) {
+      setLoading(false);
+      return;
+    }
+
+    // Fetch tags from your SQL backend
+    const tagsResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/tags`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    });
+    if (!tagsResponse.ok) {
+      setLoading(false);
+      return;
+    }
+    console.log("tags",tagsResponse);
+    const tags: Tag[] = await tagsResponse.json();
+
+    // Filter out tags that match employee names (case-insensitive)
+    const normalizedEmployeeNames = employeeList
+    .filter(name => typeof name === 'string' && name)
+    .map(name => name.toLowerCase());
+    const filteredTags = tags.filter((tag: Tag) =>
+      !normalizedEmployeeNames.includes(tag.name.toLowerCase())
+    );
+
+    setTagList(filteredTags);
+    console.log(tagList);
+    setLoading(false);
+  } catch (error) {
+    console.error('Error fetching tags:', error);
+    setLoading(false);
+  }
+};
   const deleteNotifications = async (chatId: string) => {
     try {
       const user = auth.currentUser;
@@ -2812,7 +2871,7 @@ const fetchContactsBackground = async () => {
   }
   try {
     // Get user config to get companyId
-    const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -2830,7 +2889,7 @@ const fetchContactsBackground = async () => {
     const companyId = userData.company_id;
 
     // Fetch contacts from SQL database
-    const contactsResponse = await fetch(`http://localhost:8443/api/companies/${companyId}/contacts?email=${userEmail}`, {
+    const contactsResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts?email=${userEmail}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -2877,7 +2936,7 @@ const fetchContactsBackground = async () => {
       const userEmail = localStorage.getItem('userEmail');
       if (userEmail) {
         try {
-          const response = await fetch(`http://localhost:8443/api/user-role?email=${encodeURIComponent(userEmail)}`, {
+          const response = await fetch(`https://juta-dev.ngrok.dev/api/user-role?email=${encodeURIComponent(userEmail)}`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -3075,7 +3134,7 @@ const fetchContactsBackground = async () => {
     const userEmail = localStorage.getItem('userEmail');
     try {
       // Get user data and company info from SQL
-      const userResponse = await fetch(`http://localhost:8443/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
+      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
         credentials: 'include'
       });
       
@@ -3089,7 +3148,7 @@ const fetchContactsBackground = async () => {
       console.log(userData);
       console.log(companyId);
       // Get company data
-      const companyResponse = await fetch(`http://localhost:8443/api/company-data?companyId=${companyId}`, {
+      const companyResponse = await fetch(`https://juta-dev.ngrok.dev/api/company-data?companyId=${companyId}`, {
         credentials: 'include'
       });
       
@@ -3101,7 +3160,7 @@ const fetchContactsBackground = async () => {
       setToken(companyData.whapiToken);
   
       // Fetch messages from SQL
-      const messagesResponse = await fetch(`http://localhost:8443/api/messages?chatId=${selectedChatId}&companyId=${companyId}`, {
+      const messagesResponse = await fetch(`https://juta-dev.ngrok.dev/api/messages?chatId=${selectedChatId}&companyId=${companyId}`, {
         credentials: 'include'
       });
       
@@ -3263,7 +3322,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
   const userEmail = localStorage.getItem('userEmail');
   try {
     // Get user data and company info from SQL
-    const userResponse = await fetch(`http://localhost:8443/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
+    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
       credentials: 'include'
     });
     
@@ -3275,7 +3334,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     const companyId = userData.company_id;
 
     // Get company data
-    const companyResponse = await fetch(`http://localhost:8443/api/company-data?companyId=${companyId}`, {
+    const companyResponse = await fetch(`https://juta-dev.ngrok.dev/api/company-data?companyId=${companyId}`, {
       credentials: 'include'
     });
     
@@ -3286,7 +3345,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
     const companyData = await companyResponse.json();
 
     // Fetch messages from SQL
-    const messagesResponse = await fetch(`http://localhost:8443/api/messages?chatId=${selectedChatId}&companyId=${companyId}`, {
+    const messagesResponse = await fetch(`https://juta-dev.ngrok.dev/api/messages?chatId=${selectedChatId}&companyId=${companyId}`, {
       credentials: 'include'
     });
     
@@ -3563,7 +3622,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       const userEmail = localStorage.getItem('userEmail');
    
       // Get user data from SQL
-      const userResponse = await fetch(`http://localhost:8443/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
+      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
         credentials: 'include'
       });
       
@@ -3574,7 +3633,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       const userName = userData.name || userData.email || '';
   
       // Get company data from SQL
-      const companyResponse = await fetch(`http://localhost:8443/api/company-data?companyId=${companyId}`, {
+      const companyResponse = await fetch(`https://juta-dev.ngrok.dev/api/company-data?companyId=${companyId}`, {
         credentials: 'include'
       });
       
@@ -3588,7 +3647,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       }
   
       // Send message to API
-      const url = `http://localhost:8443/api/v2/messages/text/${companyId}/${selectedChatId}`;
+      const url = `https://juta-dev.ngrok.dev/api/v2/messages/text/${companyId}/${selectedChatId}`;
       const requestBody = {
         message: messageText,
         quotedMessageId: replyToMessage?.id || null,
@@ -3631,7 +3690,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
       // Handle special case for company 0123
       if (companyId === '0123' && selectedContact?.id) {
         // Update contact in SQL
-        const updateResponse = await fetch(`http://localhost:8443/api/contacts/${selectedContact.id}`, {
+        const updateResponse = await fetch(`https://juta-dev.ngrok.dev/api/contacts/${selectedContact.id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json'
@@ -3663,7 +3722,7 @@ async function fetchMessagesBackground(selectedChatId: string, whapiToken: strin
         }
       } else {
         // Update contact's last message in SQL
-       /* const updateResponse = await fetch(`http://localhost:8443/api/contacts/${selectedContact?.id}`, {
+       /* const updateResponse = await fetch(`https://juta-dev.ngrok.dev/api/contacts/${selectedContact?.id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json'
@@ -3807,7 +3866,7 @@ const toggleStopBotLabel = useCallback(
       const userEmail = localStorage.getItem('userEmail');
    
       // Get user data from SQL
-      const userResponse = await fetch(`http://localhost:8443/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
+      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
         credentials: 'include'
       });
       
@@ -3826,14 +3885,14 @@ const toggleStopBotLabel = useCallback(
 
       if (!hasLabel) {
         // Add the tag
-        response = await fetch(`http://localhost:8443/api/contacts/${companyId}/${contact.contact_id}/tags`, {
+        response = await fetch(`https://juta-dev.ngrok.dev/api/contacts/${companyId}/${contact.contact_id}/tags`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tags: ["stop bot"] }),
         });
       } else {
         // Remove the tag
-        response = await fetch(`http://localhost:8443/api/contacts/${companyId}/${contact.contact_id}/tags`, {
+        response = await fetch(`https://juta-dev.ngrok.dev/api/contacts/${companyId}/${contact.contact_id}/tags`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tags: ["stop bot"] }),
@@ -4137,7 +4196,92 @@ const pauseFiveDaysFollowUp = (contact: Contact) => {
   handleBinaTag('pauseFollowUp', contact.phone, contact.contactName, contact.phoneIndex ?? 0);
 };
 
-// ... existing code ...
+// Add this function to your Chat page
+const handleTagFollowUp = async (selectedContacts: Contact[], templateId: string) => {
+  try {
+    // Get company and user data
+    const userEmail = localStorage.getItem('userEmail');
+    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
+      credentials: 'include'
+    });
+    
+    if (!userResponse.ok) throw new Error('Failed to fetch user data');
+    const userData = await userResponse.json();
+    const companyId = userData.company_id;
+
+    if (!companyId) {
+      toast.error("Missing company ID");
+      return;
+    }
+
+    // Prepare the requests for each contact
+    const requests = selectedContacts.map(contact => {
+      const phoneNumber = contact.phone?.replace(/\D/g, '');
+      return fetch(`https://juta-dev.ngrok.dev/api/tag/followup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestType: 'startTemplate',
+          phone: phoneNumber,
+          first_name: contact.contactName || contact.firstName || contact.name || phoneNumber,
+          phoneIndex: contact.phoneIndex || 0,
+          templateId: templateId,
+          idSubstring: companyId
+        }),
+      }).then(async response => {
+        if (!response.ok) {
+          throw new Error(`Follow-up API error for ${phoneNumber}: ${response.statusText}`);
+        }
+        return { success: true, phone: phoneNumber };
+      }).catch(error => {
+        console.error(`Error processing ${phoneNumber}:`, error);
+        return { success: false, phone: phoneNumber, error };
+      });
+    });
+
+    // Process requests in batches (you can adjust these values)
+    const BATCH_SIZE = 5;
+    const DELAY_BETWEEN_BATCHES = 1000; // 1 second
+
+    const results = await processBatchRequests(requests, BATCH_SIZE, DELAY_BETWEEN_BATCHES);
+
+    // Count successes and failures
+    const successes = results.filter(r => r.success).length;
+    const failures = results.filter(r => !r.success).length;
+
+    // Show appropriate toast messages
+    if (successes > 0) {
+      toast.success(`Follow-up sequences started for ${successes} contacts`);
+    }
+    if (failures > 0) {
+      toast.error(`Failed to start follow-up sequences for ${failures} contacts`);
+    }
+
+  } catch (error) {
+    console.error('Error processing follow-up sequences:', error);
+    toast.error('Failed to process follow-up sequences');
+  }
+};
+
+// Helper function for batch processing (add this if you don't have it)
+const processBatchRequests = async (requests: Promise<any>[], batchSize: number, delay: number) => {
+  const results = [];
+  
+  for (let i = 0; i < requests.length; i += batchSize) {
+    const batch = requests.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch);
+    results.push(...batchResults);
+    
+    // Add delay between batches (except for the last batch)
+    if (i + batchSize < requests.length) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  return results;
+};
+
+// Example usage in your existing handleAddTagToSelectedContacts function:
 const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact) => {
   console.log(contact);
   try {
@@ -4145,7 +4289,7 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
     const userEmail = localStorage.getItem('userEmail');
    
     // Get user data from SQL
-    const userResponse = await fetch(`http://localhost:8443/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
+    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-data?email=${encodeURIComponent(userEmail || '')}`, {
       credentials: 'include'
     });
     
@@ -4163,7 +4307,7 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
 
     if (employee) {
       // Assign employee to contact (requires backend endpoint for assignment logic)
-      const response = await fetch(`http://localhost:8443/api/contacts/${companyId}/${contact.contact_id}/assign-employee`, {
+      const response = await fetch(`https://juta-dev.ngrok.dev/api/contacts/${companyId}/${contact.contact_id}/assign-employee`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employeeId: employee.id, employeeName: employee.name }),
@@ -4174,19 +4318,21 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
       }
       toast.success(`Contact assigned to ${tagName}`);
       await sendAssignmentNotification(tagName, contact);
-      // Optionally update local state for employeeList and contacts here if your backend returns updated info
       return;
     }
-
+    console.log('Adding tag', tagName, 'to contact', contact.contact_id, 'in company', companyId);
     // Handle non-employee tags (add tag to contact)
     const hasTag = contact.tags?.includes(tagName) || false;
     if (!hasTag) {
-      const response = await fetch(`http://localhost:8443/api/contacts/${companyId}/${contact.contact_id}/tags`, {
+      console.log('Adding tag', tagName, 'to contact', contact.contact_id, 'in company', companyId);
+      const response = await fetch(`https://juta-dev.ngrok.dev/api/contacts/${companyId}/${contact.contact_id}/tags`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tags: [tagName] }),
       });
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to add tag to contact:', errorText);
         toast.error('Failed to add tag to contact');
         return;
       }
@@ -4201,25 +4347,6 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
         )
       );
 
-      // Optionally: handle special tags (call your backend or local functions as needed)
-      switch (tagName) {
-        case 'Before Quote Follow Up':
-          await addTagBeforeQuote(contact);
-          break;
-        case 'Before Quote Follow Up EN':
-          await addTagBeforeQuoteEnglish(contact);
-          break;
-        case 'Before Quote Follow Up BM':
-          await addTagBeforeQuoteMalay(contact);
-          break;
-        case 'Before Quote Follow Up CN':
-          await addTagBeforeQuoteChinese(contact);
-          break;
-        case 'Pause Follow Up':
-          await pauseFiveDaysFollowUp(contact);
-          break;
-      }
-
       toast.success(`Tag "${tagName}" added to contact`);
     } else {
       toast.info(`Tag "${tagName}" already exists for this contact`);
@@ -4229,9 +4356,6 @@ const handleAddTagToSelectedContacts = async (tagName: string, contact: Contact)
     toast.error('Failed to add tag to contact');
   }
 };
-// ... existing code ...
-
-
   
 
 // Add this function to handle adding notifications
@@ -5780,151 +5904,76 @@ interface Template {
   updatedAt?: any;
 }
 
- const handleRemoveTag = async (contactId: string, tagName: string) => {
-      try {
-        const user = auth.currentUser;
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error('No company document found');
-  
-      const companyData = docSnapshot.data();
-      const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-      // Check if tag is a trigger tag
-      const templatesRef = collection(firestore, 'companies', companyId, 'followUpTemplates');
-      const templatesSnapshot = await getDocs(templatesRef);
-      
-      let matchingTemplate: any = null;
-      templatesSnapshot.forEach(doc => {
-        const template = doc.data();
-        if (template.triggerTags?.includes(tagName) && template.status === 'active') {
-          matchingTemplate = { 
-            id: doc.id, 
-            ...template 
-          };
-        }
-      });
-  
-      // Update Firestore
-      const contactRef = doc(firestore, 'companies', companyId, 'contacts', contactId);
-      const contactSnapshot = await getDoc(contactRef);
-      const contact = contactSnapshot.data() as Contact;
-      await updateDoc(contactRef, {
-        tags: arrayRemove(tagName)
-      });
-  
-      // If this was a trigger tag, call the follow-up API to remove the template
-      if (matchingTemplate) {
-        try {
-          const response = await fetch(`${baseUrl}/api/tag/followup`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              requestType: 'removeTemplate',
-              phone: contact.phone,
-              first_name: contact.contactName || contact.firstName || contact.phone,
-              phoneIndex: contact.phoneIndex || 0,
-              templateId: matchingTemplate.id,
-              idSubstring: companyId
-            }),
-          });
-  
-          if (!response.ok) {
-            throw new Error(`Follow-up API error: ${response.statusText}`);
-          }
-  
-          
-          toast.success('Follow-up sequence stopped');
-        } catch (error) {
-          console.error('Error stopping follow-up sequence:', error);
-          toast.error('Failed to stop follow-up sequence');
-        }
-      }
-  
-      // Check if the removed tag is an employee name
-      const isEmployeeTag = employeeList.some(employee => (employee.name?.toLowerCase() || '') === tagName.toLowerCase());
-      if (isEmployeeTag) {
-        const employeeRef = doc(firestore, 'companies', companyId, 'employee', tagName);
-        const employeeDoc = await getDoc(employeeRef);
-        
-        if (employeeDoc.exists()) {
-          const currentData = employeeDoc.data();
-          const currentQuotaLeads = currentData.quotaLeads || 0;
-          
-          await updateDoc(employeeRef, {
-            assignedContacts: arrayRemove(contactId),
-            quotaLeads: currentQuotaLeads + 1 // Increase quota by 1
-          });
+const handleRemoveTag = async (contactId: string, tagName: string) => {
+  try {
+    // Get user/company info
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) return;
+    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+    if (!userResponse.ok) throw new Error('Failed to fetch user/company data');
+    const userData = await userResponse.json();
+    const companyId = userData.userData.companyId;
+    const companyData = userData.companyData;
+    const baseUrl = companyData.apiUrl || 'https://juta-dev.ngrok.dev';
 
-          await updateDoc(contactRef, {
-            assignedTo: deleteField()
-          });
+    // Get contact info (from your local state or fetch if needed)
+    const contact = contacts.find((c: Contact) => c.contact_id === contactId);
+    if (!contact) throw new Error('Contact not found');
+console.log(contact);
+ 
 
-          toast.success(`Contact unassigned from ${tagName}. Quota leads updated from ${currentQuotaLeads} to ${currentQuotaLeads + 1}.`);
-        } else {
-          console.error(`Employee document for ${tagName} does not exist.`);
-          
-          
-          // List all documents in the employee collection
-          const employeeCollectionRef = collection(firestore, 'companies', companyId, 'employee');
-          const employeeSnapshot = await getDocs(employeeCollectionRef);
-          
-          employeeSnapshot.forEach(doc => {
-          
-          });
-        }
-      }
+    // Remove tag from contact via your backend
+    const response = await fetch(`https://juta-dev.ngrok.dev/api/contacts/${companyId}/${contactId}/tags`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tags: [tagName] }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Failed to remove tag from contact');
+    }
 
-      //handle specific tags
-      if (tagName === 'Before Quote Follow Up') {
-        removeTagBeforeQuote(contact);
-      } else if (tagName === 'Before Quote Follow Up EN') {
-        removeTagBeforeQuote(contact);
-      } else if (tagName === 'Before Quote Follow Up BM') {
-        removeTagBeforeQuote(contact);
-      } else if (tagName === 'Before Quote Follow Up CN') {
-        removeTagBeforeQuote(contact); 
-      } else if (tagName === 'Pause Follow Up') {
-        removeTagPause(contact);
-      } else if (tagName === 'Edward Follow Up') {
-        removeTagEdward(contact);
-      }
-  
-      // Update state
-      setContacts(prevContacts => {
-        return prevContacts.map(contact =>
-          contact.id === contactId
-            ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName), assignedTo: undefined }
-            : contact
-        );
-      });
-  
-      const updatedContacts = contacts.map((contact: Contact) =>
+ 
+    // Handle specific tags (call your local functions as needed)
+    if (tagName === 'Before Quote Follow Up') {
+      removeTagBeforeQuote(contact);
+    } else if (tagName === 'Before Quote Follow Up EN') {
+      removeTagBeforeQuote(contact);
+    } else if (tagName === 'Before Quote Follow Up BM') {
+      removeTagBeforeQuote(contact);
+    } else if (tagName === 'Before Quote Follow Up CN') {
+      removeTagBeforeQuote(contact); 
+    } else if (tagName === 'Pause Follow Up') {
+      removeTagPause(contact);
+    } else if (tagName === 'Edward Follow Up') {
+      removeTagEdward(contact);
+    }
+
+    // Update state
+    setContacts(prevContacts => {
+      return prevContacts.map(contact =>
         contact.id === contactId
-          ? { ...contact, tags: contact.tags!.filter((tag: string) => tag !== tagName), assignedTo: undefined }
+          ? { ...contact, tags: contact.tags!.filter(tag => tag !== tagName), assignedTo: undefined }
           : contact
       );
-  
-      const updatedSelectedContact = updatedContacts.find(contact => contact.id === contactId);
-      if (updatedSelectedContact) {
-        setSelectedContact(updatedSelectedContact);
-      }
-      toast.success('Tag removed successfully!');
-    } catch (error) {
-      console.error('Error removing tag:', error);
-      toast.error('Failed to remove tag.');
+    });
+
+    const updatedContacts = contacts.map((contact: Contact) =>
+      contact.id === contactId
+        ? { ...contact, tags: contact.tags!.filter((tag: string) => tag !== tagName), assignedTo: undefined }
+        : contact
+    );
+
+    const updatedSelectedContact = updatedContacts.find(contact => contact.id === contactId);
+    if (updatedSelectedContact) {
+      setSelectedContact(updatedSelectedContact);
     }
-  };
-  
+    toast.success('Tag removed successfully!');
+  } catch (error) {
+    console.error('Error removing tag:', error);
+    toast.error('Failed to remove tag.');
+  }
+};
  
 
   const adjustHeight = (textarea: HTMLTextAreaElement, reset = false) => {
@@ -6174,37 +6223,19 @@ useEffect(() => {
 // Update the useEffect that fetches company stop bot status
 useEffect(() => {
   let isMounted = true;
+
+  function getEffectiveStopBot(companyData: any, currentPhoneIndex: string | number) {
+    if (companyData.stopbots && Object.keys(companyData.stopbots).length > 0) {
+      return !!companyData.stopbots[currentPhoneIndex];
+    }
+    return !!companyData.stopbot;
+  }
+
   const fetchCompanyStopBot = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-  
-        const docUserRef = doc(firestore, 'user', user.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) return;
-  
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const currentPhoneIndex = userData.phone || 0;
-
-      const companyRef = doc(firestore, 'companies', companyId);
-      const companySnapshot = await getDoc(companyRef);
-      if (!companySnapshot.exists()) return;
-
-      const companyData = companySnapshot.data();
-      
-      // Update this logic to correctly set the bot status
-      if (companyData.phoneCount) {
-        const stopbots = companyData.stopbots || {};
-        if (isMounted) {
-          // true means bot is stopped, false means bot is running
-          setCompanyStopBot(!!stopbots[currentPhoneIndex]);
-        }
-      } else {
-        if (isMounted) {
-          // true means bot is stopped, false means bot is running
-          setCompanyStopBot(!!companyData.stopbot);
-        }
+    try {
+      const { companyData, currentPhoneIndex } = await getCompanyData();
+      if (isMounted) {
+        setCompanyStopBot(getEffectiveStopBot(companyData, currentPhoneIndex));
       }
     } catch (error) {
       console.error('Error fetching company stopbot status:', error);
@@ -6212,59 +6243,22 @@ useEffect(() => {
   };
 
   fetchCompanyStopBot();
-  
-  // Set up a real-time listener for changes
-  const setupRealtimeListener = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
 
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) return;
-
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-    
-    const companyRef = doc(firestore, 'companies', companyId);
-    const unsubscribe = onSnapshot(companyRef, (snapshot) => {
-      if (snapshot.exists() && isMounted) {
-        const companyData = snapshot.data();
-        const currentPhoneIndex = userData.phone || 0;
-        
-        if (companyData.phoneCount) {
-          const stopbots = companyData.stopbots || {};
-          setCompanyStopBot(!!stopbots[currentPhoneIndex]);
-        } else {
-          setCompanyStopBot(!!companyData.stopbot);
-        }
-      }
-    });
-
-    return unsubscribe;
-  };
-
-  const unsubscribe = setupRealtimeListener();
+  // Optional: Poll every 10 seconds for updates (remove if not needed)
+  const interval = setInterval(fetchCompanyStopBot, 10000);
 
   return () => {
     isMounted = false;
-    if (unsubscribe) {
-      unsubscribe.then(unsub => {
-        if (unsub) {
-          unsub();
-        }
-      }).catch(error => {
-        console.error('Error during unsubscribe:', error);
-      });
-    }
+    clearInterval(interval);
   };
-}, [userData?.phone]);
+}, []);
 
 const getCompanyData = async () => {
   const userEmail = localStorage.getItem('userEmail');
   if (!userEmail) throw new Error('No authenticated user');
 
   const response = await fetch(
-    `http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+    `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
     {
       method: 'GET',
       credentials: 'include',
@@ -6312,22 +6306,42 @@ const toggleBot = async () => {
   try {
     const { companyData, userData, currentPhoneIndex } = await getCompanyData();
 
-    
-    if (companyData.phoneCount) {
-      const currentStopbots = companyData.stopbots || {};
-      const newStopbots = {
-        ...currentStopbots,
-        [currentPhoneIndex]: !currentStopbots[currentPhoneIndex]
+    let newStopbots;
+    let stopbotPayload;
+    if (companyData.stopbots && Object.keys(companyData.stopbots).length > 0) {
+      // Toggle the value for the current phone index in stopbots
+      newStopbots = {
+        ...companyData.stopbots,
+        [currentPhoneIndex]: !companyData.stopbots[currentPhoneIndex]
       };
-      
-     // await updateDoc(companyRef, { stopbots: newStopbots });
-      setCompanyStopBot(!companyStopBot); // Update local state immediately
-      toast.success(`Bot for ${phoneNames[currentPhoneIndex]} ${companyStopBot ? 'enabled' : 'disabled'} successfully`);
+      stopbotPayload = { stopbots: newStopbots };
     } else {
-      //await updateDoc(companyRef, { stopbot: !companyData.stopbot });
-      setCompanyStopBot(!companyStopBot); // Update local state immediately
-      toast.success(`Bot ${companyStopBot ? 'enabled' : 'disabled'} successfully`);
+      // Fallback to stopbot (single value)
+      newStopbots = !companyData.stopbot;
+      stopbotPayload = { stopbot: newStopbots };
     }
+console.log(userData);
+    // Update your backend here
+    await fetch('https://juta-dev.ngrok.dev/api/company/update-stopbot', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        companyId: userData.companyId || companyData.companyId,
+        ...stopbotPayload
+      })
+    });
+
+    setCompanyStopBot(
+      companyData.stopbots && Object.keys(companyData.stopbots).length > 0
+        ? newStopbots[currentPhoneIndex]
+        : newStopbots
+    );
+    toast.success(
+      `Bot${companyData.phoneCount ? ` for ${phoneNames[currentPhoneIndex]}` : ''} ${newStopbots[currentPhoneIndex] ? 'disabled' : 'enabled'} successfully`
+    );
   } catch (error) {
     console.error('Error toggling bot status:', error);
     toast.error(error instanceof Error ? error.message : 'Failed to toggle bot status');
@@ -6433,8 +6447,8 @@ const toggleBot = async () => {
         documentUrl = await uploadFile(selectedDocument);
       }
   
-      // Use localhost:8443 instead of Firebase
-      const baseUrl = 'http://localhost:8443';
+      // Use juta-dev.ngrok.dev instead of Firebase
+      const baseUrl = 'https://juta-dev.ngrok.dev';
       const companyId = userData?.companyId; // Get from your existing userData state
       
       if (!companyId) {
@@ -6484,7 +6498,7 @@ const toggleBot = async () => {
         sleepDuration: activateSleep ? sleepDuration : null,
       };
   
-      // Make API call to localhost:8443
+      // Make API call to juta-dev.ngrok.dev
       const response = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, scheduledMessageData);
   console.log(response);
       toast.success(`Blast message scheduled successfully.`);
@@ -6775,18 +6789,18 @@ useEffect(() => {
         console.error('No authenticated user');
         return;
       }
-      const userRes = await fetch(`http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+      const userRes = await fetch(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
       if (!userRes.ok) throw new Error('Failed to fetch user/company data');
       const { userData, companyData } = await userRes.json();
       const companyId = userData.companyId;
   
       // 2. Get all contacts
-      const contactsRes = await fetch(`http://localhost:8443/api/companies/${companyId}/contacts`);
+      const contactsRes = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts`);
       if (!contactsRes.ok) throw new Error('Failed to fetch contacts');
       const contacts = await contactsRes.json();
   
       // 3. Get all employees
-      const employeesRes = await fetch(`http://localhost:8443/api/companies/${companyId}/employees`);
+      const employeesRes = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/employees`);
       if (!employeesRes.ok) throw new Error('Failed to fetch employees');
       const employeeList = await employeesRes.json();
   
@@ -6813,7 +6827,7 @@ useEffect(() => {
         const assignedDiff = newAssignedCount - (employee.assignedContacts || 0);
         const newQuotaLeads = Math.max(0, (employee.quotaLeads || 0) - (assignedDiff > 0 ? assignedDiff : 0));
   
-        await fetch(`http://localhost:8443/api/companies/${companyId}/employees/${employee.id}`, {
+        await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/employees/${employee.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -9807,7 +9821,7 @@ useEffect(() => {
                               <span>{employeeTag}</span>
                               <button
                                 className="ml-2 focus:outline-none"
-                                onClick={() => handleRemoveTag(selectedContact.id, employeeTag)}
+                                onClick={() => handleRemoveTag(selectedContact.contact_id, employeeTag)}
                               >
                                 <Lucide icon="X" className="w-4 h-4 text-green-600 hover:text-green-800 dark:text-green-300 dark:hover:text-green-100" />
                               </button>
@@ -9836,7 +9850,7 @@ useEffect(() => {
                         <span>{tag}</span>
                         <button
                           className="ml-2 focus:outline-none"
-                          onClick={() => handleRemoveTag(selectedContact.id, tag)}
+                          onClick={() => handleRemoveTag(selectedContact.contact_id, tag)}
                         >
                           <Lucide icon="X" className="w-4 h-4 text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-100" />
                         </button>

@@ -36,7 +36,7 @@ const firebaseConfig = {
       setError(""); // Clear previous errors
       try {
         console.log('Sending login request with:', { email }); // Don't log passwords!
-        const response = await fetch('http://localhost:8443/api/login', {
+        const response = await fetch('https://juta-dev.ngrok.dev/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),

@@ -104,7 +104,7 @@ function LoadingPage() {
       }
   
       // Get user config to get companyId
-      const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -121,7 +121,7 @@ function LoadingPage() {
       setCompanyId(companyId);
   
       // Get all bot status and company data in one call
-      const statusResponse = await fetch(`http://localhost:8443/api/bot-status/${companyId}`, {
+      const statusResponse = await fetch(`https://juta-dev.ngrok.dev/api/bot-status/${companyId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -161,7 +161,7 @@ function LoadingPage() {
       }
   
       // Set up WebSocket for real-time updates
-      const baseUrl = data.apiUrl || 'http://localhost:8443';
+      const baseUrl = data.apiUrl || 'https://juta-dev.ngrok.dev';
       const ws = new WebSocket(`${baseUrl.replace('http', 'ws')}/ws/${userEmail}/${companyId}`);
       
       ws.onopen = () => {
@@ -217,7 +217,7 @@ function LoadingPage() {
           }
   
           // Get company ID from SQL database
-          const response = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`);
+          const response = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`);
           if (!response.ok) {
             throw new Error("Failed to fetch user config");
           }
@@ -226,7 +226,7 @@ function LoadingPage() {
           const companyId = userData.company_id;
   
           // Connect to WebSocket
-          ws.current = new WebSocket(`ws://localhost:8443/ws/${userEmail}/${companyId}`);
+          ws.current = new WebSocket(`ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`);
           
           ws.current.onopen = () => {
             setWsConnected(true);

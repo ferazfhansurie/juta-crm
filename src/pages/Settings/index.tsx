@@ -41,7 +41,7 @@ const fetchSettings = async () => {
     setIsLoading(true); // Assuming setIsLoading is a state setter
 
     // 1. Get user data (companyId and role)
-    const userResponse = await axios.get(`http://localhost:8443/api/user-data/${userEmail}`);
+    const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
     const userData = userResponse.data;
 
     if (!userData) {
@@ -54,7 +54,7 @@ const fetchSettings = async () => {
     setRole(userData.role); // Assuming setRole is a state setter
 
     // 2. Get company settings (using the already existing company-config API)
-    const companyConfigResponse = await axios.get(`http://localhost:8443/api/company-config/${userCompanyId}`);
+    const companyConfigResponse = await axios.get(`https://juta-dev.ngrok.dev/api/company-config/${userCompanyId}`);
     const { companyData } = companyConfigResponse.data;
 
     setBaseUrl(companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app'); // Assuming setBaseUrl is a state setter

@@ -252,7 +252,7 @@ const Main: React.FC = () => {
 
     try {
       // Get user config to get companyId
-      const userResponse = await fetch(`http://localhost:8443/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -287,7 +287,7 @@ const fetchFirebaseConfig = async () => {
       return;
     }
 
-    const response = await axios.get(`http://localhost:8443/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+    const response = await axios.get(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
 
     if (response.status === 200) {
       const { companyData } = response.data;
@@ -308,7 +308,7 @@ console.log(companyData);
       }));
 
       setAssistants(assistantConfigs);
-      const response2 = await axios.get(`http://localhost:8443/api/company-config/${companyId}`);
+      const response2 = await axios.get(`https://juta-dev.ngrok.dev/api/company-config/${companyId}`);
     
 
         const { openaiApiKey } = response2.data;
@@ -420,7 +420,7 @@ console.log(companyData);
       const userEmail = localStorage.getItem('userEmail');
  
 
-      const res = await axios.get(`http://localhost:8443/api/assistant-test/`, {
+      const res = await axios.get(`https://juta-dev.ngrok.dev/api/assistant-test/`, {
         params: {
           message: messageText,
           email: userEmail,
@@ -436,10 +436,12 @@ console.log(companyData);
         text: data.answer,
         createdAt: new Date().toISOString(),
       };
-  
+
       setMessages(prevMessages => [assistantResponse, ...prevMessages]);
-      setThreadId(userEmail); // Update the threadId to user email as a placeholder
-  
+      if (userEmail) {
+        setThreadId(userEmail); // Update the threadId to user email as a placeholder
+      }
+
     } catch (error) {
       console.error('Error:', error);
       setError("Failed to send message");
@@ -717,7 +719,7 @@ console.log(companyData);
   
     try {
       // Fetch templates from your SQL backend
-      const response = await axios.get(`http://localhost:8443/api/instruction-templates?companyId=${encodeURIComponent(companyId)}`);
+      const response = await axios.get(`https://juta-dev.ngrok.dev/api/instruction-templates?companyId=${encodeURIComponent(companyId)}`);
       if (response.status === 200 && Array.isArray(response.data.templates)) {
         setTemplates(response.data.templates);
       } else {
@@ -739,7 +741,7 @@ console.log(companyData);
       const timestamp = new Date().toLocaleString(); // Format: M/D/YYYY, H:MM:SS AM/PM
   
       // Send to your SQL backend
-      const response = await axios.post('http://localhost:8443/api/instruction-templates', {
+      const response = await axios.post('https://juta-dev.ngrok.dev/api/instruction-templates', {
         companyId,
         name: timestamp,
         instructions: assistantInfo.instructions
@@ -1151,18 +1153,7 @@ console.log(companyData);
                         <div className="mt-4 space-y-4">
                           <h3 className="text-md font-medium text-gray-700 dark:text-gray-300">AI Response Settings</h3>
                           
-                          <div>
-                            <label className="flex items-center space-x-2 mb-2 text-gray-700 dark:text-gray-300">
-                              <input
-                                type="checkbox"
-                                checked={aiAutoResponse}
-                                onChange={(e) => setAiAutoResponse(e.target.checked)}
-                                className="form-checkbox h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                                disabled={userRole === "3"}
-                              />
-                              <span>Disable AI Auto-Response for New Contacts</span>
-                            </label>
-                          </div>
+                        
 
                           <div>
                             <label className="block mb-2 text-gray-700 dark:text-gray-300">Response Delay (seconds)</label>
@@ -1440,18 +1431,7 @@ console.log(companyData);
                       <h3 className="text-md font-medium mb-3 text-gray-700 dark:text-gray-300">AI Response Settings</h3>
                       
                       <div className="space-y-4">
-                        <div>
-                          <label className="flex items-center space-x-2 mb-2 text-gray-700 dark:text-gray-300">
-                            <input
-                              type="checkbox"
-                              checked={aiAutoResponse}
-                              onChange={(e) => setAiAutoResponse(e.target.checked)}
-                              className="form-checkbox h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                              disabled={userRole === "3"}
-                            />
-                            <span>Disable AI Auto-Response for New Contacts</span>
-                          </label>
-                        </div>
+                      
 
                         <div>
                           <label className="block mb-2 text-gray-700 dark:text-gray-300">Response Delay (seconds)</label>
