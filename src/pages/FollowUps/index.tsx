@@ -224,7 +224,7 @@ const FollowUpsPage: React.FC = () => {
           if (!userEmail) return;
       
           // Fetch user/company info from your backend
-          const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
+          const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
@@ -235,7 +235,7 @@ const FollowUpsPage: React.FC = () => {
           if (!companyId) return;
       
           // Fetch tags from your SQL backend
-          const tagsResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/tags`, {
+          const tagsResponse = await fetch(`https://julnazz.ngrok.dev/api/companies/${companyId}/tags`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
@@ -523,7 +523,7 @@ const FollowUpsPage: React.FC = () => {
           if (!userEmail) return;
       
           // Get companyId from backend
-          const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+          const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
           const companyId = userResponse.data.userData.companyId;
       
           let startTime: Date;
@@ -554,7 +554,7 @@ const FollowUpsPage: React.FC = () => {
             batchSettings: batchSettings
           };
       
-          const response = await axios.post('https://juta-dev.ngrok.dev/api/followup-templates', templateData);
+          const response = await axios.post('https://julnazz.ngrok.dev/api/followup-templates', templateData);
       
           if (response.data.success) {
             setIsAddingTemplate(false);
@@ -730,10 +730,10 @@ const FollowUpsPage: React.FC = () => {
           const userEmail = localStorage.getItem('userEmail');
           if (!userEmail) return;
       
-          const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+          const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
           const companyId = userResponse.data.userData.companyId;
       
-          const response = await axios.get(`https://juta-dev.ngrok.dev/api/followup-templates?companyId=${encodeURIComponent(companyId)}`);
+          const response = await axios.get(`https://julnazz.ngrok.dev/api/followup-templates?companyId=${encodeURIComponent(companyId)}`);
           if (response.data.success) {
             console.log(response.data.templates);
             setTemplates(response.data.templates);
@@ -747,7 +747,7 @@ const FollowUpsPage: React.FC = () => {
     const fetchMessages = async (templateId: string) => {
         try {
           const response = await axios.get(
-            `https://juta-dev.ngrok.dev/api/followup-templates/${templateId}/messages`
+            `https://julnazz.ngrok.dev/api/followup-templates/${templateId}/messages`
           );
           if (response.data.success && Array.isArray(response.data.messages)) {
             // If createdAt is a string, convert to Date for display
@@ -812,7 +812,7 @@ const FollowUpsPage: React.FC = () => {
       
           // Send to backend
           const response = await axios.post(
-            `https://juta-dev.ngrok.dev/api/followup-templates/${selectedTemplate2}/messages`,
+            `https://julnazz.ngrok.dev/api/followup-templates/${selectedTemplate2}/messages`,
             messageData
           );
       

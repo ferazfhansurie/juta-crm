@@ -731,7 +731,7 @@ const fetchContacts = useCallback(async () => {
     }
 
     // Get user config to get companyId
-    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+    const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -751,7 +751,7 @@ const fetchContacts = useCallback(async () => {
     const userName = userData.name;
 
     // Fetch contacts from SQL database
-    const contactsResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts?email=${userEmail}`, {
+    const contactsResponse = await fetch(`https://julnazz.ngrok.dev/api/companies/${companyId}/contacts?email=${userEmail}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -1148,7 +1148,7 @@ console.log(newContact);
     }
 
     // Fetch user config to get companyId
-    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+    const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -1197,7 +1197,7 @@ const contactData: { [key: string]: any } = {
   notes: newContact.notes,
 };
     // Send POST request to your SQL backend
-    const response = await axios.post('https://juta-dev.ngrok.dev/api/contacts', contactData);
+    const response = await axios.post('https://julnazz.ngrok.dev/api/contacts', contactData);
 
     if (response.data.success) {
       toast.success("Contact added successfully!");
@@ -1242,7 +1242,7 @@ const handleSaveNewTag = async () => {
     }
 
     // Fetch user/company info from your backend
-    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
+    const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include'
@@ -1261,7 +1261,7 @@ const handleSaveNewTag = async () => {
     }
 
     // Add tag via your SQL backend
-    const response = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/tags`, {
+    const response = await fetch(`https://julnazz.ngrok.dev/api/companies/${companyId}/tags`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -1377,7 +1377,7 @@ const handleConfirmDeleteTag = async () => {
       }
   
       // Fetch user/company info from your backend
-      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
+      const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -1396,7 +1396,7 @@ const handleConfirmDeleteTag = async () => {
       }
   
       // Fetch tags from your SQL backend
-      const tagsResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/tags`, {
+      const tagsResponse = await fetch(`https://julnazz.ngrok.dev/api/companies/${companyId}/tags`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -1431,7 +1431,7 @@ const handleConfirmDeleteTag = async () => {
     if (!userEmail) throw new Error('No authenticated user');
   
     const response = await fetch(
-      `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+      `https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
       {
         method: 'GET',
         credentials: 'include',
@@ -1460,7 +1460,7 @@ async function fetchCompanyData() {
   }
 
   try {
-    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+    const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -2140,7 +2140,7 @@ if (matchingTemplate) {
       }
   
       // Get user config to get companyId
-      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -2160,7 +2160,7 @@ if (matchingTemplate) {
       setCompanyId(companyId);
   
       // Get company data
-      const companyResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}`, {
+      const companyResponse = await fetch(`https://julnazz.ngrok.dev/api/companies/${companyId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -2179,7 +2179,7 @@ if (matchingTemplate) {
      
   
       // Call the sync contacts endpoint
-      const syncResponse = await fetch(`https://juta-dev.ngrok.dev/api/sync-contacts/${companyId}`, {
+      const syncResponse = await fetch(`https://julnazz.ngrok.dev/api/sync-contacts/${companyId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2475,7 +2475,7 @@ if (matchingTemplate) {
         }
   
         // Fetch user config to get companyId
-        const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+        const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -2502,14 +2502,14 @@ if (matchingTemplate) {
         // 1. Delete associated scheduled messages for this contact
         // (Optional: Only if your backend supports this endpoint)
         try {
-          await axios.delete(`https://juta-dev.ngrok.dev/api/schedule-message/${companyId}/contact/${contact_id}`);
+          await axios.delete(`https://julnazz.ngrok.dev/api/schedule-message/${companyId}/contact/${contact_id}`);
         } catch (error) {
           console.error('Error deleting scheduled messages for contact:', error);
           // Not fatal, continue to delete contact
         }
   
         // 2. Delete the contact from your SQL backend
-        const response = await axios.delete(`https://juta-dev.ngrok.dev/api/contacts/${contact_id}?companyId=${companyId}`);
+        const response = await axios.delete(`https://julnazz.ngrok.dev/api/contacts/${contact_id}?companyId=${companyId}`);
   
         if (response.data.success) {
           // Update local state
@@ -2715,7 +2715,7 @@ if (matchingTemplate) {
         }
   
         // Fetch user config to get companyId
-        const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+        const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -2767,7 +2767,7 @@ if (matchingTemplate) {
         console.log(updateData);
         // Send PUT request to your SQL backend
         // (Assume your backend expects /api/contacts/:contact_id for update)
-        const response = await axios.put(`https://juta-dev.ngrok.dev/api/contacts/${contact_id}`, updateData);
+        const response = await axios.put(`https://julnazz.ngrok.dev/api/contacts/${contact_id}`, updateData);
   
         if (response.data.success) {
           // Update local state immediately after saving
@@ -3106,8 +3106,8 @@ const sendBlastMessage = async () => {
       mimeType = selectedDocument.type;
     }
 
-    // Use juta-dev.ngrok.dev instead of Firebase
-    const baseUrl = 'https://juta-dev.ngrok.dev';
+    // Use julnazz.ngrok.dev instead of Firebase
+    const baseUrl = 'https://julnazz.ngrok.dev';
     const userEmail = localStorage.getItem('userEmail');
     if (!userEmail) {
       toast.error("No user email found");
@@ -3115,7 +3115,7 @@ const sendBlastMessage = async () => {
     }
 
     // Get user config to get companyId
-    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+    const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -3193,7 +3193,7 @@ const sendBlastMessage = async () => {
       sleepDuration: activateSleep ? sleepDuration : null,
     };
 
-    // Make API call to juta-dev.ngrok.dev
+    // Make API call to julnazz.ngrok.dev
     const response = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, scheduledMessageData);
 
     if (response.data.success) {
@@ -3526,7 +3526,7 @@ const resetForm = () => {
       if (!userEmail) return;
   
       // Get user/company data from your backend
-      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
+      const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -3546,7 +3546,7 @@ const resetForm = () => {
       }
   
       // Fetch scheduled messages from your localhost API
-      const scheduledMessagesResponse = await fetch(`https://juta-dev.ngrok.dev/api/scheduled-messages?companyId=${encodeURIComponent(companyId)}&status=scheduled`, {
+      const scheduledMessagesResponse = await fetch(`https://julnazz.ngrok.dev/api/scheduled-messages?companyId=${encodeURIComponent(companyId)}&status=scheduled`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -4375,7 +4375,7 @@ const resetForm = () => {
       const userEmail = localStorage.getItem('userEmail');
       if (!userEmail) throw new Error('User not authenticated');
   
-      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -4513,7 +4513,7 @@ const resetForm = () => {
       });
   
       // Send contacts in bulk to your SQL backend
-      const response = await axios.post('https://juta-dev.ngrok.dev/api/contacts/bulk', { contacts: contactsToImport });
+      const response = await axios.post('https://julnazz.ngrok.dev/api/contacts/bulk', { contacts: contactsToImport });
   
       if (response.data.success) {
         toast.success(`Successfully imported ${contactsToImport.length} contacts!`);
@@ -4611,7 +4611,7 @@ const fetchPhoneStatuses = async () => {
     setIsLoadingStatus(true);
     
     // Get phone statuses from the localhost API
-    const response = await axios.get(`https://juta-dev.ngrok.dev/api/phone-status/${companyId}`);
+    const response = await axios.get(`https://julnazz.ngrok.dev/api/phone-status/${companyId}`);
     console.log('Phone status API response data:', response.data); // <-- Add this line
 
     if (response.status === 200) {

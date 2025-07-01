@@ -64,7 +64,7 @@ export const updateMonthlyAssignments = async (employeeName: string, incrementVa
     }
 
     // Fetch companyId from SQL user data via your existing API
-    const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${user.email}`);
+    const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${user.email}`);
     const userData = userResponse.data;
 
     if (!userData || !userData.company_id) {
@@ -74,7 +74,7 @@ export const updateMonthlyAssignments = async (employeeName: string, incrementVa
     const companyId = userData.company_id; // Use company_id from SQL
 
     // Call the new SQL API endpoint to update monthly assignments
-    await axios.post('https://juta-dev.ngrok.dev/api/employees/update-monthly-assignments', {
+    await axios.post('https://julnazz.ngrok.dev/api/employees/update-monthly-assignments', {
       companyId: companyId,
       employeeName: employeeName, // This is the employee's name which serves as their identifier in the Firebase context. In SQL, it maps to the 'name' column.
       incrementValue: incrementValue
@@ -299,9 +299,9 @@ interface Tag {
     try {
       const userEmail = localStorage.getItem('userEmail');
       if (!userEmail) return;
-      const userRes = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+      const userRes = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`);
       const companyId = userRes.data.company_id;
-      const res = await axios.get(`https://juta-dev.ngrok.dev/api/companies/${companyId}/monthly-usage`);
+      const res = await axios.get(`https://julnazz.ngrok.dev/api/companies/${companyId}/monthly-usage`);
       const usage = res.data.usage;
   
       const labels = usage.map((row: any) => row.month);
@@ -404,7 +404,7 @@ interface Tag {
   
     try {
       // Fetch user data from SQL database
-      const response = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      const response = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json'
@@ -430,7 +430,7 @@ interface Tag {
       }
   
       // Fetch company data
-      const companyResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}`, {
+      const companyResponse = await fetch(`https://julnazz.ngrok.dev/api/companies/${companyId}`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json',
@@ -449,7 +449,7 @@ interface Tag {
       }
   
       // Fetch contacts with replies
-   /*   const repliesResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/replies`, {
+   /*   const repliesResponse = await fetch(`https://julnazz.ngrok.dev/api/companies/${companyId}/replies`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json',
@@ -1212,9 +1212,9 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
     try {
       const userEmail = localStorage.getItem('userEmail');
       if (!userEmail) return;
-      const userRes = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+      const userRes = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`);
       const companyId = userRes.data.company_id;
-      const res = await axios.get(`https://juta-dev.ngrok.dev/api/companies/${companyId}/scheduled-messages-summary`);
+      const res = await axios.get(`https://julnazz.ngrok.dev/api/companies/${companyId}/scheduled-messages-summary`);
       const summary = res.data.summary;
   
       // Process into chart data
@@ -1271,12 +1271,12 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       if (!userEmail) return;
   
       // Get companyId from user-data endpoint
-      const userRes = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+      const userRes = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`);
       const companyId = userRes.data.company_id;
       if (!companyId) return;
   
       // Get company data from company-config endpoint
-      const companyRes = await axios.get(`https://juta-dev.ngrok.dev/api/company-config/${companyId}`);
+      const companyRes = await axios.get(`https://julnazz.ngrok.dev/api/company-config/${companyId}`);
       const companyData = companyRes.data.companyData;
   
       // Use companyData as needed, e.g.:
@@ -1299,16 +1299,16 @@ async function fetchEmployees() {
     if (!userEmail) return;
 
     // Get companyId from user-data endpoint
-    const userRes = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+    const userRes = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`);
     const companyId = userRes.data.company_id;
     if (!companyId) return;
 
     // Get all employees
-    const empRes = await axios.get(`https://juta-dev.ngrok.dev/api/employees-data/${companyId}`);
+    const empRes = await axios.get(`https://julnazz.ngrok.dev/api/employees-data/${companyId}`);
     const employees: Employee[] = empRes.data;
 
     // Get all contacts
-    const contactsRes = await axios.get(`https://juta-dev.ngrok.dev/api/contacts-data/${companyId}`);
+    const contactsRes = await axios.get(`https://julnazz.ngrok.dev/api/contacts-data/${companyId}`);
     const contacts: { tags: string[] }[] = contactsRes.data;
 
     // Create a map to count contacts per employee
@@ -1352,13 +1352,13 @@ async function fetchEmployees() {
         return;
       }
       // Get companyId from user-data endpoint
-      const userRes = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+      const userRes = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`);
       const companyId = userRes.data.company_id;
       if (!companyId) return;
   
       // Fetch stats from new endpoint
       const response = await axios.get(
-        `https://juta-dev.ngrok.dev/api/companies/${companyId}/employee-stats/${employeeId}`
+        `https://julnazz.ngrok.dev/api/companies/${companyId}/employee-stats/${employeeId}`
       );
       setEmployeeStats(response.data);
     } catch (error) {
