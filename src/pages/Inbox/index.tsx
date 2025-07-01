@@ -252,7 +252,7 @@ const Main: React.FC = () => {
 
     try {
       // Get user config to get companyId
-      const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -287,7 +287,7 @@ const fetchFirebaseConfig = async () => {
       return;
     }
 
-    const response = await axios.get(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+    const response = await axios.get(`https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
 
     if (response.status === 200) {
       const { companyData } = response.data;
@@ -308,7 +308,7 @@ console.log(companyData);
       }));
 
       setAssistants(assistantConfigs);
-      const response2 = await axios.get(`https://juta-dev.ngrok.dev/api/company-config/${companyId}`);
+      const response2 = await axios.get(`https://julnazz.ngrok.dev/api/company-config/${companyId}`);
     
 
         const { openaiApiKey } = response2.data;
@@ -420,7 +420,7 @@ console.log(companyData);
       const userEmail = localStorage.getItem('userEmail');
  
 
-      const res = await axios.get(`https://juta-dev.ngrok.dev/api/assistant-test/`, {
+      const res = await axios.get(`https://julnazz.ngrok.dev/api/assistant-test/`, {
         params: {
           message: messageText,
           email: userEmail,
@@ -719,7 +719,7 @@ console.log(companyData);
   
     try {
       // Fetch templates from your SQL backend
-      const response = await axios.get(`https://juta-dev.ngrok.dev/api/instruction-templates?companyId=${encodeURIComponent(companyId)}`);
+      const response = await axios.get(`https://julnazz.ngrok.dev/api/instruction-templates?companyId=${encodeURIComponent(companyId)}`);
       if (response.status === 200 && Array.isArray(response.data.templates)) {
         setTemplates(response.data.templates);
       } else {
@@ -741,7 +741,7 @@ console.log(companyData);
       const timestamp = new Date().toLocaleString(); // Format: M/D/YYYY, H:MM:SS AM/PM
   
       // Send to your SQL backend
-      const response = await axios.post('https://juta-dev.ngrok.dev/api/instruction-templates', {
+      const response = await axios.post('https://julnazz.ngrok.dev/api/instruction-templates', {
         companyId,
         name: timestamp,
         instructions: assistantInfo.instructions

@@ -250,7 +250,7 @@ async function fetchEmployees() {
   
   try {
     // 1. Fetch user data
-    const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+    const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`);
     const dataUser = userResponse.data;
 
     if (!dataUser) {
@@ -262,7 +262,7 @@ async function fetchEmployees() {
     setRole(dataUser.role); // Assuming setRole is a state setter
 
     // 2. Fetch company configuration (includes phoneCount, ghl_accessToken, phone names)
-    const companyConfigResponse = await axios.get(`https://juta-dev.ngrok.dev/api/company-config/${companyId}`);
+    const companyConfigResponse = await axios.get(`https://julnazz.ngrok.dev/api/company-config/${companyId}`);
     const { companyData } = companyConfigResponse.data;
 
     setPhoneCount(companyData.phoneCount); // Assuming setPhoneCount is a state setter
@@ -283,7 +283,7 @@ async function fetchEmployees() {
     setPhoneNames(phoneNamesData); // Assuming setPhoneNames is a state setter
 
     // 3. Fetch employee list
-    const employeesResponse = await axios.get(`https://juta-dev.ngrok.dev/api/employees-data/${companyId}`);
+    const employeesResponse = await axios.get(`https://julnazz.ngrok.dev/api/employees-data/${companyId}`);
     const employeeListData: Employee[] = employeesResponse.data.map((employee: any) => ({
       id: employee.id,
       ...employee,

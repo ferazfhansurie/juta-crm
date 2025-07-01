@@ -170,7 +170,7 @@ function Main() {
       }
 
       // Call the localhost API endpoint to create user
-      const userResponse = await axios.post(`https://juta-dev.ngrok.dev/api/create-user/${encodeURIComponent(email)}/${encodeURIComponent(formatPhoneNumber(phoneNumber))}/${encodeURIComponent(password)}/1`);
+      const userResponse = await axios.post(`https://julnazz.ngrok.dev/api/create-user/${encodeURIComponent(email)}/${encodeURIComponent(formatPhoneNumber(phoneNumber))}/${encodeURIComponent(password)}/1`);
 
       if (userResponse.data) {
         // Generate a unique company ID with proper padding
@@ -179,7 +179,7 @@ function Main() {
         const newCompanyId = `${randomPart}${timestamp.slice(-3)}`;
 
         // Call the channel create endpoint
-        const channelResponse = await axios.post(`https://juta-dev.ngrok.dev/api/channel/create/${newCompanyId}`);
+        const channelResponse = await axios.post(`https://julnazz.ngrok.dev/api/channel/create/${newCompanyId}`);
 
         if (channelResponse.data) {
           // Sign in the user after successful registration

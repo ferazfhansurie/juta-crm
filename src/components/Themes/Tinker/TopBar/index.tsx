@@ -104,7 +104,7 @@ function Main() {
   
     try {
       // Fetch user data from SQL database
-      const response = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      const response = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json'
@@ -133,7 +133,7 @@ function Main() {
       }
   
       // Fetch company data
-      const companyResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}`, {
+      const companyResponse = await fetch(`https://julnazz.ngrok.dev/api/companies/${companyId}`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json'

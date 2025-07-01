@@ -360,7 +360,7 @@ const fetchEmployees = async () => {
       return;
     }
     // First, fetch user config to get companyId
-    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+    const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -381,7 +381,7 @@ const fetchEmployees = async () => {
     }
 
     // Now fetch employees from the new endpoint
-    const employeesResponse = await fetch(`https://juta-dev.ngrok.dev/api/employees-data/${encodeURIComponent(companyId)}`, {
+    const employeesResponse = await fetch(`https://julnazz.ngrok.dev/api/employees-data/${encodeURIComponent(companyId)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -427,7 +427,7 @@ const fetchAppointments = async (userEmail: string) => {
   setLoading(true);
   try {
     // Build the API URL, optionally with employee filter
-    let url = `https://juta-dev.ngrok.dev/api/appointments?email=${encodeURIComponent(userEmail)}`;
+    let url = `https://julnazz.ngrok.dev/api/appointments?email=${encodeURIComponent(userEmail)}`;
     if (selectedEmployeeId) {
       url += `&employeeId=${encodeURIComponent(selectedEmployeeId)}`;
     }
@@ -1244,7 +1244,7 @@ const createAppointment = async (newEvent: any) => {
     }
 
     // Call your local API to create the appointment
-    const response = await fetch('https://juta-dev.ngrok.dev/api/appointments', {
+    const response = await fetch('https://julnazz.ngrok.dev/api/appointments', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
