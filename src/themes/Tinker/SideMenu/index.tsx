@@ -12,23 +12,8 @@ import clsx from "clsx";
 import TopBar from "@/components/Themes/Tinker/TopBar";
 import MobileMenu from "@/components/MobileMenu";
 import { Menu, Popover } from "@/components/Base/Headless";
-import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
-import { initializeApp } from 'firebase/app';
 
 function Main() {
-  // Initialize Firebase app
-  const firebaseConfig = {
-    apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
-    authDomain: "onboarding-a5fcb.firebaseapp.com",
-    databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "onboarding-a5fcb",
-    storageBucket: "onboarding-a5fcb.appspot.com",
-    messagingSenderId: "334607574757",
-    appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
-    measurementId: "G-2C9J1RY67L"
-  };
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
   const navigate = useNavigate();
   const location = useLocation();
   const [formattedMenu, setFormattedMenu] = useState<
@@ -39,16 +24,11 @@ function Main() {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   const handleSignOut = () => {
-    signOut(auth)
-      .then(() => {
-        
-        localStorage.removeItem('contacts'); // Clear contacts from localStorage
-        sessionStorage.removeItem('contactsFetched'); // Clear the session marker
-  
-      })
-      .catch((error) => {
-        console.error("Error signing out:", error);
-      });
+    // Clear localStorage and sessionStorage
+    localStorage.removeItem('contacts'); // Clear contacts from localStorage
+    sessionStorage.removeItem('contactsFetched'); // Clear the session marker
+    // Optionally, redirect to login page or perform any other logout logic
+    navigate('/login');
   };
 
   useEffect(() => {

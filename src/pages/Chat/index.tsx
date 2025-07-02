@@ -1826,12 +1826,18 @@ function Main() {
   const filterContactsByUserRole = useCallback(
     (contacts: Contact[], userRole: string, userName: string) => {
       console.log("role", userRole);
+      // If userRole is empty or undefined, return all contacts to avoid blank screen
+      if (!userRole) {
+        console.warn("User role is undefined or empty, showing all contacts temporarily");
+        return contacts;
+      }
+      
       switch (userRole) {
         case "1": // Admin
           return contacts; // Admin sees all contacts
         case "admin": // Admin
           return contacts; // Admin sees all contacts
-        case "user": // Admin
+        case "user": // User
           return contacts.filter((contact) =>
             contact.tags?.some(
               (tag) => tag.toLowerCase() === userName.toLowerCase()
@@ -1855,7 +1861,8 @@ function Main() {
           return contacts;
         default:
           console.warn(`Unknown user role: ${userRole}`);
-          return [];
+          // Return all contacts instead of empty array to avoid blank screen
+          return contacts;
       }
     },
     []
@@ -1895,8 +1902,15 @@ function Main() {
   };
   const filterAndSetContacts = useCallback(
     (contactsToFilter: Contact[]) => {
+      // Log the state to help with debugging
+      console.log("contacts before", {
+        success: true,
+        total: contactsToFilter.length,
+        contacts: contactsToFilter
+      });
+      console.log("userRole state:", userRole);
+      
       // Check for viewEmployee first
-
       if (userData?.viewEmployee) {
         let filteredByEmployee: Contact[] = [];
 
@@ -1999,10 +2013,16 @@ function Main() {
     ]
   );
 
-  // Update this useEffect
+  // Update this useEffect to only filter contacts when userRole is available
   useEffect(() => {
-    filterAndSetContacts(contacts);
-  }, [contacts, filterAndSetContacts]);
+    // Only filter contacts if userRole is available or the contacts array is large enough
+    if (userRole || contacts.length > 0) {
+      filterAndSetContacts(contacts);
+    } else {
+      // If no userRole yet but we have contacts, set them all as filtered to avoid blank screen
+      setFilteredContacts(contacts);
+    }
+  }, [contacts, filterAndSetContacts, userRole]);
 
   useEffect(() => {
     const fetchContacts = async () => {
@@ -8857,7 +8877,13 @@ function Main() {
                         ) &&
                         (userRole === "1" || employee.name === currentUserName)
                     )
-                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .sort((a, b) => {
+                      // Handle null or undefined names
+                      if (!a.name && !b.name) return 0;
+                      if (!a.name) return 1; // null names go last
+                      if (!b.name) return -1;
+                      return a.name.localeCompare(b.name);
+                    })
                     .map((employee) => (
                       <Menu.Item key={employee.id}>
                         {({ active }) => (

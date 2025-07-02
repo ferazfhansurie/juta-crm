@@ -12,7 +12,6 @@ import clsx from "clsx";
 import TopBar from "@/components/Themes/Tinker/TopBar";
 import MobileMenu from "@/components/MobileMenu";
 import { Menu, Popover } from "@/components/Base/Headless";
-import { getAuth, signOut } from "firebase/auth"; // Import the signOut method
 import { initializeApp } from 'firebase/app';
 import { DocumentData, DocumentReference, getDoc, getDocs, setDoc, serverTimestamp } from 'firebase/firestore';
 import { getFirestore, collection, doc, deleteDoc, onSnapshot } from 'firebase/firestore';
@@ -62,7 +61,6 @@ let ghlConfig = {
 let role = 2;
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const firestore = getFirestore(app);
 
 const navigate = useNavigate(); // Initialize useNavigate
@@ -158,11 +156,11 @@ async function fetchConfigFromDatabase() {
 }
 
 async function fetchScheduledMessages() {
-  const user = auth.currentUser;
-  if (!user || !user.email) return;
+  const userEmail = localStorage.getItem('userEmail');
+  if (!userEmail) return;
 
   try {
-    const docUserRef = doc(firestore, 'user', user.email!);
+    const docUserRef = doc(firestore, 'user', userEmail);
     const docUserSnapshot = await getDoc(docUserRef);
     if (!docUserSnapshot.exists()) return;
 
@@ -179,11 +177,11 @@ async function fetchScheduledMessages() {
 
 
 const clearAllNotifications = async () => {
-  const user = auth.currentUser;
-  if (!user || !user.email) return;
+  const userEmail = localStorage.getItem('userEmail');
+  if (!userEmail) return;
 
   try {
-    const notificationsRef = collection(firestore, 'user', user.email, 'notifications');
+    const notificationsRef = collection(firestore, 'user', userEmail, 'notifications');
     const notificationsSnapshot = await getDocs(notificationsRef);
     
     const deletePromises = notificationsSnapshot.docs.map(doc => deleteDoc(doc.ref));
@@ -197,16 +195,14 @@ const clearAllNotifications = async () => {
 };
 
   const handleSignOut = () => {
-    signOut(auth)
-      .then(() => {
-        
-        localStorage.removeItem('contacts'); // Clear contacts from localStorage
-        sessionStorage.removeItem('contactsFetched'); // Clear the session marker
-  
-      })
-      .catch((error) => {
-        console.error("Error signing out:", error);
-      });
+    // Clear localStorage and sessionStorage
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('contactsFetched');
+    localStorage.removeItem('contacts');
+    
+    // Redirect to login page
+    navigate('/login');
   };
 
   const isMobile = useMediaQuery({ maxWidth: 767 });
@@ -235,9 +231,9 @@ const clearAllNotifications = async () => {
 
   useEffect(() => {
     const fetchUserData = async () => {
-      const user = auth.currentUser;
-      if (user && user.email) {
-        const userDocRef = doc(firestore, 'user', user.email);
+      const userEmail = localStorage.getItem('userEmail');
+      if (userEmail) {
+        const userDocRef = doc(firestore, 'user', userEmail);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
           setUserData(userDocSnap.data());
