@@ -3,26 +3,8 @@ import logoUrl from "@/assets/images/logo.png";
 import { useNavigate, useLocation } from "react-router-dom";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { useConfig } from '../../config';
-import { getAuth } from "firebase/auth";
-import { CollectionReference, DocumentData, Query, QueryDocumentSnapshot, collection, doc, getDoc, getDocs, limit, query, setDoc, startAfter } from "firebase/firestore";
-import axios from "axios";
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { signOut } from "firebase/auth";
-import Progress from '@/components/Base/Progress'; // Assuming you have a Progress component
+import Progress from '@/components/Base/Progress';
 import LZString from 'lz-string';
-
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
-  authDomain: "onboarding-a5fcb.firebaseapp.com",
-  databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "onboarding-a5fcb",
-  storageBucket: "onboarding-a5fcb.appspot.com",
-  messagingSenderId: "334607574757",
-  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
-  measurementId: "G-2C9J1RY67L"
-};
 interface Contact {
   chat_id: string;
   chat_pic?: string | null;
@@ -48,14 +30,13 @@ interface Contact {
   tags: string[];
   unreadCount: number;
 }
-const app = initializeApp(firebaseConfig);
-const firestore = getFirestore(app);
 
 interface MessageCache {
-  [chatId: string]: any[]; // or specify more detailed message type if available
+  [chatId: string]: any[];
 }
 
 function LoadingPage() {
+  const baseUrl = "https://julnazz.ngrok.dev";
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +54,6 @@ function LoadingPage() {
   const [processingComplete, setProcessingComplete] = useState(true);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsFetched, setContactsFetched] = useState(false);
-  const auth = getAuth(app);
   const [shouldFetchContacts, setShouldFetchContacts] = useState(false);
   const location = useLocation();
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -315,98 +295,105 @@ function LoadingPage() {
   }, [contactsFetched, fetchedChats, totalChats, contacts, navigate]);
 
   const fetchContacts = async () => {
-    
     try {
       setLoadingPhase('fetching_contacts');
-      const user = auth.currentUser;
-      if (!user) throw new Error("");
-  
-      // Get company ID
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        throw new Error("User document not found");
-      }
-  
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser?.companyId;
-      if (!companyId) throw new Error("Company ID not found");
-  
-      // Fetch contacts with progress tracking
-      setLoadingPhase('fetching_contacts');
-      const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`);
-      const contactsSnapshot = await getDocs(contactsCollectionRef);
-      let allContacts: Contact[] = [];
       
-      const totalDocs = contactsSnapshot.docs.length;
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
+        throw new Error("No user email found");
+      }
+
+      // Get user context from SQL database
+      const userResponse = await fetch(`${baseUrl}/api/user-context?email=${userEmail}`);
+      if (!userResponse.ok) {
+        throw new Error("Failed to fetch user context");
+      }
+
+      const userData = await userResponse.json();
+      const companyId = userData.companyId;
+      if (!companyId) throw new Error("Company ID not found");
+
+      // Fetch contacts from SQL database
+      setLoadingPhase('fetching_contacts');
+      const contactsResponse = await fetch(`${baseUrl}/api/contacts?companyId=${companyId}`);
+      if (!contactsResponse.ok) {
+        throw new Error("Failed to fetch contacts");
+      }
+
+      const contactsData = await contactsResponse.json();
+      let allContacts: Contact[] = contactsData.contacts || [];
+      
+      const totalDocs = allContacts.length;
       let processedDocs = 0;
-  
-      for (const doc of contactsSnapshot.docs) {
-        allContacts.push({ ...doc.data(), id: doc.id } as Contact);
+
+      // Update progress for contacts processing
+      for (let i = 0; i < allContacts.length; i++) {
         processedDocs++;
         setLoadingProgress((processedDocs / totalDocs) * 100);
       }
-  
-      // Fetch and process pinned chats
+
+      // Fetch pinned chats from SQL database
       setLoadingPhase('processing_pinned');
-      const pinnedChatsRef = collection(firestore, `user/${user.email!}/pinned`);
-      const pinnedChatsSnapshot = await getDocs(pinnedChatsRef);
-      const pinnedChats = pinnedChatsSnapshot.docs.map(doc => doc.data() as Contact);
+      const pinnedResponse = await fetch(`${baseUrl}/api/pinned-chats?email=${userEmail}`);
+      let pinnedChats: Contact[] = [];
+      
+      if (pinnedResponse.ok) {
+        const pinnedData = await pinnedResponse.json();
+        pinnedChats = pinnedData.pinnedChats || [];
+      }
 
       // Update contacts with pinned status
-    setLoadingPhase('updating_pins');
-    const updatePromises = allContacts.map(async (contact, index) => {
-      const isPinned = pinnedChats.some(pinned => pinned.chat_id === contact.chat_id);
-      if (isPinned) {
-        contact.pinned = true;
-        const contactDocRef = doc(firestore, `companies/${companyId}/contacts`, contact.id);
-        await setDoc(contactDocRef, contact, { merge: true });
-      }
-      setLoadingProgress((index / allContacts.length) * 100);
-    });
+      setLoadingPhase('updating_pins');
+      allContacts = allContacts.map((contact, index) => {
+        const isPinned = pinnedChats.some(pinned => pinned.chat_id === contact.chat_id);
+        if (isPinned) {
+          contact.pinned = true;
+        }
+        setLoadingProgress((index / allContacts.length) * 100);
+        return contact;
+      });
 
-    await Promise.all(updatePromises);
+      // Sort contacts
+      setLoadingPhase('sorting_contacts');
+      allContacts.sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        const dateA = a.last_message?.createdAt
+          ? new Date(a.last_message.createdAt)
+          : a.last_message?.timestamp
+            ? new Date(a.last_message.timestamp * 1000)
+            : new Date(0);
+        const dateB = b.last_message?.createdAt
+          ? new Date(b.last_message.createdAt)
+          : b.last_message?.timestamp
+            ? new Date(b.last_message.timestamp * 1000)
+            : new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
 
-    // Sort contacts
-    setLoadingPhase('sorting_contacts');
-    allContacts.sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-      const dateA = a.last_message?.createdAt
-        ? new Date(a.last_message.createdAt)
-        : a.last_message?.timestamp
-          ? new Date(a.last_message.timestamp * 1000)
-          : new Date(0);
-      const dateB = b.last_message?.createdAt
-        ? new Date(b.last_message.createdAt)
-        : b.last_message?.timestamp
-          ? new Date(b.last_message.timestamp * 1000)
-          : new Date(0);
-      return dateB.getTime() - dateA.getTime();
-    });
-    // Cache the contacts
-    setLoadingPhase('caching');
-    localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
-    sessionStorage.setItem('contactsFetched', 'true');
-    sessionStorage.setItem('contactsCacheTimestamp', Date.now().toString());
+      // Cache the contacts
+      setLoadingPhase('caching');
+      localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
+      sessionStorage.setItem('contactsFetched', 'true');
+      sessionStorage.setItem('contactsCacheTimestamp', Date.now().toString());
 
-    setContacts(allContacts);
-    setContactsFetched(true);
+      setContacts(allContacts);
+      setContactsFetched(true);
 
-    // Cache messages for first 100 contacts
-    await fetchAndCacheMessages(allContacts, companyId, user);
-    
-    setLoadingPhase('complete');
+      // Cache messages for first 10 contacts
+      await fetchAndCacheMessages(allContacts, companyId, userEmail);
+      
+      setLoadingPhase('complete');
 
-    // After contacts are loaded, fetch chats
-    await fetchChatsData();
+      // After contacts are loaded, fetch chats
+      await fetchChatsData();
 
-  } catch (error) {
-    console.error('Error fetching contacts:', error);
-    setError('Failed to fetch contacts. Please try again.');
-    setLoadingPhase('error');
-  }
-};
+    } catch (error) {
+      console.error('Error fetching contacts:', error);
+      setError('Failed to fetch contacts. Please try again.');
+      setLoadingPhase('error');
+    }
+  };
 
 const getLoadingMessage = () => {
   switch (loadingPhase) {
@@ -491,18 +478,22 @@ useEffect(() => {
   }, [isLoading, botStatus]);
 
   const handleLogout = async () => {
-    const auth = getAuth(app);
     try {
       // Close WebSocket connection if it exists
       if (ws.current) {
-        
         ws.current.close();
         setWsConnected(false);
       }
 
-      await signOut(auth);
-   
-    }    catch (error) {
+      // Clear localStorage and navigate to login
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userData');
+      localStorage.removeItem('contacts');
+      localStorage.removeItem('messagesCache');
+      sessionStorage.clear();
+      
+      navigate('/login');
+    } catch (error) {
       console.error("Error signing out: ", error);
       setError('Failed to log out. Please try again.');
     }
@@ -512,44 +503,38 @@ useEffect(() => {
     setIsPairingCodeLoading(true);
     setError(null);
     try {
-      const user = getAuth().currentUser;
-      if (!user) {
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
         throw new Error("User not authenticated");
       }
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        
-        return;
-      }
-      const data2 = docSnapshot.data();
-      const baseUrl = data2.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-      const headers = data2.apiUrl 
-        ? {
-            'Authorization': `Bearer ${await user.getIdToken()}`
-          }
-        : {
-            'Authorization': `Bearer ${await user.getIdToken()}`,
-            'Content-Type': 'application/json'
-          };
 
-      const response = await axios.post(
-        `${baseUrl}/api/request-pairing-code/${companyId}`,
-        { phoneNumber },
-        { 
-          headers,
-          withCredentials: false
-        }
-      );
-      setPairingCode(response.data.pairingCode);
+      // Get user context from SQL database
+      const userResponse = await fetch(`${baseUrl}/api/user-context?email=${userEmail}`);
+      if (!userResponse.ok) {
+        throw new Error("Failed to fetch user context");
+      }
+
+      const userData = await userResponse.json();
+      const companyId = userData.companyId;
+      if (!companyId) {
+        throw new Error("Company ID not found");
+      }
+
+      // Request pairing code
+      const response = await fetch(`${baseUrl}/api/request-pairing-code/${companyId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phoneNumber }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to request pairing code');
+      }
+
+      const data = await response.json();
+      setPairingCode(data.pairingCode);
     } catch (error) {
       console.error('Error requesting pairing code:', error);
       setError('Failed to request pairing code. Please try again.');
@@ -559,15 +544,13 @@ useEffect(() => {
   };
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setIsAuthReady(true);
-      if (!user) {
-       // navigate('/login');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [auth, navigate]);
+    // Check if user is authenticated via localStorage
+    const userEmail = localStorage.getItem('userEmail');
+    setIsAuthReady(true);
+    if (!userEmail) {
+      navigate('/login');
+    }
+  }, [navigate]);
 
   useEffect(() => {
     if (botStatus === 'ready' || botStatus === 'authenticated') {
@@ -576,9 +559,10 @@ useEffect(() => {
     }
   }, [botStatus, navigate]);
 
-  const fetchAndCacheMessages = async (contacts: Contact[], companyId: string, user: any) => {
+  const fetchAndCacheMessages = async (contacts: Contact[], companyId: string, userEmail: string) => {
     setLoadingPhase('caching_messages');
     console.log('fetchAndCacheMessages');
+    
     // Reduce number of cached contacts
     const mostRecentContacts = contacts
       .sort((a, b) => {
@@ -592,33 +576,23 @@ useEffect(() => {
         };
         return getTimestamp(b) - getTimestamp(a);
       })
-      .slice(0, 10); // Reduce from 100 to 20 most recent contacts
+      .slice(0, 10); // Reduce from 100 to 10 most recent contacts
 
-    // Only cache last 50 messages per contact
+    // Only cache last 20 messages per contact
     const messagePromises = mostRecentContacts.map(async (contact) => {
       try {
-        // Get company data to access baseUrl
-        const docRef = doc(firestore, 'companies', companyId);
-        const docSnapshot = await getDoc(docRef);
-        const companyData = docSnapshot.data();
-        if (!docSnapshot.exists() || !companyData) {
-          console.error('Company data not found');
+        // Get messages from SQL database
+        const response = await fetch(`${baseUrl}/api/messages/${contact.chat_id}?limit=20&companyId=${companyId}`);
+        
+        if (!response.ok) {
+          console.error(`Failed to fetch messages for chat ${contact.chat_id}`);
           return null;
         }
 
-        const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-        const response = await axios.get(
-          `${baseUrl}/api/messages/${contact.chat_id}/${companyData.whapiToken}?limit=20`,
-          {
-            headers: {
-              'Authorization': `Bearer ${await user.getIdToken()}`
-            }
-          }
-        );
-
+        const data = await response.json();
         return {
           chatId: contact.chat_id,
-          messages: response.data.messages
+          messages: data.messages || []
         };
       } catch (error) {
         console.error(`Error fetching messages for chat ${contact.chat_id}:`, error);
@@ -666,31 +640,32 @@ useEffect(() => {
     return () => window.removeEventListener('beforeunload', cleanupStorage);
   }, []);
 
-// ... existing code ...
-
 const handlePayment = async () => {
   try {
-    const user = auth.currentUser;
-    if (!user?.email) {
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
       throw new Error("User not authenticated");
     }
 
-    const docUserRef = doc(firestore, 'user', user.email);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      throw new Error("User document does not exist");
+    // Get user context from SQL database
+    const userResponse = await fetch(`${baseUrl}/api/user-context?email=${userEmail}`);
+    if (!userResponse.ok) {
+      throw new Error("Failed to fetch user context");
     }
 
-    const dataUser = docUserSnapshot.data();
-    const companyId = dataUser.companyId;
-
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      throw new Error("Company document does not exist");
+    const userData = await userResponse.json();
+    const companyId = userData.companyId;
+    if (!companyId) {
+      throw new Error("Company ID not found");
     }
 
-    const companyData = docSnapshot.data();
+    // Get company data from SQL database
+    const companyResponse = await fetch(`${baseUrl}/api/company-details?companyId=${companyId}`);
+    if (!companyResponse.ok) {
+      throw new Error("Failed to fetch company details");
+    }
+
+    const companyData = await companyResponse.json();
     let amount: number;
 
     // Set amount based on plan
@@ -708,26 +683,26 @@ const handlePayment = async () => {
         amount = 6800; // Default to blaster plan if no plan is specified
     }
 
-    const idToken = await user.getIdToken();
-
-    const response = await axios.post(
-      'https://mighty-dane-newly.ngrok-free.app/api/payments/create',
-      {
-        email: user.email,
-        name: user.displayName || user.email,
-        amount,
-        description: `WhatsApp Business API Subscription - ${companyData.plan.toUpperCase()} Plan`
+    const response = await fetch(`${baseUrl}/api/payments/create`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      {
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+      body: JSON.stringify({
+        email: userEmail,
+        name: userData.name || userEmail,
+        amount,
+        description: `WhatsApp Business API Subscription - ${companyData.plan?.toUpperCase() || 'BLASTER'} Plan`
+      }),
+    });
     
-    if (response.data?.paymentUrl) {
-      window.location.href = response.data.paymentUrl;
+    if (!response.ok) {
+      throw new Error('Failed to create payment');
+    }
+
+    const paymentData = await response.json();
+    if (paymentData?.paymentUrl) {
+      window.location.href = paymentData.paymentUrl;
     } else {
       throw new Error("Payment URL not received");
     }
@@ -735,21 +710,17 @@ const handlePayment = async () => {
     console.error("Payment error:", error);
     if (error instanceof Error) {
       setError(error.message);
-    } else if (axios.isAxiosError(error) && error.response?.data?.message) {
-      setError(error.response.data.message);
     } else {
       setError("Failed to initialize payment. Please try again.");
     }
   }
 };
 
-// ... existing code ...
-
   return (
     <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-900 py-8">
       {!isAuthReady ? (
         <div className="text-center">
-          <LoadingIcon className="w-8 h-8 mx-auto" />
+          <LoadingIcon icon="spinning-circles" className="w-8 h-8 mx-auto" />
           <p className="mt-2">Initializing...</p>
         </div>
       ) : trialExpired ? (
@@ -810,7 +781,7 @@ const handlePayment = async () => {
                     >
                       {isPairingCodeLoading ? (
                         <span className="flex items-center justify-center">
-                          <LoadingIcon className="w-5 h-5 mr-2" />
+                          <LoadingIcon icon="three-dots" className="w-5 h-5 mr-2" />
                           Generating...
                         </span>
                       ) : 'Get Pairing Code'}

@@ -1,20 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { getAuth } from "firebase/auth";
-import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Lucide from "@/components/Base/Lucide";
 import Button from "@/components/Base/Button";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useNavigate } from "react-router-dom";
-import { initializeApp } from "firebase/app";
 
 interface QuickReply {
     id: string;
-    keyword: string;
+    category: string;
+    keyword?: string;
     text: string;
-    type: string;
-    category?: string;
+    type?: string;
     documents?: {
         name: string;
         type: string;
@@ -31,6 +27,14 @@ interface QuickReply {
         lastModified: number;
         thumbnail?: string;
     }[] | null;
+    created_by?: string;
+    created_at?: string;
+    updated_at?: string;
+    status?: string;
+    // Computed properties for compatibility
+    title?: string;
+    description?: string;
+    scope?: 'company' | 'user';
     showImage?: boolean;
     showDocument?: boolean;
     createdAt?: any;
@@ -43,8 +47,12 @@ const QuickRepliesPage: React.FC = () => {
   const [editingReply, setEditingReply] = useState<QuickReply | null>(null);
   const [editingDocuments, setEditingDocuments] = useState<File[]>([]);
   const [editingImages, setEditingImages] = useState<File[]>([]);
-  const [newQuickReply, setNewQuickReply] = useState('');
-  const [newQuickReplyKeyword, setNewQuickReplyKeyword] = useState('');
+  const [newQuickReply, setNewQuickReply] = useState({
+    keyword: '',
+    text: '',
+    category: '',
+    type: ''
+  });
   const [selectedDocuments, setSelectedDocuments] = useState<File[]>([]);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,7 +79,6 @@ const QuickRepliesPage: React.FC = () => {
     title: string;
   } | null>(null);
 
-  const [newCategory, setNewCategory] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [categories, setCategories] = useState<string[]>([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -79,29 +86,60 @@ const QuickRepliesPage: React.FC = () => {
 
   const [selectedVideos, setSelectedVideos] = useState<File[]>([]);
   const [editingVideos, setEditingVideos] = useState<File[]>([]);
+  // Fetch company data from API using user email
+  const [companyData, setCompanyData] = useState<any>(null);
+  const baseUrl = 'https://julnazz.ngrok.dev';
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
-    authDomain: "onboarding-a5fcb.firebaseapp.com",
-    databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "onboarding-a5fcb",
-    storageBucket: "onboarding-a5fcb.appspot.com",
-    messagingSenderId: "334607574757",
-    appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
-    measurementId: "G-2C9J1RY67L"
+  const getCurrentUserEmail = () => {
+    try {
+      const userDataStr = localStorage.getItem("userData");
+      if (userDataStr) {
+        const userData = JSON.parse(userDataStr);
+        console.log(`Current user email: ${userData.email}`);
+        return userData.email;
+      }
+    } catch (e) {
+      console.error("Error parsing userData from localStorage");
+    }
+    return null;
   };
 
-  
-  const app = initializeApp(firebaseConfig);
-  const firestore = getFirestore(app);
-  const auth = getAuth(app);
-
   useEffect(() => {
-    fetchQuickReplies();
+    const fetchCompanyData = async () => {
+      const email = getCurrentUserEmail();
+      if (!email) return;
+      try {
+        const response = await fetch(`${baseUrl}/api/user-context?email=${encodeURIComponent(email)}`);
+        if (!response.ok) throw new Error("Failed to fetch user context");
+        const data = await response.json();
+        console.log("Fetched company data:", data);
+        setCompanyData({
+          baseUrl: data.baseUrl,
+          ...data
+        });
+      } catch (error) {
+        console.error("Error fetching company data:", error);
+      }
+    };
+    fetchCompanyData();
   }, []);
 
+  // Helper to get company data (from state)
+  const getCompanyData = () => companyData;
+
   useEffect(() => {
-    fetchCategories();
+    const initializeData = async () => {
+      setIsLoading(true);
+      try {
+        await Promise.all([fetchQuickReplies(), fetchCategories()]);
+      } catch (error) {
+        console.error('Error initializing data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    initializeData();
   }, []);
 
   // Add keyboard event listener for modal
@@ -126,55 +164,34 @@ const QuickRepliesPage: React.FC = () => {
 
   const fetchQuickReplies = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.error('No authenticated user');
+      const userEmail = getCurrentUserEmail();
+      
+      if (!userEmail) {
+        console.error('No authenticated user email');
         return;
       }
 
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
-        return;
+      const response = await fetch(`${baseUrl}/api/quick-replies?email=${encodeURIComponent(userEmail)}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      // Fetch company quick replies
-      const companyQuickReplyRef = collection(firestore, `companies/${companyId}/quickReplies`);
-      const companyQuery = query(companyQuickReplyRef, orderBy('createdAt', 'desc'));
-      const companySnapshot = await getDocs(companyQuery);
-
-      // Fetch user's personal quick replies
-      const userQuickReplyRef = collection(firestore, `user/${user.email}/quickReplies`);
-      const userQuery = query(userQuickReplyRef, orderBy('createdAt', 'desc'));
-      const userSnapshot = await getDocs(userQuery);
-
-      const fetchedQuickReplies: QuickReply[] = [
-        ...companySnapshot.docs.map(doc => ({
-          id: doc.id,
-          keyword: doc.data().keyword || '',
-          text: doc.data().text || '',
-          type: 'all',
-          documents: doc.data().documents || null,
-          images: doc.data().images || null,
-          category: doc.data().category || '',
-          videos: doc.data().videos || null,
-        })),
-        ...userSnapshot.docs.map(doc => ({
-          id: doc.id,
-          keyword: doc.data().keyword || '',
-          text: doc.data().text || '',
-          type: 'self',
-          documents: doc.data().documents || null,
-          images: doc.data().images || null,
-          category: doc.data().category || '',
-          videos: doc.data().videos || null,
-        }))
-      ];
-
-      setQuickReplies(fetchedQuickReplies);
+      
+      const data = await response.json();
+      
+      if (data.quickReplies) {
+        const fetchedQuickReplies: QuickReply[] = data.quickReplies.map((reply: any) => ({
+          ...reply,
+          // Add computed fields for compatibility
+          title: reply.keyword || reply.title || '',
+          description: reply.text || reply.description || '',
+          scope: 'user' // Default scope since the API doesn't return this field
+        }));
+        
+        setQuickReplies(fetchedQuickReplies);
+      } else {
+        console.error('Failed to fetch quick replies:', data.error);
+      }
     } catch (error) {
       console.error('Error fetching quick replies:', error);
     }
@@ -182,31 +199,60 @@ const QuickRepliesPage: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
+      const userEmail = getCurrentUserEmail();
       
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      if (!userEmail) {
+        console.error('Missing user email');
+        return;
+      }
 
-      // Fetch categories from a separate collection
-      const categoriesRef = collection(firestore, `companies/${companyId}/categories`);
-      const categoriesSnapshot = await getDocs(categoriesRef);
-      const fetchedCategories = categoriesSnapshot.docs.map(doc => doc.data().name);
-      setCategories(['all', ...fetchedCategories]);
+      // First get user context to get company ID
+      const userResponse = await fetch(`${baseUrl}/api/user-context?email=${encodeURIComponent(userEmail)}`);
+      if (!userResponse.ok) {
+        throw new Error('Failed to fetch user context');
+      }
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+
+      if (!companyId) {
+        console.error('No company ID found');
+        setCategories(['all']);
+        return;
+      }
+
+      const response = await fetch(`${baseUrl}/api/quick-reply-categories?companyId=${companyId}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setCategories(['all', ...data.categories]);
     } catch (error) {
       console.error('Error fetching categories:', error);
+      setCategories(['all']);
     }
   };
 
+  const uploadMedia = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${baseUrl}/api/upload-media`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.url;
+  };
+
   const uploadDocument = async (file: File): Promise<{ name: string; type: string; size: number; url: string; lastModified: number }> => {
-    const storage = getStorage();
-    const storageRef = ref(storage, `quickReplies/${file.name}`);
-    await uploadBytes(storageRef, file);
-    const url = await getDownloadURL(storageRef);
+    const url = await uploadMedia(file);
     return {
         name: file.name,
         type: file.type,
@@ -217,17 +263,11 @@ const QuickRepliesPage: React.FC = () => {
   };
 
   const uploadImage = async (file: File): Promise<string> => {
-    const storage = getStorage(); // Initialize storage
-    const storageRef = ref(storage, `images/${file.name}`); // Set the storage path
-    await uploadBytes(storageRef, file); // Upload the file
-    return await getDownloadURL(storageRef); // Return the download URL
+    return await uploadMedia(file);
   };
 
   const uploadVideo = async (file: File): Promise<{ name: string; type: string; size: number; url: string; lastModified: number; thumbnail?: string }> => {
-    const storage = getStorage();
-    const storageRef = ref(storage, `quickReplies/videos/${file.name}`);
-    await uploadBytes(storageRef, file);
-    const url = await getDownloadURL(storageRef);
+    const url = await uploadMedia(file);
 
     // Generate thumbnail using canvas
     let thumbnail;
@@ -388,84 +428,92 @@ const QuickRepliesPage: React.FC = () => {
   }, []);
 
   const addQuickReply = async () => {
-    if (newQuickReplyKeyword.trim() === '') {
-      toast.error('Keyword is required');
+    if (newQuickReply.text.trim() === '') {
+      toast.error('Text is required');
       return;
     }
 
     setIsLoading(true);
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.error('No authenticated user');
+      const userEmail = getCurrentUserEmail();
+      
+      if (!userEmail) {
+        toast.error('User authentication not found');
         return;
       }
 
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
+      // Prepare media arrays for upload
+      let uploadedDocuments = null;
+      let uploadedImages = null;
+      let uploadedVideos = null;
+
+      try {
+        // Upload documents
+        if (selectedDocuments.length > 0) {
+          const documentPromises = selectedDocuments.map(uploadDocument);
+          uploadedDocuments = await Promise.all(documentPromises);
+        }
+
+        // Upload images
+        if (selectedImages.length > 0) {
+          const imagePromises = selectedImages.map(uploadImage);
+          uploadedImages = await Promise.all(imagePromises);
+        }
+
+        // Upload videos
+        if (selectedVideos.length > 0) {
+          const videoPromises = selectedVideos.map(uploadVideo);
+          uploadedVideos = await Promise.all(videoPromises);
+        }
+      } catch (uploadError) {
+        console.error('Error uploading media:', uploadError);
+        toast.error('Failed to upload media files');
+        setIsLoading(false);
         return;
       }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
 
-      const newQuickReplyData = {
-        text: newQuickReply,
-        keyword: newQuickReplyKeyword,
-        type: activeTab,
-        category: newCategory,
-        createdAt: serverTimestamp(),
-        createdBy: user.email,
-        documents: [],
-        images: [],
-        videos: [],
+      const quickReplyData = {
+        email: userEmail,
+        category: newQuickReply.category || null,
+        keyword: newQuickReply.keyword || null,
+        text: newQuickReply.text,
+        type: newQuickReply.type || null,
+        documents: uploadedDocuments,
+        images: uploadedImages,
+        videos: uploadedVideos,
+        created_by: userEmail
       };
 
-      let docRef;
-      if (activeTab === 'self') {
-        docRef = collection(firestore, `user/${user.email}/quickReplies`);
+      const response = await fetch(`${baseUrl}/api/quick-replies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(quickReplyData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setNewQuickReply({
+          keyword: '',
+          text: '',
+          category: '',
+          type: ''
+        });
+        setSelectedDocuments([]);
+        setSelectedImages([]);
+        setSelectedVideos([]);
+        setPreviewUrls({});
+        toast.success('Quick reply added successfully');
+        fetchQuickReplies();
       } else {
-        docRef = collection(firestore, `companies/${companyId}/quickReplies`);
+        toast.error(data.error || 'Failed to add quick reply');
       }
-
-      // First, add the quick reply with text only
-      const quickReplyRef = await addDoc(docRef, newQuickReplyData);
-
-      // Then, if there are attachments, update the document
-      if (selectedDocuments.length > 0 || selectedImages.length > 0 || selectedVideos.length > 0) {
-        const updates: Partial<QuickReply> = {
-          documents: [],
-          images: [],
-          videos: [],
-        };
-        
-        if (selectedDocuments.length > 0) {
-          const documentData = await Promise.all(selectedDocuments.map(file => uploadDocument(file)));
-          updates.documents = documentData;
-        }
-        
-        if (selectedImages.length > 0) {
-          const imageUrls = await Promise.all(selectedImages.map(file => uploadImage(file)));
-          updates.images = imageUrls;
-        }
-
-        if (selectedVideos.length > 0) {
-          const videoData = await Promise.all(selectedVideos.map(file => uploadVideo(file)));
-          updates.videos = videoData;
-        }
-
-        await updateDoc(quickReplyRef, updates);
-      }
-
-      setNewQuickReply('');
-      setNewQuickReplyKeyword('');
-      setSelectedDocuments([]);
-      setSelectedImages([]);
-      setSelectedVideos([]);
-      setPreviewUrls({});
-      toast.success('Quick reply added successfully');
-      fetchQuickReplies();
     } catch (error) {
       console.error('Error adding quick reply:', error);
       toast.error('Failed to add quick reply');
@@ -478,89 +526,101 @@ const QuickRepliesPage: React.FC = () => {
     id: string,
     keyword: string,
     text: string,
-    type: 'all' | 'self',
-    category: string
+    category: string,
+    type?: string
   ) => {
-    const user = auth.currentUser;
-    if (!user) return;
+    const userEmail = getCurrentUserEmail();
+    
+    if (!userEmail) {
+      toast.error('User authentication not found');
+      return;
+    }
 
     try {
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      let quickReplyDoc;
-      if (type === 'self') {
-        quickReplyDoc = doc(firestore, `user/${user.email}/quickReplies`, id);
-      } else {
-        quickReplyDoc = doc(firestore, `companies/${companyId}/quickReplies`, id);
-      }
-
-      const updatedData: Partial<QuickReply> = {
-        text,
-        keyword,
-        category: editingReply?.category || "",
-      };
+      // Upload new media files if any
+      let uploadedDocuments = null;
+      let uploadedImages = null;
+      let uploadedVideos = null;
 
       if (editingDocuments.length > 0) {
-        const documentData = await Promise.all(editingDocuments.map(file => uploadDocument(file)));
-        updatedData.documents = documentData;
+        const documentPromises = editingDocuments.map(uploadDocument);
+        uploadedDocuments = await Promise.all(documentPromises);
       }
 
       if (editingImages.length > 0) {
-        const imageUrls = await Promise.all(editingImages.map(file => uploadImage(file)));
-        updatedData.images = imageUrls;
+        const imagePromises = editingImages.map(uploadImage);
+        uploadedImages = await Promise.all(imagePromises);
       }
 
       if (editingVideos.length > 0) {
-        const videoData = await Promise.all(editingVideos.map(file => uploadVideo(file)));
-        updatedData.videos = videoData;
+        const videoPromises = editingVideos.map(uploadVideo);
+        uploadedVideos = await Promise.all(videoPromises);
       }
 
-      await updateDoc(quickReplyDoc, updatedData);
-      setEditingReply(null);
-      setEditingDocuments([]);
-      setEditingImages([]);
-      setEditingVideos([]);
-      setPreviewUrls({});
-      toast.success('Quick reply updated successfully');
-      fetchQuickReplies();
+      const updateData: any = {
+        updated_by: userEmail
+      };
+
+      if (keyword !== undefined) updateData.keyword = keyword;
+      if (text !== undefined) updateData.text = text;
+      if (category !== undefined) updateData.category = category;
+      if (type !== undefined) updateData.type = type;
+      if (uploadedDocuments !== null) updateData.documents = uploadedDocuments;
+      if (uploadedImages !== null) updateData.images = uploadedImages;
+      if (uploadedVideos !== null) updateData.videos = uploadedVideos;
+
+      const response = await fetch(`${baseUrl}/api/quick-replies/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setEditingReply(null);
+        setEditingDocuments([]);
+        setEditingImages([]);
+        setEditingVideos([]);
+        setPreviewUrls({});
+        toast.success('Quick reply updated successfully');
+        fetchQuickReplies();
+      } else {
+        toast.error(data.error || 'Failed to update quick reply');
+      }
     } catch (error) {
       console.error('Error updating quick reply:', error);
       toast.error('Failed to update quick reply');
     }
   };
 
-  const deleteQuickReply = async (id: string, type: 'all' | 'self') => {
-    const user = auth.currentUser;
-    if (!user) return;
-
+  const deleteQuickReply = async (id: string) => {
     try {
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      const response = await fetch(`${baseUrl}/api/quick-replies/${id}`, {
+        method: 'DELETE',
+      });
 
-      let quickReplyDoc;
-      if (type === 'self') {
-        quickReplyDoc = doc(firestore, `user/${user.email}/quickReplies`, id);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('Quick reply deleted successfully');
+        fetchQuickReplies();
       } else {
-        quickReplyDoc = doc(firestore, `companies/${companyId}/quickReplies`, id);
+        toast.error(data.error || 'Failed to delete quick reply');
       }
-
-      await deleteDoc(quickReplyDoc);
-      fetchQuickReplies();
     } catch (error) {
       console.error('Error deleting quick reply:', error);
+      toast.error('Failed to delete quick reply');
     }
   };
 
@@ -575,36 +635,22 @@ const QuickRepliesPage: React.FC = () => {
   };
 
   const filteredQuickReplies = quickReplies
-    .filter(reply => activeTab === 'all' || reply.type === activeTab)
+    .filter(reply => activeTab === 'all' || reply.scope === 'company' || (activeTab === 'self' && reply.scope === 'user'))
     .filter(reply => {
       if (selectedCategory === 'all') return true;
       return reply.category === selectedCategory;
     })
-    .filter(reply => 
-      reply.keyword.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      reply.text.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a, b) => a.keyword.localeCompare(b.keyword));
-
-  const handleTextFormat = (format: 'bold' | 'strikethrough') => {
-    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = newQuickReply.substring(start, end);
-    
-    if (selectedText) {
-      const symbol = format === 'bold' ? '*' : '~';
-      const formattedText = `${symbol}${selectedText}${symbol}`;
-      const newText = newQuickReply.substring(0, start) + formattedText + newQuickReply.substring(end);
-      setNewQuickReply(newText);
-      
-      // Restore cursor position after formatting
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start + 1, end + 1);
-      }, 0);
-    }
-  };
+    .filter(reply => {
+      const title = reply.title || reply.keyword || '';
+      const description = reply.description || reply.text || '';
+      return title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+             description.toLowerCase().includes(searchQuery.toLowerCase());
+    })
+    .sort((a, b) => {
+      const aTitle = a.title || a.keyword || '';
+      const bTitle = b.title || b.keyword || '';
+      return aTitle.localeCompare(bTitle);
+    });
 
   const addCategory = async () => {
     if (!newCategoryName.trim()) {
@@ -613,26 +659,52 @@ const QuickRepliesPage: React.FC = () => {
     }
 
     try {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
+      const userEmail = getCurrentUserEmail();
       
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      if (!userEmail) {
+        toast.error('User authentication not found');
+        return;
+      }
 
-      const categoriesRef = collection(firestore, `companies/${companyId}/categories`);
-      await addDoc(categoriesRef, {
-        name: newCategoryName,
-        createdAt: serverTimestamp(),
-        createdBy: user.email
+      // First get user context to get company ID
+      const userResponse = await fetch(`${baseUrl}/api/user-context?email=${encodeURIComponent(userEmail)}`);
+      if (!userResponse.ok) {
+        throw new Error('Failed to fetch user context');
+      }
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+
+      if (!companyId) {
+        toast.error('Company ID not found');
+        return;
+      }
+      
+      const categoryData = {
+        companyId: companyId,
+        category: newCategoryName
+      };
+
+      const response = await fetch(`${baseUrl}/api/quick-reply-categories`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(categoryData),
       });
 
-      setNewCategoryName('');
-      fetchCategories();
-      toast.success('Category added successfully');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setNewCategoryName('');
+        fetchCategories();
+        toast.success('Category added successfully');
+      } else {
+        toast.error(data.error || 'Failed to add category');
+      }
     } catch (error) {
       console.error('Error adding category:', error);
       toast.error('Failed to add category');
@@ -641,26 +713,49 @@ const QuickRepliesPage: React.FC = () => {
 
   const deleteCategory = async (categoryName: string) => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
+      const userEmail = getCurrentUserEmail();
       
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      if (!userEmail) {
+        toast.error('User authentication not found');
+        return;
+      }
 
-      const categoriesRef = collection(firestore, `companies/${companyId}/categories`);
-      const q = query(categoriesRef, where('name', '==', categoryName));
-      const querySnapshot = await getDocs(q);
+      // First get user context to get company ID
+      const userResponse = await fetch(`${baseUrl}/api/user-context?email=${encodeURIComponent(userEmail)}`);
+      if (!userResponse.ok) {
+        throw new Error('Failed to fetch user context');
+      }
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+
+      if (!companyId) {
+        toast.error('Company ID not found');
+        return;
+      }
       
-      querySnapshot.forEach(async (doc) => {
-        await deleteDoc(doc.ref);
+      const response = await fetch(`${baseUrl}/api/quick-reply-categories`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          companyId: companyId,
+          category: categoryName
+        })
       });
 
-      fetchCategories();
-      toast.success('Category deleted successfully');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        fetchCategories();
+        toast.success('Category deleted successfully');
+      } else {
+        toast.error(data.error || 'Failed to delete category');
+      }
     } catch (error) {
       console.error('Error deleting category:', error);
       toast.error('Failed to delete category');
@@ -735,53 +830,46 @@ const QuickRepliesPage: React.FC = () => {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
               <h3 className="text-lg font-semibold mb-4">Add New Quick Reply</h3>
               <div className="space-y-4">
-                <div className="flex space-x-4">
-                  <input
-                    className="flex-1 px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Keyword (required)"
-                    value={newQuickReplyKeyword}
-                    onChange={(e) => setNewQuickReplyKeyword(e.target.value)}
-                  />
-
-<div className="relative flex-1">
-  <select
-    className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
-    value={newCategory}
-    onChange={(e) => setNewCategory(e.target.value)}
-  >
-    <option value="">Select Category</option>
-    {categories
-      .filter(cat => cat !== 'all')
-      .map(category => (
-        <option key={category} value={category}>
-          {category}
-        </option>
-    ))}
-  </select>
-</div>
-                </div>
-                <div className="relative">
-                  <div className="absolute right-2 top-2 flex space-x-2 z-10">
-                    <button
-                      className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={() => handleTextFormat('bold')}
-                      title="Bold"
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="relative">
+                    <select
+                      className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                      value={newQuickReply.category}
+                      onChange={(e) => setNewQuickReply(prev => ({ ...prev, category: e.target.value }))}
                     >
-                      <Lucide icon="Bold" className="w-4 h-4" />
-                    </button>
-                    <button
-                      className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={() => handleTextFormat('strikethrough')}
-                      title="Strikethrough"
-                    >
-                      <Lucide icon="Strikethrough" className="w-4 h-4" />
-                    </button>
+                      <option value="">Select Category</option>
+                      {categories
+                        .filter(cat => cat !== 'all')
+                        .map(category => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                      ))}
+                    </select>
                   </div>
+                  <div className="relative">
+                    <input
+                      className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="Type (optional)"
+                      value={newQuickReply.type}
+                      onChange={(e) => setNewQuickReply(prev => ({ ...prev, type: e.target.value }))}
+                    />
+                  </div>
+                  <div className="relative">
+                    <input
+                      className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="Keyword (optional)"
+                      value={newQuickReply.keyword}
+                      onChange={(e) => setNewQuickReply(prev => ({ ...prev, keyword: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
                   <textarea
                     className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Message text (optional)"
-                    value={newQuickReply}
-                    onChange={(e) => setNewQuickReply(e.target.value)}
+                    placeholder="Text (required)"
+                    value={newQuickReply.text}
+                    onChange={(e) => setNewQuickReply(prev => ({ ...prev, text: e.target.value }))}
                     rows={3}
                   />
                 </div>
@@ -967,14 +1055,14 @@ const QuickRepliesPage: React.FC = () => {
                       </div>
 
                       {/* Form fields */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Keyword</label>
                           <input
                             className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 shadow-sm"
-                            value={editingReply.keyword}
+                            value={editingReply.keyword || ''}
                             onChange={(e) => setEditingReply({ ...editingReply, keyword: e.target.value })}
-                            placeholder="Enter keyword (required)"
+                            placeholder="Enter keyword (optional)"
                           />
                         </div>
                         <div className="space-y-2">
@@ -994,56 +1082,27 @@ const QuickRepliesPage: React.FC = () => {
                             ))}
                           </select>
                         </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Type</label>
+                          <input
+                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 shadow-sm"
+                            value={editingReply.type || ''}
+                            onChange={(e) => setEditingReply({ ...editingReply, type: e.target.value })}
+                            placeholder="Enter type (optional)"
+                          />
+                        </div>
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Message Text</label>
-                        <div className="relative">
-                          <div className="absolute right-3 top-3 flex space-x-1 z-10">
-                            <button
-                              className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                              onClick={() => {
-                                const textarea = document.querySelector(`#edit-textarea-${reply.id}`) as HTMLTextAreaElement;
-                                const start = textarea.selectionStart;
-                                const end = textarea.selectionEnd;
-                                const selectedText = editingReply.text.substring(start, end);
-                                if (selectedText) {
-                                  const formattedText = `*${selectedText}*`;
-                                  const newText = editingReply.text.substring(0, start) + formattedText + editingReply.text.substring(end);
-                                  setEditingReply({ ...editingReply, text: newText });
-                                }
-                              }}
-                              title="Bold"
-                            >
-                              <Lucide icon="Bold" className="w-4 h-4 text-gray-500" />
-                            </button>
-                            <button
-                              className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                              onClick={() => {
-                                const textarea = document.querySelector(`#edit-textarea-${reply.id}`) as HTMLTextAreaElement;
-                                const start = textarea.selectionStart;
-                                const end = textarea.selectionEnd;
-                                const selectedText = editingReply.text.substring(start, end);
-                                if (selectedText) {
-                                  const formattedText = `~${selectedText}~`;
-                                  const newText = editingReply.text.substring(0, start) + formattedText + editingReply.text.substring(end);
-                                  setEditingReply({ ...editingReply, text: newText });
-                                }
-                              }}
-                              title="Strikethrough"
-                            >
-                              <Lucide icon="Strikethrough" className="w-4 h-4 text-gray-500" />
-                            </button>
-                          </div>
-                          <textarea
-                            id={`edit-textarea-${reply.id}`}
-                            className="w-full px-4 py-3 pr-20 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 shadow-sm resize-none"
-                            value={editingReply.text}
-                            onChange={(e) => setEditingReply({ ...editingReply, text: e.target.value })}
-                            placeholder="Enter message text (optional)"
-                            rows={4}
-                          />
-                        </div>
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Text</label>
+                        <textarea
+                          id={`edit-textarea-${reply.id}`}
+                          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 shadow-sm resize-none"
+                          value={editingReply.text || ''}
+                          onChange={(e) => setEditingReply({ ...editingReply, text: e.target.value })}
+                          placeholder="Enter description (optional)"
+                          rows={4}
+                        />
                       </div>
 
                       {/* Existing attachments preview */}
@@ -1344,7 +1403,13 @@ const QuickRepliesPage: React.FC = () => {
                         </button>
                         <button
                           className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex items-center font-medium shadow-lg hover:shadow-xl"
-                          onClick={() => updateQuickReply(reply.id, editingReply.keyword, editingReply.text, editingReply.type as "all" | "self", editingReply.category || "")}
+                          onClick={() => updateQuickReply(
+                            reply.id, 
+                            editingReply.keyword || '', 
+                            editingReply.text || '', 
+                            editingReply.category || '', 
+                            editingReply.type
+                          )}
                         >
                           <Lucide icon="Save" className="w-4 h-4 mr-2" />
                           Save Changes
@@ -1357,16 +1422,18 @@ const QuickRepliesPage: React.FC = () => {
                         <div className="flex-grow">
                           <div className="flex items-center space-x-2 mb-2">
                             <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
-                              {reply.keyword}
+                              {reply.keyword || reply.title || 'Quick Reply'}
                             </span>
                             {reply.category && (
                               <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full text-sm">
                                 {reply.category}
                               </span>
                             )}
-                            <span className="text-gray-500 dark:text-gray-400 text-sm">
-                              {reply.createdBy && `Added by ${reply.createdBy}`}
-                            </span>
+                            {reply.type && (
+                              <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm">
+                                {reply.type}
+                              </span>
+                            )}
                           </div>
                           {reply.text && (
                             <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
@@ -1383,7 +1450,7 @@ const QuickRepliesPage: React.FC = () => {
                           </button>
                           <button
                             className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                            onClick={() => deleteQuickReply(reply.id, reply.type as "all" | "self")}
+                            onClick={() => deleteQuickReply(reply.id)}
                           >
                             <Lucide icon="Trash" className="w-5 h-5" />
                           </button>

@@ -22,13 +22,16 @@ interface LoadingIconProps extends React.ComponentPropsWithoutRef<"span"> {
   darkModeColor?: string;
 }
 
-function LoadingIcon(props: LoadingIconProps) {
+function LoadingIcon({
+  icon = "spinning-circles",
+  color = "#2d3748",
+  darkModeColor = "#ffffff",
+  ...computedProps
+}: LoadingIconProps) {
   const darkMode = useAppSelector(selectDarkMode);
   const iconColor = useMemo(() => {
-    return darkMode ? props.darkModeColor || "#ffffff" : props.color || "#2d3748";
-  }, [darkMode, props.color, props.darkModeColor]);
-
-  const { icon, color, darkModeColor, ...computedProps } = props;
+    return darkMode ? darkModeColor || "#ffffff" : color || "#2d3748";
+  }, [darkMode, color, darkModeColor]);
 
   const iconSvg = useMemo(() => {
     switch (icon) {
@@ -317,12 +320,6 @@ function LoadingIcon(props: LoadingIconProps) {
 
   return <span {...computedProps}>{iconSvg}</span>;
 }
-
-LoadingIcon.defaultProps = {
-  icon: "",
-  color: "#2d3748",
-  darkModeColor: "#ffffff",
-};
 
 export default LoadingIcon;
 

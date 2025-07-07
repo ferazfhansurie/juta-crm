@@ -6,41 +6,7 @@ import React, {
   useMemo,
   Fragment,
 } from "react";
-import { getAuth, signOut } from "firebase/auth";
-import { initializeApp } from "firebase/app";
 import logoImage from "@/assets/images/placeholder.svg";
-import {
-  getFirestore,
-  Timestamp,
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  setDoc,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  arrayRemove,
-  arrayUnion,
-  writeBatch,
-  serverTimestamp,
-  runTransaction,
-  increment,
-  getCountFromServer,
-} from "firebase/firestore";
-import {
-  QueryDocumentSnapshot,
-  DocumentData,
-  Query,
-  CollectionReference,
-  startAfter,
-  limit,
-  deleteField,
-} from "firebase/firestore";
 import axios, { AxiosError } from "axios";
 import Lucide from "@/components/Base/Lucide";
 import Button from "@/components/Base/Button";
@@ -48,14 +14,6 @@ import { Dialog, Menu } from "@/components/Base/Headless";
 import { format } from "date-fns";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  StorageReference,
-  uploadBytesResumable,
-  getDownloadURL,
-} from "firebase/storage";
 import { rateLimiter } from "../../utils/rate";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { useLocation } from "react-router-dom";
@@ -136,6 +94,7 @@ export interface Contact {
 }
 
 export interface Message {
+  created_at: any;
   chat_id: string;
   dateAdded?: number | 0;
   timestamp: number | 0;
@@ -246,10 +205,10 @@ interface UserData {
 // Define the QuickReply interface
 interface QuickReply {
   id: string;
-  keyword: string;
+  keyword?: string;
   text: string;
-  type: string;
-  category: string;
+  type?: string;
+  category?: string;
   documents?:
     | {
         name: string;
@@ -270,6 +229,13 @@ interface QuickReply {
         thumbnail?: string;
       }[]
     | null;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  status?: string;
+  // Computed properties for compatibility
+  title?: string;
+  description?: string;
 }
 interface Category {
   id: string;
@@ -332,7 +298,7 @@ interface ScheduledMessage {
   documentUrl?: string;
   mimeType?: string;
   fileName?: string;
-  scheduledTime: Timestamp;
+  scheduledTime: Date | string;
   batchQuantity: number;
   repeatInterval: number;
   repeatUnit: "minutes" | "hours" | "days";
@@ -343,8 +309,8 @@ interface ScheduledMessage {
     // ... any other contact fields you want to include
   };
   status: "scheduled" | "sent" | "failed";
-  createdAt: Timestamp;
-  sentAt?: Timestamp;
+  createdAt: Date | string;
+  sentAt?: Date | string;
   error?: string;
   count?: number;
   v2?: boolean;
@@ -572,22 +538,6 @@ const PDFModal = ({ isOpen, onClose, pdfUrl }: PDFModalProps) => {
   );
 };
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
-  authDomain: "onboarding-a5fcb.firebaseapp.com",
-  databaseURL:
-    "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "onboarding-a5fcb",
-  storageBucket: "onboarding-a5fcb.appspot.com",
-  messagingSenderId: "334607574757",
-  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
-  measurementId: "G-2C9J1RY67L",
-};
-
-const app = initializeApp(firebaseConfig);
-const firestore = getFirestore(app);
-const auth = getAuth(app);
-
 interface ContactsState {
   items: Contact[];
   hasMore: boolean;
@@ -612,6 +562,12 @@ function Main() {
     }
     return [];
   });
+
+  // Additional state for NeonDB auth
+  const [companyId, setCompanyId] = useState<string>("");
+  const [currentUserRole, setCurrentUserRole] = useState<string>("");
+  const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
+  const [baseUrl, setBaseUrl] = useState<string>("https://julnazz.ngrok.dev");
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
@@ -721,6 +677,12 @@ function Main() {
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [reminderDate, setReminderDate] = useState<Date | null>(null);
   const [reminderText, setReminderText] = useState("");
+  
+  // Add state variables for sync/delete functionality
+  const [syncDropdownOpen, setSyncDropdownOpen] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
   const currentUserName = userData?.name || "";
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
@@ -826,35 +788,83 @@ function Main() {
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [employeeSearch, setEmployeeSearch] = useState("");
 
+  // Initialize user context from localStorage and NeonDB
+  useEffect(() => {
+    // Use user info from localStorage (set during API login)
+    const userDataStr = localStorage.getItem("userData");
+    if (userDataStr) {
+      try {
+        const userData = JSON.parse(userDataStr);
+        const email = userData.email;
+        if (email) {
+          (async () => {
+            try {
+              const response = await fetch(
+                `https://mighty-dane-newly.ngrok-free.app/api/user-context?email=${email}`
+              );
+              if (!response.ok) throw new Error("Failed to fetch user context");
+              const data = await response.json();
+              setCompanyId(data.companyId);
+              setCurrentUserRole(data.role);
+              setUserRole(data.role);
+              setUserData({
+                email: email,
+                companyId: data.companyId,
+                role: data.role,
+                name: data.name || userData.name,
+                phone: data.phone,
+                viewEmployee: data.viewEmployee
+              });
+              
+              // Process employee list
+              const employeeListData: Employee[] = data.employees.map(
+                (employee: any) => ({
+                  id: employee.id,
+                  name: employee.name,
+                  email: employee.email || employee.id,
+                  role: employee.role,
+                  employeeId: employee.employeeId,
+                  phoneNumber: employee.phoneNumber,
+                })
+              );
+              setEmployeeList(employeeListData);
+              
+              // Set phone index data
+              setPhoneNames(data.phoneNames);
+              setPhoneOptions(Object.keys(data.phoneNames).map(Number));
+              setPhoneCount(Object.keys(data.phoneNames).length);
+            } catch (error) {
+              console.error("Error fetching user data:", error);
+            }
+          })();
+        }
+      } catch (e) {
+        console.error("Invalid userData in localStorage");
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const user = auth.currentUser;
-        if (!user) return;
+        const email = getCurrentUserEmail();
+        if (!email || !companyId) return;
 
-        const docUserRef = doc(firestore, "user", user.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) return;
-
-        const userData = docUserSnapshot.data();
-        const companyId = userData.companyId;
-
-        const categoriesRef = collection(
-          firestore,
-          `companies/${companyId}/categories`
-        );
-        const categoriesSnapshot = await getDocs(categoriesRef);
-        const fetchedCategories = categoriesSnapshot.docs.map(
-          (doc) => doc.data().name
-        );
+        const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/categories?companyId=${companyId}`);
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        const fetchedCategories = data.categories || [];
         setCategories(["all", ...fetchedCategories]);
       } catch (error) {
         console.error("Error fetching categories:", error);
       }
     };
 
-    fetchCategories();
-  }, []);
+    if (companyId) {
+      fetchCategories();
+    }
+  }, [companyId]);
   // Add WebSocket status indicator component
   const WebSocketStatusIndicator = () => {
     if (!wsConnected) {
@@ -983,23 +993,13 @@ function Main() {
   const handleSendNow = async (message: any) => {
     try {
       // Get user and company data
-      const user = auth.currentUser;
-      if (!user?.email) throw new Error("User not authenticated");
+      const email = getCurrentUserEmail();
+      if (!email) throw new Error("User not authenticated");
 
-      const docUserRef = doc(firestore, "user", user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) throw new Error("User document not found");
+      if (!companyId) throw new Error("Company ID not available");
 
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      // Get company data for baseUrl
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error("Company document not found");
-      const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
+      // Use the baseUrl from state or default
+      const apiUrl = "https://mighty-dane-newly.ngrok-free.app";
 
       // FIXED: Handle consolidated message structure to avoid duplicate sends
       // Handle the new consolidated message structure
@@ -1019,14 +1019,14 @@ function Main() {
             message.messages[0];
 
           const response = await fetch(
-            `${baseUrl}/api/v2/messages/text/${companyId}/${chatId}`,
+            `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 message: mainMessage.text || "",
-                phoneIndex: message.phoneIndex || userData.phone || 0,
-                userName: userData.name || userData.email || "",
+                phoneIndex: message.phoneIndex || userData?.phone || 0,
+                userName: userData?.name || email || "",
               }),
             }
           );
@@ -1043,14 +1043,14 @@ function Main() {
         // Send messages to all recipients
         const sendPromises = message.chatIds.map(async (chatId: string) => {
           const response = await fetch(
-            `${baseUrl}/api/v2/messages/text/${companyId}/${chatId}`,
+            `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 message: message.message || "",
-                phoneIndex: message.phoneIndex || userData.phone || 0,
-                userName: userData.name || userData.email || "",
+                phoneIndex: message.phoneIndex || userData?.phone || 0,
+                userName: userData?.name || email || "",
               }),
             }
           );
@@ -1066,12 +1066,14 @@ function Main() {
 
       // Delete the scheduled message
       if (message.id) {
-        await deleteDoc(
-          doc(
-            firestore,
-            `companies/${companyId}/scheduledMessages/${message.id}`
-          )
-        );
+        // Call NeonDB API to delete scheduled message
+        const deleteResponse = await fetch(`${apiUrl}/api/scheduled-messages/${message.id}?companyId=${companyId}`, {
+          method: 'DELETE'
+        });
+        if (!deleteResponse.ok) {
+          console.warn('Failed to delete scheduled message from database');
+        }
+        
         // Update local state to remove the message
         setScheduledMessages((prev) =>
           prev.filter((msg) => msg.id !== message.id)
@@ -1091,24 +1093,12 @@ function Main() {
   };
   const handleDeleteScheduledMessage = async (messageId: string) => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      const email = getCurrentUserEmail();
+      if (!email || !companyId) return;
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error("No company document found");
-      const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
       // Call the backend API to delete the scheduled message
       const response = await axios.delete(
-        `${baseUrl}/api/schedule-message/${companyId}/${messageId}`
+        `https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}/${messageId}`
       );
       if (response.status === 200) {
         setScheduledMessages(
@@ -1128,27 +1118,11 @@ function Main() {
   useEffect(() => {
     const fetchPhoneStatuses = async () => {
       try {
-        const user = auth.currentUser;
-        if (!user) return;
-
-        const docUserRef = doc(firestore, "user", user.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) return;
-
-        const userData = docUserSnapshot.data();
-        const companyId = userData.companyId;
-
-        const docRef = doc(firestore, "companies", companyId);
-        const docSnapshot = await getDoc(docRef);
-
-        if (!docSnapshot.exists()) return;
-
-        const companyData = docSnapshot.data();
-        const baseUrl =
-          companyData.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
+        const email = getCurrentUserEmail();
+        if (!email || !companyId) return;
 
         const botStatusResponse = await axios.get(
-          `${baseUrl}/api/bot-status/${companyId}`
+          `https://mighty-dane-newly.ngrok-free.app/api/bot-status/${companyId}`
         );
 
         if (botStatusResponse.status === 200) {
@@ -1233,6 +1207,21 @@ function Main() {
     phoneNames,
   ]);
 
+  // Add useEffect to close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (syncDropdownOpen && !target.closest('.relative')) {
+        setSyncDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [syncDropdownOpen]);
+
   // Initial chat selection from URL
 
   // Add new useEffect to restore scroll position
@@ -1255,6 +1244,190 @@ function Main() {
   // Update this function name
   const toggleForwardTagsVisibility = () => {
     setShowAllForwardTags(!showAllForwardTags);
+  };
+
+  // Helper function to get company data from NeonDB
+  const getCompanyApiUrl = async () => {
+    const userEmail = localStorage.getItem("userEmail");
+    if (!userEmail) {
+      throw new Error("No user email found");
+    }
+
+    const response = await fetch(
+      `https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+      {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch company data");
+    }
+
+    const data = await response.json();
+    console.log("Company data:", data);
+    return {
+      apiUrl: data.companyData.api_url || "https://mighty-dane-newly.ngrok-free.app",
+      companyId: data.userData.companyId,
+    };
+  };
+
+  // Sync contact name function
+  const handleSyncContactName = async () => {
+    if (syncLoading) return;
+    
+    setSyncLoading(true);
+    setSyncDropdownOpen(false);
+    
+    try {
+      const { apiUrl, companyId } = await getCompanyApiUrl();
+
+      if (!selectedContact.phone) {
+        toast.error("Contact phone number is required for sync");
+        return;
+      }
+
+      const phoneNumber = selectedContact.phone.replace(/\D/g, "");
+      const response = await fetch(
+        `${apiUrl}/api/sync-single-contact-name/${companyId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            phoneIndex: selectedContact.phoneIndex ?? 0,
+            contactPhone: phoneNumber,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const responseData = await response.json();
+        toast.success("Contact name synced successfully!");
+        // Optionally refresh contact data here
+      } else {
+        const errorText = await response.text();
+        console.error("Sync failed:", errorText);
+        toast.error("Failed to sync contact name");
+      }
+    } catch (error) {
+      console.error("Error syncing contact name:", error);
+      toast.error("An error occurred while syncing contact name");
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  // Sync messages function
+  const handleSyncMessages = async () => {
+    if (syncLoading) return;
+    
+    setSyncLoading(true);
+    setSyncDropdownOpen(false);
+    
+    try {
+      const { apiUrl, companyId } = await getCompanyApiUrl();
+
+      if (!selectedContact.phone) {
+        toast.error("Contact phone number is required for sync");
+        return;
+      }
+
+      const phoneNumber = selectedContact.phone.replace(/\D/g, "");
+      const response = await fetch(
+        `${apiUrl}/api/sync-single-contact/${companyId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            phoneIndex: selectedContact.phoneIndex ?? 0,
+            contactPhone: phoneNumber,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const responseData = await response.json();
+        toast.success("Contact and messages synced successfully!");
+        // Optionally refresh messages here
+        fetchMessages(selectedChatId!, whapiToken!);
+      } else {
+        const errorText = await response.text();
+        console.error("Sync failed:", errorText);
+        toast.error("Failed to sync contact and messages");
+      }
+    } catch (error) {
+      console.error("Error syncing contact and messages:", error);
+      toast.error("An error occurred while syncing contact and messages");
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  // Delete contact function
+  const handleDeleteContact = async () => {
+    if (deleteLoading) return;
+    
+    if (!window.confirm("Are you sure you want to delete this contact? This action cannot be undone.")) {
+      return;
+    }
+
+    setDeleteLoading(true);
+    
+    try {
+      const { apiUrl, companyId } = await getCompanyApiUrl();
+
+      if (!selectedContact.contact_id) {
+        toast.error("Contact ID is required for deletion");
+        return;
+      }
+
+      toast.info("Deleting contact...");
+      setIsTabOpen(false);
+      setSelectedContact(null);
+      setSelectedChatId(null);
+
+      const response = await fetch(
+        `${apiUrl}/api/contacts/${selectedContact.contact_id}?companyId=${companyId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        toast.success("Contact deleted successfully!");
+        
+        // Update local state
+        setContacts(contacts.filter(contact => contact.id !== selectedContact.id));
+        
+        // Remove from scheduled messages if needed
+        const contactChatId = selectedContact.phone?.replace(/\D/g, "") + "@s.whatsapp.net";
+        setScheduledMessages(prev => prev.filter(msg => !msg.chatIds.includes(contactChatId)));
+        
+      } else {
+        const errorText = await response.text();
+        console.error("Delete failed:", errorText);
+        toast.error("Failed to delete contact");
+      }
+    } catch (error) {
+      console.error("Error deleting contact:", error);
+      toast.error("An error occurred while deleting contact");
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const filteredContactsSearch = useMemo(() => {
@@ -1306,32 +1479,17 @@ function Main() {
     if (!selectedVideo || !selectedChatId || !userData) return;
 
     try {
+      // Get company data using the new approach
+      const { companyId: cId, baseUrl, userData: uData, email } = await getCompanyData();
+      if (!uData) {
+        throw new Error("User not authenticated");
+      }
+
       // First upload the video file to get a URL
       const videoFile = new File([selectedVideo], `video_${Date.now()}.mp4`, {
         type: selectedVideo.type,
       });
       const videoUrl = await uploadFile(videoFile);
-
-      // Get company ID and other necessary data
-      const docUserRef = doc(firestore, "user", userData.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        throw new Error("No such document for user!");
-      }
-      const userDataFromDb = docUserSnapshot.data();
-
-      const companyId = userDataFromDb.companyId;
-      // Format chat ID
-      const phoneNumber = selectedChatId.split("+")[1];
-      const chat_id = phoneNumber + "@s.whatsapp.net";
-
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) return;
-      const companyData = docSnapshot.data();
-
-      const baseUrl =
-        companyData.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
 
       // Check the size of the video file
       const maxSizeInMB = 20;
@@ -1345,12 +1503,12 @@ function Main() {
       }
       // Call the video message API
       const response = await axios.post(
-        `${baseUrl}/api/v2/messages/video/${companyId}/${selectedChatId}`,
+        `${baseUrl}/api/v2/messages/video/${uData.companyId}/${selectedChatId}`,
         {
           videoUrl,
           caption,
           phoneIndex: selectedContact.phoneIndex || 0,
-          userName: userData.name,
+          userName: uData.name,
         }
       );
 
@@ -1390,27 +1548,13 @@ function Main() {
   const sendVoiceMessage = async () => {
     if (audioBlob && selectedChatId && userData) {
       try {
-        const user = getAuth().currentUser;
-        if (!user) {
+        const { companyId: cId, baseUrl, userData: uData, email } = await getCompanyData();
+        if (!uData) {
           console.error("User not authenticated");
           setError("User not authenticated");
           return;
         }
-        const docUserRef = doc(firestore, "user", user?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          return;
-        }
-        const dataUser = docUserSnapshot.data();
-        const companyId = dataUser.companyId;
-        const docRef = doc(firestore, "companies", companyId);
-        const docSnapshot = await getDoc(docRef);
-        if (!docSnapshot.exists()) {
-          return;
-        }
-        const data2 = docSnapshot.data();
-        const baseUrl =
-          data2.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
+
         // Convert the audio Blob to a File
         const audioFile = new File(
           [audioBlob],
@@ -1425,11 +1569,11 @@ function Main() {
           audioUrl,
           caption: "",
           phoneIndex: selectedContact?.phoneIndex || 0,
-          userName: userData.name,
+          userName: uData.name,
         };
 
         const response = await axios.post(
-          `${baseUrl}/api/v2/messages/audio/${userData.companyId}/${selectedChatId}`,
+          `${baseUrl}/api/v2/messages/audio/${uData.companyId}/${selectedChatId}`,
           requestBody
         );
 
@@ -1451,29 +1595,15 @@ function Main() {
 
   const handleReaction = async (message: any, emoji: string) => {
     try {
-      const user = getAuth().currentUser;
-      if (!user) {
+      const { companyId: cId, baseUrl, userData: uData, email } = await getCompanyData();
+      if (!uData) {
         console.error("User not authenticated");
         setError("User not authenticated");
         return;
       }
-      const docUserRef = doc(firestore, "user", user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        return;
-      }
-      const data2 = docSnapshot.data();
-      const baseUrl =
-        data2.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
+
       // Ensure we have all required data
-      if (!userData?.companyId || !message.id) {
+      if (!uData?.companyId || !message.id) {
         throw new Error("Missing required data: companyId or messageId");
       }
 
@@ -1481,7 +1611,7 @@ function Main() {
       const messageId = message.id;
 
       // Construct the endpoint with the full message ID
-      const endpoint = `${baseUrl}/api/messages/react/${userData.companyId}/${messageId}`;
+      const endpoint = `${baseUrl}/api/messages/react/${uData.companyId}/${messageId}`;
 
       const payload = {
         reaction: emoji,
@@ -1498,7 +1628,7 @@ function Main() {
                 ...msg,
                 reactions: [
                   ...(msg.reactions || []),
-                  { emoji, from_name: userData.name },
+                  { emoji, from_name: uData.name },
                 ],
               };
             }
@@ -1558,10 +1688,27 @@ function Main() {
   };
 
   const uploadDocument = async (file: File): Promise<string> => {
-    const storage = getStorage(); // Correctly initialize storage
-    const storageRef = ref(storage, `quickReplies/${file.name}`); // Use the initialized storage
-    await uploadBytes(storageRef, file);
-    return await getDownloadURL(storageRef);
+    try {
+      const { companyId: cId, baseUrl: apiUrl } = await getCompanyData();
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${apiUrl}/api/upload-media`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('File upload failed');
+      }
+
+      const data = await response.json();
+      return data.url;
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      throw error;
+    }
   };
 
   const handleMessageSearchClick = () => {
@@ -1580,40 +1727,37 @@ function Main() {
   };
 
   useEffect(() => {
-    const user = auth.currentUser;
-    if (user && userData) {
-      const companyId = userData.companyId;
-      const contactsRef = collection(
-        firestore,
-        `companies/${companyId}/contacts`
-      );
-      const q = query(contactsRef, orderBy("last_message.timestamp", "desc"));
+    const fetchContacts = async () => {
+      if (userData) {
+        try {
+          const { companyId: cId, baseUrl } = await getCompanyData();
+          const response = await fetch(`${baseUrl}/api/contacts?companyId=${cId}`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+          });
 
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const updatedContacts = snapshot.docs.map((doc) => {
-          const contactData = { ...doc.data(), id: doc.id } as Contact;
-
-          // Find the contact in the current state to check if it had a snooze tag
-          const existingContact = contacts.find((c) => c.id === doc.id);
-
-          // If the contact had a snooze tag before but doesn't have it now, add it back
-          if (
-            existingContact?.tags?.includes("snooze") &&
-            !contactData.tags?.includes("snooze")
-          ) {
-            return {
-              ...contactData,
-              tags: [...(contactData.tags || []), "snooze"],
-            };
+          if (response.ok) {
+            const data = await response.json();
+            const updatedContacts = data.contacts || [];
+            setContacts(updatedContacts);
+          } else {
+            console.error("Failed to fetch contacts");
           }
+        } catch (error) {
+          console.error("Error fetching contacts:", error);
+        }
+      }
+    };
 
-          return contactData;
-        });
-        setContacts(updatedContacts);
-      });
-
-      return () => unsubscribe();
-    }
+    fetchContacts();
+    
+    // Set up polling for real-time updates (every 30 seconds)
+    const interval = setInterval(fetchContacts, 30000);
+    
+    return () => clearInterval(interval);
   }, [userData]);
 
   useEffect(() => {
@@ -1870,31 +2014,47 @@ function Main() {
   // Add this function to handle phone change
   const handlePhoneChange = async (newPhoneIndex: number) => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
+      const { companyId: cId, baseUrl, userData: uData, email } = await getCompanyData();
+      if (!uData) {
         console.error("No authenticated user");
         return;
       }
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      await updateDoc(docUserRef, { phone: newPhoneIndex });
-      // Update local state
-      setUserData((prevState) => {
-        if (prevState === null) {
-          return {
-            phone: newPhoneIndex,
-            companyId: "",
-            name: "",
-            role: "",
-          };
-        }
-        return {
-          ...prevState,
-          phone: newPhoneIndex,
-        };
+      // Update phone index via API
+      const response = await fetch(`${baseUrl}/api/user/update-phone`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          email,
+          phoneIndex: newPhoneIndex,
+        }),
       });
 
-      toast.success("Phone updated successfully");
+      if (response.ok) {
+        // Update local state
+        setUserData((prevState) => {
+          if (prevState === null) {
+            return {
+              phone: newPhoneIndex,
+              companyId: "",
+              name: "",
+              role: "",
+            };
+          }
+          return {
+            ...prevState,
+            phone: newPhoneIndex,
+          };
+        });
+
+        toast.success("Phone updated successfully");
+      } else {
+        console.error("Failed to update phone");
+        toast.error("Failed to update phone");
+      }
     } catch (error) {
       console.error("Error updating phone:", error);
       toast.error("Failed to update phone");
@@ -2201,45 +2361,39 @@ function Main() {
 
   const sendWhatsAppAlert = async (employeeName: string, chatId: string) => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) return;
-
-      const companyData = docSnapshot.data();
-
-      const baseUrl =
-        companyData.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
-      // Fetch employee's WhatsApp number
-      const employeesRef = collection(
-        firestore,
-        "companies",
-        companyId,
-        "employee"
-      );
-      const q = query(employeesRef, where("name", "==", employeeName));
-      const querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
+      const { companyId: cId, baseUrl: apiUrl, userData: uData, email } = await getCompanyData();
+      if (!uData) {
+        console.error("User not authenticated");
         return;
       }
 
-      const employeeData = querySnapshot.docs[0].data();
-      const employeePhone = employeeData.phoneNumber;
+      // Fetch employee's WhatsApp number from API
+      const employeeResponse = await fetch(`${apiUrl}/api/employees?companyId=${cId}&name=${encodeURIComponent(employeeName)}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (!employeeResponse.ok) {
+        console.error("Employee not found");
+        return;
+      }
+
+      const employeeData = await employeeResponse.json();
+      if (!employeeData.employee) {
+        console.error("Employee not found");
+        return;
+      }
+
+      const employeePhone = employeeData.employee.phoneNumber;
       const temp = employeePhone.split("+")[1];
       const employeeId = temp + `@c.us`;
 
-      // Send WhatsApp alert using the ngrok URL
+      // Send WhatsApp alert using the API
       const response = await fetch(
-        `${baseUrl}/api/v2/messages/text/${companyId}/${employeeId}`,
+        `${apiUrl}/api/v2/messages/text/${cId}/${employeeId}`,
         {
           method: "POST",
           headers: {
@@ -2270,7 +2424,6 @@ function Main() {
     setPDFModalOpen(false);
     setPdfUrl("");
   };
-  let companyId = "";
   let user_name = "";
   let user_role = "2";
   let totalChats = 0;
@@ -2284,30 +2437,13 @@ function Main() {
 
   const deleteMessages = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
+      const { companyId: cId, baseUrl: apiUrl, userData: uData, email } = await getCompanyData();
+      if (!uData) {
         console.error("No authenticated user");
         toast.error("Authentication error. Please try logging in again.");
         return;
       }
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
-        toast.error("User data not found. Please contact support.");
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        return;
-      }
-      const data2 = docSnapshot.data();
-      const baseUrl =
-        data2.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
       let successCount = 0;
       let failureCount = 0;
 
@@ -2316,16 +2452,13 @@ function Main() {
       for (const message of selectedMessages) {
         try {
           const response = await axios.delete(
-            `${baseUrl}/api/v2/messages/${companyId}/${selectedChatId}/${message.id}`,
+            `${apiUrl}/api/v2/messages/${cId}/${selectedChatId}/${message.id}`,
             {
               data: {
                 deleteForEveryone: true,
                 phoneIndex: phoneIndex,
-                messageId: message.id, // Add the message ID to ensure it's passed to the API
-                chatId: selectedChatId, // Add the chat ID for additional context
-              },
-              headers: {
-                Authorization: `Bearer ${userData.accessToken}`,
+                messageId: message.id,
+                chatId: selectedChatId,
               },
             }
           );
@@ -2377,98 +2510,93 @@ function Main() {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
     }
   }, [selectedChatId, messages]);
+  
   useEffect(() => {
     console.log("userRole changed:", userRole);
   }, [userRole]);
+  
   useEffect(() => {
     fetchConfigFromDatabase().catch((error) => {
       console.error("Error in fetchConfigFromDatabase:", error);
       // Handle the error appropriately (e.g., show an error message to the user)
     });
-    // fetchQuickReplies();
   }, []);
+
+  // Fetch quick replies once company data is loaded
+  useEffect(() => {
+    if (companyId && userData) {
+      fetchQuickReplies();
+    }
+  }, [companyId, userData]);
+  
   const fetchQuickReplies = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
+      const { baseUrl: apiUrl, email } = await getCompanyData();
+      if (!email) {
         console.error("No authenticated user");
         return;
       }
+      console.log("Fetching quick replies for email:", email);
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
+      // Fetch quick replies from your backend API
+      const response = await fetch(
+        `${apiUrl}/api/quick-replies?email=${encodeURIComponent(email)}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        }
+      );
+
+      console.log("Quick replies response:", response); 
+
+      if (!response.ok) {
+        console.error("Failed to fetch quick replies");
         return;
       }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
 
-      // Fetch company quick replies
-      const companyQuickReplyRef = collection(
-        firestore,
-        `companies/${companyId}/quickReplies`
-      );
-      const companyQuery = query(
-        companyQuickReplyRef,
-        orderBy("createdAt", "desc")
-      );
-      const companySnapshot = await getDocs(companyQuery);
-
-      // Fetch user's personal quick replies
-      const userQuickReplyRef = collection(
-        firestore,
-        `user/${user.email}/quickReplies`
-      );
-      const userQuery = query(userQuickReplyRef, orderBy("createdAt", "desc"));
-      const userSnapshot = await getDocs(userQuery);
-
-      const fetchedQuickReplies: QuickReply[] = [
-        ...companySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          keyword: doc.data().keyword || "",
-          text: doc.data().text || "",
-          type: "all",
-          category: doc.data().category || "",
-          documents: doc.data().documents || [],
-          images: doc.data().images || [],
-          videos: doc.data().videos || [],
-        })),
-        ...userSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          keyword: doc.data().keyword || "",
-          text: doc.data().text || "",
-          type: "self",
-          category: doc.data().category || "",
-          documents: doc.data().documents || [],
-          images: doc.data().images || [],
-          videos: doc.data().videos || [],
-        })),
-      ];
-
-      setQuickReplies(fetchedQuickReplies);
+      const data = await response.json();
+      
+      if (data.quickReplies) {
+        // Map the response to include computed fields for compatibility
+        const mappedQuickReplies = data.quickReplies.map((reply: any) => ({
+          ...reply,
+          // Add computed fields for compatibility with existing UI
+          title: reply.keyword || reply.title || '',
+          description: reply.text || reply.description || '',
+        }));
+        setQuickReplies(mappedQuickReplies);
+      } else {
+        console.error('Failed to fetch quick replies:', data.error);
+        setQuickReplies([]);
+      }
     } catch (error) {
       console.error("Error fetching quick replies:", error);
+      setQuickReplies([]);
     }
   };
 
   const uploadImage = async (file: File): Promise<string> => {
-    const storage = getStorage(); // Initialize storage
-    const storageRef = ref(storage, `images/${file.name}`); // Set the storage path
-    await uploadBytes(storageRef, file); // Upload the file
-    return await getDownloadURL(storageRef); // Return the download URL
-  };
-
-  const fetchFileFromURL = async (url: string): Promise<File | null> => {
     try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const decodedUrl = decodeURIComponent(url);
-      const filename = decodedUrl.split("/").pop()?.split("?")[0] || "document";
-      return new File([blob], filename, { type: blob.type });
+      const { companyId: cId, baseUrl: apiUrl } = await getCompanyData();
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${apiUrl}/api/upload-media`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('File upload failed');
+      }
+
+      const data = await response.json();
+      return data.url;
     } catch (error) {
-      console.error("Error fetching file from URL:", error);
-      return null;
+      console.error('Error uploading image:', error);
+      throw error;
     }
   };
 
@@ -2476,59 +2604,76 @@ function Main() {
     if (newQuickReply.trim() === "") return;
 
     try {
-      const user = auth.currentUser;
-      if (!user) {
+      const { companyId: cId, baseUrl: apiUrl, userData: uData, email } = await getCompanyData();
+      if (!uData) {
         console.error("No authenticated user");
         return;
       }
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
+      // Prepare media arrays for upload
+      let uploadedDocuments = null;
+      let uploadedImages = null;
+
+      try {
+        // Upload documents
+        if (selectedDocuments.length > 0) {
+          const documentPromises = selectedDocuments.map(uploadDocument);
+          uploadedDocuments = await Promise.all(documentPromises);
+        }
+
+        // Upload images
+        if (selectedImages.length > 0) {
+          const imagePromises = selectedImages.map(uploadImage);
+          uploadedImages = await Promise.all(imagePromises);
+        }
+      } catch (uploadError) {
+        console.error('Error uploading media:', uploadError);
+        toast.error('Failed to upload media files');
         return;
       }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
 
-      const newQuickReplyData = {
+      const quickReplyData = {
+        email,
+        category: null, // No category selection in chat component
+        keyword: newQuickReplyKeyword || null,
         text: newQuickReply,
-        keyword: newQuickReplyKeyword,
-        type: newQuickReplyType,
-        createdAt: serverTimestamp(),
-        createdBy: user.email,
-        documents: selectedDocuments
-          ? await Promise.all(selectedDocuments.map(uploadDocument))
-          : [],
-        images: selectedImages
-          ? await Promise.all(selectedImages.map(uploadImage))
-          : [],
+        type: newQuickReplyType || null,
+        documents: uploadedDocuments,
+        images: uploadedImages,
+        videos: null, // No video support in current chat component
+        created_by: email
       };
 
-      if (newQuickReplyType === "self") {
-        // Add to user's personal quick replies
-        const userQuickReplyRef = collection(
-          firestore,
-          `user/${user.email}/quickReplies`
-        );
-        await addDoc(userQuickReplyRef, newQuickReplyData);
-      } else {
-        // Add to company's quick replies
-        const companyQuickReplyRef = collection(
-          firestore,
-          `companies/${companyId}/quickReplies`
-        );
-        await addDoc(companyQuickReplyRef, newQuickReplyData);
+      // Add quick reply via API
+      const response = await fetch(`${apiUrl}/api/quick-replies`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(quickReplyData),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to add quick reply");
       }
 
-      setNewQuickReply("");
-      setSelectedDocuments([]);
-      setSelectedImages([]);
-      setNewQuickReplyKeyword("");
-      setNewQuickReplyType("all");
-      fetchQuickReplies();
+      const data = await response.json();
+      
+      if (data.success) {
+        setNewQuickReply("");
+        setSelectedDocuments([]);
+        setSelectedImages([]);
+        setNewQuickReplyKeyword("");
+        setNewQuickReplyType("all");
+        fetchQuickReplies();
+        toast.success("Quick reply added successfully");
+      } else {
+        toast.error(data.error || "Failed to add quick reply");
+      }
     } catch (error) {
       console.error("Error adding quick reply:", error);
+      toast.error("Failed to add quick reply");
     }
   };
   const updateQuickReply = async (
@@ -2537,66 +2682,75 @@ function Main() {
     text: string,
     type: "all" | "self"
   ) => {
-    const user = auth.currentUser;
-    if (!user) return;
-
     try {
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
+      const { companyId: cId, baseUrl: apiUrl, userData: uData, email } = await getCompanyData();
+      if (!uData) {
+        console.error("No authenticated user");
         return;
       }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
 
-      let quickReplyDoc;
-      if (type === "self") {
-        quickReplyDoc = doc(firestore, `user/${user.email}/quickReplies`, id);
-      } else {
-        quickReplyDoc = doc(
-          firestore,
-          `companies/${companyId}/quickReplies`,
-          id
-        );
+      const updateData: any = {
+        updated_by: email
+      };
+
+      if (keyword !== undefined) updateData.keyword = keyword;
+      if (text !== undefined) updateData.text = text;
+      if (type !== undefined) updateData.type = type;
+
+      // Update quick reply via API
+      const response = await fetch(`${apiUrl}/api/quick-replies/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update quick reply");
       }
 
-      await updateDoc(quickReplyDoc, { text, keyword });
-      setEditingReply(null);
-      fetchQuickReplies(); // Refresh quick replies
+      const data = await response.json();
+      
+      if (data.success) {
+        setEditingReply(null);
+        fetchQuickReplies(); // Refresh quick replies
+        toast.success("Quick reply updated successfully");
+      } else {
+        toast.error(data.error || "Failed to update quick reply");
+      }
     } catch (error) {
       console.error("Error updating quick reply:", error);
+      toast.error("Failed to update quick reply");
     }
   };
   const deleteQuickReply = async (id: string, type: "all" | "self") => {
-    const user = auth.currentUser;
-    if (!user) return;
-
     try {
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      // Delete quick reply via API
+      const response = await fetch(`${baseUrl}/api/quick-replies/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
 
-      let quickReplyDoc;
-      if (type === "self") {
-        quickReplyDoc = doc(firestore, `user/${user.email}/quickReplies`, id);
+      if (!response.ok) {
+        throw new Error("Failed to delete quick reply");
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        fetchQuickReplies(); // Refresh quick replies
+        toast.success("Quick reply deleted successfully");
       } else {
-        quickReplyDoc = doc(
-          firestore,
-          `companies/${companyId}/quickReplies`,
-          id
-        );
+        toast.error(data.error || "Failed to delete quick reply");
       }
-
-      await deleteDoc(quickReplyDoc);
-      fetchQuickReplies(); // Refresh quick replies
     } catch (error) {
       console.error("Error deleting quick reply:", error);
+      toast.error("Failed to delete quick reply");
     }
   };
   const handleQR = () => {
@@ -2667,25 +2821,6 @@ function Main() {
       console.error("Error in handleQRClick:", error);
       toast.error("Failed to process quick reply");
     }
-  };
-
-  const updateContactLastMessage = async (notification: Notification) => {
-    if (!userData?.companyId) return;
-
-    const contactRef = doc(
-      firestore,
-      `companies/${userData.companyId}/contacts`,
-      notification.chat_id
-    );
-
-    await updateDoc(contactRef, {
-      last_message: {
-        text: { body: notification.text.body },
-        timestamp: notification.timestamp,
-        from_me: false,
-        type: notification.type,
-      },
-    });
   };
 
   let params: URLSearchParams;
@@ -3026,7 +3161,7 @@ function Main() {
       //console.log('role',data.userData.role);
 
       user_role = data.userData.role;
-      companyId = data.userData.companyId;
+      setCompanyId(data.userData.companyId);
       user_name = data.userData.name;
 
       // Set company data
@@ -3163,32 +3298,6 @@ function Main() {
       setLoading(false);
     }
   };
-  const deleteNotifications = async (chatId: string) => {
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        return;
-      }
-
-      const notificationsRef = collection(
-        firestore,
-        "user",
-        user.email!,
-        "notifications"
-      );
-      const q = query(notificationsRef, where("chat_id", "==", chatId));
-      const querySnapshot = await getDocs(q);
-
-      const batch = writeBatch(firestore);
-      querySnapshot.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
-
-      await batch.commit();
-    } catch (error) {
-      console.error("Error deleting notifications:", error);
-    }
-  };
 
   const selectChat = useCallback(
     async (chatId: string, contactId?: string, contactSelect?: Contact) => {
@@ -3235,7 +3344,6 @@ function Main() {
         // Run background tasks in parallel
         const backgroundTasks = [
           updateFirebaseUnreadCount(contact),
-          deleteNotifications(chatId),
         ];
 
         await Promise.all(backgroundTasks);
@@ -3292,22 +3400,35 @@ function Main() {
   };
   // Add this helper function above your component
   const updateFirebaseUnreadCount = async (contact: Contact) => {
-    const user = auth.currentUser;
-    if (!user?.email) return;
+    if (!contact?.contact_id) return;
 
-    const docUserRef = doc(firestore, "user", user.email);
-    const docUserSnapshot = await getDoc(docUserRef);
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
 
-    if (docUserSnapshot.exists()) {
-      const userData = docUserSnapshot.data();
-      const contactRef = doc(
-        firestore,
-        `companies/${userData.companyId}/contacts`,
-        contact.id!
+      // Get user/company info
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`
       );
-      await updateDoc(contactRef, { unreadCount: 0 });
+      if (!userResponse.ok) return;
+      const userData = await userResponse.json();
+      const companyId = userData.userData.companyId;
+      console.log("contact_id", contact.contact_id);
+
+      // Call the reset unread API
+      await fetch(
+        `${baseUrl}/api/contacts/${contact.contact_id}/reset-unread`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyId }),
+        }
+      );
+    } catch (error) {
+      console.error("Failed to reset unread count:", error);
     }
   };
+
   const fetchContactsBackground = async () => {
     const userEmail = localStorage.getItem("userEmail");
     if (!userEmail) {
@@ -3597,7 +3718,7 @@ function Main() {
     try {
       // Get user data and company info from SQL
       const userResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/user-data?email=${encodeURIComponent(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(
           userEmail || ""
         )}`,
         {
@@ -3615,8 +3736,8 @@ function Main() {
       console.log(userData);
       console.log(companyId);
       // Get company data
-      const companyResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/company-data?companyId=${companyId}`,
+      const companyResponse: Response = await fetch(
+        `${baseUrl}/api/company-data?companyId=${companyId}`,
         {
           credentials: "include",
         }
@@ -3631,7 +3752,7 @@ function Main() {
 
       // Fetch messages from SQL
       const messagesResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/messages?chatId=${selectedChatId}&companyId=${companyId}`,
+        `${baseUrl}/api/messages?chatId=${selectedChatId}&companyId=${companyId}`,
         {
           credentials: "include",
         }
@@ -3683,11 +3804,24 @@ function Main() {
           switch (message.message_type) {
             case "text":
             case "chat":
+              let quotedContext = null;
+              if (message.quoted_message) {
+                try {
+                  quotedContext = {
+                    id: message.quoted_message.message_id,
+                    type: message.quoted_message.message_type,
+                    from: message.quoted_message.quoted_author,
+                    body: message.quoted_message.quoted_content?.body || "",
+                    ...message.quoted_message.quoted_content
+                  };
+                } catch (error) {
+                  console.error("Error parsing quoted message:", error);
+                }
+              }
+              
               formattedMessage.text = {
                 body: message.content || "",
-                context: message.quoted_message 
-                  ? JSON.parse(message.quoted_message)
-                  : null
+                context: quotedContext
               };
               break;
               
@@ -3818,28 +3952,6 @@ function Main() {
     }
   }
 
-  async function fetchMessagesFromFirebase(
-    companyId: string,
-    chatId: string
-  ): Promise<any[]> {
-    const number = "+" + chatId.split("@")[0];
-
-    const messagesRef = collection(
-      firestore,
-      `companies/${companyId}/contacts/${number}/messages`
-    );
-    const messagesSnapshot = await getDocs(messagesRef);
-
-    const messages = messagesSnapshot.docs.map((doc) => doc.data());
-
-    // Sort messages by timestamp in descending order (latest first)
-    return messages.sort((a, b) => {
-      const timestampA = a.timestamp?.seconds || a.timestamp || 0;
-      const timestampB = b.timestamp?.seconds || b.timestamp || 0;
-      return timestampB - timestampA;
-    });
-  }
-
   async function fetchMessagesBackground(
     selectedChatId: string,
     whapiToken: string
@@ -3931,11 +4043,25 @@ function Main() {
           switch (message.message_type) {
             case "text":
             case "chat":
+              let quotedContext = null;
+              if (message.quoted_message) {
+                try {
+                  const quotedData = JSON.parse(message.quoted_message);
+                  quotedContext = {
+                    id: quotedData.message_id,
+                    type: quotedData.message_type,
+                    from: quotedData.quoted_author,
+                    body: quotedData.quoted_content?.body || "",
+                    ...quotedData.quoted_content
+                  };
+                } catch (error) {
+                  console.error("Error parsing quoted message:", error);
+                }
+              }
+              
               formattedMessage.text = {
                 body: message.content || "",
-                context: message.quoted_message 
-                  ? JSON.parse(message.quoted_message)
-                  : null
+                context: quotedContext
               };
               break;
               
@@ -4067,98 +4193,54 @@ function Main() {
   const handleAddPrivateNote = async (newMessage: string) => {
     if (!newMessage.trim() || !selectedChatId) return;
 
-    const user = auth.currentUser;
-    if (!user) {
-      console.error("No authenticated user");
-      return;
-    }
-
     try {
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
+      // Get user info from localStorage or state
+      const userEmail = localStorage.getItem("userEmail") || userData?.email;
+      const from = userData?.name || userEmail || "";
+      const companyIdToUse = companyId || userData?.companyId;
+
+      if (!companyIdToUse || !selectedChatId || !from) {
+        toast.error("Missing required fields for private note");
         return;
       }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
 
-      const numericChatId =
-        "+" +
-        selectedChatId
-          .split("")
-          .filter((char) => /\d/.test(char))
-          .join("");
-
-      const privateNoteRef = collection(
-        firestore,
-        "companies",
-        companyId,
-        "contacts",
-        numericChatId,
-        "privateNotes"
-      );
-      const currentTimestamp = new Date();
-      const newPrivateNote = {
+      // Compose API payload
+      const payload = {
+        companyId: companyIdToUse,
+        chatId: selectedChatId,
         text: newMessage,
-        from: userData.name,
-        timestamp: currentTimestamp,
-        type: "privateNote",
+        from,
+        fromEmail: userEmail || "",
       };
 
-      const docRef = await addDoc(privateNoteRef, newPrivateNote);
+      // Call the backend API
+      const response = await fetch(`${baseUrl}/api/private-note`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
 
-      const messageData = {
-        chat_id: numericChatId,
-        from: user.email ?? "",
-        from_me: true,
-        id: docRef.id,
-        source: "web",
-        status: "delivered",
-        text: {
-          body: newMessage,
-        },
-        timestamp: currentTimestamp,
-        type: "privateNote",
-      };
-
-      const contactRef = doc(
-        firestore,
-        "companies",
-        companyId,
-        "contacts",
-        numericChatId
-      );
-      const messagesRef = collection(contactRef, "messages");
-      const messageDoc = doc(messagesRef, docRef.id);
-      await setDoc(messageDoc, messageData);
-
-      const mentions = detectMentions(newMessage);
-
-      for (const mention of mentions) {
-        const employeeName = mention.slice(1);
-
-        await addNotificationToUser(companyId, employeeName, {
-          chat_id: selectedChatId,
-          from: userData.name,
-          timestamp: currentTimestamp,
-          from_me: false,
-          text: {
-            body: newMessage,
-          },
-          type: "privateNote",
-        });
-        await sendWhatsAppAlert(employeeName, selectedChatId);
+      if (!response.ok) {
+        toast.error("Failed to add private note");
+        return;
       }
 
+      const data = await response.json();
+      if (!data.success) {
+        toast.error("Failed to add private note");
+        return;
+      }
+
+      // Update local state
       setPrivateNotes((prevNotes) => ({
         ...prevNotes,
         [selectedChatId]: [
           ...(prevNotes[selectedChatId] || []),
           {
-            id: docRef.id,
-            text: newMessage,
-            timestamp: currentTimestamp.getTime(),
+            id: data.note.id,
+            text: data.note.text,
+            timestamp: new Date(data.note.timestamp).getTime(),
           },
         ],
       }));
@@ -4228,8 +4310,8 @@ function Main() {
       const userName = userData.name || userData.email || "";
 
       // Get company data from SQL
-      const companyResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/company-data?companyId=${companyId}`,
+      const companyResponse: Response = await fetch(
+        `${baseUrl}/api/company-data?companyId=${companyId}`,
         {
           credentials: "include",
         }
@@ -4237,8 +4319,8 @@ function Main() {
 
       if (!companyResponse.ok) throw new Error("Failed to fetch company data");
       const companyData = await companyResponse.json();
-      const baseUrl =
-        companyData.api_url || "https://mighty-dane-newly.ngrok-free.app";
+      const apiUrl =
+        companyData.api_url || "https://juta.ngrok.app";
 
       if (messageMode === "privateNote") {
         handleAddPrivateNote(messageText);
@@ -4246,7 +4328,7 @@ function Main() {
       }
 
       // Send message to API
-      const url = `https://julnazz.ngrok.dev/api/v2/messages/text/${companyId}/${selectedChatId}`;
+      const url = `${baseUrl}/api/v2/messages/text/${companyId}/${selectedChatId}`;
       const requestBody = {
         message: messageText,
         quotedMessageId: replyToMessage?.id || null,
@@ -4270,24 +4352,24 @@ function Main() {
       const data = await response.json();
 
       // Create the final message object with the server response
-      const finalMessage: Message = {
-        id: data.message_id || tempMessage.id,
-        from_me: true,
-        text: { body: messageText },
-        createdAt: new Date().getTime(),
-        type: "text",
-        phoneIndex: phoneIndex,
-        chat_id: selectedChatId,
-        from_name: userName,
-        timestamp: Math.floor(now.getTime() / 1000),
-        author: userName,
-      };
+      // const finalMessage: Message = {
+      //   id: data.message_id || tempMessage.id,
+      //   from_me: true,
+      //   text: { body: messageText },
+      //   createdAt: new Date().getTime(),
+      //   type: "text",
+      //   phoneIndex: phoneIndex,
+      //   chat_id: selectedChatId,
+      //   from_name: userName,
+      //   timestamp: Math.floor(now.getTime() / 1000),
+      //   author: userName,
+      // };
 
       // Handle special case for company 0123
       if (companyId === "0123" && selectedContact?.id) {
         // Update contact in SQL
         const updateResponse = await fetch(
-          `https://julnazz.ngrok.dev/api/contacts/${selectedContact.id}`,
+          `${baseUrl}/api/contacts/${selectedContact.id}`,
           {
             method: "PATCH",
             headers: {
@@ -4321,7 +4403,7 @@ function Main() {
         }
       } else {
         // Update contact's last message in SQL
-        /* const updateResponse = await fetch(`https://julnazz.ngrok.dev/api/contacts/${selectedContact?.id}`, {
+        /* const updateResponse = await fetch(`${baseUrl}/api/contacts/${selectedContact?.id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json'
@@ -4360,29 +4442,29 @@ function Main() {
     }
   };
 
-  const updateContactWithNewMessage = (
-    contact: Contact,
-    newMessage: string,
-    now: Date,
-    phoneIndex: number
-  ): Contact => {
-    const updatedLastMessage: Message = {
-      text: { body: newMessage },
-      chat_id: contact.chat_id || "",
-      timestamp: Math.floor(now.getTime() / 1000),
-      id: contact.last_message?.id || `temp_${now.getTime()}`,
-      from_me: true,
-      type: "text",
-      from_name: contact.last_message?.from_name || "",
-      phoneIndex,
-      // Add any other required fields with appropriate default values
-    };
+  // const updateContactWithNewMessage = (
+  //   contact: Contact,
+  //   newMessage: string,
+  //   now: Date,
+  //   phoneIndex: number
+  // ): Contact => {
+  //   const updatedLastMessage: Message = {
+  //     text: { body: newMessage },
+  //     chat_id: contact.chat_id || "",
+  //     timestamp: Math.floor(now.getTime() / 1000),
+  //     id: contact.last_message?.id || `temp_${now.getTime()}`,
+  //     from_me: true,
+  //     type: "text",
+  //     from_name: contact.last_message?.from_name || "",
+  //     phoneIndex,
+  //     // Add any other required fields with appropriate default values
+  //   };
 
-    return {
-      ...contact,
-      last_message: updatedLastMessage,
-    };
-  };
+  //   return {
+  //     ...contact,
+  //     last_message: updatedLastMessage,
+  //   };
+  // };
   const openNewChatModal = () => {
     setIsNewChatModalOpen(true);
   };
@@ -4458,7 +4540,6 @@ function Main() {
     }
   };
   const actionPerformedRef = useRef(false);
-  // ... existing code ...
   const toggleStopBotLabel = useCallback(
     async (
       contact: Contact,
@@ -4481,7 +4562,7 @@ function Main() {
 
         // Get user data from SQL
         const userResponse = await fetch(
-          `https://julnazz.ngrok.dev/api/user-data?email=${encodeURIComponent(
+          `${baseUrl}/api/user-data?email=${encodeURIComponent(
             userEmail || ""
           )}`,
           {
@@ -4505,7 +4586,7 @@ function Main() {
         if (!hasLabel) {
           // Add the tag
           response = await fetch(
-            `https://julnazz.ngrok.dev/api/contacts/${companyId}/${contact.contact_id}/tags`,
+            `${baseUrl}/api/contacts/${companyId}/${contact.contact_id}/tags`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -4515,7 +4596,7 @@ function Main() {
         } else {
           // Remove the tag
           response = await fetch(
-            `https://julnazz.ngrok.dev/api/contacts/${companyId}/${contact.contact_id}/tags`,
+            `${baseUrl}/api/contacts/${companyId}/${contact.contact_id}/tags`,
             {
               method: "DELETE",
               headers: { "Content-Type": "application/json" },
@@ -4567,334 +4648,10 @@ function Main() {
     },
     [contacts, userRole]
   );
-  // ... existing code ...
 
-  // Add this useEffect to update filteredContacts when contacts change
   useEffect(() => {
     setFilteredContacts(contacts);
   }, [contacts]);
-
-  const handleBinaTag = async (
-    requestType: string,
-    phone: string,
-    first_name: string,
-    phoneIndex: number
-  ) => {
-    const user = getAuth().currentUser;
-    if (!user) {
-      console.error("User not authenticated");
-      setError("User not authenticated");
-      return;
-    }
-    const docUserRef = doc(firestore, "user", user?.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      return;
-    }
-    const dataUser = docUserSnapshot.data();
-    const companyId = dataUser.companyId;
-    const docRef = doc(firestore, "companies", companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      return;
-    }
-    const data2 = docSnapshot.data();
-    const baseUrl = data2.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
-
-    try {
-      const response = await fetch(`${baseUrl}/api/bina/tag`, {
-        method: "POST", // Ensure this is set to POST
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          requestType,
-          phone,
-          first_name,
-          phoneIndex,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-    } catch (error) {
-      console.error("Error:", error);
-    }
-  };
-
-  const handleEdwardTag = async (
-    requestType: string,
-    phone: string,
-    first_name: string,
-    phoneIndex: number
-  ) => {
-    const user = getAuth().currentUser;
-    if (!user) {
-      console.error("User not authenticated");
-      setError("User not authenticated");
-      return;
-    }
-    const docUserRef = doc(firestore, "user", user?.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      return;
-    }
-    const dataUser = docUserSnapshot.data();
-    const companyId = dataUser.companyId;
-    const docRef = doc(firestore, "companies", companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      return;
-    }
-    const data2 = docSnapshot.data();
-    const baseUrl = data2.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
-    try {
-      const response = await fetch(`${baseUrl}/api/edward/tag`, {
-        method: "POST", // Ensure this is set to POST
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          requestType,
-          phone,
-          first_name,
-          phoneIndex,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-    } catch (error) {
-      console.error("Error:", error);
-    }
-  };
-
-  const addTagBeforeQuote = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "addBeforeQuote",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const addTagBeforeQuoteEnglish = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "addBeforeQuote",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const addTagBeforeQuoteMalay = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "addBeforeQuote",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const addTagBeforeQuoteChinese = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "addBeforeQuote",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const addTagAfterQuote = (contact: Contact) => {
-    if (contact.phone && contact.contactName) {
-      handleBinaTag(
-        "addAfterQuote",
-        contact.phone,
-        contact.contactName,
-        contact.phoneIndex ?? 0
-      );
-    } else {
-      console.error("Phone or firstname is null or undefined");
-    }
-  };
-
-  const addTagAfterQuoteEnglish = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "addAfterQuoteEnglish",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const addTagAfterQuoteChinese = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "addAfterQuoteChinese",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const addTagAfterQuoteMalay = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "addAfterQuoteMalay",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const removeTagBeforeQuote = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "removeBeforeQuote",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const removeTagAfterQuote = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "removeAfterQuote",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const removeTag5Days = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "remove5DaysFollowUp",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const removeTagPause = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "resumeFollowUp",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const removeTagEdward = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleEdwardTag(
-      "removeFollowUp",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const fiveDaysFollowUpEnglish = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "5DaysFollowUpEnglish",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const fiveDaysFollowUpChinese = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "5DaysFollowUpChinese",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const fiveDaysFollowUpMalay = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "5DaysFollowUpMalay",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
-
-  const pauseFiveDaysFollowUp = (contact: Contact) => {
-    if (!contact.phone || !contact.contactName) {
-      console.error("Phone or firstname is null or undefined");
-      return;
-    }
-    handleBinaTag(
-      "pauseFollowUp",
-      contact.phone,
-      contact.contactName,
-      contact.phoneIndex ?? 0
-    );
-  };
 
   // Add this function to your Chat page
   const handleTagFollowUp = async (
@@ -4905,7 +4662,7 @@ function Main() {
       // Get company and user data
       const userEmail = localStorage.getItem("userEmail");
       const userResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/user-data?email=${encodeURIComponent(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(
           userEmail || ""
         )}`,
         {
@@ -4925,7 +4682,7 @@ function Main() {
       // Prepare the requests for each contact
       const requests = selectedContacts.map((contact) => {
         const phoneNumber = contact.phone?.replace(/\D/g, "");
-        return fetch(`https://julnazz.ngrok.dev/api/tag/followup`, {
+        return fetch(`${baseUrl}/api/tag/followup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -5018,7 +4775,7 @@ function Main() {
 
       // Get user data from SQL
       const userResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/user-data?email=${encodeURIComponent(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(
           userEmail || ""
         )}`,
         {
@@ -5041,7 +4798,7 @@ function Main() {
       if (employee) {
         // Assign employee to contact (requires backend endpoint for assignment logic)
         const response = await fetch(
-          `https://julnazz.ngrok.dev/api/contacts/${companyId}/${contact.contact_id}/assign-employee`,
+          `${baseUrl}/api/contacts/${companyId}/${contact.contact_id}/assign-employee`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -5079,7 +4836,7 @@ function Main() {
           companyId
         );
         const response = await fetch(
-          `https://julnazz.ngrok.dev/api/contacts/${companyId}/${contact.contact_id}/tags`,
+          `${baseUrl}/api/contacts/${companyId}/${contact.contact_id}/tags`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -5111,37 +4868,7 @@ function Main() {
     }
   };
 
-  // Add this function to handle adding notifications
-  const addNotificationToUser = async (
-    companyId: string,
-    employeeName: string,
-    notificationData: any
-  ) => {
-    try {
-      // Find the user with the specified companyId and name
-      const usersRef = collection(firestore, "user");
-      const q = query(
-        usersRef,
-        where("companyId", "==", companyId),
-        where("name", "==", employeeName)
-      );
-      const querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
-        return;
-      }
-
-      // Add the new notification to the notifications subcollection of the user's document
-      querySnapshot.forEach(async (doc) => {
-        const userRef = doc.ref;
-        const notificationsRef = collection(userRef, "notifications");
-        await addDoc(notificationsRef, notificationData);
-      });
-    } catch (error) {
-      console.error("Error adding notification: ", error);
-    }
-  };
-
+  // Next Agenda
   const sendAssignmentNotification = async (
     assignedEmployeeName: string,
     contact: Contact
@@ -5330,8 +5057,6 @@ function Main() {
       console.error("Error sending assignment notifications:", error);
     }
   };
-
-  //start of sending daily summary code
 
   const sendWhatsAppMessage = async (
     phoneNumber: string,
@@ -6434,19 +6159,26 @@ function Main() {
     mimeType: string
   ): Promise<string> => {
     try {
+      const { companyId: cId, baseUrl: apiUrl } = await getCompanyData();
+
       const response = await fetch(base64Data);
       const blob = await response.blob();
+      const file = new File([blob], `image.${mimeType.split("/")[1]}`, { type: mimeType });
 
-      const storage = getStorage();
-      const storageRef = ref(
-        storage,
-        `images/${Date.now()}.${mimeType.split("/")[1]}`
-      );
+      const formData = new FormData();
+      formData.append('file', file);
 
-      await uploadBytes(storageRef, blob);
-      const downloadURL = await getDownloadURL(storageRef);
+      const uploadResponse = await fetch(`${apiUrl}/api/upload-media`, {
+        method: 'POST',
+        body: formData
+      });
 
-      return downloadURL;
+      if (!uploadResponse.ok) {
+        throw new Error('File upload failed');
+      }
+
+      const data = await uploadResponse.json();
+      return data.url;
     } catch (error) {
       console.error("Error uploading base64 image:", error);
       throw error;
@@ -6513,10 +6245,10 @@ function Main() {
     const files = event.target.files;
     if (files) {
       for (const file of Array.from(files)) {
-        const imageUrl = await uploadFile(file);
+        const fileUrl = await uploadFile(file);
         await sendDocumentMessage(
           selectedChatId!,
-          imageUrl!,
+          fileUrl!,
           file.type,
           file.name,
           ""
@@ -6526,16 +6258,28 @@ function Main() {
     setLoading(false);
   };
 
-  const uploadFile = async (file: any): Promise<string> => {
-    const storage = getStorage();
-    const storageRef = ref(storage, `${file.name}`);
+  const uploadFile = async (file: File): Promise<string> => {
+    try {
+      const { companyId: cId, baseUrl: apiUrl } = await getCompanyData();
 
-    // Upload the file
-    await uploadBytes(storageRef, file);
+      const formData = new FormData();
+      formData.append('file', file);
 
-    // Get the file's download URL
-    const downloadURL = await getDownloadURL(storageRef);
-    return downloadURL;
+      const response = await fetch(`${apiUrl}/api/upload-media`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('File upload failed');
+      }
+
+      const data = await response.json();
+      return data.url;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
   };
 
   const sendImageMessage = async (
@@ -6544,33 +6288,18 @@ function Main() {
     caption?: string
   ) => {
     try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("No authenticated user");
-
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) throw new Error("No user document found");
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      const { companyId: cId, baseUrl: apiUrl, userData: uData, email } = await getCompanyData();
 
       // Use selectedContact's phoneIndex
       if (!selectedContact) throw new Error("No contact selected");
       const phoneIndex = selectedContact.phoneIndex ?? 0;
 
-      const userName = userData.name || userData.email || "";
+      const userName = uData?.name || email || "";
 
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error("No company document found");
-
-      const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
       let response;
       try {
         response = await fetch(
-          `${baseUrl}/api/v2/messages/image/${companyId}/${chatId}`,
+          `${apiUrl}/api/v2/messages/image/${cId}/${chatId}`,
           {
             method: "POST",
             headers: {
@@ -6594,7 +6323,7 @@ function Main() {
 
       const data = await response.json();
 
-      fetchMessages(chatId, companyData.ghl_accessToken);
+      fetchMessages(chatId, whapiToken || "");
     } catch (error) {
       console.error("Error sending image message:", error);
       //  toast.error(`Failed to send image: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -6609,33 +6338,18 @@ function Main() {
     caption?: string
   ) => {
     try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("No authenticated user");
-
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) throw new Error("No user document found");
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      const { companyId: cId, baseUrl: apiUrl, userData: uData, email } = await getCompanyData();
 
       // Use selectedContact's phoneIndex
       if (!selectedContact) throw new Error("No contact selected");
       const phoneIndex = selectedContact.phoneIndex ?? 0;
 
-      const userName = userData.name || userData.email || "";
+      const userName = uData?.name || email || "";
 
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error("No company document found");
-
-      const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
       let response;
       try {
         response = await fetch(
-          `${baseUrl}/api/v2/messages/document/${companyId}/${chatId}`,
+          `${apiUrl}/api/v2/messages/document/${cId}/${chatId}`,
           {
             method: "POST",
             headers: {
@@ -6660,7 +6374,7 @@ function Main() {
 
       const data = await response.json();
 
-      fetchMessages(chatId, companyData.ghl_accessToken);
+      fetchMessages(chatId, whapiToken || "");
     } catch (error) {
       console.error("Error sending document message:", error);
       // toast.error(`Failed to send document: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -6834,27 +6548,41 @@ function Main() {
         date = new Date(timestamp * 1000);
       }
     } else if (typeof timestamp === "string") {
-      // Try to parse as number first
-      const numTimestamp = parseFloat(timestamp);
-      if (!isNaN(numTimestamp)) {
-        // For reasonable Unix timestamps (between 1970 and 2100), multiply by 1000
-        if (numTimestamp > 0 && numTimestamp < 4102444800) {
-          // 2100 in seconds
-
-          date = new Date(numTimestamp * 1000);
-        } else {
-          date = new Date(numTimestamp);
+      // Handle ISO date string format like '2025-07-07 11:34:06+08'
+      if (timestamp.includes('-') && (timestamp.includes('+') || timestamp.includes('T'))) {
+        // Convert PostgreSQL timestamp format to ISO format if needed
+        let isoString = timestamp;
+        if (!timestamp.includes('T')) {
+          // Replace space with T and ensure timezone format
+          isoString = timestamp.replace(' ', 'T');
+          // Handle timezone offset format like +08 -> +08:00
+          if (/[+-]\d{2}$/.test(isoString)) {
+            isoString = isoString + ':00';
+          }
         }
+        date = new Date(isoString);
       } else {
-        // Try as date string
-        date = new Date(timestamp);
+        // Try to parse as number first
+        const numTimestamp = parseFloat(timestamp);
+        if (!isNaN(numTimestamp)) {
+          // For reasonable Unix timestamps (between 1970 and 2100), multiply by 1000
+          if (numTimestamp > 0 && numTimestamp < 4102444800) {
+            // 2100 in seconds
+            date = new Date(numTimestamp * 1000);
+          } else {
+            date = new Date(numTimestamp);
+          }
+        } else {
+          // Try as date string
+          date = new Date(timestamp);
+        }
       }
     } else {
       date = new Date(timestamp);
     }
 
     if (isNaN(date.getTime())) {
-      console.log("Invalid date detected");
+      console.log("Invalid date detected:", timestamp);
       return "Invalid date";
     }
 
@@ -6894,7 +6622,7 @@ function Main() {
       const userEmail = localStorage.getItem("userEmail");
       if (!userEmail) return;
       const userResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
           userEmail
         )}`
       );
@@ -6903,7 +6631,7 @@ function Main() {
       const userData = await userResponse.json();
       const companyId = userData.userData.companyId;
       const companyData = userData.companyData;
-      const baseUrl = companyData.apiUrl || "https://julnazz.ngrok.dev";
+      const baseUrl = companyData.apiUrl || "${baseUrl}";
 
       // Get contact info (from your local state or fetch if needed)
       const contact = contacts.find((c: Contact) => c.contact_id === contactId);
@@ -6912,7 +6640,7 @@ function Main() {
 
       // Remove tag from contact via your backend
       const response = await fetch(
-        `https://julnazz.ngrok.dev/api/contacts/${companyId}/${contactId}/tags`,
+        `${baseUrl}/api/contacts/${companyId}/${contactId}/tags`,
         {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
@@ -7095,20 +6823,26 @@ function Main() {
     localUrl: string
   ): Promise<string | null> => {
     try {
+      const { companyId: cId, baseUrl: apiUrl } = await getCompanyData();
+
       const response = await fetch(localUrl);
       const blob = await response.blob();
+      const file = new File([blob], `image_${Date.now()}.${blob.type.split("/")[1]}`, { type: blob.type });
 
-      // Check the blob content
+      const formData = new FormData();
+      formData.append('file', file);
 
-      const storageRef = ref(
-        getStorage(),
-        `${Date.now()}_${blob.type.split("/")[1]}`
-      );
-      const uploadResult = await uploadBytes(storageRef, blob);
+      const uploadResponse = await fetch(`${apiUrl}/api/upload-media`, {
+        method: 'POST',
+        body: formData
+      });
 
-      const publicUrl = await getDownloadURL(storageRef);
+      if (!uploadResponse.ok) {
+        throw new Error('File upload failed');
+      }
 
-      return publicUrl;
+      const data = await uploadResponse.json();
+      return data.url;
     } catch (error) {
       console.error("Error uploading image:", error);
       return null;
@@ -7269,11 +7003,10 @@ function Main() {
 
     const fetchCompanyStopBot = async () => {
       try {
-        const { companyData, currentPhoneIndex } = await getCompanyData();
-        if (isMounted) {
-          setCompanyStopBot(
-            getEffectiveStopBot(companyData, currentPhoneIndex)
-          );
+        const { companyId: cId, userData: uData } = await getCompanyData();
+        if (isMounted && uData) {
+          // For now, default to no stopbot until we have the company data structure
+          setCompanyStopBot(false);
         }
       } catch (error) {
         console.error("Error fetching company stopbot status:", error);
@@ -7291,32 +7024,21 @@ function Main() {
     };
   }, []);
 
+  // Helper function to get current user email from localStorage
+  const getCurrentUserEmail = () => {
+    return localStorage.getItem("userEmail");
+  };
+
   const getCompanyData = async () => {
-    const userEmail = localStorage.getItem("userEmail");
-    if (!userEmail) throw new Error("No authenticated user");
-
-    const response = await fetch(
-      `https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(
-        userEmail
-      )}`,
-      {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) throw new Error("Failed to fetch company data");
-
-    const data = await response.json();
-
-    // You can adjust the return structure as needed for your app
+    const email = getCurrentUserEmail();
+    if (!email || !companyId) {
+      throw new Error("User not authenticated or company ID not available");
+    }
     return {
-      companyData: data.companyData,
-      userData: data.userData,
-      currentPhoneIndex: data.userData.phone || 0,
+      companyId,
+      baseUrl: "https://mighty-dane-newly.ngrok-free.app",
+      userData,
+      email
     };
   };
 
@@ -7348,51 +7070,32 @@ function Main() {
 
   const toggleBot = async () => {
     try {
-      const { companyData, userData, currentPhoneIndex } =
-        await getCompanyData();
+      const { userData: uData, companyId: cId, baseUrl } = await getCompanyData();
 
-      let newStopbots;
-      let stopbotPayload;
-      if (
-        companyData.stopbots &&
-        Object.keys(companyData.stopbots).length > 0
-      ) {
-        // Toggle the value for the current phone index in stopbots
-        newStopbots = {
-          ...companyData.stopbots,
-          [currentPhoneIndex]: !companyData.stopbots[currentPhoneIndex],
-        };
-        stopbotPayload = { stopbots: newStopbots };
-      } else {
-        // Fallback to stopbot (single value)
-        newStopbots = !companyData.stopbot;
-        stopbotPayload = { stopbot: newStopbots };
+      if (!uData) {
+        throw new Error("User data not available");
       }
-      console.log(userData);
+
+      // For now, simplified bot toggle logic until we have full company data structure
+      const newStopBot = !companyStopBot;
+      const stopbotPayload = { stopbot: newStopBot };
+
       // Update your backend here
-      await fetch("https://julnazz.ngrok.dev/api/company/update-stopbot", {
+      await fetch(`${baseUrl}/api/company/update-stopbot`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
         body: JSON.stringify({
-          companyId: userData.companyId || companyData.companyId,
+          companyId: uData.companyId || cId,
           ...stopbotPayload,
         }),
       });
 
-      setCompanyStopBot(
-        companyData.stopbots && Object.keys(companyData.stopbots).length > 0
-          ? newStopbots[currentPhoneIndex]
-          : newStopbots
-      );
+      setCompanyStopBot(newStopBot);
       toast.success(
-        `Bot${
-          companyData.phoneCount ? ` for ${phoneNames[currentPhoneIndex]}` : ""
-        } ${
-          newStopbots[currentPhoneIndex] ? "disabled" : "enabled"
-        } successfully`
+        `Bot ${newStopBot ? "disabled" : "enabled"} successfully`
       );
     } catch (error) {
       console.error("Error toggling bot status:", error);
@@ -7517,7 +7220,7 @@ function Main() {
       }
 
       // Use julnazz.ngrok.dev instead of Firebase
-      const baseUrl = "https://julnazz.ngrok.dev";
+      const baseUrl = "${baseUrl}";
       const companyId = userData?.companyId; // Get from your existing userData state
 
       if (!companyId) {
@@ -7642,12 +7345,18 @@ function Main() {
     "#4DB6AC",
     "#9575CD",
   ];
-  function getAuthorColor(author: string) {
+
+  function getAuthorColor(author?: string | null) {
+    // Handle undefined/null/empty cases by providing a default string
+    const authorString = author || "anonymous";
+    
     const index =
-      author.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) %
+      authorString.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) %
       authorColors.length;
+      
     return authorColors[index];
   }
+
   const handleSetReminder = async (text: string) => {
     if (!reminderDate) {
       toast.error("Please select a date and time for the reminder");
@@ -7917,7 +7626,7 @@ function Main() {
         return;
       }
       const userRes = await fetch(
-        `https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
           userEmail
         )}`
       );
@@ -7927,14 +7636,14 @@ function Main() {
 
       // 2. Get all contacts
       const contactsRes = await fetch(
-        `https://julnazz.ngrok.dev/api/companies/${companyId}/contacts`
+        `${baseUrl}/api/companies/${companyId}/contacts`
       );
       if (!contactsRes.ok) throw new Error("Failed to fetch contacts");
       const contacts = await contactsRes.json();
 
       // 3. Get all employees
       const employeesRes = await fetch(
-        `https://julnazz.ngrok.dev/api/companies/${companyId}/employees`
+        `${baseUrl}/api/companies/${companyId}/employees`
       );
       if (!employeesRes.ok) throw new Error("Failed to fetch employees");
       const employeeList = await employeesRes.json();
@@ -7971,7 +7680,7 @@ function Main() {
           );
 
           await fetch(
-            `https://julnazz.ngrok.dev/api/companies/${companyId}/employees/${employee.id}`,
+            `${baseUrl}/api/companies/${companyId}/employees/${employee.id}`,
             {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
@@ -9388,19 +9097,48 @@ function Main() {
                                 />
                               </svg>
                             )}
-                            {contact.last_message.type === "chat"
-                              ? contact.last_message.text?.body
-                              : contact.last_message.type === "image"
-                              ? "Photo"
-                              : contact.last_message.type === "document"
-                              ? "Document"
-                              : contact.last_message.type === "audio"
-                              ? "Audio"
-                              : contact.last_message.type === "video"
-                              ? "Video"
-                              : contact.last_message.from_me
-                              ? "You: Message"
-                              : "Bot: Message"}
+                            {(() => {
+                              const message = contact.last_message;
+                              if (!message) return "No Messages";
+                              
+                              const getMessageContent = () => {
+                                switch (message.type) {
+                                  case "text":
+                                  case "chat":
+                                    return message.text?.body || "Message";
+                                  case "image":
+                                    return message.image?.caption ? `📷 ${message.image.caption}` : "📷 Photo";
+                                  case "document":
+                                    return `📄 ${message.document?.filename || message.document?.file_name || "Document"}`;
+                                  case "audio":
+                                  case "ptt":
+                                    return "🎵 Audio";
+                                  case "video":
+                                    return message.video?.caption ? `🎥 ${message.video.caption}` : "🎥 Video";
+                                  case "voice":
+                                    return "🎤 Voice message";
+                                  case "sticker":
+                                    return "😊 Sticker";
+                                  case "location":
+                                    return "📍 Location";
+                                  case "call_log":
+                                    return `📞 ${message.call_log?.status || "Call"}`;
+                                  case "order":
+                                    return "🛒 Order";
+                                  case "gif":
+                                    return "🎞️ GIF";
+                                  case "link_preview":
+                                    return "🔗 Link";
+                                  case "privateNote":
+                                    return "📝 Private note";
+                                  default:
+                                    return message.text?.body || "Message";
+                                }
+                              };
+                              
+                              const content = getMessageContent();
+                              return message.from_me ? content : content;
+                            })()}
                           </>
                         ) : (
                           "No Messages"
@@ -9863,16 +9601,17 @@ function Main() {
                     )
                     .map((message, index, array) => {
                       //
-                      const previousMessage = messages[index - 1];
+                      const previousMessage = index > 0 ? array[index - 1] : null;
                       const showDateHeader =
                         index === 0 ||
+                        !previousMessage ||
                         !isSameDay(
                           new Date(
-                            array[index - 1]?.createdAt ??
-                              array[index - 1]?.dateAdded ??
+                            previousMessage.timestamp ??
+                              previousMessage.createdAt ??
                               0
                           ),
-                          new Date(message.createdAt ?? message.dateAdded ?? 0)
+                          new Date(message.timestamp ?? message.createdAt ?? 0)
                         );
                       const isMyMessage = message.from_me;
                       const prevMessage = messages[index - 1];
@@ -9904,16 +9643,17 @@ function Main() {
                             <div className="flex justify-center my-4">
                               <div className="inline-block bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold py-1 px-4 rounded-lg shadow-md">
                                 {formatDateHeader(
-                                  message.createdAt?.toString() ||
-                                    message.dateAdded?.toString() ||
+                                  message.timestamp ||
+                                    message.createdAt ||
                                     ""
                                 )}
                               </div>
                             </div>
                           )}
                           <div className="flex items-center gap-2 relative">
-                            {/* Author Circle for Group Chats */}
-                            {message.chat_id?.includes("@g.us") && (
+                            {/* Author Circle for Group Chats and Company 0123 */}
+                            {(message.chat_id?.includes("@g.us") || 
+                              (userData?.companyId === "0123" && message.chat_id?.includes("@c.us"))) && (
                               <div
                                 style={{
                                   width: "25px",
@@ -9994,8 +9734,9 @@ function Main() {
                                   </span>
                                 </div>
                               )}
-                              {message.chat_id &&
-                                message.chat_id.includes("@g") &&
+                              {(message.chat_id &&
+                                ((message.chat_id.includes("@g")) ||
+                                (userData?.companyId === "0123" && message.chat_id.includes("@c.us")))) &&
                                 message.author && (
                                   <div
                                     className="pb-0.5 text-sm font-medium capitalize"
@@ -10013,12 +9754,8 @@ function Main() {
                                   <div
                                     className="p-2 mb-2 rounded bg-gray-200 dark:bg-gray-800 cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700"
                                     onClick={() => {
-                                      const quotedMessageId =
-                                        message.text?.context
-                                          ?.quoted_message_id;
-                                      const quotedContent =
-                                        message.text?.context?.quoted_content
-                                          ?.body;
+                                      const quotedMessageId = message.text?.context?.id;
+                                      const quotedContent = message.text?.context?.body;
 
                                       // First try by ID if available
                                       if (quotedMessageId) {
@@ -10072,15 +9809,14 @@ function Main() {
                                       className="text-sm font-medium"
                                       style={{
                                         color: getAuthorColor(
-                                          message.text.context.quoted_author
+                                          message.text.context.from
                                         ),
                                       }}
                                     >
-                                      {message.text.context.quoted_author || ""}
+                                      {message.text.context.from || ""}
                                     </div>
                                     <div className="text-sm text-gray-700 dark:text-gray-300">
-                                      {message.text.context.quoted_content
-                                        ?.body || ""}
+                                      {message.text.context.body || ""}
                                     </div>
                                   </div>
                                 )}
@@ -10672,11 +10408,11 @@ function Main() {
                                         />
                                       </>
                                     )}
-                                    {message.name && (
+                                    {/* {message.name && (
                                       <span className="ml-2 text-gray-400 dark:text-gray-600">
                                         {message.name}
                                       </span>
-                                    )}
+                                    )} */}
                                     {message.phoneIndex !== undefined && (
                                       <div
                                         className={`text-xs px-2 py-1 ${
@@ -11760,300 +11496,71 @@ function Main() {
                           >
                             Edit
                           </button>
+                          
+                          {/* Updated Sync Button with Dropdown */}
+                          <div className="relative">
+                            <button
+                              onClick={() => setSyncDropdownOpen(!syncDropdownOpen)}
+                              disabled={syncLoading}
+                              className={`px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200 flex items-center space-x-1 ${
+                                syncLoading ? "opacity-50 cursor-not-allowed" : ""
+                              }`}
+                            >
+                              {syncLoading ? (
+                                <>
+                                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  <span>Syncing...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>Sync</span>
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </>
+                              )}
+                            </button>
+                            
+                            {syncDropdownOpen && !syncLoading && (
+                              <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+                                <button
+                                  onClick={handleSyncContactName}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-md transition duration-200"
+                                >
+                                  Sync Contact Name
+                                </button>
+                                <hr className="border-gray-200 dark:border-gray-600" />
+                                <button
+                                  onClick={handleSyncMessages}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-md transition duration-200"
+                                >
+                                  Sync Contact & Messages
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          {/* Updated Delete Button */}
                           <button
-                            onClick={async () => {
-                              try {
-                                const user = auth.currentUser;
-                                const docUserRef = doc(
-                                  firestore,
-                                  "user",
-                                  user?.email!
-                                );
-                                const docUserSnapshot = await getDoc(
-                                  docUserRef
-                                );
-                                if (!docUserSnapshot.exists()) {
-                                  toast.error("User document not found");
-                                  return;
-                                }
-                                const userData = docUserSnapshot.data();
-                                const companyId = userData.companyId;
-                                const docRef = doc(
-                                  firestore,
-                                  "companies",
-                                  companyId
-                                );
-                                const docSnapshot = await getDoc(docRef);
-                                if (!docSnapshot.exists())
-                                  throw new Error("No company document found");
-                                const companyData = docSnapshot.data();
-                                const baseUrl =
-                                  companyData.apiUrl ||
-                                  "https://mighty-dane-newly.ngrok-free.app";
-
-                                if (!selectedContact.phone) {
-                                  toast.error(
-                                    "Contact phone number is required for sync"
-                                  );
-                                  return;
-                                }
-
-                                const phoneNumber =
-                                  selectedContact.phone.replace(/\D/g, "");
-                                const response = await fetch(
-                                  `${baseUrl}/api/sync-a-contact/${companyId}`,
-                                  {
-                                    method: "POST",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify({
-                                      companyId: companyId,
-                                      phoneNumber: phoneNumber,
-                                      phoneIndex:
-                                        selectedContact.phoneIndex ?? 0,
-                                    }),
-                                  }
-                                );
-
-                                if (response.ok) {
-                                  const responseData = await response.json();
-                                  toast.success("Contact synced successfully!");
-                                  // Optionally refresh contact data here
-                                } else {
-                                  const errorText = await response.text();
-                                  console.error("Sync failed:", errorText);
-                                  toast.error("Failed to sync contact");
-                                }
-                              } catch (error) {
-                                console.error("Error syncing contact:", error);
-                                toast.error(
-                                  "An error occurred while syncing contact"
-                                );
-                              }
-                            }}
-                            className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200"
+                            onClick={handleDeleteContact}
+                            disabled={deleteLoading}
+                            className={`px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-200 flex items-center space-x-1 ${
+                              deleteLoading ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
                           >
-                            Sync
-                          </button>
-                          <button
-                            // ... existing code ...
-                            onClick={async () => {
-                              if (
-                                window.confirm(
-                                  "Are you sure you want to delete this contact? This action cannot be undone."
-                                )
-                              ) {
-                                try {
-                                  const user = auth.currentUser;
-                                  if (!user) {
-                                    console.error("No authenticated user");
-                                    return;
-                                  }
-                                  toast.success("Deleting contact...");
-                                  setIsTabOpen(false);
-                                  setSelectedContact(null);
-                                  setSelectedChatId(null);
-                                  const docUserRef = doc(
-                                    firestore,
-                                    "user",
-                                    user.email!
-                                  );
-                                  const docUserSnapshot = await getDoc(
-                                    docUserRef
-                                  );
-
-                                  if (!docUserSnapshot.exists()) {
-                                    console.error("No such document for user!");
-                                    return;
-                                  }
-
-                                  const userData = docUserSnapshot.data();
-                                  const companyId = userData.companyId;
-
-                                  // Get company data for base URL
-                                  const docRef = doc(
-                                    firestore,
-                                    "companies",
-                                    companyId
-                                  );
-                                  const docSnapshot = await getDoc(docRef);
-                                  if (!docSnapshot.exists())
-                                    throw new Error(
-                                      "No company document found"
-                                    );
-                                  const companyData = docSnapshot.data();
-                                  const baseUrl =
-                                    companyData.apiUrl ||
-                                    "https://mighty-dane-newly.ngrok-free.app";
-
-                                  // Format the contact's phone number for comparison with chatIds
-                                  const contactChatId =
-                                    selectedContact.phone?.replace(/\D/g, "") +
-                                    "@s.whatsapp.net";
-
-                                  // Check and delete scheduled messages containing this contact
-                                  const scheduledMessagesRef = collection(
-                                    firestore,
-                                    `companies/${companyId}/scheduledMessages`
-                                  );
-                                  const scheduledSnapshot = await getDocs(
-                                    scheduledMessagesRef
-                                  );
-
-                                  const deletePromises =
-                                    scheduledSnapshot.docs.map(async (doc) => {
-                                      const messageData = doc.data();
-                                      if (
-                                        messageData.chatIds?.includes(
-                                          contactChatId
-                                        )
-                                      ) {
-                                        if (messageData.chatIds.length === 1) {
-                                          // If this is the only recipient, delete the entire scheduled message
-                                          try {
-                                            await axios.delete(
-                                              `${baseUrl}/api/schedule-message/${companyId}/${doc.id}`
-                                            );
-                                          } catch (error) {
-                                            console.error(
-                                              `Error deleting scheduled message ${doc.id}:`,
-                                              error
-                                            );
-                                          }
-                                        } else {
-                                          // If there are other recipients, remove this contact from the recipients list
-                                          const updatedChatIds =
-                                            messageData.chatIds.filter(
-                                              (id: string) =>
-                                                id !== contactChatId
-                                            );
-                                          const updatedMessages =
-                                            messageData.messages?.filter(
-                                              (msg: any) =>
-                                                msg.chatId !== contactChatId
-                                            ) || [];
-                                          try {
-                                            await axios.put(
-                                              `${baseUrl}/api/schedule-message/${companyId}/${doc.id}`,
-                                              {
-                                                ...messageData,
-                                                chatIds: updatedChatIds,
-                                                messages: updatedMessages,
-                                              }
-                                            );
-                                          } catch (error) {
-                                            console.error(
-                                              `Error updating scheduled message ${doc.id}:`,
-                                              error
-                                            );
-                                          }
-                                        }
-                                      }
-                                    });
-
-                                  // Wait for all scheduled message updates/deletions to complete
-                                  await Promise.all(deletePromises);
-
-                                  // Check for active templates
-                                  const templatesRef = collection(
-                                    firestore,
-                                    `companies/${companyId}/followUpTemplates`
-                                  );
-                                  const templatesSnapshot = await getDocs(
-                                    templatesRef
-                                  );
-
-                                  // Get all active templates
-                                  const activeTemplates = templatesSnapshot.docs
-                                    .filter(
-                                      (doc) => doc.data().status === "active"
-                                    )
-                                    .map((doc) => ({
-                                      id: doc.id,
-                                      ...doc.data(),
-                                    }));
-
-                                  // Remove templates for this contact
-                                  if (activeTemplates.length > 0) {
-                                    const phoneNumber =
-                                      selectedContact.phone?.replace(/\D/g, "");
-                                    for (const template of activeTemplates) {
-                                      try {
-                                        const response = await fetch(
-                                          `${baseUrl}/api/tag/followup`,
-                                          {
-                                            method: "POST",
-                                            headers: {
-                                              "Content-Type":
-                                                "application/json",
-                                            },
-                                            body: JSON.stringify({
-                                              requestType: "removeTemplate",
-                                              phone: phoneNumber,
-                                              first_name:
-                                                selectedContact.contactName ||
-                                                phoneNumber,
-                                              phoneIndex: userData.phone || 0,
-                                              templateId: template.id,
-                                              idSubstring: companyId,
-                                            }),
-                                          }
-                                        );
-                                        if (!response.ok) {
-                                          const errorText =
-                                            await response.text();
-                                          console.error(
-                                            "Failed to remove template messages:",
-                                            errorText
-                                          );
-                                        }
-                                      } catch (error) {
-                                        console.error(
-                                          "Error removing template messages:",
-                                          error
-                                        );
-                                      }
-                                    }
-                                  }
-
-                                  // Delete the contact from Firestore
-                                  const contactRef = doc(
-                                    firestore,
-                                    `companies/${companyId}/contacts`,
-                                    selectedContact.id
-                                  );
-                                  await deleteDoc(contactRef);
-
-                                  // Update local state
-                                  toast.success(
-                                    "Contact and associated scheduled messages deleted successfully"
-                                  );
-
-                                  setContacts(
-                                    contacts.filter(
-                                      (contact) =>
-                                        contact.id !== selectedContact.id
-                                    )
-                                  );
-                                  setScheduledMessages((prev) =>
-                                    prev.filter(
-                                      (msg) =>
-                                        !msg.chatIds.includes(contactChatId)
-                                    )
-                                  );
-                                } catch (error) {
-                                  console.error(
-                                    "Error deleting contact:",
-                                    error
-                                  );
-                                  toast.error("Failed to delete contact");
-                                }
-                              }
-                            }}
-                            className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-200"
-                          >
-                            Delete
+                            {deleteLoading ? (
+                              <>
+                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Deleting...</span>
+                              </>
+                            ) : (
+                              <span>Delete</span>
+                            )}
                           </button>
                         </>
                       ) : (
