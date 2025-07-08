@@ -1727,6 +1727,7 @@ function Main() {
   };
 
   useEffect(() => {
+    // Next Agenda
     const fetchContacts = async () => {
       if (userData) {
         try {
@@ -4328,6 +4329,7 @@ function Main() {
       }
 
       // Send message to API
+      const chatId = selectedChatId;
       const url = `${baseUrl}/api/v2/messages/text/${companyId}/${selectedChatId}`;
       const requestBody = {
         message: messageText,
@@ -4483,62 +4485,97 @@ function Main() {
     if (!newContactNumber) return;
 
     try {
-      const chatId = `${newContactNumber}@c.us`;
-      const contactId = `+${newContactNumber}`; // This will be used as the document ID
+      // Format the phone number (basic: ensure it starts with +, remove spaces)
+      const formattedPhone = newContactNumber.startsWith("+")
+        ? newContactNumber.replace(/\s+/g, "")
+        : "+" + newContactNumber.replace(/\s+/g, "");
 
-      const newContact: Contact = {
-        id: contactId, // Ensure the id is set here
-        chat_id: chatId,
-        contactName: contactId,
-        phone: newContactNumber,
+      // Get user/company info from localStorage or your app state
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        toast.error("No user email found");
+        return;
+      }
+
+      // Fetch user config to get companyId
+      const userResponse = await fetch(
+        `https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(
+          userEmail
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!userResponse.ok) {
+        toast.error("Failed to fetch user config");
+        return;
+      }
+
+      const userData = await userResponse.json();
+      const companyId = userData?.company_id;
+      if (!companyId) {
+        toast.error("Company ID not found!");
+        return;
+      }
+
+      // Generate contact_id as companyId + phone
+      const contact_id = companyId + "-" + formattedPhone.replace("+", "");
+      const chat_id = formattedPhone.replace("+", "") + "@c.us";
+
+      // Prepare the contact data
+      const contactData: { [key: string]: any } = {
+        contact_id,
+        companyId,
+        contactName: formattedPhone,
+        name: formattedPhone,
+        phone: formattedPhone,
+        chat_id,
         tags: [],
         unreadCount: 0,
       };
 
-      // Add the new contact to Firestore
-      const user = auth.currentUser;
-      if (!user) {
-        console.error("No authenticated user");
-        return;
-      }
-
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      // Use setDoc with merge option to add or update the document with the specified ID
-      await setDoc(
-        doc(firestore, "companies", companyId, "contacts", contactId),
-        newContact,
-        { merge: true }
+      // Send POST request to your SQL backend
+      const response = await fetch(
+        `${baseUrl}/api/contacts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(contactData),
+        }
       );
 
-      // Update local state
-      setContacts((prevContacts) => {
-        const updatedContacts = [...prevContacts, newContact];
-        // Update local storage
-        localStorage.setItem(
-          "contacts",
-          LZString.compress(JSON.stringify(updatedContacts))
-        );
-        return updatedContacts;
-      });
+      const data = await response.json();
 
-      // Close the modal and reset the input
-      closeNewChatModal();
-
-      // Select the new chat
-      selectChat(chatId, contactId, newContact);
-    } catch (error) {
+      if (response.ok && data.success) {
+        toast.success("Contact added successfully!");
+        setContacts((prevContacts) => [
+          ...prevContacts,
+          contactData as Contact,
+        ]);
+        closeNewChatModal();
+        // Select the new chat
+        selectChat(chat_id, contact_id, contactData as Contact);
+      } else {
+        toast.error(data.message || "Failed to add contact");
+      }
+    } catch (error: any) {
       console.error("Error creating new chat:", error);
-      toast.error("Failed to create new chat");
+      toast.error(
+        "An error occurred while creating the chat: " +
+          (error.response?.data?.message || error.message)
+      );
     }
   };
+
   const actionPerformedRef = useRef(false);
   const toggleStopBotLabel = useCallback(
     async (
@@ -5125,7 +5162,7 @@ function Main() {
     }
   };
 
-  //testing
+  // Fetch scheduled messages for a specific chat
   const fetchScheduledMessages = async (chatId: string) => {
     try {
       const user = auth.currentUser;
@@ -11497,51 +11534,115 @@ function Main() {
                             Edit
                           </button>
                           
-                          {/* Updated Sync Button with Dropdown */}
-                          <div className="relative">
-                            <button
-                              onClick={() => setSyncDropdownOpen(!syncDropdownOpen)}
-                              disabled={syncLoading}
-                              className={`px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200 flex items-center space-x-1 ${
-                                syncLoading ? "opacity-50 cursor-not-allowed" : ""
-                              }`}
-                            >
-                              {syncLoading ? (
-                                <>
-                                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                  </svg>
-                                  <span>Syncing...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span>Sync</span>
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                  </svg>
-                                </>
-                              )}
-                            </button>
-                            
-                            {syncDropdownOpen && !syncLoading && (
-                              <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-600 z-50">
-                                <button
-                                  onClick={handleSyncContactName}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-md transition duration-200"
-                                >
-                                  Sync Contact Name
-                                </button>
-                                <hr className="border-gray-200 dark:border-gray-600" />
-                                <button
-                                  onClick={handleSyncMessages}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-md transition duration-200"
-                                >
-                                  Sync Contact & Messages
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          <Menu as="div" className="relative inline-block text-left">
+                            <Menu.Button className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200">
+                              Sync
+                            </Menu.Button>
+                            <Menu.Items className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10">
+                              <Menu.Item>
+                                {({ active }) => (
+                                  <button
+                                    className={`w-full text-left px-3 py-1 rounded-md ${active ? 'bg-blue-100 dark:bg-blue-700' : ''}`}
+                                    onClick={async () => {
+                                      try {
+                                        if (!selectedContact.phone) {
+                                          toast.error("Contact phone number is required for syncing");
+                                          return;
+                                        }
+                                        const userEmail = localStorage.getItem("userEmail");
+                                        if (!userEmail) {
+                                          toast.error("User not authenticated");
+                                          return;
+                                        }
+                                        // Get user/company info from your backend
+                                        const userRes = await fetch(`${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+                                        if (!userRes.ok) {
+                                          toast.error("Failed to fetch user/company data");
+                                          return;
+                                        }
+                                        const { userData, companyData } = await userRes.json();
+                                        const companyId = userData.companyId;
+                                        const apiUrl = companyData.apiUrl || baseUrl;
+                                        const phoneNumber = selectedContact.phone.replace(/\D/g, '');
+                                        const response = await fetch(`${apiUrl}/api/sync-a-contact-name/${companyId}`, {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            companyId,
+                                            phoneNumber,
+                                            phoneIndex: selectedContact.phoneIndex ?? 0
+                                          }),
+                                        });
+                                        if (response.ok) {
+                                          toast.success("Contact name synced successfully!");
+                                        } else {
+                                          const errorText = await response.text();
+                                          console.error('Sync failed:', errorText);
+                                          toast.error("Failed to sync contact name");
+                                        }
+                                      } catch (error) {
+                                        console.error('Error syncing contact:', error);
+                                        toast.error("An error occurred while syncing contact name");
+                                      }
+                                    }}
+                                  >
+                                    Sync Name
+                                  </button>
+                                )}
+                              </Menu.Item>
+                              <Menu.Item>
+                                {({ active }) => (
+                                  <button
+                                    className={`w-full text-left px-3 py-1 rounded-md ${active ? 'bg-blue-100 dark:bg-blue-700' : ''}`}
+                                    onClick={async () => {
+                                      try {
+                                        if (!selectedContact.phone) {
+                                          toast.error("Contact phone number is required for sync");
+                                          return;
+                                        }
+                                        const userEmail = localStorage.getItem("userEmail");
+                                        if (!userEmail) {
+                                          toast.error("User not authenticated");
+                                          return;
+                                        }
+                                        // Get user/company info from your backend
+                                        const userRes = await fetch(`${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+                                        if (!userRes.ok) {
+                                          toast.error("Failed to fetch user/company data");
+                                          return;
+                                        }
+                                        const { userData, companyData } = await userRes.json();
+                                        const companyId = userData.companyId;
+                                        const apiUrl = companyData.apiUrl || baseUrl;
+                                        const phoneNumber = selectedContact.phone.replace(/\D/g, '');
+                                        const response = await fetch(`${apiUrl}/api/sync-a-contact/${companyId}`, {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            companyId,
+                                            phoneNumber,
+                                            phoneIndex: selectedContact.phoneIndex ?? 0
+                                          }),
+                                        });
+                                        if (response.ok) {
+                                          toast.success("Contact messages synced successfully!");
+                                        } else {
+                                          const errorText = await response.text();
+                                          console.error('Sync failed:', errorText);
+                                          toast.error("Failed to sync contact messages");
+                                        }
+                                      } catch (error) {
+                                        console.error('Error syncing contact:', error);
+                                        toast.error("An error occurred while syncing contact messages");
+                                      }
+                                    }}
+                                  >
+                                    Sync Messages
+                                  </button>
+                                )}
+                              </Menu.Item>
+                            </Menu.Items>
+                          </Menu>
                           {/* Updated Delete Button */}
                           <button
                             onClick={handleDeleteContact}
