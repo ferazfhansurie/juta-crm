@@ -286,6 +286,7 @@ type Notification = {
 
 //testing
 interface ScheduledMessage {
+  messageContent: string;
   id?: string;
   chatIds: string[];
   message: string;
@@ -579,6 +580,9 @@ function Main() {
   const [isImageModalOpen, setImageModalOpen] = useState(false);
   const [modalImageUrl, setModalImageUrl] = useState("");
   const [selectedContact, setSelectedContact] = useState<any>(null);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(
+    null
+  );
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [isTabOpen, setIsTabOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -677,12 +681,12 @@ function Main() {
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [reminderDate, setReminderDate] = useState<Date | null>(null);
   const [reminderText, setReminderText] = useState("");
-  
+
   // Add state variables for sync/delete functionality
   const [syncDropdownOpen, setSyncDropdownOpen] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  
+
   const currentUserName = userData?.name || "";
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
@@ -813,9 +817,9 @@ function Main() {
                 role: data.role,
                 name: data.name || userData.name,
                 phone: data.phone,
-                viewEmployee: data.viewEmployee
+                viewEmployee: data.viewEmployee,
               });
-              
+
               // Process employee list
               const employeeListData: Employee[] = data.employees.map(
                 (employee: any) => ({
@@ -828,7 +832,7 @@ function Main() {
                 })
               );
               setEmployeeList(employeeListData);
-              
+
               // Set phone index data
               setPhoneNames(data.phoneNames);
               setPhoneOptions(Object.keys(data.phoneNames).map(Number));
@@ -850,9 +854,11 @@ function Main() {
         const email = getCurrentUserEmail();
         if (!email || !companyId) return;
 
-        const response = await fetch(`https://mighty-dane-newly.ngrok-free.app/api/categories?companyId=${companyId}`);
+        const response = await fetch(
+          `https://mighty-dane-newly.ngrok-free.app/api/categories?companyId=${companyId}`
+        );
         if (!response.ok) return;
-        
+
         const data = await response.json();
         const fetchedCategories = data.categories || [];
         setCategories(["all", ...fetchedCategories]);
@@ -1067,13 +1073,16 @@ function Main() {
       // Delete the scheduled message
       if (message.id) {
         // Call NeonDB API to delete scheduled message
-        const deleteResponse = await fetch(`${apiUrl}/api/scheduled-messages/${message.id}?companyId=${companyId}`, {
-          method: 'DELETE'
-        });
+        const deleteResponse = await fetch(
+          `${apiUrl}/api/scheduled-messages/${message.id}?companyId=${companyId}`,
+          {
+            method: "DELETE",
+          }
+        );
         if (!deleteResponse.ok) {
-          console.warn('Failed to delete scheduled message from database');
+          console.warn("Failed to delete scheduled message from database");
         }
-        
+
         // Update local state to remove the message
         setScheduledMessages((prev) =>
           prev.filter((msg) => msg.id !== message.id)
@@ -1211,14 +1220,14 @@ function Main() {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (syncDropdownOpen && !target.closest('.relative')) {
+      if (syncDropdownOpen && !target.closest(".relative")) {
         setSyncDropdownOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [syncDropdownOpen]);
 
@@ -1254,7 +1263,9 @@ function Main() {
     }
 
     const response = await fetch(
-      `https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+      `https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(
+        userEmail
+      )}`,
       {
         method: "GET",
         credentials: "include",
@@ -1271,7 +1282,8 @@ function Main() {
     const data = await response.json();
     console.log("Company data:", data);
     return {
-      apiUrl: data.companyData.api_url || "https://mighty-dane-newly.ngrok-free.app",
+      apiUrl:
+        data.companyData.api_url || "https://mighty-dane-newly.ngrok-free.app",
       companyId: data.userData.companyId,
     };
   };
@@ -1279,10 +1291,10 @@ function Main() {
   // Sync contact name function
   const handleSyncContactName = async () => {
     if (syncLoading) return;
-    
+
     setSyncLoading(true);
     setSyncDropdownOpen(false);
-    
+
     try {
       const { apiUrl, companyId } = await getCompanyApiUrl();
 
@@ -1327,10 +1339,10 @@ function Main() {
   // Sync messages function
   const handleSyncMessages = async () => {
     if (syncLoading) return;
-    
+
     setSyncLoading(true);
     setSyncDropdownOpen(false);
-    
+
     try {
       const { apiUrl, companyId } = await getCompanyApiUrl();
 
@@ -1376,13 +1388,17 @@ function Main() {
   // Delete contact function
   const handleDeleteContact = async () => {
     if (deleteLoading) return;
-    
-    if (!window.confirm("Are you sure you want to delete this contact? This action cannot be undone.")) {
+
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this contact? This action cannot be undone."
+      )
+    ) {
       return;
     }
 
     setDeleteLoading(true);
-    
+
     try {
       const { apiUrl, companyId } = await getCompanyApiUrl();
 
@@ -1409,14 +1425,18 @@ function Main() {
 
       if (response.ok) {
         toast.success("Contact deleted successfully!");
-        
+
         // Update local state
-        setContacts(contacts.filter(contact => contact.id !== selectedContact.id));
-        
+        setContacts(
+          contacts.filter((contact) => contact.id !== selectedContact.id)
+        );
+
         // Remove from scheduled messages if needed
-        const contactChatId = selectedContact.phone?.replace(/\D/g, "") + "@s.whatsapp.net";
-        setScheduledMessages(prev => prev.filter(msg => !msg.chatIds.includes(contactChatId)));
-        
+        const contactChatId =
+          selectedContact.phone?.replace(/\D/g, "") + "@s.whatsapp.net";
+        setScheduledMessages((prev) =>
+          prev.filter((msg) => !msg.chatIds.includes(contactChatId))
+        );
       } else {
         const errorText = await response.text();
         console.error("Delete failed:", errorText);
@@ -1480,9 +1500,23 @@ function Main() {
 
     try {
       // Get company data using the new approach
-      const { companyId: cId, baseUrl, userData: uData, email } = await getCompanyData();
+      const {
+        companyId: cId,
+        baseUrl,
+        userData: uData,
+        email,
+      } = await getCompanyData();
       if (!uData) {
         throw new Error("User not authenticated");
+      }      
+      // Check the size of the video file
+      const maxSizeInMB = 20;
+      const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
+      if (selectedVideo.size > maxSizeInBytes) {
+        toast.error(
+          "The video file is too big. Please select a file smaller than 20MB."
+        );
+        return;
       }
 
       // First upload the video file to get a URL
@@ -1491,19 +1525,9 @@ function Main() {
       });
       const videoUrl = await uploadFile(videoFile);
 
-      // Check the size of the video file
-      const maxSizeInMB = 20;
-      const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
-
-      if (selectedVideo.size > maxSizeInBytes) {
-        toast.error(
-          "The video file is too big. Please select a file smaller than 20MB."
-        );
-        return;
-      }
       // Call the video message API
       const response = await axios.post(
-        `${baseUrl}/api/v2/messages/video/${uData.companyId}/${selectedChatId}`,
+        `${baseUrl}/api/v2/messages/video/${cId}/${selectedContactId}`,
         {
           videoUrl,
           caption,
@@ -1548,7 +1572,12 @@ function Main() {
   const sendVoiceMessage = async () => {
     if (audioBlob && selectedChatId && userData) {
       try {
-        const { companyId: cId, baseUrl, userData: uData, email } = await getCompanyData();
+        const {
+          companyId: cId,
+          baseUrl,
+          userData: uData,
+          email,
+        } = await getCompanyData();
         if (!uData) {
           console.error("User not authenticated");
           setError("User not authenticated");
@@ -1573,7 +1602,7 @@ function Main() {
         };
 
         const response = await axios.post(
-          `${baseUrl}/api/v2/messages/audio/${uData.companyId}/${selectedChatId}`,
+          `${baseUrl}/api/v2/messages/audio/${uData.companyId}/${selectedContactId}`,
           requestBody
         );
 
@@ -1595,7 +1624,12 @@ function Main() {
 
   const handleReaction = async (message: any, emoji: string) => {
     try {
-      const { companyId: cId, baseUrl, userData: uData, email } = await getCompanyData();
+      const {
+        companyId: cId,
+        baseUrl,
+        userData: uData,
+        email,
+      } = await getCompanyData();
       if (!uData) {
         console.error("User not authenticated");
         setError("User not authenticated");
@@ -1692,21 +1726,21 @@ function Main() {
       const { companyId: cId, baseUrl: apiUrl } = await getCompanyData();
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
       const response = await fetch(`${apiUrl}/api/upload-media`, {
-        method: 'POST',
-        body: formData
+        method: "POST",
+        body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('File upload failed');
+        throw new Error("File upload failed");
       }
 
       const data = await response.json();
       return data.url;
     } catch (error) {
-      console.error('Error uploading document:', error);
+      console.error("Error uploading document:", error);
       throw error;
     }
   };
@@ -1727,37 +1761,66 @@ function Main() {
   };
 
   useEffect(() => {
-    // Next Agenda
     const fetchContacts = async () => {
-      if (userData) {
-        try {
-          const { companyId: cId, baseUrl } = await getCompanyData();
-          const response = await fetch(`${baseUrl}/api/contacts?companyId=${cId}`, {
+      try {
+        const userEmail = localStorage.getItem("userEmail");
+        if (!userEmail || !userData?.companyId) {
+          toast.error("No user email or company ID found");
+          return;
+        }
+
+        const contactsResponse = await fetch(
+          `https://julnazz.ngrok.dev/api/companies/${
+            userData.companyId
+          }/contacts?email=${encodeURIComponent(userEmail)}`,
+          {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
+              Accept: "application/json",
             },
             credentials: "include",
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            const updatedContacts = data.contacts || [];
-            setContacts(updatedContacts);
-          } else {
-            console.error("Failed to fetch contacts");
           }
-        } catch (error) {
-          console.error("Error fetching contacts:", error);
+        );
+
+        if (!contactsResponse.ok) {
+          toast.error("Failed to fetch contacts");
+          return;
         }
+
+        const data = await contactsResponse.json();
+        const updatedContacts = data.contacts.map(
+          (contact: any) =>
+            ({
+              ...contact,
+              id: contact.id,
+              chat_id: contact.chat_id,
+              contactName: contact.name,
+              phone: contact.phone,
+              email: contact.email,
+              profile: contact.profile,
+              profilePicUrl: contact.profileUrl,
+              tags: contact.tags,
+              createdAt: contact.createdAt,
+              lastUpdated: contact.lastUpdated,
+              last_message: contact.last_message,
+              isIndividual: contact.isIndividual,
+            } as Contact)
+        );
+
+        setTotalContacts(updatedContacts.length);
+        setContacts(updatedContacts);
+      } catch (error) {
+        console.error("Error fetching contacts:", error);
+        toast.error("Error fetching contacts");
       }
     };
 
     fetchContacts();
-    
+
     // Set up polling for real-time updates (every 30 seconds)
     const interval = setInterval(fetchContacts, 30000);
-    
+
     return () => clearInterval(interval);
   }, [userData]);
 
@@ -1784,7 +1847,7 @@ function Main() {
           }
 
           const data = await response.json();
-          console.log("comapnya", data);
+          console.log("Company", data);
           // Set all the state values from the response
           setCurrentCompanyId(data.userData.companyId);
           setCompanyName(data.companyData.name);
@@ -1973,10 +2036,12 @@ function Main() {
       console.log("role", userRole);
       // If userRole is empty or undefined, return all contacts to avoid blank screen
       if (!userRole) {
-        console.warn("User role is undefined or empty, showing all contacts temporarily");
+        console.warn(
+          "User role is undefined or empty, showing all contacts temporarily"
+        );
         return contacts;
       }
-      
+
       switch (userRole) {
         case "1": // Admin
           return contacts; // Admin sees all contacts
@@ -2015,7 +2080,12 @@ function Main() {
   // Add this function to handle phone change
   const handlePhoneChange = async (newPhoneIndex: number) => {
     try {
-      const { companyId: cId, baseUrl, userData: uData, email } = await getCompanyData();
+      const {
+        companyId: cId,
+        baseUrl,
+        userData: uData,
+        email,
+      } = await getCompanyData();
       if (!uData) {
         console.error("No authenticated user");
         return;
@@ -2067,10 +2137,10 @@ function Main() {
       console.log("contacts before", {
         success: true,
         total: contactsToFilter.length,
-        contacts: contactsToFilter
+        contacts: contactsToFilter,
       });
       console.log("userRole state:", userRole);
-      
+
       // Check for viewEmployee first
       if (userData?.viewEmployee) {
         let filteredByEmployee: Contact[] = [];
@@ -2362,20 +2432,30 @@ function Main() {
 
   const sendWhatsAppAlert = async (employeeName: string, chatId: string) => {
     try {
-      const { companyId: cId, baseUrl: apiUrl, userData: uData, email } = await getCompanyData();
+      const {
+        companyId: cId,
+        baseUrl: apiUrl,
+        userData: uData,
+        email,
+      } = await getCompanyData();
       if (!uData) {
         console.error("User not authenticated");
         return;
       }
 
       // Fetch employee's WhatsApp number from API
-      const employeeResponse = await fetch(`${apiUrl}/api/employees?companyId=${cId}&name=${encodeURIComponent(employeeName)}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
+      const employeeResponse = await fetch(
+        `${apiUrl}/api/employees?companyId=${cId}&name=${encodeURIComponent(
+          employeeName
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
 
       if (!employeeResponse.ok) {
         console.error("Employee not found");
@@ -2438,7 +2518,12 @@ function Main() {
 
   const deleteMessages = async () => {
     try {
-      const { companyId: cId, baseUrl: apiUrl, userData: uData, email } = await getCompanyData();
+      const {
+        companyId: cId,
+        baseUrl: apiUrl,
+        userData: uData,
+        email,
+      } = await getCompanyData();
       if (!uData) {
         console.error("No authenticated user");
         toast.error("Authentication error. Please try logging in again.");
@@ -2453,7 +2538,7 @@ function Main() {
       for (const message of selectedMessages) {
         try {
           const response = await axios.delete(
-            `${apiUrl}/api/v2/messages/${cId}/${selectedChatId}/${message.id}`,
+            `${apiUrl}/api/v2/messages/${cId}/${selectedContactId}/${message.id}`,
             {
               data: {
                 deleteForEveryone: true,
@@ -2511,11 +2596,11 @@ function Main() {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
     }
   }, [selectedChatId, messages]);
-  
+
   useEffect(() => {
     console.log("userRole changed:", userRole);
   }, [userRole]);
-  
+
   useEffect(() => {
     fetchConfigFromDatabase().catch((error) => {
       console.error("Error in fetchConfigFromDatabase:", error);
@@ -2529,7 +2614,7 @@ function Main() {
       fetchQuickReplies();
     }
   }, [companyId, userData]);
-  
+
   const fetchQuickReplies = async () => {
     try {
       const { baseUrl: apiUrl, email } = await getCompanyData();
@@ -2549,7 +2634,7 @@ function Main() {
         }
       );
 
-      console.log("Quick replies response:", response); 
+      console.log("Quick replies response:", response);
 
       if (!response.ok) {
         console.error("Failed to fetch quick replies");
@@ -2557,18 +2642,18 @@ function Main() {
       }
 
       const data = await response.json();
-      
+
       if (data.quickReplies) {
         // Map the response to include computed fields for compatibility
         const mappedQuickReplies = data.quickReplies.map((reply: any) => ({
           ...reply,
           // Add computed fields for compatibility with existing UI
-          title: reply.keyword || reply.title || '',
-          description: reply.text || reply.description || '',
+          title: reply.keyword || reply.title || "",
+          description: reply.text || reply.description || "",
         }));
         setQuickReplies(mappedQuickReplies);
       } else {
-        console.error('Failed to fetch quick replies:', data.error);
+        console.error("Failed to fetch quick replies:", data.error);
         setQuickReplies([]);
       }
     } catch (error) {
@@ -2582,21 +2667,21 @@ function Main() {
       const { companyId: cId, baseUrl: apiUrl } = await getCompanyData();
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
       const response = await fetch(`${apiUrl}/api/upload-media`, {
-        method: 'POST',
-        body: formData
+        method: "POST",
+        body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('File upload failed');
+        throw new Error("File upload failed");
       }
 
       const data = await response.json();
       return data.url;
     } catch (error) {
-      console.error('Error uploading image:', error);
+      console.error("Error uploading image:", error);
       throw error;
     }
   };
@@ -2605,7 +2690,12 @@ function Main() {
     if (newQuickReply.trim() === "") return;
 
     try {
-      const { companyId: cId, baseUrl: apiUrl, userData: uData, email } = await getCompanyData();
+      const {
+        companyId: cId,
+        baseUrl: apiUrl,
+        userData: uData,
+        email,
+      } = await getCompanyData();
       if (!uData) {
         console.error("No authenticated user");
         return;
@@ -2628,8 +2718,8 @@ function Main() {
           uploadedImages = await Promise.all(imagePromises);
         }
       } catch (uploadError) {
-        console.error('Error uploading media:', uploadError);
-        toast.error('Failed to upload media files');
+        console.error("Error uploading media:", uploadError);
+        toast.error("Failed to upload media files");
         return;
       }
 
@@ -2642,7 +2732,7 @@ function Main() {
         documents: uploadedDocuments,
         images: uploadedImages,
         videos: null, // No video support in current chat component
-        created_by: email
+        created_by: email,
       };
 
       // Add quick reply via API
@@ -2660,7 +2750,7 @@ function Main() {
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         setNewQuickReply("");
         setSelectedDocuments([]);
@@ -2684,14 +2774,19 @@ function Main() {
     type: "all" | "self"
   ) => {
     try {
-      const { companyId: cId, baseUrl: apiUrl, userData: uData, email } = await getCompanyData();
+      const {
+        companyId: cId,
+        baseUrl: apiUrl,
+        userData: uData,
+        email,
+      } = await getCompanyData();
       if (!uData) {
         console.error("No authenticated user");
         return;
       }
 
       const updateData: any = {
-        updated_by: email
+        updated_by: email,
       };
 
       if (keyword !== undefined) updateData.keyword = keyword;
@@ -2713,7 +2808,7 @@ function Main() {
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         setEditingReply(null);
         fetchQuickReplies(); // Refresh quick replies
@@ -2742,7 +2837,7 @@ function Main() {
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         fetchQuickReplies(); // Refresh quick replies
         toast.success("Quick reply deleted successfully");
@@ -3339,13 +3434,12 @@ function Main() {
         console.log(contact);
         // Update UI state immediately
         setSelectedContact(contact);
+        setSelectedContactId(contact.chat_id ?? null);
         setSelectedChatId(chatId);
         setIsChatActive(true);
 
         // Run background tasks in parallel
-        const backgroundTasks = [
-          updateFirebaseUnreadCount(contact),
-        ];
+        const backgroundTasks = [updateFirebaseUnreadCount(contact)];
 
         await Promise.all(backgroundTasks);
 
@@ -3409,7 +3503,9 @@ function Main() {
 
       // Get user/company info
       const userResponse = await fetch(
-        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
+          userEmail
+        )}`
       );
       if (!userResponse.ok) return;
       const userData = await userResponse.json();
@@ -3719,9 +3815,7 @@ function Main() {
     try {
       // Get user data and company info from SQL
       const userResponse = await fetch(
-        `${baseUrl}/api/user-data?email=${encodeURIComponent(
-          userEmail || ""
-        )}`,
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
         {
           credentials: "include",
         }
@@ -3813,19 +3907,19 @@ function Main() {
                     type: message.quoted_message.message_type,
                     from: message.quoted_message.quoted_author,
                     body: message.quoted_message.quoted_content?.body || "",
-                    ...message.quoted_message.quoted_content
+                    ...message.quoted_message.quoted_content,
                   };
                 } catch (error) {
                   console.error("Error parsing quoted message:", error);
                 }
               }
-              
+
               formattedMessage.text = {
                 body: message.content || "",
-                context: quotedContext
+                context: quotedContext,
               };
               break;
-              
+
             case "image":
               formattedMessage.image = {
                 data: message.media_data,
@@ -3834,10 +3928,10 @@ function Main() {
                 caption: message.media_metadata?.caption,
                 width: message.media_metadata?.width,
                 height: message.media_metadata?.height,
-                thumbnail: message.media_metadata?.thumbnail
+                thumbnail: message.media_metadata?.thumbnail,
               };
               break;
-              
+
             case "video":
               formattedMessage.video = {
                 link: message.media_url,
@@ -3845,21 +3939,25 @@ function Main() {
                 mimetype: message.media_metadata?.mimetype,
                 filename: message.media_metadata?.filename,
                 caption: message.media_metadata?.caption,
-                thumbnail: message.media_metadata?.thumbnail
+                thumbnail: message.media_metadata?.thumbnail,
               };
               break;
-              
+
             case "audio":
             case "ptt":
               formattedMessage.audio = {
                 data: message.media_data,
-                mimetype: message.media_metadata?.mimetype || "audio/ogg; codecs=opus"
+                mimetype:
+                  message.media_metadata?.mimetype || "audio/ogg; codecs=opus",
               };
-              if (message.content && message.content !== message.media_metadata?.caption) {
+              if (
+                message.content &&
+                message.content !== message.media_metadata?.caption
+              ) {
                 formattedMessage.text = { body: message.content };
               }
               break;
-              
+
             case "document":
               formattedMessage.document = {
                 data: message.media_data,
@@ -3867,66 +3965,66 @@ function Main() {
                 filename: message.media_metadata?.filename,
                 caption: message.media_metadata?.caption,
                 pageCount: message.media_metadata?.page_count,
-                fileSize: message.media_metadata?.file_size
+                fileSize: message.media_metadata?.file_size,
               };
               break;
-              
+
             case "location":
-              formattedMessage.location = message.content 
+              formattedMessage.location = message.content
                 ? JSON.parse(message.content)
                 : null;
               break;
-              
+
             case "order":
-              formattedMessage.order = message.content 
+              formattedMessage.order = message.content
                 ? JSON.parse(message.content)
                 : null;
               break;
-              
+
             case "sticker":
               formattedMessage.sticker = {
                 data: message.media_data,
-                mimetype: message.media_metadata?.mimetype
+                mimetype: message.media_metadata?.mimetype,
               };
               break;
-              
+
             case "call_log":
               formattedMessage.call_log = {
                 status: "missed", // Default status
                 duration: 0,
-                timestamp: timestamp
+                timestamp: timestamp,
               };
               if (message.content) {
                 const callData = JSON.parse(message.content);
                 formattedMessage.call_log = {
                   status: callData.status || "missed",
                   duration: callData.duration || 0,
-                  timestamp: callData.timestamp || timestamp
+                  timestamp: callData.timestamp || timestamp,
                 };
               }
               break;
-              
+
             case "privateNote":
               formattedMessage.text = {
-                body: message.content || ""
+                body: message.content || "",
               };
               formattedMessage.from_me = true;
               formattedMessage.from_name = message.author;
               break;
-              
+
             default:
               console.warn(`Unknown message type: ${message.message_type}`);
               if (message.media_data || message.media_url) {
                 formattedMessage[message.message_type] = {
                   data: message.media_data,
                   url: message.media_url,
-                  metadata: message.media_metadata 
+                  metadata: message.media_metadata
                     ? JSON.parse(message.media_metadata)
-                    : null
+                    : null,
                 };
               } else {
                 formattedMessage.text = {
-                  body: message.content || ""
+                  body: message.content || "",
                 };
               }
           }
@@ -3940,6 +4038,13 @@ function Main() {
         if (reactionsMap[message.id]) {
           message.reactions = reactionsMap[message.id];
         }
+      });
+
+      // Sort messages by timestamp to ensure proper chronological order
+      formattedMessages.sort((a, b) => {
+        const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
+        const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
+        return aTime - bTime; // Oldest first
       });
 
       storeMessagesInLocalStorage(selectedChatId, formattedMessages);
@@ -4053,19 +4158,19 @@ function Main() {
                     type: quotedData.message_type,
                     from: quotedData.quoted_author,
                     body: quotedData.quoted_content?.body || "",
-                    ...quotedData.quoted_content
+                    ...quotedData.quoted_content,
                   };
                 } catch (error) {
                   console.error("Error parsing quoted message:", error);
                 }
               }
-              
+
               formattedMessage.text = {
                 body: message.content || "",
-                context: quotedContext
+                context: quotedContext,
               };
               break;
-              
+
             case "image":
               formattedMessage.image = {
                 data: message.media_data,
@@ -4074,10 +4179,10 @@ function Main() {
                 caption: message.media_metadata?.caption,
                 width: message.media_metadata?.width,
                 height: message.media_metadata?.height,
-                thumbnail: message.media_metadata?.thumbnail
+                thumbnail: message.media_metadata?.thumbnail,
               };
               break;
-              
+
             case "video":
               formattedMessage.video = {
                 link: message.media_url,
@@ -4085,21 +4190,25 @@ function Main() {
                 mimetype: message.media_metadata?.mimetype,
                 filename: message.media_metadata?.filename,
                 caption: message.media_metadata?.caption,
-                thumbnail: message.media_metadata?.thumbnail
+                thumbnail: message.media_metadata?.thumbnail,
               };
               break;
-              
+
             case "audio":
             case "ptt":
               formattedMessage.audio = {
                 data: message.media_data,
-                mimetype: message.media_metadata?.mimetype || "audio/ogg; codecs=opus"
+                mimetype:
+                  message.media_metadata?.mimetype || "audio/ogg; codecs=opus",
               };
-              if (message.content && message.content !== message.media_metadata?.caption) {
+              if (
+                message.content &&
+                message.content !== message.media_metadata?.caption
+              ) {
                 formattedMessage.text = { body: message.content };
               }
               break;
-              
+
             case "document":
               formattedMessage.document = {
                 data: message.media_data,
@@ -4107,66 +4216,66 @@ function Main() {
                 filename: message.media_metadata?.filename,
                 caption: message.media_metadata?.caption,
                 pageCount: message.media_metadata?.page_count,
-                fileSize: message.media_metadata?.file_size
+                fileSize: message.media_metadata?.file_size,
               };
               break;
-              
+
             case "location":
-              formattedMessage.location = message.content 
+              formattedMessage.location = message.content
                 ? JSON.parse(message.content)
                 : null;
               break;
-              
+
             case "order":
-              formattedMessage.order = message.content 
+              formattedMessage.order = message.content
                 ? JSON.parse(message.content)
                 : null;
               break;
-              
+
             case "sticker":
               formattedMessage.sticker = {
                 data: message.media_data,
-                mimetype: message.media_metadata?.mimetype
+                mimetype: message.media_metadata?.mimetype,
               };
               break;
-              
+
             case "call_log":
               formattedMessage.call_log = {
                 status: "missed", // Default status
                 duration: 0,
-                timestamp: timestamp
+                timestamp: timestamp,
               };
               if (message.content) {
                 const callData = JSON.parse(message.content);
                 formattedMessage.call_log = {
                   status: callData.status || "missed",
                   duration: callData.duration || 0,
-                  timestamp: callData.timestamp || timestamp
+                  timestamp: callData.timestamp || timestamp,
                 };
               }
               break;
-              
+
             case "privateNote":
               formattedMessage.text = {
-                body: message.content || ""
+                body: message.content || "",
               };
               formattedMessage.from_me = true;
               formattedMessage.from_name = message.author;
               break;
-              
+
             default:
               console.warn(`Unknown message type: ${message.message_type}`);
               if (message.media_data || message.media_url) {
                 formattedMessage[message.message_type] = {
                   data: message.media_data,
                   url: message.media_url,
-                  metadata: message.media_metadata 
+                  metadata: message.media_metadata
                     ? JSON.parse(message.media_metadata)
-                    : null
+                    : null,
                 };
               } else {
                 formattedMessage.text = {
-                  body: message.content || ""
+                  body: message.content || "",
                 };
               }
           }
@@ -4180,6 +4289,13 @@ function Main() {
         if (reactionsMap[message.id]) {
           message.reactions = reactionsMap[message.id];
         }
+      });
+
+      // Sort messages by timestamp to ensure proper chronological order
+      formattedMessages.sort((a, b) => {
+        const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
+        const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
+        return aTime - bTime; // Oldest first
       });
 
       storeMessagesInLocalStorage(selectedChatId, formattedMessages);
@@ -4320,8 +4436,7 @@ function Main() {
 
       if (!companyResponse.ok) throw new Error("Failed to fetch company data");
       const companyData = await companyResponse.json();
-      const apiUrl =
-        companyData.api_url || "https://juta.ngrok.app";
+      const apiUrl = companyData.api_url || "https://juta.ngrok.app";
 
       if (messageMode === "privateNote") {
         handleAddPrivateNote(messageText);
@@ -4329,8 +4444,8 @@ function Main() {
       }
 
       // Send message to API
-      const chatId = selectedChatId;
-      const url = `${baseUrl}/api/v2/messages/text/${companyId}/${selectedChatId}`;
+      // changed in backend from using contactID (companyID-PhoneNumber) to chatID (@c.us or @g.us)
+      const url = `${baseUrl}/api/v2/messages/text/${companyId}/${selectedContactId}`;
       const requestBody = {
         message: messageText,
         quotedMessageId: replyToMessage?.id || null,
@@ -4541,17 +4656,14 @@ function Main() {
       };
 
       // Send POST request to your SQL backend
-      const response = await fetch(
-        `${baseUrl}/api/contacts`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify(contactData),
-        }
-      );
+      const response = await fetch(`${baseUrl}/api/contacts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(contactData),
+      });
 
       const data = await response.json();
 
@@ -4699,9 +4811,7 @@ function Main() {
       // Get company and user data
       const userEmail = localStorage.getItem("userEmail");
       const userResponse = await fetch(
-        `${baseUrl}/api/user-data?email=${encodeURIComponent(
-          userEmail || ""
-        )}`,
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
         {
           credentials: "include",
         }
@@ -4812,9 +4922,7 @@ function Main() {
 
       // Get user data from SQL
       const userResponse = await fetch(
-        `${baseUrl}/api/user-data?email=${encodeURIComponent(
-          userEmail || ""
-        )}`,
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
         {
           credentials: "include",
         }
@@ -5163,51 +5271,32 @@ function Main() {
   };
 
   // Fetch scheduled messages for a specific chat
-  const fetchScheduledMessages = async (chatId: string) => {
+  const fetchScheduledMessages = async (contact_id: string) => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      // Get user/company info
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail || !companyId) return [];
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      const scheduledMessagesRef = collection(
-        firestore,
-        `companies/${companyId}/scheduledMessages`
-      );
-      const q = query(
-        scheduledMessagesRef,
-        where("status", "==", "scheduled"),
-        where("chatIds", "array-contains", chatId)
-      ); // Correct usage of array-contains
-      const querySnapshot = await getDocs(q);
-
-      const messages: ScheduledMessage[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        messages.push({
-          id: doc.id,
-          ...data,
-          chatIds: data.chatIds || [],
-          message: data.message || "", // Ensure message is included
-        } as ScheduledMessage);
-      });
-
-      // Sort messages by scheduledTime
-      messages.sort(
-        (a, b) =>
-          a.scheduledTime.toDate().getTime() -
-          b.scheduledTime.toDate().getTime()
+      // Call the backend API to fetch scheduled messages for this contact
+      const response = await fetch(
+        `${baseUrl}/api/scheduled-messages/contact?companyId=${companyId}&contactId=${contact_id}&status=scheduled`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        }
       );
 
-      return messages; // Return the messages
+      if (!response.ok) {
+        throw new Error("Failed to fetch scheduled messages");
+      }
+
+      const data = await response.json();
+      // The API returns the scheduled messages sorted already
+      return data.messages || [];
     } catch (error) {
       console.error("Error fetching scheduled messages:", error);
-      return []; // Return an empty array on error
+      return [];
     }
   };
 
@@ -5270,7 +5359,7 @@ function Main() {
   const handleEyeClick = () => {
     setIsTabOpen(!isTabOpen);
     const fetchAndDisplayScheduledMessages = async () => {
-      const messages = await fetchScheduledMessages(selectedContact.chat_id); // Assuming fetchScheduledMessages is modified to accept a contact ID
+      const messages = await fetchScheduledMessages(selectedContact.contact_id); // Assuming fetchScheduledMessages is modified to accept a contact ID
       setScheduledMessages(messages || []);
       console.log(messages); // Store the messages in state
     };
@@ -6200,18 +6289,20 @@ function Main() {
 
       const response = await fetch(base64Data);
       const blob = await response.blob();
-      const file = new File([blob], `image.${mimeType.split("/")[1]}`, { type: mimeType });
+      const file = new File([blob], `image.${mimeType.split("/")[1]}`, {
+        type: mimeType,
+      });
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
       const uploadResponse = await fetch(`${apiUrl}/api/upload-media`, {
-        method: 'POST',
-        body: formData
+        method: "POST",
+        body: formData,
       });
 
       if (!uploadResponse.ok) {
-        throw new Error('File upload failed');
+        throw new Error("File upload failed");
       }
 
       const data = await uploadResponse.json();
@@ -6300,21 +6391,21 @@ function Main() {
       const { companyId: cId, baseUrl: apiUrl } = await getCompanyData();
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
       const response = await fetch(`${apiUrl}/api/upload-media`, {
-        method: 'POST',
-        body: formData
+        method: "POST",
+        body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('File upload failed');
+        throw new Error("File upload failed");
       }
 
       const data = await response.json();
       return data.url;
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error("Error uploading file:", error);
       throw error;
     }
   };
@@ -6325,7 +6416,12 @@ function Main() {
     caption?: string
   ) => {
     try {
-      const { companyId: cId, baseUrl: apiUrl, userData: uData, email } = await getCompanyData();
+      const {
+        companyId: cId,
+        baseUrl: apiUrl,
+        userData: uData,
+        email,
+      } = await getCompanyData();
 
       // Use selectedContact's phoneIndex
       if (!selectedContact) throw new Error("No contact selected");
@@ -6375,7 +6471,12 @@ function Main() {
     caption?: string
   ) => {
     try {
-      const { companyId: cId, baseUrl: apiUrl, userData: uData, email } = await getCompanyData();
+      const {
+        companyId: cId,
+        baseUrl: apiUrl,
+        userData: uData,
+        email,
+      } = await getCompanyData();
 
       // Use selectedContact's phoneIndex
       if (!selectedContact) throw new Error("No contact selected");
@@ -6577,24 +6678,22 @@ function Main() {
     let date: Date;
 
     if (typeof timestamp === "number") {
-      // Try as milliseconds first
-      date = new Date(timestamp);
-
-      // If that gives an invalid date, try as seconds
-      if (isNaN(date.getTime())) {
-        date = new Date(timestamp * 1000);
-      }
+      // Unix timestamps are in seconds, convert to milliseconds
+      date = new Date(timestamp * 1000);
     } else if (typeof timestamp === "string") {
       // Handle ISO date string format like '2025-07-07 11:34:06+08'
-      if (timestamp.includes('-') && (timestamp.includes('+') || timestamp.includes('T'))) {
+      if (
+        timestamp.includes("-") &&
+        (timestamp.includes("+") || timestamp.includes("T"))
+      ) {
         // Convert PostgreSQL timestamp format to ISO format if needed
         let isoString = timestamp;
-        if (!timestamp.includes('T')) {
+        if (!timestamp.includes("T")) {
           // Replace space with T and ensure timezone format
-          isoString = timestamp.replace(' ', 'T');
+          isoString = timestamp.replace(" ", "T");
           // Handle timezone offset format like +08 -> +08:00
           if (/[+-]\d{2}$/.test(isoString)) {
-            isoString = isoString + ':00';
+            isoString = isoString + ":00";
           }
         }
         date = new Date(isoString);
@@ -6864,18 +6963,22 @@ function Main() {
 
       const response = await fetch(localUrl);
       const blob = await response.blob();
-      const file = new File([blob], `image_${Date.now()}.${blob.type.split("/")[1]}`, { type: blob.type });
+      const file = new File(
+        [blob],
+        `image_${Date.now()}.${blob.type.split("/")[1]}`,
+        { type: blob.type }
+      );
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
       const uploadResponse = await fetch(`${apiUrl}/api/upload-media`, {
-        method: 'POST',
-        body: formData
+        method: "POST",
+        body: formData,
       });
 
       if (!uploadResponse.ok) {
-        throw new Error('File upload failed');
+        throw new Error("File upload failed");
       }
 
       const data = await uploadResponse.json();
@@ -6895,7 +6998,7 @@ function Main() {
 
       const uploadedImageUrl = await uploadFile(file);
       if (uploadedImageUrl) {
-        await sendImageMessage(selectedChatId!, uploadedImageUrl, caption);
+        await sendImageMessage(selectedContactId!, uploadedImageUrl, caption);
       }
     } catch (error) {
       console.error("Error sending image:", error);
@@ -7029,21 +7132,46 @@ function Main() {
       companyData: any,
       currentPhoneIndex: string | number
     ) {
+      const index = String(currentPhoneIndex);
       if (
         companyData.stopbots &&
         Object.keys(companyData.stopbots).length > 0
       ) {
-        return !!companyData.stopbots[currentPhoneIndex];
+        return !!companyData.stopbots[index];
       }
       return !!companyData.stopbot;
     }
 
     const fetchCompanyStopBot = async () => {
       try {
-        const { companyId: cId, userData: uData } = await getCompanyData();
+        const {
+          companyId: cId,
+          userData: uData,
+          stopbot,
+          stopbots,
+        } = await getCompanyData();
         if (isMounted && uData) {
-          // For now, default to no stopbot until we have the company data structure
-          setCompanyStopBot(false);
+          console.log("Fetched user data:", uData);
+          console.log("Fetched stopbot status:", stopbot);
+          console.log("Fetched stopbots:", stopbots);
+          console.log("phoneCount:", phoneCount);
+          if (phoneCount > 1) {
+            const currentPhoneIndex = uData.phone || 0;
+            const effectiveStopBot = getEffectiveStopBot(
+              { stopbot, stopbots },
+              currentPhoneIndex
+            );
+            setCompanyStopBot(effectiveStopBot);
+            console.log("Effective stop bot status:", effectiveStopBot);
+          } else {
+            if (phoneCount === 1) {
+              setCompanyStopBot(!!stopbot);
+              console.log("Single phone stop bot status:", stopbot);
+            } else {
+              setCompanyStopBot(false);
+              console.log("No phones available, stop bot set to false");
+            }
+          }
         }
       } catch (error) {
         console.error("Error fetching company stopbot status:", error);
@@ -7066,16 +7194,49 @@ function Main() {
     return localStorage.getItem("userEmail");
   };
 
+  // Helper to get company data from localStorage and API
   const getCompanyData = async () => {
-    const email = getCurrentUserEmail();
-    if (!email || !companyId) {
-      throw new Error("User not authenticated or company ID not available");
+    const userDataStr = localStorage.getItem("userData");
+    if (!userDataStr) {
+      throw new Error("User not authenticated");
     }
+    let parsedUserData: any;
+    try {
+      parsedUserData = JSON.parse(userDataStr);
+    } catch {
+      throw new Error("Invalid userData in localStorage");
+    }
+    const email = parsedUserData.email;
+    if (!email) {
+      throw new Error("User email not found");
+    }
+
+    const response = await fetch(`${baseUrl}/api/user-context?email=${email}`);
+    if (!response.ok) throw new Error("Failed to fetch user context");
+    const data = await response.json();
+
+    setCompanyId(data.companyId);
+    setCurrentUserRole(data.role);
+    setEmployeeList(
+      (data.employees || []).map((employee: any) => ({
+        id: employee.id,
+        name: employee.name,
+        email: employee.email || employee.id,
+        role: employee.role,
+        employeeId: employee.employeeId,
+        phoneNumber: employee.phoneNumber,
+      }))
+    );
+    setPhoneNames(data.phoneNames);
+    setPhoneOptions(Object.keys(data.phoneNames).map(Number));
+
     return {
-      companyId,
-      baseUrl: "https://mighty-dane-newly.ngrok-free.app",
-      userData,
-      email
+      companyId: data.companyId,
+      baseUrl: data.apiUrl || baseUrl,
+      userData: parsedUserData,
+      email,
+      stopbot: data.stopBot || false,
+      stopbots: data.stopBots || {},
     };
   };
 
@@ -7107,7 +7268,11 @@ function Main() {
 
   const toggleBot = async () => {
     try {
-      const { userData: uData, companyId: cId, baseUrl } = await getCompanyData();
+      const {
+        userData: uData,
+        companyId: cId,
+        baseUrl,
+      } = await getCompanyData();
 
       if (!uData) {
         throw new Error("User data not available");
@@ -7131,9 +7296,7 @@ function Main() {
       });
 
       setCompanyStopBot(newStopBot);
-      toast.success(
-        `Bot ${newStopBot ? "disabled" : "enabled"} successfully`
-      );
+      toast.success(`Bot ${newStopBot ? "disabled" : "enabled"} successfully`);
     } catch (error) {
       console.error("Error toggling bot status:", error);
       toast.error(
@@ -7386,11 +7549,13 @@ function Main() {
   function getAuthorColor(author?: string | null) {
     // Handle undefined/null/empty cases by providing a default string
     const authorString = author || "anonymous";
-    
+
     const index =
-      authorString.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) %
+      authorString
+        .split("")
+        .reduce((acc, char) => acc + char.charCodeAt(0), 0) %
       authorColors.length;
-      
+
     return authorColors[index];
   }
 
@@ -8862,7 +9027,11 @@ function Main() {
                                 src={contact.profilePicUrl}
                                 alt="Profile"
                                 onError={(e) => {
-                                  e.currentTarget.src = "/default-avatar.png";
+                                  const originalSrc = e.currentTarget.src;
+                                  // Prevent infinite loop by checking if we're already showing the fallback
+                                  if (originalSrc !== logoImage) {
+                                    e.currentTarget.src = logoImage;
+                                  }
                                 }}
                               />
                             ) : (
@@ -9137,21 +9306,29 @@ function Main() {
                             {(() => {
                               const message = contact.last_message;
                               if (!message) return "No Messages";
-                              
+
                               const getMessageContent = () => {
                                 switch (message.type) {
                                   case "text":
                                   case "chat":
                                     return message.text?.body || "Message";
                                   case "image":
-                                    return message.image?.caption ? `📷 ${message.image.caption}` : "📷 Photo";
+                                    return message.image?.caption
+                                      ? `📷 ${message.image.caption}`
+                                      : "📷 Photo";
                                   case "document":
-                                    return `📄 ${message.document?.filename || message.document?.file_name || "Document"}`;
+                                    return `📄 ${
+                                      message.document?.filename ||
+                                      message.document?.file_name ||
+                                      "Document"
+                                    }`;
                                   case "audio":
                                   case "ptt":
                                     return "🎵 Audio";
                                   case "video":
-                                    return message.video?.caption ? `🎥 ${message.video.caption}` : "🎥 Video";
+                                    return message.video?.caption
+                                      ? `🎥 ${message.video.caption}`
+                                      : "🎥 Video";
                                   case "voice":
                                     return "🎤 Voice message";
                                   case "sticker":
@@ -9159,7 +9336,9 @@ function Main() {
                                   case "location":
                                     return "📍 Location";
                                   case "call_log":
-                                    return `📞 ${message.call_log?.status || "Call"}`;
+                                    return `📞 ${
+                                      message.call_log?.status || "Call"
+                                    }`;
                                   case "order":
                                     return "🛒 Order";
                                   case "gif":
@@ -9172,7 +9351,7 @@ function Main() {
                                     return message.text?.body || "Message";
                                 }
                               };
-                              
+
                               const content = getMessageContent();
                               return message.from_me ? content : content;
                             })()}
@@ -9638,18 +9817,31 @@ function Main() {
                     )
                     .map((message, index, array) => {
                       //
-                      const previousMessage = index > 0 ? array[index - 1] : null;
+                      const previousMessage =
+                        index > 0 ? array[index - 1] : null;
+
+                      // Get the current message date
+                      const currentDate = new Date(
+                        (message.timestamp ?? message.createdAt ?? 0) * 1000
+                      );
+
+                      // Get the previous message date
+                      const previousDate = previousMessage
+                        ? new Date(
+                            (previousMessage.timestamp ??
+                              previousMessage.createdAt ??
+                              0) * 1000
+                          )
+                        : null;
+
                       const showDateHeader =
                         index === 0 ||
                         !previousMessage ||
-                        !isSameDay(
-                          new Date(
-                            previousMessage.timestamp ??
-                              previousMessage.createdAt ??
-                              0
-                          ),
-                          new Date(message.timestamp ?? message.createdAt ?? 0)
-                        );
+                        !previousDate ||
+                        isNaN(previousDate.getTime()) ||
+                        isNaN(currentDate.getTime()) ||
+                        !isSameDay(previousDate, currentDate);
+
                       const isMyMessage = message.from_me;
                       const prevMessage = messages[index - 1];
                       const nextMessage = messages[index + 1];
@@ -9680,17 +9872,16 @@ function Main() {
                             <div className="flex justify-center my-4">
                               <div className="inline-block bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold py-1 px-4 rounded-lg shadow-md">
                                 {formatDateHeader(
-                                  message.timestamp ||
-                                    message.createdAt ||
-                                    ""
+                                  message.timestamp || message.createdAt || ""
                                 )}
                               </div>
                             </div>
                           )}
                           <div className="flex items-center gap-2 relative">
                             {/* Author Circle for Group Chats and Company 0123 */}
-                            {(message.chat_id?.includes("@g.us") || 
-                              (userData?.companyId === "0123" && message.chat_id?.includes("@c.us"))) && (
+                            {(message.chat_id?.includes("@g.us") ||
+                              (userData?.companyId === "0123" &&
+                                message.chat_id?.includes("@c.us"))) && (
                               <div
                                 style={{
                                   width: "25px",
@@ -9771,9 +9962,10 @@ function Main() {
                                   </span>
                                 </div>
                               )}
-                              {(message.chat_id &&
-                                ((message.chat_id.includes("@g")) ||
-                                (userData?.companyId === "0123" && message.chat_id.includes("@c.us")))) &&
+                              {message.chat_id &&
+                                (message.chat_id.includes("@g.us") ||
+                                  (userData?.companyId === "0123" &&
+                                    message.chat_id.includes("@c.us"))) &&
                                 message.author && (
                                   <div
                                     className="pb-0.5 text-sm font-medium capitalize"
@@ -9791,8 +9983,10 @@ function Main() {
                                   <div
                                     className="p-2 mb-2 rounded bg-gray-200 dark:bg-gray-800 cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700"
                                     onClick={() => {
-                                      const quotedMessageId = message.text?.context?.id;
-                                      const quotedContent = message.text?.context?.body;
+                                      const quotedMessageId =
+                                        message.text?.context?.id;
+                                      const quotedContent =
+                                        message.text?.context?.body;
 
                                       // First try by ID if available
                                       if (quotedMessageId) {
@@ -9845,12 +10039,18 @@ function Main() {
                                     <div
                                       className="text-sm font-medium"
                                       style={{
-                                        color: getAuthorColor(
-                                          message.text.context.from
-                                        ),
+                                      color: getAuthorColor(
+                                        message.text.context.from
+                                      ),
                                       }}
                                     >
-                                      {message.text.context.from || ""}
+                                      {message.text.context.from === "Me"
+                                      ? "Me"
+                                      : selectedContact?.contactName ||
+                                        selectedContact?.firstName ||
+                                        selectedContact?.phone ||
+                                        message.text.context.from ||
+                                        ""}
                                     </div>
                                     <div className="text-sm text-gray-700 dark:text-gray-300">
                                       {message.text.context.body || ""}
@@ -9889,7 +10089,11 @@ function Main() {
                                   <div>
                                     {message.from_me &&
                                       message.userName &&
-                                      message.userName !== "" && (
+                                      message.userName !== "" &&
+                                      message.chat_id &&
+                                      (message.chat_id.includes("@g.us") ||
+                                        (userData?.companyId === "0123" &&
+                                          message.chat_id.includes("@c.us"))) && (
                                         <div className="text-sm text-gray-300 dark:text-gray-300 mb-1 capitalize font-medium">
                                           {message.userName}
                                         </div>
@@ -10484,7 +10688,12 @@ function Main() {
                 <div className="p-2 mb-2 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-between">
                   <div>
                     <div className="font-semibold text-gray-800 dark:text-gray-200">
-                      {replyToMessage.from_name}
+                      {replyToMessage.from_me
+                        ? "Me"
+                        : selectedContact?.contactName ||
+                          selectedContact?.firstName ||
+                          selectedContact?.phone ||
+                          replyToMessage.from_name}
                     </div>
                     <div>
                       {replyToMessage.type === "text" &&
@@ -11514,8 +11723,10 @@ function Main() {
                 />
               </button>
             </div>
-            <div className="flex-grow overflow-y-auto p-4 space-y-4">
-              <div className="bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden">
+            {/* Enhanced Content Area */}
+            <div className="flex-grow overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-800/50 dark:to-gray-900">
+              {/* Contact Information Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700 hover:shadow-2xl transition-shadow duration-300">
                 <div className="bg-blue-50 dark:bg-blue-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
@@ -11533,8 +11744,11 @@ function Main() {
                           >
                             Edit
                           </button>
-                          
-                          <Menu as="div" className="relative inline-block text-left">
+
+                          <Menu
+                            as="div"
+                            className="relative inline-block text-left"
+                          >
                             <Menu.Button className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200">
                               Sync
                             </Menu.Button>
@@ -11542,47 +11756,86 @@ function Main() {
                               <Menu.Item>
                                 {({ active }) => (
                                   <button
-                                    className={`w-full text-left px-3 py-1 rounded-md ${active ? 'bg-blue-100 dark:bg-blue-700' : ''}`}
+                                    className={`w-full text-left px-3 py-1 rounded-md ${
+                                      active
+                                        ? "bg-blue-100 dark:bg-blue-700"
+                                        : ""
+                                    }`}
                                     onClick={async () => {
                                       try {
                                         if (!selectedContact.phone) {
-                                          toast.error("Contact phone number is required for syncing");
+                                          toast.error(
+                                            "Contact phone number is required for syncing"
+                                          );
                                           return;
                                         }
-                                        const userEmail = localStorage.getItem("userEmail");
+                                        const userEmail =
+                                          localStorage.getItem("userEmail");
                                         if (!userEmail) {
                                           toast.error("User not authenticated");
                                           return;
                                         }
                                         // Get user/company info from your backend
-                                        const userRes = await fetch(`${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+                                        const userRes = await fetch(
+                                          `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
+                                            userEmail
+                                          )}`
+                                        );
                                         if (!userRes.ok) {
-                                          toast.error("Failed to fetch user/company data");
+                                          toast.error(
+                                            "Failed to fetch user/company data"
+                                          );
                                           return;
                                         }
-                                        const { userData, companyData } = await userRes.json();
+                                        const { userData, companyData } =
+                                          await userRes.json();
                                         const companyId = userData.companyId;
-                                        const apiUrl = companyData.apiUrl || baseUrl;
-                                        const phoneNumber = selectedContact.phone.replace(/\D/g, '');
-                                        const response = await fetch(`${apiUrl}/api/sync-a-contact-name/${companyId}`, {
-                                          method: 'POST',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({
-                                            companyId,
-                                            phoneNumber,
-                                            phoneIndex: selectedContact.phoneIndex ?? 0
-                                          }),
-                                        });
+                                        const apiUrl =
+                                          companyData.apiUrl || baseUrl;
+                                        const phoneNumber =
+                                          selectedContact.phone.replace(
+                                            /\D/g,
+                                            ""
+                                          );
+                                        const response = await fetch(
+                                          `${apiUrl}/api/sync-a-contact-name/${companyId}`,
+                                          {
+                                            method: "POST",
+                                            headers: {
+                                              "Content-Type":
+                                                "application/json",
+                                            },
+                                            body: JSON.stringify({
+                                              companyId,
+                                              phoneNumber,
+                                              phoneIndex:
+                                                selectedContact.phoneIndex ?? 0,
+                                            }),
+                                          }
+                                        );
                                         if (response.ok) {
-                                          toast.success("Contact name synced successfully!");
+                                          toast.success(
+                                            "Contact name synced successfully!"
+                                          );
                                         } else {
-                                          const errorText = await response.text();
-                                          console.error('Sync failed:', errorText);
-                                          toast.error("Failed to sync contact name");
+                                          const errorText =
+                                            await response.text();
+                                          console.error(
+                                            "Sync failed:",
+                                            errorText
+                                          );
+                                          toast.error(
+                                            "Failed to sync contact name"
+                                          );
                                         }
                                       } catch (error) {
-                                        console.error('Error syncing contact:', error);
-                                        toast.error("An error occurred while syncing contact name");
+                                        console.error(
+                                          "Error syncing contact:",
+                                          error
+                                        );
+                                        toast.error(
+                                          "An error occurred while syncing contact name"
+                                        );
                                       }
                                     }}
                                   >
@@ -11593,47 +11846,86 @@ function Main() {
                               <Menu.Item>
                                 {({ active }) => (
                                   <button
-                                    className={`w-full text-left px-3 py-1 rounded-md ${active ? 'bg-blue-100 dark:bg-blue-700' : ''}`}
+                                    className={`w-full text-left px-3 py-1 rounded-md ${
+                                      active
+                                        ? "bg-blue-100 dark:bg-blue-700"
+                                        : ""
+                                    }`}
                                     onClick={async () => {
                                       try {
                                         if (!selectedContact.phone) {
-                                          toast.error("Contact phone number is required for sync");
+                                          toast.error(
+                                            "Contact phone number is required for sync"
+                                          );
                                           return;
                                         }
-                                        const userEmail = localStorage.getItem("userEmail");
+                                        const userEmail =
+                                          localStorage.getItem("userEmail");
                                         if (!userEmail) {
                                           toast.error("User not authenticated");
                                           return;
                                         }
                                         // Get user/company info from your backend
-                                        const userRes = await fetch(`${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+                                        const userRes = await fetch(
+                                          `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
+                                            userEmail
+                                          )}`
+                                        );
                                         if (!userRes.ok) {
-                                          toast.error("Failed to fetch user/company data");
+                                          toast.error(
+                                            "Failed to fetch user/company data"
+                                          );
                                           return;
                                         }
-                                        const { userData, companyData } = await userRes.json();
+                                        const { userData, companyData } =
+                                          await userRes.json();
                                         const companyId = userData.companyId;
-                                        const apiUrl = companyData.apiUrl || baseUrl;
-                                        const phoneNumber = selectedContact.phone.replace(/\D/g, '');
-                                        const response = await fetch(`${apiUrl}/api/sync-a-contact/${companyId}`, {
-                                          method: 'POST',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({
-                                            companyId,
-                                            phoneNumber,
-                                            phoneIndex: selectedContact.phoneIndex ?? 0
-                                          }),
-                                        });
+                                        const apiUrl =
+                                          companyData.apiUrl || baseUrl;
+                                        const phoneNumber =
+                                          selectedContact.phone.replace(
+                                            /\D/g,
+                                            ""
+                                          );
+                                        const response = await fetch(
+                                          `${apiUrl}/api/sync-a-contact/${companyId}`,
+                                          {
+                                            method: "POST",
+                                            headers: {
+                                              "Content-Type":
+                                                "application/json",
+                                            },
+                                            body: JSON.stringify({
+                                              companyId,
+                                              phoneNumber,
+                                              phoneIndex:
+                                                selectedContact.phoneIndex ?? 0,
+                                            }),
+                                          }
+                                        );
                                         if (response.ok) {
-                                          toast.success("Contact messages synced successfully!");
+                                          toast.success(
+                                            "Contact messages synced successfully!"
+                                          );
                                         } else {
-                                          const errorText = await response.text();
-                                          console.error('Sync failed:', errorText);
-                                          toast.error("Failed to sync contact messages");
+                                          const errorText =
+                                            await response.text();
+                                          console.error(
+                                            "Sync failed:",
+                                            errorText
+                                          );
+                                          toast.error(
+                                            "Failed to sync contact messages"
+                                          );
                                         }
                                       } catch (error) {
-                                        console.error('Error syncing contact:', error);
-                                        toast.error("An error occurred while syncing contact messages");
+                                        console.error(
+                                          "Error syncing contact:",
+                                          error
+                                        );
+                                        toast.error(
+                                          "An error occurred while syncing contact messages"
+                                        );
                                       }
                                     }}
                                   >
@@ -11648,14 +11940,32 @@ function Main() {
                             onClick={handleDeleteContact}
                             disabled={deleteLoading}
                             className={`px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-200 flex items-center space-x-1 ${
-                              deleteLoading ? "opacity-50 cursor-not-allowed" : ""
+                              deleteLoading
+                                ? "opacity-50 cursor-not-allowed"
+                                : ""
                             }`}
                           >
                             {deleteLoading ? (
                               <>
-                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                <svg
+                                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  ></circle>
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                  ></path>
                                 </svg>
                                 <span>Deleting...</span>
                               </>
@@ -11821,7 +12131,16 @@ function Main() {
                       </div>
                     ))}
                   </div>
-                  <div className="border-t border-gray-200 dark:border-gray-600 mt-4 pt-4"></div>
+                  {/* Enhanced Divider */}
+                  <div className="flex items-center my-8">
+                    <div className="flex-grow h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></div>
+                    <div className="px-4">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    </div>
+                    <div className="flex-grow h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></div>
+                  </div>
+
+                  {/* Enhanced Employee Assignment Section */}
                   {selectedContact.tags.some((tag: string) =>
                     employeeList.some(
                       (employee) =>
@@ -11829,11 +12148,16 @@ function Main() {
                         (tag?.toLowerCase() || "")
                     )
                   ) && (
-                    <div className="w-full">
-                      <h4 className="font-semibold text-gray-500 dark:text-gray-400 inline-block mr-2">
-                        Employees Assigned:
-                      </h4>
-                      <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl p-6 border border-green-200 dark:border-green-700 mb-6">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="p-2 bg-green-500 rounded-lg">
+                          <Lucide icon="Users" className="w-5 h-5 text-white" />
+                        </div>
+                        <h4 className="font-bold text-lg text-green-800 dark:text-green-200">
+                          Assigned Employees
+                        </h4>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
                         {selectedContact.tags
                           ?.filter((tag: string) =>
                             employeeList.some(
@@ -11845,11 +12169,12 @@ function Main() {
                           .map((employeeTag: string, index: number) => (
                             <div
                               key={index}
-                              className="inline-flex items-center bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 text-sm font-semibold px-3 py-1 rounded-full border border-green-400 dark:border-green-600"
+                              className="inline-flex items-center bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 text-sm font-semibold px-4 py-2 rounded-full border-2 border-green-300 dark:border-green-600 shadow-sm hover:shadow-md transition-all duration-200 group"
                             >
+                              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                               <span>{employeeTag}</span>
                               <button
-                                className="ml-2 focus:outline-none"
+                                className="ml-3 p-1 rounded-full hover:bg-green-200 dark:hover:bg-green-700 transition-colors duration-200 focus:outline-none"
                                 onClick={() =>
                                   handleRemoveTag(
                                     selectedContact.contact_id,
@@ -11869,7 +12194,8 @@ function Main() {
                   )}
                 </div>
               </div>
-              <div className="bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden">
+              {/* Enhanced Tags Section */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700 hover:shadow-2xl transition-shadow duration-300">
                 <div className="bg-indigo-50 dark:bg-indigo-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                     Tags
@@ -11923,36 +12249,95 @@ function Main() {
                 </div>
               </div>
               <div className="bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden">
-                <div className="bg-yellow-50 dark:bg-yellow-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
+                <div className="bg-yellow-50 dark:bg-yellow-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                     Scheduled Messages
                   </h3>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {scheduledMessages.length} scheduled
+                  </span>
                 </div>
                 <div className="p-4">
                   {scheduledMessages.length > 0 ? (
                     <div className="overflow-x-auto">
                       <div
-                        className="flex gap-3 pb-2"
+                        className="flex gap-4 pb-2"
                         style={{ minWidth: "min-content" }}
                       >
                         {scheduledMessages.map((message) => (
                           <div
                             key={message.id}
-                            className="flex-none w-[300px] bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-600"
+                            className="flex-none w-[320px] bg-gradient-to-br from-yellow-50/80 dark:from-yellow-900/40 to-white dark:to-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-600 shadow hover:shadow-lg transition-shadow duration-200"
                           >
                             <div className="flex flex-col h-full">
-                              <span className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                                {message.scheduledTime
-                                  .toDate()
-                                  .toLocaleString()}
-                              </span>
-                              <p className="text-gray-800 dark:text-gray-200 break-words flex-grow">
-                                {message.message}
-                              </p>
-                              <div className="flex gap-2 mt-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                  {new Date(
+                                    message.scheduledTime
+                                  ).toLocaleString()}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                    message.status === "scheduled"
+                                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+                                      : message.status === "sent"
+                                      ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
+                                      : "bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                  }`}
+                                >
+                                  {message.status
+                                    ? message.status.charAt(0).toUpperCase() +
+                                      message.status.slice(1)
+                                    : "Scheduled"}
+                                </span>
+                              </div>
+                              <div className="flex-1 mb-2">
+                                <p className="text-gray-800 dark:text-gray-200 break-words whitespace-pre-line text-sm">
+                                  {message.messageContent}
+                                </p>
+                                {message.mediaUrl && (
+                                  <div className="mt-2">
+                                    {message.mediaUrl.match(
+                                      /\.(jpg|jpeg|png|gif)$/i
+                                    ) ? (
+                                      <img
+                                        src={message.mediaUrl}
+                                        alt="Scheduled Media"
+                                        className="w-full h-32 object-cover rounded-md border border-gray-200 dark:border-gray-700"
+                                      />
+                                    ) : message.mediaUrl.match(
+                                        /\.(mp4|webm|ogg)$/i
+                                      ) ? (
+                                      <video
+                                        src={message.mediaUrl}
+                                        controls
+                                        className="w-full h-32 object-cover rounded-md border border-gray-200 dark:border-gray-700"
+                                      />
+                                    ) : null}
+                                  </div>
+                                )}
+                                {message.documentUrl && (
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <Lucide
+                                      icon="FileText"
+                                      className="w-4 h-4 text-gray-500"
+                                    />
+                                    <a
+                                      href={message.documentUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-600 dark:text-blue-300 underline break-all"
+                                    >
+                                      {message.fileName || "Document"}
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex gap-2 mt-2">
                                 <button
                                   onClick={() => handleSendNow(message)}
-                                  className="flex-1 px-3 py-1 bg-green-500 text-white text-sm rounded-md hover:bg-green-600 transition duration-200"
+                                  className="flex-1 px-3 py-1 bg-green-500 text-white text-xs rounded-md hover:bg-green-600 transition duration-200 font-medium"
+                                  title="Send this message now"
                                 >
                                   Send Now
                                 </button>
@@ -11961,7 +12346,8 @@ function Main() {
                                     handleEditScheduledMessage(message);
                                     setEditScheduledMessageModal(true);
                                   }}
-                                  className="flex-1 px-3 py-1 bg-primary text-white text-sm rounded-md hover:bg-primary-dark transition duration-200"
+                                  className="flex-1 px-3 py-1 bg-primary text-white text-xs rounded-md hover:bg-primary-dark transition duration-200 font-medium"
+                                  title="Edit scheduled message"
                                 >
                                   Edit
                                 </button>
@@ -11969,7 +12355,8 @@ function Main() {
                                   onClick={() =>
                                     handleDeleteScheduledMessage(message.id!)
                                   }
-                                  className="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 transition duration-200"
+                                  className="flex-1 px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition duration-200 font-medium"
+                                  title="Delete scheduled message"
                                 >
                                   Delete
                                 </button>
@@ -11980,9 +12367,15 @@ function Main() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-gray-500 dark:text-gray-400">
-                      No scheduled messages for this contact.
-                    </p>
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <Lucide
+                        icon="Clock"
+                        className="w-10 h-10 text-yellow-400 mb-2"
+                      />
+                      <p className="text-gray-500 dark:text-gray-400 text-center">
+                        No scheduled messages for this contact.
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -12143,22 +12536,63 @@ function Main() {
                   placeholder="Add a caption..."
                   className="w-full p-2 mb-4 border rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                 />
-                <div className="flex justify-end space-x-2">
+                <div className="flex justify-end space-x-2 mt-4">
                   <button
                     onClick={() => {
                       setVideoModalOpen(false);
                       setSelectedVideo(null);
                       setVideoCaption("");
                     }}
-                    className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded"
+                    className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={() => handleVideoUpload(videoCaption)}
-                    className="px-4 py-2 bg-primary text-white rounded"
+                    onClick={async () => {
+                      if (!isScheduling) {
+                        setIsScheduling(true);
+                        try {
+                          await handleVideoUpload(videoCaption);
+                          setVideoModalOpen(false);
+                          setSelectedVideo(null);
+                          setVideoCaption("");
+                        } finally {
+                          setIsScheduling(false);
+                        }
+                      }
+                    }}
+                    className={`px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors ${
+                      isScheduling ? "opacity-60 cursor-not-allowed" : ""
+                    }`}
+                    disabled={isScheduling}
                   >
-                    Send
+                    {isScheduling ? (
+                      <span className="flex items-center">
+                        <svg
+                          className="animate-spin h-5 w-5 mr-2 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Sending...
+                      </span>
+                    ) : (
+                      "Send"
+                    )}
                   </button>
                 </div>
                 <button

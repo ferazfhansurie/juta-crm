@@ -1,5 +1,5 @@
 import "@/assets/css/themes/tinker/side-nav.css";
-import { Transition as HeadlessTransition } from '@headlessui/react';
+import { Transition as HeadlessTransition } from "@headlessui/react";
 import { useState, useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { selectMenu } from "@/stores/menuSlice";
@@ -25,10 +25,10 @@ function Main() {
 
   const handleSignOut = () => {
     // Clear localStorage and sessionStorage
-    localStorage.removeItem('contacts'); // Clear contacts from localStorage
-    sessionStorage.removeItem('contactsFetched'); // Clear the session marker
+    localStorage.removeItem("contacts"); // Clear contacts from localStorage
+    sessionStorage.removeItem("contactsFetched"); // Clear the session marker
     // Optionally, redirect to login page or perform any other logout logic
-    navigate('/login');
+    navigate("/login");
   };
 
   useEffect(() => {
@@ -38,7 +38,6 @@ function Main() {
       setWindowWidth(window.innerWidth);
     });
   }, [menuStore, location.pathname]);
-  
 
   return (
     <div
@@ -51,7 +50,10 @@ function Main() {
       <div className="flex mt-[4.7rem] md:mt-0 overflow-hidden">
         {/* BEGIN: Side Menu */}
         <nav className="side-nav hidden md:block md:w-[100px] xl:w-[250px] px-5 pb-16 overflow-x-hidden z-10">
-          <Link to="/dashboard" className="flex items-center pt-4 pl-5 mt-3 intro-x">
+          <Link
+            to="/dashboard"
+            className="flex items-center pt-4 pl-5 mt-3 intro-x"
+          >
             <img
               alt="Tinker Tailwind HTML Admin Template"
               className="w-6"
@@ -225,19 +227,25 @@ function Main() {
             {/* END: First Child */}
           </ul>
           <div className="mb-4">
-          <Menu>
-          <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-blue-600 flex items-center justify-center text-white mb-2">
+            <Menu>
+              <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-blue-600 flex items-center justify-center text-white mb-2">
                 <Link to="/client-ticket">
-                  <Lucide icon="Ticket" className="text-center justify-center w-4 h-4" />
+                  <Lucide
+                    icon="Ticket"
+                    className="text-center justify-center w-4 h-4"
+                  />
                 </Link>
               </Menu.Button>
-            <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-red-700 flex items-center justify-center text-white">
-              <Link to="/login" onClick={handleSignOut}>
-                <Lucide icon="LogOut" className="text-center justify-center w-4 h-4" />
-              </Link>
-            </Menu.Button>
-          </Menu>
-        </div>
+              <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-red-700 flex items-center justify-center text-white">
+                <Link to="/login" onClick={handleSignOut}>
+                  <Lucide
+                    icon="LogOut"
+                    className="text-center justify-center w-4 h-4"
+                  />
+                </Link>
+              </Menu.Button>
+            </Menu>
+          </div>
         </nav>
         {/* END: Side Menu */}
         {/* BEGIN: Content */}

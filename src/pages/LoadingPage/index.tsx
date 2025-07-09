@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from "react";
 import logoUrl from "@/assets/images/logo.png";
 import { useNavigate, useLocation } from "react-router-dom";
 import LoadingIcon from "@/components/Base/LoadingIcon";
-import { useConfig } from '../../config';
-import Progress from '@/components/Base/Progress';
-import LZString from 'lz-string';
+import { useConfig } from "../../config";
+import Progress from "@/components/Base/Progress";
+import LZString from "lz-string";
 interface Contact {
   chat_id: string;
   chat_pic?: string | null;
@@ -59,11 +59,11 @@ function LoadingPage() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [isFetchingChats, setIsFetchingChats] = useState(false);
   const [isQRLoading, setIsQRLoading] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [isPairingCodeLoading, setIsPairingCodeLoading] = useState(false);
 
-  const [loadingPhase, setLoadingPhase] = useState<string>('initializing');
+  const [loadingPhase, setLoadingPhase] = useState<string>("initializing");
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [trialExpired, setTrialExpired] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(true);
@@ -72,53 +72,61 @@ function LoadingPage() {
     if (!isAuthReady) {
       return;
     }
-  
+
     setIsLoading(true);
     setIsQRLoading(true);
     setError(null);
-    
+
     try {
-      const userEmail = localStorage.getItem('userEmail');
+      const userEmail = localStorage.getItem("userEmail");
       if (!userEmail) {
         throw new Error("No user email found");
       }
-  
+
       // Get user config to get companyId
-      const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        credentials: 'include'
-      });
+      const userResponse = await fetch(
+        `https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(
+          userEmail
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
       if (!userResponse.ok) {
         throw new Error("Failed to fetch user config");
       }
-  
+
       const userData = await userResponse.json();
       const companyId = userData.company_id;
       setCompanyId(companyId);
-  
+
       // Get all bot status and company data in one call
-      const statusResponse = await fetch(`https://julnazz.ngrok.dev/api/bot-status/${companyId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        credentials: 'include'
-      });
+      const statusResponse = await fetch(
+        `https://julnazz.ngrok.dev/api/bot-status/${companyId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
       if (!statusResponse.ok) {
         throw new Error("Failed to fetch bot status");
       }
 
       const data = await statusResponse.json();
-      console.log('Bot status data:', data);
+      console.log("Bot status data:", data);
       // Set all the necessary state
       setV2(data.v2);
       setBotStatus(data.status);
-      
+
       if (data.trialEndDate) {
         const trialEnd = new Date(data.trialEndDate);
         const now = new Date();
@@ -127,45 +135,44 @@ function LoadingPage() {
           return;
         }
       }
- 
-  
+
       // If status is QR, set the QR code
-      if (data.status === 'qr' && data.qrCode) {
+      if (data.status === "qr" && data.qrCode) {
         setQrCodeImage(data.qrCode);
-        console.log('QR Code image:', data.qrCode);
-      } 
-      // If already authenticated, navigate to chat
-      else if (data.status === 'authenticated' || data.status === 'ready') {
-        setShouldFetchContacts(true);
-        navigate('/chat');
+        console.log("QR Code image:", data.qrCode);
       }
-  
+      // If already authenticated, navigate to chat
+      else if (data.status === "authenticated" || data.status === "ready") {
+        setShouldFetchContacts(true);
+        navigate("/chat");
+      }
+
       // Set up WebSocket for real-time updates
-      const baseUrl = data.apiUrl || 'https://julnazz.ngrok.dev';
-      const ws = new WebSocket(`${baseUrl.replace('http', 'ws')}/ws/${userEmail}/${companyId}`);
-      
+      const baseUrl = data.apiUrl || "https://julnazz.ngrok.dev";
+      const ws = new WebSocket(
+        `${baseUrl.replace("http", "ws")}/ws/${userEmail}/${companyId}`
+      );
+
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log("WebSocket connected");
       };
 
-  
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        setError('Failed to connect to server. Please try again.');
+        console.error("WebSocket error:", error);
+        setError("Failed to connect to server. Please try again.");
       };
-  
+
       ws.onclose = () => {
-        console.log('WebSocket connection closed');
+        console.log("WebSocket connection closed");
       };
-  
-     // setWebSocket(ws);
-  
+
+      // setWebSocket(ws);
     } catch (error) {
       setIsLoading(false);
       if (error instanceof Error) {
         setError(error.message);
       } else {
-        setError('An unknown error occurred. Please try again.');
+        setError("An unknown error occurred. Please try again.");
       }
       console.error("Error in fetchQRCode:", error);
     } finally {
@@ -188,82 +195,91 @@ function LoadingPage() {
       if (!isAuthReady) {
         return;
       }
-  
+
       if (!wsConnected) {
         try {
-          const userEmail = localStorage.getItem('userEmail');
+          const userEmail = localStorage.getItem("userEmail");
           if (!userEmail) {
             throw new Error("No user email found");
           }
-  
+
           // Get company ID from SQL database
-          const response = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`);
+          const response = await fetch(
+            `https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(
+              userEmail
+            )}`
+          );
           if (!response.ok) {
             throw new Error("Failed to fetch user config");
           }
-  
+
           const userData = await response.json();
           const companyId = userData.company_id;
-  
+
           // Connect to WebSocket
-          ws.current = new WebSocket(`ws://julnazz.ngrok.dev/ws/${userEmail}/${companyId}`);
-          
+          ws.current = new WebSocket(
+            `ws://julnazz.ngrok.dev/ws/${userEmail}/${companyId}`
+          );
+
           ws.current.onopen = () => {
             setWsConnected(true);
-            setError('');
+            setError("");
           };
-          
+
           ws.current.onmessage = async (event) => {
             const data = JSON.parse(event.data);
-            console.log('WebSocket message:', data);
-            if (data.type === 'auth_status') {
+            console.log("WebSocket message:", data);
+            if (data.type === "auth_status") {
               setBotStatus(data.status);
-              
-              if (data.status === 'qr') {
+
+              if (data.status === "qr") {
                 setQrCodeImage(data.qrCode);
-              } else if (data.status === 'authenticated' || data.status === 'ready') {
+              } else if (
+                data.status === "authenticated" ||
+                data.status === "ready"
+              ) {
                 setShouldFetchContacts(true);
-                navigate('/chat');
+                navigate("/chat");
                 return;
               }
-            } else if (data.type === 'progress') {
+            } else if (data.type === "progress") {
               setBotStatus(data.status);
               setCurrentAction(data.action);
               setFetchedChats(data.fetchedChats);
               setTotalChats(data.totalChats);
-  
-              if (data.action === 'done_process') {
+
+              if (data.action === "done_process") {
                 setBotStatus(data.status);
                 setProcessingComplete(true);
-                navigate('/chat');
+                navigate("/chat");
                 return;
               }
             }
           };
-          
+
           ws.current.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            setError('WebSocket connection error. Please try again.');
+            console.error("WebSocket error:", error);
+            setError("WebSocket connection error. Please try again.");
           };
-          
+
           ws.current.onclose = () => {
             setWsConnected(false);
           };
         } catch (error) {
-          console.error('Error initializing WebSocket:', error);
+          console.error("Error initializing WebSocket:", error);
           if (error instanceof Error) {
             setError(error.message);
           } else {
-            setError('Failed to initialize WebSocket. Please try again.');
+            setError("Failed to initialize WebSocket. Please try again.");
           }
-          
+
           if (retries > 0) {
             setTimeout(() => initWebSocket(retries - 1), 2000);
           }
         }
       }
     };
-  
+
     if (isAuthReady) {
       initWebSocket();
     }
@@ -271,40 +287,42 @@ function LoadingPage() {
   // New useEffect for WebSocket cleanup
   useEffect(() => {
     return () => {
-      if (ws.current && processingComplete && !isLoading && contacts.length > 0) {
-        
+      if (
+        ws.current &&
+        processingComplete &&
+        !isLoading &&
+        contacts.length > 0
+      ) {
         ws.current.close();
       }
     };
   }, [processingComplete, isLoading, contacts]);
 
   useEffect(() => {
-
     if (shouldFetchContacts && !isLoading) {
-      
-      navigate('/chat');
+      navigate("/chat");
     }
   }, [shouldFetchContacts, isLoading, navigate]);
 
   useEffect(() => {
-    
     if (contactsFetched && fetchedChats === totalChats && contacts.length > 0) {
-      
-      navigate('/chat');
+      navigate("/chat");
     }
   }, [contactsFetched, fetchedChats, totalChats, contacts, navigate]);
 
   const fetchContacts = async () => {
     try {
-      setLoadingPhase('fetching_contacts');
-      
-      const userEmail = localStorage.getItem('userEmail');
+      setLoadingPhase("fetching_contacts");
+
+      const userEmail = localStorage.getItem("userEmail");
       if (!userEmail) {
         throw new Error("No user email found");
       }
 
       // Get user context from SQL database
-      const userResponse = await fetch(`${baseUrl}/api/user-context?email=${userEmail}`);
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-context?email=${userEmail}`
+      );
       if (!userResponse.ok) {
         throw new Error("Failed to fetch user context");
       }
@@ -314,15 +332,17 @@ function LoadingPage() {
       if (!companyId) throw new Error("Company ID not found");
 
       // Fetch contacts from SQL database
-      setLoadingPhase('fetching_contacts');
-      const contactsResponse = await fetch(`${baseUrl}/api/contacts?companyId=${companyId}`);
+      setLoadingPhase("fetching_contacts");
+      const contactsResponse = await fetch(
+        `${baseUrl}/api/contacts?companyId=${companyId}`
+      );
       if (!contactsResponse.ok) {
         throw new Error("Failed to fetch contacts");
       }
 
       const contactsData = await contactsResponse.json();
       let allContacts: Contact[] = contactsData.contacts || [];
-      
+
       const totalDocs = allContacts.length;
       let processedDocs = 0;
 
@@ -333,19 +353,23 @@ function LoadingPage() {
       }
 
       // Fetch pinned chats from SQL database
-      setLoadingPhase('processing_pinned');
-      const pinnedResponse = await fetch(`${baseUrl}/api/pinned-chats?email=${userEmail}`);
+      setLoadingPhase("processing_pinned");
+      const pinnedResponse = await fetch(
+        `${baseUrl}/api/pinned-chats?email=${userEmail}`
+      );
       let pinnedChats: Contact[] = [];
-      
+
       if (pinnedResponse.ok) {
         const pinnedData = await pinnedResponse.json();
         pinnedChats = pinnedData.pinnedChats || [];
       }
 
       // Update contacts with pinned status
-      setLoadingPhase('updating_pins');
+      setLoadingPhase("updating_pins");
       allContacts = allContacts.map((contact, index) => {
-        const isPinned = pinnedChats.some(pinned => pinned.chat_id === contact.chat_id);
+        const isPinned = pinnedChats.some(
+          (pinned) => pinned.chat_id === contact.chat_id
+        );
         if (isPinned) {
           contact.pinned = true;
         }
@@ -354,93 +378,103 @@ function LoadingPage() {
       });
 
       // Sort contacts
-      setLoadingPhase('sorting_contacts');
+      setLoadingPhase("sorting_contacts");
       allContacts.sort((a, b) => {
         if (a.pinned && !b.pinned) return -1;
         if (!a.pinned && b.pinned) return 1;
         const dateA = a.last_message?.createdAt
           ? new Date(a.last_message.createdAt)
           : a.last_message?.timestamp
-            ? new Date(a.last_message.timestamp * 1000)
-            : new Date(0);
+          ? new Date(a.last_message.timestamp * 1000)
+          : new Date(0);
         const dateB = b.last_message?.createdAt
           ? new Date(b.last_message.createdAt)
           : b.last_message?.timestamp
-            ? new Date(b.last_message.timestamp * 1000)
-            : new Date(0);
+          ? new Date(b.last_message.timestamp * 1000)
+          : new Date(0);
         return dateB.getTime() - dateA.getTime();
       });
 
       // Cache the contacts
-      setLoadingPhase('caching');
-      localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
-      sessionStorage.setItem('contactsFetched', 'true');
-      sessionStorage.setItem('contactsCacheTimestamp', Date.now().toString());
+      setLoadingPhase("caching");
+      localStorage.setItem(
+        "contacts",
+        LZString.compress(JSON.stringify(allContacts))
+      );
+      sessionStorage.setItem("contactsFetched", "true");
+      sessionStorage.setItem("contactsCacheTimestamp", Date.now().toString());
 
       setContacts(allContacts);
       setContactsFetched(true);
 
       // Cache messages for first 10 contacts
       await fetchAndCacheMessages(allContacts, companyId, userEmail);
-      
-      setLoadingPhase('complete');
+
+      setLoadingPhase("complete");
 
       // After contacts are loaded, fetch chats
       await fetchChatsData();
-
     } catch (error) {
-      console.error('Error fetching contacts:', error);
-      setError('Failed to fetch contacts. Please try again.');
-      setLoadingPhase('error');
+      console.error("Error fetching contacts:", error);
+      setError("Failed to fetch contacts. Please try again.");
+      setLoadingPhase("error");
     }
   };
 
-const getLoadingMessage = () => {
-  switch (loadingPhase) {
-    case 'initializing': return 'Initializing...';
-    case 'fetching_contacts': return 'Fetching contacts...';
-    case 'processing_pinned': return 'Processing pinned chats...';
-    case 'updating_pins': return 'Updating pin status...';
-    case 'sorting_contacts': return 'Organizing contacts...';
-    case 'caching': return 'Caching data...';
-    case 'complete': return 'Loading complete!';
-    case 'error': return 'Error loading contacts';
-    case 'caching_messages': return 'Caching recent messages...';
-    default: return 'Loading...';
-  }
-};
+  const getLoadingMessage = () => {
+    switch (loadingPhase) {
+      case "initializing":
+        return "Initializing...";
+      case "fetching_contacts":
+        return "Fetching contacts...";
+      case "processing_pinned":
+        return "Processing pinned chats...";
+      case "updating_pins":
+        return "Updating pin status...";
+      case "sorting_contacts":
+        return "Organizing contacts...";
+      case "caching":
+        return "Caching data...";
+      case "complete":
+        return "Loading complete!";
+      case "error":
+        return "Error loading contacts";
+      case "caching_messages":
+        return "Caching recent messages...";
+      default:
+        return "Loading...";
+    }
+  };
 
-{isProcessingChats && (
-  <div className="space-y-2 mt-4">
-    <Progress className="w-full">
-      <Progress.Bar 
-        className="transition-all duration-300 ease-in-out"
-        style={{ width: `${loadingProgress}%` }}
-      >
-        {Math.round(loadingProgress)}%
-      </Progress.Bar>
-    </Progress>
-    <div className="text-sm text-gray-600 dark:text-gray-400">
-      {getLoadingMessage()}
-    </div>
-    {loadingPhase === 'complete' && (
-      <div className="text-green-500">
-        All data loaded successfully!
+  {
+    isProcessingChats && (
+      <div className="space-y-2 mt-4">
+        <Progress className="w-full">
+          <Progress.Bar
+            className="transition-all duration-300 ease-in-out"
+            style={{ width: `${loadingProgress}%` }}
+          >
+            {Math.round(loadingProgress)}%
+          </Progress.Bar>
+        </Progress>
+        <div className="text-sm text-gray-600 dark:text-gray-400">
+          {getLoadingMessage()}
+        </div>
+        {loadingPhase === "complete" && (
+          <div className="text-green-500">All data loaded successfully!</div>
+        )}
       </div>
-    )}
-  </div>
-)}
-
-useEffect(() => {
-  
-  if (processingComplete && contactsFetched && !isLoading) {
-    const timer = setTimeout(() => {
-      navigate('/chat');
-    }, 1000); // Add a small delay to ensure smooth transition
-    return () => clearTimeout(timer);
+    );
   }
-}, [processingComplete, contactsFetched, isLoading, navigate]);
 
+  useEffect(() => {
+    if (processingComplete && contactsFetched && !isLoading) {
+      const timer = setTimeout(() => {
+        navigate("/chat");
+      }, 1000); // Add a small delay to ensure smooth transition
+      return () => clearTimeout(timer);
+    }
+  }, [processingComplete, contactsFetched, isLoading, navigate]);
 
   const fetchChatsData = async () => {
     setIsFetchingChats(true);
@@ -448,27 +482,23 @@ useEffect(() => {
       // Assuming the existing WebSocket connection handles chat fetching
       // You might need to send a message to the WebSocket to start fetching chats
       if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-        ws.current.send(JSON.stringify({ action: 'fetch_chats' }));
+        ws.current.send(JSON.stringify({ action: "fetch_chats" }));
       } else {
-        throw new Error('WebSocket is not connected');
+        throw new Error("WebSocket is not connected");
       }
     } catch (error) {
-      console.error('Error initiating chat fetch:', error);
-      setError('Failed to fetch chats. Please try again.');
+      console.error("Error initiating chat fetch:", error);
+      setError("Failed to fetch chats. Please try again.");
     } finally {
       setIsFetchingChats(false);
     }
   };
 
-  useEffect(() => {
-    
-    
-    
-  }, [botStatus, isProcessingChats, fetchedChats, totalChats]);
+  useEffect(() => {}, [botStatus, isProcessingChats, fetchedChats, totalChats]);
 
   useEffect(() => {
     let progressInterval: string | number | NodeJS.Timeout | undefined;
-    if (!isLoading && botStatus === 'qr') {
+    if (!isLoading && botStatus === "qr") {
       progressInterval = setInterval(() => {
         setProgress((prev) => (prev < 100 ? prev + 1 : prev));
       }, 500);
@@ -486,16 +516,16 @@ useEffect(() => {
       }
 
       // Clear localStorage and navigate to login
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userData');
-      localStorage.removeItem('contacts');
-      localStorage.removeItem('messagesCache');
+      localStorage.removeItem("userEmail");
+      localStorage.removeItem("userData");
+      localStorage.removeItem("contacts");
+      localStorage.removeItem("messagesCache");
       sessionStorage.clear();
-      
-      navigate('/login');
+
+      navigate("/login");
     } catch (error) {
       console.error("Error signing out: ", error);
-      setError('Failed to log out. Please try again.');
+      setError("Failed to log out. Please try again.");
     }
   };
 
@@ -503,13 +533,15 @@ useEffect(() => {
     setIsPairingCodeLoading(true);
     setError(null);
     try {
-      const userEmail = localStorage.getItem('userEmail');
+      const userEmail = localStorage.getItem("userEmail");
       if (!userEmail) {
         throw new Error("User not authenticated");
       }
 
       // Get user context from SQL database
-      const userResponse = await fetch(`${baseUrl}/api/user-context?email=${userEmail}`);
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-context?email=${userEmail}`
+      );
       if (!userResponse.ok) {
         throw new Error("Failed to fetch user context");
       }
@@ -521,23 +553,26 @@ useEffect(() => {
       }
 
       // Request pairing code
-      const response = await fetch(`${baseUrl}/api/request-pairing-code/${companyId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ phoneNumber }),
-      });
+      const response = await fetch(
+        `${baseUrl}/api/request-pairing-code/${companyId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ phoneNumber }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to request pairing code');
+        throw new Error("Failed to request pairing code");
       }
 
       const data = await response.json();
       setPairingCode(data.pairingCode);
     } catch (error) {
-      console.error('Error requesting pairing code:', error);
-      setError('Failed to request pairing code. Please try again.');
+      console.error("Error requesting pairing code:", error);
+      setError("Failed to request pairing code. Please try again.");
     } finally {
       setIsPairingCodeLoading(false);
     }
@@ -545,24 +580,28 @@ useEffect(() => {
 
   useEffect(() => {
     // Check if user is authenticated via localStorage
-    const userEmail = localStorage.getItem('userEmail');
+    const userEmail = localStorage.getItem("userEmail");
     setIsAuthReady(true);
     if (!userEmail) {
-      navigate('/login');
+      navigate("/login");
     }
   }, [navigate]);
 
   useEffect(() => {
-    if (botStatus === 'ready' || botStatus === 'authenticated') {
+    if (botStatus === "ready" || botStatus === "authenticated") {
       setShouldFetchContacts(true);
-      navigate('/chat');
+      navigate("/chat");
     }
   }, [botStatus, navigate]);
 
-  const fetchAndCacheMessages = async (contacts: Contact[], companyId: string, userEmail: string) => {
-    setLoadingPhase('caching_messages');
-    console.log('fetchAndCacheMessages');
-    
+  const fetchAndCacheMessages = async (
+    contacts: Contact[],
+    companyId: string,
+    userEmail: string
+  ) => {
+    setLoadingPhase("caching_messages");
+    console.log("fetchAndCacheMessages");
+
     // Reduce number of cached contacts
     const mostRecentContacts = contacts
       .sort((a, b) => {
@@ -571,8 +610,8 @@ useEffect(() => {
           return contact.last_message.createdAt
             ? new Date(contact.last_message.createdAt).getTime()
             : contact.last_message.timestamp
-              ? contact.last_message.timestamp * 1000
-              : 0;
+            ? contact.last_message.timestamp * 1000
+            : 0;
         };
         return getTimestamp(b) - getTimestamp(a);
       })
@@ -582,8 +621,10 @@ useEffect(() => {
     const messagePromises = mostRecentContacts.map(async (contact) => {
       try {
         // Get messages from SQL database
-        const response = await fetch(`${baseUrl}/api/messages/${contact.chat_id}?limit=20&companyId=${companyId}`);
-        
+        const response = await fetch(
+          `${baseUrl}/api/messages/${contact.chat_id}?limit=20&companyId=${companyId}`
+        );
+
         if (!response.ok) {
           console.error(`Failed to fetch messages for chat ${contact.chat_id}`);
           return null;
@@ -592,10 +633,13 @@ useEffect(() => {
         const data = await response.json();
         return {
           chatId: contact.chat_id,
-          messages: data.messages || []
+          messages: data.messages || [],
         };
       } catch (error) {
-        console.error(`Error fetching messages for chat ${contact.chat_id}:`, error);
+        console.error(
+          `Error fetching messages for chat ${contact.chat_id}:`,
+          error
+        );
         return null;
       }
     });
@@ -614,11 +658,11 @@ useEffect(() => {
     const cacheData = {
       messages: messagesCache,
       timestamp: Date.now(),
-      expiry: Date.now() + (30 * 60 * 1000)
+      expiry: Date.now() + 30 * 60 * 1000,
     };
 
     const compressedData = LZString.compress(JSON.stringify(cacheData));
-    localStorage.setItem('messagesCache', compressedData);
+    localStorage.setItem("messagesCache", compressedData);
   };
 
   // Add storage cleanup on page load/refresh
@@ -627,94 +671,100 @@ useEffect(() => {
       // Clear old message caches
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key?.startsWith('messages_') || key?.startsWith('messagesCache')) {
+        if (key?.startsWith("messages_") || key?.startsWith("messagesCache")) {
           localStorage.removeItem(key);
         }
       }
     };
 
     cleanupStorage();
-    
+
     // Also clean up on page unload
-    window.addEventListener('beforeunload', cleanupStorage);
-    return () => window.removeEventListener('beforeunload', cleanupStorage);
+    window.addEventListener("beforeunload", cleanupStorage);
+    return () => window.removeEventListener("beforeunload", cleanupStorage);
   }, []);
 
-const handlePayment = async () => {
-  try {
-    const userEmail = localStorage.getItem('userEmail');
-    if (!userEmail) {
-      throw new Error("User not authenticated");
-    }
+  const handlePayment = async () => {
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        throw new Error("User not authenticated");
+      }
 
-    // Get user context from SQL database
-    const userResponse = await fetch(`${baseUrl}/api/user-context?email=${userEmail}`);
-    if (!userResponse.ok) {
-      throw new Error("Failed to fetch user context");
-    }
+      // Get user context from SQL database
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-context?email=${userEmail}`
+      );
+      if (!userResponse.ok) {
+        throw new Error("Failed to fetch user context");
+      }
 
-    const userData = await userResponse.json();
-    const companyId = userData.companyId;
-    if (!companyId) {
-      throw new Error("Company ID not found");
-    }
+      const userData = await userResponse.json();
+      const companyId = userData.companyId;
+      if (!companyId) {
+        throw new Error("Company ID not found");
+      }
 
-    // Get company data from SQL database
-    const companyResponse = await fetch(`${baseUrl}/api/company-details?companyId=${companyId}`);
-    if (!companyResponse.ok) {
-      throw new Error("Failed to fetch company details");
-    }
+      // Get company data from SQL database
+      const companyResponse = await fetch(
+        `${baseUrl}/api/company-details?companyId=${companyId}`
+      );
+      if (!companyResponse.ok) {
+        throw new Error("Failed to fetch company details");
+      }
 
-    const companyData = await companyResponse.json();
-    let amount: number;
+      const companyData = await companyResponse.json();
+      let amount: number;
 
-    // Set amount based on plan
-    switch (companyData.plan) {
-      case 'blaster':
-        amount = 6800; // RM 68.00
-        break;
-      case 'enterprise':
-        amount = 31800; // RM 318.00
-        break;
-      case 'unlimited':
-        amount = 71800; // RM 718.00
-        break;
-      default:
-        amount = 6800; // Default to blaster plan if no plan is specified
-    }
+      // Set amount based on plan
+      switch (companyData.plan) {
+        case "blaster":
+          amount = 6800; // RM 68.00
+          break;
+        case "enterprise":
+          amount = 31800; // RM 318.00
+          break;
+        case "unlimited":
+          amount = 71800; // RM 718.00
+          break;
+        default:
+          amount = 6800; // Default to blaster plan if no plan is specified
+      }
 
-    const response = await fetch(`${baseUrl}/api/payments/create`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: userEmail,
-        name: userData.name || userEmail,
-        amount,
-        description: `WhatsApp Business API Subscription - ${companyData.plan?.toUpperCase() || 'BLASTER'} Plan`
-      }),
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to create payment');
-    }
+      const response = await fetch(`${baseUrl}/api/payments/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          name: userData.name || userEmail,
+          amount,
+          description: `WhatsApp Business API Subscription - ${
+            companyData.plan?.toUpperCase() || "BLASTER"
+          } Plan`,
+        }),
+      });
 
-    const paymentData = await response.json();
-    if (paymentData?.paymentUrl) {
-      window.location.href = paymentData.paymentUrl;
-    } else {
-      throw new Error("Payment URL not received");
+      if (!response.ok) {
+        throw new Error("Failed to create payment");
+      }
+
+      const paymentData = await response.json();
+      if (paymentData?.paymentUrl) {
+        window.location.href = paymentData.paymentUrl;
+      } else {
+        throw new Error("Payment URL not received");
+      }
+    } catch (error: unknown) {
+      console.error("Payment error:", error);
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("Failed to initialize payment. Please try again.");
+      }
     }
-  } catch (error: unknown) {
-    console.error("Payment error:", error);
-    if (error instanceof Error) {
-      setError(error.message);
-    } else {
-      setError("Failed to initialize payment. Please try again.");
-    }
-  }
-};
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-900 py-8">
@@ -725,13 +775,18 @@ const handlePayment = async () => {
         </div>
       ) : trialExpired ? (
         <div className="text-center p-8">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Trial Period Expired</h2>
-          <p className="text-gray-600 mb-4">Your trial period has ended. Please subscribe to continue using the service.</p>
+          <h2 className="text-2xl font-bold text-red-600 mb-4">
+            Trial Period Expired
+          </h2>
+          <p className="text-gray-600 mb-4">
+            Your trial period has ended. Please subscribe to continue using the
+            service.
+          </p>
           <button
             onClick={handlePayment}
             className="mt-4 px-6 py-3 bg-green-500 text-white text-lg font-semibold rounded hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 w-full"
           >
-            Pay Now 
+            Pay Now
           </button>
           <button
             onClick={handleLogout}
@@ -742,30 +797,47 @@ const handlePayment = async () => {
         </div>
       ) : (
         <div className="flex flex-col items-center w-full max-w-lg text-center px-4">
-          {(
+          {
             <>
-              {botStatus === 'qr' ? (
+              {botStatus === "qr" ? (
                 <>
                   <div className="mt-2 text-md text-gray-800 dark:text-gray-200">
-                    Please use your WhatsApp QR scanner to scan the code or enter your phone number for a pairing code.
+                    Please use your WhatsApp QR scanner to scan the code or
+                    enter your phone number for a pairing code.
                   </div>
                   <hr className="w-full my-4 border-t border-gray-300 dark:border-gray-700" />
-                  {error && <div className="text-red-500 dark:text-red-400 mt-2">{error}</div>}
+                  {error && (
+                    <div className="text-red-500 dark:text-red-400 mt-2">
+                      {error}
+                    </div>
+                  )}
                   {isQRLoading ? (
                     <div className="mt-4">
-                      <img alt="Logo" className="w-32 h-32 animate-spin mx-auto" src={logoUrl} style={{ animation: 'spin 10s linear infinite' }} />
-                      <p className="mt-2 text-gray-600 dark:text-gray-400">Loading QR Code...</p>
+                      <img
+                        alt="Logo"
+                        className="w-32 h-32 animate-spin mx-auto"
+                        src={logoUrl}
+                        style={{ animation: "spin 10s linear infinite" }}
+                      />
+                      <p className="mt-2 text-gray-600 dark:text-gray-400">
+                        Loading QR Code...
+                      </p>
                     </div>
                   ) : qrCodeImage ? (
                     <div className="bg-white p-4 rounded-lg mt-4">
-                      <img src={qrCodeImage} alt="QR Code" className="max-w-full h-auto" />
+                      <img
+                        src={qrCodeImage}
+                        alt="QR Code"
+                        className="max-w-full h-auto"
+                      />
                     </div>
                   ) : (
                     <div className="mt-4 text-gray-600 dark:text-gray-400">
-                      No QR Code available. Please try refreshing or use the pairing code option below.
+                      No QR Code available. Please try refreshing or use the
+                      pairing code option below.
                     </div>
                   )}
-                  
+
                   <div className="mt-4 w-full">
                     <input
                       type="tel"
@@ -781,68 +853,83 @@ const handlePayment = async () => {
                     >
                       {isPairingCodeLoading ? (
                         <span className="flex items-center justify-center">
-                          <LoadingIcon icon="three-dots" className="w-5 h-5 mr-2" />
+                          <LoadingIcon
+                            icon="three-dots"
+                            className="w-5 h-5 mr-2"
+                          />
                           Generating...
                         </span>
-                      ) : 'Get Pairing Code'}
+                      ) : (
+                        "Get Pairing Code"
+                      )}
                     </button>
                   </div>
-                  
+
                   {isPairingCodeLoading && (
                     <div className="mt-4 text-gray-600 dark:text-gray-400">
                       Generating pairing code...
                     </div>
                   )}
-                  
+
                   {pairingCode && (
                     <div className="mt-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
                       Your pairing code: <strong>{pairingCode}</strong>
-                      <p className="text-sm mt-2">Enter this code in your WhatsApp app to authenticate.</p>
+                      <p className="text-sm mt-2">
+                        Enter this code in your WhatsApp app to authenticate.
+                      </p>
                     </div>
                   )}
                 </>
               ) : (
                 <>
                   <div className="mt-2 text-xs text-gray-800 dark:text-gray-200">
-                    {botStatus === 'authenticated' || botStatus === 'ready' 
-                      ? 'Authentication successful. Loading contacts...' 
-                      : botStatus === 'initializing'
-                        ? 'Initializing WhatsApp connection...'
-                        : 'Fetching Data...'}
+                    {botStatus === "authenticated" || botStatus === "ready"
+                      ? "Authentication successful. Loading contacts..."
+                      : botStatus === "initializing"
+                      ? "Initializing WhatsApp connection..."
+                      : "Fetching Data..."}
                   </div>
                   {isProcessingChats && (
                     <div className="space-y-2 mt-4">
                       <Progress className="w-full">
-                        <Progress.Bar 
+                        <Progress.Bar
                           className="transition-all duration-300 ease-in-out"
-                          style={{ width: `${(fetchedChats / totalChats) * 100}%` }}
+                          style={{
+                            width: `${(fetchedChats / totalChats) * 100}%`,
+                          }}
                         >
                           {Math.round((fetchedChats / totalChats) * 100)}%
                         </Progress.Bar>
                       </Progress>
                       <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {processingComplete 
+                        {processingComplete
                           ? contactsFetched
                             ? "Chats loaded. Preparing to navigate..."
                             : "Processing complete. Loading contacts..."
-                          : `Processing ${fetchedChats} of ${totalChats} chats`
-                        }
+                          : `Processing ${fetchedChats} of ${totalChats} chats`}
                       </div>
                     </div>
                   )}
                   {(isLoading || !processingComplete || isFetchingChats) && (
-                  <div className="mt-4 flex flex-col items-center">
-                    <img alt="Logo" className="w-32 h-32 animate-spin mx-auto" src={logoUrl} style={{ animation: 'spin 3s linear infinite' }} />
-                    <p className="mt-2 text-gray-600 dark:text-gray-400">
-                      {isQRLoading ? "Please wait while QR code is loading..." : "Please wait while QR Code is loading..."}
-                    </p>
-                  </div>
+                    <div className="mt-4 flex flex-col items-center">
+                      <img
+                        alt="Logo"
+                        className="w-32 h-32 animate-spin mx-auto"
+                        src={logoUrl}
+                        style={{ animation: "spin 3s linear infinite" }}
+                      />
+                      <p className="mt-2 text-gray-600 dark:text-gray-400">
+                        {isQRLoading
+                          ? "Please wait while QR code is loading..."
+                          : "Please wait while QR Code is loading..."}
+                      </p>
+                    </div>
                   )}
                 </>
               )}
-              
+
               <hr className="w-full my-4 border-t border-gray-300 dark:border-gray-700" />
-              
+
               <button
                 onClick={handleRefresh}
                 className="mt-4 px-6 py-3 bg-primary text-white text-lg font-semibold rounded hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 w-full"
@@ -850,23 +937,27 @@ const handlePayment = async () => {
                 Refresh
               </button>
               <a
-    href="https://wa.link/pcgo1k"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="mt-4 px-6 py-3 bg-green-500 text-white text-lg font-semibold rounded hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 w-full inline-block text-center"
-  >
-    Need Help?
-  </a>
+                href="https://wa.link/pcgo1k"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 px-6 py-3 bg-green-500 text-white text-lg font-semibold rounded hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 w-full inline-block text-center"
+              >
+                Need Help?
+              </a>
               <button
                 onClick={handleLogout}
                 className="mt-4 px-6 py-3 bg-red-500 text-white text-lg font-semibold rounded hover:bg-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 w-full"
               >
                 Logout
               </button>
-      
-              {error && <div className="mt-2 text-red-500 dark:text-red-400">{error}</div>}
+
+              {error && (
+                <div className="mt-2 text-red-500 dark:text-red-400">
+                  {error}
+                </div>
+              )}
             </>
-          )}
+          }
         </div>
       )}
     </div>
