@@ -147,6 +147,7 @@ function Main() {
   }
 
   interface ScheduledMessage {
+    scheduleId?: string;
     contactIds?: string[];
     multiple?: boolean;
     id?: string;
@@ -347,6 +348,7 @@ function Main() {
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [companyId, setCompanyId] = useState<string>("");
+  const [currentUserRole, setCurrentUserRole] = useState<any>(null);
   const [showAllMessages, setShowAllMessages] = useState(false);
   const [phoneIndex, setPhoneIndex] = useState<number | null>(null);
   const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
@@ -555,16 +557,6 @@ function Main() {
     }
 
     try {
-      const user = auth.currentUser;
-      if (!user?.email) throw new Error("User not authenticated");
-
-      const docUserRef = doc(firestore, "user", user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) throw new Error("User document not found");
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
       // Delete all selected messages
       await Promise.all(
         selectedScheduledMessages.map((messageId) =>
@@ -1165,16 +1157,28 @@ function Main() {
     }
   };
 
-  const uploadFile = async (file: any): Promise<string> => {
-    const storage = getStorage();
-    const storageRef = ref(storage, `${file.name}`);
+  const uploadFile = async (file: File): Promise<string> => {
+    try {
+      const { companyId: cId, baseUrl: apiUrl } = await getCompanyData();
 
-    // Upload the file
-    await uploadBytes(storageRef, file);
+      const formData = new FormData();
+      formData.append("file", file);
 
-    // Get the file's download URL
-    const downloadURL = await getDownloadURL(storageRef);
-    return downloadURL;
+      const response = await fetch(`${apiUrl}/api/upload-media`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("File upload failed");
+      }
+
+      const data = await response.json();
+      return data.url;
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      throw error;
+    }
   };
 
   let role = 1;
@@ -1562,87 +1566,79 @@ function Main() {
     setEmployeeNames(normalizedEmployeeNames);
   }, [employeeList]);
   const getCompanyData = async () => {
-    const userEmail = localStorage.getItem("userEmail");
-    if (!userEmail) throw new Error("No authenticated user");
+    const userDataStr = localStorage.getItem("userData");
+    if (!userDataStr) {
+      throw new Error("User not authenticated");
+    }
+    let parsedUserData: any;
+    try {
+      parsedUserData = JSON.parse(userDataStr);
+    } catch {
+      throw new Error("Invalid userData in localStorage");
+    }
+    const email = parsedUserData.email;
+    if (!email) {
+      throw new Error("User email not found");
+    }
 
-    const response = await fetch(
-      `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
-        userEmail
-      )}`,
-      {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) throw new Error("Failed to fetch company data");
-
+    const response = await fetch(`${baseUrl}/api/user-context?email=${email}`);
+    if (!response.ok) throw new Error("Failed to fetch user context");
     const data = await response.json();
 
-    // You can adjust the return structure as needed for your app
+    setCompanyId(data.companyId);
+    setCurrentUserRole(data.role);
+    setEmployeeList(
+      (data.employees || []).map((employee: any) => ({
+        id: employee.id,
+        name: employee.name,
+        email: employee.email || employee.id,
+        role: employee.role,
+        employeeId: employee.employeeId,
+        phoneNumber: employee.phoneNumber,
+      }))
+    );
+    setPhoneNames(data.phoneNames);
+    setPhoneOptions(Object.keys(data.phoneNames).map(Number));
+
     return {
-      companyData: data.companyData,
-      userData: data.userData,
-      currentPhoneIndex: data.userData.phone || 0,
+      companyId: data.companyId,
+      baseUrl: data.apiUrl || baseUrl,
+      userData: parsedUserData,
+      email,
+      stopbot: data.stopBot || false,
+      stopbots: data.stopBots || {},
     };
   };
   async function fetchCompanyData() {
-    const userEmail = localStorage.getItem("userEmail");
-    if (!userEmail) {
-      console.error("No user email found");
-      return;
-    }
-
     try {
-      const userResponse = await fetch(
-        `${baseUrl}/api/user/config?email=${encodeURIComponent(
-          userEmail
-        )}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          credentials: "include",
-        }
-      );
+      const { companyId, userData, email, stopbot, stopbots } = await getCompanyData();
 
-      if (!userResponse.ok) {
-        throw new Error("Failed to fetch company data");
-      }
-
-      const data = await userResponse.json();
-      console.log(data);
-      // Set user data
-      const userData = data.userData;
-      const companyId = data.company_id;
-      const role = data.role;
-      const userName = data.name;
-
-      setShowAddUserButton(data.role === "1");
-      setUserRole(data.role);
+      setShowAddUserButton(userData.role === "1");
+      setUserRole(userData.role);
       setCompanyId(companyId);
 
-      // Set company data
-      const { companyData } = await getCompanyData();
-      setStopbot(companyData.stopbot || false);
+      // Set stopbot state if available
+      setStopbot(stopbot || false);
 
       // Fetch phone names data
       await fetchPhoneIndex(companyId);
 
       // Set employee data
-      const employeeListData = data.employees || [];
+      const employeeListData = (userData.employees || []).map((employee: any) => ({
+        id: employee.id,
+        name: employee.name,
+        email: employee.email || employee.id,
+        role: employee.role,
+        employeeId: employee.employeeId,
+        phoneNumber: employee.phoneNumber,
+      }));
       setEmployeeList(employeeListData);
       const employeeNames = employeeListData.map((employee: Employee) =>
         employee.name.trim().toLowerCase()
       );
       setEmployeeNames(employeeNames);
 
-      await fetchTags(employeeListData);
+      await fetchTags(employeeListData.map((e: Employee) => e.name));
 
       setLoading(false);
     } catch (error) {
@@ -3687,7 +3683,6 @@ function Main() {
       setIsScheduling(false);
     }
   };
-  // ... existing code ...
 
   // Helper function to reset the form
   const resetForm = () => {
@@ -3705,110 +3700,6 @@ function Main() {
     setActivateSleep(false);
     setSleepAfterMessages(10);
     setSleepDuration(30);
-  };
-
-  const sendImageMessage = async (
-    id: string,
-    imageUrl: string,
-    caption?: string
-  ) => {
-    try {
-      const user = auth.currentUser;
-
-      const docUserRef = doc(firestore, "user", user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        return;
-      }
-      const phoneNumber = id.split("+")[1];
-      const chat_id = phoneNumber + "@s.whatsapp.net";
-      const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
-      const response = await fetch(
-        `${baseUrl}/api/messages/image/${companyData.whapiToken}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            chatId: chat_id,
-            imageUrl: imageUrl,
-            caption: caption || "",
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to send image message: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-    } catch (error) {
-      console.error("Error sending image message:", error);
-    }
-  };
-
-  const sendDocumentMessage = async (
-    id: string,
-    imageUrl: string,
-    mime_type: string,
-    fileName: string,
-    caption?: string
-  ) => {
-    try {
-      const user = auth.currentUser;
-
-      const docUserRef = doc(firestore, "user", user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        return;
-      }
-      const phoneNumber = id.split("+")[1];
-      const chat_id = phoneNumber + "@s.whatsapp.net";
-      const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
-      const response = await fetch(
-        `${baseUrl}/api/messages/document/${companyData.whapiToken}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            chatId: chat_id,
-            imageUrl: imageUrl,
-            mimeType: mime_type,
-            fileName: fileName,
-            caption: caption || "",
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to send image message: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-    } catch (error) {
-      console.error("Error sending image message:", error);
-    }
   };
 
   const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -4086,227 +3977,213 @@ function Main() {
       console.error("Error fetching scheduled messages:", error);
     }
   };
+  
+  // Helper to get current user email from localStorage or auth
+  const getCurrentUserEmail = () => {
+    const userDataStr = localStorage.getItem("userData");
+    if (userDataStr) {
+      try {
+        const userData = JSON.parse(userDataStr);
+        return userData.email || null;
+      } catch {
+        return null;
+      }
+    } else {
+      return localStorage.getItem("userEmail");
+    }
+  };
+
   const handleSendNow = async (message: any) => {
     try {
+      console.log("Sending message now:", message);
       // Get user and company data
-      const user = auth.currentUser;
-      if (!user?.email) throw new Error("User not authenticated");
+      const email = getCurrentUserEmail();
+      if (!email) throw new Error("User not authenticated");
 
-      const docUserRef = doc(firestore, "user", user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) throw new Error("User document not found");
+      if (!companyId) throw new Error("Company ID not available");
 
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      // Use the baseUrl from state or default
+      const apiUrl = baseUrl;
 
-      // Get company data for baseUrl
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error("Company document not found");
-      const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
+      // Helper to determine API endpoint based on mediaUrl
+      const getApiEndpoint = (mediaUrl: string | undefined, chatId: string) => {
+        if (!mediaUrl) return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
+        const ext = mediaUrl.split(".").pop()?.toLowerCase();
+        if (!ext) return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
+        if (["mp4", "mov", "avi", "webm"].includes(ext)) {
+          return `${apiUrl}/api/v2/messages/video/${companyId}/${chatId}`;
+        }
+        if (["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(ext)) {
+          return `${apiUrl}/api/v2/messages/image/${companyId}/${chatId}`;
+        }
+        if (["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext)) {
+          return `${apiUrl}/api/v2/messages/document/${companyId}/${chatId}`;
+        }
+        return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
+      };
 
-      // FIXED: Handle consolidated message structure to avoid duplicate sends
-      // Handle the new consolidated message structure
+      // Try to get userData from employeeList or localStorage for phoneIndex/userName fallback
+      let userData: any = null;
+      const userDataStr = localStorage.getItem("userData");
+      if (userDataStr) {
+        try {
+          userData = JSON.parse(userDataStr);
+        } catch {}
+      }
+
+      // Derive chatIds from contactIds/contactId
+      let chatIds: string[] = [];
+      if (message.multiple && Array.isArray(message.contactIds)) {
+        chatIds = message.contactIds
+          .map((cid: string) => {
+            const phone = cid.split("-")[1];
+            return phone ? `${phone}@c.us` : null;
+          })
+          .filter(Boolean);
+      } else if (!message.multiple && message.contactId) {
+        const phone = message.contactId.split("-")[1];
+        if (phone) chatIds = [`${phone}@c.us`];
+      }
+
       const isConsolidated = message.isConsolidated === true;
 
-      // If using consolidated structure, only process the messages array
-      if (
-        isConsolidated &&
-        Array.isArray(message.messages) &&
-        message.messages.length > 0
-      ) {
-        // Check if processedMessages with contactData is available
-        if (
-          Array.isArray(message.processedMessages) &&
-          message.processedMessages.length > 0
-        ) {
-          // Use processedMessages which includes contact data with customFields
-          const sendPromises = message.processedMessages.map(
-            async (processedMsg: any) => {
-              const {
-                chatId,
-                message: processedMessage,
-                contactData,
-              } = processedMsg;
+      let contactList: Contact[] = [];
+      if (isConsolidated && Array.isArray(message.contactIds)) {
+        contactList = message.contactIds
+          .map((cid: string) => {
+            const phone = cid.split("-")[1];
+            return contacts.find(
+              (c) => c.phone?.replace(/\D/g, "") === phone
+            );
+          })
+          .filter(Boolean) as Contact[];
+      } else if (!isConsolidated && message.contactId) {
+        const phone = message.contactId.split("-")[1];
+        const found = contacts.find(
+          (c) => c.phone?.replace(/\D/g, "") === phone
+        );
+        if (found) contactList = [found];
+      }
 
-              const response = await fetch(
-                `${baseUrl}/api/v2/messages/text/${companyId}/${chatId}`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    message: processedMessage || "",
-                    phoneIndex: message.phoneIndex || userData.phone || 0,
-                    userName: userData.name || userData.email || "",
-                    // Include additional contact data
-                    contactData: contactData || {},
-                  }),
-                }
-              );
+      // For each chatId, process placeholders before sending
+      const sendPromises = chatIds.map(async (chatId: string, idx: number) => {
+        let mainMessage =
+          (isConsolidated &&
+            Array.isArray(message.messages) &&
+            message.messages.find((msg: any) => msg.isMain === true)) ||
+          (Array.isArray(message.messages) && message.messages[0]) ||
+          message;
 
-              if (!response.ok) {
-                throw new Error(`Failed to send message to ${chatId}`);
-              }
-            }
-          );
-
-          // Wait for all messages to be sent
-          await Promise.all(sendPromises);
+        // Find the corresponding contact for this chatId
+        let contact: Contact | undefined;
+        if (contactList.length === chatIds.length) {
+          contact = contactList[idx];
         } else {
-          // Process messages for each contact on the fly
-          const sendPromises = message.chatIds.map(async (chatId: string) => {
-            // Only send the main message or first message from the array
-            const mainMessage =
-              message.messages.find((msg: any) => msg.isMain === true) ||
-              message.messages[0];
-            const phoneNumber = chatId.split("@")[0];
-            const contact = contacts.find(
-              (c) => c.phone?.replace(/\D/g, "") === phoneNumber
-            );
-
-            // Process message with contact data and custom fields
-            let processedMessage = mainMessage.text || "";
-
-            if (contact) {
-              // Replace standard placeholders
-              processedMessage = processedMessage
-                .replace(/@{contactName}/g, contact.contactName || "")
-                .replace(
-                  /@{firstName}/g,
-                  contact.contactName?.split(" ")[0] || ""
-                )
-                .replace(/@{lastName}/g, contact.lastName || "")
-                .replace(/@{email}/g, contact.email || "")
-                .replace(/@{phone}/g, contact.phone || "")
-                .replace(/@{vehicleNumber}/g, contact.vehicleNumber || "")
-                .replace(/@{branch}/g, contact.branch || "")
-                .replace(/@{expiryDate}/g, contact.expiryDate || "")
-                .replace(/@{ic}/g, contact.ic || "");
-
-              // Process custom fields placeholders
-              if (contact.customFields) {
-                Object.entries(contact.customFields).forEach(
-                  ([fieldName, value]) => {
-                    const placeholder = new RegExp(`@{${fieldName}}`, "g");
-                    processedMessage = processedMessage.replace(
-                      placeholder,
-                      value || ""
-                    );
-                  }
-                );
-              }
-            }
-
-            const response = await fetch(
-              `${baseUrl}/api/v2/messages/text/${companyId}/${chatId}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  message: processedMessage,
-                  phoneIndex: message.phoneIndex || userData.phone || 0,
-                  userName: userData.name || userData.email || "",
-                }),
-              }
-            );
-
-            if (!response.ok) {
-              throw new Error(`Failed to send message to ${chatId}`);
-            }
-          });
-
-          // Wait for all messages to be sent
-          await Promise.all(sendPromises);
-        }
-      } else {
-        // Backward compatibility: Handle the old message structure
-        // Send messages to all recipients
-        const sendPromises = message.chatIds.map(async (chatId: string) => {
+          // fallback: match by phone number
           const phoneNumber = chatId.split("@")[0];
-          const contact = contacts.find(
+          contact = contacts.find(
             (c) => c.phone?.replace(/\D/g, "") === phoneNumber
           );
+        }
 
-          // Process message with contact data and custom fields
-          let processedMessage = message.message || "";
+        // Process message with contact data and custom fields
+        let processedMessage = mainMessage.messageContent || mainMessage.text || "";
 
-          if (contact) {
-            // Replace standard placeholders
-            processedMessage = processedMessage
-              .replace(/@{contactName}/g, contact.contactName || "")
-              .replace(
-                /@{firstName}/g,
-                contact.contactName?.split(" ")[0] || ""
-              )
-              .replace(/@{lastName}/g, contact.lastName || "")
-              .replace(/@{email}/g, contact.email || "")
-              .replace(/@{phone}/g, contact.phone || "")
-              .replace(/@{vehicleNumber}/g, contact.vehicleNumber || "")
-              .replace(/@{branch}/g, contact.branch || "")
-              .replace(/@{expiryDate}/g, contact.expiryDate || "")
-              .replace(/@{ic}/g, contact.ic || "");
+        if (contact) {
+          processedMessage = processedMessage
+            .replace(/@{contactName}/g, contact.contactName || "")
+            .replace(
+              /@{firstName}/g,
+              contact.contactName?.split(" ")[0] || ""
+            )
+            .replace(/@{lastName}/g, contact.lastName || "")
+            .replace(/@{email}/g, contact.email || "")
+            .replace(/@{phone}/g, contact.phone || "")
+            .replace(/@{vehicleNumber}/g, contact.vehicleNumber || "")
+            .replace(/@{branch}/g, contact.branch || "")
+            .replace(/@{expiryDate}/g, contact.expiryDate || "")
+            .replace(/@{ic}/g, contact.ic || "");
 
-            // Process custom fields placeholders
-            if (contact.customFields) {
-              Object.entries(contact.customFields).forEach(
-                ([fieldName, value]) => {
-                  const placeholder = new RegExp(`@{${fieldName}}`, "g");
-                  processedMessage = processedMessage.replace(
-                    placeholder,
-                    value || ""
-                  );
-                }
-              );
-            }
+          if (contact.customFields) {
+            Object.entries(contact.customFields).forEach(([fieldName, value]) => {
+              const placeholder = new RegExp(`@{${fieldName}}`, "g");
+              processedMessage = processedMessage.replace(placeholder, value || "");
+            });
           }
+        }
 
+        // If mediaUrl exists, send as media
+        if (mainMessage.mediaUrl) {
+          const endpoint = getApiEndpoint(mainMessage.mediaUrl, chatId);
+          const body: any = {
+            phoneIndex: message.phoneIndex || userData?.phone || 0,
+            userName: userData?.name || email || "",
+          };
+          if (endpoint.includes("/video/")) {
+            body.videoUrl = mainMessage.mediaUrl;
+            body.caption = processedMessage;
+          } else if (endpoint.includes("/image/")) {
+            body.imageUrl = mainMessage.mediaUrl;
+            body.caption = processedMessage;
+          } else if (endpoint.includes("/document/")) {
+            body.documentUrl = mainMessage.mediaUrl;
+            body.filename = mainMessage.fileName || "";
+            body.caption = processedMessage;
+          }
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!response.ok) {
+            throw new Error(`Failed to send media message to ${chatId}`);
+          }
+        } else {
+          // No media, send as text
           const response = await fetch(
-            `${baseUrl}/api/v2/messages/text/${companyId}/${chatId}`,
+            `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 message: processedMessage,
-                phoneIndex: message.phoneIndex || userData.phone || 0,
-                userName: userData.name || userData.email || "",
+                phoneIndex: message.phoneIndex || userData?.phone || 0,
+                userName: userData?.name || email || "",
               }),
             }
           );
-
           if (!response.ok) {
             throw new Error(`Failed to send message to ${chatId}`);
           }
-        });
-
-        // Wait for all messages to be sent
-        await Promise.all(sendPromises);
-      }
-
+        }
+      });
       // Delete the scheduled message
-      if (message.id) {
-        await deleteDoc(
-          doc(
-            firestore,
-            `companies/${companyId}/scheduledMessages/${message.id}`
-          )
+      if (message.scheduleId) {
+        // Call NeonDB API to delete scheduled message using the correct endpoint
+        const deleteResponse = await fetch(
+          `${apiUrl}/api/schedule-message/${companyId}/${message.scheduleId}`,
+          {
+            method: "DELETE",
+          }
         );
-        // Update local state to remove the message
-        setScheduledMessages((prev) =>
-          prev.filter((msg) => msg.id !== message.id)
-        );
+        if (!deleteResponse.ok) {
+          console.warn("Failed to delete scheduled message from database");
+        }
       }
-
+      await Promise.all(sendPromises);
       toast.success("Messages sent successfully!");
+      await fetchScheduledMessages();
+      return;      
     } catch (error) {
       console.error("Error sending messages:", error);
       toast.error("Failed to send messages. Please try again.");
     }
   };
+
   const handleEditScheduledMessage = (message: ScheduledMessage) => {
+    console.log("Editing scheduled message:", message);
     setCurrentScheduledMessage(message);
-    setBlastMessage(message.message || ""); // Set the blast message to the current message text
+    setBlastMessage(message.messageContent || "");
     setEditScheduledMessageModal(true);
   };
 
@@ -4324,32 +4201,45 @@ function Main() {
 
   const handleDeleteScheduledMessage = async (messageId: string) => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      // Get user and company info from localStorage or your app state
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        toast.error("No user email found");
+        return;
+      }
+      // Fetch user config to get companyId
+      const userResponse = await fetch(
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+      if (!userResponse.ok) {
+        toast.error("Failed to fetch user config");
+        return;
+      }
+      const userData = await userResponse.json();
+      const companyId = userData?.company_id;
+      if (!companyId) {
+        toast.error("Company ID not found!");
+        return;
+      }
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error("No company document found");
-      const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
       // Call the backend API to delete the scheduled message
       const response = await axios.delete(
         `${baseUrl}/api/schedule-message/${companyId}/${messageId}`
       );
-      if (response.status === 200) {
-        setScheduledMessages(
-          scheduledMessages.filter((msg) => msg.id !== messageId)
-        );
+      if (response.status === 200 && response.data.success) {
+        setScheduledMessages((prev) => prev.filter((msg) => msg.id !== messageId));
         toast.success("Scheduled message deleted successfully!");
+        await fetchScheduledMessages();
       } else {
-        throw new Error("Failed to delete scheduled message.");
+        throw new Error(response.data.message || "Failed to delete scheduled message.");
       }
     } catch (error) {
       console.error("Error deleting scheduled message:", error);
@@ -4396,183 +4286,139 @@ function Main() {
 
   const handleSaveScheduledMessage = async () => {
     try {
-      // Validate required fields
+      console.log("Saving scheduled message:", currentScheduledMessage);
       if (!blastMessage.trim()) {
         toast.error("Message text cannot be empty");
         return;
       }
-
       if (!currentScheduledMessage) {
         toast.error("No message selected for editing");
         return;
       }
-
-      if (currentScheduledMessage.chatIds.length === 0) {
-        toast.error("No recipients for this message");
-        return;
+      // Determine recipients based on 'multiple'
+      let recipientIds: string[] = [];
+      if (currentScheduledMessage.multiple) {
+        // If multiple, use contactIds (array)
+        if (!currentScheduledMessage.contactIds || currentScheduledMessage.contactIds.length === 0) {
+          toast.error("No recipients for this message");
+          return;
+        }
+        recipientIds = currentScheduledMessage.contactIds;
+      } else {
+        // If not multiple, use contactId (single)
+        if (!currentScheduledMessage.contactId) {
+          toast.error("No recipient for this message");
+          return;
+        }
+        recipientIds = [currentScheduledMessage.contactId];
       }
 
       // Upload new media or document if provided
       let newMediaUrl = currentScheduledMessage.mediaUrl || "";
       let newDocumentUrl = currentScheduledMessage.documentUrl || "";
       let newFileName = currentScheduledMessage.fileName || "";
+      let newMimeType = currentScheduledMessage.mimeType || "";
 
       if (editMediaFile) {
-        try {
-          newMediaUrl = await uploadFile(editMediaFile);
-        } catch (error) {
-          console.error("Error uploading media file:", error);
-          toast.error("Failed to upload media file");
-          return;
-        }
+        newMediaUrl = await uploadFile(editMediaFile);
+        newMimeType = editMediaFile.type;
       }
-
       if (editDocumentFile) {
-        try {
-          newDocumentUrl = await uploadFile(editDocumentFile);
-          newFileName = editDocumentFile.name;
-        } catch (error) {
-          console.error("Error uploading document file:", error);
-          toast.error("Failed to upload document file");
-          return;
+        newDocumentUrl = await uploadFile(editDocumentFile);
+        newFileName = editDocumentFile.name;
+        newMimeType = editDocumentFile.type;
+      }
+
+      // Get user/company info from localStorage or your app state
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        toast.error("No user email found");
+        return;
+      }
+      // Fetch user config to get companyId
+      const userResponse = await fetch(
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
         }
-      }
-
-      // Get user data and API URL
-      const user = auth.currentUser;
-      if (!user) {
-        toast.error("User not authenticated");
-        return;
-      }
-
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        toast.error("User data not found");
-        return;
-      }
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      const companyRef = doc(firestore, "companies", companyId);
-      const companySnapshot = await getDoc(companyRef);
-      if (!companySnapshot.exists()) {
-        toast.error("Company data not found");
-        return;
-      }
-
-      const companyData = companySnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
-
-      // Process messages for each contact
-      const processedMessages = await Promise.all(
-        currentScheduledMessage.chatIds.map(async (chatId) => {
-          const phoneNumber =
-            chatId && typeof chatId === "string" ? chatId.split("@")[0] : "";
-          const contact = contacts.find(
-            (c) => c.phone?.replace(/\D/g, "") === phoneNumber
-          );
-
-          if (!contact) {
-            console.warn(`No contact found for chatId: ${chatId}`);
-            return null;
-          }
-
-          // Create contact data structure
-          const contactData = {
-            contactName: contact.contactName || "",
-            firstName: contact.contactName?.split(" ")[0] || "",
-            lastName: contact.lastName || "",
-            email: contact.email || "",
-            phone: contact.phone || "",
-            vehicleNumber: contact.vehicleNumber || "",
-            branch: contact.branch || "",
-            expiryDate: contact.expiryDate || "",
-            ic: contact.ic || "",
-          };
-
-          // Add custom fields if they exist
-          if (contact.customFields) {
-            (contactData as any).customFields = contact.customFields;
-          }
-
-          // Process message with contact data
-          let processedMessage = blastMessage
-            .replace(/@{contactName}/g, contactData.contactName)
-            .replace(/@{firstName}/g, contactData.firstName)
-            .replace(/@{lastName}/g, contactData.lastName)
-            .replace(/@{email}/g, contactData.email)
-            .replace(/@{phone}/g, contactData.phone)
-            .replace(/@{vehicleNumber}/g, contactData.vehicleNumber)
-            .replace(/@{branch}/g, contactData.branch)
-            .replace(/@{expiryDate}/g, contactData.expiryDate)
-            .replace(/@{ic}/g, contactData.ic);
-
-          // Process custom fields placeholders
-          if (contact.customFields) {
-            Object.entries(contact.customFields).forEach(
-              ([fieldName, value]) => {
-                const placeholder = new RegExp(`@{${fieldName}}`, "g");
-                processedMessage = processedMessage.replace(
-                  placeholder,
-                  value || ""
-                );
-              }
-            );
-          }
-
-          return {
-            chatId,
-            message: processedMessage,
-            contactData,
-          };
-        })
-      ).then((results) =>
-        results.filter(
-          (
-            item
-          ): item is {
-            chatId: string;
-            message: string;
-            contactData: any;
-          } => item !== null
-        )
       );
+      if (!userResponse.ok) {
+        toast.error("Failed to fetch user config");
+        return;
+      }
+      const userData = await userResponse.json();
+      const companyId = userData?.company_id;
+      if (!companyId) {
+        toast.error("Company ID not found!");
+        return;
+      }
 
-      // FIXED: Create a consolidated messages array
-      const consolidatedMessages = [];
+      // Prepare processedMessages (replace placeholders)
+      const processedMessages = (recipientIds || []).map((chatId) => {
+        let phoneNumber = "";
+        if (typeof chatId === "string") {
+          const parts = chatId.split("-");
+          phoneNumber = parts.length > 1 ? parts.slice(1).join("-") : chatId;
+        }
+        phoneNumber = phoneNumber.split("@")[0];
+        let contact =
+          contacts.find((c) => c.chat_id === chatId) ||
+          contacts.find((c) => c.phone?.replace(/\D/g, "") === phoneNumber);
+        if (!contact) return null;
+        let processedMessage = blastMessage
+          .replace(/@{contactName}/g, contact.contactName || "")
+          .replace(/@{firstName}/g, contact.firstName || "")
+          .replace(/@{lastName}/g, contact.lastName || "")
+          .replace(/@{email}/g, contact.email || "")
+          .replace(/@{phone}/g, contact.phone || "")
+          .replace(/@{vehicleNumber}/g, contact.vehicleNumber || "")
+          .replace(/@{branch}/g, contact.branch || "")
+          .replace(/@{expiryDate}/g, contact.expiryDate || "")
+          .replace(/@{ic}/g, contact.ic || "");
+        // Custom fields
+        if (contact.customFields) {
+          Object.entries(contact.customFields).forEach(([fieldName, value]) => {
+        const placeholder = new RegExp(`@{${fieldName}}`, "g");
+        processedMessage = processedMessage.replace(placeholder, value || "");
+          });
+        }
+        return {
+          chatId,
+          message: processedMessage,
+          contactData: contact,
+        };
+      }).filter(Boolean);
 
-      // Add media message if exists
+      // Prepare consolidated messages array (media, document, text)
+      // Ensure all fields are defined and match the ScheduledMessage.messages type
+      const consolidatedMessages: { [x: string]: string | boolean; text: string }[] = [];
       if (newMediaUrl) {
         consolidatedMessages.push({
           type: "media",
-          text: "", // Required by interface
-          url: newMediaUrl || "",
-          mimeType:
-            editMediaFile?.type || currentScheduledMessage.mimeType || "",
-          caption: "", // You can add caption if needed
-          fileName: "", // Required by index signature
+          text: "",
+          url: newMediaUrl,
+          mimeType: newMimeType || "",
+          caption: "",
+          fileName: "",
           isMain: false,
         });
       }
-
-      // Add document message if exists
       if (newDocumentUrl) {
         consolidatedMessages.push({
           type: "document",
-          text: "", // Required by interface
-          url: newDocumentUrl || "",
+          text: "",
+          url: newDocumentUrl,
           fileName: newFileName || "",
-          mimeType:
-            editDocumentFile?.type || currentScheduledMessage.mimeType || "",
-          caption: "", // You can add caption if needed
+          mimeType: newMimeType || "",
+          caption: "",
           isMain: false,
         });
       }
-
-      // Add main text message
       consolidatedMessages.push({
         type: "text",
         text: blastMessage,
@@ -4583,91 +4429,61 @@ function Main() {
         isMain: true,
       });
 
-      // Ensure scheduledTime is a proper Firestore Timestamp
-      let scheduledTime: any = currentScheduledMessage.scheduledTime;
-      if (!(scheduledTime instanceof Timestamp)) {
-        // If it's a date object
-        if (scheduledTime instanceof Date) {
-          scheduledTime = Timestamp.fromDate(scheduledTime);
-        }
-        // If it's a timestamp-like object with seconds and nanoseconds
-        else if (
-          scheduledTime &&
-          typeof scheduledTime === "object" &&
-          "seconds" in scheduledTime
-        ) {
-          scheduledTime = new Timestamp(
-            scheduledTime.seconds as number,
-            (scheduledTime as { nanoseconds?: number }).nanoseconds || 0
-          );
-        }
-        // If it's something else, default to current time
-        else {
-          scheduledTime = Timestamp.now();
-        }
+      // Prepare scheduledTime as ISO string
+      let scheduledTime = currentScheduledMessage.scheduledTime;
+      if (
+        scheduledTime &&
+        typeof scheduledTime === "object" &&
+        scheduledTime !== null &&
+        (scheduledTime as any) instanceof Date
+      ) {
+        scheduledTime = (scheduledTime as Date).toISOString();
+      } else if (
+        scheduledTime &&
+        typeof scheduledTime === "object" &&
+        scheduledTime !== null &&
+        "seconds" in scheduledTime
+      ) {
+        scheduledTime = new Date((scheduledTime as any).seconds * 1000).toISOString();
       }
 
-      // Prepare the updated message data
+      // Prepare updated message data for SQL backend
       const updatedMessageData: ScheduledMessage = {
         ...currentScheduledMessage,
-        message: blastMessage, // Store the main message
-        messages: consolidatedMessages, // Use the consolidated messages array
-        messageDelays: currentScheduledMessage.messageDelays || [],
-        batchQuantity: currentScheduledMessage.batchQuantity || 10,
-        createdAt: currentScheduledMessage.createdAt || Timestamp.now(),
+        message: blastMessage,
+        messages: consolidatedMessages,
+        processedMessages: processedMessages.filter(Boolean) as ScheduledMessage["processedMessages"],
         documentUrl: newDocumentUrl,
         fileName: newFileName,
         mediaUrl: newMediaUrl,
-        mimeType: editMediaFile
-          ? editMediaFile.type
-          : editDocumentFile
-          ? editDocumentFile.type
-          : currentScheduledMessage.mimeType,
-        repeatInterval: currentScheduledMessage.repeatInterval || 0,
-        repeatUnit: currentScheduledMessage.repeatUnit || "days",
-        scheduledTime: scheduledTime,
+        mimeType: newMimeType,
+        scheduledTime,
         status: "scheduled",
-        v2: currentScheduledMessage.v2 || false,
-        whapiToken: currentScheduledMessage.whapiToken || undefined,
-        minDelay: currentScheduledMessage.minDelay || 1,
-        maxDelay: currentScheduledMessage.maxDelay || 3,
-        activateSleep: currentScheduledMessage.activateSleep || false,
-        sleepAfterMessages: currentScheduledMessage.sleepAfterMessages || null,
-        sleepDuration: currentScheduledMessage.sleepDuration || null,
-        activeHours: currentScheduledMessage.activeHours || {
-          start: "09:00",
-          end: "17:00",
-        },
-        infiniteLoop: currentScheduledMessage.infiniteLoop || false,
-        numberOfBatches: currentScheduledMessage.numberOfBatches || 1,
-        chatIds: currentScheduledMessage.chatIds,
-        isConsolidated: true, // Add the flag to indicate this is using the new structure
-        processedMessages,
+        isConsolidated: true,
       };
+
+      // Use scheduleId if present, otherwise fallback to id
+      const sId = currentScheduledMessage.scheduleId || currentScheduledMessage.id;
 
       // Send PUT request to update the scheduled message
       const response = await axios.put(
-        `${baseUrl}/api/schedule-message/${companyId}/${currentScheduledMessage.id}`,
+        `${baseUrl}/api/schedule-message/${companyId}/${sId}`,
         updatedMessageData
       );
 
-      if (response.status === 200) {
-        // Update local state
+      if (response.status === 200 && response.data.success) {
         setScheduledMessages((prev) =>
           prev.map((msg) =>
             msg.id === currentScheduledMessage.id ? updatedMessageData : msg
           )
         );
-
         setEditScheduledMessageModal(false);
         setEditMediaFile(null);
         setEditDocumentFile(null);
         toast.success("Scheduled message updated successfully!");
-
-        // Refresh the scheduled messages
         await fetchScheduledMessages();
       } else {
-        throw new Error("Failed to update scheduled message");
+        throw new Error(response.data.message || "Failed to update scheduled message");
       }
     } catch (error) {
       console.error("Error updating scheduled message:", error);
@@ -9362,3 +9178,4 @@ function Main() {
 }
 
 export default Main;
+

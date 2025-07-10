@@ -568,7 +568,7 @@ function Main() {
   const [companyId, setCompanyId] = useState<string>("");
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
   const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
-  const [baseUrl, setBaseUrl] = useState<string>("https://julnazz.ngrok.dev");
+  const [baseUrl] = useState<string>("https://julnazz.ngrok.dev");
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
@@ -795,16 +795,15 @@ function Main() {
   // Initialize user context from localStorage and NeonDB
   useEffect(() => {
     // Use user info from localStorage (set during API login)
-    const userDataStr = localStorage.getItem("userData");
-    if (userDataStr) {
+    const userEmail = localStorage.getItem("userEmail");
+    if (userEmail) {
       try {
-        const userData = JSON.parse(userDataStr);
-        const email = userData.email;
+        const email = userEmail;
         if (email) {
           (async () => {
             try {
               const response = await fetch(
-                `https://mighty-dane-newly.ngrok-free.app/api/user-context?email=${email}`
+                `${baseUrl}/api/user-context?email=${email}`
               );
               if (!response.ok) throw new Error("Failed to fetch user context");
               const data = await response.json();
@@ -815,7 +814,7 @@ function Main() {
                 email: email,
                 companyId: data.companyId,
                 role: data.role,
-                name: data.name || userData.name,
+                name: data.name,
                 phone: data.phone,
                 viewEmployee: data.viewEmployee,
               });
@@ -855,7 +854,7 @@ function Main() {
         if (!email || !companyId) return;
 
         const response = await fetch(
-          `https://mighty-dane-newly.ngrok-free.app/api/categories?companyId=${companyId}`
+          `${baseUrl}/api/categories?companyId=${companyId}`
         );
         if (!response.ok) return;
 
@@ -995,9 +994,10 @@ function Main() {
     }
   };
 
-  //testing
+  // Send Now the Scheduled Message
   const handleSendNow = async (message: any) => {
     try {
+      console.log("Sending message now:", message);
       // Get user and company data
       const email = getCurrentUserEmail();
       if (!email) throw new Error("User not authenticated");
@@ -1005,76 +1005,165 @@ function Main() {
       if (!companyId) throw new Error("Company ID not available");
 
       // Use the baseUrl from state or default
-      const apiUrl = "https://mighty-dane-newly.ngrok-free.app";
+      const apiUrl = baseUrl;
 
-      // FIXED: Handle consolidated message structure to avoid duplicate sends
-      // Handle the new consolidated message structure
-      const isConsolidated = message.isConsolidated === true;
+      // Helper to determine API endpoint based on mediaUrl
+      const getApiEndpoint = (mediaUrl: string | undefined, chatId: string) => {
+        if (!mediaUrl) return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
+        const ext = mediaUrl.split(".").pop()?.toLowerCase();
+        if (!ext) return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
+        if (["mp4", "mov", "avi", "webm"].includes(ext)) {
+          return `${apiUrl}/api/v2/messages/video/${companyId}/${chatId}`;
+        }
+        if (["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(ext)) {
+          return `${apiUrl}/api/v2/messages/image/${companyId}/${chatId}`;
+        }
+        if (["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext)) {
+          return `${apiUrl}/api/v2/messages/document/${companyId}/${chatId}`;
+        }
+        return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
+      };
 
-      // If using consolidated structure, only process the messages array
-      if (
-        isConsolidated &&
-        Array.isArray(message.messages) &&
-        message.messages.length > 0
-      ) {
-        // Send messages to all recipients with proper structure
-        const sendPromises = message.chatIds.map(async (chatId: string) => {
-          // Only send the main message or first message from the array
-          const mainMessage =
-            message.messages.find((msg: any) => msg.isMain === true) ||
-            message.messages[0];
-
-          const response = await fetch(
-            `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                message: mainMessage.text || "",
-                phoneIndex: message.phoneIndex || userData?.phone || 0,
-                userName: userData?.name || email || "",
-              }),
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(`Failed to send message to ${chatId}`);
-          }
-        });
-
-        // Wait for all messages to be sent
-        await Promise.all(sendPromises);
-      } else {
-        // Backward compatibility: Handle the old message structure
-        // Send messages to all recipients
-        const sendPromises = message.chatIds.map(async (chatId: string) => {
-          const response = await fetch(
-            `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                message: message.message || "",
-                phoneIndex: message.phoneIndex || userData?.phone || 0,
-                userName: userData?.name || email || "",
-              }),
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(`Failed to send message to ${chatId}`);
-          }
-        });
-
-        // Wait for all messages to be sent
-        await Promise.all(sendPromises);
+      // Try to get userData from employeeList or localStorage for phoneIndex/userName fallback
+      let userData: any = null;
+      const userDataStr = localStorage.getItem("userData");
+      if (userDataStr) {
+        try {
+          userData = JSON.parse(userDataStr);
+        } catch {}
       }
 
+      // Derive chatIds from contactIds/contactId
+      let chatIds: string[] = [];
+      if (message.multiple && Array.isArray(message.contactIds)) {
+        chatIds = message.contactIds
+          .map((cid: string) => {
+            const phone = cid.split("-")[1];
+            return phone ? `${phone}@c.us` : null;
+          })
+          .filter(Boolean);
+      } else if (!message.multiple && message.contactId) {
+        const phone = message.contactId.split("-")[1];
+        if (phone) chatIds = [`${phone}@c.us`];
+      }
+
+      const isConsolidated = message.isConsolidated === true;
+
+      let contactList: Contact[] = [];
+      if (isConsolidated && Array.isArray(message.contactIds)) {
+        contactList = message.contactIds
+          .map((cid: string) => {
+            const phone = cid.split("-")[1];
+            return contacts.find(
+              (c) => c.phone?.replace(/\D/g, "") === phone
+            );
+          })
+          .filter(Boolean) as Contact[];
+      } else if (!isConsolidated && message.contactId) {
+        const phone = message.contactId.split("-")[1];
+        const found = contacts.find(
+          (c) => c.phone?.replace(/\D/g, "") === phone
+        );
+        if (found) contactList = [found];
+      }
+
+      // For each chatId, process placeholders before sending
+      const sendPromises = chatIds.map(async (chatId: string, idx: number) => {
+        let mainMessage =
+          (isConsolidated &&
+            Array.isArray(message.messages) &&
+            message.messages.find((msg: any) => msg.isMain === true)) ||
+          (Array.isArray(message.messages) && message.messages[0]) ||
+          message;
+
+        // Find the corresponding contact for this chatId
+        let contact: Contact | undefined;
+        if (contactList.length === chatIds.length) {
+          contact = contactList[idx];
+        } else {
+          // fallback: match by phone number
+          const phoneNumber = chatId.split("@")[0];
+          contact = contacts.find(
+            (c) => c.phone?.replace(/\D/g, "") === phoneNumber
+          );
+        }
+
+        // Process message with contact data and custom fields
+        let processedMessage = mainMessage.messageContent || mainMessage.text || "";
+
+        if (contact) {
+          processedMessage = processedMessage
+            .replace(/@{contactName}/g, contact.contactName || "")
+            .replace(
+              /@{firstName}/g,
+              contact.contactName?.split(" ")[0] || ""
+            )
+            .replace(/@{lastName}/g, contact.lastName || "")
+            .replace(/@{email}/g, contact.email || "")
+            .replace(/@{phone}/g, contact.phone || "")
+            .replace(/@{vehicleNumber}/g, contact.vehicleNumber || "")
+            .replace(/@{branch}/g, contact.branch || "")
+            .replace(/@{expiryDate}/g, contact.expiryDate || "")
+            .replace(/@{ic}/g, contact.ic || "");
+
+          if (contact.customFields) {
+            Object.entries(contact.customFields).forEach(([fieldName, value]) => {
+              const placeholder = new RegExp(`@{${fieldName}}`, "g");
+              processedMessage = processedMessage.replace(placeholder, value || "");
+            });
+          }
+        }
+
+        // If mediaUrl exists, send as media
+        if (mainMessage.mediaUrl) {
+          const endpoint = getApiEndpoint(mainMessage.mediaUrl, chatId);
+          const body: any = {
+            phoneIndex: message.phoneIndex || userData?.phone || 0,
+            userName: userData?.name || email || "",
+          };
+          if (endpoint.includes("/video/")) {
+            body.videoUrl = mainMessage.mediaUrl;
+            body.caption = processedMessage;
+          } else if (endpoint.includes("/image/")) {
+            body.imageUrl = mainMessage.mediaUrl;
+            body.caption = processedMessage;
+          } else if (endpoint.includes("/document/")) {
+            body.documentUrl = mainMessage.mediaUrl;
+            body.filename = mainMessage.fileName || "";
+            body.caption = processedMessage;
+          }
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!response.ok) {
+            throw new Error(`Failed to send media message to ${chatId}`);
+          }
+        } else {
+          // No media, send as text
+          const response = await fetch(
+            `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                message: processedMessage,
+                phoneIndex: message.phoneIndex || userData?.phone || 0,
+                userName: userData?.name || email || "",
+              }),
+            }
+          );
+          if (!response.ok) {
+            throw new Error(`Failed to send message to ${chatId}`);
+          }
+        }
+      });
       // Delete the scheduled message
-      if (message.id) {
-        // Call NeonDB API to delete scheduled message
+      if (message.scheduleId) {
+        // Call NeonDB API to delete scheduled message using the correct endpoint
         const deleteResponse = await fetch(
-          `${apiUrl}/api/scheduled-messages/${message.id}?companyId=${companyId}`,
+          `${apiUrl}/api/schedule-message/${companyId}/${message.scheduleId}`,
           {
             method: "DELETE",
           }
@@ -1082,24 +1171,23 @@ function Main() {
         if (!deleteResponse.ok) {
           console.warn("Failed to delete scheduled message from database");
         }
-
-        // Update local state to remove the message
-        setScheduledMessages((prev) =>
-          prev.filter((msg) => msg.id !== message.id)
-        );
       }
-
+      await Promise.all(sendPromises);
       toast.success("Messages sent successfully!");
+      await fetchScheduledMessages(selectedContact.contact_id);
+      return;      
     } catch (error) {
       console.error("Error sending messages:", error);
       toast.error("Failed to send messages. Please try again.");
     }
   };
+
   const handleEditScheduledMessage = (message: ScheduledMessage) => {
     setCurrentScheduledMessage(message);
     setBlastMessage(message.message || ""); // Set the blast message to the current message text
     setEditScheduledMessageModal(true);
   };
+  
   const handleDeleteScheduledMessage = async (messageId: string) => {
     try {
       const email = getCurrentUserEmail();
@@ -1107,7 +1195,7 @@ function Main() {
 
       // Call the backend API to delete the scheduled message
       const response = await axios.delete(
-        `https://mighty-dane-newly.ngrok-free.app/api/schedule-message/${companyId}/${messageId}`
+        `${baseUrl}/api/schedule-message/${companyId}/${messageId}`
       );
       if (response.status === 200) {
         setScheduledMessages(
@@ -1122,7 +1210,6 @@ function Main() {
       toast.error("Failed to delete scheduled message.");
     }
   };
-  //testing
 
   useEffect(() => {
     const fetchPhoneStatuses = async () => {
@@ -1131,7 +1218,7 @@ function Main() {
         if (!email || !companyId) return;
 
         const botStatusResponse = await axios.get(
-          `https://mighty-dane-newly.ngrok-free.app/api/bot-status/${companyId}`
+          `${baseUrl}/api/bot-status/${companyId}`
         );
 
         if (botStatusResponse.status === 200) {
@@ -1263,7 +1350,7 @@ function Main() {
     }
 
     const response = await fetch(
-      `https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(
+      `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
         userEmail
       )}`,
       {
@@ -1283,7 +1370,7 @@ function Main() {
     console.log("Company data:", data);
     return {
       apiUrl:
-        data.companyData.api_url || "https://mighty-dane-newly.ngrok-free.app",
+        data.companyData.api_url || baseUrl,
       companyId: data.userData.companyId,
     };
   };
@@ -1622,6 +1709,7 @@ function Main() {
     }
   };
 
+  // Next Agenda
   const handleReaction = async (message: any, emoji: string) => {
     try {
       const {
@@ -1764,14 +1852,20 @@ function Main() {
     const fetchContacts = async () => {
       try {
         const userEmail = localStorage.getItem("userEmail");
-        if (!userEmail || !userData?.companyId) {
-          toast.error("No user email or company ID found");
+        if (!userEmail) {
+          toast.error("No user email found");
           return;
         }
+        const response = await fetch(
+          `${baseUrl}/api/user-context?email=${userEmail}`
+        );
+        if (!response.ok) throw new Error("Failed to fetch user context");
+        const contextData = await response.json();
+        const companyId = contextData.companyId;
 
         const contactsResponse = await fetch(
-          `https://julnazz.ngrok.dev/api/companies/${
-            userData.companyId
+          `${baseUrl}/api/companies/${
+            companyId
           }/contacts?email=${encodeURIComponent(userEmail)}`,
           {
             method: "GET",
@@ -1830,7 +1924,7 @@ function Main() {
       if (userEmail) {
         try {
           const response = await fetch(
-            `https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(
+            `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
               userEmail
             )}`,
             {
@@ -2266,7 +2360,7 @@ function Main() {
       try {
         // Get user config to get companyId
         const userResponse = await fetch(
-          `https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(
+          `${baseUrl}/api/user/config?email=${encodeURIComponent(
             userEmail
           )}`,
           {
@@ -2289,7 +2383,7 @@ function Main() {
 
         // Fetch contacts from SQL database
         const contactsResponse = await fetch(
-          `https://julnazz.ngrok.dev/api/companies/${companyId}/contacts?email=${userEmail}`,
+          `${baseUrl}/api/companies/${companyId}/contacts?email=${userEmail}`,
           {
             method: "GET",
             headers: {
@@ -3032,7 +3126,7 @@ function Main() {
 
         // Get user config to get companyId
         const userResponse = await fetch(
-          `https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(
+          `${baseUrl}/api/user/config?email=${encodeURIComponent(
             userEmail
           )}`,
           {
@@ -3232,7 +3326,7 @@ function Main() {
 
     try {
       const response = await fetch(
-        `https://julnazz.ngrok.dev/api/user-config?email=${encodeURIComponent(
+        `${baseUrl}/api/user-config?email=${encodeURIComponent(
           userEmail
         )}`,
         {
@@ -3340,7 +3434,7 @@ function Main() {
 
       // Fetch user/company info from your backend
       const userResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/user-company-data?email=${encodeURIComponent(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
           userEmail
         )}`,
         {
@@ -3364,7 +3458,7 @@ function Main() {
 
       // Fetch tags from your SQL backend
       const tagsResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/companies/${companyId}/tags`,
+        `${baseUrl}/api/companies/${companyId}/tags`,
         {
           method: "GET",
           headers: { "Content-Type": "application/json" },
@@ -3535,7 +3629,7 @@ function Main() {
     try {
       // Get user config to get companyId
       const userResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(
           userEmail
         )}`,
         {
@@ -3558,7 +3652,7 @@ function Main() {
 
       // Fetch contacts from SQL database
       const contactsResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/companies/${companyId}/contacts?email=${userEmail}`,
+        `${baseUrl}/api/companies/${companyId}/contacts?email=${userEmail}`,
         {
           method: "GET",
           headers: {
@@ -3609,7 +3703,7 @@ function Main() {
       if (userEmail) {
         try {
           const response = await fetch(
-            `https://julnazz.ngrok.dev/api/user-role?email=${encodeURIComponent(
+            `${baseUrl}/api/user-role?email=${encodeURIComponent(
               userEmail
             )}`,
             {
@@ -4066,7 +4160,7 @@ function Main() {
     try {
       // Get user data and company info from SQL
       const userResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/user-data?email=${encodeURIComponent(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(
           userEmail || ""
         )}`,
         {
@@ -4083,7 +4177,7 @@ function Main() {
 
       // Get company data
       const companyResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/company-data?companyId=${companyId}`,
+        `${baseUrl}/api/company-data?companyId=${companyId}`,
         {
           credentials: "include",
         }
@@ -4097,7 +4191,7 @@ function Main() {
 
       // Fetch messages from SQL
       const messagesResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/messages?chatId=${selectedChatId}&companyId=${companyId}`,
+        `${baseUrl}/api/messages?chatId=${selectedChatId}&companyId=${companyId}`,
         {
           credentials: "include",
         }
@@ -4412,7 +4506,7 @@ function Main() {
 
       // Get user data from SQL
       const userResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/user-data?email=${encodeURIComponent(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(
           userEmail || ""
         )}`,
         {
@@ -4614,7 +4708,7 @@ function Main() {
 
       // Fetch user config to get companyId
       const userResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(
           userEmail
         )}`,
         {
@@ -5115,8 +5209,8 @@ function Main() {
           return;
         }
         const data2 = docSnapshot.data();
-        const baseUrl =
-          data2.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
+        const apiUrl =
+          data2.apiUrl || baseUrl;
         let userPhoneIndex = userData?.phone >= 0 ? userData?.phone : 0;
         if (userPhoneIndex === -1) {
           userPhoneIndex = 0;
@@ -5124,14 +5218,14 @@ function Main() {
         let url;
         let requestBody;
         if (companyData.v2 === true) {
-          url = `${baseUrl}/api/v2/messages/text/${companyId}/${chatId}`;
+          url = `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
           requestBody = {
             message,
             phoneIndex: userPhoneIndex,
             userName: userData.name || "",
           };
         } else {
-          url = `${baseUrl}/api/messages/text/${chatId}/${companyData.whapiToken}`;
+          url = `${apiUrl}/api/messages/text/${chatId}/${companyData.whapiToken}`;
           requestBody = { message };
         }
         // New log
@@ -5238,11 +5332,11 @@ function Main() {
         return;
       }
       const data2 = docSnapshot.data();
-      const baseUrl =
-        data2.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
+      const apiUrl =
+        data2.apiUrl || baseUrl;
 
       const response = await fetch(
-        `${baseUrl}/api/v2/messages/text/${companyId}/${chatId}`,
+        `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`,
         {
           method: "POST",
           headers: {
@@ -6187,8 +6281,8 @@ function Main() {
         return;
       }
       const data2 = docSnapshot.data();
-      const baseUrl =
-        data2.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
+      const apiUrl =
+        data2.apiUrl || baseUrl;
       for (const contact of selectedContactsForForwarding) {
         for (const message of selectedMessages) {
           try {
@@ -6236,7 +6330,7 @@ function Main() {
             } else {
               // For text messages, use the existing API call
               const response = await fetch(
-                `${baseUrl}/api/v2/messages/text/${companyId}/${contact.chat_id}`,
+                `${apiUrl}/api/v2/messages/text/${companyId}/${contact.chat_id}`,
                 {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -6767,7 +6861,7 @@ function Main() {
       const userData = await userResponse.json();
       const companyId = userData.userData.companyId;
       const companyData = userData.companyData;
-      const baseUrl = companyData.apiUrl || "${baseUrl}";
+      const apiUrl = companyData.apiUrl || baseUrl;
 
       // Get contact info (from your local state or fetch if needed)
       const contact = contacts.find((c: Contact) => c.contact_id === contactId);
@@ -6776,7 +6870,7 @@ function Main() {
 
       // Remove tag from contact via your backend
       const response = await fetch(
-        `${baseUrl}/api/contacts/${companyId}/${contactId}/tags`,
+        `${apiUrl}/api/contacts/${companyId}/${contactId}/tags`,
         {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
@@ -6786,21 +6880,6 @@ function Main() {
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText || "Failed to remove tag from contact");
-      }
-
-      // Handle specific tags (call your local functions as needed)
-      if (tagName === "Before Quote Follow Up") {
-        removeTagBeforeQuote(contact);
-      } else if (tagName === "Before Quote Follow Up EN") {
-        removeTagBeforeQuote(contact);
-      } else if (tagName === "Before Quote Follow Up BM") {
-        removeTagBeforeQuote(contact);
-      } else if (tagName === "Before Quote Follow Up CN") {
-        removeTagBeforeQuote(contact);
-      } else if (tagName === "Pause Follow Up") {
-        removeTagPause(contact);
-      } else if (tagName === "Edward Follow Up") {
-        removeTagEdward(contact);
       }
 
       // Update state
@@ -6897,12 +6976,12 @@ function Main() {
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) throw new Error("No company document found");
       const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
+      const apiUrl =
+        companyData.apiUrl || baseUrl;
       const chatId = editingMessage.id.split("_")[1];
 
       const response = await axios.put(
-        `${baseUrl}/api/v2/messages/${companyId}/${chatId}/${editingMessage.id}`,
+        `${apiUrl}/api/v2/messages/${companyId}/${chatId}/${editingMessage.id}`,
         { newMessage: editedMessageText, phoneIndex: userData.phoneIndex || 0 }
       );
 
@@ -7093,37 +7172,6 @@ function Main() {
   const [companyStopBot, setCompanyStopBot] = useState(false);
   const [companyBaseUrl, setCompanyBaseUrl] = useState<string>("");
 
-  // Fetch company base URL on component mount
-  useEffect(() => {
-    const fetchCompanyBaseUrl = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-
-        const docUserRef = doc(firestore, "user", user.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) return;
-
-        const userData = docUserSnapshot.data();
-        const companyId = userData.companyId;
-
-        const companyRef = doc(firestore, "companies", companyId);
-        const companySnapshot = await getDoc(companyRef);
-        if (!companySnapshot.exists()) return;
-
-        const companyData = companySnapshot.data();
-        const baseUrl =
-          companyData.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
-        setCompanyBaseUrl(baseUrl);
-      } catch (error) {
-        console.error("Error fetching company base URL:", error);
-        setCompanyBaseUrl("https://mighty-dane-newly.ngrok-free.app"); // Fallback
-      }
-    };
-
-    fetchCompanyBaseUrl();
-  }, []);
-
   // Update the useEffect that fetches company stop bot status
   useEffect(() => {
     let isMounted = true;
@@ -7217,6 +7265,7 @@ function Main() {
 
     setCompanyId(data.companyId);
     setCurrentUserRole(data.role);
+    setCompanyBaseUrl(data.apiUrl || baseUrl);
     setEmployeeList(
       (data.employees || []).map((employee: any) => ({
         id: employee.id,
@@ -7262,7 +7311,7 @@ function Main() {
     }
 
     // Fallback to default base URL if companyBaseUrl is not set
-    const defaultBaseUrl = "https://mighty-dane-newly.ngrok-free.app";
+    const defaultBaseUrl = baseUrl;
     return imageUrl.startsWith("/") ? `${defaultBaseUrl}${imageUrl}` : imageUrl;
   };
 
@@ -7278,9 +7327,17 @@ function Main() {
         throw new Error("User data not available");
       }
 
+      // Determine the current phone index (default to 0 if not set)
+      const phoneIndex =
+        typeof uData.phone === "number"
+          ? uData.phone
+          : typeof uData.phone === "string"
+          ? parseInt(uData.phone, 10)
+          : 0;
+
       // For now, simplified bot toggle logic until we have full company data structure
       const newStopBot = !companyStopBot;
-      const stopbotPayload = { stopbot: newStopBot };
+      const stopbotPayload = { stopbot: newStopBot, phoneIndex };
 
       // Update your backend here
       await fetch(`${baseUrl}/api/company/update-stopbot`, {
@@ -7419,8 +7476,7 @@ function Main() {
         documentUrl = await uploadFile(selectedDocument);
       }
 
-      // Use julnazz.ngrok.dev instead of Firebase
-      const baseUrl = "${baseUrl}";
+      const apiUrl = baseUrl;
       const companyId = userData?.companyId; // Get from your existing userData state
 
       if (!companyId) {
@@ -7503,7 +7559,7 @@ function Main() {
 
       // Make API call to julnazz.ngrok.dev
       const response = await axios.post(
-        `${baseUrl}/api/schedule-message/${companyId}`,
+        `${apiUrl}/api/schedule-message/${companyId}`,
         scheduledMessageData
       );
       console.log(response);
@@ -7559,6 +7615,7 @@ function Main() {
     return authorColors[index];
   }
 
+  // Next Agenda
   const handleSetReminder = async (text: string) => {
     if (!reminderDate) {
       toast.error("Please select a date and time for the reminder");
@@ -7601,8 +7658,8 @@ function Main() {
       }
 
       const companyData = companySnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
+      const apiUrl =
+        companyData.apiUrl || baseUrl;
       const isV2 = companyData.v2 || false;
       const whapiToken = companyData.whapiToken || "";
       const phone = userData.phoneNumber.split("+")[1];
@@ -7634,7 +7691,7 @@ function Main() {
 
       // Make API call to schedule the message
       const response = await axios.post(
-        `${baseUrl}/api/schedule-message/${companyId}`,
+        `${apiUrl}/api/schedule-message/${companyId}`,
         scheduledMessageData
       );
 
@@ -7777,11 +7834,11 @@ function Main() {
       }
 
       const companyData = companySnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://mighty-dane-newly.ngrok-free.app";
+      const apiUrl =
+        companyData.apiUrl || baseUrl;
       const assistantId = companyData.assistantId;
 
-      const res = await axios.get(`${baseUrl}/api/assistant-test/`, {
+      const res = await axios.get(`${apiUrl}/api/assistant-test/`, {
         params: {
           message: messageText,
           email: user.email!,
@@ -9313,21 +9370,21 @@ function Main() {
                                   case "chat":
                                     return message.text?.body || "Message";
                                   case "image":
-                                    return message.image?.caption
-                                      ? `📷 ${message.image.caption}`
+                                    return message.text?.body
+                                      ? `📷 ${message.text?.body}`
                                       : "📷 Photo";
                                   case "document":
                                     return `📄 ${
                                       message.document?.filename ||
-                                      message.document?.file_name ||
+                                      message.text?.body ||
                                       "Document"
                                     }`;
                                   case "audio":
                                   case "ptt":
                                     return "🎵 Audio";
                                   case "video":
-                                    return message.video?.caption
-                                      ? `🎥 ${message.video.caption}`
+                                    return message.text?.body
+                                      ? `🎥 ${message.text?.body}`
                                       : "🎥 Video";
                                   case "voice":
                                     return "🎤 Voice message";
