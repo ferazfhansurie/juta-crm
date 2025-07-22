@@ -2121,13 +2121,8 @@ function Main() {
     setIsPrivateNotesMentionOpen(false);
   };
 
-  // useEffect(() => {
-  //
-  // }, []);
-
   const filterContactsByUserRole = useCallback(
     (contacts: Contact[], userRole: string, userName: string) => {
-      console.log("role", userRole);
       // If userRole is empty or undefined, return all contacts to avoid blank screen
       if (!userRole) {
         console.warn(
@@ -2227,14 +2222,6 @@ function Main() {
   };
   const filterAndSetContacts = useCallback(
     (contactsToFilter: Contact[]) => {
-      // Log the state to help with debugging
-      console.log("contacts before", {
-        success: true,
-        total: contactsToFilter.length,
-        contacts: contactsToFilter,
-      });
-      console.log("userRole state:", userRole);
-
       // Check for viewEmployee first
       if (userData?.viewEmployee) {
         let filteredByEmployee: Contact[] = [];
@@ -2356,7 +2343,6 @@ function Main() {
         toast.error("No user email found");
         return;
       }
-      console.log("fetching contacts");
       try {
         // Get user config to get companyId
         const userResponse = await fetch(
@@ -2400,7 +2386,6 @@ function Main() {
         }
 
         const data = await contactsResponse.json();
-        console.log("contacts before", data);
         const updatedContacts = data.contacts.map((contact: any) => {
           // Filter out empty tags
 
@@ -2440,16 +2425,6 @@ function Main() {
     // Cleanup
     return () => clearInterval(pollInterval);
   }, [filterAndSetContacts]);
-
-  // useEffect(() => {
-  //   if (initialContacts.length > 0) {
-  //
-  //     setContacts(initialContacts);
-  //     filterAndSetContacts(initialContacts);
-  //     localStorage.setItem('contacts', LZString.compress(JSON.stringify(initialContacts)));
-  //     sessionStorage.setItem('contactsFetched', 'true');
-  //   }
-  // }, [initialContacts, userRole, userData, filterAndSetContacts]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -2727,8 +2702,6 @@ function Main() {
           credentials: "include",
         }
       );
-
-      console.log("Quick replies response:", response);
 
       if (!response.ok) {
         console.error("Failed to fetch quick replies");
@@ -3411,10 +3384,7 @@ function Main() {
         }
       }
 
-      // Set tags if company is using v2 - use fetchTags instead of data.tags
-      if (data.companyData.v2) {
-        await fetchTags(data.employeeList.map((emp: any) => emp.name));
-      }
+      await fetchTags(data.employeeList.map((emp: any) => emp.name));
     } catch (error) {
       console.error("Error fetching config:", error);
     }
@@ -4016,6 +3986,7 @@ function Main() {
 
             case "image":
               formattedMessage.image = {
+                link: message.media_url,
                 data: message.media_data,
                 mimetype: message.media_metadata?.mimetype,
                 filename: message.media_metadata?.filename,
@@ -4040,6 +4011,7 @@ function Main() {
             case "audio":
             case "ptt":
               formattedMessage.audio = {
+                link: message.media_url,
                 data: message.media_data,
                 mimetype:
                   message.media_metadata?.mimetype || "audio/ogg; codecs=opus",
@@ -4054,6 +4026,7 @@ function Main() {
 
             case "document":
               formattedMessage.document = {
+                link: message.media_url,
                 data: message.media_data,
                 mimetype: message.media_metadata?.mimetype,
                 filename: message.media_metadata?.filename,
@@ -5897,7 +5870,6 @@ function Main() {
       userData?.name || ""
     );
     setMessageMode("reply");
-    console.log("filteredContacts");
 
     // First, filter contacts based on the employee's assigned phone
     if (userData?.phone !== undefined && userData.phone !== -1) {
@@ -7199,10 +7171,6 @@ function Main() {
           stopbots,
         } = await getCompanyData();
         if (isMounted && uData) {
-          console.log("Fetched user data:", uData);
-          console.log("Fetched stopbot status:", stopbot);
-          console.log("Fetched stopbots:", stopbots);
-          console.log("phoneCount:", phoneCount);
           if (phoneCount > 1) {
             const currentPhoneIndex = uData.phone || 0;
             const effectiveStopBot = getEffectiveStopBot(
@@ -11855,7 +11823,7 @@ function Main() {
                                             ""
                                           );
                                         const response = await fetch(
-                                          `${apiUrl}/api/sync-a-contact-name/${companyId}`,
+                                          `${apiUrl}/api/sync-single-contact-name/${companyId}`,
                                           {
                                             method: "POST",
                                             headers: {
@@ -11864,7 +11832,7 @@ function Main() {
                                             },
                                             body: JSON.stringify({
                                               companyId,
-                                              phoneNumber,
+                                              contactPhone: phoneNumber,
                                               phoneIndex:
                                                 selectedContact.phoneIndex ?? 0,
                                             }),
@@ -11945,7 +11913,7 @@ function Main() {
                                             ""
                                           );
                                         const response = await fetch(
-                                          `${apiUrl}/api/sync-a-contact/${companyId}`,
+                                          `${apiUrl}/api/sync-single-contact/${companyId}`,
                                           {
                                             method: "POST",
                                             headers: {
@@ -11954,7 +11922,7 @@ function Main() {
                                             },
                                             body: JSON.stringify({
                                               companyId,
-                                              phoneNumber,
+                                              contactPhone: phoneNumber,
                                               phoneIndex:
                                                 selectedContact.phoneIndex ?? 0,
                                             }),

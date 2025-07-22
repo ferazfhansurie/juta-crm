@@ -17,12 +17,6 @@ import LeafletMap from "@/components/LeafletMap";
 import { Menu } from "@/components/Base/Headless";
 import Table from "@/components/Base/Table";
 import axios from 'axios';
-import { getFirebaseToken, messaging } from "../../firebaseconfig";
-import { getAuth } from "firebase/auth";
-import { initializeApp } from "firebase/app";
-import { DocumentData, DocumentReference, getDoc,where, query, limit,getDocs, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { getFirestore, collection, setDoc, increment, serverTimestamp } from 'firebase/firestore';
-import { onMessage } from "firebase/messaging";
 import { Link, useNavigate } from "react-router-dom";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
@@ -36,39 +30,27 @@ import { format, subDays, subMonths, startOfDay, endOfDay, eachHourOfInterval, e
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, BarController);
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
-  authDomain: "onboarding-a5fcb.firebaseapp.com",
-  databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "onboarding-a5fcb",
-  storageBucket: "onboarding-a5fcb.appspot.com",
-  messagingSenderId: "334607574757",
-  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
-  measurementId: "G-2C9J1RY67L"
-};
-
-const app = initializeApp(firebaseConfig);
-const firestore = getFirestore(app);
-const auth = getAuth(app);
-
 // Ensure axios is imported: import axios from 'axios';
 // Ensure getAuth and app are imported from your Firebase setup (for user authentication)
 
 export const updateMonthlyAssignments = async (employeeName: string, incrementValue: number) => {
   try {
-    const auth = getAuth(app); // Still uses Firebase Auth for current user
-    const user = auth.currentUser;
-    if (!user || !user.email) {
-      console.error('No authenticated user or user email available');
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      console.error('No authenticated user email available');
       return;
     }
 
     // Fetch companyId from SQL user data via your existing API
-    const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${user.email}`);
+    const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
     const userData = userResponse.data;
 
     if (!userData || !userData.company_id) {
-      console.error('User data or company ID not found for email:', user.email);
+      console.error('User data or company ID not found for email:', userEmail);
       return;
     }
     const companyId = userData.company_id; // Use company_id from SQL
@@ -78,6 +60,10 @@ export const updateMonthlyAssignments = async (employeeName: string, incrementVa
       companyId: companyId,
       employeeName: employeeName, // This is the employee's name which serves as their identifier in the Firebase context. In SQL, it maps to the 'name' column.
       incrementValue: incrementValue
+    }, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
     });
 
     console.log(`Monthly assignments updated successfully for ${employeeName} by ${incrementValue}`);
@@ -335,18 +321,9 @@ interface Tag {
   }, []);
   async function fetchAppointments() {
     try {
-      let totalAppointments = 0;
-
-      for (const employee of employees) {
-        const userRef = doc(firestore, 'user', employee.email);
-        const appointmentsCollectionRef = collection(userRef, 'appointments');
-
-        // Fetch all appointments for this employee
-        const querySnapshot = await getDocs(appointmentsCollectionRef);
-        totalAppointments += querySnapshot.size;
-      }
-
-      setTotalAppointments(totalAppointments);
+      // TODO: Replace with actual appointments API when available
+      // For now, setting a placeholder value
+      setTotalAppointments(0);
       
     } catch (error) {
       console.error('Error fetching appointments:', error);
@@ -364,27 +341,6 @@ interface Tag {
       (notification.text && notification.text.body.toLowerCase().includes(searchQuery))
     );
   });
-
-  const saveTokenToFirestore = async (userId: string, token: string) => {
-    try {
-      await setDoc(doc(firestore, "user", userId), {
-        fcmToken: token
-      }, { merge: true });
-      
-    } catch (error) {
-      console.error('Error saving token to Firestore:', error);
-    }
-  };
-
-  const handleGetFirebaseToken = (userId: string) => {
-    getFirebaseToken().then(async (firebaseToken: string | undefined) => {
-      if (firebaseToken) {
-        
-        await saveTokenToFirestore(userId, firebaseToken);
-      }
-    });
-  };
-
 
   useEffect(() => {
     fetchConfigFromDatabase();
@@ -479,83 +435,89 @@ interface Tag {
 
   async function fetchEmployeeData(employeeId: string): Promise<Employee | null> {
     try {
-      const employeeRef = doc(firestore, `companies/${companyId}/employee/${employeeId}`);
-      const employeeSnapshot = await getDoc(employeeRef);
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) return null;
 
-      if (employeeSnapshot.exists()) {
-        const employeeData = employeeSnapshot.data() as Employee;
-        
-        // Fetch all contacts
-        const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-        const contactsSnapshot = await getDocs(contactsRef);
-        
-        // Create a timeline of assignments
-        const assignmentTimeline: { date: Date; count: number }[] = [];
-        
-        contactsSnapshot.docs.forEach((doc) => {
-          const contactData = doc.data();
-          if (contactData.tags?.includes(employeeData.name)) {
-            const assignmentDate = contactData.dateAdded ? new Date(contactData.dateAdded) : null;
-            if (assignmentDate) {
-              assignmentTimeline.push({
-                date: assignmentDate,
-                count: 1
-              });
-            }
-          }
-        });
+      // Get companyId from user data
+      const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const companyId = userResponse.data.company_id;
+      if (!companyId) return null;
 
-        // Sort timeline by date
-        assignmentTimeline.sort((a, b) => a.date.getTime() - b.date.getTime());
+      // Get employees data
+      const employeesResponse = await axios.get(`https://julnazz.ngrok.dev/api/employees-data/${companyId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const employees = employeesResponse.data;
+      const employeeData = employees.find((emp: any) => emp.id === employeeId);
+      
+      if (!employeeData) return null;
 
-        // Calculate cumulative totals by month
-        const monthlyAssignments: { [key: string]: number } = {};
-        let runningTotal = 0;
-
-        assignmentTimeline.forEach((assignment) => {
-          const monthKey = format(assignment.date, 'yyyy-MM');
-          runningTotal += assignment.count;
-          monthlyAssignments[monthKey] = runningTotal;
-        });
-
-        // Ensure we have at least one data point if there are assigned contacts
-        if (Object.keys(monthlyAssignments).length === 0 && employeeData.assignedContacts > 0) {
-          const currentMonth = format(new Date(), 'yyyy-MM');
-          monthlyAssignments[currentMonth] = employeeData.assignedContacts;
-          
-          // Also update the employee document with this monthly assignment data
-          try {
-            const monthlyAssignmentsRef = doc(firestore, `companies/${companyId}/employee/${employeeId}/monthlyAssignments/${currentMonth}`);
-            await setDoc(monthlyAssignmentsRef, { 
-              assignments: employeeData.assignedContacts,
-              lastUpdated: serverTimestamp()
+      // Get contacts data
+      const contactsResponse = await axios.get(`https://julnazz.ngrok.dev/api/companies/${companyId}/contacts`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      // Handle API response format { success, total, contacts: [...] }
+      const contacts = contactsResponse.data.contacts || [];
+      
+      // Create a timeline of assignments
+      const assignmentTimeline: { date: Date; count: number }[] = [];
+      
+      contacts.forEach((contactData: any) => {
+        if (contactData.tags?.includes(employeeData.name)) {
+          const assignmentDate = contactData.createdAt ? new Date(contactData.createdAt) : null;
+          if (assignmentDate) {
+            assignmentTimeline.push({
+              date: assignmentDate,
+              count: 1
             });
-            console.log(`Updated monthly assignments for ${employeeData.name} in Firestore`);
-          } catch (error) {
-            console.error('Error updating monthly assignments in Firestore:', error);
           }
         }
+      });
 
-        // Count current closed contacts
-        const closedContacts = contactsSnapshot.docs.filter(doc => {
-          const data = doc.data();
-          return data.tags?.includes('closed') && data.tags?.includes(employeeData.name);
-        }).length;
+      // Sort timeline by date
+      assignmentTimeline.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-        console.log(`Fetched employee data for ${employeeData.name}:`, {
-          assignedContacts: employeeData.assignedContacts,
-          monthlyAssignments,
-          closedContacts
-        });
+      // Calculate cumulative totals by month
+      const monthlyAssignments: { [key: string]: number } = {};
+      let runningTotal = 0;
 
-        return {
-          ...employeeData,
-          id: employeeSnapshot.id,
-          monthlyAssignments,
-          closedContacts
-        };
+      assignmentTimeline.forEach((assignment) => {
+        const monthKey = format(assignment.date, 'yyyy-MM');
+        runningTotal += assignment.count;
+        monthlyAssignments[monthKey] = runningTotal;
+      });
+
+      // Ensure we have at least one data point if there are assigned contacts
+      if (Object.keys(monthlyAssignments).length === 0 && employeeData.assignedContacts > 0) {
+        const currentMonth = format(new Date(), 'yyyy-MM');
+        monthlyAssignments[currentMonth] = employeeData.assignedContacts;
       }
-      return null;
+
+      // Count current closed contacts
+      const closedContacts = contacts.filter((contactData: any) => {
+        return contactData.tags?.includes('closed') && contactData.tags?.includes(employeeData.name);
+      }).length;
+
+      console.log(`Fetched employee data for ${employeeData.name}:`, {
+        assignedContacts: employeeData.assignedContacts,
+        monthlyAssignments,
+        closedContacts
+      });
+
+      return {
+        ...employeeData,
+        monthlyAssignments,
+        closedContacts
+      };
+
     } catch (error) {
       console.error('Error fetching employee data:', error);
       return null;
@@ -740,13 +702,35 @@ interface Tag {
 
   // Update this function
   async function fetchContactsData() {
-    if (!companyId) {
-      console.error('CompanyId is not set. Unable to fetch contacts data.');
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      console.error('User email not found. Unable to fetch contacts data.');
       return;
     }
+
     try {
-      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const contactsSnapshot = await getDocs(contactsRef);
+      // Get companyId from user data
+      const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const companyId = userResponse.data.company_id;
+      if (!companyId) {
+        console.error('Company ID not found for user.');
+        return;
+      }
+
+      // Get contacts data
+      const contactsResponse = await axios.get(
+        `https://julnazz.ngrok.dev/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
+        {
+          headers: {}
+        }
+      );
+      // Handle API response format { success, total, contacts: [...] }
+      const contacts = contactsResponse.data.contacts || [];
+      console.log('Contacts data structure:', contacts);
       
       let total = 0;
       let closed = 0;
@@ -755,13 +739,12 @@ interface Tag {
       let month = 0;
 
       const now = new Date();
-      const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+      const startOfDayTime = new Date(now.setHours(0, 0, 0, 0));
       const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      contactsSnapshot.forEach((doc) => {
-        const contactData = doc.data();
-        const dateAdded = contactData.dateAdded ? new Date(contactData.dateAdded) : null;
+      contacts.forEach((contactData: any) => {
+        const dateAdded = contactData.createdAt ? new Date(contactData.createdAt) : null;
 
         total++;
         if (contactData.tags && contactData.tags.includes('closed')) {
@@ -769,7 +752,7 @@ interface Tag {
         }
 
         if (dateAdded) {
-          if (dateAdded >= startOfDay) {
+          if (dateAdded >= startOfDayTime) {
             today++;
           }
           if (dateAdded >= startOfWeek) {
@@ -832,12 +815,31 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
   // Update useEffect to call calculateAdditionalStats
   useEffect(() => {
-    if (companyId) {
-      fetchContactsData();
-      calculateAdditionalStats();
-      fetchClosedContactsByEmployee();
-    }
-  }, [companyId, calculateAdditionalStats]);
+    const initializeData = async () => {
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) return;
+
+      try {
+        // Get companyId from user data
+        const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        companyId = userResponse.data.company_id;
+        
+        if (companyId) {
+          fetchContactsData();
+          calculateAdditionalStats();
+          fetchClosedContactsByEmployee();
+        }
+      } catch (error) {
+        console.error('Error initializing data:', error);
+      }
+    };
+
+    initializeData();
+  }, [calculateAdditionalStats]);
 
   // Modify the handleEmployeeSelect function
   const handleEmployeeSelect = async (employee: Employee) => {
@@ -873,21 +875,28 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
   // Add function to fetch available tags
   const fetchAvailableTags = async () => {
-    if (!companyId) return;
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) return;
     
     try {
-      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const contactsSnapshot = await getDocs(contactsRef);
-      
-      const tagsSet = new Set<string>();
-      contactsSnapshot.forEach((doc) => {
-        const contactData = doc.data();
-        if (contactData.tags && Array.isArray(contactData.tags)) {
-          contactData.tags.forEach((tag: string) => tagsSet.add(tag));
+      // Get companyId from user data
+      const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
+      const companyId = userResponse.data.company_id;
+      if (!companyId) return;
+
+      // Get tags data
+      const tagsResponse = await axios.get(`https://julnazz.ngrok.dev/api/companies/${companyId}/tags`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const tags = tagsResponse.data.map((tag: any) => tag.name);
       
-      setAvailableTags(Array.from(tagsSet).sort());
+      setAvailableTags(tags.sort());
     } catch (error) {
       console.error('Error fetching tags:', error);
     }
@@ -895,19 +904,41 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
   // Modify the existing fetchContactsOverTime function
   const fetchContactsOverTime = async (filter: 'today' | '7days' | '1month' | '3months' | 'all') => {
-    if (!companyId) {
-      console.error('CompanyId is not set. Unable to fetch contacts data.');
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      console.error('User email not found. Unable to fetch contacts data.');
       return;
     }
 
     try {
-      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const contactsSnapshot = await getDocs(contactsRef);
-      
+      // Get companyId from user data
+      const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`, {
+        headers: {}
+      });
+      const companyId = userResponse.data.company_id;
+      if (!companyId) return;
+
+      // Get contacts data
+      const contactsResponse = await axios.get(
+        `https://julnazz.ngrok.dev/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
+        {
+          headers: {}
+        }
+      );
+
+      // The API returns { success, total, contacts: [...] }
+      const contacts = contactsResponse.data.contacts;
+      if (!Array.isArray(contacts)) {
+        console.error('Contacts data is not an array:', contacts);
+        return;
+      }
+
+      console.log('Total contacts fetched:', contacts.length);
+      console.log('Selected tag filter:', selectedTag);
+
       const now = new Date();
       let startDate: Date;
 
-      // Set the start date based on the filter
       switch (filter) {
         case 'today':
           startDate = startOfDay(now);
@@ -926,73 +957,82 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
           break;
       }
 
-      const contactCounts: { [key: string]: number } = {};
+      console.log('Date range:', { startDate, endDate: now });
 
-      // Count contacts by date, considering the tag filter
-      contactsSnapshot.forEach((doc) => {
-        const contactData = doc.data();
-        
-        // Check if the contact has the selected tag (if a tag is selected)
+      const contactCounts: { [key: string]: number } = {};
+      let filteredContacts = 0;
+
+      contacts.forEach((contactData: any) => {
+        // Tag filter
         if (selectedTag !== 'all') {
           if (!contactData.tags || !contactData.tags.includes(selectedTag)) {
-            return; // Skip this contact if it doesn't have the selected tag
+            return;
           }
         }
 
-        const createdAt = contactData.createdAt?.toDate ? 
-          contactData.createdAt.toDate() : 
-          new Date(contactData.createdAt || contactData.dateAdded || new Date());
-        
-        if (createdAt >= startDate) {
-          let dateKey;
-          if (filter === 'today') {
-            dateKey = format(createdAt, 'HH:00');
-          } else if (filter === 'all') {
-            // For "all time" view, group by month
-            dateKey = format(createdAt, 'yyyy-MM');
-          } else {
-            dateKey = format(createdAt, 'yyyy-MM-dd');
-          }
-          
-          contactCounts[dateKey] = (contactCounts[dateKey] || 0) + 1;
+        // Use createdAt field
+        const createdAt = contactData.createdAt ? new Date(contactData.createdAt) : null;
+        if (!createdAt) {
+          console.log('Contact without createdAt:', contactData.id);
+          return;
         }
+
+        if (createdAt < startDate) {
+          return;
+        }
+
+        filteredContacts++;
+
+        let dateKey;
+        if (filter === 'today') {
+          dateKey = format(createdAt, 'HH:00');
+        } else if (filter === 'all') {
+          dateKey = format(createdAt, 'yyyy-MM');
+        } else {
+          dateKey = format(createdAt, 'yyyy-MM-dd');
+        }
+
+        contactCounts[dateKey] = (contactCounts[dateKey] || 0) + 1;
       });
+
+      console.log('Filtered contacts count:', filteredContacts);
+      console.log('Contact counts by date:', contactCounts);
 
       let timePoints: Date[];
       if (filter === 'today') {
         timePoints = eachHourOfInterval({ start: startDate, end: now });
       } else if (filter === 'all') {
-        // For "all time" view, create array of months
         timePoints = [];
-        let currentDate = startDate;
+        let currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
         while (currentDate <= now) {
-          timePoints.push(currentDate);
-          currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+          timePoints.push(new Date(currentDate));
+          currentDate.setMonth(currentDate.getMonth() + 1);
         }
       } else {
         timePoints = eachDayOfInterval({ start: startDate, end: now });
       }
 
-      let runningTotal = 0;
+      // Show actual counts per period, not cumulative
       const sortedData = timePoints.map(date => {
         const dateKey = filter === 'today'
           ? format(date, 'HH:00')
           : filter === 'all'
             ? format(date, 'yyyy-MM')
             : format(date, 'yyyy-MM-dd');
-        
-        runningTotal += contactCounts[dateKey] || 0;
-        
+
+        const count = contactCounts[dateKey] || 0;
+
         return {
           date: filter === 'today'
             ? format(date, 'HH:mm')
             : filter === 'all'
               ? format(date, 'MMM yyyy')
               : format(date, 'MMM dd'),
-          count: runningTotal
+          count: count
         };
       });
 
+      console.log('Final chart data:', sortedData);
       setContactsOverTime(sortedData);
 
     } catch (error) {
@@ -1002,16 +1042,26 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
   // Add useEffect to fetch tags when component mounts
   useEffect(() => {
-    fetchAvailableTags();
-  }, [companyId]);
+    const initializeTags = async () => {
+      const userEmail = localStorage.getItem('userEmail');
+      if (userEmail) {
+        await fetchAvailableTags();
+      }
+    };
+    initializeTags();
+  }, []);
 
   // Modify the existing useEffect to include selectedTag dependency
   useEffect(() => {
-    if (companyId) {
-      console.log('Fetching contacts with tag:', selectedTag); // Debug log
-      fetchContactsOverTime(contactsTimeFilter);
-    }
-  }, [companyId, contactsTimeFilter, selectedTag]); // Add selectedTag as dependency
+    const fetchData = async () => {
+      const userEmail = localStorage.getItem('userEmail');
+      if (userEmail) {
+        console.log('Fetching contacts with tag:', selectedTag); // Debug log
+        await fetchContactsOverTime(contactsTimeFilter);
+      }
+    };
+    fetchData();
+  }, [contactsTimeFilter, selectedTag]); // Add selectedTag as dependency
 
   const totalContactsChartData = useMemo(() => {
     return {
@@ -1112,18 +1162,35 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
   const [closedContactsByEmployee, setClosedContactsByEmployee] = useState<{ [key: string]: number }>({});
 
   async function fetchClosedContactsByEmployee() {
-    if (!companyId) {
-      console.error('CompanyId is not set. Unable to fetch closed contacts data.');
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+      console.error('User email not found. Unable to fetch closed contacts data.');
       return;
     }
+
     try {
-      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const contactsSnapshot = await getDocs(contactsRef);
+      // Get companyId from user data
+      const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const companyId = userResponse.data.company_id;
+      if (!companyId) return;
+
+      // Get contacts data
+      const contactsResponse = await axios.get(
+        `https://julnazz.ngrok.dev/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
+        {
+          headers: {}
+        }
+      );
+      // Handle API response format { success, total, contacts: [...] }
+      const contacts = contactsResponse.data.contacts || [];
       
       const closedContacts: { [key: string]: number } = {};
 
-      contactsSnapshot.forEach((doc) => {
-        const contactData = doc.data();
+      contacts.forEach((contactData: any) => {
         if (contactData.tags && contactData.tags.includes('closed') && contactData.assignedTo) {
           closedContacts[contactData.assignedTo] = (closedContacts[contactData.assignedTo] || 0) + 1;
         }
@@ -1223,7 +1290,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
         if (!monthlyData[row.month_key]) {
           monthlyData[row.month_key] = { scheduled: 0, completed: 0, failed: 0 };
         }
-        if (row.status === 'completed') monthlyData[row.month_key].completed = Number(row.count);
+        if (row.status === 'sent') monthlyData[row.month_key].completed = Number(row.count);
         else if (row.status === 'failed') monthlyData[row.month_key].failed = Number(row.count);
         else monthlyData[row.month_key].scheduled = Number(row.count);
       });
@@ -1432,49 +1499,63 @@ async function fetchEmployees() {
   // Add the function to fetch contacts for a specific period
   const fetchContactsForPeriod = async (periodStart: Date, periodEnd: Date) => {
     try {
-      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const contactsSnapshot = await getDocs(contactsRef);
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) return;
+
+      // Get companyId from user data
+      const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const companyId = userResponse.data.company_id;
+      if (!companyId) return;
+
+      // Get contacts data
+      const contactsResponse = await axios.get(`https://julnazz.ngrok.dev/api/companies/${companyId}/contacts`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      // Handle API response format { success, total, contacts: [...] }
+      const contacts = contactsResponse.data.contacts || [];
       
       const periodContacts: Contact[] = [];
       
-      contactsSnapshot.forEach((doc) => {
-        const contactData = doc.data();
-        
-        if (doc.id.startsWith('+') && contactData.createdAt) {
-          const createdAt = contactData.createdAt.toDate ? 
-            contactData.createdAt.toDate() : 
-            new Date(contactData.createdAt);
+      contacts.forEach((contactData: any) => {
+        if (contactData.phone && contactData.phone.startsWith('+') && contactData.createdAt) {
+          const createdAt = new Date(contactData.createdAt);
           
           if (createdAt >= periodStart && createdAt < periodEnd) {
             if (selectedTag === 'all' || (contactData.tags && contactData.tags.includes(selectedTag))) {
               periodContacts.push({
-                id: doc.id,
-                additionalEmails: contactData.additionalEmails || [],
-                address1: contactData.address1 || null,
-                assignedTo: contactData.assignedTo || null,
-                businessId: contactData.businessId || null,
-                city: contactData.city || null,
-                companyName: contactData.companyName || null,
-                contactName: contactData.contactName || '',
-                country: contactData.country || '',
+                id: contactData.contact_id || contactData.id,
+                additionalEmails: [],
+                address1: null,
+                assignedTo: contactData.assignedTo?.length > 0 ? contactData.assignedTo[0] : null,
+                businessId: null,
+                city: null,
+                companyName: null,
+                contactName: contactData.name || '',
+                country: '',
                 customFields: contactData.customFields || [],
                 dateAdded: format(createdAt, 'MMM dd, yyyy HH:mm'),
-                dateOfBirth: contactData.dateOfBirth || null,
-                dateUpdated: contactData.dateUpdated || '',
-                dnd: contactData.dnd || false,
-                dndSettings: contactData.dndSettings || {},
+                dateOfBirth: null,
+                dateUpdated: contactData.lastUpdated || '',
+                dnd: false,
+                dndSettings: {},
                 email: contactData.email || null,
-                firstName: contactData.firstName || '',
-                followers: contactData.followers || [],
-                lastName: contactData.lastName || '',
-                locationId: contactData.locationId || '',
+                firstName: contactData.name?.split(' ')[0] || '',
+                followers: [],
+                lastName: contactData.name?.split(' ').slice(1).join(' ') || '',
+                locationId: '',
                 phone: contactData.phone || null,
-                postalCode: contactData.postalCode || null,
-                source: contactData.source || null,
-                state: contactData.state || null,
+                postalCode: null,
+                source: null,
+                state: null,
                 tags: contactData.tags || [],
-                type: contactData.type || '',
-                website: contactData.website || null
+                type: contactData.isIndividual ? 'individual' : 'company',
+                website: null
               });
             }
           }
@@ -1593,35 +1674,52 @@ async function fetchEmployees() {
   // Update the fetchAssignmentsData function
   const fetchAssignmentsData = async () => {
     try {
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) return;
+
+      // Get companyId from user data
+      const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const companyId = userResponse.data.company_id;
+      
       if (companyId !== '072') return;
 
-      const assignmentsRef = collection(firestore, 'companies', '072', 'assignments');
-      const assignmentsSnapshot = await getDocs(assignmentsRef);
+      // TODO: Replace with actual assignments API endpoint when available
+      // For now, using contacts data as a placeholder
+      const contactsResponse = await axios.get(`https://julnazz.ngrok.dev/api/companies/${companyId}/contacts`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      // Handle API response format { success, total, contacts: [...] }
+      const contacts = contactsResponse.data.contacts || [];
 
       const employeeAssignments: EmployeeAssignments = {};
 
-      assignmentsSnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.assigned && data.timestamp) {
-          const date = format(data.timestamp.toDate(), 'yyyy-MM-dd');
+      contacts.forEach((contactData: any) => {
+        if (contactData.assignedTo && contactData.createdAt) {
+          const date = format(new Date(contactData.createdAt), 'yyyy-MM-dd');
           
-          if (!employeeAssignments[data.assigned]) {
-            employeeAssignments[data.assigned] = {
+          if (!employeeAssignments[contactData.assignedTo]) {
+            employeeAssignments[contactData.assignedTo] = {
               daily: [],
               total: 0
             };
           }
 
-          const existingDayIndex = employeeAssignments[data.assigned].daily.findIndex(
+          const existingDayIndex = employeeAssignments[contactData.assignedTo].daily.findIndex(
             d => d.date === date
           );
 
           if (existingDayIndex >= 0) {
-            employeeAssignments[data.assigned].daily[existingDayIndex].count++;
+            employeeAssignments[contactData.assignedTo].daily[existingDayIndex].count++;
           } else {
-            employeeAssignments[data.assigned].daily.push({ date, count: 1 });
+            employeeAssignments[contactData.assignedTo].daily.push({ date, count: 1 });
           }
-          employeeAssignments[data.assigned].total++;
+          employeeAssignments[contactData.assignedTo].total++;
         }
       });
 
@@ -2012,52 +2110,32 @@ async function fetchEmployees() {
   // Add this new function to handle contact assignment
   const assignContactToEmployee = async (contactId: string, employeeName: string) => {
     try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      if (!user) {
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
         console.error('No authenticated user');
         return;
       }
 
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      // Get companyId from user data
+      const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const companyId = userResponse.data.company_id;
+      if (!companyId) return;
 
-      // Get the contact document
-      const contactRef = doc(firestore, 'companies', companyId, 'contacts', contactId);
-      const contactSnapshot = await getDoc(contactRef);
-      
-      if (!contactSnapshot.exists()) {
-        console.error('Contact does not exist');
-        return;
-      }
+      // Add tag to contact using API
+      await axios.post(`https://julnazz.ngrok.dev/api/contacts/${companyId}/${contactId}/tags`, {
+        tags: [employeeName]
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
 
-      const contactData = contactSnapshot.data();
-      const currentTags = contactData.tags || [];
-
-      // Check if the employee name is already in tags
-      if (!currentTags.includes(employeeName)) {
-        // Add the employee name to the tags array
-        await updateDoc(contactRef, {
-          tags: [...currentTags, employeeName]
-        });
-
-        // Update the employee's assigned contacts count
-        const employeeRef = doc(firestore, 'companies', companyId, 'employee', employeeName);
-        await updateDoc(employeeRef, {
-          assignedContacts: increment(1)
-        });
-
-        // Update monthly assignments
-        await updateMonthlyAssignments(employeeName, 1);
-
-        
-      }
+      // Update monthly assignments
+      await updateMonthlyAssignments(employeeName, 1);
 
     } catch (error) {
       console.error('Error assigning contact:', error);
@@ -2067,51 +2145,31 @@ async function fetchEmployees() {
   // Add this function to remove assignment
   const removeContactAssignment = async (contactId: string, employeeName: string) => {
     try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      if (!user) {
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
         console.error('No authenticated user');
         return;
       }
 
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      // Get companyId from user data
+      const userResponse = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const companyId = userResponse.data.company_id;
+      if (!companyId) return;
 
-      // Get the contact document
-      const contactRef = doc(firestore, 'companies', companyId, 'contacts', contactId);
-      const contactSnapshot = await getDoc(contactRef);
-      
-      if (!contactSnapshot.exists()) {
-        console.error('Contact does not exist');
-        return;
-      }
+      // Remove tag from contact using API
+      await axios.delete(`https://julnazz.ngrok.dev/api/contacts/${companyId}/${contactId}/tags`, {
+        data: { tags: [employeeName] },
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
 
-      const contactData = contactSnapshot.data();
-      const currentTags = contactData.tags || [];
-
-      // Remove the employee name from tags
-      if (currentTags.includes(employeeName)) {
-        await updateDoc(contactRef, {
-          tags: currentTags.filter((tag: string) => tag !== employeeName)
-        });
-
-        // Update the employee's assigned contacts count
-        const employeeRef = doc(firestore, 'companies', companyId, 'employee', employeeName);
-        await updateDoc(employeeRef, {
-          assignedContacts: increment(-1)
-        });
-
-        // Update monthly assignments
-        await updateMonthlyAssignments(employeeName, -1);
-
-        
-      }
+      // Update monthly assignments
+      await updateMonthlyAssignments(employeeName, -1);
 
     } catch (error) {
       console.error('Error removing contact assignment:', error);

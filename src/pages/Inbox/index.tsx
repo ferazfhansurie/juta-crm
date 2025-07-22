@@ -1081,7 +1081,7 @@ console.log(companyData);
                         </Button>
                       </Link>
                       <a 
-                        href={`https://web.jutasoftware.co/guest-chat/${companyId}`} 
+                        href={`https://web.jutateknologi.com/guest-chat/${companyId}`} 
                         target="_blank" 
                         rel="noopener noreferrer"
                       >

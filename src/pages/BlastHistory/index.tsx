@@ -1,7 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { getAuth } from "firebase/auth";
-import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Button from "@/components/Base/Button";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -19,48 +16,20 @@ interface Tag {
 
 interface ScheduledMessage {
   id: string;
-  message: string;
-  chatIds: string[];
+  messageContent: string;
+  contactIds: string[];
+  contactId?: string;
   companyId: string;
   createdAt: Date;
-  documentUrl: string;
-  fileName: string | null;
-  mediaUrl: string;
-  status: 'scheduled' | 'completed' | 'failed';
-  batchQuantity: number;
-  activateSleep: boolean;
-  maxDelay: number | null;
-  minDelay: number | null;
-  numberOfBatches: number;
-  phoneIndex: number;
-  repeatInterval: number;
-  repeatUnit: string;
   scheduledTime: Date;
-  sleepAfterMessages: number | null;
-  sleepDuration: number | null;
-  type: string;
-  v2: boolean;
-  whapiToken: string | null;
-  recipients?: {
-    name: string;
-    phone: string;
-  }[];
-  batches?: {
-    id: string;
-    status: string;
-    count: number;
-  }[];
-  messages?: {
-    text: string;
-    delayAfter?: number;
-  }[];
-  messageDelays?: number[];
-  templateData?: {
-    hasPlaceholders: boolean;
-  };
-  processedMessages?: {
-    message: string;
-  }[];
+  status: 'scheduled' | 'completed' | 'failed';
+  mediaUrl?: string;
+  phoneIndex: number;
+  multiple: boolean;
+  attemptCount: number;
+  lastAttempt?: Date;
+  sentAt?: Date;
+  fromMe: boolean;
 }
 
 const BlastHistoryPage: React.FC = () => {
@@ -74,35 +43,66 @@ const BlastHistoryPage: React.FC = () => {
     const [selectedRecipients, setSelectedRecipients] = useState<{name: string; phone: string;}[]>([]);
     const [isRecipientsModalOpen, setIsRecipientsModalOpen] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [companyId, setCompanyId] = useState<string>("");
+
+    const baseUrl = "https://julnazz.ngrok.dev";
 
     useEffect(() => {
-        const initializeFirestore = async () => {
+        const initialize = async () => {
             try {
-                const auth = getAuth();
-                // Wait for auth state to be ready
-                await new Promise((resolve) => {
-                    const unsubscribe = auth.onAuthStateChanged((user) => {
-                        unsubscribe();
-                        resolve(user);
-                    });
-                });
-
-                if (!auth.currentUser) {
+                const userEmail = localStorage.getItem("userEmail");
+                if (!userEmail) {
                     setError("User not authenticated");
                     return;
                 }
 
-                await fetchTags();
-                await fetchScheduledMessages();
+                await fetchUserData();
             } catch (err) {
                 console.error("Initialization error:", err);
-                setError("Failed to initialize Firestore connection");
-                toast.error("Failed to connect to database");
+                setError("Failed to initialize");
+                toast.error("Failed to load data");
             }
         };
 
-        initializeFirestore();
+        initialize();
     }, []);
+
+    const fetchUserData = async () => {
+        try {
+            const userEmail = localStorage.getItem("userEmail");
+            if (!userEmail) {
+                throw new Error("No user email found");
+            }
+
+            const userResponse = await fetch(
+                `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    },
+                    credentials: "include",
+                }
+            );
+
+            if (!userResponse.ok) {
+                throw new Error("Failed to fetch user config");
+            }
+
+            const userData = await userResponse.json();
+            const fetchedCompanyId = userData?.company_id;
+            
+            if (!fetchedCompanyId) {
+                throw new Error("Company ID not found");
+            }
+
+            setCompanyId(fetchedCompanyId);
+        } catch (error) {
+            console.error("Error fetching user data:", error);
+            throw error;
+        }
+    };
 
     const fetchTags = async () => {
         let retryCount = 0;
@@ -110,30 +110,25 @@ const BlastHistoryPage: React.FC = () => {
         
         while (retryCount < maxRetries) {
             try {
-                const auth = getAuth();
-                const firestore = getFirestore();
-                const user = auth.currentUser;
-                
-                if (!user) {
-                    throw new Error("User not authenticated");
+                if (!companyId) return;
+
+                const tagsResponse = await fetch(
+                    `${baseUrl}/api/companies/${companyId}/tags`,
+                    {
+                        method: "GET",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                        },
+                        credentials: "include",
+                    }
+                );
+
+                if (!tagsResponse.ok) {
+                    throw new Error("Failed to fetch tags");
                 }
 
-                const userRef = doc(firestore, 'user', user.email!);
-                const userSnap = await getDoc(userRef);
-                
-                if (!userSnap.exists()) {
-                    throw new Error("User data not found");
-                }
-                
-                const userData = userSnap.data() as User;
-                const tagsRef = collection(firestore, `companies/${userData.companyId}/tags`);
-                const tagsSnapshot = await getDocs(tagsRef);
-                
-                const fetchedTags = tagsSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    name: doc.data().name
-                }));
-
+                const fetchedTags = await tagsResponse.json();
                 setTags(fetchedTags);
                 return;
             } catch (error) {
@@ -151,20 +146,6 @@ const BlastHistoryPage: React.FC = () => {
         }
     };
 
-    const uploadDocument = async (file: File): Promise<string> => {
-        const storage = getStorage();
-        const storageRef = ref(storage, `quickReplies/${file.name}`);
-        await uploadBytes(storageRef, file);
-        return await getDownloadURL(storageRef);
-    };
-
-    const uploadImage = async (file: File): Promise<string> => {
-        const storage = getStorage();
-        const storageRef = ref(storage, `images/${file.name}`);
-        await uploadBytes(storageRef, file);
-        return await getDownloadURL(storageRef);
-    };
-
     const fetchScheduledMessages = async () => {
         let retryCount = 0;
         const maxRetries = 3;
@@ -172,74 +153,76 @@ const BlastHistoryPage: React.FC = () => {
         while (retryCount < maxRetries) {
             try {
                 setLoading(true);
-                const auth = getAuth();
-                const firestore = getFirestore();
-                const user = auth.currentUser;
                 
-                if (!user) {
-                    throw new Error("User not authenticated");
+                if (!companyId) {
+                    throw new Error("Company ID not available");
                 }
 
-                const userRef = doc(firestore, 'user', user.email!);
-                const userSnap = await getDoc(userRef);
-                
-                if (!userSnap.exists()) {
-                    throw new Error("User data not found");
+                // Map frontend filter to API status
+                const apiStatus = filter === 'completed' ? 'sent' : filter;
+
+                const messagesResponse = await fetch(
+                    `${baseUrl}/api/scheduled-messages?companyId=${companyId}&status=${apiStatus !== 'all' ? apiStatus : ''}`,
+                    {
+                        method: "GET",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                        },
+                        credentials: "include",
+                    }
+                );
+
+                if (!messagesResponse.ok) {
+                    throw new Error("Failed to fetch scheduled messages");
                 }
+
+                const responseData = await messagesResponse.json();
                 
-                const userData = userSnap.data() as User;
-                const messagesRef = collection(firestore, `companies/${userData.companyId}/scheduledMessages`);
-                const q = query(messagesRef, orderBy('createdAt', 'desc'));
-                const messagesSnapshot = await getDocs(q);
-                
-                const fetchedMessages = await Promise.all(messagesSnapshot.docs.map(async (docSnapshot) => {
-                    const messageData = docSnapshot.data();
-                    
-                    // Log data types for debugging
-                    console.log('Message ID:', docSnapshot.id);
-                    console.log('createdAt type:', messageData.createdAt ? typeof messageData.createdAt : 'undefined', 
-                                messageData.createdAt ? Object.prototype.toString.call(messageData.createdAt) : '');
-                    console.log('scheduledTime type:', messageData.scheduledTime ? typeof messageData.scheduledTime : 'undefined',
-                                messageData.scheduledTime ? Object.prototype.toString.call(messageData.scheduledTime) : '');
-                    
-                    // Handle different possible formats of date fields
+                if (!responseData.success) {
+                    throw new Error(responseData.message || "Failed to fetch scheduled messages");
+                }
+
+                const fetchedMessages = responseData.messages.map((messageData: any) => {
+                    // Convert dates from API response
                     const convertToDate = (field: any): Date => {
                         if (!field) return new Date();
                         
-                        // If it's a Firestore timestamp with toDate method
-                        if (field.toDate && typeof field.toDate === 'function') {
-                            return field.toDate();
-                        }
-                        
-                        // If it's a JavaScript Date object
                         if (field instanceof Date) {
                             return field;
                         }
                         
-                        // If it's a timestamp number (seconds or milliseconds)
+                        if (typeof field === 'string') {
+                            return new Date(field);
+                        }
+                        
                         if (typeof field === 'number') {
-                            // Check if it's seconds (Firestore) or milliseconds (JS Date)
                             return field > 100000000000 
                                 ? new Date(field) // milliseconds
                                 : new Date(field * 1000); // seconds
                         }
                         
-                        // If it's an ISO string or other string format
-                        if (typeof field === 'string') {
-                            return new Date(field);
-                        }
-                        
-                        // Default fallback
                         return new Date();
                     };
                     
                     return {
-                        id: docSnapshot.id,
-                        ...messageData,
-                        createdAt: convertToDate(messageData.createdAt),
-                        scheduledTime: convertToDate(messageData.scheduledTime)
+                        id: messageData.id,
+                        messageContent: messageData.messageContent || messageData.message_content || '',
+                        contactIds: messageData.contactIds || messageData.contact_ids || [],
+                        contactId: messageData.contactId || messageData.contact_id || '',
+                        companyId: messageData.companyId || messageData.company_id,
+                        createdAt: convertToDate(messageData.createdAt || messageData.created_at),
+                        scheduledTime: convertToDate(messageData.scheduledTime || messageData.scheduled_time),
+                        status: messageData.status === 'sent' ? 'completed' : messageData.status,
+                        mediaUrl: messageData.mediaUrl || messageData.media_url,
+                        phoneIndex: messageData.phoneIndex || messageData.phone_index || 0,
+                        multiple: messageData.multiple || false,
+                        attemptCount: messageData.attemptCount || messageData.attempt_count || 0,
+                        lastAttempt: messageData.lastAttempt ? convertToDate(messageData.lastAttempt) : undefined,
+                        sentAt: messageData.sentAt ? convertToDate(messageData.sentAt) : undefined,
+                        fromMe: messageData.fromMe || messageData.from_me || false
                     } as ScheduledMessage;
-                }));
+                });
 
                 setMessages(fetchedMessages);
                 return;
@@ -247,7 +230,6 @@ const BlastHistoryPage: React.FC = () => {
                 retryCount++;
                 console.error(`Error fetching messages (attempt ${retryCount}/${maxRetries}):`, error);
                 
-                // Add more detailed logging to help diagnose issues
                 if (error instanceof Error) {
                     console.error('Error details:', error.message);
                     console.error('Error stack:', error.stack);
@@ -257,7 +239,6 @@ const BlastHistoryPage: React.FC = () => {
                     toast.error("Failed to fetch messages");
                     setError("Failed to fetch messages");
                 } else {
-                    // Exponential backoff
                     await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
                 }
             } finally {
@@ -266,19 +247,36 @@ const BlastHistoryPage: React.FC = () => {
         }
     };
 
+    // Re-fetch messages when filter or companyId changes
+    useEffect(() => {
+        if (companyId) {
+            fetchScheduledMessages();
+            fetchTags();
+        }
+    }, [filter, companyId]);
+
     const handleDeleteMessage = async (messageId: string) => {
         try {
-            const auth = getAuth();
-            const firestore = getFirestore();
-            const user = auth.currentUser;
-            if (!user) return;
+            if (!companyId) {
+                toast.error("Company ID not available");
+                return;
+            }
 
-            const userRef = doc(firestore, 'user', user.email!);
-            const userData = (await getDoc(userRef)).data() as User;
-            
-            // Delete the message document
-            await deleteDoc(doc(firestore, `companies/${userData.companyId}/scheduledMessages/${messageId}`));
-            
+            const response = await fetch(
+                `${baseUrl}/api/schedule-message/${companyId}/${messageId}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    credentials: "include",
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error("Failed to delete message");
+            }
+
             // Update the local state
             setMessages(messages.filter(msg => msg.id !== messageId));
             toast.success('Message deleted successfully');
@@ -294,7 +292,7 @@ const BlastHistoryPage: React.FC = () => {
         
         // Then apply search filter if there's a search query
         if (searchQuery.trim()) {
-            return message.message.toLowerCase().includes(searchQuery.toLowerCase());
+            return message.messageContent.toLowerCase().includes(searchQuery.toLowerCase());
         }
         
         return true;
@@ -323,17 +321,9 @@ const BlastHistoryPage: React.FC = () => {
 
     const processScheduledMessage = (message: ScheduledMessage) => {
         try {
-            if (!message.message) return 'No message content';
+            if (!message.messageContent) return 'No message content';
             
-            if (!message.templateData?.hasPlaceholders) {
-                return message.message;
-            }
-
-            if (message.processedMessages && message.processedMessages.length > 0) {
-                return `Template: ${message.message}\nExample: ${message.processedMessages[0].message}`;
-            }
-
-            return message.message;
+            return message.messageContent;
         } catch (error) {
             console.error('Error processing message:', error);
             return 'Error displaying message';
@@ -522,112 +512,62 @@ const BlastHistoryPage: React.FC = () => {
                                                         </p>
                                                     </div>
 
-                                                    {/* Additional Messages */}
-                                                    {message.messages && message.messages.length > 0 && (
-                                                        <div className="mt-3 space-y-3">
-                                                            {message.messages.map((msg, index) => (
-                                                                <div key={index} className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                                                                    <p className="font-medium text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                                                        Message {index + 2}
-                                                                    </p>
-                                                                    <p className="line-clamp-2 whitespace-pre-line">
-                                                                        {msg.text}
-                                                                    </p>
-                                                                    {message.messageDelays && message.messageDelays[index] > 0 && (
-                                                                        <div className="flex items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                                                            <svg className="mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                            </svg>
-                                                                            Delay: {message.messageDelays[index]} seconds
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ))}
+                                                    {/* Media */}
+                                                    {message.mediaUrl && (
+                                                        <div className="mt-3">
+                                                            <div className="flex items-center text-xs text-blue-600 dark:text-blue-400">
+                                                                <svg className="mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                                                </svg>
+                                                                Media attached
+                                                            </div>
                                                         </div>
                                                     )}
 
-                                                    {/* Message Settings */}
+                                                    {/* Message Details */}
                                                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                                                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Settings</h4>
+                                                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Details</h4>
                                                         <div className="grid grid-cols-2 gap-3 text-xs">
-                                                            {/* Batch Settings */}
+                                                            {/* Phone Index */}
                                                             <div className="flex items-center">
                                                                 <svg className="mr-1.5 h-3 w-3 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                                                 </svg>
                                                                 <span className="text-gray-700 dark:text-gray-300">
-                                                                    <span className="font-medium">Batch:</span> {message.batchQuantity}
+                                                                    <span className="font-medium">Phone:</span> {message.phoneIndex + 1}
                                                                 </span>
                                                             </div>
                                                             
-                                                            {/* Delay Settings */}
-                                                            {(message.minDelay || message.maxDelay) && (
+                                                            {/* Contact Count */}
+                                                            {((message.contactIds && message.contactIds.length > 0) || message.contactId) && (
                                                                 <div className="flex items-center">
                                                                     <svg className="mr-1.5 h-3 w-3 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                                                                     </svg>
                                                                     <span className="text-gray-700 dark:text-gray-300">
-                                                                        <span className="font-medium">Delay:</span> {message.minDelay}-{message.maxDelay}s
+                                                                        <span className="font-medium">Recipients:</span> {
+                                                                            message.contactIds && message.contactIds.length > 0 
+                                                                                ? message.contactIds.length 
+                                                                                : message.contactId ? 1 : 0
+                                                                        }
                                                                     </span>
                                                                 </div>
                                                             )}
 
-                                                            {/* Sleep Settings */}
-                                                            {message.activateSleep && (
-                                                                <>
-                                                                    <div className="flex items-center">
-                                                                        <svg className="mr-1.5 h-3 w-3 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                                                                        </svg>
-                                                                        <span className="text-gray-700 dark:text-gray-300">
-                                                                            <span className="font-medium">Sleep After:</span> {message.sleepAfterMessages}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="flex items-center">
-                                                                        <svg className="mr-1.5 h-3 w-3 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                        </svg>
-                                                                        <span className="text-gray-700 dark:text-gray-300">
-                                                                            <span className="font-medium">Duration:</span> {message.sleepDuration} min
-                                                                        </span>
-                                                                    </div>
-                                                                </>
+                                                            {/* Attempt Count */}
+                                                            {message.attemptCount > 0 && (
+                                                                <div className="flex items-center">
+                                                                    <svg className="mr-1.5 h-3 w-3 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                                    </svg>
+                                                                    <span className="text-gray-700 dark:text-gray-300">
+                                                                        <span className="font-medium">Attempts:</span> {message.attemptCount}
+                                                                    </span>
+                                                                </div>
                                                             )}
                                                         </div>
                                                     </div>
                                                 </div>
-
-                                                {/* Attachments */}
-                                                {(message.mediaUrl || message.documentUrl) && (
-                                                    <div className="flex flex-wrap gap-2 mt-3">
-                                                        {message.mediaUrl && (
-                                                            <div className="flex items-center text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                                                                <svg className="mr-1.5 h-3 w-3 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                                </svg>
-                                                                <span className="text-gray-700 dark:text-gray-300">Media</span>
-                                                            </div>
-                                                        )}
-                                                        {message.documentUrl && (
-                                                            <div className="flex items-center text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                                                                <svg className="mr-1.5 h-3 w-3 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                                </svg>
-                                                                <span className="text-gray-700 dark:text-gray-300">{message.fileName || 'Document'}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* Recipients Summary */}
-                                                {message.recipients && message.recipients.length > 0 && (
-                                                    <div className="mt-3 flex items-center text-xs text-gray-600 dark:text-gray-400">
-                                                        <svg className="mr-1.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                                        </svg>
-                                                        <span>{message.recipients.length} recipients</span>
-                                                    </div>
-                                                )}
                                             </div>
 
                                             <div className="bg-gray-50 dark:bg-gray-700 px-5 py-3 flex justify-end mt-auto">

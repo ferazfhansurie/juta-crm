@@ -2298,50 +2298,86 @@ function Main() {
   const handleSyncContactNames = async () => {
     try {
       setFetching(true);
-      const user = auth.currentUser;
-      if (!user) {
+
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
         setFetching(false);
-        toast.error("User not authenticated");
+        toast.error("No user email found");
         return;
       }
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        setFetching(false);
-        toast.error("User document not found");
-        return;
-      }
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData?.companyId;
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error("No company document found");
-      const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
-      if (!companyId) {
-        setFetching(false);
-        toast.error("Company ID not found");
-        return;
-      }
-
-      // Call the new API endpoint for contact names sync
-      const response = await axios.post(
-        `${baseUrl}/api/sync-contact-names/${companyId}`
+      // Get user config to get companyId
+      const userResponse = await fetch(
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(
+          userEmail
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
       );
 
-      if (response.status === 200 && response.data.success) {
-        toast.success("Contact names synchronization started successfully");
-        // You might want to add some UI indication that sync is in progress
-      } else {
-        console.error(
-          "Failed to start contact names synchronization:",
-          response.data.error
-        );
+      if (!userResponse.ok) {
+        setFetching(false);
+        toast.error("Failed to fetch user config");
+        return;
+      }
+
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+      setCompanyId(companyId);
+
+      // Get company data
+      const companyResponse = await fetch(
+        `${baseUrl}/api/companies/${companyId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!companyResponse.ok) {
+        setFetching(false);
+        toast.error("Failed to fetch company data");
+        return;
+      }
+
+      const companyData = await companyResponse.json();
+
+      // Call the sync contact names endpoint
+      const syncResponse = await fetch(
+        `${baseUrl}/api/sync-contact-names/${companyId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!syncResponse.ok) {
+        const errorData = await syncResponse.json();
         throw new Error(
-          response.data.error || "Failed to start contact names synchronization"
+          errorData.error || "Failed to start contact names synchronization"
+        );
+      }
+
+      const responseData = await syncResponse.json();
+      if (responseData.success) {
+        toast.success("Contact names synchronization started successfully");
+      } else {
+        throw new Error(
+          responseData.error || "Failed to start contact names synchronization"
         );
       }
     } catch (error) {
