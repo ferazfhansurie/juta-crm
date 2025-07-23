@@ -215,14 +215,17 @@ function Main() {
     id: string;
     name: string;
     role: string;
-    uid: string;
+    uid?: string;
     email: string;
     assignedContacts: number;
-    company: string;
-    companyId: string;
-    phoneNumber: string;
+    company?: string;
+    companyId?: string;
+    phone?: string;
+    phoneNumber?: string;
     monthlyAssignments?: { [key: string]: number };
     closedContacts?: number;
+    outgoingMessages?: number;
+    currentMonthAssignments?: number;
   }
   interface Appointment {
     id: string;
@@ -265,6 +268,19 @@ interface Tag {
   const [totalAppointments, setTotalAppointments] = useState(0);
   // Add these new state variables
   const [responseRate, setResponseRate] = useState(0);
+  const [conversionRate, setConversionRate] = useState(0);
+  const [leadsOverview, setLeadsOverview] = useState<{
+    total: number;
+    today: number;
+    week: number;
+    month: number;
+  }>({ total: 0, today: 0, week: 0, month: 0 });
+  const [phoneLineStats, setPhoneLineStats] = useState<Array<{
+    phoneIndex: number;
+    totalAssignments: number;
+    uniqueContacts: number;
+    activeAgents: number;
+  }>>([]);
   const [averageRepliesPerLead, setAverageRepliesPerLead] = useState(0);
   const [engagementScore, setEngagementScore] = useState(0);
   // Add this new state variable for the search query
@@ -317,7 +333,6 @@ interface Tag {
 
   useEffect(() => {
     fetchCompanyData();
-    fetchEmployees();
   }, []);
   async function fetchAppointments() {
     try {
@@ -459,11 +474,12 @@ interface Tag {
       if (!employeeData) return null;
 
       // Get contacts data
-      const contactsResponse = await axios.get(`https://julnazz.ngrok.dev/api/companies/${companyId}/contacts`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+      const contactsResponse = await axios.get(
+        `https://julnazz.ngrok.dev/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
+        {
+          headers: {}
         }
-      });
+      );
       // Handle API response format { success, total, contacts: [...] }
       const contacts = contactsResponse.data.contacts || [];
       
@@ -501,9 +517,12 @@ interface Tag {
         monthlyAssignments[currentMonth] = employeeData.assignedContacts;
       }
 
-      // Count current closed contacts
+      // Count current closed contacts for this employee
       const closedContacts = contacts.filter((contactData: any) => {
-        return contactData.tags?.includes('closed') && contactData.tags?.includes(employeeData.name);
+        // Check if contact is closed and assigned to this employee by tag
+        const tags = contactData.tags?.map((tag: string) => tag.toLowerCase()) || [];
+        console.log(`Checking contact tags for closed status: ${tags}`);
+        return tags.includes('closed') && tags.includes(employeeData.name.toLowerCase());
       }).length;
 
       console.log(`Fetched employee data for ${employeeData.name}:`, {
@@ -557,8 +576,8 @@ interface Tag {
   // Usage in your component
   useEffect(() => {
     async function loadEmployeeData() {
-      if (currentUser) {
-        const employeeData = await fetchEmployeeData(currentUser.uid);
+      if (currentUser && currentUser.id) {
+        const employeeData = await fetchEmployeeData(currentUser.id);
         if (employeeData) {
           setSelectedEmployee(employeeData);
         }
@@ -1328,6 +1347,17 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
     outgoingMessagesSent: number;
     averageResponseTime: number;
     closedContacts: number;
+    currentMonthAssignments?: number;
+    employeeName?: string;
+    employeeRole?: string;
+    responseTimes?: Array<{
+      contactId: string;
+      responseTime: number;
+      timestamp: string;
+    }>;
+    medianResponseTime?: number;
+    phoneAssignments?: { [key: string]: number };
+    weightageUsed?: { [key: string]: any };
   }
 
   // Add this new state
@@ -1341,75 +1371,163 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       const userRes = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`);
       const companyId = userRes.data.company_id;
       if (!companyId) return;
-  
-      // Get company data from company-config endpoint
-      const companyRes = await axios.get(`https://julnazz.ngrok.dev/api/company-config/${companyId}`);
-      const companyData = companyRes.data.companyData;
-  
-      // Use companyData as needed, e.g.:
-      // setCompanyData(companyData);
-      // setPhoneCount(companyData.phoneCount);
-      // setBaseUrl(companyData.apiUrl);
-  
-      // If you have a refreshAccessToken function, call it here if needed
-      // refreshAccessToken(companyData.ghl_accessToken);
+
+      // Use the new dashboard endpoint that provides comprehensive data
+      const dashboardRes = await axios.get(`https://julnazz.ngrok.dev/api/dashboard/${companyId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const dashboardData = dashboardRes.data;
+
+      // Update state with dashboard data
+      if (dashboardData) {
+        // Set total contacts from KPI data
+        total_contacts = dashboardData.kpi.totalContacts;
+        setTotalContacts(dashboardData.kpi.totalContacts);
+        setClosedContacts(dashboardData.kpi.closedContacts);
+        setOpenContacts(dashboardData.kpi.openContacts);
+        setReplies(dashboardData.kpi.numReplies);
+        
+        // Set engagement metrics
+        if (dashboardData.engagementMetrics) {
+          setResponseRate(parseFloat(dashboardData.engagementMetrics.responseRate));
+          setEngagementScore(parseFloat(dashboardData.engagementMetrics.engagementScore));
+          setConversionRate(parseFloat(dashboardData.engagementMetrics.conversionRate));
+        }
+        
+        // Set leads overview
+        if (dashboardData.leadsOverview) {
+          setLeadsOverview(dashboardData.leadsOverview);
+        }
+        
+        // Set phone line stats
+        if (dashboardData.phoneLineStats) {
+          setPhoneLineStats(dashboardData.phoneLineStats);
+        }
+        
+        // Set employee data from the dashboard response
+        const employeeListData: Employee[] = dashboardData.employeePerformance.map((emp: any) => ({
+          id: emp.employee_id,
+          name: emp.name,
+          email: emp.email,
+          role: emp.role,
+          phone: emp.phone_number,
+          assignedContacts: emp.assignedContacts || 0,
+          outgoingMessages: emp.outgoingMessages || 0,
+          closedContacts: emp.closedContacts || 0,
+          currentMonthAssignments: emp.current_month_assignments || 0
+        }));
+
+        // If no employee has assigned contacts, try to get assignment data from the assignments table
+        const hasAssignments = employeeListData.some(emp => emp.assignedContacts > 0);
+        if (!hasAssignments) {
+          console.log('No assignments found in dashboard data, fetching from assignments endpoint...');
+          try {
+            // Get assignments data from the separate employees endpoint
+            const employeesResponse = await axios.get(`https://julnazz.ngrok.dev/api/employees-data/${companyId}`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            const employeesData = employeesResponse.data;
+
+            // Get contacts data to count assignments by employee tags
+            const contactsResponse = await axios.get(
+              `https://julnazz.ngrok.dev/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+              }
+            );
+            const contacts = contactsResponse.data.contacts || [];
+
+            console.log('Sample contact for debugging assignments:', contacts[0]);
+            console.log('Available employees:', employeesData.map((emp: any) => emp.name));
+
+            // Create a map to count contacts per employee
+            const contactCountMap: { [key: string]: number } = {};
+            const closedCountMap: { [key: string]: number } = {};
+            
+            contacts.forEach((contact: any) => {
+              if (contact.tags && Array.isArray(contact.tags)) {
+                // Method 1: Check if tags contain assigned_to property (from server.js logic)
+                if (contact.tags.assigned_to) {
+                  const employeeName = contact.tags.assigned_to;
+                  contactCountMap[employeeName] = (contactCountMap[employeeName] || 0) + 1;
+                  
+                  if (contact.tags.closed === true) {
+                    closedCountMap[employeeName] = (closedCountMap[employeeName] || 0) + 1;
+                  }
+                }
+                
+                // Method 2: Check if employee names are in tags array
+                contact.tags.forEach((tag: string) => {
+                  // Find employee by name
+                  const employee = employeesData.find((emp: any) => emp.name.toLowerCase() === tag.toLowerCase());
+                  if (employee) {
+                    contactCountMap[employee.name] = (contactCountMap[employee.name] || 0) + 1;
+                    
+                    // Check if contact is closed
+                    if (contact.tags.some((t: string) => t.toLowerCase() === 'closed')) {
+                      closedCountMap[employee.name] = (closedCountMap[employee.name] || 0) + 1;
+                    }
+                  }
+                });
+              }
+            });
+
+            // Update employee data with assignment counts
+            employeeListData.forEach(emp => {
+              emp.assignedContacts = contactCountMap[emp.name] || 0;
+              emp.closedContacts = closedCountMap[emp.name] || 0;
+            });
+
+            console.log('Updated employee assignments:', contactCountMap);
+            
+            // If still no assignments found, try using the current month assignments from the dashboard data
+            if (Object.keys(contactCountMap).length === 0) {
+              console.log('No assignments found via contacts, using current_month_assignments from dashboard...');
+              employeeListData.forEach(emp => {
+                emp.assignedContacts = emp.currentMonthAssignments || 0;
+              });
+            }
+          } catch (fallbackError) {
+            console.error('Error fetching fallback assignment data:', fallbackError);
+          }
+        }
+
+        // Sort employees by assigned contacts
+        employeeListData.sort((a, b) => (b.assignedContacts || 0) - (a.assignedContacts || 0));
+        setEmployees(employeeListData);
+
+        // Find current user
+        const currentUserData = employeeListData.find(emp => emp.email === userEmail);
+        if (currentUserData) {
+          setCurrentUser(currentUserData);
+          setSelectedEmployee(currentUserData);
+        }
+
+        // Set company data - companyId is already available from userRes
+        
+        console.log('Dashboard data loaded:', dashboardData);
+        console.log('Employee performance data:', dashboardData.employeePerformance);
+        console.log('Final employee list with assignments:', employeeListData);
+      }
   
     } catch (error) {
       console.error('Error fetching company data:', error);
-    }
-  }
-
-
-async function fetchEmployees() {
-  try {
-    const userEmail = localStorage.getItem('userEmail');
-    if (!userEmail) return;
-
-    // Get companyId from user-data endpoint
-    const userRes = await axios.get(`https://julnazz.ngrok.dev/api/user-data/${userEmail}`);
-    const companyId = userRes.data.company_id;
-    if (!companyId) return;
-
-    // Get all employees
-    const empRes = await axios.get(`https://julnazz.ngrok.dev/api/employees-data/${companyId}`);
-    const employees: Employee[] = empRes.data;
-
-    // Get all contacts
-    const contactsRes = await axios.get(`https://julnazz.ngrok.dev/api/contacts-data/${companyId}`);
-    const contacts: { tags: string[] }[] = contactsRes.data;
-
-    // Create a map to count contacts per employee
-    const contactCountMap: { [key: string]: number } = {};
-    contacts.forEach(contact => {
-      if (contact.tags && Array.isArray(contact.tags)) {
-        contact.tags.forEach(tag => {
-          contactCountMap[tag] = (contactCountMap[tag] || 0) + 1;
-        });
+      // Fallback to original method if new endpoint fails
+      try {
+        const companyRes = await axios.get(`https://julnazz.ngrok.dev/api/company-config/${companyId}`);
+        const companyData = companyRes.data.companyData;
+      } catch (fallbackError) {
+        console.error('Fallback fetch also failed:', fallbackError);
       }
-    });
-
-    // Process employee data
-    const employeeListData: Employee[] = employees.map(emp => ({
-      ...emp,
-      assignedContacts: contactCountMap[emp.name] || 0
-    }));
-
-    // Sort employees by assigned contacts
-    employeeListData.sort((a, b) => (b.assignedContacts || 0) - (a.assignedContacts || 0));
-
-    setEmployees(employeeListData);
-
-    // Find current user
-    const currentUserData = employeeListData.find(emp => emp.email === userEmail);
-    if (currentUserData) {
-      setCurrentUser(currentUserData);
-      setSelectedEmployee(currentUserData);
     }
-
-  } catch (error) {
-    console.error('Error fetching employees and contacts:', error);
   }
-}
+
   // Add this new function
   const fetchEmployeeStats = async (employeeId: string) => {
     try {
@@ -1423,11 +1541,30 @@ async function fetchEmployees() {
       const companyId = userRes.data.company_id;
       if (!companyId) return;
   
-      // Fetch stats from new endpoint
+      // Fetch stats from the new stats endpoint
       const response = await axios.get(
-        `https://julnazz.ngrok.dev/api/companies/${companyId}/employee-stats/${employeeId}`
+        `https://julnazz.ngrok.dev/api/stats/${companyId}?employeeId=${employeeId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
       );
-      setEmployeeStats(response.data);
+      
+      const statsData = response.data;
+      setEmployeeStats({
+        conversationsAssigned: statsData.conversationsAssigned || 0,
+        outgoingMessagesSent: statsData.outgoingMessagesSent || 0,
+        averageResponseTime: statsData.averageResponseTime || 0,
+        closedContacts: statsData.closedContacts || 0,
+        currentMonthAssignments: statsData.currentMonthAssignments || 0,
+        employeeName: statsData.employeeName || '',
+        employeeRole: statsData.employeeRole || '',
+        responseTimes: statsData.responseTimes || [],
+        medianResponseTime: statsData.medianResponseTime || 0,
+        phoneAssignments: statsData.phoneAssignments || {},
+        weightageUsed: statsData.weightageUsed || {}
+      });
     } catch (error) {
       console.error('Error fetching employee stats:', error);
       setEmployeeStats({
@@ -2186,13 +2323,13 @@ async function fetchEmployees() {
   const handleAssignContact = async (contactId: string, employeeName: string) => {
     await assignContactToEmployee(contactId, employeeName);
     // Refresh the employee list or update the UI as needed
-    await fetchEmployees();
+    await fetchCompanyData();
   };
 
   const handleUnassignContact = async (contactId: string, employeeName: string) => {
     await removeContactAssignment(contactId, employeeName);
     // Refresh the employee list or update the UI as needed
-    await fetchEmployees();
+    await fetchCompanyData();
   };
 
   // Add this debug function to help diagnose issues
