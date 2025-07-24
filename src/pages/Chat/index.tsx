@@ -687,6 +687,11 @@ function Main() {
   const [syncLoading, setSyncLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Add state variables for message polling
+  const [isPolling, setIsPolling] = useState(false);
+  const [lastMessageTimestamp, setLastMessageTimestamp] = useState<number>(0);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const currentUserName = userData?.name || "";
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
@@ -888,6 +893,20 @@ function Main() {
       </div>
     );
   };
+
+  // Add polling status indicator component
+  const PollingStatusIndicator = () => {
+    if (!isPolling) {
+      return null;
+    }
+
+    return (
+      <div className="flex items-center gap-2 text-blue-500 text-sm">
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+        <span>Polling for messages...</span>
+      </div>
+    );
+  };
   // Add reconnect button component
   const ReconnectButton = () => {
     if (wsConnected) return null;
@@ -929,60 +948,136 @@ function Main() {
   };
   // Add the handleNewMessage function
   const handleNewMessage = (data: any) => {
-    const { chatId, message, whapiToken } = data;
-    console.log(selectedChatId);
-    // If the message is for the currently viewed chat, fetch latest messages from backend
-    if (chatId === selectedChatId) {
-      if (selectedChatId !== null) {
-        fetchMessagesBackground(selectedChatId, whapiToken);
+    console.log("📨 [WEBSOCKET] New message received:", data);
+    
+    try {
+      // Handle both old and new message formats
+      const chatId = data.chatId || data.chat_id;
+      const messageContent = data.message || data.messageContent || "";
+      const extractedNumber = data.extractedNumber || data.phone || "";
+      const contactId = data.contactId || data.contact_id;
+      const fromMe = data.fromMe || false;
+      const timestamp = data.timestamp || Date.now();
+      const messageType = data.messageType || data.type || "text";
+      const contactName = data.contactName || data.from_name || extractedNumber;
+      const currentWhapiToken = whapiToken;
+
+      console.log("📨 [WEBSOCKET] Processed data:", {
+        chatId,
+        messageContent,
+        extractedNumber,
+        contactId,
+        fromMe,
+        timestamp,
+        messageType,
+        contactName
+      });
+
+      // Create a proper message object that matches your Message interface
+      const newMessage: Message = {
+        id: data.messageId || data.message_id || `${Date.now()}-${Math.random()}`,
+        chat_id: chatId,
+        text: { body: messageContent },
+        from_me: fromMe,
+        from_name: contactName,
+        timestamp: timestamp,
+        created_at: new Date(timestamp),
+        type: messageType,
+        from: extractedNumber,
+        author: contactName,
+        phoneIndex: data.phoneIndex || 0,
+        dateAdded: timestamp,
+        userName: contactName
+      };
+
+      console.log("📨 [WEBSOCKET] Created message object:", newMessage);
+      console.log("📨 [WEBSOCKET] Current selected chat:", selectedChatId);
+      console.log("📨 [WEBSOCKET] Message chat:", chatId);
+
+      // If the message is for the currently viewed chat
+      if (chatId === selectedChatId) {
+        console.log("📨 [WEBSOCKET] Message is for current chat - adding to messages");
+        
+        // Add message directly to the current messages
+        setMessages(prevMessages => {
+          // Check if message already exists to prevent duplicates
+          const messageExists = prevMessages.some(
+            msg => msg.id === newMessage.id || 
+            (Math.abs((msg.timestamp || 0) - (newMessage.timestamp || 0)) < 1000 && 
+             msg.text?.body === newMessage.text?.body)
+          );
+          
+          if (!messageExists) {
+            console.log("📨 [WEBSOCKET] Adding new message to chat");
+            return [...prevMessages, newMessage];
+          } else {
+            console.log("📨 [WEBSOCKET] Message already exists, skipping");
+            return prevMessages;
+          }
+        });
+
+        // Scroll to bottom to show new message
+        setTimeout(() => {
+          if (messageListRef.current) {
+            messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+          }
+        }, 100);
+
+        // Don't show notification for current chat if it's from someone else
+        // Only show subtle indication
+        if (!fromMe) {
+          console.log("📨 [WEBSOCKET] New message in current chat");
+        }
+      } else {
+        console.log("📨 [WEBSOCKET] Message is for different chat - updating contact list");
+        
+        // Message is for a different chat - update contact list only
+        setContacts((prevContacts) =>
+          prevContacts.map((contact) => {
+            if (contact.chat_id === chatId || contact.id === contactId) {
+              console.log("📨 [WEBSOCKET] Updating contact:", contact.contactName);
+              return {
+                ...contact,
+                last_message: newMessage,
+                unreadCount: (!fromMe ? (contact.unreadCount || 0) + 1 : contact.unreadCount || 0),
+              };
+            }
+            return contact;
+          })
+        );
+
+        // Show notification for other chats only if not from me
+        if (!fromMe) {
+          console.log("📨 [WEBSOCKET] Showing notification for other chat");
+          const messagePreview = messageContent?.substring(0, 50) || "New message";
+          
+          // Commented out toast notification for now 
+          // toast.info(`📱 ${contactName}: ${messagePreview}${messageContent && messageContent.length > 50 ? '...' : ''}`, {
+          //   autoClose: 4000,
+          //   onClick: () => {
+          //     // Find and select the contact when notification is clicked
+          //     const contact = contacts.find(c => c.chat_id === chatId || c.id === contactId);
+          //     if (contact) {
+          //       handleContactClick(contact);
+          //     }
+          //   }
+          // });
+
+          // // Play notification sound
+          // try {
+          //   if (audioRef.current) {
+          //     audioRef.current.currentTime = 0;
+          //     audioRef.current.play().catch(e => console.log("Could not play notification sound:", e));
+          //   }
+          // } catch (error) {
+          //   console.log("Notification sound error:", error);
+          // }
+        }
       }
 
-      // Show notification if chat is not currently active
-      showNotificationToast(
-        {
-          from: message.from_name || "Unknown",
-          text: { body: message.text?.body || "New message" },
-          from_name: message.from_name || "Unknown",
-          timestamp: message.timestamp || Date.now(),
-          chat_id: "",
-          type: "text",
-        },
-        0
-      );
-      // Scroll to bottom to show new message
-      setTimeout(() => {
-        if (messageListRef.current) {
-          messageListRef.current.scrollTop =
-            messageListRef.current.scrollHeight;
-        }
-      }, 100);
-    } else {
-      // Message is for a different chat - update contact list only
-      setContacts((prevContacts) =>
-        prevContacts.map((contact) => {
-          if (contact.chat_id === chatId) {
-            return {
-              ...contact,
-              last_message: message,
-              unreadCount: (contact.unreadCount || 0) + 1,
-            };
-          }
-          return contact;
-        })
-      );
-
-      // Show notification for other chats
-      showNotificationToast(
-        {
-          from: message.from_name || "Unknown",
-          text: { body: message.text?.body || "New message" },
-          from_name: message.from_name || "Unknown",
-          timestamp: message.timestamp || Date.now(),
-          chat_id: chatId,
-          type: "text",
-        },
-        0
-      );
+    } catch (error) {
+      console.error("❌ [WEBSOCKET] Error processing new message:", error);
+      console.error("❌ [WEBSOCKET] Raw data:", data);
     }
   };
   // Add WebSocket utility functions
@@ -991,6 +1086,14 @@ function Main() {
       wsConnection.send(JSON.stringify(message));
     } else {
       console.warn("WebSocket not connected, cannot send message");
+    }
+  };
+
+  // Add handleContactClick function for WebSocket notifications
+  const handleContactClick = (contact: Contact) => {
+    console.log("📨 [WEBSOCKET] Clicking contact from notification:", contact);
+    if (contact.chat_id || contact.contact_id) {
+      selectChat(contact.chat_id || contact.contact_id!, contact.id!, contact);
     }
   };
 
@@ -1709,23 +1812,33 @@ function Main() {
     }
   };
 
-  // Next Agenda
   const handleReaction = async (message: any, emoji: string) => {
     try {
-      const {
-        companyId: cId,
-        baseUrl,
-        userData: uData,
-        email,
-      } = await getCompanyData();
+      console.log("Adding reaction:", emoji, "to message:", message);
+      const { baseUrl, userData: uData } = await getCompanyData();
       if (!uData) {
         console.error("User not authenticated");
         setError("User not authenticated");
         return;
       }
+      console.log("User data:", uData);
+
+      // Fetch companyId from API
+      const userEmail = localStorage.getItem("userEmail");
+      let companyId = "";
+      if (userEmail) {
+        const userResponse = await fetch(
+          `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail)}`,
+          { credentials: "include" }
+        );
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          companyId = userData.company_id;
+        }
+      }
 
       // Ensure we have all required data
-      if (!uData?.companyId || !message.id) {
+      if (!companyId || !message.id) {
         throw new Error("Missing required data: companyId or messageId");
       }
 
@@ -1733,7 +1846,7 @@ function Main() {
       const messageId = message.id;
 
       // Construct the endpoint with the full message ID
-      const endpoint = `${baseUrl}/api/messages/react/${uData.companyId}/${messageId}`;
+      const endpoint = `${baseUrl}/api/messages/react/${companyId}/${messageId}`;
 
       const payload = {
         reaction: emoji,
@@ -3465,6 +3578,14 @@ function Main() {
       console.log("selecting chat");
 
       try {
+        // Stop current polling before switching chats
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        setIsPolling(false);
+        setLastMessageTimestamp(0); // Reset timestamp for new chat
+
         // Save current scroll position before making any state changes
         if (contactListRef.current) {
           sessionStorage.setItem(
@@ -3941,7 +4062,7 @@ function Main() {
           });
         } else {
           const formattedMessage: any = {
-            id: message.message_id,
+            id: message.message_id || `main-${message.chat_id}-${message.timestamp}-${Math.random().toString(36).substr(2, 9)}`,
             from_me: message.from_me,
             from_name: message.author,
             from: message.customer_phone,
@@ -4117,6 +4238,13 @@ function Main() {
       storeMessagesInLocalStorage(selectedChatId, formattedMessages);
       setMessages(formattedMessages);
 
+      // Update last message timestamp for polling
+      if (formattedMessages.length > 0) {
+        const latestMessage = formattedMessages[formattedMessages.length - 1];
+        const latestTimestamp = new Date(latestMessage.timestamp || latestMessage.createdAt || 0).getTime();
+        setLastMessageTimestamp(latestTimestamp);
+      }
+
       fetchContactsBackground();
     } catch (error) {
       console.error("Failed to fetch messages:", error);
@@ -4124,6 +4252,306 @@ function Main() {
       setLoading(false);
     }
   }
+
+  // Add polling function to check for new messages every 15 seconds
+  const pollForNewMessages = useCallback(async () => {
+    if (!selectedChatId || !userData) return;
+
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
+
+      // Get user data and company info from SQL
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail)}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!userResponse.ok) return;
+
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+
+      // Fetch messages from SQL
+      const messagesResponse = await fetch(
+        `${baseUrl}/api/messages?chatId=${selectedChatId}&companyId=${companyId}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!messagesResponse.ok) return;
+
+      const messages = await messagesResponse.json();
+      
+      // Filter messages that are newer than our last known timestamp
+      const newMessages = messages.filter((message: any) => {
+        const messageTimestamp = new Date(message.timestamp).getTime();
+        return messageTimestamp > lastMessageTimestamp;
+      });
+
+      if (newMessages.length > 0) {
+        console.log(`Found ${newMessages.length} new messages`);
+        
+        // Format new messages using the same logic as fetchMessages
+        const formattedNewMessages: any[] = [];
+        const reactionsMap: Record<string, any[]> = {};
+
+        newMessages.forEach((message: any) => {
+          if (
+            message.message_type === "action" &&
+            message.content?.type === "reaction"
+          ) {
+            const targetMessageId = message.content.target;
+            if (!reactionsMap[targetMessageId]) {
+              reactionsMap[targetMessageId] = [];
+            }
+            reactionsMap[targetMessageId].push({
+              emoji: message.content.emoji,
+              from_name: message.author,
+            });
+          } else {
+            const formattedMessage: any = {
+              id: message.message_id || `poll-${message.chat_id}-${message.timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+              from_me: message.from_me,
+              from_name: message.author,
+              from: message.customer_phone,
+              chat_id: message.chat_id,
+              type: message.message_type,
+              author: message.author,
+              name: message.author,
+              phoneIndex: message.phone_index,
+              userName: message.author,
+              edited: message.edited || false,
+            };
+
+            // Handle timestamp
+            const timestamp = new Date(message.timestamp).getTime() / 1000;
+            formattedMessage.createdAt = timestamp;
+            formattedMessage.timestamp = timestamp;
+
+            // Include message-specific content (same switch logic as fetchMessages)
+            switch (message.message_type) {
+              case "text":
+              case "chat":
+                let quotedContext = null;
+                if (message.quoted_message) {
+                  try {
+                    quotedContext = {
+                      id: message.quoted_message.message_id,
+                      type: message.quoted_message.message_type,
+                      from: message.quoted_message.quoted_author,
+                      body: message.quoted_message.quoted_content?.body || "",
+                      ...message.quoted_message.quoted_content,
+                    };
+                  } catch (error) {
+                    console.error("Error parsing quoted message:", error);
+                  }
+                }
+
+                formattedMessage.text = {
+                  body: message.content || "",
+                  context: quotedContext,
+                };
+                break;
+
+              case "image":
+                formattedMessage.image = {
+                  link: message.media_url,
+                  data: message.media_data,
+                  mimetype: message.media_metadata?.mimetype,
+                  filename: message.media_metadata?.filename,
+                  caption: message.media_metadata?.caption,
+                  width: message.media_metadata?.width,
+                  height: message.media_metadata?.height,
+                  thumbnail: message.media_metadata?.thumbnail,
+                };
+                break;
+
+              case "video":
+                formattedMessage.video = {
+                  link: message.media_url,
+                  data: message.media_data,
+                  mimetype: message.media_metadata?.mimetype,
+                  filename: message.media_metadata?.filename,
+                  caption: message.media_metadata?.caption,
+                  thumbnail: message.media_metadata?.thumbnail,
+                };
+                break;
+
+              case "audio":
+              case "ptt":
+                formattedMessage.audio = {
+                  link: message.media_url,
+                  data: message.media_data,
+                  mimetype:
+                    message.media_metadata?.mimetype || "audio/ogg; codecs=opus",
+                };
+                if (
+                  message.content &&
+                  message.content !== message.media_metadata?.caption
+                ) {
+                  formattedMessage.text = { body: message.content };
+                }
+                break;
+
+              case "document":
+                formattedMessage.document = {
+                  link: message.media_url,
+                  data: message.media_data,
+                  mimetype: message.media_metadata?.mimetype,
+                  filename: message.media_metadata?.filename,
+                  caption: message.media_metadata?.caption,
+                  pageCount: message.media_metadata?.page_count,
+                  fileSize: message.media_metadata?.file_size,
+                };
+                break;
+
+              case "location":
+                formattedMessage.location = message.content
+                  ? JSON.parse(message.content)
+                  : null;
+                break;
+
+              case "order":
+                formattedMessage.order = message.content
+                  ? JSON.parse(message.content)
+                  : null;
+                break;
+
+              case "sticker":
+                formattedMessage.sticker = {
+                  data: message.media_data,
+                  mimetype: message.media_metadata?.mimetype,
+                };
+                break;
+
+              case "call_log":
+                formattedMessage.call_log = {
+                  status: "missed",
+                  duration: 0,
+                  timestamp: timestamp,
+                };
+                if (message.content) {
+                  const callData = JSON.parse(message.content);
+                  formattedMessage.call_log = {
+                    status: callData.status || "missed",
+                    duration: callData.duration || 0,
+                    timestamp: callData.timestamp || timestamp,
+                  };
+                }
+                break;
+
+              case "privateNote":
+                formattedMessage.text = {
+                  body: message.content || "",
+                };
+                formattedMessage.from_me = true;
+                formattedMessage.from_name = message.author;
+                break;
+
+              default:
+                console.warn(`Unknown message type: ${message.message_type}`);
+                if (message.media_data || message.media_url) {
+                  formattedMessage[message.message_type] = {
+                    data: message.media_data,
+                    url: message.media_url,
+                    metadata: message.media_metadata
+                      ? JSON.parse(message.media_metadata)
+                      : null,
+                  };
+                } else {
+                  formattedMessage.text = {
+                    body: message.content || "",
+                  };
+                }
+            }
+
+            formattedNewMessages.push(formattedMessage);
+          }
+        });
+
+        // Add reactions to the respective messages
+        formattedNewMessages.forEach((message) => {
+          if (reactionsMap[message.id]) {
+            message.reactions = reactionsMap[message.id];
+          }
+        });
+
+        // Sort new messages by timestamp
+        formattedNewMessages.sort((a, b) => {
+          const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
+          const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
+          return aTime - bTime; // Oldest first
+        });
+
+        // Add new messages to existing messages
+        setMessages(prevMessages => {
+          // Filter out any messages that already exist to prevent duplicates
+          const existingMessageIds = new Set(prevMessages.map(msg => msg.id));
+          const uniqueNewMessages = formattedNewMessages.filter(msg => !existingMessageIds.has(msg.id));
+          
+          // Only add truly new messages
+          if (uniqueNewMessages.length > 0) {
+            const updatedMessages = [...prevMessages, ...uniqueNewMessages];
+            // Store updated messages in localStorage
+            storeMessagesInLocalStorage(selectedChatId, updatedMessages);
+            
+            // Update last message timestamp only for unique new messages
+            const latestMessage = uniqueNewMessages[uniqueNewMessages.length - 1];
+            const latestTimestamp = new Date(latestMessage.timestamp || latestMessage.createdAt || 0).getTime();
+            setLastMessageTimestamp(latestTimestamp);
+            
+            // Scroll to bottom when new messages arrive
+            setTimeout(() => {
+              if (messageListRef.current) {
+                messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+              }
+            }, 100);
+            
+            return updatedMessages;
+          }
+          
+          // No new messages, return previous state
+          return prevMessages;
+        });
+
+        // Remove the duplicate timestamp update code below
+      }
+    } catch (error) {
+      console.error("Error polling for new messages:", error);
+    }
+  }, [selectedChatId, userData, lastMessageTimestamp, baseUrl]);
+
+  // Start/stop polling based on chat selection
+  useEffect(() => {
+    if (selectedChatId && userData) {
+      console.log("Starting message polling for chat:", selectedChatId);
+      setIsPolling(true);
+      
+      // Start polling every 15 seconds
+      pollingIntervalRef.current = setInterval(pollForNewMessages, 15000);
+    } else {
+      console.log("Stopping message polling");
+      setIsPolling(false);
+      
+      // Clear polling interval
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    }
+
+    // Cleanup function
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [selectedChatId, userData, pollForNewMessages]);
 
   async function fetchMessagesBackground(
     selectedChatId: string,
@@ -5025,7 +5453,6 @@ function Main() {
           return;
         }
         toast.success(`Contact assigned to ${tagName}`);
-        await sendAssignmentNotification(tagName, contact);
         return;
       }
       console.log(
@@ -5077,263 +5504,6 @@ function Main() {
     } catch (error) {
       console.error("Error adding tag to contact:", error);
       toast.error("Failed to add tag to contact");
-    }
-  };
-
-  // Next Agenda
-  const sendAssignmentNotification = async (
-    assignedEmployeeName: string,
-    contact: Contact
-  ) => {
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.error("No authenticated user");
-        return;
-      }
-
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No user document found");
-        return;
-      }
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      // New log
-
-      if (!companyId || typeof companyId !== "string") {
-        console.error("Invalid companyId:", companyId);
-        throw new Error("Invalid companyId");
-      }
-
-      // Check if notification has already been sent
-      const notificationRef = doc(
-        firestore,
-        "companies",
-        companyId,
-        "assignmentNotifications",
-        `${contact.id}_${assignedEmployeeName}`
-      );
-      const notificationSnapshot = await getDoc(notificationRef);
-
-      if (notificationSnapshot.exists()) {
-        return;
-      }
-
-      // Find the employee in the employee list
-      const assignedEmployee = employeeList.find(
-        (emp) => emp.name.toLowerCase() === assignedEmployeeName.toLowerCase()
-      );
-      if (!assignedEmployee) {
-        console.error(`Employee not found: ${assignedEmployeeName}`);
-        toast.error(
-          `Failed to send assignment notification: Employee ${assignedEmployeeName} not found`
-        );
-        return;
-      }
-
-      // Fetch all admin users
-      const usersRef = collection(firestore, "user");
-      const adminQuery = query(
-        usersRef,
-        where("companyId", "==", companyId),
-        where("role", "==", "1")
-      );
-      const adminSnapshot = await getDocs(adminQuery);
-      const adminUsers = adminSnapshot.docs.map((doc) => doc.data());
-
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.error("No company document found");
-        return;
-      }
-      const companyData = docSnapshot.data();
-      // New log
-      // New log
-      // New log
-
-      // Function to send WhatsApp message
-      const sendWhatsAppMessage = async (
-        phoneNumber: string,
-        message: string
-      ) => {
-        const chatId = `${phoneNumber.replace(/[^\d]/g, "")}@c.us`;
-        // New log
-        // New log
-        const user = getAuth().currentUser;
-        if (!user) {
-          console.error("User not authenticated");
-          setError("User not authenticated");
-          return;
-        }
-        const docUserRef = doc(firestore, "user", user?.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          return;
-        }
-        const dataUser = docUserSnapshot.data();
-        const companyId = dataUser.companyId;
-        const docRef = doc(firestore, "companies", companyId);
-        const docSnapshot = await getDoc(docRef);
-        if (!docSnapshot.exists()) {
-          return;
-        }
-        const data2 = docSnapshot.data();
-        const apiUrl =
-          data2.apiUrl || baseUrl;
-        let userPhoneIndex = userData?.phone >= 0 ? userData?.phone : 0;
-        if (userPhoneIndex === -1) {
-          userPhoneIndex = 0;
-        }
-        let url;
-        let requestBody;
-        if (companyData.v2 === true) {
-          url = `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
-          requestBody = {
-            message,
-            phoneIndex: userPhoneIndex,
-            userName: userData.name || "",
-          };
-        } else {
-          url = `${apiUrl}/api/messages/text/${chatId}/${companyData.whapiToken}`;
-          requestBody = { message };
-        }
-        // New log
-        // New log
-
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Full error response:", errorText); // Updated log
-          throw new Error(
-            `HTTP error! status: ${response.status}, message: ${errorText}`
-          );
-        }
-
-        return await response.json();
-      };
-
-      // Send notification to assigned employee
-      if (assignedEmployee.phoneNumber) {
-        let employeeMessage = `Hello ${
-          assignedEmployee.name
-        }, a new contact has been assigned to you:\n\nName: ${
-          contact.contactName || contact.firstName || "N/A"
-        }\nPhone: ${
-          contact.phone
-        }\n\nKindly login to https://web.jutasoftware.co/login \n\nThank you.\n\nJuta Teknologi`;
-        if (companyId == "042") {
-          employeeMessage = `Hi ${
-            assignedEmployee.employeeId || assignedEmployee.phoneNumber
-          } ${
-            assignedEmployee.name
-          }.\n\nAnda telah diberi satu prospek baharu\n\nSila masuk ke https://zahintravel.chat/login untuk melihat perbualan di antara Zahin Travel dan prospek.\n\nTerima kasih.\n\nIkhlas,\nZahin Travel Sdn. Bhd. (1276808-W)\nNo. Lesen Pelancongan: KPK/LN 9159\nNo. MATTA: MA6018\n\n#zahintravel - Nikmati setiap detik..\n#diyakini\n#responsif\n#budibahasa`;
-        }
-        await sendWhatsAppMessage(
-          assignedEmployee.phoneNumber,
-          employeeMessage
-        );
-      }
-
-      // Send notification to all admins, except for companyId '042'
-      if (companyId !== "042") {
-        for (const admin of adminUsers) {
-          if (admin.phoneNumber) {
-            const adminMessage = `Admin notification: A new contact has been assigned to ${
-              assignedEmployee.name
-            }:\n\nName: ${
-              contact.contactName || contact.firstName || "N/A"
-            }\nPhone: ${contact.phone}`;
-            await sendWhatsAppMessage(admin.phoneNumber, adminMessage);
-          }
-        }
-      }
-
-      // Mark notification as sent
-      await setDoc(notificationRef, {
-        sentAt: serverTimestamp(),
-        employeeName: assignedEmployeeName,
-        contactId: contact.id,
-      });
-
-      toast.success("Assignment notifications sent successfully!");
-    } catch (error) {
-      console.error("Error sending assignment notifications:", error);
-    }
-  };
-
-  const sendWhatsAppMessage = async (
-    phoneNumber: string,
-    message: string,
-    companyId: string,
-    companyData: any
-  ) => {
-    try {
-      const chatId = `${phoneNumber.replace(/[^\d]/g, "")}@c.us`;
-
-      // Get current user's phone index, defaulting to 0 if invalid
-      let userPhoneIndex = userData?.phone >= 0 ? userData?.phone : 0;
-      const userName = userData?.name || userData?.email || "";
-
-      if (userPhoneIndex === -1) {
-        userPhoneIndex = 0;
-      }
-      const user = getAuth().currentUser;
-      if (!user) {
-        console.error("User not authenticated");
-        setError("User not authenticated");
-        return;
-      }
-      const docUserRef = doc(firestore, "user", user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        return;
-      }
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        return;
-      }
-      const data2 = docSnapshot.data();
-      const apiUrl =
-        data2.apiUrl || baseUrl;
-
-      const response = await fetch(
-        `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message,
-            phoneIndex: userPhoneIndex, // Using adjusted phone index
-            userName,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `HTTP error! status: ${response.status}, message: ${errorText}`
-        );
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error sending WhatsApp message:", error);
-      throw error;
     }
   };
 
@@ -5666,160 +5836,6 @@ function Main() {
     setSearchQuery("");
   };
 
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
-
-  const handleGlobalMessageSearch = async (
-    searchQuery: string,
-    page: number = 1
-  ) => {
-    if (!searchQuery.trim()) {
-      setGlobalSearchResults([]);
-      setIsGlobalSearchActive(false);
-      setGlobalSearchLoading(false);
-      return;
-    }
-
-    setGlobalSearchLoading(true);
-    setIsGlobalSearchActive(true);
-
-    try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("No authenticated user");
-
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) throw new Error("No user document found");
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      // Get all contacts for the company
-      const contactsRef = collection(
-        firestore,
-        "companies",
-        companyId,
-        "contacts"
-      );
-      const contactsSnapshot = await getDocs(contactsRef);
-
-      // Get messages for each contact with a larger limit
-      const searchPromises = contactsSnapshot.docs.map(async (contactDoc) => {
-        const messagesRef = collection(
-          firestore,
-          "companies",
-          companyId,
-          "contacts",
-          contactDoc.id,
-          "messages"
-        );
-
-        // Query messages with a larger limit and no text-only filter
-        const messagesQuery = query(
-          messagesRef,
-          orderBy("timestamp", "desc"),
-          limit(100) // Increased limit to get more messages
-        );
-
-        const messagesSnapshot = await getDocs(messagesQuery);
-
-        // Filter messages client-side
-        return messagesSnapshot.docs
-          .filter((doc) => {
-            const data = doc.data() as {
-              text?: { body?: string };
-              type?: string;
-            };
-            // Only include messages with text content
-            if (data.type !== "text" || !data.text?.body) return false;
-
-            const messageText = data.text.body.toLowerCase();
-            const searchTerms = searchQuery.toLowerCase().split(" ");
-
-            // Match all search terms (AND search)
-            return searchTerms.every((term) => messageText.includes(term));
-          })
-          .map((doc) => ({
-            ...(doc.data() as Message),
-            id: doc.id,
-            contactId: contactDoc.id,
-          }));
-      });
-
-      const searchResults = await Promise.all(searchPromises);
-      const allResults = searchResults.flat();
-
-      // Format and sort results
-      const formattedResults = allResults.map((result) => ({
-        id: result.id,
-        contactId: result.contactId,
-        text: {
-          body: result.text?.body || "",
-        },
-        timestamp: result.timestamp || Date.now(),
-        from_me: result.from_me || false,
-        chat_id: result.chat_id || "",
-        type: result.type || "text",
-      }));
-
-      const sortedResults = formattedResults.sort((a, b) => {
-        const timestampA =
-          typeof a.timestamp === "number"
-            ? a.timestamp
-            : new Date(a.timestamp).getTime();
-        const timestampB =
-          typeof b.timestamp === "number"
-            ? b.timestamp
-            : new Date(b.timestamp).getTime();
-        return timestampB - timestampA;
-      });
-
-      setGlobalSearchResults(sortedResults);
-
-      if (sortedResults.length > 0) {
-        toast.success(
-          `Found ${sortedResults.length} message${
-            sortedResults.length === 1 ? "" : "s"
-          }`
-        );
-      } else {
-        toast.info("No messages found");
-      }
-    } catch (error) {
-      console.error("Search failed:", error);
-      setGlobalSearchResults([]);
-      toast.error("Search failed. Please try again.");
-    } finally {
-      setGlobalSearchLoading(false);
-    }
-  };
-
-  const loadMoreSearchResults = (page: number) => {
-    handleGlobalMessageSearch(searchQuery, page);
-  };
-
-  // Update the search handler to use debouncing more effectively
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-
-    // Clear existing timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    if (!query.trim()) {
-      setGlobalSearchResults([]);
-      setIsGlobalSearchActive(false);
-      setGlobalSearchLoading(false);
-      return;
-    }
-
-    setGlobalSearchLoading(true);
-    searchTimeoutRef.current = setTimeout(() => {
-      handleGlobalMessageSearch(query);
-    }, 750); // Increased debounce time to reduce API calls
-  };
-
   const filterForwardDialogContacts = (tag: string) => {
     setForwardDialogTags((prevTags) =>
       prevTags.includes(tag)
@@ -6032,137 +6048,156 @@ function Main() {
 
   const handleSnoozeContact = async (contact: Contact) => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.error("No authenticated user");
-        return;
-      }
+      const tagName = "snooze";
+      // Get company and user data from your backend
+      const userEmail = localStorage.getItem("userEmail");
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      // Update Firestore
-      if (companyId && contact.id) {
-        const contactRef = doc(
-          firestore,
-          "companies",
-          companyId,
-          "contacts",
-          contact.id
-        );
-        await updateDoc(contactRef, {
-          tags: arrayUnion("snooze"),
-        });
-      } else {
-        console.error("Invalid companyId or contact.id");
-      }
-      // Update local state
-      setContacts((prevContacts) =>
-        prevContacts.map((c) =>
-          c.id === contact.id
-            ? { ...c, tags: [...(c.tags || []), "snooze"] }
-            : c
-        )
+      // Get user data from SQL
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
+        {
+          credentials: "include",
+        }
       );
 
-      toast.success("Contact snoozed successfully");
+      if (!userResponse.ok) throw new Error("Failed to fetch user data");
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+
+      if (!companyId || !contact.contact_id) {
+        toast.error("Missing company or contact ID");
+        return;
+      }
+      // Handle non-employee tags (add tag to contact)
+      const hasTag = contact.tags?.includes(tagName) || false;
+      if (!hasTag) {
+        const response = await fetch(
+          `${baseUrl}/api/contacts/${companyId}/${contact.contact_id}/tags`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tags: [tagName] }),
+          }
+        );
+        if (!response.ok) {
+          const errorText = await response.text();
+          toast.error("Failed to snooze the contact");
+          return;
+        }
+        const data = await response.json();
+        const newTags = data.tags || [];
+
+        setContacts((prevContacts) =>
+          prevContacts.map((c) =>
+            c.id === contact.id ? { ...c, tags: newTags } : c
+          )
+        );
+
+        toast.success(`Successfully snoozed contact`);
+      } else {
+        toast.info(`Contact is already snoozed`);
+      }
     } catch (error) {
-      console.error("Error snoozing contact:", error);
-      toast.error("Failed to snooze contact");
+      toast.error("Failed to snooze the contact");
     }
   };
+
   const handleUnsnoozeContact = async (contact: Contact) => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.error("No authenticated user");
+      const tagName = "snooze";
+      const userEmail = localStorage.getItem("userEmail");
+
+      // Get user data from SQL
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!userResponse.ok) throw new Error("Failed to fetch user data");
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+
+      if (!companyId || !contact.contact_id) {
+        toast.error("Missing company or contact ID");
         return;
       }
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
+      const response = await fetch(
+        `${baseUrl}/api/contacts/${companyId}/${contact.contact_id}/tags`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags: [tagName] }),
+        }
+      );
+      if (!response.ok) {
+        const errorText = await response.text();
+        toast.error("Failed to unsnooze the contact");
         return;
       }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      const data = await response.json();
+      const newTags = data.tags || [];
 
-      // Update Firestore
-      if (companyId && contact.id) {
-        const contactRef = doc(
-          firestore,
-          "companies",
-          companyId,
-          "contacts",
-          contact.id
-        );
-        await updateDoc(contactRef, {
-          tags: arrayRemove("snooze"),
-        });
-      } else {
-        console.error("Invalid companyId or contact.id");
-      }
-      // Update local state
       setContacts((prevContacts) =>
         prevContacts.map((c) =>
-          c.id === contact.id
-            ? { ...c, tags: c.tags?.filter((tag) => tag !== "snooze") }
-            : c
+          c.id === contact.id ? { ...c, tags: newTags } : c
         )
       );
 
       toast.success("Contact unsnoozed successfully");
     } catch (error) {
-      console.error("Error unsnoozing contact:", error);
       toast.error("Failed to unsnooze contact");
     }
   };
 
+  // Mark contact as resolved (SQL API version)
   const handleResolveContact = async (contact: Contact) => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
         console.error("No authenticated user");
         return;
       }
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
+      // Get user data from SQL
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!userResponse.ok) throw new Error("Failed to fetch user data");
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+
+      if (!companyId || !contact.contact_id) {
+        toast.error("Missing company or contact ID");
         return;
       }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
 
-      // Update Firestore
-      if (companyId && contact.id) {
-        const contactRef = doc(
-          firestore,
-          "companies",
-          companyId,
-          "contacts",
-          contact.id
-        );
-        await updateDoc(contactRef, {
-          tags: arrayUnion("resolved"),
-        });
-      } else {
-        console.error("Invalid companyId or contact.id");
+      // Add "resolved" tag via SQL API
+      const response = await fetch(
+        `${baseUrl}/api/contacts/${companyId}/${contact.contact_id}/tags`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags: ["resolved"] }),
+        }
+      );
+      if (!response.ok) {
+        const errorText = await response.text();
+        toast.error("Failed to mark contact as resolved");
+        return;
       }
-      // Update local state
+      const data = await response.json();
+      const newTags = data.tags || [];
+
       setContacts((prevContacts) =>
         prevContacts.map((c) =>
-          c.id === contact.id
-            ? { ...c, tags: [...(c.tags || []), "resolved"] }
-            : c
+          c.id === contact.id ? { ...c, tags: newTags } : c
         )
       );
 
@@ -6173,44 +6208,52 @@ function Main() {
     }
   };
 
+  // Unmark contact as resolved (SQL API version)
   const handleUnresolveContact = async (contact: Contact) => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
         console.error("No authenticated user");
         return;
       }
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
+      // Get user data from SQL
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!userResponse.ok) throw new Error("Failed to fetch user data");
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+
+      if (!companyId || !contact.contact_id) {
+        toast.error("Missing company or contact ID");
         return;
       }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
 
-      // Update Firestore
-      if (companyId && contact.id) {
-        const contactRef = doc(
-          firestore,
-          "companies",
-          companyId,
-          "contacts",
-          contact.id
-        );
-        await updateDoc(contactRef, {
-          tags: arrayRemove("resolved"),
-        });
-      } else {
-        console.error("Invalid companyId or contact.id");
+      // Remove "resolved" tag via SQL API
+      const response = await fetch(
+        `${baseUrl}/api/contacts/${companyId}/${contact.contact_id}/tags`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags: ["resolved"] }),
+        }
+      );
+      if (!response.ok) {
+        const errorText = await response.text();
+        toast.error("Failed to unmark contact as resolved");
+        return;
       }
-      // Update local state
+      const data = await response.json();
+      const newTags = data.tags || [];
+
       setContacts((prevContacts) =>
         prevContacts.map((c) =>
-          c.id === contact.id
-            ? { ...c, tags: c.tags?.filter((tag) => tag !== "resolved") }
-            : c
+          c.id === contact.id ? { ...c, tags: newTags } : c
         )
       );
 
@@ -6237,24 +6280,15 @@ function Main() {
       return;
 
     try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("No authenticated user");
+      // Use getCompanyData for authentication and config
+      const {
+        companyId: cId,
+        baseUrl: apiUrl,
+        userData: uData,
+        email,
+      } = await getCompanyData();
+      if (!uData) throw new Error("No authenticated user");
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) throw new Error("No user document found");
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        return;
-      }
-      const data2 = docSnapshot.data();
-      const apiUrl =
-        data2.apiUrl || baseUrl;
       for (const contact of selectedContactsForForwarding) {
         for (const message of selectedMessages) {
           try {
@@ -6295,21 +6329,21 @@ function Main() {
               await sendDocumentMessage(
                 contact.chat_id ?? "",
                 documentLink,
-                message.document?.mime_type ?? "",
-                message.document?.file_name ?? "",
+                message.document?.mimetype ?? "",
+                message.document?.filename ?? "",
                 message.document?.caption ?? ""
               );
             } else {
               // For text messages, use the existing API call
               const response = await fetch(
-                `${apiUrl}/api/v2/messages/text/${companyId}/${contact.chat_id}`,
+                `${apiUrl}/api/v2/messages/text/${cId}/${contact.chat_id}`,
                 {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     message: message.text?.body || "",
-                    phoneIndex: userData.phone || 0,
-                    userName: userData.name || userData.email || "",
+                    phoneIndex: uData.phone || 0,
+                    userName: uData.name || email || "",
                   }),
                 }
               );
@@ -6593,49 +6627,42 @@ function Main() {
 
   const togglePinConversation = async (chatId: string) => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.error("No authenticated user");
-        return;
-      }
-
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      if (!companyId) {
-        console.error("Company ID is missing");
-        return;
-      }
-
+      // Find the contact to toggle
       const contactToToggle = contacts.find(
         (contact) => contact.chat_id === chatId
       );
-      if (!contactToToggle || !contactToToggle.id) {
+      if (!contactToToggle || !contactToToggle.contact_id) {
         console.error("Contact not found for chatId:", chatId);
         return;
       }
 
-      const contactDocRef = doc(
-        firestore,
-        "companies",
-        companyId,
-        "contacts",
-        contactToToggle.id
-      );
+      // Get companyId from userData or state
+      const cId = userData?.companyId || companyId;
+      if (!cId) {
+        console.error("Company ID is missing");
+        return;
+      }
 
       // Toggle the pinned status
       const newPinnedStatus = !contactToToggle.pinned;
 
-      // Update the contact document in Firestore
-      await updateDoc(contactDocRef, {
-        pinned: newPinnedStatus,
-      });
+      // Call the backend API to update pinned status
+      const response = await fetch(
+        `${baseUrl}/api/contacts/${contactToToggle.contact_id}/pinned`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            companyId: cId,
+            pinned: newPinnedStatus,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update pin status");
+      }
 
       // Update the local state
       setContacts((prevContacts) =>
@@ -6660,26 +6687,47 @@ function Main() {
 
   const handleSave = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
+      // Get user/company info from localStorage or state
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        toast.error("No user email found");
         return;
       }
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      // Update Firestore
-      await updateDoc(
-        doc(firestore, "companies", companyId, "contacts", selectedContact.id),
+      // Fetch user context to get companyId
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-context?email=${encodeURIComponent(userEmail)}`,
         {
-          contactName: editedName,
+          method: "GET",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
         }
       );
+      if (!userResponse.ok) {
+        toast.error("Failed to fetch user context");
+        return;
+      }
+      const userData = await userResponse.json();
+      const companyId = userData.companyId;
+
+      // Call the SQL API to update contact name
+      const response = await fetch(
+        `${baseUrl}/api/contacts/${selectedContact.contact_id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            companyId,
+            name: editedName,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        toast.error("Failed to update contact name");
+        return;
+      }
 
       // Update local state
       setSelectedContact((prevContact: any) => ({
@@ -6687,7 +6735,6 @@ function Main() {
         contactName: editedName,
       }));
 
-      // Update contacts in state
       setContacts((prevContacts) =>
         prevContacts.map((contact) =>
           contact.id === selectedContact.id
@@ -6700,7 +6747,7 @@ function Main() {
       const storedContacts = localStorage.getItem("contacts");
       if (storedContacts) {
         const decompressedContacts = JSON.parse(
-          LZString.decompress(storedContacts)
+          LZString.decompress(storedContacts)!
         );
         const updatedContacts = decompressedContacts.map((contact: any) =>
           contact.id === selectedContact.id
@@ -6923,8 +6970,12 @@ function Main() {
     if (!editedMessageText.trim() || !editingMessage) return;
 
     try {
-      const messageTimestamp = new Date(editingMessage.timestamp).getTime();
-      const currentTime = new Date().getTime();
+      // Only allow editing within 15 minutes of sending
+      const messageTimestamp =
+        typeof editingMessage.timestamp === "number"
+          ? editingMessage.timestamp * 1000
+          : new Date(editingMessage.timestamp).getTime();
+      const currentTime = Date.now();
       const diffInMinutes = (currentTime - messageTimestamp) / (1000 * 60);
 
       if (diffInMinutes > 15) {
@@ -6934,30 +6985,39 @@ function Main() {
         return;
       }
 
-      const user = auth.currentUser;
-      if (!user) throw new Error("No authenticated user");
+      // Get user/company info from SQL
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) throw new Error("No authenticated user");
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists())
-        throw new Error("No such document for user");
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail)}`,
+        { credentials: "include" }
+      );
+      if (!userResponse.ok) throw new Error("Failed to fetch user data");
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+      const phoneIndex = userData.phone || 0;
 
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error("No company document found");
-      const companyData = docSnapshot.data();
-      const apiUrl =
-        companyData.apiUrl || baseUrl;
-      const chatId = editingMessage.id.split("_")[1];
+      // Use selectedContactId for chatId
+      const chatId = selectedContactId;
 
-      const response = await axios.put(
-        `${apiUrl}/api/v2/messages/${companyId}/${chatId}/${editingMessage.id}`,
-        { newMessage: editedMessageText, phoneIndex: userData.phoneIndex || 0 }
+      // Call the backend API to edit the message
+      const response = await fetch(
+        `${baseUrl}/api/v2/messages/${companyId}/${chatId}/${editingMessage.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            newMessage: editedMessageText,
+            phoneIndex,
+          }),
+        }
       );
 
-      if (response.data.success) {
+      const data = await response.json();
+
+      if (response.ok && data.success) {
         toast.success("Message edited successfully");
 
         // Update the message locally
@@ -6976,7 +7036,7 @@ function Main() {
         setEditingMessage(null);
         setEditedMessageText("");
       } else {
-        throw new Error(response.data.error || "Failed to edit message");
+        throw new Error(data.error || "Failed to edit message");
       }
     } catch (error) {
       console.error("Error editing message:", error);
@@ -7350,63 +7410,34 @@ function Main() {
     });
   };
   const markAsUnread = async (contact: Contact) => {
+    if (!contact?.contact_id) return;
+
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.error("No authenticated user");
-        return;
-      }
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      // Update Firebase
-      if (companyId && contact.id) {
-        const contactRef = doc(
-          firestore,
-          "companies",
-          companyId,
-          "contacts",
-          contact.id
-        );
-        await updateDoc(contactRef, {
-          unreadCount: increment(1),
-        });
-      } else {
-        console.error("Invalid companyId or contact.id");
-      }
+      // Get user/company info
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`
+      );
+      if (!userResponse.ok) return;
+      const userData = await userResponse.json();
+      const companyId = userData.userData.companyId;
+      console.log("contact_id", contact.contact_id);
 
-      // Update local state
-      setContacts((prevContacts) =>
-        prevContacts.map((c) =>
-          c.id === contact.id
-            ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
-            : c
-        )
-      );
-
-      // Update local storage
-      const storedContacts = JSON.parse(
-        LZString.decompress(localStorage.getItem("contacts") || "") || "[]"
-      );
-      const updatedStoredContacts = storedContacts.map((c: Contact) =>
-        c.id === contact.id
-          ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
-          : c
-      );
-      localStorage.setItem(
-        "contacts",
-        LZString.compress(JSON.stringify(updatedStoredContacts))
+      // Call the reset unread API
+      await fetch(
+        `${baseUrl}/api/contacts/${contact.contact_id}/reset-unread`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyId }),
+        }
       );
 
       toast.success("Marked as unread");
     } catch (error) {
-      console.error("Error marking as unread:", error);
+      console.error("Failed to reset unread count:", error);
       toast.error("Failed to mark as unread");
     }
   };
@@ -7583,7 +7614,7 @@ function Main() {
     return authorColors[index];
   }
 
-  // Next Agenda
+  // Next Agenda (Dont know what this is for, but keeping it for now)
   const handleSetReminder = async (text: string) => {
     if (!reminderDate) {
       toast.error("Please select a date and time for the reminder");
@@ -7720,6 +7751,18 @@ function Main() {
       window.removeEventListener("blur", handleBlur);
     };
   }, []);
+
+  // Cleanup useEffect to stop polling when component unmounts
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      setIsPolling(false);
+    };
+  }, []);
+
   const handleGenerateAIResponse = async () => {
     if (messages.length === 0) return;
 
@@ -7775,41 +7818,38 @@ function Main() {
 
   const sendMessageToAssistant = async (messageText: string) => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
         console.error("User not authenticated");
         toast.error("User not authenticated");
         return;
       }
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("User document not found");
-        toast.error("User document not found");
+      const response = await axios.get(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`
+      );
+
+      if (response.status !== 200) {
+        toast.error("Failed to fetch company data");
         return;
       }
 
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      const companyRef = doc(firestore, "companies", companyId);
-      const companySnapshot = await getDoc(companyRef);
-      if (!companySnapshot.exists()) {
-        console.error("Company document not found");
-        toast.error("Company document not found");
-        return;
+      const { companyData } = response.data;
+      let assistantIds: string[] = [];
+      if (Array.isArray(companyData.assistants_ids)) {
+        assistantIds = companyData.assistants_ids;
+      } else if (typeof companyData.assistants_ids === "string") {
+        assistantIds = companyData.assistants_ids
+          .split(",")
+          .map((id: string) => id.trim());
       }
 
-      const companyData = companySnapshot.data();
-      const apiUrl =
-        companyData.apiUrl || baseUrl;
-      const assistantId = companyData.assistantId;
+      const assistantId = assistantIds[0] || "";
 
-      const res = await axios.get(`${apiUrl}/api/assistant-test/`, {
+      const res = await axios.get(`${companyData.apiUrl || baseUrl}/api/assistant-test/`, {
         params: {
           message: messageText,
-          email: user.email!,
+          email: userEmail,
           assistantid: assistantId,
         },
       });
@@ -7955,24 +7995,12 @@ function Main() {
     if (!editedContact) return;
 
     try {
-      const user = auth.currentUser;
-      const docUserRef = doc(firestore, "user", user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const contactsCollectionRef = collection(
-        firestore,
-        `companies/${companyId}/contacts`
-      );
-
-      const updateData: { [key: string]: any } = {};
-      const fieldsToUpdate = [
-        "contactName",
-        "email",
+      // List of fields supported by the API
+      const apiFields = [
+        "companyId",
+        "name",
         "lastName",
+        "email",
         "phone",
         "address1",
         "city",
@@ -7982,7 +8010,6 @@ function Main() {
         "dnd",
         "dndSettings",
         "tags",
-        "customFields",
         "source",
         "country",
         "companyName",
@@ -7993,24 +8020,63 @@ function Main() {
         "IC",
         "assistantId",
         "threadid",
-        // Add the new fields:
-        "nationality",
-        "highestEducation",
-        "programOfStudy",
-        "intakePreference",
-        "englishProficiency",
-        "passport",
         "notes",
+        "customFields",
       ];
 
-      fieldsToUpdate.forEach((field) => {
-        if (editedContact[field as keyof Contact] !== undefined) {
+      // Prepare updateData with only API fields
+      const updateData: { [key: string]: any } = {};
+      const customFields: { [key: string]: any } = {};
+
+      Object.keys(editedContact).forEach((field) => {
+        if (apiFields.includes(field)) {
           updateData[field] = editedContact[field as keyof Contact];
+        } else if (
+          field !== "id" &&
+          field !== "contact_id" &&
+          field !== "chat_id"
+        ) {
+          customFields[field] = editedContact[field as keyof Contact];
         }
       });
 
-      const contactDocRef = doc(contactsCollectionRef, editedContact.phone!);
-      await updateDoc(contactDocRef, updateData);
+      // Merge customFields (existing + new)
+      updateData.customFields = {
+        ...(editedContact.customFields || {}),
+        ...customFields,
+      };
+
+      // Use contact_id from editedContact
+      const contact_id = editedContact.contact_id;
+      if (!contact_id) {
+        toast.error("Contact ID not found");
+        return;
+      }
+
+      // Get companyId from userData or state
+      const companyIdToUse = userData?.companyId || companyId;
+      if (!companyIdToUse) {
+        toast.error("Company ID not found");
+        return;
+      }
+
+      updateData.companyId = companyIdToUse;
+      updateData.name = updateData.contactName || editedContact.contactName || "";
+
+      const response = await fetch(
+        `${baseUrl}/api/contacts/${contact_id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(updateData),
+        }
+      );
+
+      if (!response.ok) {
+        toast.error("Failed to update contact.");
+        return;
+      }
 
       setSelectedContact({ ...selectedContact, ...updateData });
       setIsEditing(false);
@@ -9892,7 +9958,7 @@ function Main() {
                       }
 
                       return (
-                        <React.Fragment key={message.id}>
+                        <React.Fragment key={`${message.id}-${index}-${message.timestamp || message.createdAt || index}`}>
                           {showDateHeader && (
                             <div className="flex justify-center my-4">
                               <div className="inline-block bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold py-1 px-4 rounded-lg shadow-md">
@@ -11264,14 +11330,16 @@ function Main() {
                             )
                             .filter(
                               (reply) =>
-                                reply.keyword
+                                (reply.keyword ?? "")
                                   .toLowerCase()
                                   .includes(quickReplyFilter.toLowerCase()) ||
-                                reply.text
-                                  ?.toLowerCase()
+                                (reply.text ?? "")
+                                  .toLowerCase()
                                   .includes(quickReplyFilter.toLowerCase())
                             )
-                            .sort((a, b) => a.keyword.localeCompare(b.keyword))
+                            .sort((a, b) =>
+                              (a.keyword ?? "").localeCompare(b.keyword ?? "")
+                            )
                             .map((reply) => (
                               <div
                                 key={reply.id}
@@ -11414,7 +11482,7 @@ function Main() {
                                           e.stopPropagation();
                                           updateQuickReply(
                                             reply.id,
-                                            editingReply.keyword,
+                                            editingReply.keyword ?? "",
                                             editingReply.text || "",
                                             editingReply.type as "all" | "self"
                                           );
@@ -12037,31 +12105,7 @@ function Main() {
                           ...selectedContact,
                           phoneIndex: newPhoneIndex,
                         });
-                        const user = auth.currentUser;
-                        const docUserRef = doc(firestore, "user", user?.email!);
-                        const docUserSnapshot = await getDoc(docUserRef);
-                        if (!docUserSnapshot.exists()) {
-                          return;
-                        }
-                        const userData = docUserSnapshot.data();
-                        const companyId = userData.companyId;
-                        // Update Firestore
-                        try {
-                          const contactRef = doc(
-                            firestore,
-                            `companies/${companyId}/contacts`,
-                            selectedContact.id
-                          );
-                          await updateDoc(contactRef, {
-                            phoneIndex: newPhoneIndex,
-                          });
-                          toast.success("Phone updated successfully");
-                        } catch (error) {
-                          console.error("Error updating phone:", error);
-                          toast.error("Failed to update phone");
-                          // Revert local state on error
-                          setSelectedContact({ ...selectedContact });
-                        }
+                        toast.info(`Phone updated to ${phoneNames[newPhoneIndex]}`);
                       }}
                       className="px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ml-4 w-32"
                     >
