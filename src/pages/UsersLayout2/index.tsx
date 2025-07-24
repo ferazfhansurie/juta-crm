@@ -5,10 +5,6 @@ import Pagination from "@/components/Base/Pagination";
 import { FormInput, FormSelect } from "@/components/Base/Form";
 import Lucide from "@/components/Base/Lucide";
 import { Menu } from "@/components/Base/Headless";
-import { getAuth } from "firebase/auth";
-import { initializeApp } from "firebase/app";
-import { DocumentReference, updateDoc, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
-import { getFirestore, collection, doc, setDoc, DocumentSnapshot, Timestamp } from 'firebase/firestore';
 import axios from "axios";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -16,37 +12,11 @@ import { ToastContainer, toast } from 'react-toastify';
 import ReactPaginate from 'react-paginate';
 import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { Dialog } from "@headlessui/react";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
+// Configuration
+const baseUrl = "https://juta-dev.ngrok.dev"; // Your PostgreSQL server URL
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
-  authDomain: "onboarding-a5fcb.firebaseapp.com",
-  databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "onboarding-a5fcb",
-  storageBucket: "onboarding-a5fcb.appspot.com",
-  messagingSenderId: "334607574757",
-  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
-  measurementId: "G-2C9J1RY67L"
-};
-let companyId= "014";
-let role= "1";
-let ghlConfig ={
-  ghl_id:'',
-  ghl_secret:'',
-  ghl_refreshToken:'',
-};
-const app = initializeApp(firebaseConfig);
-const firestore = getFirestore(app);
-
-// Add these types
-interface Bot {
-  botName: string;
-  phoneCount: number | string;
-  name: string;
-  clientPhones: (string | null)[];
-}
-
+// Types
 interface Employee {
   id: string;
   name: string;
@@ -60,12 +30,48 @@ interface Employee {
   imageUrl?: string;
 }
 
-// Add uploadFile function before the Main component
+interface ContactData {
+  country?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address1?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string;
+  website?: string | null;
+  timezone?: string | null;
+  dnd?: boolean;
+  dndSettings?: any;
+  inboundDndSettings?: any;
+  tags?: string[];
+  customFields?: any[];
+  source?: string | null;
+}
+
+// Upload file function (you may need to implement this for your file upload service)
 const uploadFile = async (file: File): Promise<string> => {
-  const storage = getStorage();
-  const storageRef = ref(storage, `files/${file.name}`);
-  await uploadBytes(storageRef, file);
-  return await getDownloadURL(storageRef);
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/upload-media`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error('File upload failed');
+    }
+
+    const data = await response.json();
+    return data.url;
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    throw error;
+  }
 };
 
 function Main() {
@@ -84,6 +90,7 @@ function Main() {
   const [phoneCount, setPhoneCount] = useState<number>(1);
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 21;
+  const [companyId, setCompanyId] = useState<string>("");
 
   // Add new state variables for blast message
   const [blastMessageModal, setBlastMessageModal] = useState(false);
@@ -111,553 +118,352 @@ function Main() {
   const [phoneNames, setPhoneNames] = useState<{ [key: number]: string }>({});
   const [companyData, setCompanyData] = useState<any>(null);
 
-  const toggleModal = (id?:string) => {
+  const toggleModal = (id?: string) => {
     setIsModalOpen(!isModalOpen);
-    setEmployeeIdToDelete(id!)
+    setEmployeeIdToDelete(id!);
   };
 
-  interface ContactData {
-    country?: string;
-    firstName?: string | null;
-    lastName?: string | null;
-    name?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    address1?: string | null;
-    city?: string | null;
-    state?: string | null;
-    postalCode?: string;
-    website?: string | null;
-    timezone?: string | null;
-    dnd?: boolean;
-    dndSettings?: any;
-    inboundDndSettings?: any;
-    tags?: string[];
-    customFields?: any[];
-    source?: string | null;
-  }
-  
-  interface Props {
-    accessToken: string;
-    contactId: string;
-  }
-
-  let accessToken = "";
-  
- 
- useEffect(() => {
-    fetchEmployees();
-  }, []);
-
   useEffect(() => {
-    const auth = getAuth(app);
-    const user = auth.currentUser;
-    if (user) {
-      
-      setCurrentUserEmail(user.email);
-      fetchEmployees();
-    } else {
-      
-    }
+    fetchUserContext();
   }, []);
 
-  useEffect(() => {
-    const fetchCompanyData = async () => {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
+  const fetchUserContext = async () => {
+    try {
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
+        toast.error("No user email found");
+        return;
+      }
+
+      setCurrentUserEmail(userEmail);
+
+      // Fetch user context which includes user data, company data, and employees
+      const response = await axios.get(`${baseUrl}/api/user-page-context?email=${encodeURIComponent(userEmail)}`);
+      const data = response.data;
+
+      // Set user data
+      setRole(data.role);
+      setCompanyId(data.companyId);
+      setCurrentUserEmail(data.email);
+
+      // Set company data
+      setCompanyData(data.companyData);
+      setPhoneCount(data.companyData.phoneCount || 1);
+      setPhoneNames(data.phoneNames || {});
+
+      // Set employees
+      setEmployeeList(data.employees || []);
+
+      // Filter employees based on role
+      const filteredEmployees = data.role === "3" 
+        ? data.employees.filter((employee: Employee) => employee.email === userEmail)
+        : data.employees;
       
-      if (user) {
-        const docUserRef = doc(firestore, 'user', user.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        
-        if (docUserSnapshot.exists()) {
-          const userData = docUserSnapshot.data();
-          companyId = userData.companyId;
-          
-          const companyRef = doc(firestore, 'companies', companyId);
-          const companySnapshot = await getDoc(companyRef);
-          
-          if (companySnapshot.exists()) {
-            const data = companySnapshot.data();
-            setCompanyData(data);
-            const phoneCount = data.phoneCount || 0;
-            
-            // Fetch bot data from API
-            try {
-              const baseUrl = data.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-              const response = await axios.get(`${baseUrl}/api/bots`);
-              const bots: Bot[] = response.data;
-              
-              // Match bot using companyId (which should match botName)
-              const matchingBot = bots.find(bot => bot.botName === companyId);
-              
-              const newPhoneNames: { [key: number]: string } = {};
-              if (matchingBot) {
-                // Use clientPhones from API if available
-                matchingBot.clientPhones.forEach((phone, index) => {
-                  if (phone) {
-                    newPhoneNames[index + 1] = phone;
-                  } else {
-                    newPhoneNames[index + 1] = data[`phone${index + 1}`] || `Phone ${index + 1}`;
-                  }
-                });
-                
-                // Update phoneCount based on API data if different
-                const apiPhoneCount = typeof matchingBot.phoneCount === 'string' 
-                  ? parseInt(matchingBot.phoneCount) 
-                  : matchingBot.phoneCount;
-                  
-                setPhoneCount(apiPhoneCount);
-              } else {
-                // Fallback to existing data if no matching bot found
-                for (let i = 0; i < phoneCount; i++) {
-                  newPhoneNames[i] = data[`phone${i + 1}`] || `Phone ${i + 1}`;
-                }
-                setPhoneCount(phoneCount);
-              }
-              
-              setPhoneNames(newPhoneNames);
-              
-              
-              
-            } catch (error) {
-              console.error('Error fetching bot data:', error);
-              // Fallback to existing phone names
-              const newPhoneNames: { [key: number]: string } = {};
-              for (let i = 0; i < phoneCount; i++) {
-                newPhoneNames[i] = data[`phone${i + 1}`] || `Phone ${i + 1}`;
-              }
-              setPhoneNames(newPhoneNames);
-              setPhoneCount(phoneCount);
-            }
-          }
-        }
+      setEmployeeList(filteredEmployees);
+      setShowAddUserButton(data.role === "1");
+
+      // Fetch groups
+      if (data.companyId) {
+        await fetchGroups(data.companyId);
       }
-    };
-  
-    fetchCompanyData();
-  }, []);
 
-// Assuming axios is imported: import axios from 'axios';
-// Also ensure you have proper state management (e.g., useState for setRole, setPhoneCount, etc.)
-
-async function fetchEmployees() {
-  const userEmail = localStorage.getItem('userEmail');
-    if (!userEmail) {
-      toast.error("No user email found");
-      return;
+    } catch (error) {
+      console.error('Error fetching user context:', error);
+      toast.error("Failed to fetch user data");
     }
-  
-  try {
-    // 1. Fetch user data
-    const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
-    const dataUser = userResponse.data;
+  };
 
-    if (!dataUser) {
-      console.error("User data not found for email:", userEmail);
-      return;
+  const fetchGroups = async (companyId: string) => {
+    try {
+      const response = await axios.get(`${baseUrl}/api/company-groups?companyId=${companyId}`);
+      setGroups(response.data || []);
+    } catch (error) {
+      console.error('Error fetching groups:', error);
     }
+  };
 
-    const companyId = dataUser.company_id; // Note: SQL column is company_id
-    setRole(dataUser.role); // Assuming setRole is a state setter
-
-    // 2. Fetch company configuration (includes phoneCount, ghl_accessToken, phone names)
-    const companyConfigResponse = await axios.get(`https://juta-dev.ngrok.dev/api/company-config/${companyId}`);
-    const { companyData } = companyConfigResponse.data;
-
-    setPhoneCount(companyData.phoneCount); // Assuming setPhoneCount is a state setter
-    // Assuming accessToken is a global variable or state setter
-    // If accessToken is a state, you'd use setAccessToken(companyData.ghl_accessToken);
-    accessToken = companyData.ghl_accessToken; 
-
-    // Fetch phone names from companyData
-    const phoneNamesData: { [key: number]: string } = {};
-    for (let i = 0; i < companyData.phoneCount; i++) {
-      const phoneName = companyData[`phone${i + 1}`]; // Accessing phone1, phone2, etc. from companyData
-      if (phoneName) {
-        phoneNamesData[i] = phoneName;
-      } else {
-        phoneNamesData[i] = `Phone ${i + 1}`;
-      }
-    }
-    setPhoneNames(phoneNamesData); // Assuming setPhoneNames is a state setter
-
-    // 3. Fetch employee list
-    const employeesResponse = await axios.get(`https://juta-dev.ngrok.dev/api/employees-data/${companyId}`);
-    const employeeListData: Employee[] = employeesResponse.data.map((employee: any) => ({
-      id: employee.id,
-      ...employee,
-      phoneNumber: employee.phoneNumber, // Ensure consistent naming if different from DB
-      // group: employee.group || '', // Omitted for now as 'group' is not in SQL schema.
-                                      // Re-add if you clarify its source in DB.
-    }));
-console.log(employeesResponse);
-    const groupSet = new Set<string>();
-    // If 'group' is added later to employee objects, you'll iterate here to populate groupSet
-    // employeeListData.forEach(emp => { if (emp.group) groupSet.add(emp.group); });
-
-    const filteredEmployeeList = dataUser.role === "3"
-      ? employeeListData.filter(employee => employee.email === userEmail)
-      : employeeListData;
-    
-    setEmployeeList(filteredEmployeeList); // Assuming setEmployeeList is a state setter
-    setGroups(Array.from(groupSet)); // Assuming setGroups is a state setter (will be empty if 'group' is not present)
-    
-    setShowAddUserButton(dataUser.role === "1"); // Assuming setShowAddUserButton is a state setter
-  
-  } catch (error) {
-    console.error('Error fetching employees:', error);
-    // Ensure setError is defined in your component's scope
-    // setError("Failed to fetch employees data"); 
-    throw error;
-  }
-}
-
-  // Update the updatePhoneName function
+  // Update the updatePhoneName function to use API
   const updatePhoneName = async (index: number, name: string) => {
     try {
-      const docRef = doc(firestore, 'companies', companyId);
-      await updateDoc(docRef, {
-        [`phone${index + 1}`]: name
+      // You'll need to implement this API endpoint in your server
+      const response = await axios.put(`${baseUrl}/api/update-phone-name`, {
+        companyId,
+        phoneIndex: index,
+        phoneName: name
       });
-      setPhoneNames(prev => ({ ...prev, [index]: name }));
-      toast.success(`Phone ${index + 1} name updated successfully`);
+
+      if (response.data.success) {
+        setPhoneNames(prev => ({ ...prev, [index]: name }));
+        toast.success(`Phone ${index + 1} name updated successfully`);
+      } else {
+        throw new Error(response.data.message || 'Failed to update phone name');
+      }
     } catch (error) {
       console.error('Error updating phone name:', error);
       toast.error('Failed to update phone name');
     }
   };
 
-const handleDeleteEmployee = async (employeeId: string, companyId: any) => {
-  try {
-    // Get the employee's email before deleting
-    const user = getAuth().currentUser;
-    if (!user) {
-      console.error("User not authenticated");
-    }
-    const docUserRef = doc(firestore, 'user', user?.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      
-      return;
-    }
-    const dataUser = docUserSnapshot.data();
-    const companyId = dataUser.companyId;
-    const docRef = doc(firestore, 'companies', companyId);
-    const docSnapshot = await getDoc(docRef);
-    if (!docSnapshot.exists()) {
-      
-      return;
-    }
-    const data2 = docSnapshot.data();
-    const baseUrl = data2.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-    const employeeRef = doc(firestore, `companies/${companyId}/employee/${employeeId}`);
-    const employeeDoc = await getDoc(employeeRef);
-    const employeeEmail = employeeDoc.data()?.email;
-
-    if (!employeeEmail) {
-      throw new Error('Employee email not found');
-    }
-
-    
-
-    // Delete from Firestore
-    await deleteDoc(employeeRef);
-    
-    
-    // Delete from Firebase Auth via your API endpoint
-    
-    const response = await axios.delete(`${baseUrl}/api/auth/user`, {
-      data: { email: employeeEmail }
-    });
-    
-    
-    if (response.status !== 200) {
-      throw new Error('Failed to delete user from authentication');
-    }
-
-    // Update UI
-    const updatedEmployeeList = employeeList.filter(employee => employee.id !== employeeId);
-    setEmployeeList(updatedEmployeeList);
-    
-    toast.success('Employee deleted successfully');
-    toggleModal();
-  } catch (error) {
-    console.error("Error deleting employee:", error);
-    if (axios.isAxiosError(error)) {
-      console.error('API Error details:', {
-        status: error.response?.status,
-        data: error.response?.data
-      });
-      toast.error(`Failed to delete employee: ${error.response?.data?.message || error.message}`);
-    } else {
-      toast.error('Failed to delete employee: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  }
-};
-
-const handlePageChange = ({ selected }: { selected: number }) => {
-  setCurrentPage(selected);
-};
-
-const [searchTerm, setSearchTerm] = useState("");
-
-const filteredEmployees = useMemo(() => {
-  let filtered = employeeList;
-  
-  if (searchTerm.trim()) {
-    const lowercaseSearchTerm = searchTerm.toLowerCase();
-    filtered = filtered.filter(employee => 
-      employee.name.toLowerCase().includes(lowercaseSearchTerm) ||
-      employee.email?.toLowerCase().includes(lowercaseSearchTerm) ||
-      employee.employeeId?.toLowerCase().includes(lowercaseSearchTerm) ||
-      employee.phoneNumber?.toLowerCase().includes(lowercaseSearchTerm)
-    );
-  }
-
-  if (selectedGroup) {
-    filtered = filtered.filter(employee => employee.group === selectedGroup);
-  }
-
-  return filtered;
-}, [employeeList, searchTerm, selectedGroup]);
-
-const paginatedEmployees = filteredEmployees
-  .sort((a, b) => {
-    const roleOrder = { "1": 0, "2": 1, "3": 2, "4": 3, "5": 4 };
-    return roleOrder[a.role as keyof typeof roleOrder] - roleOrder[b.role as keyof typeof roleOrder];
-  })
-  .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
-
-const handleEmployeeSelection = (employee: Employee) => {
-  setSelectedEmployees(prev => {
-    const isSelected = prev.some(e => e.id === employee.id);
-    if (isSelected) {
-      return prev.filter(e => e.id !== employee.id);
-    } else {
-      return [...prev, employee];
-    }
-  });
-};
-
-const [phoneIndex, setPhoneIndex] = useState<number>(0);
-
-const sendBlastMessage = async () => {
-  // Validation checks
-  if (selectedEmployees.length === 0) {
-    toast.error("No employees selected!");
-    return;
-  }
-
-  if (!blastStartTime) {
-    toast.error("Please select a start time for the blast message.");
-    return;
-  }
-
-  if (messages.some(msg => !msg.text.trim())) {
-    toast.error("Please fill in all message fields");
-    return;
-  }
-
-  setIsScheduling(true);
-
-  try {
-    let mediaUrl = '';
-    let documentUrl = '';
-    let fileName = '';
-    let mimeType = '';
-
-    // Handle media and document uploads
-    if (selectedMedia) {
-      try {
-        mediaUrl = await uploadFile(selectedMedia);
-        mimeType = selectedMedia.type;
-      } catch (error) {
-        console.error('Error uploading media:', error);
-        toast.error("Failed to upload media file");
-        return;
+  const handleDeleteEmployee = async (employeeEmail: string) => {
+    try {
+      if (!employeeEmail) {
+        throw new Error('Employee email not found');
       }
-    }
 
-    if (selectedDocument) {
-      try {
-        documentUrl = await uploadFile(selectedDocument);
-        fileName = selectedDocument.name;
-        mimeType = selectedDocument.type;
-      } catch (error) {
-        console.error('Error uploading document:', error);
-        toast.error("Failed to upload document");
-        return;
-      }
-    }
-
-    const user = getAuth(app).currentUser;
-    if (!user) {
-      toast.error("User not authenticated");
-      return;
-    }
-
-    const docUserRef = doc(firestore, 'user', user.email!);
-    const docUserSnapshot = await getDoc(docUserRef);
-    if (!docUserSnapshot.exists()) {
-      toast.error("User data not found");
-      return;
-    }
-
-    const userData = docUserSnapshot.data();
-    const companyId = userData.companyId;
-
-    // Get user's default phone index
-    let defaultPhoneIndex;
-    if (userData?.phone !== undefined) {
-      if (userData.phone === 0 || userData.phone === -1) {
-        defaultPhoneIndex = 0;
-      } else {
-        defaultPhoneIndex = userData.phone;
-      }
-    } else {
-      defaultPhoneIndex = 0;
-    }
-
-    const companyRef = doc(firestore, 'companies', companyId);
-    const companySnapshot = await getDoc(companyRef);
-    if (!companySnapshot.exists()) {
-      toast.error("Company data not found");
-      return;
-    }
-
-    const companyData = companySnapshot.data();
-    const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-    const isV2 = companyData.v2 || false;
-    const whapiToken = companyData.whapiToken || '';
-
-    // Process employee phone numbers
-    const chatIds = selectedEmployees
-      .map(employee => employee.phoneNumber)
-      .filter((phone): phone is string => phone !== undefined && phone !== null)
-      .map(phone => phone.replace(/\D/g, '') + "@c.us");
-
-    const allMessages = [];
-    
-    // Add first message to the array
-    if (messages.length > 0 && messages[0].text.trim()) {
-      allMessages.push({
-        text: messages[0].text,
-        isMain: true,
-        delayAfter: 0
-      });
-    }
-    
-    // Add additional messages
-    if (messages.length > 1) {
-      messages.slice(1).forEach((msg, idx) => {
-        if (msg.text.trim()) {
-          allMessages.push({
-            text: msg.text,
-            isMain: false,
-            delayAfter: msg.delayAfter || 0
-          });
+      // Delete user via API
+      const response = await axios.delete(`${baseUrl}/api/delete-user`, {
+        data: { 
+          email: employeeEmail,
+          companyId: companyId 
         }
       });
+
+      if (response.data.success) {
+        // Update UI
+        const updatedEmployeeList = employeeList.filter(employee => employee.email !== employeeEmail);
+        setEmployeeList(updatedEmployeeList);
+        
+        toast.success('Employee deleted successfully');
+        toggleModal();
+      } else {
+        throw new Error(response.data.message || 'Failed to delete employee');
+      }
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      if (axios.isAxiosError(error)) {
+        console.error('API Error details:', {
+          status: error.response?.status,
+          data: error.response?.data
+        });
+        toast.error(`Failed to delete employee: ${error.response?.data?.message || error.message}`);
+      } else {
+        toast.error('Failed to delete employee: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      }
+    }
+  };
+
+  const handlePageChange = ({ selected }: { selected: number }) => {
+    setCurrentPage(selected);
+  };
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredEmployees = useMemo(() => {
+    let filtered = employeeList;
+    
+    if (searchTerm.trim()) {
+      const lowercaseSearchTerm = searchTerm.toLowerCase();
+      filtered = filtered.filter(employee => 
+        employee.name.toLowerCase().includes(lowercaseSearchTerm) ||
+        employee.email?.toLowerCase().includes(lowercaseSearchTerm) ||
+        employee.employeeId?.toLowerCase().includes(lowercaseSearchTerm) ||
+        employee.phoneNumber?.toLowerCase().includes(lowercaseSearchTerm)
+      );
     }
 
-    const scheduledMessageData = {
-      chatIds,
-      phoneIndex: defaultPhoneIndex,
-      messages: allMessages,
-      messageDelays: messages.slice(1).map(msg => msg.delayAfter),
-      batchQuantity,
-      companyId,
-      createdAt: Timestamp.now(),
-      repeatInterval,
-      repeatUnit,
-      scheduledTime: Timestamp.fromDate(blastStartTime),
-      status: "scheduled",
-      v2: isV2,
-      whapiToken: isV2 ? null : whapiToken,
-      minDelay,
-      maxDelay,
-      activateSleep,
-      sleepAfterMessages: activateSleep ? sleepAfterMessages : null,
-      sleepDuration: activateSleep ? sleepDuration : null,
-      activeHours: {
-        start: activeTimeStart,
-        end: activeTimeEnd
-      },
-      infiniteLoop,
-      numberOfBatches: 1,
-      isConsolidated: true,
-      recipients: selectedEmployees.map(emp => ({
-        name: emp.name,
-        phone: emp.phoneNumber
-      }))
-    };
+    if (selectedGroup) {
+      filtered = filtered.filter(employee => employee.group === selectedGroup);
+    }
 
-    // If there's media, send it first
-    if (mediaUrl || documentUrl) {
-      const mediaScheduledTime = new Date(blastStartTime);
-      mediaScheduledTime.setMinutes(mediaScheduledTime.getMinutes() - 1);
+    return filtered;
+  }, [employeeList, searchTerm, selectedGroup]);
 
-      const mediaMessageData = {
-        ...scheduledMessageData,
-        mediaUrl,
-        documentUrl,
-        fileName,
-        mimeType,
-        message: '',
-        scheduledTime: Timestamp.fromDate(mediaScheduledTime),
-        messages: [],
-        messageDelays: [],
+  const paginatedEmployees = filteredEmployees
+    .sort((a, b) => {
+      const roleOrder = { "1": 0, "2": 1, "3": 2, "4": 3, "5": 4 };
+      return roleOrder[a.role as keyof typeof roleOrder] - roleOrder[b.role as keyof typeof roleOrder];
+    })
+    .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
+
+  const handleEmployeeSelection = (employee: Employee) => {
+    setSelectedEmployees(prev => {
+      const isSelected = prev.some(e => e.id === employee.id);
+      if (isSelected) {
+        return prev.filter(e => e.id !== employee.id);
+      } else {
+        return [...prev, employee];
+      }
+    });
+  };
+
+  const [phoneIndex, setPhoneIndex] = useState<number>(0);
+
+  const sendBlastMessage = async () => {
+    // Validation checks
+    if (selectedEmployees.length === 0) {
+      toast.error("No employees selected!");
+      return;
+    }
+
+    if (!blastStartTime) {
+      toast.error("Please select a start time for the blast message.");
+      return;
+    }
+
+    if (messages.some(msg => !msg.text.trim())) {
+      toast.error("Please fill in all message fields");
+      return;
+    }
+
+    setIsScheduling(true);
+
+    try {
+      let mediaUrl = '';
+      let documentUrl = '';
+      let fileName = '';
+      let mimeType = '';
+
+      // Handle media and document uploads
+      if (selectedMedia) {
+        try {
+          mediaUrl = await uploadFile(selectedMedia);
+          mimeType = selectedMedia.type;
+        } catch (error) {
+          console.error('Error uploading media:', error);
+          toast.error("Failed to upload media file");
+          return;
+        }
+      }
+
+      if (selectedDocument) {
+        try {
+          documentUrl = await uploadFile(selectedDocument);
+          fileName = selectedDocument.name;
+          mimeType = selectedDocument.type;
+        } catch (error) {
+          console.error('Error uploading document:', error);
+          toast.error("Failed to upload document");
+          return;
+        }
+      }
+
+      // Process employee phone numbers
+      const chatIds = selectedEmployees
+        .map(employee => employee.phoneNumber)
+        .filter((phone): phone is string => phone !== undefined && phone !== null)
+        .map(phone => phone.replace(/\D/g, '') + "@c.us");
+
+      const allMessages = [];
+      
+      // Add first message to the array
+      if (messages.length > 0 && messages[0].text.trim()) {
+        allMessages.push({
+          text: messages[0].text,
+          isMain: true,
+          delayAfter: 0
+        });
+      }
+      
+      // Add additional messages
+      if (messages.length > 1) {
+        messages.slice(1).forEach((msg, idx) => {
+          if (msg.text.trim()) {
+            allMessages.push({
+              text: msg.text,
+              isMain: false,
+              delayAfter: msg.delayAfter || 0
+            });
+          }
+        });
+      }
+
+      const scheduledMessageData = {
+        chatIds,
+        phoneIndex: 0, // Default phone index
+        messages: allMessages,
+        messageDelays: messages.slice(1).map(msg => msg.delayAfter),
+        batchQuantity,
+        companyId,
+        createdAt: new Date().toISOString(),
+        repeatInterval,
+        repeatUnit,
+        scheduledTime: blastStartTime.toISOString(),
+        status: "scheduled",
+        v2: companyData?.v2 || false,
+        whapiToken: companyData?.whapiToken || '',
+        minDelay,
+        maxDelay,
+        activateSleep,
+        sleepAfterMessages: activateSleep ? sleepAfterMessages : null,
+        sleepDuration: activateSleep ? sleepDuration : null,
+        activeHours: {
+          start: activeTimeStart,
+          end: activeTimeEnd
+        },
+        infiniteLoop,
+        numberOfBatches: 1,
+        isConsolidated: true,
+        recipients: selectedEmployees.map(emp => ({
+          name: emp.name,
+          phone: emp.phoneNumber
+        }))
       };
 
-      try {
-        const mediaResponse = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, mediaMessageData);
-        if (!mediaResponse.data.success) {
-          throw new Error(mediaResponse.data.message || "Failed to schedule media message");
+      // If there's media, send it first
+      if (mediaUrl || documentUrl) {
+        const mediaScheduledTime = new Date(blastStartTime);
+        mediaScheduledTime.setMinutes(mediaScheduledTime.getMinutes() - 1);
+
+        const mediaMessageData = {
+          ...scheduledMessageData,
+          mediaUrl,
+          documentUrl,
+          fileName,
+          mimeType,
+          message: '',
+          scheduledTime: mediaScheduledTime.toISOString(),
+          messages: [],
+          messageDelays: [],
+        };
+
+        try {
+          const mediaResponse = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, mediaMessageData);
+          if (!mediaResponse.data.success) {
+            throw new Error(mediaResponse.data.message || "Failed to schedule media message");
+          }
+        } catch (error) {
+          console.error('Error scheduling media message:', error);
+          if (axios.isAxiosError(error) && error.response?.data) {
+            console.error('Server error details:', error.response.data);
+          }
+          throw error;
         }
-      } catch (error) {
-        console.error('Error scheduling media message:', error);
-        if (axios.isAxiosError(error) && error.response?.data) {
-          console.error('Server error details:', error.response.data);
-        }
-        throw error;
       }
+
+      // Schedule the text messages
+      const response = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, scheduledMessageData);
+
+      if (response.data.success) {
+        toast.success(`Blast messages scheduled successfully for ${selectedEmployees.length} employees.`);
+        toast.info(`Messages will be sent at: ${blastStartTime.toLocaleString()} (local time)`);
+
+        // Reset form and close modal
+        setBlastMessageModal(false);
+        setBlastMessage("");
+        setBlastStartTime(null);
+        setSelectedEmployees([]);
+        setMessages([{ text: '', delayAfter: 0 }]);
+        setBatchQuantity(10);
+        setRepeatInterval(0);
+        setRepeatUnit('days');
+        setSelectedMedia(null);
+        setSelectedDocument(null);
+      } else {
+        toast.error(response.data.message || "Failed to schedule messages");
+      }
+
+    } catch (error) {
+      console.error('Error scheduling blast messages:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        const errorMessage = error.response.data.error || 'Unknown server error';
+        toast.error(`Failed to schedule message: ${errorMessage}`);
+      } else {
+        toast.error("An unexpected error occurred while scheduling blast messages.");
+      }
+    } finally {
+      setIsScheduling(false);
     }
-
-    // Schedule the text messages
-    const response = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, scheduledMessageData);
-
-    if (response.data.success) {
-      toast.success(`Blast messages scheduled successfully for ${selectedEmployees.length} employees.`);
-      toast.info(`Messages will be sent at: ${blastStartTime.toLocaleString()} (local time)`);
-
-      // Reset form and close modal
-      setBlastMessageModal(false);
-      setBlastMessage("");
-      setBlastStartTime(null);
-      setSelectedEmployees([]);
-      setMessages([{ text: '', delayAfter: 0 }]);
-      setBatchQuantity(10);
-      setRepeatInterval(0);
-      setRepeatUnit('days');
-      setSelectedMedia(null);
-      setSelectedDocument(null);
-    } else {
-      toast.error(response.data.message || "Failed to schedule messages");
-    }
-
-  } catch (error) {
-    console.error('Error scheduling blast messages:', error);
-    if (axios.isAxiosError(error) && error.response) {
-      const errorMessage = error.response.data.error || 'Unknown server error';
-      toast.error(`Failed to schedule message: ${errorMessage}`);
-    } else {
-      toast.error("An unexpected error occurred while scheduling blast messages.");
-    }
-  } finally {
-    setIsScheduling(false);
-  }
-};
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -761,7 +567,7 @@ const sendBlastMessage = async () => {
                 <Menu>
                   <Menu.Button as={Button} variant="outline-secondary" className="shadow-sm hover:shadow-md transition-shadow duration-200">
                     <Lucide icon="Phone" className="w-4 h-4 mr-2" />
-                    Phone Numbers
+                    Phone Names
                     <Lucide icon="ChevronDown" className="w-4 h-4 ml-2" />
                   </Menu.Button>
                   <Menu.Items className="absolute right-0 z-50 mt-2 w-72 rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
@@ -844,17 +650,12 @@ const sendBlastMessage = async () => {
                          employee.role === "4" ? 'Manager' :
                          employee.role === "5" ? 'Supervisor' : 'Other'}
                       </span>
-                      {employee.employeeId && (
-                        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                          #{employee.employeeId}
-                        </span>
-                      )}
                     </div>
                   </div>
                   <div className="flex flex-col space-y-2">
                     {(role === "1" || (role !== "1" && employee.email === currentUserEmail)) && (
                       <button
-                        onClick={() => navigate(`crud-form`, { state: { contactId: employee.id, contact: employee, companyId: companyId || '' } })}
+                        onClick={() => navigate(`crud-form`, { state: { contactId: employee.email, contact: { ...employee, id: employee.email }, companyId: companyId || '' } })}
                         className="p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                         aria-label="Edit"
                       >
@@ -863,7 +664,7 @@ const sendBlastMessage = async () => {
                     )}
                     {role === "1" && (
                       <button 
-                        onClick={() => toggleModal(employee.id)}
+                        onClick={() => toggleModal(employee.email)}
                         className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                         aria-label="Delete"
                       >
@@ -928,7 +729,7 @@ const sendBlastMessage = async () => {
               <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
                 <button
                   type="button"
-                  onClick={() => handleDeleteEmployee(employeeIdToDelete, companyId)}
+                  onClick={() => handleDeleteEmployee(employeeIdToDelete)}
                   className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto"
                 >
                   Delete

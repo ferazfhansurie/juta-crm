@@ -55,6 +55,22 @@ function Main() {
     return null;
   };
 
+  const fetchGroups = async () => {
+    if (!companyId) return;
+
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/company-groups?companyId=${companyId}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch groups");
+
+      const groupsArray = await response.json();
+      setGroups(groupsArray);
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+    }
+  };
+
   useEffect(() => {
     // Use user info from localStorage (set during API login)
     const userDataStr = localStorage.getItem("userData");
@@ -66,7 +82,7 @@ function Main() {
           (async () => {
             try {
               const response = await fetch(
-                `${baseUrl}/api/user-context?email=${email}`
+                `${baseUrl}/api/user-page-context?email=${email}`
               );
               if (!response.ok) throw new Error("Failed to fetch user context");
               const data = await response.json();
@@ -86,6 +102,7 @@ function Main() {
               setEmployeeList(employeeListData);
               // Set phone index data
               setPhoneNames(data.phoneNames);
+              console.error("Phone Names:", data.phoneNames);
               setPhoneOptions(Object.keys(data.phoneNames).map(Number));
             } catch (error) {
               console.error("Error fetching user data:", error);
@@ -125,6 +142,8 @@ function Main() {
     weightage3?: number;
     viewEmployees: string[];
     viewEmployee: string | null;
+    phoneAccess?: { [key: number]: boolean };
+    phoneWeightages?: { [key: number]: number };
   }>({
     name: "",
     phoneNumber: "",
@@ -142,6 +161,8 @@ function Main() {
     weightage: 0,
     viewEmployees: [],
     viewEmployee: null,
+    phoneAccess: {},
+    phoneWeightages: {},
   });
 
   useEffect(() => {
@@ -149,93 +170,83 @@ function Main() {
       if (contact && contact.id) {
         try {
           const response = await fetch(
-            `${baseUrl}/api/user-details?id=${contact.id}`
+            `${baseUrl}/api/user-page-details?id=${contact.id}`
           );
-          if (!response.ok) throw new Error("Failed to fetch user details");
+          if (!response.ok) {
+            throw new Error("Failed to fetch user details");
+          }
 
           const userDetails = await response.json();
 
-            // Parse phone and weightage arrays from userDetails
-            // phone_access is an object like {1:true, 2:false}
-            const phoneAccessObj = userDetails.phone_access || {};
-            // Only include phone indices (as numbers) where value is true
-            const phoneAccess: number[] = Object.entries(phoneAccessObj)
-              .filter(([_, v]) => v === true)
-              .map(([k]) => Number(k) - 1); // convert to 0-based index
+          // Parse phone access and weightages from database format
+          // phone_access is an object like {"0":true, "1":false, "2":true}
+          const phoneAccessObj = userDetails.phone_access || {};
+          // weightages is an object like {"0": 10, "1": 0, "2": 5}
+          const weightagesObj = userDetails.weightages || {};
 
-            // weightages is an object like {1: 10, 2: 0}
-            const weightagesObj = userDetails.weightages || {};
-            // Map weightages to the same indices as phoneAccess
-            const weightages: number[] = phoneAccess.map(
-              (idx) => Number(weightagesObj[String(idx + 1)]) || 0
-            );
+          // Convert string keys to number keys for consistency
+          const phoneAccess: { [key: number]: boolean } = {};
+          const phoneWeightages: { [key: number]: number } = {};
+          
+          Object.entries(phoneAccessObj).forEach(([key, value]) => {
+            if (value === true) {
+              phoneAccess[Number(key)] = true;
+              phoneWeightages[Number(key)] = weightagesObj[key] || 0;
+            }
+          });
 
-            // If phoneAccess has less than 3 items, fill the rest with undefined
-            const phone1 = phoneAccess[0] ?? 0;
-            const phone2 = phoneAccess.length > 1 ? phoneAccess[1] : undefined;
-            const phone3 = phoneAccess.length > 2 ? phoneAccess[2] : undefined;
+          // Get the first phone that has access (for primary phone field)
+          const firstActivePhone = Object.entries(phoneAccessObj)
+            .find(([_, v]) => v === true)?.[0];
+          
+          // Get all phones with access for additional phone fields
+          const activePhones = Object.entries(phoneAccessObj)
+            .filter(([_, v]) => v === true)
+            .map(([k]) => Number(k));
 
-            const weightage1 = weightages[0] ?? 0;
-            const weightage2 = weightages.length > 1 ? weightages[1] : undefined;
-            const weightage3 = weightages.length > 2 ? weightages[2] : undefined;
+          // Parse viewEmployees array from database
+          const viewEmployeesArray = Array.isArray(userDetails.viewEmployees) ? userDetails.viewEmployees : [];
 
-            const userData = {
-              name: userDetails.name || "",
-              phoneNumber: userDetails.phoneNumber
-              ? userDetails.phoneNumber.split("+6")[1] ?? ""
-              : "",
-              email: contact.id,
-              password: "",
-              role: userDetails.role || "",
-              companyId: userDetails.companyId || "",
-              group: userDetails.group || "",
-              employeeId: userDetails.employeeId || "",
-              notes: userDetails.notes || "",
-              quotaLeads: userDetails.quotaLeads || 0,
-              invoiceNumber: userDetails.invoiceNumber || null,
-              phone: phone1,
-              phone2: phone2,
-              phone3: phone3,
-              imageUrl: userDetails.imageUrl || "",
-              weightage: weightage1,
-              weightage2: weightage2,
-              weightage3: weightage3,
-              viewEmployees: userDetails.viewEmployees || [],
-              viewEmployee:
-              Array.isArray(userDetails.viewEmployees) &&
-              userDetails.viewEmployees.length > 0
-                ? userDetails.viewEmployees[0]
-                : null,
-            };
+          setUserData({
+            name: userDetails.name || "",
+            phoneNumber: userDetails.phoneNumber || "",
+            email: userDetails.email || "",
+            password: "", // Don't populate password for security
+            role: userDetails.role || "",
+            companyId: userDetails.companyId || companyId,
+            group: userDetails.group || "",
+            employeeId: userDetails.employeeId || "",
+            notes: userDetails.notes || "",
+            quotaLeads: userDetails.quotaLeads || 0,
+            invoiceNumber: userDetails.invoiceNumber || null,
+            phone: firstActivePhone ? Number(firstActivePhone) : 0,
+            phone2: activePhones.length > 1 ? activePhones[1] : undefined,
+            phone3: activePhones.length > 2 ? activePhones[2] : undefined,
+            imageUrl: userDetails.imageUrl || "",
+            weightage: firstActivePhone ? (weightagesObj[firstActivePhone] || 0) : 0,
+            weightage2: activePhones.length > 1 ? (weightagesObj[String(activePhones[1])] || 0) : undefined,
+            weightage3: activePhones.length > 2 ? (weightagesObj[String(activePhones[2])] || 0) : undefined,
+            viewEmployees: viewEmployeesArray,
+            viewEmployee: null,
+            phoneAccess: phoneAccess,
+            phoneWeightages: phoneWeightages,
+          });
 
-          setUserData(userData);
-          setSelectedEmployees(userDetails.viewEmployees || []);
-          setCategories([userDetails.role]);
+          // Set selectedEmployees to match the loaded viewEmployees data
+          setSelectedEmployees(viewEmployeesArray);
+
+          // Note: Don't filter the employee list here since it depends on role hierarchy
+          // The filtering will be handled by the useEffect that depends on currentUserRole and employeeList
         } catch (error) {
-          console.error("Error fetching user data from API:", error);
+          console.error("Error fetching user details:", error);
+          toast.error("Failed to load user details");
         }
       }
     };
 
     fetchUserData();
     fetchGroups();
-  }, [contact, companyId]);
-
-  const fetchGroups = async () => {
-    if (!companyId) return;
-
-    try {
-      const response = await fetch(
-        `${baseUrl}/api/company-groups?companyId=${companyId}`
-      );
-      if (!response.ok) throw new Error("Failed to fetch groups");
-
-      const groupsArray = await response.json();
-      setGroups(groupsArray);
-    } catch (error) {
-      console.error("Error fetching groups:", error);
-    }
-  };
+  }, [contact, companyId, employeeList]);
 
   const handleChange = (e: { target: { name: any; value: any } }) => {
     const { name, value } = e.target;
@@ -249,6 +260,40 @@ function Main() {
 
       return newData;
     });
+  };
+
+  const handlePhoneToggle = (phoneIndex: number, isEnabled: boolean) => {
+    setUserData((prev) => {
+      const newPhoneAccess = { ...prev.phoneAccess };
+      const newPhoneWeightages = { ...prev.phoneWeightages };
+      
+      if (isEnabled) {
+        newPhoneAccess[phoneIndex] = true;
+        // Set default weightage if not already set
+        if (!newPhoneWeightages[phoneIndex]) {
+          newPhoneWeightages[phoneIndex] = 0;
+        }
+      } else {
+        delete newPhoneAccess[phoneIndex];
+        delete newPhoneWeightages[phoneIndex];
+      }
+      
+      return {
+        ...prev,
+        phoneAccess: newPhoneAccess,
+        phoneWeightages: newPhoneWeightages,
+      };
+    });
+  };
+
+  const handleWeightageChange = (phoneIndex: number, weightage: number) => {
+    setUserData((prev) => ({
+      ...prev,
+      phoneWeightages: {
+        ...prev.phoneWeightages,
+        [phoneIndex]: weightage,
+      },
+    }));
   };
 
   const handleAddNewGroup = () => {
@@ -414,31 +459,66 @@ function Main() {
         };
 
         if (contactId) {
+          // Build phone access and weightages objects for update using new structure
+          const phoneAccessObj: { [key: string]: boolean } = {};
+          const weightagesObj: { [key: string]: number } = {};
+
+          // Use the new phoneAccess and phoneWeightages structure
+          if (userData.phoneAccess) {
+            Object.entries(userData.phoneAccess).forEach(([phoneIndex, isEnabled]) => {
+              if (isEnabled) {
+                phoneAccessObj[phoneIndex] = true;
+                weightagesObj[phoneIndex] = userData.phoneWeightages?.[Number(phoneIndex)] || 0;
+              }
+            });
+          }
+
           // Update user via API
+          const updateData = {
+            contactId: contact.id, // Use the email as contactId
+            name: userData.name,
+            phoneNumber: formatPhoneNumber(userData.phoneNumber),
+            email: userData.email,
+            password: userData.password || undefined, // Only send if provided
+            role: userData.role,
+            companyId: companyId,
+            group: userData.group,
+            employeeId: userData.employeeId || null,
+            notes: userData.notes || null,
+            quotaLeads: userData.quotaLeads || 0,
+            invoiceNumber: userData.invoiceNumber || null,
+            phone: userData.phone ?? 0,
+            weightage: Number(userData.weightage) || 0,
+            imageUrl: imageUrl || "",
+            viewEmployees: userData.viewEmployees || [],
+            viewEmployee: userData.viewEmployee || null,
+            phoneAccess: phoneAccessObj,
+            weightages: weightagesObj
+          };
+
           const response = await fetch(`${baseUrl}/api/update-user`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...userDataToSend, contactId }),
+            body: JSON.stringify(updateData),
           });
-          if (!response.ok) throw new Error("Failed to update user");
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to update user");
+          }
           toast.success("User updated successfully");
         } else {
           // Add user via API
           const phoneAccessObj: { [key: string]: boolean } = {};
           const weightagesObj: { [key: string]: number } = {};
 
-          // Build phone access and weightages objects
-          if (userData.phone !== undefined && userData.phone >= 0) {
-            phoneAccessObj[String(userData.phone + 1)] = true;
-            weightagesObj[String(userData.phone + 1)] = userData.weightage || 0;
-          }
-          if (userData.phone2 !== undefined && userData.phone2 >= 0) {
-            phoneAccessObj[String(userData.phone2 + 1)] = true;
-            weightagesObj[String(userData.phone2 + 1)] = userData.weightage2 || 0;
-          }
-          if (userData.phone3 !== undefined && userData.phone3 >= 0) {
-            phoneAccessObj[String(userData.phone3 + 1)] = true;
-            weightagesObj[String(userData.phone3 + 1)] = userData.weightage3 || 0;
+          // Use the new phoneAccess and phoneWeightages structure
+          if (userData.phoneAccess) {
+            Object.entries(userData.phoneAccess).forEach(([phoneIndex, isEnabled]) => {
+              if (isEnabled) {
+                phoneAccessObj[phoneIndex] = true;
+                weightagesObj[phoneIndex] = userData.phoneWeightages?.[Number(phoneIndex)] || 0;
+              }
+            });
           }
 
           const requestBody = {
@@ -743,25 +823,60 @@ function Main() {
               </div>
             )}
           <div>
-            <FormLabel htmlFor="phone">Phone</FormLabel>
-            <select
-              id="phone"
-              name="phone"
-              value={userData.phone}
-              onChange={handleChange}
-              className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
-              disabled={
-                isFieldDisabled("phone") ||
-                (currentUserRole !== "1" && userData.role !== "2")
-              }
-            >
-              <option value="">Select a phone</option>
-              {Object.entries(phoneNames).map(([index, phoneName]) => (
-                <option key={index} value={parseInt(index) - 1}>
-                  {phoneName}
-                </option>
-              ))}
-            </select>
+            <FormLabel htmlFor="phoneAccess">Phone Access</FormLabel>
+            <div className="space-y-3 p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
+              {Object.entries(phoneNames).length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400 text-sm">No phones available</p>
+              ) : (
+                Object.entries(phoneNames).map(([index, phoneName]) => {
+                  const phoneIndex = parseInt(index);
+                  const isEnabled = userData.phoneAccess?.[phoneIndex] || false;
+                  
+                  return (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          id={`phone-${index}`}
+                          checked={isEnabled}
+                          onChange={(e) => handlePhoneToggle(phoneIndex, e.target.checked)}
+                          disabled={
+                            isFieldDisabled("phone") ||
+                            (currentUserRole !== "1" && userData.role !== "2")
+                          }
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label 
+                          htmlFor={`phone-${index}`}
+                          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >
+                          {phoneName || `Phone ${phoneIndex}`}
+                        </label>
+                      </div>
+                      {isEnabled && (
+                        <div className="flex items-center space-x-2">
+                          <label className="text-xs text-gray-600 dark:text-gray-400">
+                            Weightage:
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={userData.phoneWeightages?.[phoneIndex] || 0}
+                            onChange={(e) => handleWeightageChange(phoneIndex, parseInt(e.target.value) || 0)}
+                            disabled={
+                              isFieldDisabled("phone") ||
+                              (currentUserRole !== "1" && userData.role !== "2")
+                            }
+                            className="w-20 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                            placeholder="0"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
           <div>
             <FormLabel htmlFor="image">Profile Image</FormLabel>
@@ -863,41 +978,6 @@ function Main() {
             />
           </div>
         </div>
-        {currentUserRole === "1" && phoneOptions.length > 0 && (
-          <>
-            {Object.entries(phoneNames).map(([index, phoneName]) => {
-              // Convert index to 0-based for consistency
-              const phoneIndex = parseInt(index) - 1;
-              const weightageField =
-                phoneIndex === 0
-                  ? "weightage"
-                  : `weightage${phoneIndex + 1}`;
-
-              // Get the correct weightage value based on the field name
-              const weightageValue =
-                userData[weightageField as keyof typeof userData] as number;
-
-              return (
-                <div key={index} className="grid grid-cols-1 gap-4 mt-4">
-                  <div>
-                    <FormLabel htmlFor={weightageField}>
-                      Weightage for {phoneName}
-                    </FormLabel>
-                    <FormInput
-                      id={weightageField}
-                      name={weightageField}
-                      type="number"
-                      value={weightageValue ?? 0}
-                      onChange={handleChange}
-                      placeholder="Weightage"
-                      min="0"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </>
-        )}
         {errorMessage && (
           <div
             className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mt-4"
