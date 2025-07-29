@@ -361,6 +361,21 @@ interface QRCodeData {
   status: string;
   qrCode: string | null;
 }
+interface Phone {
+  phoneIndex: number;
+  status: string;
+  qrCode: string | null;
+  phoneInfo: string;
+}
+
+interface BotStatusResponse {
+  phones: Phone[];
+  companyId: string;
+  v2: boolean;
+  trialEndDate: string | null;
+  apiUrl: string | null;
+  phoneCount: number;
+}
 
 const DatePickerComponent = DatePicker as any;
 
@@ -1316,34 +1331,46 @@ function Main() {
     }
   };
 
-  useEffect(() => {
-    const fetchPhoneStatuses = async () => {
-      try {
-        const email = getCurrentUserEmail();
-        if (!email || !companyId) return;
+// ... existing code ...
 
-        const botStatusResponse = await axios.get(
-          `${baseUrl}/api/bot-status/${companyId}`
-        );
+useEffect(() => {
+  const fetchPhoneStatuses = async () => {
+    try {
+      const email = getCurrentUserEmail();
+      if (!email || !companyId) return;
+
+      const botStatusResponse = await axios.get(
+        `${baseUrl}/api/bot-status/${companyId}`
+      );
       console.log(botStatusResponse);
-        if (botStatusResponse.status === 200) {
-          const qrCodesData = Array.isArray(botStatusResponse.data)
-            ? botStatusResponse.data
-            : [];
-          setQrCodes(qrCodesData);
-        }
-      } catch (error) {
-        console.error("Error fetching phone statuses:", error);
+      
+      if (botStatusResponse.status === 200) {
+        const data: BotStatusResponse = botStatusResponse.data;
+        
+        // Transform the new response format to the expected QRCodeData format
+        const qrCodesData: QRCodeData[] = data.phones.map(phone => ({
+          phoneIndex: phone.phoneIndex,
+          status: phone.status,
+          qrCode: phone.qrCode
+        }));
+        console.log('qrCodesData:', qrCodesData);
+        setQrCodes(qrCodesData);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching phone statuses:", error);
+    }
+  };
 
+  // Only fetch if we have companyId
+  if (companyId) {
     fetchPhoneStatuses();
-
-    // Set up an interval to refresh the status
-    const intervalId = setInterval(fetchPhoneStatuses, 30000); // Refresh every 30 seconds
-
+    
+    // Set up an interval to refresh the status every 30 seconds
+    const intervalId = setInterval(fetchPhoneStatuses, 30000);
+    
     return () => clearInterval(intervalId);
-  }, []);
+  }
+}, [companyId]); // Add companyId as dependency
 
   useEffect(() => {
     let filteredResults = contacts;
@@ -3186,7 +3213,13 @@ console.log(baseUrl);
 
         ws.onerror = (error) => {
           console.error("WebSocket error:", error);
-          handleWebSocketError(error);
+          // Check if it's a security error (insecure connection from HTTPS)
+          if (error instanceof Event && window.location.protocol === 'https:') {
+            console.warn("Security error detected. This might be due to insecure WebSocket connection from HTTPS page.");
+            setWsError("WebSocket connection failed. Server may not support secure connections.");
+          } else {
+            handleWebSocketError(error);
+          }
         };
 
         ws.onclose = (event) => {
