@@ -217,10 +217,12 @@ function LoadingPage2() {
 
         const companyData = docSnapshot.data();
         const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-        // Remove 'https://' from baseUrl when creating WebSocket connection
-        const wsBaseUrl = baseUrl.replace('https://', '');
+        // Create WebSocket URL with proper protocol handling
+        const wsUrl = window.location.protocol === 'https:' 
+          ? `${baseUrl.replace('https://', 'wss://')}/ws/${user?.email}/${companyId}`
+          : `${baseUrl.replace('https://', 'ws://')}/ws/${user?.email}/${companyId}`;
         
-        ws.current = new WebSocket(`wss://${wsBaseUrl}/ws/${user?.email}/${companyId}`);
+        ws.current = new WebSocket(wsUrl);
         
         ws.current.onopen = () => {
           

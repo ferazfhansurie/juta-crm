@@ -3137,10 +3137,11 @@ console.log(baseUrl);
         const userData = await userResponse.json();
         const companyId = userData.company_id;
 
-        // Create WebSocket connection
-        ws = new WebSocket(
-          `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
-        );
+        // Create WebSocket connection with proper protocol handling
+        const wsUrl = window.location.protocol === 'https:' 
+          ? `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
+          : `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
+        ws = new WebSocket(wsUrl);
         setWsConnection(ws);
 
         ws.onopen = () => {

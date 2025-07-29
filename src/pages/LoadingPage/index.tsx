@@ -35,6 +35,22 @@ interface MessageCache {
   [chatId: string]: any[];
 }
 
+interface Phone {
+  phoneIndex: number;
+  status: string;
+  qrCode: string | null;
+  phoneInfo: string;
+}
+
+interface BotStatusResponse {
+  phones: Phone[];
+  companyId: string;
+  v2: boolean;
+  trialEndDate: string | null;
+  apiUrl: string | null;
+  phoneCount: number;
+}
+
 function LoadingPage() {
   const baseUrl = "https://juta-dev.ngrok.dev";
   const [progress, setProgress] = useState(0);
@@ -42,6 +58,8 @@ function LoadingPage() {
   const [error, setError] = useState<string | null>(null);
   const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
   const [botStatus, setBotStatus] = useState<string | null>(null);
+  const [phones, setPhones] = useState<Phone[]>([]);
+  const [selectedPhoneIndex, setSelectedPhoneIndex] = useState<number>(0);
   const [wsConnected, setWsConnected] = useState(false);
   const ws = useRef<WebSocket | null>(null);
   const navigate = useNavigate();
@@ -121,12 +139,14 @@ function LoadingPage() {
         throw new Error("Failed to fetch bot status");
       }
 
-      const data = await statusResponse.json();
+      const data: BotStatusResponse = await statusResponse.json();
       console.log("Bot status data:", data);
+      
       // Set all the necessary state
       setV2(data.v2);
-      setBotStatus(data.status);
-      navigate("/chat");
+      setPhones(data.phones);
+      setCompanyId(data.companyId);
+
       if (data.trialEndDate) {
         const trialEnd = new Date(data.trialEndDate);
         const now = new Date();
@@ -136,22 +156,31 @@ function LoadingPage() {
         }
       }
 
-      // If status is QR, set the QR code
-      if (data.status === "qr" && data.qrCode) {
-        setQrCodeImage(data.qrCode);
-        console.log("QR Code image:", data.qrCode);
+      // Check if any phone needs QR code
+      const phoneNeedingQR = data.phones.find(phone => phone.status === "qr");
+      if (phoneNeedingQR && phoneNeedingQR.qrCode) {
+        setQrCodeImage(phoneNeedingQR.qrCode);
+        setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
+        setBotStatus("qr");
+        console.log("QR Code image:", phoneNeedingQR.qrCode);
       }
-      // If already authenticated, navigate to chat
-      else if (data.status === "authenticated" || data.status === "ready") {
+      // Check if all phones are ready/authenticated
+      else if (data.phones.every(phone => phone.status === "ready" || phone.status === "authenticated")) {
+        setBotStatus("ready");
         setShouldFetchContacts(true);
         navigate("/chat");
       }
+      // Set status based on first phone or overall status
+      else {
+        setBotStatus(data.phones[0]?.status || "initializing");
+      }
 
-      // Set up WebSocket for real-time updates
-      const baseUrl = data.apiUrl || "https://juta-dev.ngrok.dev";
-      const ws = new WebSocket(
-        `${baseUrl.replace("http", "ws")}/ws/${userEmail}/${companyId}`
-      );
+      // Set up WebSocket for real-time updates with proper protocol handling
+      const baseUrl = "https://juta-dev.ngrok.dev";
+      const wsUrl = window.location.protocol === 'https:' 
+        ? `${baseUrl.replace("https", "wss")}/ws/${userEmail}/${companyId}`
+        : `${baseUrl.replace("https", "ws")}/ws/${userEmail}/${companyId}`;
+      const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
         console.log("WebSocket connected");
@@ -185,11 +214,37 @@ function LoadingPage() {
     fetchQRCode();
   };
 
+  const handlePhoneSelection = (phoneIndex: number) => {
+    setSelectedPhoneIndex(phoneIndex);
+    const selectedPhone = phones.find(p => p.phoneIndex === phoneIndex);
+    if (selectedPhone?.status === "qr" && selectedPhone.qrCode) {
+      setQrCodeImage(selectedPhone.qrCode);
+      setBotStatus("qr");
+    } else if (selectedPhone?.status === "ready" || selectedPhone?.status === "authenticated") {
+      setQrCodeImage(null);
+      setBotStatus(selectedPhone.status);
+    }
+  };
+
   useEffect(() => {
     if (isAuthReady) {
       fetchQRCode();
     }
   }, [isAuthReady]);
+
+  // Auto-select first phone that needs QR code
+  useEffect(() => {
+    if (phones.length > 0) {
+      const phoneNeedingQR = phones.find(phone => phone.status === "qr");
+      if (phoneNeedingQR) {
+        setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
+        if (phoneNeedingQR.qrCode) {
+          setQrCodeImage(phoneNeedingQR.qrCode);
+          setBotStatus("qr");
+        }
+      }
+    }
+  }, [phones]);
   useEffect(() => {
     const initWebSocket = async (retries = 3) => {
       if (!isAuthReady) {
@@ -216,10 +271,11 @@ function LoadingPage() {
           const userData = await response.json();
           const companyId = userData.company_id;
 
-          // Connect to WebSocket
-          ws.current = new WebSocket(
-            `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
-          );
+          // Connect to WebSocket with proper protocol handling
+          const wsUrl = window.location.protocol === 'https:' 
+            ? `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
+            : `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
+          ws.current = new WebSocket(wsUrl);
 
           ws.current.onopen = () => {
             setWsConnected(true);
@@ -230,17 +286,38 @@ function LoadingPage() {
             const data = JSON.parse(event.data);
             console.log("WebSocket message:", data);
             if (data.type === "auth_status") {
-              setBotStatus(data.status);
-
-              if (data.status === "qr") {
-                setQrCodeImage(data.qrCode);
-              } else if (
-                data.status === "authenticated" ||
-                data.status === "ready"
-              ) {
-                setShouldFetchContacts(true);
-                navigate("/chat");
-                return;
+              // Handle phone status updates
+              if (data.phones) {
+                setPhones(data.phones);
+                
+                // Check if any phone needs QR code
+                const phoneNeedingQR = data.phones.find((phone: Phone) => phone.status === "qr");
+                if (phoneNeedingQR && phoneNeedingQR.qrCode) {
+                  setQrCodeImage(phoneNeedingQR.qrCode);
+                  setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
+                  setBotStatus("qr");
+                }
+                // Check if all phones are ready/authenticated
+                else if (data.phones.every((phone: Phone) => phone.status === "ready" || phone.status === "authenticated")) {
+                  setBotStatus("ready");
+                  setShouldFetchContacts(true);
+                  navigate("/chat");
+                  return;
+                }
+                // Set status based on first phone
+                else {
+                  setBotStatus(data.phones[0]?.status || "initializing");
+                }
+              } else {
+                // Fallback for old format
+                setBotStatus(data.status);
+                if (data.status === "qr") {
+                  setQrCodeImage(data.qrCode);
+                } else if (data.status === "authenticated" || data.status === "ready") {
+                  setShouldFetchContacts(true);
+                  navigate("/chat");
+                  return;
+                }
               }
             } else if (data.type === "progress") {
               setBotStatus(data.status);
@@ -561,7 +638,10 @@ function LoadingPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ phoneNumber }),
+          body: JSON.stringify({ 
+            phoneNumber,
+            phoneIndex: selectedPhoneIndex 
+          }),
         }
       );
 
@@ -806,6 +886,27 @@ function LoadingPage() {
                     Please use your WhatsApp QR scanner to scan the code or
                     enter your phone number for a pairing code.
                   </div>
+                  
+                  {/* Phone Selection */}
+                  {phones.length > 1 && (
+                    <div className="mt-4 w-full">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Select Phone Number:
+                      </label>
+                      <select
+                        value={selectedPhoneIndex}
+                        onChange={(e) => handlePhoneSelection(Number(e.target.value))}
+                        className="w-full px-4 py-2 border rounded-md text-gray-700 focus:outline-none focus:border-blue-500"
+                      >
+                        {phones.map((phone, index) => (
+                          <option key={phone.phoneIndex} value={phone.phoneIndex}>
+                            {phone.phoneInfo} - {phone.status}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  
                   <hr className="w-full my-4 border-t border-gray-300 dark:border-gray-700" />
                   {error && (
                     <div className="text-red-500 dark:text-red-400 mt-2">
@@ -831,6 +932,11 @@ function LoadingPage() {
                         alt="QR Code"
                         className="max-w-full h-auto"
                       />
+                      {phones.length > 1 && (
+                        <p className="mt-2 text-sm text-gray-600">
+                          QR Code for: {phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="mt-4 text-gray-600 dark:text-gray-400">
@@ -842,7 +948,7 @@ function LoadingPage() {
                   <div className="mt-4 w-full">
                     <input
                       type="tel"
-                      value={phoneNumber}
+                      value={phoneNumber || phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo || ""}
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       placeholder="Enter phone number with country code eg: 60123456789"
                       className="w-full px-4 py-2 border rounded-md text-gray-700 focus:outline-none focus:border-blue-500"
@@ -884,11 +990,35 @@ function LoadingPage() {
               ) : (
                 <>
                   <div className="mt-2 text-xs text-gray-800 dark:text-gray-200">
-                    {botStatus === "authenticated" || botStatus === "ready"
-                      ? "Authentication successful. Loading contacts..."
-                      : botStatus === "initializing"
-                      ? "Initializing WhatsApp connection..."
-                      : "Fetching Data..."}
+                    {phones.length > 0 ? (
+                      <div>
+                        <div className="mb-2">
+                          {phones.every(phone => phone.status === "ready" || phone.status === "authenticated")
+                            ? "All phones authenticated. Loading contacts..."
+                            : "Phone Status:"}
+                        </div>
+                        {phones.map((phone, index) => (
+                          <div key={phone.phoneIndex} className="text-xs mb-1 flex items-center justify-between">
+                            <span>{phone.phoneInfo}</span>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              phone.status === "ready" || phone.status === "authenticated" 
+                                ? "bg-green-100 text-green-800" 
+                                : phone.status === "qr" 
+                                ? "bg-yellow-100 text-yellow-800" 
+                                : "bg-gray-100 text-gray-800"
+                            }`}>
+                              {phone.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      botStatus === "authenticated" || botStatus === "ready"
+                        ? "Authentication successful. Loading contacts..."
+                        : botStatus === "initializing"
+                        ? "Initializing WhatsApp connection..."
+                        : "Fetching Data..."
+                    )}
                   </div>
                   {isProcessingChats && (
                     <div className="space-y-2 mt-4">
