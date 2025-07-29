@@ -36,7 +36,7 @@ interface MessageCache {
 }
 
 function LoadingPage() {
-  const baseUrl = "https://julnazz.ngrok.dev";
+  const baseUrl = "https://juta-dev.ngrok.dev";
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +85,7 @@ function LoadingPage() {
 
       // Get user config to get companyId
       const userResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(
+        `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(
           userEmail
         )}`,
         {
@@ -107,7 +107,7 @@ function LoadingPage() {
 
       // Get all bot status and company data in one call
       const statusResponse = await fetch(
-        `https://julnazz.ngrok.dev/api/bot-status/${companyId}`,
+        `https://juta-dev.ngrok.dev/api/bot-status/${companyId}`,
         {
           method: "GET",
           headers: {
@@ -126,7 +126,7 @@ function LoadingPage() {
       // Set all the necessary state
       setV2(data.v2);
       setBotStatus(data.status);
-
+      navigate("/chat");
       if (data.trialEndDate) {
         const trialEnd = new Date(data.trialEndDate);
         const now = new Date();
@@ -148,7 +148,7 @@ function LoadingPage() {
       }
 
       // Set up WebSocket for real-time updates
-      const baseUrl = data.apiUrl || "https://julnazz.ngrok.dev";
+      const baseUrl = data.apiUrl || "https://juta-dev.ngrok.dev";
       const ws = new WebSocket(
         `${baseUrl.replace("http", "ws")}/ws/${userEmail}/${companyId}`
       );
@@ -205,7 +205,7 @@ function LoadingPage() {
 
           // Get company ID from SQL database
           const response = await fetch(
-            `https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(
+            `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(
               userEmail
             )}`
           );
@@ -218,7 +218,7 @@ function LoadingPage() {
 
           // Connect to WebSocket
           ws.current = new WebSocket(
-            `ws://julnazz.ngrok.dev/ws/${userEmail}/${companyId}`
+            `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
           );
 
           ws.current.onopen = () => {
@@ -520,6 +520,7 @@ function LoadingPage() {
       localStorage.removeItem("userData");
       localStorage.removeItem("contacts");
       localStorage.removeItem("messagesCache");
+      localStorage.removeItem("userEmail");
       sessionStorage.clear();
 
       navigate("/login");

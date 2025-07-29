@@ -102,7 +102,7 @@ const debouncedSearch = debounce(async (query: string, page: number, isNewSearch
   }
   console.log('contacts',contacts2);
   // Get user config to get companyId
-  const userResponse = await fetch(`https://julnazz.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+  const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -123,7 +123,7 @@ const debouncedSearch = debounce(async (query: string, page: number, isNewSearch
 
   try {
     // Directly use your backend base URL
-    const baseUrl = 'https://julnazz.ngrok.dev'; // or your production base URL
+    const baseUrl = 'https://juta-dev.ngrok.dev'; // or your production base URL
 
     const params = new URLSearchParams({
       query,

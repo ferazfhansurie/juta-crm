@@ -45,7 +45,7 @@ const BlastHistoryPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [companyId, setCompanyId] = useState<string>("");
 
-    const baseUrl = "https://julnazz.ngrok.dev";
+    const baseUrl = "https://juta-dev.ngrok.dev";
 
     useEffect(() => {
         const initialize = async () => {

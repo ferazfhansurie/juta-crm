@@ -436,7 +436,7 @@ function Main() {
     };
   });
 
-  const baseUrl = "https://julnazz.ngrok.dev";
+  const baseUrl = "https://juta-dev.ngrok.dev";
 
   // Add this useEffect to save visible columns when they change
   useEffect(() => {
@@ -3691,7 +3691,7 @@ function Main() {
         multiple: multiple,
       };
 
-      // Make API call to julnazz.ngrok.dev
+      // Make API call to juta-dev.ngrok.dev
       const response = await axios.post(
         `${baseUrl}/api/schedule-message/${companyId}`,
         scheduledMessageData
@@ -5068,7 +5068,75 @@ function Main() {
   const [qrCodes, setQrCodes] = useState<QRCodeData[]>([]);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [selectedPhone, setSelectedPhone] = useState<number | null>(null);
-
+  const [isSyncingFirebase, setIsSyncingFirebase] = useState(false);
+// ... existing code ...
+const handleConfirmSyncFirebase = async () => {
+  setShowSyncConfirmationModal(false);
+  setIsSyncingFirebase(true);
+  try {
+    const userEmail = localStorage.getItem("userEmail");
+    if (!userEmail) {
+      toast.error("No user email found");
+      setIsSyncingFirebase(false);
+      return;
+    }
+    // Get user config to get companyId
+    const userResponse = await fetch(
+      `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        credentials: "include",
+      }
+    );
+    if (!userResponse.ok) {
+      toast.error("Failed to fetch user config");
+      setIsSyncingFirebase(false);
+      return;
+    }
+    const userData = await userResponse.json();
+    const companyId = userData.company_id;
+    setCompanyId(companyId);
+    // Call the sync-firebase-to-neon endpoint
+    const syncResponse = await fetch(
+      `${baseUrl}/api/sync-firebase-to-neon/${companyId}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        credentials: "include",
+      }
+    );
+    if (!syncResponse.ok) {
+      const errorData = await syncResponse.json();
+      throw new Error(
+        errorData.error || "Failed to start Firebase-to-Neon synchronization"
+      );
+    }
+    const responseData = await syncResponse.json();
+    if (responseData.success) {
+      toast.success("Firebase-to-Neon synchronization started successfully");
+    } else {
+      throw new Error(
+        responseData.error || "Failed to start Firebase-to-Neon synchronization"
+      );
+    }
+  } catch (error) {
+    console.error("Error syncing from Firebase to Neon:", error);
+    toast.error(
+      "An error occurred while syncing from Firebase to Neon: " +
+        (error instanceof Error ? error.message : String(error))
+    );
+  } finally {
+    setIsSyncingFirebase(false);
+  }
+};
+// ... existing code ...
   // Add this helper function to get status color and text
   const getStatusInfo = (status: string) => {
     const statusLower = status?.toLowerCase() || "";
@@ -9140,12 +9208,13 @@ function Main() {
                   </div>
                   <div className="mt-2 text-gray-600 dark:text-gray-400">
                     Do you really want to sync the database? This action may
-                    take some time and affect your current data.
+                    take some time and affect your current data.<br/>
+                    <span className="block mt-2 text-xs text-gray-500 dark:text-gray-400">You can choose to sync from Neon (default) or from Firebase to Neon.</span>
                   </div>
                 </div>
-                <div className="px-5 pb-8 text-center">
+                <div className="px-5 pb-8 text-center flex flex-col sm:flex-row justify-center items-center gap-2">
                   <button
-                    className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
                     onClick={() => setShowSyncConfirmationModal(false)}
                   >
                     Cancel
@@ -9153,8 +9222,16 @@ function Main() {
                   <button
                     className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
                     onClick={handleConfirmSync}
+                    disabled={isSyncing || isSyncingFirebase}
                   >
-                    Confirm Sync
+                    {isSyncing ? "Syncing..." : "Confirm Sync (Neon)"}
+                  </button>
+                  <button
+                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                    onClick={handleConfirmSyncFirebase}
+                    disabled={isSyncing || isSyncingFirebase}
+                  >
+                    {isSyncingFirebase ? "Syncing..." : "Sync from Firebase"}
                   </button>
                 </div>
               </Dialog.Panel>

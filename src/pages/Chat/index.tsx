@@ -568,7 +568,7 @@ function Main() {
   const [companyId, setCompanyId] = useState<string>("");
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
   const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
-  const [baseUrl] = useState<string>("https://julnazz.ngrok.dev");
+  const [baseUrl] = useState<string>("https://juta-dev.ngrok.dev");
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
@@ -797,6 +797,11 @@ function Main() {
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [employeeSearch, setEmployeeSearch] = useState("");
 
+  // Monitor phoneNames state changes
+  useEffect(() => {
+    console.log("phoneNames state updated:", phoneNames);
+  }, [phoneNames]);
+
   // Initialize user context from localStorage and NeonDB
   useEffect(() => {
     // Use user info from localStorage (set during API login)
@@ -837,10 +842,7 @@ function Main() {
               );
               setEmployeeList(employeeListData);
 
-              // Set phone index data
-              setPhoneNames(data.phoneNames);
-              setPhoneOptions(Object.keys(data.phoneNames).map(Number));
-              setPhoneCount(Object.keys(data.phoneNames).length);
+            
             } catch (error) {
               console.error("Error fetching user data:", error);
             }
@@ -1323,7 +1325,7 @@ function Main() {
         const botStatusResponse = await axios.get(
           `${baseUrl}/api/bot-status/${companyId}`
         );
-
+      console.log(botStatusResponse);
         if (botStatusResponse.status === 200) {
           const qrCodesData = Array.isArray(botStatusResponse.data)
             ? botStatusResponse.data
@@ -1961,6 +1963,7 @@ function Main() {
     setMessageSearchQuery(e.target.value);
   };
 
+
   useEffect(() => {
     const fetchContacts = async () => {
       try {
@@ -2008,6 +2011,7 @@ function Main() {
               profile: contact.profile,
               profilePicUrl: contact.profileUrl,
               tags: contact.tags,
+              phoneIndex: contact.phoneIndex,
               createdAt: contact.createdAt,
               lastUpdated: contact.lastUpdated,
               last_message: contact.last_message,
@@ -2026,11 +2030,10 @@ function Main() {
     fetchContacts();
 
     // Set up polling for real-time updates (every 30 seconds)
-    const interval = setInterval(fetchContacts, 30000);
+    const interval = setInterval(fetchContacts, 300000);
 
     return () => clearInterval(interval);
   }, [userData]);
-
   useEffect(() => {
     const fetchCompanyData = async () => {
       const userEmail = localStorage.getItem("userEmail");
@@ -2061,7 +2064,8 @@ function Main() {
           const ai = data.companyData.assistants_ids;
           setIsAssistantAvailable(Array.isArray(ai) && ai.length > 0);
 
-          setPhoneCount(data.phoneCount);
+          setPhoneCount(data.phone_count);
+          console.log("phoneCount:", phoneCount);
         } catch (error) {
           console.error("Error fetching company data:", error);
           // Handle error appropriately
@@ -2261,6 +2265,7 @@ function Main() {
               (tag) => tag.toLowerCase() === userName.toLowerCase()
             )
           );
+        
         case "3": // Observer
         case "4": // Manager
           // Sales, Observer, and Manager see only contacts assigned to them
@@ -2292,19 +2297,30 @@ function Main() {
         console.error("No authenticated user");
         return;
       }
-
+console.log(baseUrl);
       // Update phone index via API
+      const requestBody = {
+        email,
+        phoneIndex: newPhoneIndex,
+      };
+      console.log("Request body:", requestBody);
+      console.log("Request URL:", `${baseUrl}/api/user/update-phone`);
+      
       const response = await fetch(`${baseUrl}/api/user/update-phone`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
-        body: JSON.stringify({
-          email,
-          phoneIndex: newPhoneIndex,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Response error:", errorText);
+      }
 
       if (response.ok) {
         // Update local state
@@ -2333,121 +2349,9 @@ function Main() {
       toast.error("Failed to update phone");
     }
   };
-  const filterAndSetContacts = useCallback(
-    (contactsToFilter: Contact[]) => {
-      // Check for viewEmployee first
-      if (userData?.viewEmployee) {
-        let filteredByEmployee: Contact[] = [];
 
-        if (Array.isArray(userData.viewEmployee)) {
-          // If it's an array of employee IDs
-          const viewEmployeeNames = employeeList
-            .filter((emp) => userData.viewEmployee.includes(emp.id))
-            .map((emp) => emp.name.toLowerCase());
 
-          filteredByEmployee = contactsToFilter.filter((contact) =>
-            viewEmployeeNames.some(
-              (empName) =>
-                (Array.isArray(contact.assignedTo) &&
-                  contact.assignedTo.some(
-                    (assignedTo) => assignedTo.toLowerCase() === empName
-                  )) ||
-                contact.tags?.some((tag) => tag.toLowerCase() === empName)
-            )
-          );
-        } else if (
-          typeof userData.viewEmployee === "object" &&
-          userData.viewEmployee.name
-        ) {
-          // If it's an object with a name property
-          const empName = userData.viewEmployee.name.toLowerCase();
-          filteredByEmployee = contactsToFilter.filter(
-            (contact) =>
-              (Array.isArray(contact.assignedTo) &&
-                contact.assignedTo.some(
-                  (assignedTo) => assignedTo.toLowerCase() === empName
-                )) ||
-              contact.tags?.some((tag) => tag.toLowerCase() === empName)
-          );
-        } else if (typeof userData.viewEmployee === "string") {
-          // If it's a single employee ID string
-          const employee = employeeList.find(
-            (emp) => emp.id === userData.viewEmployee
-          );
-          if (employee) {
-            const empName = employee.name.toLowerCase();
-            filteredByEmployee = contactsToFilter.filter(
-              (contact) =>
-                (Array.isArray(contact.assignedTo) &&
-                  contact.assignedTo.some(
-                    (assignedTo) => assignedTo.toLowerCase() === empName
-                  )) ||
-                contact.tags?.some((tag) => tag.toLowerCase() === empName)
-            );
-          }
-        }
 
-        // Filter out group chats
-        filteredByEmployee = filteredByEmployee.filter(
-          (contact) => contact.chat_id && !contact.chat_id.includes("@g.us")
-        );
-
-        setFilteredContacts(filteredByEmployee);
-        return;
-      }
-
-      // Apply role-based filtering first
-      let filtered = filterContactsByUserRole(
-        contactsToFilter,
-        userRole,
-        userData?.name || ""
-      );
-
-      // Filter out group chats
-      filtered = filtered.filter(
-        (contact) => contact.chat_id && !contact.chat_id.includes("@g.us")
-      );
-
-      // Apply employee-based filtering if an employee is selected
-      if (selectedEmployee) {
-        filtered = filtered.filter(
-          (contact) =>
-            Array.isArray(contact.assignedTo) &&
-            contact.assignedTo.some(
-              (assignedTo) => assignedTo === selectedEmployee
-            )
-        );
-      }
-
-      // Apply tag-based filtering only if activeTags is not empty and doesn't include 'all'
-      if (activeTags.length > 0 && !activeTags.includes("all")) {
-        filtered = filtered.filter((contact) =>
-          contact.tags?.some((tag) => activeTags.includes(tag))
-        );
-      }
-
-      setFilteredContacts(contactsToFilter);
-    },
-    [
-      userRole,
-      userData,
-      activeTags,
-      filterContactsByUserRole,
-      selectedEmployee,
-      employeeList,
-    ]
-  );
-
-  // Update this useEffect to only filter contacts when userRole is available
-  useEffect(() => {
-    // Only filter contacts if userRole is available or the contacts array is large enough
-    if (userRole || contacts.length > 0) {
-      filterAndSetContacts(contacts);
-    } else {
-      // If no userRole yet but we have contacts, set them all as filtered to avoid blank screen
-      setFilteredContacts(contacts);
-    }
-  }, [contacts, filterAndSetContacts, userRole]);
 
   useEffect(() => {
     const fetchContacts = async () => {
@@ -2522,7 +2426,8 @@ function Main() {
 
         setTotalContacts(updatedContacts.length);
         setContacts(updatedContacts);
-        filterAndSetContacts(updatedContacts);
+        
+    
       } catch (error) {
         console.error("Error fetching contacts:", error);
         toast.error("Error fetching contacts");
@@ -2530,14 +2435,14 @@ function Main() {
     };
 
     // Set up polling to refresh contacts periodically
-    const pollInterval = setInterval(fetchContacts, 30000); // Poll every 30 seconds
+    const pollInterval = setInterval(fetchContacts, 3000000); // Poll every 30 seconds
 
     // Initial fetch
     fetchContacts();
 
     // Cleanup
     return () => clearInterval(pollInterval);
-  }, [filterAndSetContacts]);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -3234,7 +3139,7 @@ function Main() {
 
         // Create WebSocket connection
         ws = new WebSocket(
-          `ws://julnazz.ngrok.dev/ws/${userEmail}/${companyId}`
+          `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
         );
         setWsConnection(ws);
 
@@ -3432,10 +3337,10 @@ function Main() {
 
       // Set user data
       setUserData(data.userData);
-      console.log(data.userData);
+      console.log("datas:", data);
 
       //console.log('role',data.userData.role);
-
+      
       user_role = data.userData.role;
       setCompanyId(data.userData.companyId);
       user_name = data.userData.name;
@@ -3446,6 +3351,19 @@ function Main() {
       if (data.companyData.phoneCount >= 2) {
         setMessageMode("phone1");
       }
+        // Set phone index data
+        // Transform phoneNames array to object format
+        console.log("Raw phoneNames from API:", data.companyData.phoneNames);
+        if (data.companyData.phoneNames && Array.isArray(data.companyData.phoneNames)) {
+          const phoneNamesObject: Record<number, string> = {};
+          data.companyData.phoneNames.forEach((name: string, index: number) => {
+            phoneNamesObject[index] = name;
+          });
+          console.log("Transformed phoneNames object:", phoneNamesObject);
+          setPhoneNames(phoneNamesObject);
+        } else {
+          console.log("phoneNames is not an array or is undefined:", data.companyData.phoneNames);
+        }
       setToken(data.companyData.whapiToken);
 
       // Set message usage for enterprise plan
@@ -3811,6 +3729,7 @@ function Main() {
           }
 
           const data = await response.json();
+       
           setUserRole(data.role);
         } catch (error) {
           console.error("Error fetching user role:", error);
@@ -4234,8 +4153,7 @@ function Main() {
         const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
         return aTime - bTime; // Oldest first
       });
-
-      storeMessagesInLocalStorage(selectedChatId, formattedMessages);
+      console.log("formattedMessages:", formattedMessages);
       setMessages(formattedMessages);
 
       // Update last message timestamp for polling
@@ -4245,7 +4163,7 @@ function Main() {
         setLastMessageTimestamp(latestTimestamp);
       }
 
-      fetchContactsBackground();
+  //  fetchContactsBackground();
     } catch (error) {
       console.error("Failed to fetch messages:", error);
     } finally {
@@ -4796,7 +4714,7 @@ function Main() {
       storeMessagesInLocalStorage(selectedChatId, formattedMessages);
       setMessages(formattedMessages);
       console.log(messages);
-      fetchContactsBackground();
+     
     } catch (error) {
       console.error("Failed to fetch messages:", error);
     }
@@ -5885,19 +5803,22 @@ function Main() {
       userRole,
       userData?.name || ""
     );
+
+  
     setMessageMode("reply");
 
     // First, filter contacts based on the employee's assigned phone
     if (userData?.phone !== undefined && userData.phone !== -1) {
       const userPhoneIndex = parseInt(userData.phone, 10);
+      
       setMessageMode(`phone${userPhoneIndex + 1}`);
+
       filteredContacts = filteredContacts.filter((contact) =>
-        contact.phoneIndexes
-          ? contact.phoneIndexes.includes(userPhoneIndex)
-          : contact.phoneIndex === userPhoneIndex
+        contact.phoneIndex === userPhoneIndex
       );
     }
-
+    console.log("filteredContacts:", filteredContacts);
+    
     // Filter by selected employee
     if (selectedEmployee) {
       filteredContacts = filteredContacts.filter((contact) =>
@@ -7182,6 +7103,7 @@ function Main() {
   }, [contacts]);
 
   useEffect(() => {
+  
     const checkBotsStatus = () => {
       const allStopped = contacts.every((contact) =>
         contact.tags?.includes("stop bot")
@@ -7304,12 +7226,13 @@ function Main() {
         phoneNumber: employee.phoneNumber,
       }))
     );
-    setPhoneNames(data.phoneNames);
-    setPhoneOptions(Object.keys(data.phoneNames).map(Number));
+    setPhoneCount(data.phoneNames.length);
+   
+  
 
     return {
       companyId: data.companyId,
-      baseUrl: data.apiUrl || baseUrl,
+      baseUrl: baseUrl,
       userData: parsedUserData,
       email,
       stopbot: data.stopBot || false,
@@ -7556,7 +7479,7 @@ function Main() {
         sleepDuration: activateSleep ? sleepDuration : null,
       };
 
-      // Make API call to julnazz.ngrok.dev
+      // Make API call to juta-dev.ngrok.dev
       const response = await axios.post(
         `${apiUrl}/api/schedule-message/${companyId}`,
         scheduledMessageData
@@ -7632,78 +7555,6 @@ function Main() {
       return;
     }
 
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        toast.error("User not authenticated");
-        return;
-      }
-
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        toast.error("User document not found");
-        return;
-      }
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      const companyRef = doc(firestore, "companies", companyId);
-      const companySnapshot = await getDoc(companyRef);
-      if (!companySnapshot.exists()) {
-        toast.error("Company document not found");
-        return;
-      }
-
-      const companyData = companySnapshot.data();
-      const apiUrl =
-        companyData.apiUrl || baseUrl;
-      const isV2 = companyData.v2 || false;
-      const whapiToken = companyData.whapiToken || "";
-      const phone = userData.phoneNumber.split("+")[1];
-      const chatId = phone + "@s.whatsapp.net"; // The specific number you want to send the reminder to
-
-      const reminderMessage = `*Reminder for contact:* ${
-        selectedContact.contactName ||
-        selectedContact.firstName ||
-        selectedContact.phone
-      }\n\n${text}`;
-
-      const scheduledMessageData = {
-        batchQuantity: 1,
-        chatIds: [chatId],
-        companyId: companyId,
-        createdAt: Timestamp.now(),
-        documentUrl: "",
-        fileName: null,
-        mediaUrl: "",
-        message: reminderMessage,
-        mimeType: null,
-        repeatInterval: 0,
-        repeatUnit: "days",
-        scheduledTime: Timestamp.fromDate(reminderDate),
-        status: "scheduled",
-        v2: isV2,
-        whapiToken: isV2 ? null : whapiToken,
-      };
-
-      // Make API call to schedule the message
-      const response = await axios.post(
-        `${apiUrl}/api/schedule-message/${companyId}`,
-        scheduledMessageData
-      );
-
-      toast.success("Reminder set successfully");
-      setIsReminderModalOpen(false);
-      setReminderText("");
-      setReminderDate(null);
-    } catch (error) {
-      console.error("Error setting reminder:", error);
-      toast.error(
-        "An error occurred while setting the reminder. Please try again."
-      );
-    }
   };
 
   const formatDuration = (seconds: number): string => {
@@ -8110,90 +7961,7 @@ function Main() {
                   Total Contacts: {totalContacts}
                 </div>
 
-                {/* WebSocket Status - Clickable to disconnect */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      if (wsConnection && wsConnected) {
-                        wsConnection.close(1000, "Manual disconnect");
-                        setWsConnected(false);
-                        setWsConnection(null);
-                        setWsError(null);
-                      }
-                    }}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full shadow-sm border transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer ${
-                      wsConnected
-                        ? "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600"
-                    }`}
-                    disabled={!wsConnected}
-                  >
-                    {wsConnected ? (
-                      <>
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs font-medium text-green-600 dark:text-green-400">
-                          Live
-                        </span>
-                        <svg
-                          className="w-3 h-3 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs font-medium text-red-600 dark:text-red-400">
-                          Offline
-                        </span>
-                      </>
-                    )}
-                  </button>
 
-                  {/* Reconnect Button - Only show when disconnected */}
-                  {!wsConnected && (
-                    <button
-                      onClick={() => {
-                        if (wsConnection) {
-                          wsConnection.close(1000, "Manual reconnect");
-                        }
-                        setWsReconnectAttempts(0);
-                        setWsConnected(false);
-                        setWsConnection(null);
-                        setWsError(null);
-                        // This will trigger the useEffect to re-run and create a new connection
-                        setWsVersion((prev) => prev + 1);
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                      disabled={wsReconnectAttempts >= maxReconnectAttempts}
-                    >
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                        />
-                      </svg>
-                      {wsReconnectAttempts >= maxReconnectAttempts
-                        ? "Max retries"
-                        : "Reconnect"}
-                    </button>
-                  )}
-                </div>
 
                 {/* Error Message - Show below if there's an error */}
                 {wsError && (
@@ -8205,7 +7973,8 @@ function Main() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2">
+            
             {userData?.phone !== undefined && (
               <Menu as="div" className="relative inline-block text-left">
                 <div>
@@ -8266,6 +8035,91 @@ function Main() {
                 </Menu.Items>
               </Menu>
             )}
+            
+            {/* WebSocket Status - Clickable to disconnect */}
+            <div className="flex items-center gap-2 w-full">
+              <button
+                onClick={() => {
+                  if (wsConnection && wsConnected) {
+                    wsConnection.close(1000, "Manual disconnect");
+                    setWsConnected(false);
+                    setWsConnection(null);
+                    setWsError(null);
+                  }
+                }}
+                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-md shadow-sm border transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer w-full ${
+                  wsConnected
+                    ? "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600"
+                }`}
+                disabled={!wsConnected}
+              >
+                {wsConnected ? (
+                  <>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                      Live
+                    </span>
+                    <svg
+                      className="w-3 h-3 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                      Offline
+                    </span>
+                  </>
+                )}
+              </button>
+
+              {/* Reconnect Button - Only show when disconnected */}
+              {!wsConnected && (
+                <button
+                  onClick={() => {
+                    if (wsConnection) {
+                      wsConnection.close(1000, "Manual reconnect");
+                    }
+                    setWsReconnectAttempts(0);
+                    setWsConnected(false);
+                    setWsConnection(null);
+                    setWsError(null);
+                    // This will trigger the useEffect to re-run and create a new connection
+                    setWsVersion((prev) => prev + 1);
+                  }}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-md hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none w-full"
+                  disabled={wsReconnectAttempts >= maxReconnectAttempts}
+                >
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  {wsReconnectAttempts >= maxReconnectAttempts
+                    ? "Max retries"
+                    : "Reconnect"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
         {companyPlan === "enterprise" && (
@@ -9969,37 +9823,6 @@ function Main() {
                             </div>
                           )}
                           <div className="flex items-center gap-2 relative">
-                            {/* Author Circle for Group Chats and Company 0123 */}
-                            {(message.chat_id?.includes("@g.us") ||
-                              (userData?.companyId === "0123" &&
-                                message.chat_id?.includes("@c.us"))) && (
-                              <div
-                                style={{
-                                  width: "25px",
-                                  height: "25px",
-                                  borderRadius: "50%",
-                                  backgroundColor: getAuthorColor(
-                                    message.author?.split("@")[0] ||
-                                      message.phoneIndex?.toString() ||
-                                      ""
-                                  ),
-                                  boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                                  flexShrink: 0,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  alignSelf: "flex-start", // This will align it to the top
-                                  marginTop: "4px", // Add some spacing from the top if needed
-                                }}
-                              >
-                                <span className="text-xs text-white font-medium">
-                                  {(
-                                    message.author?.split("@")[0]?.charAt(0) ||
-                                    ""
-                                  ).toUpperCase()}
-                                </span>
-                              </div>
-                            )}
                             <div
                               data-message-id={message.id}
                               className={`p-2 mr-6 mb-5${
