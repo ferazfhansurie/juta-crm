@@ -1785,7 +1785,20 @@ useEffect(() => {
     await ffmpeg.exec(["-i", inputFileName, "-c:a", "libopus", outputFileName]);
 
     const data = await ffmpeg.readFile(outputFileName);
-    return new Blob([data], { type: "audio/ogg; codecs=opus" });
+    
+    // Handle both Uint8Array and string cases for FileData
+    let uint8Array: Uint8Array;
+    if (data instanceof Uint8Array) {
+      // Create a new Uint8Array from the existing data to ensure proper ArrayBuffer type
+      uint8Array = new Uint8Array(data);
+    } else if (typeof data === 'string') {
+      // If it's a string, encode it to Uint8Array
+      uint8Array = new TextEncoder().encode(data);
+    } else {
+      throw new Error('Unexpected data type from ffmpeg.readFile');
+    }
+    
+    return new Blob([uint8Array], { type: "audio/ogg; codecs=opus" });
   };
 
   const sendVoiceMessage = async () => {
