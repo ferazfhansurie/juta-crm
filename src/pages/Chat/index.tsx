@@ -1789,8 +1789,9 @@ useEffect(() => {
     // Handle both Uint8Array and string cases for FileData
     let uint8Array: Uint8Array;
     if (data instanceof Uint8Array) {
-      // Create a new Uint8Array from the existing data to ensure proper ArrayBuffer type
-      uint8Array = new Uint8Array(data);
+      // Convert to proper ArrayBuffer first, then create new Uint8Array
+      const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+      uint8Array = new Uint8Array(arrayBuffer);
     } else if (typeof data === 'string') {
       // If it's a string, encode it to Uint8Array
       uint8Array = new TextEncoder().encode(data);
