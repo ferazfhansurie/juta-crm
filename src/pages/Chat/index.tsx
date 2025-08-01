@@ -1773,34 +1773,7 @@ useEffect(() => {
       toast.error("Failed to send video message");
     }
   };
-  const convertToOggOpus = async (blob: Blob): Promise<Blob> => {
-    const ffmpeg = new FFmpeg();
-    await ffmpeg.load();
 
-    const inputFileName = "input.webm";
-    const outputFileName = "output.ogg";
-
-    ffmpeg.writeFile(inputFileName, await fetchFile(blob));
-
-    await ffmpeg.exec(["-i", inputFileName, "-c:a", "libopus", outputFileName]);
-
-    const data = await ffmpeg.readFile(outputFileName);
-    
-    // Handle both Uint8Array and string cases for FileData
-    let uint8Array: Uint8Array;
-    if (data instanceof Uint8Array) {
-      // Convert to proper ArrayBuffer first, then create new Uint8Array
-      const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-      uint8Array = new Uint8Array(arrayBuffer);
-    } else if (typeof data === 'string') {
-      // If it's a string, encode it to Uint8Array
-      uint8Array = new TextEncoder().encode(data);
-    } else {
-      throw new Error('Unexpected data type from ffmpeg.readFile');
-    }
-    
-    return new Blob([uint8Array], { type: "audio/ogg; codecs=opus" });
-  };
 
   const sendVoiceMessage = async () => {
     if (audioBlob && selectedChatId && userData) {
