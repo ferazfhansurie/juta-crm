@@ -218,7 +218,7 @@ export async function generateCertificate(
   // Save PDF
   const pdfBytes = await pdfDoc.save();
   if (options && options.returnBlob) {
-    return new Blob([pdfBytes], { type: 'application/pdf' });
+    return new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
   } else {
     download(pdfBytes, `${participantName}_ROBOCONNECT_2025_Certificate.pdf`, 'application/pdf');
   }
