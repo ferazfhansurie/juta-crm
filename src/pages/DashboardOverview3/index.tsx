@@ -360,6 +360,7 @@ function DashboardOverview3() {
   const [selectedProgram, setSelectedProgram] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [programDropdownOpen, setProgramDropdownOpen] = useState(false);
+  const [showAllProgramsInCategory, setShowAllProgramsInCategory] = useState(false);
   // Search/filter state for raw data tables
   const [participantSearch, setParticipantSearch] = useState("");
   const [feedbackSearch, setFeedbackSearch] = useState("");
@@ -390,6 +391,30 @@ function DashboardOverview3() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Auto-select "All Programs in Category" when category is selected (for participant filters)
+  useEffect(() => {
+    if (participantCategoryFilter && !participantProgramFilter) {
+      // Only auto-select if no program is currently selected
+      setParticipantProgramFilter(`all_in_category_${participantCategoryFilter}`);
+    } else if (!participantCategoryFilter && participantProgramFilter.startsWith('all_in_category_')) {
+      // Clear the special program filter when category is cleared
+      setParticipantProgramFilter("");
+    }
+  }, [participantCategoryFilter]);
+
+  // Auto-select "All Programs in Category" when category is selected (for Program-Specific Dashboard)
+  useEffect(() => {
+    if (selectedCategory && !showAllProgramsInCategory && selectedProgram === 0) {
+      // Auto-select "All Programs in Category" when a category is selected and no specific program is selected
+      setShowAllProgramsInCategory(true);
+      setSelectedProgram(-1); // Special value to indicate "All Programs in Category"
+    } else if (!selectedCategory && showAllProgramsInCategory) {
+      // Clear the "All Programs in Category" state when category is cleared
+      setShowAllProgramsInCategory(false);
+      setSelectedProgram(0);
+    }
+  }, [selectedCategory]);
 
   // Add state for modal/progress
   const [sendingModalOpen, setSendingModalOpen] = useState(false);
@@ -616,11 +641,29 @@ function DashboardOverview3() {
   const sortedPrograms = allPrograms
     .sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime());
 
+  // Get programs available for selected category (for Program-Specific Dashboard) - MOVED UP
+  const programsInSelectedCategoryForDashboard = selectedCategory 
+    ? Array.from(new Set(
+        mergedRSVP
+          .filter((row: any) => row["Category"] === selectedCategory)
+          .map((row: any) => cleanProgramName(row["Program Name"]))
+          .filter(Boolean)
+      ))
+    : [];
+
   // Get categories available for selected program
   const selectedProgramAvailableCategories = Array.from(
     new Set(
       mergedRSVP
-        .filter((r: any) => cleanProgramName(r['Program Name']) === sortedPrograms[selectedProgram]?.cleanedName)
+        .filter((r: any) => {
+          if (showAllProgramsInCategory && selectedCategory) {
+            // If "All Programs in Category" is selected, get categories from all programs in that category
+            return programsInSelectedCategoryForDashboard.includes(cleanProgramName(r['Program Name']));
+          } else {
+            // Normal filtering by selected program
+            return cleanProgramName(r['Program Name']) === sortedPrograms[selectedProgram]?.cleanedName;
+          }
+        })
         .map((r: any) => r.Category)
         .filter(Boolean)
     )
@@ -717,8 +760,19 @@ function DashboardOverview3() {
 
   // Filter participants by selected program and category
   const selectedProgramFilteredParticipants = mergedRSVP.filter((r: any) => {
-    const matchesProgram = cleanProgramName(r['Program Name']) === selectedCleanedName;
-    const matchesCategory = !selectedCategory || r.Category === selectedCategory;
+    let matchesProgram = true;
+    
+    if (showAllProgramsInCategory && selectedCategory) {
+      // If "All Programs in Category" is selected, only filter by programs in that category
+      matchesProgram = programsInSelectedCategoryForDashboard.includes(cleanProgramName(r['Program Name']));
+      // Don't filter by category here - we want to see all categories for these programs
+    } else {
+      // Normal program filtering
+      matchesProgram = cleanProgramName(r['Program Name']) === selectedCleanedName;
+    }
+    
+    // Only apply category filter when NOT in "All Programs in Category" mode
+    const matchesCategory = showAllProgramsInCategory ? true : (!selectedCategory || r.Category === selectedCategory);
     return matchesProgram && matchesCategory;
   });
 
@@ -769,6 +823,18 @@ function DashboardOverview3() {
     '#84cc16', // lime-500
   ];
 
+  // Get programs available for selected category (for participant filters)
+  const programsInSelectedCategory = participantCategoryFilter 
+    ? Array.from(new Set(
+        mergedRSVP
+          .filter((row: any) => row["Category"] === participantCategoryFilter)
+          .map((row: any) => cleanProgramName(row["Program Name"]))
+          .filter(Boolean)
+      ))
+    : [];
+
+
+
   // Filtered data for participants
   const filteredParticipants = mergedRSVP.filter(row => {
     // Apply search filter
@@ -780,8 +846,13 @@ function DashboardOverview3() {
     }
     
     // Apply program filter
-    if (participantProgramFilter && cleanProgramName(row["Program Name"]) !== participantProgramFilter) {
-      return false;
+    if (participantProgramFilter) {
+      // Special handling for "All Programs in [Category]" option
+      if (participantProgramFilter === `all_in_category_${participantCategoryFilter}`) {
+        // If "All Programs in Category" is selected, only filter by category (already handled below)
+      } else if (cleanProgramName(row["Program Name"]) !== participantProgramFilter) {
+        return false;
+      }
     }
     
     // Apply category filter
@@ -1036,7 +1107,7 @@ function DashboardOverview3() {
               value={selectedCategory}
               onChange={(e) => {
                 setSelectedCategory(e.target.value);
-                setSelectedProgram(0); // Reset program selection when category changes
+                // Don't reset program selection here - let the useEffect handle auto-selection
               }}
             >
               <option value="">All Categories</option>
@@ -1054,7 +1125,9 @@ function DashboardOverview3() {
                 onClick={() => setProgramDropdownOpen(!programDropdownOpen)}
               >
                 <span className="truncate">
-                  {selectedProgram >= 0 && dropdownNames[selectedProgram] 
+                  {showAllProgramsInCategory && selectedCategory 
+                    ? `📊 All Programs in ${selectedCategory} (${programsInSelectedCategoryForDashboard.length} programs)`
+                    : selectedProgram >= 0 && dropdownNames[selectedProgram] 
                     ? dropdownNames[selectedProgram] 
                     : "Select a program..."}
                 </span>
@@ -1065,15 +1138,36 @@ function DashboardOverview3() {
               
               {programDropdownOpen && (
                 <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-700 border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {/* "All Programs in Category" option */}
+                  {selectedCategory && programsInSelectedCategoryForDashboard.length > 0 && (
+                    <button
+                      type="button"
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-slate-600 border-b border-gray-200 dark:border-gray-600 ${
+                        showAllProgramsInCategory ? 'bg-blue-100 dark:bg-blue-900' : ''
+                      }`}
+                      onClick={() => {
+                        setShowAllProgramsInCategory(true);
+                        setSelectedProgram(-1); // Special value to indicate "All Programs in Category"
+                        setProgramDropdownOpen(false);
+                      }}
+                    >
+                      <div className="whitespace-normal break-words leading-relaxed font-semibold text-blue-600 dark:text-blue-400">
+                        📊 All Programs in {selectedCategory} ({programsInSelectedCategoryForDashboard.length} programs)
+                      </div>
+                    </button>
+                  )}
+                  
+                  {/* Individual program options */}
                   {dropdownNames.map((name, idx) => (
                     <button
                       key={name}
                       type="button"
                       className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-slate-600 ${
-                        selectedProgram === idx ? 'bg-blue-100 dark:bg-blue-900' : ''
+                        selectedProgram === idx && !showAllProgramsInCategory ? 'bg-blue-100 dark:bg-blue-900' : ''
                       }`}
                       onClick={() => {
                         setSelectedProgram(idx);
+                        setShowAllProgramsInCategory(false);
                         setProgramDropdownOpen(false);
                       }}
                     >
@@ -1087,15 +1181,49 @@ function DashboardOverview3() {
             </div>
           </div>
         </div>
+        {/* Show program breakdown when "All Programs in Category" is selected */}
+        {showAllProgramsInCategory && selectedCategory && (
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-3">
+              📊 Program Breakdown in {selectedCategory}
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {programsInSelectedCategoryForDashboard.map((programName) => {
+                const programParticipants = selectedProgramFilteredParticipants.filter(
+                  (row: any) => cleanProgramName(row["Program Name"]) === programName
+                );
+                const attendedCount = programParticipants.filter(
+                  (row: any) => row["Attendance status"] === "Accepted"
+                ).length;
+                
+                return (
+                  <div key={programName} className="bg-white dark:bg-slate-700 p-3 rounded border">
+                    <div className="font-medium text-sm">{programName}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                      {programParticipants.length} registered, {attendedCount} attended
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="flex flex-col items-center justify-center">
             <div className="text-3xl font-bold">{registeredCount}</div>
-            <div className="text-slate-500">Registered</div>
+            <div className="text-slate-500">
+              {showAllProgramsInCategory && selectedCategory ? 'Total Registered' : 'Registered'}
+            </div>
             <div className="text-3xl font-bold mt-4">{attendedCount}</div>
-            <div className="text-slate-500">Attended</div>
+            <div className="text-slate-500">
+              {showAllProgramsInCategory && selectedCategory ? 'Total Attended' : 'Attended'}
+            </div>
           </div>
           <div>
-            <div className="font-semibold mb-2 text-center">By Profession</div>
+            <div className="font-semibold mb-2 text-center">
+              {showAllProgramsInCategory && selectedCategory ? 'By Profession (All Programs)' : 'By Profession'}
+            </div>
             <CustomPieChart
               data={selectedProgramProfessions.map(p => p.value)}
               labels={selectedProgramProfessions.map(p => p.label)}
@@ -1103,7 +1231,9 @@ function DashboardOverview3() {
             />
           </div>
           <div>
-            <div className="font-semibold mb-2 text-center">By Category</div>
+            <div className="font-semibold mb-2 text-center">
+              {showAllProgramsInCategory && selectedCategory ? 'By Category (All Programs)' : 'By Category'}
+            </div>
             <CustomPieChart
               data={selectedProgramCategories.map(c => c.value)}
               labels={selectedProgramCategories.map(c => c.label)}
@@ -1321,6 +1451,11 @@ function DashboardOverview3() {
               onChange={e => setParticipantProgramFilter(e.target.value)}
             >
               <option value="">All Programs</option>
+              {participantCategoryFilter && programsInSelectedCategory.length > 0 && (
+                <option value={`all_in_category_${participantCategoryFilter}`}>
+                  All Programs in {participantCategoryFilter} ({programsInSelectedCategory.length} programs)
+                </option>
+              )}
               {dropdownNames.map((programName, idx) => (
                 <option value={finalSortedPrograms[idx]?.cleanedName || ""} key={idx}>
                   {programName}
@@ -1409,6 +1544,11 @@ function DashboardOverview3() {
         <div className="mb-4 flex flex-wrap gap-2 items-center">
           <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
             Showing {filteredParticipants.length} of {mergedRSVP.length} participants
+            {participantProgramFilter.startsWith('all_in_category_') && participantCategoryFilter && (
+              <span className="ml-2 text-blue-600 dark:text-blue-400">
+                (across {programsInSelectedCategory.length} programs in {participantCategoryFilter})
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             <button
@@ -1425,6 +1565,35 @@ function DashboardOverview3() {
             </button>
           </div>
         </div>
+        
+        {/* Show program breakdown when "All Programs in Category" is selected */}
+        {participantProgramFilter.startsWith('all_in_category_') && participantCategoryFilter && (
+          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">
+              Program Breakdown in {participantCategoryFilter}
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {programsInSelectedCategory.map((programName) => {
+                const programParticipants = filteredParticipants.filter(
+                  (row: any) => cleanProgramName(row["Program Name"]) === programName
+                );
+                const attendedCount = programParticipants.filter(
+                  (row: any) => row["Attendance status"] === "Accepted"
+                ).length;
+                
+                return (
+                  <div key={programName} className="bg-white dark:bg-slate-700 p-3 rounded border">
+                    <div className="font-medium text-sm">{programName}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                      {programParticipants.length} registered, {attendedCount} attended
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        
         <div className="overflow-x-auto max-h-96">
           <table className="min-w-full border text-xs">
             <thead>
