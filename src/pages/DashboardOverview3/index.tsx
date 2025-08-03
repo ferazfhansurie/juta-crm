@@ -1190,6 +1190,109 @@ function DashboardOverview3() {
             </table>
           </div>
         </div>
+        
+        {/* Category-Level Scores */}
+        <div className="mt-6">
+          <h3 className="font-semibold mb-2">Category-Level Scores</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border text-sm">
+              <thead>
+                <tr className="bg-green-100 dark:bg-green-900">
+                  <th className="border px-2 py-1">Category</th>
+                  {feedbackMetrics.map((metric) => (
+                    <th className="border px-2 py-1" key={metric.key}>{metric.label}</th>
+                  ))}
+                  <th className="border px-2 py-1 bg-green-200 dark:bg-green-800 font-semibold">Score %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  // Create a mapping of program names to categories
+                  const programToCategoryMap: { [programName: string]: string } = {};
+                  mergedRSVP.forEach((r: any) => {
+                    const programName = r['Program Name'];
+                    const category = r.Category?.trim() || 'Unspecified';
+                    if (programName) {
+                      programToCategoryMap[programName] = category;
+                    }
+                  });
+
+                  // Group feedback by category based on program name
+                  const feedbackByCategory: { [category: string]: any[] } = {};
+                  
+                  feedbackData.forEach((feedback: any) => {
+                    const feedbackProgram = feedback["Which session did you attend?"];
+                    let category = 'Unspecified';
+                    
+                    // Try to find matching program
+                    if (feedbackProgram) {
+                      // First try exact match
+                      if (programToCategoryMap[feedbackProgram]) {
+                        category = programToCategoryMap[feedbackProgram];
+                      } else {
+                        // Try fuzzy matching
+                        const matchedProgram = Object.keys(programToCategoryMap).find(program => 
+                          feedbackProgram.toLowerCase().includes(program.toLowerCase()) || 
+                          program.toLowerCase().includes(feedbackProgram.toLowerCase())
+                        );
+                        if (matchedProgram) {
+                          category = programToCategoryMap[matchedProgram];
+                        }
+                      }
+                    }
+                    
+                    if (!feedbackByCategory[category]) {
+                      feedbackByCategory[category] = [];
+                    }
+                    feedbackByCategory[category].push(feedback);
+                  });
+
+                  // Get all unique categories (including Unspecified)
+                  const allCategories = Array.from(new Set([
+                    ...categories.map(c => c.label),
+                    ...Object.keys(feedbackByCategory)
+                  ])).sort();
+
+                  return allCategories.map((category, i) => {
+                    const categoryFeedbacks = feedbackByCategory[category] || [];
+
+                    // Calculate metrics for this category
+                    const categoryMetrics: Record<string, number | undefined> = {};
+                    feedbackMetrics.forEach(metric => {
+                      const values = categoryFeedbacks
+                        .map((f: any) => Number(f[metric.key]))
+                        .filter((v: number) => !isNaN(v));
+                      categoryMetrics[metric.key] = average(values);
+                    });
+
+                    // Calculate total score for this category
+                    const totalScore = feedbackMetrics.reduce((sum, metric) => {
+                      return sum + (categoryMetrics[metric.key] || 0);
+                    }, 0);
+                    
+                    // Calculate percentage (max score is 5 * number of metrics)
+                    const maxPossibleScore = feedbackMetrics.length * 5;
+                    const percentage = maxPossibleScore > 0 ? (totalScore / maxPossibleScore) * 100 : 0;
+                    
+                    return (
+                      <tr key={category} className={i % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-green-50 dark:bg-green-900/20'}>
+                        <td className="border px-2 py-1 font-semibold">{category}</td>
+                        {feedbackMetrics.map((metric) => (
+                          <td className="border px-2 py-1 text-center dark:text-slate-100" key={metric.key}>
+                            {categoryMetrics[metric.key]?.toFixed(1) || ''}
+                          </td>
+                        ))}
+                        <td className="border px-2 py-1 text-center bg-green-50 dark:bg-green-900/30 font-semibold">
+                          {percentage.toFixed(1)}%
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
       {/* Raw Data: Registered Participants */}
       <section className="bg-white dark:bg-slate-800 rounded-lg shadow p-6 mt-8">
