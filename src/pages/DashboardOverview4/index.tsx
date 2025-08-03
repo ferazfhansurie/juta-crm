@@ -1,1137 +1,1882 @@
-import _ from "lodash";
+import { useEffect, useState, useMemo } from "react";
+import Chart from "@/components/Base/Chart";
+import { ChartData, ChartOptions } from "chart.js/auto";
+import BarChart from "@/components/ReportBarChart1";
 import clsx from "clsx";
-import { useRef } from "react";
-import fakerData from "@/utils/faker";
 import Button from "@/components/Base/Button";
-import Pagination from "@/components/Base/Pagination";
-import { FormInput, FormSelect } from "@/components/Base/Form";
-import TinySlider, { TinySliderElement } from "@/components/Base/TinySlider";
-import Lucide from "@/components/Base/Lucide";
-import Tippy from "@/components/Base/Tippy";
-import ReportDonutChart from "@/components/ReportDonutChart";
-import LeafletMap from "@/components/LeafletMap";
-import { Tab } from "@/components/Base/Headless";
-import Table from "@/components/Base/Table";
+import Papa from "papaparse";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { generateCertificate } from "@/utils/pdfCert";
+import axios from "axios";
 
-function Main() {
-  const importantNotesRef = useRef<TinySliderElement>();
-  const prevImportantNotes = () => {
-    importantNotesRef.current?.tns.goTo("prev");
-  };
-  const nextImportantNotes = () => {
-    importantNotesRef.current?.tns.goTo("next");
-  };
+// Database API base URL
+const baseUrl = "https://juta-dev.ngrok.dev";
+
+// Data interfaces
+interface Event {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  company_id: string;
+  created_at: string;
+}
+
+interface Enrollee {
+  id: string;
+  name: string;
+  email: string;
+  mobile_number: string;
+  designation: string;
+  organisation: string;
+  company_id: string;
+  created_at: string;
+}
+
+interface Participant {
+  id: string;
+  enrollee_id: string;
+  event_id: string;
+  reference_number: string;
+  payment_status_id: string;
+  is_attended: boolean;
+  remarks: string;
+  company_id: string;
+  created_at: string;
+  // Joined data
+  enrollee_name?: string;
+  enrollee_email?: string;
+  enrollee_mobile?: string;
+  event_name?: string;
+  event_slug?: string;
+}
+
+interface FeedbackResponse {
+  id: string;
+  form_id: string;
+  phone_number: string;
+  submitted_at: string;
+  created_at: string;
+  // Joined data
+  form_title?: string;
+  responses?: FeedbackField[];
+}
+
+interface FeedbackField {
+  id: string;
+  field_id: string;
+  question: string;
+  answer: string;
+}
+
+// Custom PieChart component that accepts data, labels, and colors
+interface CustomPieChartProps {
+  data: number[];
+  labels: string[];
+  colors: string[];
+  width?: number;
+  height?: number;
+  className?: string;
+}
+
+const CustomPieChart: React.FC<CustomPieChartProps> = ({ 
+  data, 
+  labels, 
+  colors, 
+  width = 400, 
+  height = 400, 
+  className = "" 
+}) => {
+  const chartData: ChartData = useMemo(() => {
+    return {
+      labels: labels,
+      datasets: [
+        {
+          data: data,
+          backgroundColor: colors,
+          hoverBackgroundColor: colors,
+          borderWidth: 2,
+          borderColor: '#ffffff',
+        },
+      ],
+    };
+  }, [data, labels, colors]);
+
+  const options: ChartOptions = useMemo(() => {
+    return {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom' as const,
+        },
+      },
+    };
+  }, []);
 
   return (
-    <>
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 2xl:col-span-9">
-          <div className="grid grid-cols-12 gap-6">
-            {/* BEGIN: General Report */}
-            <div className="col-span-12 mt-8 xl:col-span-9">
-              <div className="flex items-center h-10 intro-y">
-                <h2 className="mr-5 text-lg font-medium truncate">
-                  General Report
-                </h2>
-                <a href="" className="ml-auto truncate text-primary">
-                  Show More
-                </a>
-              </div>
-              <div className="mt-5 intro-y">
-                <div
-                  className={clsx([
-                    "relative mt-5 intro-y",
-                    "before:box before:absolute before:inset-x-3 before:mt-3 before:h-full before:bg-slate-50 before:content-['']",
-                  ])}
-                >
-                  <div className="grid grid-cols-12 box">
-                    <div className="flex flex-col justify-center col-span-12 px-8 py-12 lg:col-span-4">
-                      <Lucide
-                        icon="PieChart"
-                        className="w-10 h-10 text-pending"
-                      />
-                      <div className="flex items-center justify-start mt-12 text-slate-600 dark:text-slate-300">
-                        My Total Assets
-                        <Tippy content="Total value of your sales: $158.409.416">
-                          <Lucide
-                            icon="AlertCircle"
-                            className="w-4 h-4 ml-1.5"
-                          />
-                        </Tippy>
-                      </div>
-                      <div className="flex items-center justify-start mt-4">
-                        <div className="relative text-2xl font-medium pl-3 ml-0.5">
-                          <span className="absolute text-xl font-medium top-0 left-0 -ml-0.5">
-                            $
-                          </span>
-                          1,413,102.02
-                        </div>
-                        <a className="ml-4 text-slate-500" href="">
-                          <Lucide icon="RefreshCcw" className="w-4 h-4" />
-                        </a>
-                      </div>
-                      <div className="mt-4 text-xs text-slate-500">
-                        Last updated 1 hour ago
-                      </div>
-                      <Button
-                        variant="outline-secondary"
-                        className="relative justify-start mt-12 rounded-full"
-                      >
-                        Download Reports
-                        <span className="w-8 h-8 absolute flex justify-center items-center bg-primary text-white rounded-full right-0 top-0 bottom-0 my-auto ml-auto mr-0.5">
-                          <Lucide icon="ArrowRight" className="w-4 h-4" />
-                        </span>
-                      </Button>
-                    </div>
-                    <div className="col-span-12 p-8 border-t border-dashed lg:col-span-8 lg:border-t-0 lg:border-l border-slate-200 dark:border-darkmode-300">
-                      <Tab.Group>
-                        <Tab.List
-                          variant="pills"
-                          className="p-1 mx-auto mb-8 border border-dashed rounded-md w-60 border-slate-300 dark:border-darkmode-300"
-                        >
-                          <Tab>
-                            <Tab.Button
-                              as="button"
-                              className="w-full py-1.5 px-2"
-                            >
-                              Weekly
-                            </Tab.Button>
-                          </Tab>
-                          <Tab>
-                            <Tab.Button
-                              as="button"
-                              className="w-full py-1.5 px-2"
-                            >
-                              Monthly
-                            </Tab.Button>
-                          </Tab>
-                        </Tab.List>
-                        <Tab.Panels className="px-5 pb-5">
-                          <Tab.Panel className="grid grid-cols-12 gap-y-8 gap-x-10">
-                            <div className="col-span-6 sm:col-span-6 md:col-span-4">
-                              <div className="text-slate-500">Unpaid Loan</div>
-                              <div className="mt-1.5 flex items-center">
-                                <div className="text-base">4.501</div>
-                                <Tippy
-                                  className="flex ml-2 text-xs font-medium cursor-pointer text-danger"
-                                  content="2% Lower than last month"
-                                >
-                                  2%
-                                  <Lucide
-                                    icon="ChevronDown"
-                                    className="w-4 h-4 ml-0.5"
-                                  />
-                                </Tippy>
-                              </div>
-                            </div>
-                            <div className="col-span-12 sm:col-span-6 md:col-span-4">
-                              <div className="text-slate-500">
-                                Active Partner
-                              </div>
-                              <div className="mt-1.5 flex items-center">
-                                <div className="text-base">2</div>
-                              </div>
-                            </div>
-                            <div className="col-span-12 sm:col-span-6 md:col-span-4">
-                              <div className="text-slate-500">
-                                Paid Installment
-                              </div>
-                              <div className="mt-1.5 flex items-center">
-                                <div className="text-base">$72.000</div>
-                              </div>
-                            </div>
-                            <div className="col-span-12 sm:col-span-6 md:col-span-4">
-                              <div className="text-slate-500">Disbursement</div>
-                              <div className="mt-1.5 flex items-center">
-                                <div className="text-base">$54.000</div>
-                              </div>
-                            </div>
-                            <div className="col-span-12 sm:col-span-6 md:col-span-4">
-                              <div className="text-slate-500">
-                                Success Payment
-                              </div>
-                              <div className="mt-1.5 flex items-center">
-                                <div className="text-base">2.500</div>
-                                <Tippy
-                                  className="flex ml-2 text-xs font-medium cursor-pointer text-success"
-                                  content="52% Higher than last month"
-                                >
-                                  52%
-                                  <Lucide
-                                    icon="ChevronUp"
-                                    className="w-4 h-4 ml-0.5"
-                                  />
-                                </Tippy>
-                              </div>
-                            </div>
-                            <div className="col-span-12 sm:col-span-6 md:col-span-4">
-                              <div className="text-slate-500">Unpaid Loan</div>
-                              <div className="mt-1.5 flex items-center">
-                                <div className="text-base">$72.000</div>
-                              </div>
-                            </div>
-                            <div className="col-span-12 sm:col-span-6 md:col-span-4">
-                              <div className="text-slate-500">
-                                Posted Campaign
-                              </div>
-                              <div className="mt-1.5 flex items-center">
-                                <div className="text-base">4.501</div>
-                              </div>
-                            </div>
-                            <div className="col-span-12 sm:col-span-6 md:col-span-4">
-                              <div className="text-slate-500">Social Media</div>
-                              <div className="mt-1.5 flex items-center">
-                                <div className="text-base">2</div>
-                              </div>
-                            </div>
-                            <div className="col-span-12 sm:col-span-6 md:col-span-4">
-                              <div className="text-slate-500">Net Margin</div>
-                              <div className="mt-1.5 flex items-center">
-                                <div className="text-base">$72.000</div>
-                                <Tippy
-                                  className="flex ml-2 text-xs font-medium cursor-pointer text-success"
-                                  content="49% Higher than last month"
-                                >
-                                  49%
-                                  <Lucide
-                                    icon="ChevronUp"
-                                    className="w-4 h-4 ml-0.5"
-                                  />
-                                </Tippy>
-                              </div>
-                            </div>
-                          </Tab.Panel>
-                        </Tab.Panels>
-                      </Tab.Group>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {/* END: General Report */}
-            {/* BEGIN: Sales Report */}
-            <div className="col-span-12 row-start-4 mt-6 md:col-span-6 lg:col-span-4 xl:col-span-3 lg:row-start-3 xl:row-start-auto xl:mt-8">
-              <div className="flex items-center h-10 intro-y">
-                <h2 className="mr-5 text-lg font-medium truncate">
-                  Sales Report
-                </h2>
-                <a href="" className="ml-auto truncate text-primary">
-                  Show More
-                </a>
-              </div>
-              <div
-                className={clsx([
-                  "relative mt-5 intro-y",
-                  "before:box before:absolute before:inset-x-3 before:mt-3 before:h-full before:bg-slate-50 before:content-[''] before:hidden xl:before:block",
-                ])}
-              >
-                <div className="p-5 box">
-                  <div className="mt-3">
-                    <ReportDonutChart height={196} />
-                  </div>
-                  <div className="mx-auto mt-8 w-52 sm:w-auto">
-                    <div className="flex items-center">
-                      <div className="w-2 h-2 mr-3 rounded-full bg-primary"></div>
-                      <span className="truncate">17 - 30 Years old</span>
-                      <span className="ml-auto font-medium">62%</span>
-                    </div>
-                    <div className="flex items-center mt-4">
-                      <div className="w-2 h-2 mr-3 rounded-full bg-pending"></div>
-                      <span className="truncate">31 - 50 Years old</span>
-                      <span className="ml-auto font-medium">33%</span>
-                    </div>
-                    <div className="flex items-center mt-4">
-                      <div className="w-2 h-2 mr-3 rounded-full bg-warning"></div>
-                      <span className="truncate">&gt;= 50 Years old</span>
-                      <span className="ml-auto font-medium">10%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {/* END: Sales Report */}
-            {/* BEGIN: Official Store */}
-            <div className="col-span-12 mt-6 xl:col-span-8">
-              <div className="items-center block h-10 intro-y sm:flex">
-                <h2 className="mr-5 text-lg font-medium truncate">
-                  Official Store
-                </h2>
-                <div className="relative mt-3 sm:ml-auto sm:mt-0 text-slate-500">
-                  <Lucide
-                    icon="MapPin"
-                    className="absolute inset-y-0 left-0 z-10 w-4 h-4 my-auto ml-3"
-                  />
-                  <FormInput
-                    type="text"
-                    className="pl-10 sm:w-56 !box"
-                    placeholder="Filter by city"
-                  />
-                </div>
-              </div>
-              <div className="p-5 mt-12 intro-y box sm:mt-5">
-                <div>
-                  250 Official stores in 21 countries, click the marker to see
-                  location details.
-                </div>
-                <LeafletMap className="h-[310px] mt-5 rounded-md bg-slate-200" />
-              </div>
-            </div>
-            {/* END: Official Store */}
-            {/* BEGIN: Weekly Best Sellers */}
-            <div className="col-span-12 mt-6 lg:col-span-8 xl:col-span-4">
-              <div className="flex items-center h-10 intro-y">
-                <h2 className="mr-5 text-lg font-medium truncate">
-                  Weekly Best Sellers
-                </h2>
-              </div>
-              <div className="mt-5">
-                {_.take(fakerData, 4).map((faker, fakerKey) => (
-                  <div key={fakerKey} className="intro-y">
-                    <div className="flex items-center px-4 py-4 mb-3 box zoom-in">
-                      <div className="flex-none w-10 h-10 overflow-hidden rounded-md image-fit">
-                        <img
-                          alt="Midone Tailwind HTML Admin Template"
-                          src={faker.photos[0]}
-                        />
-                      </div>
-                      <div className="ml-4 mr-auto">
-                        <div className="font-medium">{faker.users[0].name}</div>
-                        <div className="text-slate-500 text-xs mt-0.5">
-                          {faker.dates[0]}
-                        </div>
-                      </div>
-                      <div className="px-2 py-1 text-xs font-medium text-white rounded-full cursor-pointer bg-success">
-                        137 Sales
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <a
-                  href=""
-                  className="block w-full py-4 text-center border border-dotted rounded-md intro-y border-slate-400 dark:border-darkmode-300 text-slate-500"
-                >
-                  View More
-                </a>
-              </div>
-            </div>
-            {/* END: Weekly Best Sellers */}
-            {/* BEGIN: Visitors */}
-            <div className="col-span-12 mt-6 md:col-span-6 lg:col-span-4">
-              <div className="items-center block h-10 intro-y sm:flex">
-                <h2 className="mr-5 text-lg font-medium truncate">Visitors</h2>
-                <FormSelect className="mt-3 sm:ml-auto sm:mt-0 sm:w-auto !box">
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                  <option value="custom-date">Custom Date</option>
-                </FormSelect>
-              </div>
-              <div className="p-5 mt-12 intro-y box sm:mt-5">
-                <div className="flex pb-3 mb-3 border-b border-dashed text-slate-500 border-slate-200 dark:border-darkmode-300">
-                  <div>Parameters</div>
-                  <div className="ml-auto">Report Values</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div className="flex items-center">
-                    <div>Site Visits</div>
-                    <Tippy
-                      className="flex ml-2 text-xs font-medium cursor-pointer text-danger"
-                      content="49% Higher than last month"
-                    >
-                      -2%{" "}
-                      <Lucide icon="ChevronDown" className="w-4 h-4 ml-0.5" />
-                    </Tippy>
-                  </div>
-                  <div className="ml-auto">4.500</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div className="flex items-center">
-                    <div>Unique Visitors</div>
-                  </div>
-                  <div className="ml-auto">21</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div className="flex items-center">
-                    <div>Page Views</div>
-                    <Tippy
-                      className="flex ml-2 text-xs font-medium cursor-pointer text-success"
-                      content="49% Higher than last month"
-                    >
-                      5% <Lucide icon="ChevronUp" className="w-4 h-4 ml-0.5" />
-                    </Tippy>
-                  </div>
-                  <div className="ml-auto">500</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div className="flex items-center">
-                    <div>Bounce Rate</div>
-                  </div>
-                  <div className="ml-auto">3.420</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div className="flex items-center">
-                    <div>% New Visits</div>
-                    <Tippy
-                      className="flex ml-2 text-xs font-medium cursor-pointer text-danger"
-                      content="49% Higher than last month"
-                    >
-                      -9%{" "}
-                      <Lucide icon="ChevronDown" className="w-4 h-4 ml-0.5" />
-                    </Tippy>
-                  </div>
-                  <div className="ml-auto">32%</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div className="flex items-center">
-                    <div>Average Tim On Site</div>
-                  </div>
-                  <div className="ml-auto">1.5M</div>
-                </div>
-                <Button
-                  variant="outline-secondary"
-                  className="relative justify-start w-full mb-2 border-dashed border-slate-300 dark:border-darkmode-300"
-                >
-                  <span className="mr-5 truncate">View Full Report</span>
-                  <span className="w-8 h-8 absolute flex justify-center items-center right-0 top-0 bottom-0 my-auto ml-auto mr-0.5">
-                    <Lucide icon="ArrowRight" className="w-4 h-4" />
-                  </span>
-                </Button>
-              </div>
-            </div>
-            {/* END: Visitors */}
-            {/* BEGIN: Most Viewed Pages */}
-            <div className="col-span-12 mt-6 md:col-span-6 lg:col-span-4">
-              <div className="items-center block h-10 intro-y sm:flex">
-                <h2 className="mr-5 text-lg font-medium truncate">
-                  Most Viewed Pages
-                </h2>
-                <FormSelect className="mt-3 sm:ml-auto sm:mt-0 sm:w-auto !box">
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                  <option value="custom-date">Custom Date</option>
-                </FormSelect>
-              </div>
-              <div className="p-5 mt-12 intro-y box sm:mt-5">
-                <div className="flex pb-3 mb-3 border-b border-dashed text-slate-500 border-slate-200 dark:border-darkmode-300">
-                  <div>Page Names</div>
-                  <div className="ml-auto">Page Views</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div>/letz-lara…review/2653</div>
-                  <div className="ml-auto">472</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div>/midone…review/1674</div>
-                  <div className="ml-auto">294</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div>/profile…review/46789</div>
-                  <div className="ml-auto">500</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div>/profile…review/24357</div>
-                  <div className="ml-auto">3.420</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div>/letz-lara…review/2653</div>
-                  <div className="ml-auto">83</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div>/icewall…review/1674</div>
-                  <div className="ml-auto">21</div>
-                </div>
-                <Button
-                  variant="outline-secondary"
-                  className="relative justify-start w-full mb-2 border-dashed border-slate-300 dark:border-darkmode-300"
-                >
-                  <span className="mr-5 truncate">View Full Report</span>
-                  <span className="w-8 h-8 absolute flex justify-center items-center right-0 top-0 bottom-0 my-auto ml-auto mr-0.5">
-                    <Lucide icon="ArrowRight" className="w-4 h-4" />
-                  </span>
-                </Button>
-              </div>
-            </div>
-            {/* END: Most Viewed Pages */}
-            {/* BEGIN: Top Search Items */}
-            <div className="col-span-12 mt-6 md:col-span-6 lg:col-span-4">
-              <div className="items-center block h-10 intro-y sm:flex">
-                <h2 className="mr-5 text-lg font-medium truncate">
-                  Top Search Items
-                </h2>
-                <FormSelect className="mt-3 sm:ml-auto sm:mt-0 sm:w-auto !box">
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                  <option value="custom-date">Custom Date</option>
-                </FormSelect>
-              </div>
-              <div className="p-5 mt-12 intro-y box sm:mt-5">
-                <div className="flex pb-3 mb-3 border-b border-dashed text-slate-500 border-slate-200 dark:border-darkmode-300">
-                  <div>Keywords</div>
-                  <div className="ml-auto">Searched</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div>Laravel 8</div>
-                  <div className="ml-auto">200</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div>Eloquent</div>
-                  <div className="ml-auto">50</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div>CKEditor Source Build</div>
-                  <div className="ml-auto">31</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div>Midone Docs</div>
-                  <div className="ml-auto">405</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div>Vue 3 Release Date</div>
-                  <div className="ml-auto">201</div>
-                </div>
-                <div className="flex items-center mb-5">
-                  <div>Install Vite Vue</div>
-                  <div className="ml-auto">42</div>
-                </div>
-                <Button
-                  variant="outline-secondary"
-                  className="relative justify-start w-full mb-2 border-dashed border-slate-300 dark:border-darkmode-300"
-                >
-                  <span className="mr-5 truncate">View Full Report</span>
-                  <span className="w-8 h-8 absolute flex justify-center items-center right-0 top-0 bottom-0 my-auto ml-auto mr-0.5">
-                    <Lucide icon="ArrowRight" className="w-4 h-4" />
-                  </span>
-                </Button>
-              </div>
-            </div>
-            {/* END: Top Search Items */}
-            {/* BEGIN: Weekly Top Products */}
-            <div className="col-span-12 mt-6">
-              <div className="items-center block h-10 intro-y sm:flex">
-                <h2 className="mr-5 text-lg font-medium truncate">
-                  Weekly Top Products
-                </h2>
-                <div className="flex items-center mt-3 sm:ml-auto sm:mt-0">
-                  <Button className="flex items-center !box text-slate-600 dark:text-slate-300">
-                    <Lucide
-                      icon="FileText"
-                      className="hidden w-4 h-4 mr-2 sm:block"
-                    />
-                    Export to Excel
-                  </Button>
-                  <Button className="flex items-center ml-3 !box text-slate-600 dark:text-slate-300">
-                    <Lucide
-                      icon="FileText"
-                      className="hidden w-4 h-4 mr-2 sm:block"
-                    />
-                    Export to PDF
-                  </Button>
-                </div>
-              </div>
-              <div className="mt-8 overflow-auto intro-y lg:overflow-visible sm:mt-0">
-                <Table className="border-spacing-y-[10px] border-separate sm:mt-2">
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th className="border-b-0 whitespace-nowrap">
-                        IMAGES
-                      </Table.Th>
-                      <Table.Th className="border-b-0 whitespace-nowrap">
-                        PRODUCT NAME
-                      </Table.Th>
-                      <Table.Th className="text-center border-b-0 whitespace-nowrap">
-                        STOCK
-                      </Table.Th>
-                      <Table.Th className="text-center border-b-0 whitespace-nowrap">
-                        STATUS
-                      </Table.Th>
-                      <Table.Th className="text-center border-b-0 whitespace-nowrap">
-                        ACTIONS
-                      </Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {_.take(fakerData, 4).map((faker, fakerKey) => (
-                      <Table.Tr key={fakerKey} className="intro-x">
-                        <Table.Td className="box w-40 rounded-l-none rounded-r-none border-x-0 shadow-[5px_3px_5px_#00000005] first:rounded-l-[0.6rem] first:border-l last:rounded-r-[0.6rem] last:border-r dark:bg-darkmode-600">
-                          <div className="flex">
-                            <div className="w-10 h-10 image-fit zoom-in">
-                              <Tippy
-                                as="img"
-                                alt="Midone Tailwind HTML Admin Template"
-                                className="rounded-full shadow-[0px_0px_0px_2px_#fff,_1px_1px_5px_rgba(0,0,0,0.32)] dark:shadow-[0px_0px_0px_2px_#3f4865,_1px_1px_5px_rgba(0,0,0,0.32)]"
-                                src={faker.images[0]}
-                                content={`Uploaded at ${faker.dates[0]}`}
-                              />
-                            </div>
-                            <div className="w-10 h-10 -ml-5 image-fit zoom-in">
-                              <Tippy
-                                as="img"
-                                alt="Midone Tailwind HTML Admin Template"
-                                className="rounded-full shadow-[0px_0px_0px_2px_#fff,_1px_1px_5px_rgba(0,0,0,0.32)] dark:shadow-[0px_0px_0px_2px_#3f4865,_1px_1px_5px_rgba(0,0,0,0.32)]"
-                                src={faker.images[1]}
-                                content={`Uploaded at ${faker.dates[1]}`}
-                              />
-                            </div>
-                            <div className="w-10 h-10 -ml-5 image-fit zoom-in">
-                              <Tippy
-                                as="img"
-                                alt="Midone Tailwind HTML Admin Template"
-                                className="rounded-full shadow-[0px_0px_0px_2px_#fff,_1px_1px_5px_rgba(0,0,0,0.32)] dark:shadow-[0px_0px_0px_2px_#3f4865,_1px_1px_5px_rgba(0,0,0,0.32)]"
-                                src={faker.images[2]}
-                                content={`Uploaded at ${faker.dates[2]}`}
-                              />
-                            </div>
-                          </div>
-                        </Table.Td>
-                        <Table.Td className="box rounded-l-none rounded-r-none border-x-0 shadow-[5px_3px_5px_#00000005] first:rounded-l-[0.6rem] first:border-l last:rounded-r-[0.6rem] last:border-r dark:bg-darkmode-600">
-                          <a href="" className="font-medium whitespace-nowrap">
-                            {faker.products[0].name}
-                          </a>
-                          <div className="text-slate-500 text-xs whitespace-nowrap mt-0.5">
-                            {faker.products[0].category}
-                          </div>
-                        </Table.Td>
-                        <Table.Td className="box rounded-l-none rounded-r-none border-x-0 shadow-[5px_3px_5px_#00000005] first:rounded-l-[0.6rem] first:border-l last:rounded-r-[0.6rem] last:border-r dark:bg-darkmode-600">
-                          {faker.stocks[0]}
-                        </Table.Td>
-                        <Table.Td className="box w-40 rounded-l-none rounded-r-none border-x-0 shadow-[5px_3px_5px_#00000005] first:rounded-l-[0.6rem] first:border-l last:rounded-r-[0.6rem] last:border-r dark:bg-darkmode-600">
-                          <div
-                            className={clsx([
-                              "flex items-center justify-center",
-                              { "text-success": faker.trueFalse[0] },
-                              { "text-danger": !faker.trueFalse[0] },
-                            ])}
-                          >
-                            <Lucide
-                              icon="CheckSquare"
-                              className="w-4 h-4 mr-2"
-                            />
-                            {faker.trueFalse[0] ? "Active" : "Inactive"}
-                          </div>
-                        </Table.Td>
-                        <Table.Td
-                          className={clsx([
-                            "box w-56 rounded-l-none rounded-r-none border-x-0 shadow-[5px_3px_5px_#00000005] first:rounded-l-[0.6rem] first:border-l last:rounded-r-[0.6rem] last:border-r dark:bg-darkmode-600",
-                            "before:absolute before:inset-y-0 before:left-0 before:my-auto before:block before:h-8 before:w-px before:bg-slate-200 before:dark:bg-darkmode-400",
-                          ])}
-                        >
-                          <div className="flex items-center justify-center">
-                            <a className="flex items-center mr-3" href="">
-                              <Lucide
-                                icon="CheckSquare"
-                                className="w-4 h-4 mr-1"
-                              />
-                              Edit
-                            </a>
-                            <a
-                              className="flex items-center text-danger"
-                              href=""
-                            >
-                              <Lucide icon="Trash2" className="w-4 h-4 mr-1" />{" "}
-                              Delete
-                            </a>
-                          </div>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </div>
-              <div className="flex flex-wrap items-center mt-3 intro-y sm:flex-row sm:flex-nowrap">
-                <Pagination className="w-full sm:w-auto sm:mr-auto">
-                  <Pagination.Link>
-                    <Lucide icon="ChevronsLeft" className="w-4 h-4" />
-                  </Pagination.Link>
-                  <Pagination.Link>
-                    <Lucide icon="ChevronLeft" className="w-4 h-4" />
-                  </Pagination.Link>
-                  <Pagination.Link>...</Pagination.Link>
-                  <Pagination.Link>1</Pagination.Link>
-                  <Pagination.Link active>2</Pagination.Link>
-                  <Pagination.Link>3</Pagination.Link>
-                  <Pagination.Link>...</Pagination.Link>
-                  <Pagination.Link>
-                    <Lucide icon="ChevronRight" className="w-4 h-4" />
-                  </Pagination.Link>
-                  <Pagination.Link>
-                    <Lucide icon="ChevronsRight" className="w-4 h-4" />
-                  </Pagination.Link>
-                </Pagination>
-                <FormSelect className="w-20 mt-3 !box sm:mt-0">
-                  <option>10</option>
-                  <option>25</option>
-                  <option>35</option>
-                  <option>50</option>
-                </FormSelect>
-              </div>
-            </div>
-            {/* END: Weekly Top Products */}
-          </div>
-        </div>
-        <div className="col-span-12 2xl:col-span-3">
-          <div className="pb-10 -mb-10 2xl:border-l">
-            <div className="grid grid-cols-12 2xl:pl-6 gap-x-6 2xl:gap-x-0 gap-y-6">
-              {/* BEGIN: Important Notes */}
-              <div className="col-span-12 mt-3 md:col-span-6 xl:col-span-12 2xl:mt-8">
-                <div className="flex items-center h-10 intro-x">
-                  <h2 className="mr-auto text-lg font-medium truncate">
-                    Important Notes
-                  </h2>
-                  <Button
-                    data-carousel="important-notes"
-                    data-target="prev"
-                    className="px-2 mr-2 border-slate-300 text-slate-600 dark:text-slate-300"
-                    onClick={prevImportantNotes}
-                  >
-                    <Lucide icon="ChevronLeft" className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    data-carousel="important-notes"
-                    data-target="next"
-                    className="px-2 mr-2 border-slate-300 text-slate-600 dark:text-slate-300"
-                    onClick={nextImportantNotes}
-                  >
-                    <Lucide icon="ChevronRight" className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="mt-5 intro-x">
-                  <div className="box zoom-in">
-                    <TinySlider
-                      getRef={(el) => {
-                        importantNotesRef.current = el;
-                      }}
-                    >
-                      <div className="p-5">
-                        <div className="text-base font-medium truncate">
-                          Lorem Ipsum is simply dummy text
-                        </div>
-                        <div className="mt-1 text-slate-400">20 Hours ago</div>
-                        <div className="mt-1 text-justify text-slate-500">
-                          Lorem Ipsum is simply dummy text of the printing and
-                          typesetting industry. Lorem Ipsum has been the
-                          industry's standard dummy text ever since the 1500s.
-                        </div>
-                        <div className="flex mt-5 font-medium">
-                          <Button
-                            variant="secondary"
-                            type="button"
-                            className="px-2 py-1"
-                          >
-                            View Notes
-                          </Button>
-                          <Button
-                            variant="outline-secondary"
-                            type="button"
-                            className="px-2 py-1 ml-auto"
-                          >
-                            Dismiss
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="p-5">
-                        <div className="text-base font-medium truncate">
-                          Lorem Ipsum is simply dummy text
-                        </div>
-                        <div className="mt-1 text-slate-400">20 Hours ago</div>
-                        <div className="mt-1 text-justify text-slate-500">
-                          Lorem Ipsum is simply dummy text of the printing and
-                          typesetting industry. Lorem Ipsum has been the
-                          industry's standard dummy text ever since the 1500s.
-                        </div>
-                        <div className="flex mt-5 font-medium">
-                          <Button
-                            variant="secondary"
-                            type="button"
-                            className="px-2 py-1"
-                          >
-                            View Notes
-                          </Button>
-                          <Button
-                            variant="outline-secondary"
-                            type="button"
-                            className="px-2 py-1 ml-auto"
-                          >
-                            Dismiss
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="p-5">
-                        <div className="text-base font-medium truncate">
-                          Lorem Ipsum is simply dummy text
-                        </div>
-                        <div className="mt-1 text-slate-400">20 Hours ago</div>
-                        <div className="mt-1 text-justify text-slate-500">
-                          Lorem Ipsum is simply dummy text of the printing and
-                          typesetting industry. Lorem Ipsum has been the
-                          industry's standard dummy text ever since the 1500s.
-                        </div>
-                        <div className="flex mt-5 font-medium">
-                          <Button
-                            variant="secondary"
-                            type="button"
-                            className="px-2 py-1"
-                          >
-                            View Notes
-                          </Button>
-                          <Button
-                            variant="outline-secondary"
-                            type="button"
-                            className="px-2 py-1 ml-auto"
-                          >
-                            Dismiss
-                          </Button>
-                        </div>
-                      </div>
-                    </TinySlider>
-                  </div>
-                </div>
-              </div>
-              {/* END: Important Notes */}
-              {/* BEGIN: Recent Activities */}
-              <div className="col-span-12 mt-3 md:col-span-6 xl:col-span-4 2xl:col-span-12">
-                <div className="flex items-center h-10 intro-x">
-                  <h2 className="mr-5 text-lg font-medium truncate">
-                    Recent Activities
-                  </h2>
-                  <a href="" className="ml-auto truncate text-primary">
-                    Show More
-                  </a>
-                </div>
-                <div className="mt-5 relative before:block before:absolute before:w-px before:h-[85%] before:bg-slate-200 before:dark:bg-darkmode-400 before:ml-5 before:mt-5">
-                  <div className="relative flex items-center mb-3 intro-x">
-                    <div className="before:block before:absolute before:w-20 before:h-px before:bg-slate-200 before:dark:bg-darkmode-400 before:mt-5 before:ml-5">
-                      <div className="flex-none w-10 h-10 overflow-hidden rounded-full image-fit">
-                        <img
-                          alt="Midone Tailwind HTML Admin Template"
-                          src={fakerData[9].photos[0]}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex-1 px-5 py-3 ml-4 box zoom-in">
-                      <div className="flex items-center">
-                        <div className="font-medium">
-                          {fakerData[9].users[0].name}
-                        </div>
-                        <div className="ml-auto text-xs text-slate-500">
-                          07:00 PM
-                        </div>
-                      </div>
-                      <div className="mt-1 text-slate-500">
-                        Has joined the team
-                      </div>
-                    </div>
-                  </div>
-                  <div className="relative flex items-center mb-3 intro-x">
-                    <div className="before:block before:absolute before:w-20 before:h-px before:bg-slate-200 before:dark:bg-darkmode-400 before:mt-5 before:ml-5">
-                      <div className="flex-none w-10 h-10 overflow-hidden rounded-full image-fit">
-                        <img
-                          alt="Midone Tailwind HTML Admin Template"
-                          src={fakerData[8].photos[0]}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex-1 px-5 py-3 ml-4 box zoom-in">
-                      <div className="flex items-center">
-                        <div className="font-medium">
-                          {fakerData[8].users[0].name}
-                        </div>
-                        <div className="ml-auto text-xs text-slate-500">
-                          07:00 PM
-                        </div>
-                      </div>
-                      <div className="text-slate-500">
-                        <div className="mt-1">Added 3 new photos</div>
-                        <div className="flex mt-2">
-                          <Tippy
-                            as="div"
-                            className="w-8 h-8 mr-1 image-fit zoom-in"
-                            content={fakerData[0].products[0].name}
-                          >
-                            <img
-                              alt="Midone Tailwind HTML Admin Template"
-                              className="border border-white rounded-md"
-                              src={fakerData[8].images[0]}
-                            />
-                          </Tippy>
-                          <Tippy
-                            as="div"
-                            className="w-8 h-8 mr-1 image-fit zoom-in"
-                            content={fakerData[1].products[0].name}
-                          >
-                            <img
-                              alt="Midone Tailwind HTML Admin Template"
-                              className="border border-white rounded-md"
-                              src={fakerData[8].images[1]}
-                            />
-                          </Tippy>
-                          <Tippy
-                            as="div"
-                            className="w-8 h-8 mr-1 image-fit zoom-in"
-                            content={fakerData[2].products[0].name}
-                          >
-                            <img
-                              alt="Midone Tailwind HTML Admin Template"
-                              className="border border-white rounded-md"
-                              src={fakerData[8].images[2]}
-                            />
-                          </Tippy>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="my-4 text-xs text-center intro-x text-slate-500">
-                    12 November
-                  </div>
-                  <div className="relative flex items-center mb-3 intro-x">
-                    <div className="before:block before:absolute before:w-20 before:h-px before:bg-slate-200 before:dark:bg-darkmode-400 before:mt-5 before:ml-5">
-                      <div className="flex-none w-10 h-10 overflow-hidden rounded-full image-fit">
-                        <img
-                          alt="Midone Tailwind HTML Admin Template"
-                          src={fakerData[7].photos[0]}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex-1 px-5 py-3 ml-4 box zoom-in">
-                      <div className="flex items-center">
-                        <div className="font-medium">
-                          {fakerData[7].users[0].name}
-                        </div>
-                        <div className="ml-auto text-xs text-slate-500">
-                          07:00 PM
-                        </div>
-                      </div>
-                      <div className="mt-1 text-slate-500">
-                        Has changed{" "}
-                        <a className="text-primary" href="">
-                          {fakerData[7].products[0].name}
-                        </a>{" "}
-                        price and description
-                      </div>
-                    </div>
-                  </div>
-                  <div className="relative flex items-center mb-3 intro-x">
-                    <div className="before:block before:absolute before:w-20 before:h-px before:bg-slate-200 before:dark:bg-darkmode-400 before:mt-5 before:ml-5">
-                      <div className="flex-none w-10 h-10 overflow-hidden rounded-full image-fit">
-                        <img
-                          alt="Midone Tailwind HTML Admin Template"
-                          src={fakerData[6].photos[0]}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex-1 px-5 py-3 ml-4 box zoom-in">
-                      <div className="flex items-center">
-                        <div className="font-medium">
-                          {fakerData[6].users[0].name}
-                        </div>
-                        <div className="ml-auto text-xs text-slate-500">
-                          07:00 PM
-                        </div>
-                      </div>
-                      <div className="mt-1 text-slate-500">
-                        Has changed{" "}
-                        <a className="text-primary" href="">
-                          {fakerData[6].products[0].name}
-                        </a>{" "}
-                        description
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {/* END: Recent Activities */}
-              {/* BEGIN: Transactions */}
-              <div className="col-span-12 mt-3 md:col-span-6 xl:col-span-4 2xl:col-span-12">
-                <div className="flex items-center h-10 intro-x">
-                  <h2 className="mr-5 text-lg font-medium truncate">
-                    Transactions
-                  </h2>
-                </div>
-                <div className="mt-5">
-                  {_.take(fakerData, 5).map((faker, fakerKey) => (
-                    <div key={fakerKey} className="intro-x">
-                      <div className="flex items-center px-5 py-3 mb-3 box zoom-in">
-                        <div className="flex-none w-10 h-10 overflow-hidden rounded-full image-fit">
-                          <img
-                            alt="Midone Tailwind HTML Admin Template"
-                            src={faker.photos[0]}
-                          />
-                        </div>
-                        <div className="ml-4 mr-auto">
-                          <div className="font-medium">
-                            {faker.users[0].name}
-                          </div>
-                          <div className="text-slate-500 text-xs mt-0.5">
-                            {faker.dates[0]}
-                          </div>
-                        </div>
-                        <div
-                          className={clsx({
-                            "text-success": faker.trueFalse[0],
-                            "text-danger": !faker.trueFalse[0],
-                          })}
-                        >
-                          {faker.trueFalse[0] ? "+" : "-"}${faker.totals[0]}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  <a
-                    href=""
-                    className="block w-full py-3 text-center border border-dotted rounded-md intro-x border-slate-400 dark:border-darkmode-300 text-slate-500"
-                  >
-                    View More
-                  </a>
-                </div>
-              </div>
-              {/* END: Transactions */}
-              {/* BEGIN: Schedules */}
-              <div className="col-span-12 mt-3 md:col-span-6 xl:col-span-4 2xl:col-span-12 xl:col-start-1 xl:row-start-2 2xl:col-start-auto 2xl:row-start-auto">
-                <div className="flex items-center h-10 intro-x">
-                  <h2 className="mr-5 text-lg font-medium truncate">
-                    Schedules
-                  </h2>
-                  <a
-                    href=""
-                    className="flex items-center ml-auto truncate text-primary"
-                  >
-                    <Lucide icon="Plus" className="w-4 h-4 mr-1" /> Add New
-                    Schedules
-                  </a>
-                </div>
-                <div className="mt-5">
-                  <div className="intro-x box">
-                    <div className="p-5">
-                      <div className="flex">
-                        <Lucide
-                          icon="ChevronLeft"
-                          className="w-5 h-5 text-slate-500"
-                        />
-                        <div className="mx-auto text-base font-medium">
-                          April
-                        </div>
-                        <Lucide
-                          icon="ChevronRight"
-                          className="w-5 h-5 text-slate-500"
-                        />
-                      </div>
-                      <div className="grid grid-cols-7 gap-4 mt-5 text-center">
-                        <div className="font-medium">Su</div>
-                        <div className="font-medium">Mo</div>
-                        <div className="font-medium">Tu</div>
-                        <div className="font-medium">We</div>
-                        <div className="font-medium">Th</div>
-                        <div className="font-medium">Fr</div>
-                        <div className="font-medium">Sa</div>
-                        <div className="py-0.5 rounded relative text-slate-500">
-                          29
-                        </div>
-                        <div className="py-0.5 rounded relative text-slate-500">
-                          30
-                        </div>
-                        <div className="py-0.5 rounded relative text-slate-500">
-                          31
-                        </div>
-                        <div className="py-0.5 rounded relative">1</div>
-                        <div className="py-0.5 rounded relative">2</div>
-                        <div className="py-0.5 rounded relative">3</div>
-                        <div className="py-0.5 rounded relative">4</div>
-                        <div className="py-0.5 rounded relative">5</div>
-                        <div className="py-0.5 bg-success/20 dark:bg-success/30 rounded relative">
-                          6
-                        </div>
-                        <div className="py-0.5 rounded relative">7</div>
-                        <div className="py-0.5 bg-primary text-white rounded relative">
-                          8
-                        </div>
-                        <div className="py-0.5 rounded relative">9</div>
-                        <div className="py-0.5 rounded relative">10</div>
-                        <div className="py-0.5 rounded relative">11</div>
-                        <div className="py-0.5 rounded relative">12</div>
-                        <div className="py-0.5 rounded relative">13</div>
-                        <div className="py-0.5 rounded relative">14</div>
-                        <div className="py-0.5 rounded relative">15</div>
-                        <div className="py-0.5 rounded relative">16</div>
-                        <div className="py-0.5 rounded relative">17</div>
-                        <div className="py-0.5 rounded relative">18</div>
-                        <div className="py-0.5 rounded relative">19</div>
-                        <div className="py-0.5 rounded relative">20</div>
-                        <div className="py-0.5 rounded relative">21</div>
-                        <div className="py-0.5 rounded relative">22</div>
-                        <div className="py-0.5 bg-pending/20 dark:bg-pending/30 rounded relative">
-                          23
-                        </div>
-                        <div className="py-0.5 rounded relative">24</div>
-                        <div className="py-0.5 rounded relative">25</div>
-                        <div className="py-0.5 rounded relative">26</div>
-                        <div className="py-0.5 bg-primary/10 dark:bg-primary/50 rounded relative">
-                          27
-                        </div>
-                        <div className="py-0.5 rounded relative">28</div>
-                        <div className="py-0.5 rounded relative">29</div>
-                        <div className="py-0.5 rounded relative">30</div>
-                        <div className="py-0.5 rounded relative text-slate-500">
-                          1
-                        </div>
-                        <div className="py-0.5 rounded relative text-slate-500">
-                          2
-                        </div>
-                        <div className="py-0.5 rounded relative text-slate-500">
-                          3
-                        </div>
-                        <div className="py-0.5 rounded relative text-slate-500">
-                          4
-                        </div>
-                        <div className="py-0.5 rounded relative text-slate-500">
-                          5
-                        </div>
-                        <div className="py-0.5 rounded relative text-slate-500">
-                          6
-                        </div>
-                        <div className="py-0.5 rounded relative text-slate-500">
-                          7
-                        </div>
-                        <div className="py-0.5 rounded relative text-slate-500">
-                          8
-                        </div>
-                        <div className="py-0.5 rounded relative text-slate-500">
-                          9
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-5 border-t border-slate-200/60">
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 mr-3 rounded-full bg-pending"></div>
-                        <span className="truncate">UI/UX Workshop</span>
-                        <span className="font-medium xl:ml-auto">23th</span>
-                      </div>
-                      <div className="flex items-center mt-4">
-                        <div className="w-2 h-2 mr-3 rounded-full bg-primary"></div>
-                        <span className="truncate">
-                          VueJs Frontend Development
-                        </span>
-                        <span className="font-medium xl:ml-auto">10th</span>
-                      </div>
-                      <div className="flex items-center mt-4">
-                        <div className="w-2 h-2 mr-3 rounded-full bg-warning"></div>
-                        <span className="truncate">Laravel Rest API</span>
-                        <span className="font-medium xl:ml-auto">31th</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {/* END: Schedules */}
-            </div>
-          </div>
+    <Chart
+      type="pie"
+      width={width}
+      height={height}
+      data={chartData}
+      options={options}
+      className={className}
+    />
+  );
+};
+
+// Custom hooks for fetching data from database APIs
+function useEvents(companyId: string = "0380") {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${baseUrl}/api/events?company_id=${companyId}`);
+        if (response.data.success) {
+          console.log(response.data.events);
+          setEvents(response.data.events);
+        } else {
+          setError('Failed to fetch events');
+        }
+      } catch (err) {
+        console.error('Error fetching events:', err);
+        setError('Error fetching events');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, [companyId]);
+
+  return { events, loading, error };
+}
+
+function useEnrollees(companyId: string = "0380") {
+  const [enrollees, setEnrollees] = useState<Enrollee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchEnrollees = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${baseUrl}/api/enrollees?company_id=${companyId}`);
+        if (response.data.success) {
+          setEnrollees(response.data.enrollees);
+        } else {
+          setError('Failed to fetch enrollees');
+        }
+      } catch (err) {
+        console.error('Error fetching enrollees:', err);
+        setError('Error fetching enrollees');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEnrollees();
+  }, [companyId]);
+
+  return { enrollees, loading, error };
+}
+
+  function useParticipants(companyId: string = "0380") {
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchParticipants = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${baseUrl}/api/participants?company_id=${companyId}`);
+        if (response.data.success) {
+          setParticipants(response.data.participants);
+        } else {
+          setError('Failed to fetch participants');
+        }
+      } catch (err) {
+        console.error('Error fetching participants:', err);
+        setError('Error fetching participants');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchParticipants();
+  }, [companyId]);
+
+  return { participants, loading, error };
+}
+
+function useFeedbackResponses(companyId: string = "0380") {
+  const [feedbackResponses, setFeedbackResponses] = useState<FeedbackResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchFeedbackResponses = async () => {
+      try {
+        setLoading(true);
+        // Note: You'll need to implement this endpoint in your backend
+        const response = await axios.get(`${baseUrl}/api/feedback-responses?company_id=${companyId}`);
+        if (response.data.success) {
+          setFeedbackResponses(response.data.feedbackResponses);
+        } else {
+          setError('Failed to fetch feedback responses');
+        }
+      } catch (err) {
+        console.error('Error fetching feedback responses:', err);
+        setError('Error fetching feedback responses');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeedbackResponses();
+  }, [companyId]);
+
+  return { feedbackResponses, loading, error };
+}
+
+
+function normalizeEmail(email: string) {
+  return (email || "").trim().toLowerCase();
+}
+
+function normalizeProgramName(name: string) {
+  return (name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gi, " ") // remove punctuation
+    .replace(/\s+/g, " ")         // collapse spaces
+    .trim();
+}
+
+// Remove date prefixes from program names (e.g., "14 May - Generative AI..." -> "Generative AI...")
+function cleanProgramName(name: string) {
+  if (!name) return 'Unspecified';
+  
+  // Remove patterns like "14 May - ", "5 May - ", "26 May - " etc.
+  // Handle all variations: "5 May - ", "5 May-", "5 May ", etc.
+  let cleaned = name
+    .replace(/^\d{1,2}\s+[A-Za-z]+(\s*[-–]\s*|\s*$)/, '')  // "5 May - ", "5 May-", "5 May ", etc.
+    .trim();
+  
+  // Remove date in parentheses (e.g., "(01/01/2023 10:00:00)")
+  cleaned = cleaned.replace(/\s*\(\d{1,2}\/\d{1,2}\/\d{4}.*\)/, '').trim();
+  
+  // Remove "(Unspecified)" or similar non-date suffixes in parentheses
+  cleaned = cleaned.replace(/\s*\(Unspecified\)/i, '').trim();
+  
+  // Remove specific date strings like ", 26 May" or ", 5 May"
+  cleaned = cleaned.replace(/,\s*\d{1,2}\s+\w+/, '').trim();
+  
+  // Remove specific long suffixes that might contain dates or other info
+  cleaned = cleaned.replace(/,\s*\d{1,2}\s+\w+\s*-\s*AI-Powered Visibility: Leveraging Google Business Profile \(GBP\) to Grow Your Business/, '').trim();
+  cleaned = cleaned.replace(/,\s*\d{1,2}\s+\w+\s*-\s*Generative AI in Social Media Marketing/, '').trim();
+  
+  // Handle complex AI Horizon combinations - keep the most descriptive part
+  // For combinations like "A - B - C", keep the longest meaningful part
+  if (cleaned.includes(' - ')) {
+    const parts = cleaned.split(' - ').map(part => part.trim()).filter(part => part.length > 0);
+    if (parts.length > 1) {
+      // Find the part with the most descriptive content (longest meaningful part)
+      const meaningfulParts = parts.filter(part => 
+        part.length > 10 && // Must be reasonably long
+        !part.match(/^\d{1,2}\s+[A-Za-z]+$/) && // Not just a date
+        !part.match(/^[A-Za-z\s]+$/) // Not just generic words
+      );
+      
+      if (meaningfulParts.length > 0) {
+        // Return the longest meaningful part
+        return meaningfulParts.reduce((longest, current) => 
+          current.length > longest.length ? current : longest
+        );
+      } else {
+        // If no meaningful parts, return the longest part
+        return parts.reduce((longest, current) => 
+          current.length > longest.length ? current : longest
+        );
+      }
+    }
+  }
+  
+  // If the result is empty or just whitespace, return 'Unspecified'
+  return cleaned || 'Unspecified';
+}
+
+function getProgramFront(name: string, wordCount = 3) {
+  const cleaned = cleanProgramName(name);
+  const normalized = normalizeProgramName(cleaned);
+  return normalized.split(" ").slice(0, wordCount).join(" ");
+}
+
+const feedbackMetrics = [
+  { key: "How would you rate overall session?", label: "Overall satisfaction" },
+  { key: "How effective was the trainer delivering the content?", label: "Trainer effectiveness" },
+  { key: "How relevant was the content to your interests or role?", label: "Content relevance" },
+  { key: "Does the training meet your expectations?", label: "Fulfilment of expectations" },
+  { key: "How would you rate the event venue?", label: "Event venue/facility" },
+  { key: "How satisfied were you with the opportunities for interaction (e.g., Q&A sessions, networking)? ", label: "Networking opportunities" },
+  // Add more as needed
+];
+
+function average(arr: any[]) {
+  if (!arr.length) return 0;
+  return arr.reduce((a: any, b: any) => a + b, 0) / arr.length;
+}
+
+// Helper to extract date from Daftar Kursus (AI Horizon)
+function extractDateFromDaftarKursus(daftar = "") {
+  // Try to extract a date at the start, e.g. "14 May – Generative AI..."
+  const match = daftar.match(/^([0-9]{1,2} [A-Za-z]+)[–-]/);
+  if (match) {
+    const dateStr = match[1];
+    // Convert to DD/MM/YYYY format for consistency
+    const dateMatch = dateStr.match(/(\d{1,2}) ([A-Za-z]+)/);
+    if (dateMatch) {
+      const day = dateMatch[1];
+      const monthName = dateMatch[2];
+      const monthMap: { [key: string]: string } = {
+        'January': '01', 'Jan': '01',
+        'February': '02', 'Feb': '02',
+        'March': '03', 'Mar': '03',
+        'April': '04', 'Apr': '04',
+        'May': '05',
+        'June': '06', 'Jun': '06',
+        'July': '07', 'Jul': '07',
+        'August': '08', 'Aug': '08',
+        'September': '09', 'Sep': '09',
+        'October': '10', 'Oct': '10',
+        'November': '11', 'Nov': '11',
+        'December': '12', 'Dec': '12'
+      };
+      const month = monthMap[monthName];
+      if (month) {
+        // Use 2025 for all AI Horizon programs
+        const year = 2025;
+        return `${day}/${month}/${year} 09:00:00`;
+      }
+    }
+  }
+  return "";
+}
+
+// Helper to download CSV from array of objects
+function downloadCSV(data: any[], filename: string) {
+  if (!data || !data.length) return;
+  const csv = Papa.unparse(data);
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Helper to download Excel from array of objects
+function downloadExcel(data: any[], filename: string) {
+  if (!data || !data.length) return;
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+  XLSX.writeFile(wb, filename);
+}
+
+// Helper to download PDF from array of objects
+function downloadPDF(data: any[], filename: string) {
+  if (!data || !data.length) return;
+  const doc = new jsPDF();
+  const columns = Object.keys(data[0] || {});
+  const rows = data.map(row => columns.map(col => row[col] ?? ""));
+  autoTable(doc, {
+    head: [columns],
+    body: rows,
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [59, 130, 246] },
+  });
+  doc.save(filename);
+}
+
+// Helper function to get company data from NeonDB
+const getCompanyApiUrl = async () => {
+  const userEmail = localStorage.getItem("userEmail");
+  if (!userEmail) {
+    throw new Error("No user email found");
+  }
+
+  const response = await fetch(
+    `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
+      userEmail
+    )}`,
+    {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch company data");
+  }
+
+  const data = await response.json();
+
+  return {
+    apiUrl:
+      data.companyData.api_url || baseUrl,
+    companyId: data.userData.companyId,
+  };
+};
+
+// Helper to upload a file to NeonDB storage and get a public URL
+const uploadFile = async (file: File | Blob, fileName: string): Promise<string> => {
+  const { apiUrl, companyId } = await getCompanyApiUrl();
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('fileName', fileName);
+  formData.append('companyId', companyId);
+  
+  const response = await fetch(`${apiUrl}/api/upload-file`, {
+    method: 'POST',
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to upload file');
+  }
+  
+  const result = await response.json();
+  return result.url;
+};
+
+// Helper to send a WhatsApp document message
+const sendDocumentMessage = async (chatId: string, documentUrl: string, fileName: string, caption: string) => {
+  const { apiUrl, companyId } = await getCompanyApiUrl();
+  const userName = localStorage.getItem("userName") || localStorage.getItem("userEmail") || '';
+  // Use phoneIndex 0 for now (or extend if needed)
+  const phoneIndex = 0;
+  const response = await fetch(`${apiUrl}/api/v2/messages/document/${companyId}/${chatId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      documentUrl: documentUrl,
+      filename: fileName,
+      phoneIndex: phoneIndex,
+      userName: userName,
+    }),
+  });
+  if (!response.ok) throw new Error(`API failed with status ${response.status}`);
+  return await response.json();
+};
+
+// Helper to send a WhatsApp text message
+const sendTextMessage = async (chatId: string, text: string) => {
+  const { apiUrl, companyId } = await getCompanyApiUrl();
+  const userName = localStorage.getItem("userName") || localStorage.getItem("userEmail") || '';
+  const phoneIndex = 0;
+  const response = await fetch(`${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: text,
+      phoneIndex: phoneIndex,
+      userName: userName,
+    }),
+  });
+  if (!response.ok) throw new Error(`API failed with status ${response.status}`);
+  return await response.json();
+};
+
+function DashBoardOverview4() {
+  // Fetch data from database APIs
+  const { events, loading: eventsLoading, error: eventsError } = useEvents();
+  const { enrollees, loading: enrolleesLoading, error: enrolleesError } = useEnrollees();
+  const { participants, loading: participantsLoading, error: participantsError } = useParticipants();
+  const { feedbackResponses, loading: feedbackLoading, error: feedbackError } = useFeedbackResponses();
+  const [selectedProgram, setSelectedProgram] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [programDropdownOpen, setProgramDropdownOpen] = useState(false);
+  // Search/filter state for raw data tables
+  const [participantSearch, setParticipantSearch] = useState("");
+  const [feedbackSearch, setFeedbackSearch] = useState("");
+  const [selectedSessionFilter, setSelectedSessionFilter] = useState("");
+  
+  // Additional filters for participants table
+  const [participantProgramFilter, setParticipantProgramFilter] = useState("");
+  const [participantCategoryFilter, setParticipantCategoryFilter] = useState("");
+  const [participantProfessionFilter, setParticipantProfessionFilter] = useState("");
+  const [participantStatusFilter, setParticipantStatusFilter] = useState("");
+  const [participantAttendanceFilter, setParticipantAttendanceFilter] = useState("");
+  
+  // Additional filters for feedback table
+  const [feedbackDateFilter, setFeedbackDateFilter] = useState("");
+  const [feedbackRatingFilter, setFeedbackRatingFilter] = useState("");
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.program-dropdown')) {
+        setProgramDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Add state for modal/progress
+  const [sendingModalOpen, setSendingModalOpen] = useState(false);
+  const [sendingStatus, setSendingStatus] = useState<any[]>([]);
+  const [sendingInProgress, setSendingInProgress] = useState(false);
+
+  // Add state for selected program for sending certificates
+  const [selectedSendProgram, setSelectedSendProgram] = useState<string>("");
+
+  // Add state for attendees to send (with selection)
+  const [attendeesToSend, setAttendeesToSend] = useState<any[]>([]);
+  const [confirmSendOpen, setConfirmSendOpen] = useState(false);
+  const [excludedPhones, setExcludedPhones] = useState<string[]>([]);
+
+  // Process participants data from database
+  const processedParticipants = useMemo(() => {
+    if (!participants.length || !enrollees.length || !events.length) return [];
+
+    return participants.map((participant) => {
+      const enrollee = enrollees.find(e => e.id === participant.enrollee_id);
+      const event = events.find(e => e.id === participant.event_id);
+      
+      return {
+        Date: new Date(participant.created_at).toLocaleDateString(),
+        "Full Name": enrollee?.name || "Unknown",
+        Company: enrollee?.organisation || "",
+        Phone: enrollee?.mobile_number || "",
+        Email: enrollee?.email || "",
+        "Program Name": event?.name || "Unknown Event",
+        "Program Date & Time": `${event?.start_date} ${event?.start_time}`,
+        "RSVP status": participant.payment_status_id === "paid" ? "Accepted" : "Pending",
+        "Attendance status": participant.is_attended ? "Accepted" : "Pending",
+        Profession: enrollee?.designation || "",
+        Category: "", // Not available in current schema
+        // Additional fields for compatibility
+        "Reference Number": participant.reference_number,
+        "Remarks": participant.remarks,
+        "Event ID": participant.event_id,
+        "Enrollee ID": participant.enrollee_id,
+      };
+    });
+  }, [participants, enrollees, events]);
+
+  // Process feedback data from database
+  const processedFeedback = useMemo(() => {
+    if (!feedbackResponses.length) return [];
+
+    return feedbackResponses.map((feedback) => {
+      // Find the overall rating from responses
+      const overallRating = feedback.responses?.find(r => r.field_id === 'overall_rating')?.answer || "0";
+      const trainerEffectiveness = feedback.responses?.find(r => r.field_id === 'trainer_effectiveness')?.answer || "0";
+      const contentRelevance = feedback.responses?.find(r => r.field_id === 'content_relevance')?.answer || "0";
+      const expectationsMet = feedback.responses?.find(r => r.field_id === 'expectations_met')?.answer || "0";
+      const venueRating = feedback.responses?.find(r => r.field_id === 'venue_rating')?.answer || "0";
+      const interactionRating = feedback.responses?.find(r => r.field_id === 'interaction_rating')?.answer || "0";
+      const likedMost = feedback.responses?.find(r => r.field_id === 'liked_most')?.answer || "";
+      const improvements = feedback.responses?.find(r => r.field_id === 'improvements')?.answer || "";
+      const futureTopics = feedback.responses?.find(r => r.field_id === 'future_topics')?.answer || "";
+
+      return {
+        Timestamp: new Date(feedback.submitted_at || feedback.created_at).toLocaleString(),
+        Email: "", // Not available in feedback responses
+        "Full Name": "", // Not available in feedback responses
+        "Contact Number": feedback.phone_number,
+        Profession: "", // Not available in feedback responses
+        "Which session did you attend?": feedback.form_title || "Unknown Session",
+        "How would you rate overall session?": overallRating,
+        "How effective was the trainer delivering the content?": trainerEffectiveness,
+        "How relevant was the content to your interests or role?": contentRelevance,
+        "Does the training meet your expectations?": expectationsMet,
+        "How would you rate the event venue?": venueRating,
+        "How satisfied were you with the opportunities for interaction (e.g., Q&A sessions, networking)?": interactionRating,
+        "What did you like most about the session?": likedMost,
+        "What can we improve for future sessions?": improvements,
+        "Any suggestions for future topics or speakers?": futureTopics,
+        "You agree to be contacted by Co9P for future events, updates and relevant follow-up regarding our programs": "Yes", // Default
+      };
+    });
+  }, [feedbackResponses]);
+
+  // Helper to normalize phone numbers (remove non-digits, add country code if missing)
+  function normalizePhone(phone: string) {
+    let digits = (phone || "").replace(/\D/g, "");
+    if (digits && !digits.startsWith("6")) digits = "6" + digits; // Default to Malaysia
+    return digits;
+  }
+
+  // Merge both RSVP sources and deduplicate by normalized email and phone
+  function mergeRSVPByEmailAndPhone(data: any[]) {
+    // Don't merge - allow multiple programs per person
+    // Just return the data as-is, but remove any completely empty rows
+    return data.filter(row => {
+      const email = normalizeEmail(row.Email);
+      const phone = normalizePhone(row.Phone);
+      const programName = row['Program Name']?.trim();
+      
+      // Keep rows that have at least email or phone, and a program name
+      return (email || phone) && programName;
+    });
+  }
+
+  // Show loading state if any data is still loading
+  const isLoading = eventsLoading || enrolleesLoading || participantsLoading || feedbackLoading;
+  const hasError = eventsError || enrolleesError || participantsError || feedbackError;
+
+  // Use processed participants data directly
+  const mergedRSVP = processedParticipants;
+
+  // Create a map for RSVP by email
+  const rsvpByEmail: { [key: string]: any } = Object.fromEntries(
+    mergedRSVP.map((row: any) => [normalizeEmail(row.Email), row])
+  );
+
+  // Join feedback with RSVP
+  const feedbackWithRSVP = processedFeedback.map((feedback: any) => ({
+    ...feedback,
+    rsvp: rsvpByEmail[normalizeEmail(feedback.Email)]
+  }));
+
+  // Profession breakdown
+  const professionCounts: { [key: string]: number } = {};
+  mergedRSVP.forEach((r: any) => {
+    const prof = (r.Profession || 'Unspecified').trim();
+    professionCounts[prof] = (professionCounts[prof] || 0) + 1;
+  });
+  const professions = Object.entries(professionCounts).map(([label, value]) => ({ label, value: Number(value) }));
+
+  // Program breakdown
+  const programCounts: { [key: string]: number } = {};
+  mergedRSVP.forEach((r: any) => {
+    const prog = (r['Program Name'] || 'Unknown').trim();
+    programCounts[prog] = (programCounts[prog] || 0) + 1;
+  });
+  const programTypes = Object.entries(programCounts).map(([label, value]) => ({ label, value: Number(value) }));
+
+  // Category breakdown
+  const categoryCounts: { [key: string]: number } = {};
+  mergedRSVP.forEach((r: any) => {
+    const cat = (r.Category || 'Unspecified').trim();
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+  });
+  const categories = Object.entries(categoryCounts).map(([label, value]) => ({ label, value: Number(value) }));
+
+  // Totals
+  const totalRegistered = mergedRSVP.length;
+  const totalAttended = mergedRSVP.filter((r: any) => r['Attendance status'] === 'Accepted').length;
+
+  // Feedback metrics
+  const overallFeedback: { [key: string]: number } = {};
+  feedbackMetrics.forEach(metric => {
+    const values = feedbackWithRSVP
+      .map((f: any) => Number(f[metric.key]))
+      .filter((v: number) => !isNaN(v));
+    overallFeedback[metric.key] = average(values);
+  });
+
+  // Helper function to parse date from DD/MM/YYYY HH:MM:SS format
+  const parseDate = (dateTimeStr: string): Date => {
+    if (!dateTimeStr) return new Date(0); // Default to epoch for sorting
+    
+   
+    
+    // Handle DD/MM/YYYY HH:MM:SS format
+    const match = dateTimeStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})/);
+    if (match) {
+      const [, day, month, year, hour, minute, second] = match;
+      const result = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), parseInt(second));
+      return result;
+    }
+    
+    // Handle DD/MM/YYYY format (without time)
+    const dateOnlyMatch = dateTimeStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (dateOnlyMatch) {
+      const [, day, month, year] = dateOnlyMatch;
+      const result = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      
+    
+      return result;
+    }
+    
+    // Handle other date formats or return epoch
+    const parsedDate = new Date(dateTimeStr);
+    const result = isNaN(parsedDate.getTime()) ? new Date(0) : parsedDate;
+    
+    
+    return result;
+  };
+
+  // Get all unique programs with their dates
+  const allPrograms: Array<{ name: string; dateTime: string; parsedDate: Date; cleanedName: string }> = [];
+
+  // First, add all events from the events API
+  events.forEach((event) => {
+    const dateTime = `${event.start_date} ${event.start_time}`;
+    const parsedDate = parseDate(dateTime);
+    
+    const program = {
+      name: event.name,
+      dateTime: dateTime,
+      parsedDate: parsedDate,
+      cleanedName: cleanProgramName(event.name)
+    };
+    
+    // Only add if this program name + date combination doesn't already exist
+    const exists = allPrograms.some(p => 
+      p.cleanedName === program.cleanedName && 
+      p.dateTime === program.dateTime
+    );
+    
+    if (!exists) {
+      allPrograms.push(program);
+    }
+  });
+
+  // Then add programs from participant data (for backward compatibility)
+  mergedRSVP.forEach((r: any) => {
+    let dateTime = r['Program Date & Time'] || '';
+    
+    // If no date from Program Date & Time, try to extract from program name (for AI Horizon)
+    if (!dateTime) {
+      dateTime = extractDateFromDaftarKursus(r['Program Name']);
+    }
+    
+    // If still no date, try to infer from program name patterns
+    if (!dateTime) {
+      // Look for date patterns in the program name
+      const dateMatch = r['Program Name'].match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)/i);
+      if (dateMatch) {
+        const day = dateMatch[1];
+        const monthName = dateMatch[2];
+        const monthMap: { [key: string]: string } = {
+          'January': '01', 'Jan': '01',
+          'February': '02', 'Feb': '02',
+          'March': '03', 'Mar': '03',
+          'April': '04', 'Apr': '04',
+          'May': '05',
+          'June': '06', 'Jun': '06',
+          'July': '07', 'Jul': '07',
+          'August': '08', 'Aug': '08',
+          'September': '09', 'Sep': '09',
+          'October': '10', 'Oct': '10',
+          'November': '11', 'Nov': '11',
+          'December': '12', 'Dec': '12'
+        };
+        const month = monthMap[monthName];
+        if (month) {
+          // Use 2025 for all programs to maintain consistency
+          const year = 2025;
+          dateTime = `${day}/${month}/${year} 09:00:00`;
+        }
+      }
+    }
+    
+    // If still no date, assign a default date to avoid "Unspecified"
+    if (!dateTime) {
+      dateTime = '01/01/2025 09:00:00'; // Default date for programs without dates
+    }
+    
+    const parsedDate = parseDate(dateTime);
+
+    const program = {
+      name: r['Program Name'],
+      dateTime: dateTime,
+      parsedDate: parsedDate,
+      cleanedName: cleanProgramName(r['Program Name'])
+    };
+ 
+    // Only add if this program name + date combination doesn't already exist
+    const exists = allPrograms.some(p => 
+      p.cleanedName === program.cleanedName && 
+      p.dateTime === program.dateTime
+    );
+    
+    if (!exists) {
+      allPrograms.push(program);
+    }
+  });
+
+  // Sort programs by date (latest first)
+  const sortedPrograms = allPrograms
+    .sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime());
+
+  // Get categories available for selected program
+  const selectedProgramAvailableCategories = Array.from(
+    new Set(
+      mergedRSVP
+        .filter((r: any) => cleanProgramName(r['Program Name']) === sortedPrograms[selectedProgram]?.cleanedName)
+        .map((r: any) => r.Category)
+        .filter(Boolean)
+    )
+  );
+
+  // Get programs available for selected category
+  const selectedCategoryAvailablePrograms = selectedCategory 
+    ? Array.from(
+        new Set(
+          mergedRSVP
+            .filter((r: any) => r.Category === selectedCategory)
+            .map((r: any) => cleanProgramName(r['Program Name']))
+            .filter(Boolean)
+        )
+      )
+    : [];
+
+  // Filter programs based on selected category and deduplicate by cleaned name
+  const filteredPrograms = selectedCategory
+    ? sortedPrograms.filter(program => 
+        selectedCategoryAvailablePrograms.includes(program.cleanedName)
+      )
+    : sortedPrograms;
+
+  // Deduplicate programs by date AND time, and merge programs without dates
+  // Maintain the sorted order (latest first) during deduplication
+  const uniquePrograms = filteredPrograms.filter((program, index, self) => {
+    // If this program has a valid date (not "Unspecified"), check for duplicates by date AND time
+    if (program.dateTime && program.dateTime !== "Unspecified") {
+      // Find all programs with the same date and time
+      const sameDateTimePrograms = self.filter(p => 
+        p.dateTime === program.dateTime && p.dateTime !== "Unspecified"
+      );
+      
+      // If there are multiple programs with the same date/time, keep the one with the longest name (most descriptive)
+      if (sameDateTimePrograms.length > 1) {
+        const longestNameProgram = sameDateTimePrograms.reduce((longest, current) => 
+          current.cleanedName.length > longest.cleanedName.length ? current : longest
+        );
+        return program === longestNameProgram;
+      }
+      
+      return index === self.findIndex(p => 
+        p.cleanedName === program.cleanedName && p.dateTime === program.dateTime
+      );
+    }
+    
+    // If this program doesn't have a date or has "Unspecified" date, check if there's a similar program with a valid date
+    const hasSimilarWithValidDate = self.some(p => 
+      p.cleanedName === program.cleanedName && p.dateTime && p.dateTime !== "Unspecified" && p !== program
+    );
+    
+    // Remove programs without dates or with "Unspecified" dates if there's a similar one with a valid date
+    return !hasSimilarWithValidDate;
+  });
+
+  // Ensure the final list is still sorted by date (latest first)
+  const finalSortedPrograms = uniquePrograms.sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime());
+
+  // For dropdown: show program name with date
+  const dropdownNames = finalSortedPrograms.map(program => {
+    if (program.dateTime) {
+      return `${program.cleanedName} (${program.dateTime})`;
+    }
+    return program.cleanedName;
+  });
+
+  // When a program is selected:
+  const selectedProgramData = finalSortedPrograms[selectedProgram];
+  const selectedCleanedName = selectedProgramData?.cleanedName || "";
+  const normalizedSelected = normalizeProgramName(selectedCleanedName);
+
+  // Get all unique program names from feedback
+  const programNames = Array.from(new Set(processedFeedback.map((f: any) => f["Which session did you attend?"])));
+
+  const programFeedback = programNames.map(program => {
+    const feedbacks = processedFeedback.filter((f: any) => f["Which session did you attend?"] === program);
+    const metrics = {};
+    feedbackMetrics.forEach(metric => {
+      const values = feedbacks.map((f: any) => Number(f[metric.key])).filter((v: number) => !isNaN(v));
+      (metrics as Record<string, number | undefined>)[metric.key] = average(values);
+    });
+    return {
+      program,
+      metrics
+    };
+  });
+
+  // Find all feedback entries that match this program (fuzzy)
+  const feedbackForSelected = processedFeedback.filter(
+    (f: any) => 
+      normalizeProgramName(f["Which session did you attend?"]) === normalizedSelected
+  );
+
+  // Filter participants by selected program and category
+  const selectedProgramFilteredParticipants = mergedRSVP.filter((r: any) => {
+    const matchesProgram = cleanProgramName(r['Program Name']) === selectedCleanedName;
+    const matchesCategory = !selectedCategory || r.Category === selectedCategory;
+    return matchesProgram && matchesCategory;
+  });
+
+  // Registered/attended counts
+  const registeredCount = selectedProgramFilteredParticipants.length;
+  const attendedCount = selectedProgramFilteredParticipants.filter(
+    (r: any) => r['Attendance status'] === 'Accepted'
+  ).length;
+
+  // Program-specific category breakdown
+  const selectedProgramParticipants = selectedProgramFilteredParticipants;
+  
+  const selectedProgramCategoryCounts: { [key: string]: number } = {};
+  selectedProgramParticipants.forEach((r: any) => {
+    const cat = (r.Category || 'Unspecified').trim();
+    selectedProgramCategoryCounts[cat] = (selectedProgramCategoryCounts[cat] || 0) + 1;
+  });
+  const selectedProgramCategories = Object.entries(selectedProgramCategoryCounts)
+    .map(([label, value]) => ({ label, value: Number(value) }))
+    .sort((a, b) => b.value - a.value); // Sort by count descending
+
+  // Program-specific profession breakdown
+  const selectedProgramProfessionCounts: { [key: string]: number } = {};
+  selectedProgramParticipants.forEach((r: any) => {
+    const prof = (r.Profession || 'Unspecified').trim();
+    selectedProgramProfessionCounts[prof] = (selectedProgramProfessionCounts[prof] || 0) + 1;
+  });
+  const selectedProgramProfessions = Object.entries(selectedProgramProfessionCounts)
+    .map(([label, value]) => ({ label, value: Number(value) }))
+    .sort((a, b) => b.value - a.value); // Sort by count descending
+
+  // Define a color palette for charts
+  const chartColors = [
+    '#3b82f6', // blue-500
+    '#f59e42', // orange-400
+    '#10b981', // green-500
+    '#f43f5e', // rose-500
+    '#6366f1', // indigo-500
+    '#fbbf24', // yellow-400
+    '#a21caf', // purple-700
+    '#14b8a6', // teal-500
+    '#eab308', // yellow-500
+    '#ef4444', // red-500
+    '#6d28d9', // violet-700
+    '#0ea5e9', // sky-500
+    '#f472b6', // pink-400
+    '#22d3ee', // cyan-400
+    '#84cc16', // lime-500
+  ];
+
+  // Filtered data for participants
+  const filteredParticipants = mergedRSVP.filter(row => {
+    // Apply search filter
+    if (participantSearch.trim() !== "") {
+      const searchMatch = Object.values(row).some(val =>
+        (val == null ? "" : String(val)).toLowerCase().includes(participantSearch.toLowerCase())
+      );
+      if (!searchMatch) return false;
+    }
+    
+    // Apply program filter
+    if (participantProgramFilter && cleanProgramName(row["Program Name"]) !== participantProgramFilter) {
+      return false;
+    }
+    
+    // Apply category filter
+    if (participantCategoryFilter && row["Category"] !== participantCategoryFilter) {
+      return false;
+    }
+    
+    // Apply profession filter
+    if (participantProfessionFilter && row["Profession"] !== participantProfessionFilter) {
+      return false;
+    }
+    
+    // Apply RSVP status filter
+    if (participantStatusFilter && row["RSVP status"] !== participantStatusFilter) {
+      return false;
+    }
+    
+    // Apply attendance status filter
+    if (participantAttendanceFilter && row["Attendance status"] !== participantAttendanceFilter) {
+      return false;
+    }
+    
+    return true;
+  });
+  
+  // Filtered data for feedback
+  const filteredFeedback = processedFeedback.filter((row: any) => {
+    // Apply session filter
+    if (selectedSessionFilter && row["Which session did you attend?"] !== selectedSessionFilter) {
+      return false;
+    }
+    
+    // Apply search filter
+    if (feedbackSearch.trim() !== "") {
+      const searchMatch = Object.values(row).some(val =>
+        (val == null ? "" : String(val)).toLowerCase().includes(feedbackSearch.toLowerCase())
+      );
+      if (!searchMatch) return false;
+    }
+    
+    // Apply date filter (if feedback has a date field)
+    if (feedbackDateFilter && row["Timestamp"]) {
+      const feedbackDate = new Date(row["Timestamp"]).toLocaleDateString();
+      if (feedbackDate !== feedbackDateFilter) {
+        return false;
+      }
+    }
+    
+    // Apply rating filter (check if any rating field matches the filter)
+    if (feedbackRatingFilter) {
+      const hasMatchingRating = feedbackMetrics.some(metric => {
+        const rating = row[metric.key];
+        return rating && String(rating) === feedbackRatingFilter;
+      });
+      if (!hasMatchingRating) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+
+  // Columns for participants table (forced order)
+  const participantColumns = [
+    "Date",
+    "Full Name",
+    "Company",
+    "Phone",
+    "Email",
+    "Program Name",
+    "Program Date & Time",
+    "RSVP status",
+    "Attendance status",
+    "Category",
+    "Profession",
+  ];
+  const participantColumnsWithCert = [...participantColumns, "Certificate"];
+
+  // For download: map filteredParticipants to this column order
+  function getParticipantsForDownload() {
+    return filteredParticipants.map(row => {
+      const r = row as Record<string, any>;
+      const out: Record<string, any> = {};
+      participantColumns.forEach(col => {
+        out[col] = r[col] ?? '';
+      });
+      return out;
+    });
+  }
+
+  // Get all unique program names from participants
+  const allProgramNames = Array.from(new Set(filteredParticipants.map((row: any) => row["Program Name"]).filter(Boolean)));
+
+  // Get all unique program dates from filteredParticipants
+  const allProgramDates = Array.from(
+    new Set(filteredParticipants.map((row: any) => row["Program Date & Time"]).filter(Boolean))
+  );
+  // Map date to program name (first occurrence)
+  const dateToProgramName: Record<string, string> = {};
+  filteredParticipants.forEach((r: any) => {
+    const date = r["Program Date & Time"];
+    if (date && !(date in dateToProgramName)) {
+      dateToProgramName[date] = r["Program Name"];
+    }
+  });
+
+  // When a program is selected for sending, selectedSendProgram is now the date string
+  // Filter attendees for selected program and accepted status (by date)
+  const attendeesForSelectedSendProgram = useMemo(() => {
+    return filteredParticipants.filter(
+      (row: any) =>
+     
+        row["Program Date & Time"] === selectedSendProgram
+    );
+  }, [filteredParticipants, selectedSendProgram]);
+
+  // Handler to open confirmation modal
+  const handleOpenConfirmSend = () => {
+    setAttendeesToSend(attendeesForSelectedSendProgram.map(a => ({ ...a, selected: true })));
+    setConfirmSendOpen(true);
+  };
+
+  // Handler to toggle selection
+  const handleToggleAttendee = (idx: number) => {
+    setAttendeesToSend(prev => prev.map((a, i) => i === idx ? { ...a, selected: !a.selected } : a));
+  };
+
+  function handleExcludeCSV(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const data = results.data as any[];
+        if (!data.length) return;
+        const phoneCol = Object.keys(data[0]).find(
+          k => k.toLowerCase().includes('phone')
+        ) || Object.keys(data[0])[0];
+        const phones = data.map(row => String(row[phoneCol] || '').replace(/\D/g, ''))
+          .filter(p => p.length > 0);
+        setExcludedPhones(phones);
+      }
+    });
+  }
+
+  // Handler to confirm and start sending
+  const handleConfirmAndSend = async () => {
+    setConfirmSendOpen(false);
+    const attendees = attendeesToShow.filter(a => a.selected);
+    setSendingModalOpen(true);
+    setSendingInProgress(true);
+    setSendingStatus(attendees.map((a: any) => ({ name: a["Full Name"], phone: a["Phone"], status: "pending" })));
+    for (let i = 0; i < attendees.length; i++) {
+      const attendee = attendees[i];
+      let thankYouText = '';
+      if ((attendee["Program Date & Time"] || '').includes('17')) {
+        thankYouText = `Dear ${attendee["Full Name"]}\n\nThank You for Attending ROBOCONNECT 2025\n\nOn behalf of the organizing team, we would like to extend our heartfelt thanks for your participation in ROBOCONNECT 2025 held on 17 June 2025.\n\nYour presence and engagement in the Smart Robotics in Action- From Code to Career session greatly contributed to the success of the event.\n\nWe hope the experience was insightful and inspiring as we continue to explore how artificial intelligence and robotics can shape the future.\n\nWe hope you can join our next event as well.\n\nPlease find your digital certificate of participation attached.\n\nWarm regards,\nCo9P AI Chatbot`;
+      } else {
+        thankYouText = `Dear ${attendee["Full Name"]}\n\nThank You for Attending ROBOCONNECT 2025\n\nOn behalf of the organizing team, we would like to extend our heartfelt thanks for your participation in ROBOCONNECT 2025 held on 19 June 2025.\n\nYour presence and engagement in the Bicara CEO: \"AI Meets Robotics: Empowering the Next Generation of Intelligent Machines\" session greatly contributed to the success of the event.\n\nWe hope the experience was insightful and inspiring as we continue to explore how artificial intelligence and robotics can shape the future.\n\nWe hope you can join our next event as well.\n\nPlease find your digital certificate of participation attached.\n\nWarm regards,\nCo9P AI Chatbot`;
+      }
+      let status = "pending";
+      try {
+        const name = attendee["Full Name"];
+        const phone = attendee["Phone"];
+        if (!name || !phone) throw new Error("Missing name or phone");
+        let phoneDigits = String(phone).replace(/\D/g, "");
+        if (!phoneDigits.startsWith("6")) phoneDigits = "6" + phoneDigits;
+        const chatId = phoneDigits + "@c.us";
+        await sendTextMessage(chatId, thankYouText);
+        const certBlob = await generateCertificate(name, attendee["Program Date & Time"], { returnBlob: true }) as Blob;
+        const fileName = `${name.replace(/[^a-zA-Z0-9]/g, "_")}_ROBOCONNECT_2025_Certificate.pdf.pdf`;
+        const certUrl = await uploadFile(certBlob, fileName);
+        await sendDocumentMessage(chatId, certUrl, fileName, "Certificate of Participation");
+        status = "success";
+      } catch (err) {
+        status = "failed";
+      }
+      setSendingStatus((prev) =>
+        prev.map((s, idx) =>
+          idx === i ? { ...s, status } : s
+        )
+      );
+    }
+    setSendingInProgress(false);
+  };
+
+
+
+  // Memoized PieChart data/labels
+  const professionPieData = useMemo(
+    () => professions.map((p) => Number(p.value)),
+    [professions]
+  );
+  const professionPieLabels = useMemo(
+    () => professions.map((p) => p.label),
+    [professions]
+  );
+  const programPieData = useMemo(
+    () => programTypes.map((p) => Number(p.value)),
+    [programTypes]
+  );
+  const programPieLabels = useMemo(
+    () => programTypes.map((p) => p.label),
+    [programTypes]
+  );
+
+  // In the confirmation modal, filter attendees to exclude those in excludedPhones
+  const attendeesToShow = attendeesToSend.filter(
+    a => !excludedPhones.includes(String(a["Phone"] || '').replace(/\D/g, ''))
+  );
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading dashboard data...</p>
         </div>
       </div>
-    </>
+    );
+  }
+
+  // Show error state
+  if (hasError) {
+    return (
+      <div className="p-6 flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold text-red-600 mb-2">Error Loading Data</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            {eventsError && `Events: ${eventsError}`}
+            {enrolleesError && `Enrollees: ${enrolleesError}`}
+            {participantsError && `Participants: ${participantsError}`}
+            {feedbackError && `Feedback: ${feedbackError}`}
+          </p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-10 h-screen overflow-auto">
+      {/* Participant Overview */}
+      <section className="bg-white dark:bg-slate-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-bold mb-4">Participant Overview</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="flex flex-col items-center justify-center">
+            <div className="text-3xl font-bold">{totalRegistered}</div>
+            <div className="text-slate-500">Total Registered</div>
+            <div className="text-3xl font-bold mt-4">{totalAttended}</div>
+            <div className="text-slate-500">Total Attended</div>
+            </div>
+          <div>
+            <div className="font-semibold mb-2 text-center">By Profession/Category</div>
+            <CustomPieChart
+              data={professionPieData}
+              labels={professionPieLabels}
+              colors={chartColors}
+            />
+          </div>
+                  <div>
+            <div className="font-semibold mb-2 text-center">By Program Type</div>
+            <CustomPieChart
+              data={programPieData}
+              labels={programPieLabels}
+              colors={chartColors}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Program-Specific Dashboard */}
+      <section className="bg-white dark:bg-slate-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-bold mb-4">Program-Specific Dashboard</h2>
+        <div className="flex flex-col md:flex-row gap-4 mb-6 items-start">
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">Filter by Category:</label>
+            <select
+              className="border rounded px-3 py-2 min-w-[200px] text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                setSelectedProgram(0); // Reset program selection when category changes
+              }}
+            >
+              <option value="">All Categories</option>
+              {selectedProgramAvailableCategories.map((category) => (
+                <option value={category} key={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-2 relative program-dropdown">
+            <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">Select Program:</label>
+            <div className="relative">
+              <button
+                type="button"
+                className="border rounded px-3 py-2 min-w-[400px] max-w-[600px] text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-left flex justify-between items-center"
+                onClick={() => setProgramDropdownOpen(!programDropdownOpen)}
+              >
+                <span className="truncate">
+                  {selectedProgram >= 0 && dropdownNames[selectedProgram] 
+                    ? dropdownNames[selectedProgram] 
+                    : "Select a program..."}
+                </span>
+                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {programDropdownOpen && (
+                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-700 border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {dropdownNames.map((name, idx) => (
+                    <button
+                      key={name}
+                      type="button"
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-slate-600 ${
+                        selectedProgram === idx ? 'bg-blue-100 dark:bg-blue-900' : ''
+                      }`}
+                      onClick={() => {
+                        setSelectedProgram(idx);
+                        setProgramDropdownOpen(false);
+                      }}
+                    >
+                      <div className="whitespace-normal break-words leading-relaxed">
+                        {name}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="flex flex-col items-center justify-center">
+            <div className="text-3xl font-bold">{registeredCount}</div>
+            <div className="text-slate-500">Registered</div>
+            <div className="text-3xl font-bold mt-4">{attendedCount}</div>
+            <div className="text-slate-500">Attended</div>
+          </div>
+          <div>
+            <div className="font-semibold mb-2 text-center">By Profession</div>
+            <CustomPieChart
+              data={selectedProgramProfessions.map(p => p.value)}
+              labels={selectedProgramProfessions.map(p => p.label)}
+              colors={chartColors}
+            />
+          </div>
+          <div>
+            <div className="font-semibold mb-2 text-center">By Category</div>
+            <CustomPieChart
+              data={selectedProgramCategories.map(c => c.value)}
+              labels={selectedProgramCategories.map(c => c.label)}
+              colors={chartColors}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Feedback Form Dashboard */}
+      <section className="bg-white dark:bg-slate-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-bold mb-4">Feedback Form Dashboard</h2>
+        <div className="mb-6">
+          <h3 className="font-semibold mb-2">Overall Scores (All Programs Combined)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {feedbackMetrics.map((metric) => (
+              <div key={metric.key} className="bg-slate-100 rounded p-4 flex flex-col items-center">
+                <div className="text-lg font-semibold text-center">{metric.label}</div>
+                <div className="text-3xl font-bold mt-2">{overallFeedback[metric.key]?.toFixed(1)}</div>
+                <div className="text-xs text-slate-500">(Likert 1-5)</div>
+              </div>
+            ))}
+            {/* Overall Percentage Card */}
+            <div className="bg-blue-100 dark:bg-blue-900 rounded p-4 flex flex-col items-center">
+              <div className="text-lg font-semibold text-center">Overall Score</div>
+              <div className="text-3xl font-bold mt-2 text-blue-600 dark:text-blue-400">
+                {(() => {
+                  const totalScore = feedbackMetrics.reduce((sum, metric) => {
+                    return sum + (overallFeedback[metric.key] || 0);
+                  }, 0);
+                  const maxPossibleScore = feedbackMetrics.length * 5;
+                  const percentage = maxPossibleScore > 0 ? (totalScore / maxPossibleScore) * 100 : 0;
+                  return `${percentage.toFixed(1)}%`;
+                })()}
+              </div>
+              <div className="text-xs text-slate-500">(Percentage)</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h3 className="font-semibold mb-2">Program-Level Scores</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border text-sm">
+              <thead>
+                <tr className="bg-blue-100 dark:bg-slate-900">
+                  <th className="border px-2 py-1">Program</th>
+                  {feedbackMetrics.map((metric) => (
+                    <th className="border px-2 py-1" key={metric.key}>{metric.label}</th>
+                  ))}
+                  <th className="border px-2 py-1 bg-blue-200 dark:bg-blue-800 font-semibold">Score %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {programFeedback.map((program, i) => {
+                  // Calculate total score for this program
+                  const totalScore = feedbackMetrics.reduce((sum, metric) => {
+                    const value = typeof program.metrics === 'object' && program.metrics !== null && metric.key in program.metrics
+                      ? (program.metrics as Record<string, number | undefined>)[metric.key]
+                      : 0;
+                    return sum + (value || 0);
+                  }, 0);
+                  
+                  // Calculate percentage (max score is 5 * number of metrics)
+                  const maxPossibleScore = feedbackMetrics.length * 5;
+                  const percentage = maxPossibleScore > 0 ? (totalScore / maxPossibleScore) * 100 : 0;
+                  
+                  return (
+                    <tr key={program.program} className={i % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-blue-50 dark:bg-slate-700'}>
+                      <td className="border px-2 py-1 font-semibold">{program.program}</td>
+                      {feedbackMetrics.map((metric) => (
+                        <td className="border px-2 py-1 text-center dark:text-slate-100" key={metric.key}>
+                          {typeof program.metrics === 'object' && program.metrics !== null && metric.key in program.metrics
+                            ? (program.metrics as Record<string, number | undefined>)[metric.key]?.toFixed(1)
+                            : ''}
+                        </td>
+                      ))}
+                      <td className="border px-2 py-1 text-center bg-blue-50 dark:bg-blue-900 font-semibold">
+                        {percentage.toFixed(1)}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      {/* Raw Data: Registered Participants */}
+      <section className="bg-white dark:bg-slate-800 rounded-lg shadow p-6 mt-8">
+        <h2 className="text-xl font-bold mb-4">Registered Participants</h2>
+        
+        {/* Enhanced Filters */}
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Search Filter */}
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">Search:</label>
+            <input
+              className="px-3 py-2 border rounded text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              type="text"
+              placeholder="Search all fields..."
+              value={participantSearch}
+              onChange={e => setParticipantSearch(e.target.value)}
+            />
+          </div>
+          
+          {/* Program Filter */}
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">Program:</label>
+            <select
+              className="px-3 py-2 border rounded text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={participantProgramFilter}
+              onChange={e => setParticipantProgramFilter(e.target.value)}
+            >
+              <option value="">All Programs</option>
+              {dropdownNames.map((programName, idx) => (
+                <option value={finalSortedPrograms[idx]?.cleanedName || ""} key={idx}>
+                  {programName}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Category Filter */}
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">Category:</label>
+            <select
+              className="px-3 py-2 border rounded text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={participantCategoryFilter}
+              onChange={e => setParticipantCategoryFilter(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {Array.from(new Set(mergedRSVP.map((row: any) => row["Category"]).filter(Boolean))).map((category) => (
+                <option value={category} key={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Profession Filter */}
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">Profession:</label>
+            <select
+              className="px-3 py-2 border rounded text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={participantProfessionFilter}
+              onChange={e => setParticipantProfessionFilter(e.target.value)}
+            >
+              <option value="">All Professions</option>
+              {Array.from(new Set(mergedRSVP.map((row: any) => row["Profession"]).filter(Boolean))).map((profession) => (
+                <option value={profession} key={profession}>{profession}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* RSVP Status Filter */}
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">RSVP Status:</label>
+            <select
+              className="px-3 py-2 border rounded text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={participantStatusFilter}
+              onChange={e => setParticipantStatusFilter(e.target.value)}
+            >
+              <option value="">All Statuses</option>
+              {Array.from(new Set(mergedRSVP.map((row: any) => row["RSVP status"]).filter(Boolean))).map((status) => (
+                <option value={status} key={status}>{status}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Attendance Status Filter */}
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">Attendance:</label>
+            <select
+              className="px-3 py-2 border rounded text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={participantAttendanceFilter}
+              onChange={e => setParticipantAttendanceFilter(e.target.value)}
+            >
+              <option value="">All Attendance</option>
+              {Array.from(new Set(mergedRSVP.map((row: any) => row["Attendance status"]).filter(Boolean))).map((attendance) => (
+                <option value={attendance} key={attendance}>{attendance}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        {/* Clear Filters Button */}
+        <div className="mb-4">
+          <button
+            className="px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+            onClick={() => {
+              setParticipantSearch("");
+              setParticipantProgramFilter("");
+              setParticipantCategoryFilter("");
+              setParticipantProfessionFilter("");
+              setParticipantStatusFilter("");
+              setParticipantAttendanceFilter("");
+            }}
+          >
+            Clear All Filters
+          </button>
+        </div>
+        <div className="mb-4 flex flex-wrap gap-2 items-center">
+          <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+            Showing {filteredParticipants.length} of {mergedRSVP.length} participants
+          </div>
+          <div className="flex gap-2">
+            <button
+              className="px-4 py-2 bg-blue-500 text-white rounded"
+              onClick={() => downloadCSV(getParticipantsForDownload(), "registered_participants.csv")}
+            >
+              Download as CSV
+            </button>
+            <button
+              className="px-4 py-2 bg-green-600 text-white rounded"
+              onClick={() => downloadExcel(getParticipantsForDownload(), "registered_participants.xlsx")}
+            >
+              Download as Excel
+            </button>
+          </div>
+        </div>
+        <div className="overflow-x-auto max-h-96">
+          <table className="min-w-full border text-xs">
+            <thead>
+              <tr>
+                {participantColumnsWithCert.map((key) => (
+                  <th key={key} className="border px-2 py-1">{key}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredParticipants.map((row, i) => (
+                <tr key={i} className={i % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-blue-50 dark:bg-slate-700'}>
+                  {participantColumns.map((key, j) => (
+                    <td key={j} className="border px-2 py-1">{(row as Record<string, any>)[key] == null ? '' : String((row as Record<string, any>)[key])}</td>
+                  ))}
+                  <td className="border px-2 py-1">
+                    <button
+                      className="px-2 py-1 bg-blue-600 text-white rounded text-xs"
+                      onClick={() => generateCertificate((row as Record<string, any>)["Full Name"] || "", (row as Record<string, any>)["Program Date & Time"])}
+                      disabled={!((row as Record<string, any>)["Full Name"])}
+                    >
+                      Download Certificate
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {/* Program selection dropdown for sending certificates */}
+        <div className="mb-4 mt-8 flex flex-col items-start">
+          <label className="mb-2 font-semibold">Select Program Date to Send Certificates:</label>
+          <select
+            className="border rounded px-2 py-1 max-w-xs w-full"
+            value={selectedSendProgram}
+            onChange={e => setSelectedSendProgram(e.target.value)}
+          >
+            <option value="">-- Select Program Date --</option>
+            {allProgramDates.map((date) => (
+              <option value={date} key={date}>
+                {dateToProgramName[date] ? `${dateToProgramName[date]} (${date})` : date}
+              </option>
+            ))}
+          </select>
+        </div>
+        {/* Only show the button if a program is selected */}
+        {selectedSendProgram && (
+          <>
+            <button
+              className="mb-4 px-4 py-2 bg-green-600 text-white rounded"
+              onClick={handleOpenConfirmSend}
+              disabled={sendingInProgress}
+            >
+              Send Certificates to All Attendees in Selected Program
+            </button>
+            {/* Confirmation Modal for selecting attendees */}
+            {confirmSendOpen && (
+              <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                <div className="relative bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 w-full max-w-lg animate-fadeIn">
+                  <h3 className="text-lg font-bold mb-4 text-center">Confirm Recipients</h3>
+                  {/* CSV import for exclusion */}
+                  <div className="mb-2">
+                    <label className="block text-sm font-semibold mb-1">Import CSV to Exclude Phones:</label>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={handleExcludeCSV}
+                      className="block"
+                    />
+                  </div>
+                  {/* Add this summary line */}
+                  <div className="mb-2 text-sm font-semibold text-center">
+                    {`Selected: ${attendeesToShow.filter(a => a.selected).length} / ${attendeesToShow.length} to send`}
+                  </div>
+                  <div className="max-h-64 overflow-y-auto border rounded mb-4">
+                    <table className="min-w-full border text-xs">
+                      <thead className="bg-gray-100 dark:bg-slate-700">
+                        <tr>
+                          <th className="border px-2 py-1">Send?</th>
+                          <th className="border px-2 py-1">Name</th>
+                          <th className="border px-2 py-1">Phone</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attendeesToShow.map((a, i) => (
+                          <tr key={i}>
+                            <td className="border px-2 py-1 text-center">
+                              <input type="checkbox" checked={a.selected} onChange={() => handleToggleAttendee(attendeesToSend.indexOf(a))} />
+                            </td>
+                            <td className="border px-2 py-1">{a["Full Name"]}</td>
+                            <td className="border px-2 py-1">{a["Phone"]}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <button
+                      className="px-4 py-2 rounded bg-gray-300 text-gray-700 hover:bg-gray-400"
+                      onClick={() => setConfirmSendOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700"
+                      onClick={handleConfirmAndSend}
+                      disabled={attendeesToShow.filter(a => a.selected).length === 0}
+                    >
+                      Confirm & Send
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+        {/* Modal/Progress UI */}
+        {sendingModalOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
+            onClick={e => {
+              // Only close if not sending and click is on backdrop
+              if (!sendingInProgress && e.target === e.currentTarget) setSendingModalOpen(false);
+            }}
+          >
+            <div className="relative bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 w-full max-w-lg animate-fadeIn">
+              {/* Close (X) button */}
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl font-bold focus:outline-none"
+                onClick={() => {
+                  if (!sendingInProgress) setSendingModalOpen(false);
+                  else if (window.confirm('Sending is in progress. Are you sure you want to close?')) setSendingModalOpen(false);
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <h3 className="text-lg font-bold mb-4 text-center">Sending Certificates</h3>
+              <div className="max-h-64 overflow-y-auto border rounded mb-4">
+                <table className="min-w-full border text-xs">
+                  <thead className="bg-gray-100 dark:bg-slate-700">
+                    <tr>
+                      <th className="border px-2 py-1">Name</th>
+                      <th className="border px-2 py-1">Phone</th>
+                      <th className="border px-2 py-1">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sendingStatus.map((s, i) => (
+                      <tr key={i}>
+                        <td className="border px-2 py-1">{s.name}</td>
+                        <td className="border px-2 py-1">{s.phone}</td>
+                        <td className="border px-2 py-1">
+                          {s.status === "pending" && <span className="text-yellow-500">Pending...</span>}
+                          {s.status === "success" && <span className="text-green-600">Sent</span>}
+                          {s.status === "failed" && <span className="text-red-600">Failed</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  className={`px-4 py-2 rounded ${sendingInProgress ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-400 text-white hover:bg-gray-500'}`}
+                  onClick={() => {
+                    if (!sendingInProgress) setSendingModalOpen(false);
+                    else if (window.confirm('Sending is in progress. Are you sure you want to close?')) setSendingModalOpen(false);
+                  }}
+                  disabled={false}
+                >
+                  Close
+                </button>
+              </div>
+              {sendingInProgress && (
+                <div className="mt-2 text-center text-sm text-blue-500">Sending in progress...</div>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
+      {/* Raw Data: Feedback Responses */}
+      <section className="bg-white dark:bg-slate-800 rounded-lg shadow p-6 mt-8">
+        <h2 className="text-xl font-bold mb-4">Feedback Responses</h2>
+        
+        {/* Enhanced Filters */}
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Search Filter */}
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">Search:</label>
+            <input
+              className="px-3 py-2 border rounded text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              type="text"
+              placeholder="Search all fields..."
+              value={feedbackSearch}
+              onChange={e => setFeedbackSearch(e.target.value)}
+            />
+          </div>
+          
+          {/* Session Filter */}
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">Session:</label>
+            <select
+              className="px-3 py-2 border rounded text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={selectedSessionFilter}
+              onChange={(e) => setSelectedSessionFilter(e.target.value)}
+            >
+              <option value="">All Sessions</option>
+              {programNames.map((session) => (
+                <option value={session} key={session}>{session}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Date Filter */}
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">Date:</label>
+            <select
+              className="px-3 py-2 border rounded text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={feedbackDateFilter}
+              onChange={(e) => setFeedbackDateFilter(e.target.value)}
+            >
+              <option value="">All Dates</option>
+              {Array.from(new Set(processedFeedback.map((row: any) => {
+                if (row["Timestamp"]) {
+                  return new Date(row["Timestamp"]).toLocaleDateString();
+                }
+                return null;
+              }).filter((date): date is string => date !== null))).map((date) => (
+                <option value={date} key={date}>{date}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Rating Filter */}
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">Rating:</label>
+            <select
+              className="px-3 py-2 border rounded text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={feedbackRatingFilter}
+              onChange={(e) => setFeedbackRatingFilter(e.target.value)}
+            >
+              <option value="">All Ratings</option>
+              <option value="1">1 - Poor</option>
+              <option value="2">2 - Fair</option>
+              <option value="3">3 - Good</option>
+              <option value="4">4 - Very Good</option>
+              <option value="5">5 - Excellent</option>
+            </select>
+          </div>
+        </div>
+        
+        {/* Clear Filters Button */}
+        <div className="mb-4">
+          <button
+            className="px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+            onClick={() => {
+              setFeedbackSearch("");
+              setSelectedSessionFilter("");
+              setFeedbackDateFilter("");
+              setFeedbackRatingFilter("");
+            }}
+          >
+            Clear All Filters
+          </button>
+        </div>
+        <div className="mb-4 flex flex-wrap gap-2 items-center">
+          <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+            Showing {filteredFeedback.length} of {processedFeedback.length} feedback responses
+          </div>
+          <div className="flex gap-2">
+            <button
+              className="px-4 py-2 bg-blue-500 text-white rounded"
+              onClick={() => downloadCSV(filteredFeedback, "feedback_responses.csv")}
+            >
+              Download as CSV
+            </button>
+            <button
+              className="px-4 py-2 bg-green-600 text-white rounded"
+              onClick={() => downloadExcel(filteredFeedback, "feedback_responses.xlsx")}
+            >
+              Download as Excel
+            </button>
+         
+          </div>
+        </div>
+        <div className="overflow-x-auto max-h-96">
+          <table className="min-w-full border text-xs">
+            <thead>
+              <tr>
+                {Object.keys(filteredFeedback[0] || {}).map((key) => (
+                  <th key={key} className="border px-2 py-1">{key}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredFeedback.map((row, i) => (
+                <tr key={i} className={i % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-blue-50 dark:bg-slate-700'}>
+                  {Object.keys(filteredFeedback[0] || {}).map((key, j) => (
+                    <td key={j} className="border px-2 py-1">{(row as Record<string, any>)[key] == null ? '' : String((row as Record<string, any>)[key])}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      </div>
   );
 }
 
-export default Main;
+export default DashBoardOverview4;

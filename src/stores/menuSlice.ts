@@ -6,6 +6,7 @@ import sideMenu from "@/main/side-menu";
 import simpleMenu from "@/main/simple-menu";
 import simpleMenu2 from "@/main/simple-menu2";
 import simpleMenu3 from "@/main/simple-menu3";
+import simpleMenuMTDC from "@/main/simple-menuMTDC";
 import simpleMenuJuta from "@/main/simple-menuJuta";
 import simpleMenuRole2 from "@/main/simple-menu-role-2";
 import simpleMenuRole3 from "@/main/simple-menu-role-3";
@@ -49,6 +50,8 @@ export const selectMenu = (layout: Themes["layout"]) => (state: RootState) => {
       return simpleMenu2;
     } else if (config?.name === "Tatapies") {
       return simpleMenu3;
+    }else if (config?.name === "MTDC") {
+      return simpleMenuMTDC;
     } else if (config?.name === "Juta") {
       return simpleMenuJuta;
     } else {

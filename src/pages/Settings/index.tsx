@@ -189,6 +189,16 @@ const fetchSettings = async () => {
             </Button>
           </Link>
           
+         
+          {companyId === "0380" && (
+           <Link to="/feedback-form-builder">
+           <Button variant="primary" className="shadow-md">
+             Feedback Form Builder
+           </Button>
+         </Link>
+          )}
+     
+          
           {companyId === "0123" && (
             <Link to="/storage-pricing">
               <Button variant="primary" className="shadow-md">

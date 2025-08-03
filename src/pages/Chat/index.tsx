@@ -1347,14 +1347,20 @@ useEffect(() => {
       if (botStatusResponse.status === 200) {
         const data: BotStatusResponse = botStatusResponse.data;
         
-        // Transform the new response format to the expected QRCodeData format
-        const qrCodesData: QRCodeData[] = data.phones.map(phone => ({
-          phoneIndex: phone.phoneIndex,
-          status: phone.status,
-          qrCode: phone.qrCode
-        }));
-        console.log('qrCodesData:', qrCodesData);
-        setQrCodes(qrCodesData);
+        // Check if phones array exists before mapping
+        if (data.phones && Array.isArray(data.phones)) {
+          // Transform the new response format to the expected QRCodeData format
+          const qrCodesData: QRCodeData[] = data.phones.map(phone => ({
+            phoneIndex: phone.phoneIndex,
+            status: phone.status,
+            qrCode: phone.qrCode
+          }));
+          console.log('qrCodesData:', qrCodesData);
+          setQrCodes(qrCodesData);
+        } else {
+          console.warn('No phones data in response:', data);
+          setQrCodes([]);
+        }
       }
     } catch (error) {
       console.error("Error fetching phone statuses:", error);
@@ -5825,11 +5831,11 @@ console.log(baseUrl);
       userData?.name || ""
     );
 
-  
+   
     setMessageMode("reply");
-
+console.log(phoneNames);
     // First, filter contacts based on the employee's assigned phone
-    if (userData?.phone !== undefined && userData.phone !== -1) {
+    if (userData?.phone !== undefined && userData.phone !== -1 && phoneNames[userData.phone] !== undefined ) {
       const userPhoneIndex = parseInt(userData.phone, 10);
       
       setMessageMode(`phone${userPhoneIndex + 1}`);
@@ -5950,7 +5956,7 @@ console.log(baseUrl);
     }
 
     filteredContacts = sortContacts(filteredContacts);
-    console.log(filteredContacts);
+ 
 
     if (searchQuery) {
       filteredContacts = filteredContacts.filter((contact) => {
@@ -7996,7 +8002,7 @@ console.log(baseUrl);
 
           <div className="flex flex-col gap-2">
             
-            {userData?.phone !== undefined && (
+            {phoneNames[userData?.phone] !== undefined && (
               <Menu as="div" className="relative inline-block text-left">
                 <div>
                   <Menu.Button className="flex items-center space-x-2 text-lg font-semibold opacity-75 bg-white dark:bg-gray-800 px-3 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-blue-500">
@@ -8005,7 +8011,7 @@ console.log(baseUrl);
                       className="w-5 h-5 text-gray-800 dark:text-white"
                     />
                     <span className="text-gray-800 font-medium dark:text-white">
-                      {phoneNames[userData.phone] || "No phone assigned"}
+                      {phoneNames[userData?.phone] || "No phone assigned"}
                     </span>
                     <Lucide
                       icon="ChevronDown"

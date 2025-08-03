@@ -88,6 +88,10 @@ import Settings from "../pages/Settings";
 import ScheduledMessages from "../pages/ScheduledMessages";
 import AppointmentRequests from "../pages/AppointmentRequests";
 import GuestChat from "../pages/GuestChat";
+import FeedbackFormBuilder from "../pages/FeedbackFormBuilder";
+import PublicFeedbackForm from "../pages/PublicFeedbackForm";
+import PublicAttendanceForm from "../pages/PublicAttendanceForm";
+import DataImport from "../pages/DataImport";
 
 function Router() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -116,8 +120,10 @@ function Router() {
         { path: "chat", element: <Chat /> },
         { path: "/dashboard", element: <DashboardOverview1 /> },
         { path: "ticket", element: <Ticket /> },
-        { path: "crud-form", element: <CrudForm /> },
-        { path: "settings", element: <Settings /> },
+                    { path: "crud-form", element: <CrudForm /> },
+            { path: "settings", element: <Settings /> },
+            { path: "feedback-form-builder", element: <FeedbackFormBuilder /> },
+            { path: "data-import", element: <DataImport /> },
         { path: "quick-replies", element: <QuickReplies /> },
         { path: "a-i-responses", element: <AIResponses /> },
         { path: "automations", element: <Automations /> },
@@ -214,6 +220,8 @@ function Router() {
       ],
     },
     { path: "/guest-chat/:companyId", element: <GuestChat />},
+    { path: "/feedback/:formTitle/:phone", element: <PublicFeedbackForm />},
+    { path: "/attendance/:eventTitle/:phone", element: <PublicAttendanceForm />},
     { path: "notification", element: <Notification /> },
     { path: "dashboard-overview-2", element: <DashboardOverview2 /> },
     { path: "loading", element:<LoadingIcon />  },
