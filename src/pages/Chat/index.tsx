@@ -588,6 +588,7 @@ function Main() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [allMessages, setAllMessages] = useState<Message[]>([]); // Store all messages for filtering
   const [newMessage, setNewMessage] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading2, setLoading] = useState<boolean>(false);
@@ -812,11 +813,6 @@ function Main() {
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [employeeSearch, setEmployeeSearch] = useState("");
 
-  // Monitor phoneNames state changes
-  useEffect(() => {
-    console.log("phoneNames state updated:", phoneNames);
-  }, [phoneNames]);
-
   // Initialize user context from localStorage and NeonDB
   useEffect(() => {
     // Use user info from localStorage (set during API login)
@@ -892,6 +888,15 @@ function Main() {
       fetchCategories();
     }
   }, [companyId]);
+
+  // Sync userPhone with userData.phone
+  useEffect(() => {
+    if (userData?.phone !== undefined && userData.phone !== null) {
+      const phoneIndex = typeof userData.phone === 'string' ? parseInt(userData.phone, 10) : userData.phone;
+      setUserPhone(phoneIndex);
+    }
+  }, [userData]);
+
   // Add WebSocket status indicator component
   const WebSocketStatusIndicator = () => {
     if (!wsConnected) {
@@ -1015,21 +1020,21 @@ function Main() {
       if (chatId === selectedChatId) {
         console.log("📨 [WEBSOCKET] Message is for current chat - adding to messages");
         
-        // Add message directly to the current messages
-        setMessages(prevMessages => {
+        // Add message to allMessages first
+        setAllMessages(prevAllMessages => {
           // Check if message already exists to prevent duplicates
-          const messageExists = prevMessages.some(
+          const messageExists = prevAllMessages.some(
             msg => msg.id === newMessage.id || 
             (Math.abs((msg.timestamp || 0) - (newMessage.timestamp || 0)) < 1000 && 
              msg.text?.body === newMessage.text?.body)
           );
           
           if (!messageExists) {
-            console.log("📨 [WEBSOCKET] Adding new message to chat");
-            return [...prevMessages, newMessage];
+            console.log("📨 [WEBSOCKET] Adding new message to allMessages");
+            return [...prevAllMessages, newMessage];
           } else {
-            console.log("📨 [WEBSOCKET] Message already exists, skipping");
-            return prevMessages;
+            console.log("📨 [WEBSOCKET] Message already exists in allMessages, skipping");
+            return prevAllMessages;
           }
         });
 
@@ -1431,6 +1436,7 @@ useEffect(() => {
       });
     }
 
+    console.log("Filtered contacts in useEffect 1385:", filteredResults);
     setFilteredContacts(filteredResults);
   }, [
     contacts,
@@ -1999,19 +2005,43 @@ useEffect(() => {
         const contextData = await response.json();
         const companyId = contextData.companyId;
 
-        const contactsResponse = await fetch(
-          `${baseUrl}/api/companies/${
-            companyId
-          }/contacts?email=${encodeURIComponent(userEmail)}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            credentials: "include",
-          }
-        );
+        // Check if we have multiple phones
+        const phoneCount = Object.keys(phoneNames).length;
+        const hasMultiplePhones = phoneCount > 1;
+
+        let contactsResponse;
+        
+        if (hasMultiplePhones && userPhone !== null && userPhone !== undefined) {
+          // Use the new multi-phone API
+          console.log(`Fetching contacts for phone index: ${userPhone}`);
+          contactsResponse = await fetch(
+            `${baseUrl}/api/companies/${companyId}/contacts/multi-phone?email=${encodeURIComponent(userEmail)}&phoneIndex=${userPhone}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              credentials: "include",
+            }
+          );
+        } else {
+          // Use the original API for single phone or when userPhone is not set
+          console.log("Fetching contacts using original API");
+          contactsResponse = await fetch(
+            `${baseUrl}/api/companies/${
+              companyId
+            }/contacts?email=${encodeURIComponent(userEmail)}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              credentials: "include",
+            }
+          );
+        }
 
         if (!contactsResponse.ok) {
           toast.error("Failed to fetch contacts");
@@ -2031,7 +2061,7 @@ useEffect(() => {
               profile: contact.profile,
               profilePicUrl: contact.profileUrl,
               tags: contact.tags,
-              phoneIndex: contact.phoneIndex,
+              phoneIndex: contact.phoneIndex || contact.phone_index || 0,
               createdAt: contact.createdAt,
               lastUpdated: contact.lastUpdated,
               last_message: contact.last_message,
@@ -2053,7 +2083,7 @@ useEffect(() => {
     const interval = setInterval(fetchContacts, 300000);
 
     return () => clearInterval(interval);
-  }, [userData]);
+  }, [userData, phoneNames, userPhone]);
   useEffect(() => {
     const fetchCompanyData = async () => {
       const userEmail = localStorage.getItem("userEmail");
@@ -2084,7 +2114,7 @@ useEffect(() => {
           const ai = data.companyData.assistants_ids;
           setIsAssistantAvailable(Array.isArray(ai) && ai.length > 0);
 
-          setPhoneCount(data.phone_count);
+          setPhoneCount(data.companyData.phoneCount);
           console.log("phoneCount:", phoneCount);
         } catch (error) {
           console.error("Error fetching company data:", error);
@@ -2182,6 +2212,7 @@ useEffect(() => {
     setIsChatActive(false);
     setSelectedChatId(null);
     setMessages([]);
+    setAllMessages([]);
   };
 
   useEffect(() => {
@@ -2325,6 +2356,7 @@ console.log(baseUrl);
       };
       console.log("Request body:", requestBody);
       console.log("Request URL:", `${baseUrl}/api/user/update-phone`);
+      console.log("New phone index:", newPhoneIndex);
       
       const response = await fetch(`${baseUrl}/api/user/update-phone`, {
         method: "POST",
@@ -2358,6 +2390,9 @@ console.log(baseUrl);
             phone: newPhoneIndex,
           };
         });
+
+        // Update userPhone state to trigger contact refresh
+        setUserPhone(newPhoneIndex);
 
         toast.success("Phone updated successfully");
       } else {
@@ -3378,19 +3413,19 @@ console.log(baseUrl);
       if (data.companyData.phoneCount >= 2) {
         setMessageMode("phone1");
       }
-        // Set phone index data
-        // Transform phoneNames array to object format
-        console.log("Raw phoneNames from API:", data.companyData.phoneNames);
-        if (data.companyData.phoneNames && Array.isArray(data.companyData.phoneNames)) {
-          const phoneNamesObject: Record<number, string> = {};
-          data.companyData.phoneNames.forEach((name: string, index: number) => {
-            phoneNamesObject[index] = name;
-          });
-          console.log("Transformed phoneNames object:", phoneNamesObject);
-          setPhoneNames(phoneNamesObject);
-        } else {
-          console.log("phoneNames is not an array or is undefined:", data.companyData.phoneNames);
-        }
+      // Set phone index data
+      // Transform phoneNames array to object format
+      console.log("Raw phoneNames from API:", data.companyData.phoneNames);
+      if (data.companyData.phoneNames && Array.isArray(data.companyData.phoneNames)) {
+        const phoneNamesObject: Record<number, string> = {};
+        data.companyData.phoneNames.forEach((name: string, index: number) => {
+          phoneNamesObject[index] = name;
+        });
+        console.log("Transformed phoneNames object:", phoneNamesObject);
+        setPhoneNames(phoneNamesObject);
+      } else {
+        console.log("phoneNames is not an array or is undefined:", data.companyData.phoneNames);
+      }
       setToken(data.companyData.whapiToken);
 
       // Set message usage for enterprise plan
@@ -3520,6 +3555,7 @@ console.log(baseUrl);
   const selectChat = useCallback(
     async (chatId: string, contactId?: string, contactSelect?: Contact) => {
       setMessages([]);
+      setAllMessages([]); // Clear all messages as well
       console.log("selecting chat");
 
       try {
@@ -3938,6 +3974,29 @@ console.log(baseUrl);
       fetchMessages(selectedChatId, whapiToken!);
     }
   }, [selectedChatId]);
+
+  // Filter messages based on selected phone index
+  useEffect(() => {
+    if (!allMessages.length) {
+      setMessages([]);
+      return;
+    }
+
+    const hasMultiplePhones = Object.keys(phoneNames).length > 1;
+    const shouldFilterByPhone = hasMultiplePhones && userPhone !== null && userPhone !== undefined;
+    
+    console.log("Filtering messages - hasMultiplePhones:", hasMultiplePhones, "userPhone:", userPhone, "shouldFilterByPhone:", shouldFilterByPhone);
+    
+    if (shouldFilterByPhone) {
+      // Filter messages by selected phone index
+      const filteredMessages = allMessages.filter(message => message.phoneIndex === userPhone);
+      console.log(`Filtered ${filteredMessages.length} messages from ${allMessages.length} total for phone index ${userPhone}`);
+      setMessages(filteredMessages);
+    } else {
+      // Show all messages if no phone filtering is needed
+      setMessages(allMessages);
+    }
+  }, [allMessages, userPhone, phoneNames]);
   async function fetchMessages(selectedChatId: string, whapiToken: string) {
     setLoading(true);
     setSelectedIcon("ws");
@@ -3976,7 +4035,7 @@ console.log(baseUrl);
       const companyData = await companyResponse.json();
       setToken(companyData.whapiToken);
 
-      // Fetch messages from SQL
+      // Fetch all messages from SQL (without phone filtering)
       const messagesResponse = await fetch(
         `${baseUrl}/api/messages?chatId=${selectedChatId}&companyId=${companyId}`,
         {
@@ -4181,7 +4240,7 @@ console.log(baseUrl);
         return aTime - bTime; // Oldest first
       });
       console.log("formattedMessages:", formattedMessages);
-      setMessages(formattedMessages);
+      setAllMessages(formattedMessages); // Store all messages for filtering
 
       // Update last message timestamp for polling
       if (formattedMessages.length > 0) {
@@ -4219,7 +4278,7 @@ console.log(baseUrl);
       const userData = await userResponse.json();
       const companyId = userData.company_id;
 
-      // Fetch messages from SQL
+      // Fetch all messages from SQL (without phone filtering)
       const messagesResponse = await fetch(
         `${baseUrl}/api/messages?chatId=${selectedChatId}&companyId=${companyId}`,
         {
@@ -4432,17 +4491,17 @@ console.log(baseUrl);
           return aTime - bTime; // Oldest first
         });
 
-        // Add new messages to existing messages
-        setMessages(prevMessages => {
+        // Add new messages to existing all messages
+        setAllMessages(prevAllMessages => {
           // Filter out any messages that already exist to prevent duplicates
-          const existingMessageIds = new Set(prevMessages.map(msg => msg.id));
+          const existingMessageIds = new Set(prevAllMessages.map(msg => msg.id));
           const uniqueNewMessages = formattedNewMessages.filter(msg => !existingMessageIds.has(msg.id));
           
           // Only add truly new messages
           if (uniqueNewMessages.length > 0) {
-            const updatedMessages = [...prevMessages, ...uniqueNewMessages];
+            const updatedAllMessages = [...prevAllMessages, ...uniqueNewMessages];
             // Store updated messages in localStorage
-            storeMessagesInLocalStorage(selectedChatId, updatedMessages);
+            storeMessagesInLocalStorage(selectedChatId, updatedAllMessages);
             
             // Update last message timestamp only for unique new messages
             const latestMessage = uniqueNewMessages[uniqueNewMessages.length - 1];
@@ -4456,11 +4515,11 @@ console.log(baseUrl);
               }
             }, 100);
             
-            return updatedMessages;
+            return updatedAllMessages;
           }
           
           // No new messages, return previous state
-          return prevMessages;
+          return prevAllMessages;
         });
 
         // Remove the duplicate timestamp update code below
@@ -4535,7 +4594,7 @@ console.log(baseUrl);
 
       const companyData = await companyResponse.json();
 
-      // Fetch messages from SQL
+      // Fetch all messages from SQL (without phone filtering)
       const messagesResponse = await fetch(
         `${baseUrl}/api/messages?chatId=${selectedChatId}&companyId=${companyId}`,
         {
@@ -4739,7 +4798,7 @@ console.log(baseUrl);
       });
 
       storeMessagesInLocalStorage(selectedChatId, formattedMessages);
-      setMessages(formattedMessages);
+      setAllMessages(formattedMessages); // Store all messages for filtering
       console.log(messages);
      
     } catch (error) {
@@ -5696,35 +5755,46 @@ console.log(baseUrl);
     let fil = contacts;
     const activeTag = activeTags[0].toLowerCase();
 
-    // Check if the user has a selected phone
-    let userPhoneIndex =
-      userData?.phone !== undefined ? parseInt(userData.phone, 10) : 0;
-    if (userPhoneIndex === -1) {
-      userPhoneIndex = 0;
-    }
+    // Check if we're using multi-phone API (contacts are already filtered by phone)
+    const phoneCount = Object.keys(phoneNames).length;
+    const hasMultiplePhones = phoneCount > 1;
+    const isUsingMultiPhoneAPI = hasMultiplePhones && userPhone !== null && userPhone !== undefined;
 
-    // Filter by user's selected phone first
-    if (userPhoneIndex !== -1 && phoneCount > 1) {
-      fil = fil.filter((contact) =>
-        contact.phoneIndexes
-          ? contact.phoneIndexes.includes(userPhoneIndex)
-          : contact.phoneIndex === userPhoneIndex
+    console.log("sortContacts - isUsingMultiPhoneAPI:", isUsingMultiPhoneAPI, "phoneCount:", phoneCount, "userPhone:", userPhone);
+
+    // If using multi-phone API, contacts are already filtered by phone, so skip phone filtering
+    if (!isUsingMultiPhoneAPI) {
+      // Legacy filtering logic for single phone or when userPhone is not set
+      let userPhoneIndex =
+        userData?.phone !== undefined ? parseInt(userData.phone, 10) : 0;
+      if (userPhoneIndex === -1) {
+        userPhoneIndex = 0;
+      }
+
+      // Filter by user's selected phone first (only for legacy API)
+      if (userPhoneIndex !== -1 && phoneCount > 1) {
+        fil = fil.filter((contact) =>
+          contact.phoneIndexes
+            ? contact.phoneIndexes.includes(userPhoneIndex)
+            : contact.phoneIndex === userPhoneIndex
+        );
+      }
+
+      // Check if the active tag matches any of the phone names (only for legacy API)
+      const phoneIndex = Object.entries(phoneNames).findIndex(
+        ([_, name]) => name.toLowerCase() === activeTag
       );
+
+      if (phoneIndex !== -1) {
+        fil = fil.filter((contact) =>
+          contact.phoneIndexes
+            ? contact.phoneIndexes.includes(phoneIndex)
+            : contact.phoneIndex === phoneIndex
+        );
+      }
     }
 
-    // Check if the active tag matches any of the phone names
-    const phoneIndex = Object.entries(phoneNames).findIndex(
-      ([_, name]) => name.toLowerCase() === activeTag
-    );
-
-    if (phoneIndex !== -1) {
-      fil = fil.filter((contact) =>
-        contact.phoneIndexes
-          ? contact.phoneIndexes.includes(phoneIndex)
-          : contact.phoneIndex === phoneIndex
-      );
-    }
-    // Apply search filter
+    // Apply search filter (works for both APIs)
     if (searchQuery.trim() !== "") {
       fil = fil.filter(
         (contact) =>
@@ -5743,16 +5813,7 @@ console.log(baseUrl);
       );
     }
 
-    const getDate = (contact: Contact) => {
-      if (contact.last_message?.timestamp) {
-        return typeof contact.last_message.timestamp === "number"
-          ? contact.last_message.timestamp
-          : new Date(contact.last_message.timestamp).getTime() / 1000;
-      } else {
-        return 0;
-      }
-    };
-
+    // Sort by timestamp (works for both APIs)
     return fil.sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
@@ -5831,19 +5892,35 @@ console.log(baseUrl);
       userData?.name || ""
     );
 
+    // Check if we're using multi-phone API
+    const phoneCount = Object.keys(phoneNames).length;
+    const hasMultiplePhones = phoneCount > 1;
+    const isUsingMultiPhoneAPI = hasMultiplePhones && userPhone !== null && userPhone !== undefined;
+
+    console.log("Main filter - isUsingMultiPhoneAPI:", isUsingMultiPhoneAPI, "phoneCount:", phoneCount, "userPhone:", userPhone);
    
     setMessageMode("reply");
-console.log(phoneNames);
-    // First, filter contacts based on the employee's assigned phone
-    if (userData?.phone !== undefined && userData.phone !== -1 && phoneNames[userData.phone] !== undefined ) {
-      const userPhoneIndex = parseInt(userData.phone, 10);
-      
-      setMessageMode(`phone${userPhoneIndex + 1}`);
+    console.log(phoneNames);
+    
+    // Phone filtering logic - only apply if NOT using multi-phone API
+    if (!isUsingMultiPhoneAPI) {
+      // Legacy phone filtering logic
+      if (userData?.phone !== undefined && userData.phone !== -1 && phoneNames[userData.phone] !== undefined ) {
+        const userPhoneIndex = parseInt(userData.phone, 10);
+        
+        setMessageMode(`phone${userPhoneIndex + 1}`);
 
-      filteredContacts = filteredContacts.filter((contact) =>
-        contact.phoneIndex === userPhoneIndex
-      );
+        filteredContacts = filteredContacts.filter((contact) =>
+          contact.phoneIndex === userPhoneIndex
+        );
+      }
+    } else {
+      // For multi-phone API, set message mode based on current userPhone
+      if (userPhone !== null && userPhone !== undefined) {
+        setMessageMode(`phone${userPhone + 1}`);
+      }
     }
+    
     console.log("filteredContacts:", filteredContacts);
     
     // Filter by selected employee
@@ -5855,20 +5932,26 @@ console.log(phoneNames);
       );
     }
 
-    // Filtering logic
+    // Filtering logic for tags
     if (
       Object.values(phoneNames)
         .map((name) => name.toLowerCase())
         .includes(tag)
     ) {
-      const phoneIndex = Object.entries(phoneNames).findIndex(
-        ([_, name]) => name.toLowerCase() === tag
-      );
-      if (phoneIndex !== -1) {
-        setMessageMode(`phone${phoneIndex + 1}`);
-        filteredContacts = filteredContacts.filter(
-          (contact) => contact.phoneIndex === phoneIndex
+      // Phone tag filtering - only apply if NOT using multi-phone API
+      if (!isUsingMultiPhoneAPI) {
+        const phoneIndex = Object.entries(phoneNames).findIndex(
+          ([_, name]) => name.toLowerCase() === tag
         );
+        if (phoneIndex !== -1) {
+          setMessageMode(`phone${phoneIndex + 1}`);
+          filteredContacts = filteredContacts.filter(
+            (contact) => contact.phoneIndex === phoneIndex
+          );
+        }
+      } else {
+        // For multi-phone API, phone filtering is already done by the API
+        console.log("Skipping phone tag filtering - using multi-phone API");
       }
     } else {
       // Existing filtering logic for other tags
@@ -5956,7 +6039,6 @@ console.log(phoneNames);
     }
 
     filteredContacts = sortContacts(filteredContacts);
- 
 
     if (searchQuery) {
       filteredContacts = filteredContacts.filter((contact) => {
@@ -5992,6 +6074,8 @@ console.log(phoneNames);
     userData,
     userRole,
     selectedEmployee,
+    userPhone,
+    phoneNames,
   ]);
 
   const handleSnoozeContact = async (contact: Contact) => {
@@ -7253,7 +7337,7 @@ console.log(phoneNames);
         phoneNumber: employee.phoneNumber,
       }))
     );
-    setPhoneCount(data.phoneNames.length);
+    setPhoneCount(data.phoneCount);
    
   
 
@@ -8002,7 +8086,7 @@ console.log(phoneNames);
 
           <div className="flex flex-col gap-2">
             
-            {phoneNames[userData?.phone] !== undefined && (
+            {(
               <Menu as="div" className="relative inline-block text-left">
                 <div>
                   <Menu.Button className="flex items-center space-x-2 text-lg font-semibold opacity-75 bg-white dark:bg-gray-800 px-3 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-blue-500">
@@ -8011,7 +8095,14 @@ console.log(phoneNames);
                       className="w-5 h-5 text-gray-800 dark:text-white"
                     />
                     <span className="text-gray-800 font-medium dark:text-white">
-                      {phoneNames[userData?.phone] || "No phone assigned"}
+                      {userData?.phone !== undefined && phoneNames[userData.phone] 
+                        ? phoneNames[userData.phone] 
+                        : Object.keys(phoneNames).length === 1
+                        ? Object.values(phoneNames)[0]
+                        : Object.keys(phoneNames).length > 1
+                        ? "Select phone"
+                        : "Loading phones..."
+                      }
                     </span>
                     <Lucide
                       icon="ChevronDown"
@@ -8027,7 +8118,7 @@ console.log(phoneNames);
                     aria-labelledby="options-menu"
                   >
                     {Object.entries(phoneNames).map(([index, phoneName]) => {
-                      const phoneStatus = qrCodes[parseInt(index)]?.status;
+                      const phoneStatus = qrCodes[parseInt(index)]?.status || "unknown";
                       const isConnected =
                         phoneStatus === "ready" ||
                         phoneStatus === "authenticated";
@@ -10032,9 +10123,7 @@ console.log(phoneNames);
                                       message.userName &&
                                       message.userName !== "" &&
                                       message.chat_id &&
-                                      (message.chat_id.includes("@g.us") ||
-                                        (userData?.companyId === "0123" &&
-                                          message.chat_id.includes("@c.us"))) && (
+                                      (message.chat_id.includes("@g.us")) && (
                                         <div className="text-sm text-gray-300 dark:text-gray-300 mb-1 capitalize font-medium">
                                           {message.userName}
                                         </div>
@@ -11950,11 +12039,13 @@ console.log(phoneNames);
                       value={selectedContact.phoneIndex ?? 0}
                       onChange={async (e) => {
                         const newPhoneIndex = parseInt(e.target.value);
-                        // Update local state
+                        // Update local contact state
                         setSelectedContact({
                           ...selectedContact,
                           phoneIndex: newPhoneIndex,
                         });
+                        // Update the global phone selection which triggers message filtering
+                        await handlePhoneChange(newPhoneIndex);
                         toast.info(`Phone updated to ${phoneNames[newPhoneIndex]}`);
                       }}
                       className="px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ml-4 w-32"
