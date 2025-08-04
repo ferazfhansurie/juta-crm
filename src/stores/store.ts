@@ -8,6 +8,7 @@ import configReducer from "./configSlice";
 export interface Config {
   name?: string;
   userRole?: string;
+  companyId?: string;
   // Add other config properties as needed
 }
 

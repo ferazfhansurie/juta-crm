@@ -4,6 +4,7 @@ import { Config } from "./store";
 const initialState: Config = {
   name: undefined,
   userRole: undefined,
+  companyId: undefined,
 };
 
 export const configSlice = createSlice({

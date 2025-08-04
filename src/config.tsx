@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { getAuth, User, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
 import { useNavigate } from "react-router-dom";
 import LZString from 'lz-string';
@@ -19,7 +18,6 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const firestore = getFirestore(app);
 const auth = getAuth(app);
 
 setPersistence(auth, browserLocalPersistence);
@@ -53,6 +51,27 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     const shouldFetchConfig = !sessionStorage.getItem('configFetched');
+    console.log('Should fetch config:', shouldFetchConfig);
+    console.log('Session storage configFetched:', sessionStorage.getItem('configFetched'));
+
+    // Check if we have cached config in localStorage
+    const cachedConfig = localStorage.getItem('config');
+    if (cachedConfig) {
+      try {
+        const parsedConfig = JSON.parse(LZString.decompress(cachedConfig));
+        console.log('Found cached config:', parsedConfig);
+        setLocalConfig(parsedConfig);
+        if (parsedConfig.name) {
+          dispatch(setConfig({ 
+            name: parsedConfig.name,
+            userRole: parsedConfig.role,
+            companyId: parsedConfig.company_id,
+          }));
+        }
+      } catch (error) {
+        console.error('Error parsing cached config:', error);
+      }
+    }
 
     fetchConfigOnAuthChange();
 
@@ -64,57 +83,109 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   const fetchConfigOnAuthChange = () => {
     const fetchConfig = async (user: User) => {
       try {
+        console.log('Starting config fetch for user:', user.email);
         setIsLoading(true);
 
-        const docUserRef = doc(firestore, 'user', user.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
+        // Fetch user data from Neon database
+        const userResponse = await fetch(
+          `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(user.email!)}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            credentials: "include",
+          }
+        );
+
+        console.log('User response status:', userResponse.status);
+        console.log('User response ok:', userResponse.ok);
+
+        if (!userResponse.ok) {
+          console.error('Failed to fetch user config from Neon');
           setIsLoading(false);
           return;
         }
 
-        const dataUser = docUserSnapshot.data();
-        const companyId = dataUser?.companyId;
-        const role = dataUser?.role;
+        const userData = await userResponse.json();
+        console.log('User data received:', userData);
+        
+        const companyId = userData.company_id;
+        const role = userData.role;
+        
+        console.log('Company ID:', companyId);
+        console.log('User role:', role);
         
         setUserRole(role);
 
         if (!companyId) {
+          console.error('No company ID found in user data');
           setIsLoading(false);
           return;
         }
 
-        const docRef = doc(firestore, 'companies', companyId);
-        const docSnapshot = await getDoc(docRef);
-        if (!docSnapshot.exists()) {
+        // Fetch company data from Neon database
+        const companyResponse = await fetch(
+          `https://juta-dev.ngrok.dev/api/company-details?companyId=${companyId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            credentials: "include",
+          }
+        );
+
+        console.log('Company response status:', companyResponse.status);
+        console.log('Company response ok:', companyResponse.ok);
+
+        if (!companyResponse.ok) {
+          console.error('Failed to fetch company details from Neon');
           setIsLoading(false);
           return;
         }
 
-        const data = docSnapshot.data();
+        const companyData = await companyResponse.json();
+        console.log('Company data received:', companyData);
 
         // Store the configuration data in local state and Redux
-        setLocalConfig(data);
-        dispatch(setConfig({ 
-          name: data.name,
-          userRole: role,
-          // Add other needed config properties
-        }));
+        console.log('Setting local config:', companyData);
+        setLocalConfig(companyData);
         
-        localStorage.setItem('config', LZString.compress(JSON.stringify(data)));
+        const configPayload = { 
+          name: companyData.name,
+          userRole: role,
+          companyId: companyId,
+        };
+        console.log('Dispatching config to Redux:', configPayload);
+        dispatch(setConfig(configPayload));
+        
+        // Test if Redux is working
+        console.log('Testing Redux dispatch...');
+        setTimeout(() => {
+          console.log('Redux state after dispatch should be updated');
+        }, 100);
+        
+        localStorage.setItem('config', LZString.compress(JSON.stringify(companyData)));
         sessionStorage.setItem('configFetched', 'true');
+        console.log('Config fetch completed successfully');
 
       } catch (error) {
-        console.error('Error fetching config:', error);
+        console.error('Error fetching config from Neon:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log('Auth state changed, user:', user);
       if (user) {
+        console.log('User authenticated, fetching config for:', user.email);
         fetchConfig(user);
       } else {
+        console.log('No user authenticated');
         const currentPath = window.location.pathname;
         if (currentPath === '/register') {
           navigate('/register');
@@ -142,6 +213,11 @@ export const useConfig = () => {
   if (context === undefined) {
     throw new Error('useConfig must be used within a ConfigProvider');
   }
+  
+  console.log('useConfig hook called, context:', context);
+  console.log('useConfig config:', context.config);
+  console.log('useConfig config?.name:', context.config?.name);
+  
   return context;
 };
 
