@@ -43,12 +43,16 @@ interface Phone {
 }
 
 interface BotStatusResponse {
-  phones: Phone[];
+  phones?: Phone[];
   companyId: string;
   v2: boolean;
   trialEndDate: string | null;
   apiUrl: string | null;
-  phoneCount: number;
+  phoneCount?: number;
+  // Old format properties
+  status?: string;
+  qrCode?: string | null;
+  phoneInfo?: string;
 }
 
 function LoadingPage() {
@@ -147,20 +151,23 @@ function LoadingPage() {
       
       // Set all the necessary state
       setV2(data.v2);
-      setPhones(data.phones || []); // Add null check here
-      setCompanyId(data.companyId);
-
-      if (data.trialEndDate) {
-        const trialEnd = new Date(data.trialEndDate);
-        const now = new Date();
-        if (now > trialEnd) {
-          setTrialExpired(true);
-          return;
-        }
-      }
-
-      // Check if any phone needs QR code - add null check for data.phones
+      
+      // Handle both old and new API response formats
       if (data.phones && Array.isArray(data.phones)) {
+        // New format with phones array
+        setPhones(data.phones);
+        setCompanyId(data.companyId);
+
+        if (data.trialEndDate) {
+          const trialEnd = new Date(data.trialEndDate);
+          const now = new Date();
+          if (now > trialEnd) {
+            setTrialExpired(true);
+            return;
+          }
+        }
+
+        // Check if any phone needs QR code
         const phoneNeedingQR = data.phones.find(phone => phone.status === "qr");
         if (phoneNeedingQR && phoneNeedingQR.qrCode) {
           setQrCodeImage(phoneNeedingQR.qrCode);
@@ -172,6 +179,7 @@ function LoadingPage() {
         else if (data.phones.every(phone => phone.status === "ready" || phone.status === "authenticated")) {
           setBotStatus("ready");
           setShouldFetchContacts(true);
+          console.log("All phones ready, navigating to /chat");
           navigate("/chat");
         }
         // Set status based on first phone or overall status
@@ -179,9 +187,42 @@ function LoadingPage() {
           setBotStatus(data.phones[0]?.status || "initializing");
         }
       } else {
-        // Handle case where phones array is not available
-        setBotStatus("initializing");
-        console.warn("No phones data available in response");
+        // Old format with individual properties
+        console.log("Using old API response format");
+        const phone: Phone = {
+          phoneIndex: 0,
+          status: data.status || "initializing",
+          qrCode: data.qrCode || null,
+          phoneInfo: data.phoneInfo || ""
+        };
+        
+        setPhones([phone]);
+        setCompanyId(data.companyId);
+        setSelectedPhoneIndex(0);
+
+        if (data.trialEndDate) {
+          const trialEnd = new Date(data.trialEndDate);
+          const now = new Date();
+          if (now > trialEnd) {
+            setTrialExpired(true);
+            return;
+          }
+        }
+
+        // Handle status based on old format
+        if (data.status === "qr" && data.qrCode) {
+          setQrCodeImage(data.qrCode);
+          setBotStatus("qr");
+          console.log("QR Code image:", data.qrCode);
+        } else if (data.status === "ready" || data.status === "authenticated") {
+          setBotStatus("ready");
+          console.log("Setting shouldFetchContacts to true");
+          setShouldFetchContacts(true);
+          console.log("Old format: Status ready, navigating to /chat");
+          navigate("/chat");
+        } else {
+          setBotStatus(data.status || "initializing");
+        }
       }
 
       // Set up WebSocket for real-time updates with proper protocol handling
@@ -214,6 +255,7 @@ function LoadingPage() {
       }
       console.error("Error in fetchQRCode:", error);
     } finally {
+      console.log("fetchQRCode finally block: setting isLoading to false");
       setIsQRLoading(false);
       setIsLoading(false);
     }
@@ -301,6 +343,7 @@ function LoadingPage() {
               if (data.type === "auth_status") {
                 // Handle phone status updates
                 if (data.phones && Array.isArray(data.phones)) {
+                  // New format with phones array
                   setPhones(data.phones);
                   
                   // Check if any phone needs QR code
@@ -314,6 +357,7 @@ function LoadingPage() {
                   else if (data.phones.every((phone: Phone) => phone.status === "ready" || phone.status === "authenticated")) {
                     setBotStatus("ready");
                     setShouldFetchContacts(true);
+                    console.log("WebSocket: All phones ready, navigating to /chat");
                     navigate("/chat");
                     return;
                   }
@@ -322,14 +366,30 @@ function LoadingPage() {
                     setBotStatus(data.phones[0]?.status || "initializing");
                   }
                 } else {
-                  // Fallback for old format
-                  setBotStatus(data.status);
-                  if (data.status === "qr") {
+                  // Old format with individual properties
+                  console.log("WebSocket: Using old API response format");
+                  const phone: Phone = {
+                    phoneIndex: 0,
+                    status: data.status || "initializing",
+                    qrCode: data.qrCode || null,
+                    phoneInfo: data.phoneInfo || ""
+                  };
+                  
+                  setPhones([phone]);
+                  setSelectedPhoneIndex(0);
+                  
+                  // Handle status based on old format
+                  if (data.status === "qr" && data.qrCode) {
                     setQrCodeImage(data.qrCode);
+                    setBotStatus("qr");
                   } else if (data.status === "authenticated" || data.status === "ready") {
+                    setBotStatus("ready");
                     setShouldFetchContacts(true);
+                    console.log("WebSocket old format: Status ready, navigating to /chat");
                     navigate("/chat");
                     return;
+                  } else {
+                    setBotStatus(data.status || "initializing");
                   }
                 }
               } else if (data.type === "progress") {
@@ -394,6 +454,7 @@ function LoadingPage() {
 
   useEffect(() => {
     if (shouldFetchContacts && !isLoading) {
+      console.log("useEffect: shouldFetchContacts is true and not loading, navigating to /chat");
       navigate("/chat");
     }
   }, [shouldFetchContacts, isLoading, navigate]);
