@@ -90,8 +90,10 @@ function LoadingPage() {
   const [trialExpired, setTrialExpired] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(true);
   const [webSocket, setWebSocket] = useState(null);
+  const isMountedRef = useRef(true);
+  
   const fetchQRCode = async () => {
-    if (!isAuthReady) {
+    if (!isAuthReady || !isMountedRef.current) {
       return;
     }
 
@@ -149,13 +151,21 @@ function LoadingPage() {
       console.log("Data phones type:", typeof data.phones);
       console.log("Data phones is array:", Array.isArray(data.phones));
       
+      // Validate the response data
+      if (!data) {
+        throw new Error("Invalid response data received");
+      }
+      
       // Set all the necessary state
-      setV2(data.v2);
+      if (!isMountedRef.current) return;
+      setV2(data.v2 || false);
       
       // Handle both old and new API response formats
       if (data.phones && Array.isArray(data.phones)) {
         // New format with phones array
+        if (!isMountedRef.current) return;
         setPhones(data.phones);
+        if (!isMountedRef.current) return;
         setCompanyId(data.companyId);
 
         if (data.trialEndDate) {
@@ -298,7 +308,7 @@ function LoadingPage() {
   }, [phones]);
   useEffect(() => {
     const initWebSocket = async (retries = 3) => {
-      if (!isAuthReady) {
+      if (!isAuthReady || !isMountedRef.current) {
         return;
       }
 
@@ -337,6 +347,13 @@ function LoadingPage() {
             try {
               const data = JSON.parse(event.data);
               console.log("WebSocket message:", data);
+              
+              // Validate the message data
+              if (!data || typeof data !== 'object') {
+                console.warn("Invalid WebSocket message received:", event.data);
+                return;
+              }
+              
               console.log("WebSocket data phones:", data.phones);
               console.log("WebSocket data phones type:", typeof data.phones);
               console.log("WebSocket data phones is array:", Array.isArray(data.phones));
@@ -344,18 +361,24 @@ function LoadingPage() {
                 // Handle phone status updates
                 if (data.phones && Array.isArray(data.phones)) {
                   // New format with phones array
+                  if (!isMountedRef.current) return;
                   setPhones(data.phones);
                   
                   // Check if any phone needs QR code
                   const phoneNeedingQR = data.phones.find((phone: Phone) => phone.status === "qr");
                   if (phoneNeedingQR && phoneNeedingQR.qrCode) {
+                    if (!isMountedRef.current) return;
                     setQrCodeImage(phoneNeedingQR.qrCode);
+                    if (!isMountedRef.current) return;
                     setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
+                    if (!isMountedRef.current) return;
                     setBotStatus("qr");
                   }
                   // Check if all phones are ready/authenticated
                   else if (data.phones.every((phone: Phone) => phone.status === "ready" || phone.status === "authenticated")) {
+                    if (!isMountedRef.current) return;
                     setBotStatus("ready");
+                    if (!isMountedRef.current) return;
                     setShouldFetchContacts(true);
                     console.log("WebSocket: All phones ready, navigating to /chat");
                     navigate("/chat");
@@ -363,6 +386,7 @@ function LoadingPage() {
                   }
                   // Set status based on first phone
                   else {
+                    if (!isMountedRef.current) return;
                     setBotStatus(data.phones[0]?.status || "initializing");
                   }
                 } else {
@@ -375,20 +399,27 @@ function LoadingPage() {
                     phoneInfo: data.phoneInfo || ""
                   };
                   
+                  if (!isMountedRef.current) return;
                   setPhones([phone]);
+                  if (!isMountedRef.current) return;
                   setSelectedPhoneIndex(0);
                   
                   // Handle status based on old format
                   if (data.status === "qr" && data.qrCode) {
+                    if (!isMountedRef.current) return;
                     setQrCodeImage(data.qrCode);
+                    if (!isMountedRef.current) return;
                     setBotStatus("qr");
                   } else if (data.status === "authenticated" || data.status === "ready") {
+                    if (!isMountedRef.current) return;
                     setBotStatus("ready");
+                    if (!isMountedRef.current) return;
                     setShouldFetchContacts(true);
                     console.log("WebSocket old format: Status ready, navigating to /chat");
                     navigate("/chat");
                     return;
                   } else {
+                    if (!isMountedRef.current) return;
                     setBotStatus(data.status || "initializing");
                   }
                 }
@@ -404,6 +435,13 @@ function LoadingPage() {
                   navigate("/chat");
                   return;
                 }
+              } else if (data.type === "bot_activity") {
+                // Handle bot activity messages
+                console.log("Bot activity message received:", data);
+                // This message type doesn't require any state updates for the loading page
+              } else {
+                // Handle unknown message types
+                console.log("Unknown WebSocket message type:", data.type, data);
               }
             } catch (error) {
               console.error("Error parsing WebSocket message:", error);
@@ -441,6 +479,7 @@ function LoadingPage() {
   // New useEffect for WebSocket cleanup
   useEffect(() => {
     return () => {
+      isMountedRef.current = false;
       if (
         ws.current &&
         processingComplete &&
@@ -1012,7 +1051,7 @@ function LoadingPage() {
                       />
                       {phones && phones.length > 1 && (
                         <p className="mt-2 text-sm text-gray-600">
-                          QR Code for: {phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo}
+                          QR Code for: {phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo || ""}
                         </p>
                       )}
                     </div>
