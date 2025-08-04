@@ -40,7 +40,7 @@ export const selectMenu = (layout: Themes["layout"]) => (state: RootState) => {
   // Get config from state instead of using hook
   const config = state.config;
   const userRole = config?.userRole;
-
+  console.log('config?.name', config?.name);
   if (layout == "top-menu") {
     return topMenu;
   }

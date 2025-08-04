@@ -141,10 +141,13 @@ function LoadingPage() {
 
       const data: BotStatusResponse = await statusResponse.json();
       console.log("Bot status data:", data);
+      console.log("Data phones:", data.phones);
+      console.log("Data phones type:", typeof data.phones);
+      console.log("Data phones is array:", Array.isArray(data.phones));
       
       // Set all the necessary state
       setV2(data.v2);
-      setPhones(data.phones);
+      setPhones(data.phones || []); // Add null check here
       setCompanyId(data.companyId);
 
       if (data.trialEndDate) {
@@ -156,23 +159,29 @@ function LoadingPage() {
         }
       }
 
-      // Check if any phone needs QR code
-      const phoneNeedingQR = data.phones.find(phone => phone.status === "qr");
-      if (phoneNeedingQR && phoneNeedingQR.qrCode) {
-        setQrCodeImage(phoneNeedingQR.qrCode);
-        setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
-        setBotStatus("qr");
-        console.log("QR Code image:", phoneNeedingQR.qrCode);
-      }
-      // Check if all phones are ready/authenticated
-      else if (data.phones.every(phone => phone.status === "ready" || phone.status === "authenticated")) {
-        setBotStatus("ready");
-        setShouldFetchContacts(true);
-        navigate("/chat");
-      }
-      // Set status based on first phone or overall status
-      else {
-        setBotStatus(data.phones[0]?.status || "initializing");
+      // Check if any phone needs QR code - add null check for data.phones
+      if (data.phones && Array.isArray(data.phones)) {
+        const phoneNeedingQR = data.phones.find(phone => phone.status === "qr");
+        if (phoneNeedingQR && phoneNeedingQR.qrCode) {
+          setQrCodeImage(phoneNeedingQR.qrCode);
+          setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
+          setBotStatus("qr");
+          console.log("QR Code image:", phoneNeedingQR.qrCode);
+        }
+        // Check if all phones are ready/authenticated
+        else if (data.phones.every(phone => phone.status === "ready" || phone.status === "authenticated")) {
+          setBotStatus("ready");
+          setShouldFetchContacts(true);
+          navigate("/chat");
+        }
+        // Set status based on first phone or overall status
+        else {
+          setBotStatus(data.phones[0]?.status || "initializing");
+        }
+      } else {
+        // Handle case where phones array is not available
+        setBotStatus("initializing");
+        console.warn("No phones data available in response");
       }
 
       // Set up WebSocket for real-time updates with proper protocol handling
@@ -216,7 +225,7 @@ function LoadingPage() {
 
   const handlePhoneSelection = (phoneIndex: number) => {
     setSelectedPhoneIndex(phoneIndex);
-    const selectedPhone = phones.find(p => p.phoneIndex === phoneIndex);
+    const selectedPhone = phones && phones.find(p => p.phoneIndex === phoneIndex);
     if (selectedPhone?.status === "qr" && selectedPhone.qrCode) {
       setQrCodeImage(selectedPhone.qrCode);
       setBotStatus("qr");
@@ -234,7 +243,7 @@ function LoadingPage() {
 
   // Auto-select first phone that needs QR code
   useEffect(() => {
-    if (phones.length > 0) {
+    if (phones && phones.length > 0) {
       const phoneNeedingQR = phones.find(phone => phone.status === "qr");
       if (phoneNeedingQR) {
         setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
@@ -283,54 +292,62 @@ function LoadingPage() {
           };
 
           ws.current.onmessage = async (event) => {
-            const data = JSON.parse(event.data);
-            console.log("WebSocket message:", data);
-            if (data.type === "auth_status") {
-              // Handle phone status updates
-              if (data.phones) {
-                setPhones(data.phones);
-                
-                // Check if any phone needs QR code
-                const phoneNeedingQR = data.phones.find((phone: Phone) => phone.status === "qr");
-                if (phoneNeedingQR && phoneNeedingQR.qrCode) {
-                  setQrCodeImage(phoneNeedingQR.qrCode);
-                  setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
-                  setBotStatus("qr");
+            try {
+              const data = JSON.parse(event.data);
+              console.log("WebSocket message:", data);
+              console.log("WebSocket data phones:", data.phones);
+              console.log("WebSocket data phones type:", typeof data.phones);
+              console.log("WebSocket data phones is array:", Array.isArray(data.phones));
+              if (data.type === "auth_status") {
+                // Handle phone status updates
+                if (data.phones && Array.isArray(data.phones)) {
+                  setPhones(data.phones);
+                  
+                  // Check if any phone needs QR code
+                  const phoneNeedingQR = data.phones.find((phone: Phone) => phone.status === "qr");
+                  if (phoneNeedingQR && phoneNeedingQR.qrCode) {
+                    setQrCodeImage(phoneNeedingQR.qrCode);
+                    setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
+                    setBotStatus("qr");
+                  }
+                  // Check if all phones are ready/authenticated
+                  else if (data.phones.every((phone: Phone) => phone.status === "ready" || phone.status === "authenticated")) {
+                    setBotStatus("ready");
+                    setShouldFetchContacts(true);
+                    navigate("/chat");
+                    return;
+                  }
+                  // Set status based on first phone
+                  else {
+                    setBotStatus(data.phones[0]?.status || "initializing");
+                  }
+                } else {
+                  // Fallback for old format
+                  setBotStatus(data.status);
+                  if (data.status === "qr") {
+                    setQrCodeImage(data.qrCode);
+                  } else if (data.status === "authenticated" || data.status === "ready") {
+                    setShouldFetchContacts(true);
+                    navigate("/chat");
+                    return;
+                  }
                 }
-                // Check if all phones are ready/authenticated
-                else if (data.phones.every((phone: Phone) => phone.status === "ready" || phone.status === "authenticated")) {
-                  setBotStatus("ready");
-                  setShouldFetchContacts(true);
-                  navigate("/chat");
-                  return;
-                }
-                // Set status based on first phone
-                else {
-                  setBotStatus(data.phones[0]?.status || "initializing");
-                }
-              } else {
-                // Fallback for old format
+              } else if (data.type === "progress") {
                 setBotStatus(data.status);
-                if (data.status === "qr") {
-                  setQrCodeImage(data.qrCode);
-                } else if (data.status === "authenticated" || data.status === "ready") {
-                  setShouldFetchContacts(true);
-                  navigate("/chat");
-                  return;
-                }
-              }
-            } else if (data.type === "progress") {
-              setBotStatus(data.status);
-              setCurrentAction(data.action);
-              setFetchedChats(data.fetchedChats);
-              setTotalChats(data.totalChats);
+                setCurrentAction(data.action);
+                setFetchedChats(data.fetchedChats);
+                setTotalChats(data.totalChats);
 
-              if (data.action === "done_process") {
-                setBotStatus(data.status);
-                setProcessingComplete(true);
-                navigate("/chat");
-                return;
+                if (data.action === "done_process") {
+                  setBotStatus(data.status);
+                  setProcessingComplete(true);
+                  navigate("/chat");
+                  return;
+                }
               }
+            } catch (error) {
+              console.error("Error parsing WebSocket message:", error);
+              console.error("Raw message data:", event.data);
             }
           };
 
@@ -368,7 +385,7 @@ function LoadingPage() {
         ws.current &&
         processingComplete &&
         !isLoading &&
-        contacts.length > 0
+        contacts && contacts.length > 0
       ) {
         ws.current.close();
       }
@@ -382,7 +399,7 @@ function LoadingPage() {
   }, [shouldFetchContacts, isLoading, navigate]);
 
   useEffect(() => {
-    if (contactsFetched && fetchedChats === totalChats && contacts.length > 0) {
+    if (contactsFetched && fetchedChats === totalChats && contacts && contacts.length > 0) {
       navigate("/chat");
     }
   }, [contactsFetched, fetchedChats, totalChats, contacts, navigate]);
@@ -888,7 +905,7 @@ function LoadingPage() {
                   </div>
                   
                   {/* Phone Selection */}
-                  {phones.length > 1 && (
+                  {phones && phones.length > 1 && (
                     <div className="mt-4 w-full">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Select Phone Number:
@@ -932,7 +949,7 @@ function LoadingPage() {
                         alt="QR Code"
                         className="max-w-full h-auto"
                       />
-                      {phones.length > 1 && (
+                      {phones && phones.length > 1 && (
                         <p className="mt-2 text-sm text-gray-600">
                           QR Code for: {phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo}
                         </p>
@@ -948,7 +965,7 @@ function LoadingPage() {
                   <div className="mt-4 w-full">
                     <input
                       type="tel"
-                      value={phoneNumber || phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo || ""}
+                      value={phoneNumber || (phones && phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo) || ""}
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       placeholder="Enter phone number with country code eg: 60123456789"
                       className="w-full px-4 py-2 border rounded-md text-gray-700 focus:outline-none focus:border-blue-500"
@@ -990,14 +1007,14 @@ function LoadingPage() {
               ) : (
                 <>
                   <div className="mt-2 text-xs text-gray-800 dark:text-gray-200">
-                    {phones.length > 0 ? (
+                    {phones && phones.length > 0 ? (
                       <div>
                         <div className="mb-2">
                           {phones.every(phone => phone.status === "ready" || phone.status === "authenticated")
                             ? "All phones authenticated. Loading contacts..."
                             : "Phone Status:"}
                         </div>
-                        {phones.map((phone, index) => (
+                        {phones && phones.map((phone, index) => (
                           <div key={phone.phoneIndex} className="text-xs mb-1 flex items-center justify-between">
                             <span>{phone.phoneInfo}</span>
                             <span className={`px-2 py-1 rounded text-xs ${
