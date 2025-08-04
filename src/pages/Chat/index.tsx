@@ -6619,7 +6619,7 @@ console.log(baseUrl);
       let response;
       try {
         response = await fetch(
-          `${apiUrl}/api/v2/messages/document/${cId}/${chatId}`,
+          `${apiUrl}/api/v2/messages/document/${cId}/${selectedContactId}`,
           {
             method: "POST",
             headers: {
