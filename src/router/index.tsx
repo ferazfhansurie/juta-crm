@@ -92,6 +92,7 @@ import FeedbackFormBuilder from "../pages/FeedbackFormBuilder";
 import PublicFeedbackForm from "../pages/PublicFeedbackForm";
 import PublicAttendanceForm from "../pages/PublicAttendanceForm";
 import DataImport from "../pages/DataImport";
+import Builder2 from "../pages/Builder2";
 
 function Router() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -153,6 +154,7 @@ function Router() {
         { path: "users-layout-2/a-i-responses", element: <AIResponses /> },
         { path: "users-layout-2/a-i-generative-responses", element: <AIGenerativeResponses /> },
         { path: "users-layout-2/builder", element: <Builder /> },
+        { path: "users-layout-2/builder2", element: <Builder2 /> },
         { path: "users-layout-2/storage-pricing", element: <StoragePricing /> },
         { path: "dashboard-overview-3", element: <DashboardOverview3 /> },
         { path: "dashboard-overview-4", element: <DashboardOverview4 /> },
