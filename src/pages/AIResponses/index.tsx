@@ -60,7 +60,7 @@ function AIResponses() {
     const [tagActionMode, setTagActionMode] = useState<'add' | 'delete'>('add');
     const [companyId, setCompanyId] = useState<string>('');
     const [apiUrl, setApiUrl] = useState<string>('');
-    const baseUrl = 'http://juta-dev.ngrok.dev';
+    const baseUrl = 'https://juta-dev.ngrok.dev';
 
     const darkMode = useAppSelector(selectDarkMode);
 
