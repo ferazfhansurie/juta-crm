@@ -582,6 +582,20 @@ function Main() {
     return [];
   });
 
+  // Sync context contacts to local state
+  useEffect(() => {
+    if (contextContacts && contextContacts.length > 0) {
+      setContacts(contextContacts as Contact[]);
+      // Also update localStorage
+      try {
+        const compressedContacts = LZString.compress(JSON.stringify(contextContacts));
+        localStorage.setItem("contacts", compressedContacts);
+      } catch (error) {
+        console.error("Error saving contacts to localStorage:", error);
+      }
+    }
+  }, [contextContacts]);
+
   // Additional state for NeonDB auth
   const [companyId, setCompanyId] = useState<string>("");
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
@@ -1391,71 +1405,92 @@ useEffect(() => {
     
     return () => clearInterval(intervalId);
   }
-}, [companyId]); // Add companyId as dependency
+  }, [companyId]); // Add companyId as dependency
 
+  // Fetch contacts once on component mount (only if context contacts are empty)
   useEffect(() => {
-    let filteredResults = contacts;
+    const fetchContactsOnce = async () => {
+      // Only fetch if context contacts are empty
+      if (contextContacts && contextContacts.length > 0) {
+        return; // Context already has contacts
+      }
 
-    // Only keep filtering logic
-    if (searchQuery) {
-      filteredResults = filteredResults.filter((contact) => {
-        const searchLower = searchQuery.toLowerCase();
-        return (
-          contact.contactName?.toLowerCase().includes(searchLower) ||
-          contact.phone?.toLowerCase().includes(searchLower) ||
-          contact.tags?.some((tag: string) =>
-            tag.toLowerCase().includes(searchLower)
-          )
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        toast.error("No user email found");
+        return;
+      }
+
+      try {
+        // Get user config to get companyId
+        const userResponse = await fetch(
+          `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            credentials: "include",
+          }
         );
-      });
-    }
 
-    if (activeTags.length > 0) {
-      filteredResults = filteredResults.filter((contact) => {
-        return activeTags.every((tag) => {
-          const tagLower = tag.toLowerCase();
-          const isGroup = contact.chat_id?.endsWith("@g.us");
-          const phoneIndex = Object.entries(phoneNames).findIndex(
-            ([_, name]) => name.toLowerCase() === tagLower
-          );
+        if (!userResponse.ok) {
+          toast.error("Failed to fetch user config");
+          return;
+        }
 
-          return tagLower === "all"
-            ? !isGroup
-            : tagLower === "unread"
-            ? contact.unreadCount && contact.unreadCount > 0
-            : tagLower === "mine"
-            ? contact.tags?.includes(currentUserName)
-            : tagLower === "unassigned"
-            ? !contact.tags?.some((t) =>
-                employeeList.some(
-                  (e) => (e.name?.toLowerCase() || "") === t.toLowerCase()
-                )
-              )
-            : tagLower === "snooze"
-            ? contact.tags?.includes("snooze")
-            : tagLower === "resolved"
-            ? contact.tags?.includes("resolved")
-            : tagLower === "group"
-            ? isGroup
-            : tagLower === "stop bot"
-            ? contact.tags?.includes("stop bot")
-            : phoneIndex !== -1
-            ? contact.phoneIndex === phoneIndex
-            : contact.tags?.map((t) => t.toLowerCase()).includes(tagLower);
-        });
-      });
-    }
+        const userData = await userResponse.json();
+        const companyId = userData.company_id;
 
-    console.log("Filtered contacts in useEffect 1385:", filteredResults);
-    setFilteredContacts(filteredResults);
-  }, [
-    contacts,
-    searchQuery,
-    activeTags,
-    currentUserName,
-    employeeList,
-    phoneNames,
-  ]);
+        // Fetch contacts from SQL database
+        const contactsResponse = await fetch(
+          `${baseUrl}/api/companies/${companyId}/contacts?email=${userEmail}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            credentials: "include",
+          }
+        );
+
+        if (!contactsResponse.ok) {
+          toast.error("Failed to fetch contacts");
+          return;
+        }
+
+        const data = await contactsResponse.json();
+        const updatedContacts = data.contacts.map((contact: any) => ({
+          ...contact,
+          id: contact.id,
+          chat_id: contact.chat_id,
+          contactName: contact.name,
+          phone: contact.phone,
+          email: contact.email,
+          profile: contact.profile,
+          profilePicUrl: contact.profileUrl,
+          tags: contact.tags,
+          createdAt: contact.createdAt,
+          lastUpdated: contact.lastUpdated,
+          last_message: contact.last_message,
+          isIndividual: contact.isIndividual,
+        } as Contact));
+
+        setTotalContacts(updatedContacts.length);
+        setContacts(updatedContacts);
+      } catch (error) {
+        console.error("Error fetching contacts:", error);
+        toast.error("Error fetching contacts");
+      }
+    };
+
+    // Only run once on mount
+    fetchContactsOnce();
+  }, []); // Empty dependency array = run only once
+
+  
 
   // Add useEffect to close dropdown when clicking outside
   useEffect(() => {
@@ -1691,30 +1726,7 @@ useEffect(() => {
     }
   };
 
-  const filteredContactsSearch = useMemo(() => {
-    return contacts.filter((contact) => {
-      const searchTerms = searchQuery.toLowerCase().split(" ");
-      const contactName = (contact.contactName || "").toLowerCase();
-      const firstName = (contact.firstName || "").toLowerCase();
-      const phone = (contact.phone || "").toLowerCase();
-      const tags = (contact.tags || []).map((tag) => tag.toLowerCase());
 
-      const matchesSearch = searchTerms.every(
-        (term) =>
-          contactName.includes(term) ||
-          firstName.includes(term) ||
-          phone.includes(term) ||
-          tags.some((tag) => tag.includes(term))
-      );
-
-      const matchesTagFilters =
-        activeTags.length === 0 ||
-        activeTags.includes("all") ||
-        activeTags.some((tag) => tags.includes(tag.toLowerCase()));
-
-      return matchesSearch && matchesTagFilters;
-    });
-  }, [contacts, searchQuery, activeTags]);
 
   const toggleRecordingPopup = () => {
     setIsRecordingPopupOpen(!isRecordingPopupOpen);
@@ -2000,100 +2012,8 @@ useEffect(() => {
   };
 
 
-  useEffect(() => {
-    const fetchContacts = async () => {
-      try {
-        const userEmail = localStorage.getItem("userEmail");
-        if (!userEmail) {
-          toast.error("No user email found");
-          return;
-        }
-        const response = await fetch(
-          `${baseUrl}/api/user-context?email=${userEmail}`
-        );
-        if (!response.ok) throw new Error("Failed to fetch user context");
-        const contextData = await response.json();
-        const companyId = contextData.companyId;
 
-        // Check if we have multiple phones
-        const phoneCount = Object.keys(phoneNames).length;
-        const hasMultiplePhones = phoneCount > 1;
-
-        let contactsResponse;
-        
-        if (hasMultiplePhones && userPhone !== null && userPhone !== undefined) {
-          // Use the new multi-phone API
-          console.log(`Fetching contacts for phone index: ${userPhone}`);
-          contactsResponse = await fetch(
-            `${baseUrl}/api/companies/${companyId}/contacts/multi-phone?email=${encodeURIComponent(userEmail)}&phoneIndex=${userPhone}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-              },
-              credentials: "include",
-            }
-          );
-        } else {
-          // Use the original API for single phone or when userPhone is not set
-          console.log("Fetching contacts using original API");
-          contactsResponse = await fetch(
-            `${baseUrl}/api/companies/${
-              companyId
-            }/contacts?email=${encodeURIComponent(userEmail)}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-              },
-              credentials: "include",
-            }
-          );
-        }
-
-        if (!contactsResponse.ok) {
-          toast.error("Failed to fetch contacts");
-          return;
-        }
-
-        const data = await contactsResponse.json();
-        const updatedContacts = data.contacts.map(
-          (contact: any) =>
-            ({
-              ...contact,
-              id: contact.id,
-              chat_id: contact.chat_id,
-              contactName: contact.name,
-              phone: contact.phone,
-              email: contact.email,
-              profile: contact.profile,
-              profilePicUrl: contact.profileUrl,
-              tags: contact.tags,
-              phoneIndex: contact.phoneIndex || contact.phone_index || 0,
-              createdAt: contact.createdAt,
-              lastUpdated: contact.lastUpdated,
-              last_message: contact.last_message,
-              isIndividual: contact.isIndividual,
-            } as Contact)
-        );
-
-        setTotalContacts(updatedContacts.length);
-        setContacts(updatedContacts);
-      } catch (error) {
-        console.error("Error fetching contacts:", error);
-        toast.error("Error fetching contacts");
-      }
-    };
-
-    fetchContacts();
-
-    // Set up polling for real-time updates (every 30 seconds)
-    const interval = setInterval(fetchContacts, 300000);
-
-    return () => clearInterval(interval);
-  }, [userData, phoneNames, userPhone]);
+ 
   useEffect(() => {
     const fetchCompanyData = async () => {
       const userEmail = localStorage.getItem("userEmail");
@@ -2347,6 +2267,26 @@ useEffect(() => {
   );
   // Add this function to handle phone change
   const handlePhoneChange = async (newPhoneIndex: number) => {
+    // Store the current phone index for potential rollback
+    const currentPhoneIndex = userPhone;
+    
+    // Update local state immediately for instant filtering
+    setUserPhone(newPhoneIndex);
+    setUserData((prevState) => {
+      if (prevState === null) {
+        return {
+          phone: newPhoneIndex,
+          companyId: "",
+          name: "",
+          role: "",
+        };
+      }
+      return {
+        ...prevState,
+        phone: newPhoneIndex,
+      };
+    });
+
     try {
       const {
         companyId: cId,
@@ -2356,6 +2296,15 @@ useEffect(() => {
       } = await getCompanyData();
       if (!uData) {
         console.error("No authenticated user");
+        // Rollback on error
+        setUserPhone(currentPhoneIndex);
+        setUserData((prevState) => {
+          if (prevState === null) return null;
+          return {
+            ...prevState,
+            phone: currentPhoneIndex,
+          };
+        });
         return;
       }
 console.log(baseUrl);
@@ -2382,132 +2331,219 @@ console.log(baseUrl);
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Response error:", errorText);
-      }
-
-      if (response.ok) {
-        // Update local state
+        // Rollback on API failure
+        setUserPhone(currentPhoneIndex);
         setUserData((prevState) => {
-          if (prevState === null) {
-            return {
-              phone: newPhoneIndex,
-              companyId: "",
-              name: "",
-              role: "",
-            };
-          }
+          if (prevState === null) return null;
           return {
             ...prevState,
-            phone: newPhoneIndex,
+            phone: currentPhoneIndex,
           };
         });
-
-        // Update userPhone state to trigger contact refresh
-        setUserPhone(newPhoneIndex);
-
-        toast.success("Phone updated successfully");
-      } else {
-        console.error("Failed to update phone");
         toast.error("Failed to update phone");
+        return;
       }
+
+
+
+      toast.success("Phone updated successfully");
     } catch (error) {
       console.error("Error updating phone:", error);
+      // Rollback on error
+      setUserPhone(currentPhoneIndex);
+      setUserData((prevState) => {
+        if (prevState === null) return null;
+        return {
+          ...prevState,
+          phone: currentPhoneIndex,
+        };
+      });
       toast.error("Failed to update phone");
     }
   };
 
+  const filteredContactsSearch = useMemo(() => {
+    // Determine the current phone index to use for filtering
+    let currentPhoneIndex = 0; // Default to first phone
+    if (userPhone !== null && userPhone !== undefined) {
+      currentPhoneIndex = userPhone;
+    } else if (userData?.phone !== undefined && userData.phone !== null && userData.phone !== -1) {
+      currentPhoneIndex = typeof userData.phone === 'string' ? parseInt(userData.phone, 10) : userData.phone;
+    }
 
+    // Set message mode based on current phone index
+    if (currentPhoneIndex !== null && phoneNames[currentPhoneIndex] !== undefined) {
+      setMessageMode(`phone${currentPhoneIndex + 1}`);
+    }
 
+    let fil = filterContactsByUserRole(
+      contacts,
+      userRole,
+      userData?.name || ""
+    );
 
-  useEffect(() => {
-    const fetchContacts = async () => {
-      const userEmail = localStorage.getItem("userEmail");
-      if (!userEmail) {
-        toast.error("No user email found");
-        return;
-      }
-      try {
-        // Get user config to get companyId
-        const userResponse = await fetch(
-          `${baseUrl}/api/user/config?email=${encodeURIComponent(
-            userEmail
-          )}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            credentials: "include",
-          }
-        );
+    const activeTag = activeTags.length > 0 ? activeTags[0].toLowerCase() : "";
 
-        if (!userResponse.ok) {
-          toast.error("Failed to fetch user config");
-          return;
-        }
+    // Check if we're using multi-phone API (contacts are already filtered by phone)
+    const phoneCount = Object.keys(phoneNames).length;
+    const hasMultiplePhones = phoneCount > 1;
+    const isUsingMultiPhoneAPI = hasMultiplePhones && userPhone !== null && userPhone !== undefined;
 
-        const userData = await userResponse.json();
-        const companyId = userData.company_id;
+    console.log("sortContacts - isUsingMultiPhoneAPI:", isUsingMultiPhoneAPI, "phoneCount:", phoneCount, "userPhone:", userPhone);
 
-        // Fetch contacts from SQL database
-        const contactsResponse = await fetch(
-          `${baseUrl}/api/companies/${companyId}/contacts?email=${userEmail}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            credentials: "include",
-          }
-        );
-
-        if (!contactsResponse.ok) {
-          toast.error("Failed to fetch contacts");
-          return;
-        }
-
-        const data = await contactsResponse.json();
-        const updatedContacts = data.contacts.map((contact: any) => {
-          // Filter out empty tags
-
-          // Map SQL fields to match your Contact interface
-          return {
-            ...contact,
-            id: contact.id,
-            chat_id: contact.chat_id,
-            contactName: contact.name,
-            phone: contact.phone,
-            email: contact.email,
-            profile: contact.profile,
-            profilePicUrl: contact.profileUrl,
-            tags: contact.tags,
-            createdAt: contact.createdAt,
-            lastUpdated: contact.lastUpdated,
-            last_message: contact.last_message,
-            isIndividual: contact.isIndividual,
-          } as Contact;
-        });
-
-        setTotalContacts(updatedContacts.length);
-        setContacts(updatedContacts);
+    // Always apply phone filtering when userPhone is set
+    if (userPhone !== null && userPhone !== undefined) {
+      console.log("🔍 Before phone filtering - contacts count:", fil.length);
+      console.log("🔍 Filtering by userPhone:", userPhone);
+      
+      // Debug first few contacts
+      fil.slice(0, 3).forEach((contact, index) => {
+        console.log(`🔍 Contact ${index}:`, contact.contactName, "phoneIndexes:", contact.phoneIndexes, "phoneIndex:", contact.phoneIndex);
+      });
+      
+      const beforeFilter = fil.length;
+      fil = fil.filter((contact) => {
+        // Check if contact has phoneIndexes and it's not empty
+        let hasPhone = contact.phoneIndexes && contact.phoneIndexes.length > 0
+          ? contact.phoneIndexes.includes(userPhone)
+          : contact.phoneIndex === userPhone;
         
-    
-      } catch (error) {
-        console.error("Error fetching contacts:", error);
-        toast.error("Error fetching contacts");
+        // If not found in phoneIndex/phoneIndexes, check messages for this phone
+        if (!hasPhone && contact.chat && contact.chat.length > 0) {
+          hasPhone = contact.chat.some((message: any) => 
+            message.phoneIndex === userPhone || 
+            (message.messages && message.messages.some((msg: any) => msg.phoneIndex === userPhone))
+          );
+        }
+        
+        // Also check last_message
+        if (!hasPhone && contact.last_message) {
+          hasPhone = contact.last_message.phoneIndex === userPhone;
+        }
+        
+        // Debug first few contacts
+        if (fil.indexOf(contact) < 3) {
+          console.log("🔍 Contact:", contact.contactName, "phoneIndexes:", contact.phoneIndexes, "phoneIndex:", contact.phoneIndex, "hasPhone:", hasPhone);
+        }
+        
+        return hasPhone;
+      });
+      console.log("🔍 After phone filtering - contacts count:", fil.length, "filtered out:", beforeFilter - fil.length);
+    } else if (!isUsingMultiPhoneAPI) {
+      // Legacy filtering logic for single phone or when userPhone is not set
+      let userPhoneIndex =
+        userData?.phone !== undefined ? parseInt(userData.phone, 10) : 0;
+      if (userPhoneIndex === -1) {
+        userPhoneIndex = 0;
       }
-    };
 
-    // Set up polling to refresh contacts periodically
-    const pollInterval = setInterval(fetchContacts, 3000000); // Poll every 30 seconds
+      // Filter by user's selected phone first (only for legacy API)
+      if (userPhoneIndex !== -1 && phoneCount > 1) {
+        fil = fil.filter((contact) =>
+          contact.phoneIndexes
+            ? contact.phoneIndexes.includes(userPhoneIndex)
+            : contact.phoneIndex === userPhoneIndex
+        );
+      }
+    }
 
-    // Initial fetch
-    fetchContacts();
+    // Check if the active tag matches any of the phone names
+    if (activeTags.length > 0) {
+      const phoneIndex = Object.entries(phoneNames).findIndex(
+        ([_, name]) => name.toLowerCase() === activeTag
+      );
 
-    // Cleanup
-    return () => clearInterval(pollInterval);
-  }, []);
+      if (phoneIndex !== -1) {
+        fil = fil.filter((contact) =>
+          contact.phoneIndexes
+            ? contact.phoneIndexes.includes(phoneIndex)
+            : contact.phoneIndex === phoneIndex
+        );
+      }
+    }
+
+    // Apply search filter (works for both APIs)
+    if (searchQuery.trim() !== "") {
+      fil = fil.filter(
+        (contact) =>
+          (contact.contactName?.toLowerCase() || "").includes(
+            searchQuery.toLowerCase()
+          ) ||
+          (contact.firstName?.toLowerCase() || "").includes(
+            searchQuery.toLowerCase()
+          ) ||
+          (contact.phone?.toLowerCase() || "").includes(
+            searchQuery.toLowerCase()
+          ) ||
+          contact.tags?.some((tag) =>
+            tag.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+      );
+    }
+
+    // Filter by selected employee
+    if (selectedEmployee) {
+      fil = fil.filter((contact) =>
+        contact.tags?.some(
+          (tag) => tag.toLowerCase() === selectedEmployee.toLowerCase()
+        )
+      );
+    }
+
+    // Tag filtering
+    if (activeTags.length > 0) {
+      const tag = activeTags[0]?.toLowerCase() || "all";
+
+      fil = fil.filter((contact) => {
+        const isGroup = contact.chat_id?.endsWith("@g.us");
+        
+        const matchesTag = 
+          tag === "all"
+            ? !isGroup
+            : tag === "unread"
+            ? contact.unreadCount && contact.unreadCount > 0
+            : tag === "mine"
+            ? contact.tags?.includes(currentUserName)
+            : tag === "unassigned"
+            ? !contact.tags?.some((t: string) =>
+                employeeList.some(
+                  (e) => (e.name?.toLowerCase() || "") === t.toLowerCase()
+                )
+              )
+            : tag === "snooze"
+            ? contact.tags?.includes("snooze")
+            : tag === "resolved"
+            ? contact.tags?.includes("resolved")
+            : tag === "group"
+            ? isGroup
+            : tag === "stop bot"
+            ? contact.tags?.includes("stop bot")
+            : contact.tags?.map((t: string) => t.toLowerCase()).includes(tag);
+
+        return matchesTag;
+      });
+    }
+
+    // Sort by timestamp (works for both APIs)
+    return fil.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+
+      const timestampA = a.last_message?.timestamp
+        ? new Date(a.last_message.timestamp).getTime()
+        : 0;
+      const timestampB = b.last_message?.timestamp
+        ? new Date(b.last_message.timestamp).getTime()
+        : 0;
+
+      return timestampB - timestampA;
+    });
+  }, [contacts, searchQuery, activeTags, userPhone, userData, phoneNames, currentUserName, employeeList, userRole, selectedEmployee]);
+
+  // Debug: Log the filtered results
+  useEffect(() => {
+    console.log("📊 RESULT - Filtered contacts:", filteredContactsSearch.length);
+  }, [filteredContactsSearch]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -5760,87 +5796,9 @@ console.log(baseUrl);
   }, []);
 
   useEffect(() => {
-    const sortedAndFilteredContacts = getSortedContacts(filteredContactsSearch);
-    setFilteredContacts(sortedAndFilteredContacts);
-  }, [filteredContactsSearch, getSortedContacts]);
+    setFilteredContacts(filteredContactsSearch);
+  }, [filteredContactsSearch]);
 
-  const sortContacts = (contacts: Contact[]) => {
-    let fil = contacts;
-    const activeTag = activeTags[0].toLowerCase();
-
-    // Check if we're using multi-phone API (contacts are already filtered by phone)
-    const phoneCount = Object.keys(phoneNames).length;
-    const hasMultiplePhones = phoneCount > 1;
-    const isUsingMultiPhoneAPI = hasMultiplePhones && userPhone !== null && userPhone !== undefined;
-
-    console.log("sortContacts - isUsingMultiPhoneAPI:", isUsingMultiPhoneAPI, "phoneCount:", phoneCount, "userPhone:", userPhone);
-
-    // If using multi-phone API, contacts are already filtered by phone, so skip phone filtering
-    if (!isUsingMultiPhoneAPI) {
-      // Legacy filtering logic for single phone or when userPhone is not set
-      let userPhoneIndex =
-        userData?.phone !== undefined ? parseInt(userData.phone, 10) : 0;
-      if (userPhoneIndex === -1) {
-        userPhoneIndex = 0;
-      }
-
-      // Filter by user's selected phone first (only for legacy API)
-      if (userPhoneIndex !== -1 && phoneCount > 1) {
-        fil = fil.filter((contact) =>
-          contact.phoneIndexes
-            ? contact.phoneIndexes.includes(userPhoneIndex)
-            : contact.phoneIndex === userPhoneIndex
-        );
-      }
-
-      // Check if the active tag matches any of the phone names (only for legacy API)
-      const phoneIndex = Object.entries(phoneNames).findIndex(
-        ([_, name]) => name.toLowerCase() === activeTag
-      );
-
-      if (phoneIndex !== -1) {
-        fil = fil.filter((contact) =>
-          contact.phoneIndexes
-            ? contact.phoneIndexes.includes(phoneIndex)
-            : contact.phoneIndex === phoneIndex
-        );
-      }
-    }
-
-    // Apply search filter (works for both APIs)
-    if (searchQuery.trim() !== "") {
-      fil = fil.filter(
-        (contact) =>
-          (contact.contactName?.toLowerCase() || "").includes(
-            searchQuery.toLowerCase()
-          ) ||
-          (contact.firstName?.toLowerCase() || "").includes(
-            searchQuery.toLowerCase()
-          ) ||
-          (contact.phone?.toLowerCase() || "").includes(
-            searchQuery.toLowerCase()
-          ) ||
-          contact.tags?.some((tag) =>
-            tag.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-      );
-    }
-
-    // Sort by timestamp (works for both APIs)
-    return fil.sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-
-      const timestampA = a.last_message?.timestamp
-        ? new Date(a.last_message.timestamp).getTime()
-        : 0;
-      const timestampB = b.last_message?.timestamp
-        ? new Date(b.last_message.timestamp).getTime()
-        : 0;
-
-      return timestampB - timestampA;
-    });
-  };
 
   const filterTagContact = (tag: string) => {
     if (
@@ -5897,199 +5855,7 @@ console.log(baseUrl);
   // Update the total pages calculation
   const totalPages = Math.ceil(filteredContactsSearch.length / contactsPerPage);
 
-  useEffect(() => {
-    const tag = activeTags[0]?.toLowerCase() || "all";
-    let filteredContacts = filterContactsByUserRole(
-      contacts,
-      userRole,
-      userData?.name || ""
-    );
 
-    // Check if we're using multi-phone API
-    const phoneCount = Object.keys(phoneNames).length;
-    const hasMultiplePhones = phoneCount > 1;
-    const isUsingMultiPhoneAPI = hasMultiplePhones && userPhone !== null && userPhone !== undefined;
-
-    console.log("Main filter - isUsingMultiPhoneAPI:", isUsingMultiPhoneAPI, "phoneCount:", phoneCount, "userPhone:", userPhone);
-   
-    setMessageMode("reply");
-    console.log(phoneNames);
-    
-    // Phone filtering logic - only apply if NOT using multi-phone API
-    if (!isUsingMultiPhoneAPI) {
-      // Legacy phone filtering logic
-      if (userData?.phone !== undefined && userData.phone !== -1 && phoneNames[userData.phone] !== undefined ) {
-        const userPhoneIndex = parseInt(userData.phone, 10);
-        
-        setMessageMode(`phone${userPhoneIndex + 1}`);
-
-        filteredContacts = filteredContacts.filter((contact) =>
-          contact.phoneIndex === userPhoneIndex
-        );
-      }
-    } else {
-      // For multi-phone API, set message mode based on current userPhone
-      if (userPhone !== null && userPhone !== undefined) {
-        setMessageMode(`phone${userPhone + 1}`);
-      }
-    }
-    
-    console.log("filteredContacts:", filteredContacts);
-    
-    // Filter by selected employee
-    if (selectedEmployee) {
-      filteredContacts = filteredContacts.filter((contact) =>
-        contact.tags?.some(
-          (tag) => tag.toLowerCase() === selectedEmployee.toLowerCase()
-        )
-      );
-    }
-
-    // Filtering logic for tags
-    if (
-      Object.values(phoneNames)
-        .map((name) => name.toLowerCase())
-        .includes(tag)
-    ) {
-      // Phone tag filtering - only apply if NOT using multi-phone API
-      if (!isUsingMultiPhoneAPI) {
-        const phoneIndex = Object.entries(phoneNames).findIndex(
-          ([_, name]) => name.toLowerCase() === tag
-        );
-        if (phoneIndex !== -1) {
-          setMessageMode(`phone${phoneIndex + 1}`);
-          filteredContacts = filteredContacts.filter(
-            (contact) => contact.phoneIndex === phoneIndex
-          );
-        }
-      } else {
-        // For multi-phone API, phone filtering is already done by the API
-        console.log("Skipping phone tag filtering - using multi-phone API");
-      }
-    } else {
-      // Existing filtering logic for other tags
-      switch (tag) {
-        case "all":
-          if (currentCompanyId?.includes("042")) {
-            filteredContacts = filteredContacts.filter(
-              (contact) =>
-                !contact.chat_id?.endsWith("@g.us") &&
-                !contact.tags?.includes("snooze")
-            );
-          } else {
-            filteredContacts = filteredContacts.filter(
-              (contact) => !contact.tags?.includes("snooze")
-            );
-          }
-          break;
-        case "unread":
-          filteredContacts = filteredContacts.filter(
-            (contact) =>
-              contact.unreadCount &&
-              contact.unreadCount > 0 &&
-              !contact.tags?.includes("snooze")
-          );
-          break;
-        case "mine":
-          filteredContacts = filteredContacts.filter(
-            (contact) =>
-              contact.tags?.some(
-                (t) => t.toLowerCase() === currentUserName.toLowerCase()
-              ) && !contact.tags?.includes("snooze")
-          );
-          break;
-        case "unassigned":
-          filteredContacts = filteredContacts.filter(
-            (contact) =>
-              !contact.tags?.some((t) =>
-                employeeList.some(
-                  (e) => (e.name?.toLowerCase() || "") === t.toLowerCase()
-                )
-              ) && !contact.tags?.includes("snooze")
-          );
-          break;
-        case "snooze":
-          filteredContacts = filteredContacts.filter((contact) =>
-            contact.tags?.includes("snooze")
-          );
-          break;
-        case "group":
-          filteredContacts = filteredContacts.filter(
-            (contact) =>
-              contact.chat_id?.endsWith("@g.us") &&
-              !contact.tags?.includes("snooze")
-          );
-          break;
-        case "stop bot":
-          filteredContacts = filteredContacts.filter(
-            (contact) =>
-              contact.tags?.includes("stop bot") &&
-              !contact.tags?.includes("snooze")
-          );
-          break;
-        case "resolved":
-          filteredContacts = filteredContacts.filter(
-            (contact) =>
-              contact.tags?.includes("resolved") &&
-              !contact.tags?.includes("snooze")
-          );
-          break;
-        case "active bot":
-          filteredContacts = filteredContacts.filter(
-            (contact) =>
-              !contact.tags?.includes("stop bot") &&
-              !contact.tags?.includes("snooze")
-          );
-          break;
-        default:
-          filteredContacts = filteredContacts.filter(
-            (contact) =>
-              contact.tags?.some(
-                (t) => t.toLowerCase() === tag.toLowerCase()
-              ) && !contact.tags?.includes("snooze")
-          );
-      }
-    }
-
-    filteredContacts = sortContacts(filteredContacts);
-
-    if (searchQuery) {
-      filteredContacts = filteredContacts.filter((contact) => {
-        const name = (
-          contact.contactName ||
-          contact.firstName ||
-          ""
-        ).toLowerCase();
-        const phone = (contact.phone || "").toLowerCase();
-        const tags = (contact.tags || []).join(" ").toLowerCase();
-
-        return (
-          name.includes(searchQuery.toLowerCase()) ||
-          phone.includes(searchQuery.toLowerCase()) ||
-          tags.includes(searchQuery.toLowerCase())
-        );
-      });
-    }
-
-    setFilteredContacts(filteredContacts);
-  }, [
-    contacts,
-    searchQuery,
-    activeTags,
-    showAllContacts,
-    showUnreadContacts,
-    showMineContacts,
-    showUnassignedContacts,
-    showSnoozedContacts,
-    showGroupContacts,
-    currentUserName,
-    employeeList,
-    userData,
-    userRole,
-    selectedEmployee,
-    userPhone,
-    phoneNames,
-  ]);
 
   const handleSnoozeContact = async (contact: Contact) => {
     try {
