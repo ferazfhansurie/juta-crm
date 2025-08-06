@@ -93,6 +93,7 @@ import PublicFeedbackForm from "../pages/PublicFeedbackForm";
 import PublicAttendanceForm from "../pages/PublicAttendanceForm";
 import DataImport from "../pages/DataImport";
 import Builder2 from "../pages/Builder2";
+import ThankYou from "../pages/ThankYou";
 
 function Router() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -224,6 +225,7 @@ function Router() {
     { path: "/guest-chat/:companyId", element: <GuestChat />},
     { path: "/feedback/:formTitle/:phone", element: <PublicFeedbackForm />},
     { path: "/attendance/:eventTitle/:phone", element: <PublicAttendanceForm />},
+    { path: "/thank-you", element: <ThankYou />},
     { path: "notification", element: <Notification /> },
     { path: "dashboard-overview-2", element: <DashboardOverview2 /> },
     { path: "loading", element:<LoadingIcon />  },

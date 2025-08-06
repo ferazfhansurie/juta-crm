@@ -118,13 +118,31 @@ function PublicFeedbackForm() {
       const response = await axios.post(`${baseUrl}/api/feedback-forms/submit`, formResponse);
       
       if (response.data.success) {
-        alert('Thank you for your feedback!');
-        navigate('/');
+        navigate('/thank-you');
       } else {
         throw new Error(response.data.error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting form:', error);
+      
+      // Check if it's an axios error with response data
+      if (error.response && error.response.data) {
+        const errorMessage = error.response.data.error;
+        
+        // Check if the error indicates the form has already been submitted
+        if (errorMessage && errorMessage.includes('already submitted')) {
+          navigate('/thank-you');
+          return;
+        }
+        
+        // For other specific errors, show the actual error message
+        if (errorMessage) {
+          alert(errorMessage);
+          return;
+        }
+      }
+      
+      // Generic error message for other cases
       alert('Failed to submit form. Please try again.');
     } finally {
       setIsSubmitting(false);
