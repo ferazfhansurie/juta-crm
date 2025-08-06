@@ -11,7 +11,7 @@ import simpleMenuJuta from "@/main/simple-menuJuta";
 import simpleMenuRole2 from "@/main/simple-menu-role-2";
 import simpleMenuRole3 from "@/main/simple-menu-role-3";
 import topMenu from "@/main/top-menu";
-import { useConfig } from '../config';
+
 
 export interface Menu {
   icon: keyof typeof icons;
@@ -41,6 +41,13 @@ export const selectMenu = (layout: Themes["layout"]) => (state: RootState) => {
   const config = state.config;
   const userRole = config?.userRole;
   console.log('config?.name', config?.name);
+  
+  // If config is not loaded yet, return default menu
+  if (!config?.name) {
+    console.log('Config not loaded yet, returning default menu');
+    return simpleMenu;
+  }
+  
   if (layout == "top-menu") {
     return topMenu;
   }

@@ -2317,8 +2317,8 @@ useEffect(() => {
     (contacts: Contact[], userRole: string, userName: string) => {
       // If userRole is empty or undefined, return all contacts to avoid blank screen
       if (!userRole) {
-        console.warn(
-          "User role is undefined or empty, showing all contacts temporarily"
+        console.log(
+          "User role not loaded yet, showing all contacts temporarily"
         );
         return contacts;
       }
@@ -2352,7 +2352,7 @@ useEffect(() => {
         case "5": // Other role
           return contacts;
         default:
-          console.warn(`Unknown user role: ${userRole}`);
+          console.log(`Unknown user role: ${userRole}, showing all contacts`);
           // Return all contacts instead of empty array to avoid blank screen
           return contacts;
       }
@@ -8839,7 +8839,7 @@ console.log(baseUrl);
                       if (type === "contact") {
                         const contact = contacts.find((c) => c.id === id);
                         if (contact) {
-                          selectChat(contact.chat_id!, contact.id!, contact);
+                          selectChat(contact.contact_id!, contact.id!, contact);
                         }
                       } else if (type === "message") {
                         const contact = contacts.find(

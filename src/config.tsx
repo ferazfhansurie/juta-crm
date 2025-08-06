@@ -50,6 +50,24 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
 
+    // Listen for storage changes (when user logs in/out)
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'userEmail') {
+        console.log('User email changed in localStorage:', event.newValue);
+        if (event.newValue) {
+          // User logged in, fetch config
+          fetchConfigOnAuthChange();
+        } else {
+          // User logged out, clear config
+          setLocalConfig(null);
+          setUserRole(null);
+          dispatch(setConfig({ name: undefined, userRole: undefined, companyId: undefined }));
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
     const shouldFetchConfig = !sessionStorage.getItem('configFetched');
     console.log('Should fetch config:', shouldFetchConfig);
     console.log('Session storage configFetched:', sessionStorage.getItem('configFetched'));
@@ -77,18 +95,19 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, [navigate]);
 
   const fetchConfigOnAuthChange = () => {
-    const fetchConfig = async (user: User) => {
+    const fetchConfig = async (userEmail: string) => {
       try {
-        console.log('Starting config fetch for user:', user.email);
+        console.log('Starting config fetch for user:', userEmail);
         setIsLoading(true);
 
-        // Fetch user data from Neon database
+        // Fetch user data from Neon database using user-company-data endpoint
         const userResponse = await fetch(
-          `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(user.email!)}`,
+          `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
           {
             method: "GET",
             headers: {
@@ -111,11 +130,14 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
         const userData = await userResponse.json();
         console.log('User data received:', userData);
         
-        const companyId = userData.company_id;
-        const role = userData.role;
+        // Extract data from the user-company-data response
+        const companyId = userData.userData?.companyId || userData.companyId;
+        const role = userData.userData?.role || userData.role;
+        const companyData = userData.companyData;
         
         console.log('Company ID:', companyId);
         console.log('User role:', role);
+        console.log('Company data:', companyData);
         
         setUserRole(role);
 
@@ -125,30 +147,11 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        // Fetch company data from Neon database
-        const companyResponse = await fetch(
-          `https://juta-dev.ngrok.dev/api/company-details?companyId=${companyId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            credentials: "include",
-          }
-        );
-
-        console.log('Company response status:', companyResponse.status);
-        console.log('Company response ok:', companyResponse.ok);
-
-        if (!companyResponse.ok) {
-          console.error('Failed to fetch company details from Neon');
+        if (!companyData) {
+          console.error('No company data found in response');
           setIsLoading(false);
           return;
         }
-
-        const companyData = await companyResponse.json();
-        console.log('Company data received:', companyData);
 
         // Store the configuration data in local state and Redux
         console.log('Setting local config:', companyData);
@@ -179,26 +182,25 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log('Auth state changed, user:', user);
-      if (user) {
-        console.log('User authenticated, fetching config for:', user.email);
-        fetchConfig(user);
+    // Check for user email in localStorage (custom auth system)
+    const userEmail = localStorage.getItem('userEmail');
+    console.log('Checking for user email in localStorage:', userEmail);
+    
+    if (userEmail) {
+      console.log('User email found, fetching config for:', userEmail);
+      fetchConfig(userEmail);
+    } else {
+      console.log('No user email found in localStorage');
+      const currentPath = window.location.pathname;
+      if (currentPath === '/register') {
+        navigate('/register');
+      } else if (!currentPath.includes('/guest-chat')) {
+        // Don't redirect if on guest chat
       } else {
-        console.log('No user authenticated');
-        const currentPath = window.location.pathname;
-        if (currentPath === '/register') {
-          navigate('/register');
-        } else  if (!currentPath.includes('/guest-chat')) {
-      
-        } else {
-
-        }
-        setIsLoading(false);
+        // Don't redirect for guest chat
       }
-    });
-
-    return () => unsubscribe();
+      setIsLoading(false);
+    }
   };
 
   return (
