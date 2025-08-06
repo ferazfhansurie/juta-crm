@@ -1458,11 +1458,11 @@ useEffect(() => {
       const botStatusResponse = await axios.get(
         `${baseUrl}/api/bot-status/${companyId}`
       );
-      console.log(botStatusResponse);
+
       
       if (botStatusResponse.status === 200) {
         const data: BotStatusResponse = botStatusResponse.data;
-        
+
         // Check if phones array exists before mapping
         if (data.phones && Array.isArray(data.phones)) {
           // Multiple phones: transform array to QRCodeData[]
@@ -1472,7 +1472,8 @@ useEffect(() => {
             qrCode: phone.qrCode,
           }));
           setQrCodes(qrCodesData);
-        } else if (data.phoneCount === 1 && data.phoneInfo) {
+        
+        } else if ((data.phoneCount === 1||data.phoneCount === 0 )&& data.phoneInfo) {
           // Single phone: create QRCodeData from flat structure
           setQrCodes([
             {
@@ -1485,6 +1486,7 @@ useEffect(() => {
           setQrCodes([]);
         }
       }
+      
     } catch (error) {
       console.error("Error fetching phone statuses:", error);
     }
