@@ -107,6 +107,8 @@ export interface Message {
   from?: string | "";
   author?: string;
   phoneIndex: number;
+  status?: "sent" | "failed" | "sending";
+  error?: string;
   image?: {
     link?: string;
     caption?: string;
@@ -1055,6 +1057,60 @@ function Main() {
           }
         });
 
+        // Update contact's last message for current chat as well
+        if (selectedContact) {
+          console.log("📨 [WEBSOCKET] Updating current contact's last message:", selectedContact.contactName);
+          
+          const updateContactWithNewMessage = (contact: Contact) => {
+            // Match by multiple criteria to ensure we find the right contact
+            const contactMatches = 
+              contact.id === selectedContact.id ||
+              contact.chat_id === selectedContact.chat_id ||
+              contact.contact_id === selectedContact.contact_id ||
+              contact.phone === selectedContact.phone;
+              
+            if (contactMatches) {
+              console.log("📨 [WEBSOCKET] Updating contact:", contact.contactName, "with new message:", messageContent);
+              return {
+                ...contact,
+                last_message: newMessage,
+                unreadCount: (!fromMe ? (contact.unreadCount || 0) + 1 : contact.unreadCount || 0),
+              };
+            }
+            return contact;
+          };
+
+          setContacts((prevContacts) => {
+            const updatedContacts = prevContacts.map(updateContactWithNewMessage);
+            console.log("📨 [WEBSOCKET] Updated contacts for current chat");
+            return updatedContacts;
+          });
+          
+          setFilteredContacts((prevFilteredContacts) => {
+            const updatedFilteredContacts = prevFilteredContacts.map(updateContactWithNewMessage);
+            console.log("📨 [WEBSOCKET] Updated filtered contacts for current chat");
+            return updatedFilteredContacts;
+          });
+
+          // Update localStorage for contacts
+          const storedContacts = localStorage.getItem("contacts");
+          if (storedContacts) {
+            try {
+              const decompressedContacts = JSON.parse(
+                LZString.decompress(storedContacts)!
+              );
+              const updatedContacts = decompressedContacts.map(updateContactWithNewMessage);
+              localStorage.setItem(
+                "contacts",
+                LZString.compress(JSON.stringify(updatedContacts))
+              );
+              console.log("📨 [WEBSOCKET] Updated contacts in localStorage");
+            } catch (error) {
+              console.error("Error updating contacts in localStorage:", error);
+            }
+          }
+        }
+
         // Scroll to bottom to show new message
         setTimeout(() => {
           if (messageListRef.current) {
@@ -1071,19 +1127,56 @@ function Main() {
         console.log("📨 [WEBSOCKET] Message is for different chat - updating contact list");
         
         // Message is for a different chat - update contact list only
-        setContacts((prevContacts) =>
-          prevContacts.map((contact) => {
-            if (contact.chat_id === chatId || contact.id === contactId) {
-              console.log("📨 [WEBSOCKET] Updating contact:", contact.contactName);
-              return {
-                ...contact,
-                last_message: newMessage,
-                unreadCount: (!fromMe ? (contact.unreadCount || 0) + 1 : contact.unreadCount || 0),
-              };
-            }
-            return contact;
-          })
-        );
+        const updateContactWithNewMessage = (contact: Contact) => {
+          // Try multiple ways to match the contact
+          const contactMatches = 
+            contact.chat_id === chatId || 
+            contact.id === contactId ||
+            contact.contact_id === contactId ||
+            contact.phone?.replace(/\D/g, "") === extractedNumber?.replace(/\D/g, "") ||
+            contact.chat_id === extractedNumber + "@c.us" ||
+            contact.phone === extractedNumber;
+            
+          if (contactMatches) {
+            console.log("📨 [WEBSOCKET] Updating contact:", contact.contactName, "for chatId:", chatId, "contactId:", contactId, "message:", messageContent);
+            return {
+              ...contact,
+              last_message: newMessage,
+              unreadCount: (!fromMe ? (contact.unreadCount || 0) + 1 : contact.unreadCount || 0),
+            };
+          }
+          return contact;
+        };
+
+        setContacts((prevContacts) => {
+          const updatedContacts = prevContacts.map(updateContactWithNewMessage);
+          console.log("📨 [WEBSOCKET] Updated contacts for different chat");
+          return updatedContacts;
+        });
+        
+        setFilteredContacts((prevFilteredContacts) => {
+          const updatedFilteredContacts = prevFilteredContacts.map(updateContactWithNewMessage);
+          console.log("📨 [WEBSOCKET] Updated filtered contacts for different chat");
+          return updatedFilteredContacts;
+        });
+
+        // Update localStorage for contacts
+        const storedContacts = localStorage.getItem("contacts");
+        if (storedContacts) {
+          try {
+            const decompressedContacts = JSON.parse(
+              LZString.decompress(storedContacts)!
+            );
+            const updatedContacts = decompressedContacts.map(updateContactWithNewMessage);
+            localStorage.setItem(
+              "contacts",
+              LZString.compress(JSON.stringify(updatedContacts))
+            );
+            console.log("📨 [WEBSOCKET] Updated contacts in localStorage for different chat");
+          } catch (error) {
+            console.error("Error updating contacts in localStorage:", error);
+          }
+        }
 
         // Show notification for other chats only if not from me
         if (!fromMe) {
@@ -3662,6 +3755,17 @@ console.log(baseUrl);
         const newUrl = `/chat?chatId=${chatId.replace("@c.us", "")}`;
         window.history.pushState({ path: newUrl }, "", newUrl);
 
+        // Immediately fetch messages and check for updates to ensure real-time reflection
+        setTimeout(() => {
+          if (whapiToken) {
+            fetchMessages(chatId, whapiToken);
+            // Also trigger a quick poll for new messages
+            setTimeout(() => {
+              pollForNewMessages();
+            }, 1000);
+          }
+        }, 100);
+
         // Restore scroll position after a short delay to allow rendering
         setTimeout(() => {
           if (contactListRef.current) {
@@ -4021,6 +4125,11 @@ console.log(baseUrl);
       console.log(selectedContact);
       console.log(selectedChatId);
       fetchMessages(selectedChatId, whapiToken!);
+      
+      // Immediately check for new messages to ensure real-time updates
+      setTimeout(() => {
+        pollForNewMessages();
+      }, 2000);
     }
   }, [selectedChatId]);
 
@@ -4306,7 +4415,7 @@ console.log(baseUrl);
     }
   }
 
-  // Add polling function to check for new messages every 15 seconds
+  // Add polling function to check for new messages every 5 seconds for better real-time updates
   const pollForNewMessages = useCallback(async () => {
     if (!selectedChatId || !userData) return;
 
@@ -4585,7 +4694,7 @@ console.log(baseUrl);
       setIsPolling(true);
       
       // Start polling every 15 seconds
-      pollingIntervalRef.current = setInterval(pollForNewMessages, 15000);
+      pollingIntervalRef.current = setInterval(pollForNewMessages, 5000); // Poll every 5 seconds for better real-time updates
     } else {
       console.log("Stopping message polling");
       setIsPolling(false);
@@ -4920,17 +5029,21 @@ console.log(baseUrl);
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedChatId) return;
+  const handleSendMessage = async (retryMessage?: any) => {
+    const messageToSend = retryMessage || newMessage;
+    if (!messageToSend.trim() || !selectedChatId) return;
 
     // Store the message text before clearing input
-    const messageText = newMessage;
-    setNewMessage("");
-    setReplyToMessage(null);
+    const messageText = messageToSend;
+    if (!retryMessage) {
+      setNewMessage("");
+      setReplyToMessage(null);
+    }
 
     // Get the current phoneIndex the user is using
     const currentPhoneIndex = userData?.phone;
     const userEmail = localStorage.getItem("userEmail");
+    
     // Create temporary message object for immediate display
     const tempMessage = {
       id: `temp_${Date.now()}`,
@@ -4943,7 +5056,8 @@ console.log(baseUrl);
       from_name: userEmail || "",
       timestamp: Math.floor(Date.now() / 1000),
     };
-    // Update UI immediately
+    
+    // Update UI immediately for instant feedback
     setMessages((prevMessages) => [
       ...prevMessages,
       {
@@ -4951,6 +5065,15 @@ console.log(baseUrl);
       } as unknown as Message,
     ]);
 
+    // Also update allMessages to ensure consistency
+    setAllMessages((prevAllMessages) => [
+      ...prevAllMessages,
+      {
+        ...tempMessage,
+      } as unknown as Message,
+    ]);
+
+    // Update localStorage immediately
     const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
     const updatedMessages = [...currentMessages, tempMessage];
     storeMessagesInLocalStorage(selectedChatId, updatedMessages);
@@ -5089,21 +5212,156 @@ console.log(baseUrl);
         });*/
       }
 
-      // Fetch updated messages in the background
+      // Fetch updated messages in the background to ensure consistency
       fetchMessagesBackground(selectedChatId, companyData.api_token);
+      
+      // Update the temporary message with the actual server response
+      if (data && data.message_id) {
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
+            msg.id === tempMessage.id
+              ? { ...msg, id: data.message_id, status: "sent" }
+              : msg
+          )
+        );
+        
+        setAllMessages((prevAllMessages) =>
+          prevAllMessages.map((msg) =>
+            msg.id === tempMessage.id
+              ? { ...msg, id: data.message_id, status: "sent" }
+              : msg
+          )
+        );
+      }
+      
+      // Immediately trigger a message refresh to ensure the system reflects the sent message
+      setTimeout(() => {
+        pollForNewMessages();
+      }, 1000);
+      
+      // Update the contact's last message in the contact list
+      if (selectedContact) {
+        const finalMessage: Message = {
+          id: data?.message_id || tempMessage.id,
+          text: { body: messageText },
+          chat_id: selectedChatId,
+          timestamp: Math.floor(now.getTime() / 1000),
+          from_me: true,
+          type: "text",
+          phoneIndex: phoneIndex,
+          from_name: userName,
+          status: "sent" as const,
+          created_at: new Date().toISOString()
+        };
+
+        const updateContactWithNewMessage = (contact: Contact) => {
+          if (contact.id === selectedContact.id || 
+              contact.chat_id === selectedContact.chat_id ||
+              contact.contact_id === selectedContact.contact_id) {
+            return {
+              ...contact,
+              last_message: {
+                ...finalMessage,
+                created_at: new Date().toISOString(),
+                status: "sent" as const
+              },
+            };
+          }
+          return contact;
+        };
+
+        setContacts((prevContacts) => 
+          prevContacts.map(updateContactWithNewMessage)
+        );
+        
+        setFilteredContacts((prevFilteredContacts) => 
+          prevFilteredContacts.map(updateContactWithNewMessage)
+        );
+
+        // Update localStorage for contacts
+        const storedContacts = localStorage.getItem("contacts");
+        if (storedContacts) {
+          try {
+            const decompressedContacts = JSON.parse(
+              LZString.decompress(storedContacts)!
+            );
+            const updatedContacts = decompressedContacts.map(updateContactWithNewMessage);
+            localStorage.setItem(
+              "contacts",
+              LZString.compress(JSON.stringify(updatedContacts))
+            );
+          } catch (error) {
+            console.error("Error updating contacts in localStorage:", error);
+          }
+        }
+      }
+      
+      // Update localStorage with the final message
+      const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
+      const updatedMessages = currentMessages.map((msg) =>
+        msg.id === tempMessage.id
+          ? { ...msg, id: data?.message_id || tempMessage.id, status: "sent" }
+          : msg
+      );
+      storeMessagesInLocalStorage(selectedChatId, updatedMessages);
+      
     } catch (error) {
       console.error("Error sending message:", error);
 
-      // Remove temporary message from local storage and UI if send failed
-      const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
-      const filteredMessages = currentMessages.filter(
-        (msg) => msg.id !== tempMessage.id
-      );
-      storeMessagesInLocalStorage(selectedChatId, filteredMessages);
-
+      // Keep the message in UI but mark it as failed
       setMessages((prevMessages) =>
-        prevMessages.filter((msg) => msg.id !== tempMessage.id)
+        prevMessages.map((msg) =>
+          msg.id === tempMessage.id
+            ? { ...msg, status: "failed", error: error instanceof Error ? error.message : "Failed to send" }
+            : msg
+        )
       );
+      
+      setAllMessages((prevAllMessages) =>
+        prevAllMessages.map((msg) =>
+          msg.id === tempMessage.id
+            ? { ...msg, status: "failed", error: error instanceof Error ? error.message : "Failed to send" }
+            : msg
+        )
+      );
+
+      // Update localStorage with failed status
+      const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
+      const updatedMessages = currentMessages.map((msg) =>
+        msg.id === tempMessage.id
+          ? { ...msg, status: "failed", error: error instanceof Error ? error.message : "Failed to send" }
+          : msg
+      );
+      storeMessagesInLocalStorage(selectedChatId, updatedMessages);
+      
+      // Show error toast but keep message visible
+      toast.error("Message sent but may not have been delivered. Please check your connection.");
+    }
+  };
+
+  const handleRetryMessage = async (message: any) => {
+    try {
+      // Remove the failed message from UI
+      setMessages((prevMessages) =>
+        prevMessages.filter((msg) => msg.id !== message.id)
+      );
+      
+      setAllMessages((prevAllMessages) =>
+        prevAllMessages.filter((msg) => msg.id !== message.id)
+      );
+
+      // Remove from localStorage
+      const currentMessages = getMessagesFromLocalStorage(selectedChatId || '') || [];
+      const filteredMessages = currentMessages.filter((msg) => msg.id !== message.id);
+      storeMessagesInLocalStorage(selectedChatId || '', filteredMessages);
+
+      // Retry sending the message
+      await handleSendMessage(message.text?.body || message.text);
+      
+      toast.success("Message retried successfully!");
+    } catch (error) {
+      console.error("Error retrying message:", error);
+      toast.error("Failed to retry message. Please try again.");
     }
   };
 
@@ -5309,7 +5567,7 @@ console.log(baseUrl);
         data = await response.json();
         newTags = data.tags || [];
 
-        // Update both contacts and filteredContacts states
+        // Update both contacts and filteredContacts states immediately
         const updateContactsList = (prevContacts: Contact[]) =>
           prevContacts.map((c) =>
             c.id === contact.id ? { ...c, tags: newTags } : c
@@ -5320,13 +5578,15 @@ console.log(baseUrl);
           updateContactsList(prevFilteredContacts)
         );
 
-        // Update localStorage
+        // Update localStorage immediately
         const updatedContacts = updateContactsList(contacts);
         localStorage.setItem(
           "contacts",
           LZString.compress(JSON.stringify(updatedContacts))
         );
         sessionStorage.setItem("contactsFetched", "true");
+
+        console.log("📝 [TAG] Updated contact tags for:", contact.contactName, "new tags:", newTags);
 
         // Show a success toast
         toast.success(
@@ -5505,6 +5765,37 @@ console.log(baseUrl);
           toast.error(`Failed to assign ${tagName} to contact`);
           return;
         }
+
+        // Update contact immediately with the new assignment
+        const updatedTags = [...(contact.tags || []), tagName];
+        const updateContactsList = (prevContacts: Contact[]) =>
+          prevContacts.map((c) =>
+            c.id === contact.id 
+              ? { ...c, tags: updatedTags, assignedTo: [tagName] }
+              : c
+          );
+
+        setContacts(updateContactsList);
+        setFilteredContacts((prevFilteredContacts) =>
+          updateContactsList(prevFilteredContacts)
+        );
+
+        // Update selectedContact if it's the same contact
+        if (selectedContact && selectedContact.id === contact.id) {
+          setSelectedContact((prevContact: Contact) => ({
+            ...prevContact,
+            tags: updatedTags,
+            assignedTo: [tagName],
+          }));
+        }
+
+        // Update localStorage immediately
+        const updatedContacts = updateContactsList(contacts);
+        localStorage.setItem(
+          "contacts",
+          LZString.compress(JSON.stringify(updatedContacts))
+        );
+
         toast.success(`Contact assigned to ${tagName}`);
         return;
       }
@@ -5544,12 +5835,33 @@ console.log(baseUrl);
         const data = await response.json();
         const newTags = data.tags || [];
 
-        setContacts((prevContacts) =>
+        // Update both contacts and filteredContacts states immediately
+        const updateContactsList = (prevContacts: Contact[]) =>
           prevContacts.map((c) =>
             c.id === contact.id ? { ...c, tags: newTags } : c
-          )
+          );
+
+        setContacts(updateContactsList);
+        setFilteredContacts((prevFilteredContacts) =>
+          updateContactsList(prevFilteredContacts)
         );
 
+        // Update localStorage immediately
+        const updatedContacts = updateContactsList(contacts);
+        localStorage.setItem(
+          "contacts",
+          LZString.compress(JSON.stringify(updatedContacts))
+        );
+
+        // Update selectedContact if it's the same contact
+        if (selectedContact && selectedContact.id === contact.id) {
+          setSelectedContact((prevContact: Contact) => ({
+            ...prevContact,
+            tags: newTags,
+          }));
+        }
+
+        console.log("📝 [TAG] Added tag to contact:", contact.contactName, "tag:", tagName, "new tags:", newTags);
         toast.success(`Tag "${tagName}" added to contact`);
       } else {
         toast.info(`Tag "${tagName}" already exists for this contact`);
@@ -6712,9 +7024,9 @@ console.log(baseUrl);
         throw new Error(errorText || "Failed to remove tag from contact");
       }
 
-      // Update state
-      setContacts((prevContacts) => {
-        return prevContacts.map((contact) =>
+      // Update state immediately
+      const updateContactsList = (prevContacts: Contact[]) =>
+        prevContacts.map((contact) =>
           contact.id === contactId
             ? {
                 ...contact,
@@ -6723,24 +7035,29 @@ console.log(baseUrl);
               }
             : contact
         );
-      });
 
-      const updatedContacts = contacts.map((contact: Contact) =>
-        contact.id === contactId
-          ? {
-              ...contact,
-              tags: contact.tags!.filter((tag: string) => tag !== tagName),
-              assignedTo: undefined,
-            }
-          : contact
+      setContacts(updateContactsList);
+      setFilteredContacts((prevFilteredContacts) =>
+        updateContactsList(prevFilteredContacts)
       );
 
-      const updatedSelectedContact = updatedContacts.find(
-        (contact) => contact.id === contactId
+      // Update localStorage immediately
+      const updatedContacts = updateContactsList(contacts);
+      localStorage.setItem(
+        "contacts",
+        LZString.compress(JSON.stringify(updatedContacts))
       );
-      if (updatedSelectedContact) {
-        setSelectedContact(updatedSelectedContact);
+
+      // Update selectedContact if it's the same contact
+      if (selectedContact && selectedContact.id === contactId) {
+        setSelectedContact((prevContact: Contact) => ({
+          ...prevContact,
+          tags: prevContact.tags!.filter((tag: string) => tag !== tagName),
+          assignedTo: undefined,
+        }));
       }
+
+      console.log("📝 [TAG] Removed tag from contact:", contactId, "tag:", tagName);
       toast.success("Tag removed successfully!");
     } catch (error) {
       console.error("Error removing tag:", error);
@@ -10479,6 +10796,34 @@ console.log(baseUrl);
                                       message.createdAt ||
                                         message.dateAdded ||
                                         message.timestamp
+                                    )}
+                                    
+                                    {/* Message status indicator for sent messages */}
+                                    {message.from_me && (
+                                      <div className="flex items-center ml-2">
+                                        {message.status === "failed" ? (
+                                          <div className="flex items-center space-x-1">
+                                            <Lucide
+                                              icon="XCircle"
+                                              className="w-4 h-4 text-red-500"
+                                              title={message.error || "Failed to send"}
+                                            />
+                                            <button
+                                              onClick={() => handleRetryMessage(message)}
+                                              className="text-xs text-blue-500 hover:text-blue-700 underline"
+                                              title="Retry sending message"
+                                            >
+                                              Retry
+                                            </button>
+                                          </div>
+                                        ) : message.status === "sent" ? (
+                                          <Lucide
+                                            icon="Check"
+                                            className="w-4 h-4 text-green-500"
+                                            title="Message sent"
+                                          />
+                                        ) : null}
+                                      </div>
                                     )}
                                   </div>
                                 </div>

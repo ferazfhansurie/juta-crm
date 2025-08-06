@@ -99,7 +99,7 @@ export class DataImportService {
               name: name,
               date: `${day} ${month} 2025`,
               time: '09:00 - 17:00', // Default time
-              location: 'Kuala Lumpur Convention Centre', // Default location
+              location: 'Centre of Excellence MTDC, Co9P, Idea Tower 1, UPM-MTDC Technology Centre, Serdang, Selangor', // Default location
               description: `AI Horizon Program: ${name}`
             });
           }
@@ -163,7 +163,7 @@ export class DataImportService {
           name: cleanName,
           date: date,
           time: time,
-          location: 'Kuala Lumpur Convention Centre',
+          location: 'Centre of Excellence MTDC, Co9P, Idea Tower 1, UPM-MTDC Technology Centre, Serdang, Selangor',
           description: `MTDC Program: ${cleanName}`
         });
       }
@@ -219,7 +219,7 @@ export class DataImportService {
             name: name,
             date: `${day} ${month} 2025`,
             time: '09:00 - 17:00',
-            location: 'Kuala Lumpur Convention Centre',
+            location: 'Centre of Excellence MTDC, Co9P, Idea Tower 1, UPM-MTDC Technology Centre, Serdang, Selangor',
             description: `Roboconnect 2025: ${name}`
           });
         }
@@ -474,8 +474,8 @@ export class DataImportService {
           end_date: this.parseDate(event.date),
           start_time: event.time.split(' - ')[0] || '09:00',
           end_time: event.time.split(' - ')[1] || '17:00',
-          location: event.location || 'Kuala Lumpur Convention Centre',
-          city: 'Kuala Lumpur',
+          location: event.location || 'Centre of Excellence MTDC, Co9P, Idea Tower 1, UPM-MTDC Technology Centre, Serdang, Selangor',
+          city: 'Serdang',
           state_id: 1,
           country_id: 1,
           company_id: companyId,
