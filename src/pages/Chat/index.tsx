@@ -750,6 +750,7 @@ function Main() {
   const [newQuickReplyType, setNewQuickReplyType] = useState<"all" | "self">(
     "all"
   );
+
   const quickRepliesRef = useRef<HTMLDivElement>(null);
   const [documentModalOpen, setDocumentModalOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
@@ -3330,11 +3331,14 @@ console.log(baseUrl);
 
         const userData = await userResponse.json();
         const companyId = userData.company_id;
+        console.log("🔗 [WEBSOCKET] Connecting for company:", companyId);
+        console.log("🔗 [WEBSOCKET] User email:", userEmail);
 
         // Create WebSocket connection with proper protocol handling
         const wsUrl = window.location.protocol === 'https:' 
           ? `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
           : `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
+        console.log("🔗 [WEBSOCKET] WebSocket URL:", wsUrl);
         ws = new WebSocket(wsUrl);
         setWsConnection(ws);
 
@@ -3343,16 +3347,6 @@ console.log(baseUrl);
           setWsConnected(true);
           setWsError(null);
           setWsReconnectAttempts(0);
-
-          // Subscribe to the current chat if one is selected
-          if (selectedChatId) {
-            ws?.send(
-              JSON.stringify({
-                type: "subscribe",
-                chatId: selectedChatId,
-              })
-            );
-          }
 
           // Show success notification
           toast.success("Real-time connection established", {
@@ -3366,12 +3360,13 @@ console.log(baseUrl);
             console.log("WebSocket message received:", data);
 
             if (data.type === "new_message") {
+              console.log("📨 [WEBSOCKET] Received new_message:", data);
               handleNewMessage(data);
-            } else if (data.type === "subscribed") {
-              console.log("Successfully subscribed to chat:", data.chatId);
             } else if (data.type === "error") {
               console.error("WebSocket error message:", data.message);
               setWsError(data.message);
+            } else {
+              console.log("Unknown WebSocket message type:", data.type, data);
             }
           } catch (err) {
             console.error("WebSocket message parsing error:", err);
@@ -3451,18 +3446,9 @@ console.log(baseUrl);
       }
     };
   }, [wsVersion]); // Empty dependency array - only run on mount
-  // Subscribe to chat when selectedChatId changes
-  useEffect(() => {
-    if (wsConnection && wsConnected && selectedChatId) {
-      console.log("Subscribing to chat:", selectedChatId);
-      wsConnection.send(
-        JSON.stringify({
-          type: "subscribe",
-          chatId: selectedChatId,
-        })
-      );
-    }
-  }, [selectedChatId, wsConnection, wsConnected]);
+
+
+
 
   /*useEffect(() => {
     const fetchContact = async () => {
