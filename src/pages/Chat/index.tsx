@@ -369,6 +369,9 @@ interface Phone {
 }
 
 interface BotStatusResponse {
+  qrCode: string | null;
+  status: string;
+  phoneInfo: boolean;
   phones: Phone[];
   companyId: string;
   v2: boolean;
@@ -886,7 +889,7 @@ function Main() {
         if (!email || !companyId) return;
 
         const response = await fetch(
-          `${baseUrl}/api/categories?companyId=${companyId}`
+          `${baseUrl}/api/quick-reply-categories?companyId=${companyId}`
         );
         if (!response.ok) return;
 
@@ -1368,16 +1371,23 @@ useEffect(() => {
         
         // Check if phones array exists before mapping
         if (data.phones && Array.isArray(data.phones)) {
-          // Transform the new response format to the expected QRCodeData format
-          const qrCodesData: QRCodeData[] = data.phones.map(phone => ({
+          // Multiple phones: transform array to QRCodeData[]
+          const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
             phoneIndex: phone.phoneIndex,
             status: phone.status,
-            qrCode: phone.qrCode
+            qrCode: phone.qrCode,
           }));
-          console.log('qrCodesData:', qrCodesData);
           setQrCodes(qrCodesData);
+        } else if (data.phoneCount === 1 && data.phoneInfo) {
+          // Single phone: create QRCodeData from flat structure
+          setQrCodes([
+            {
+              phoneIndex: 0,
+              status: data.status,
+              qrCode: data.qrCode,
+            },
+          ]);
         } else {
-          console.warn('No phones data in response:', data);
           setQrCodes([]);
         }
       }
@@ -3450,13 +3460,16 @@ console.log(baseUrl);
         setMessageMode("phone1");
       }
       // Set phone index data
-      // Transform phoneNames array to object format
       console.log("Raw phoneNames from API:", data.companyData.phoneNames);
-      if (data.companyData.phoneNames && Array.isArray(data.companyData.phoneNames)) {
-        const phoneNamesObject: Record<number, string> = {};
-        data.companyData.phoneNames.forEach((name: string, index: number) => {
-          phoneNamesObject[index] = name;
-        });
+      if (data.companyData.phoneNames) {
+        let phoneNamesObject: Record<number, string> = {};
+        if (Array.isArray(data.companyData.phoneNames)) {
+          data.companyData.phoneNames.forEach((name: string, index: number) => {
+            phoneNamesObject[index] = name;
+          });
+        } else if (typeof data.companyData.phoneNames === "object") {
+          phoneNamesObject = { ...data.companyData.phoneNames };
+        }
         console.log("Transformed phoneNames object:", phoneNamesObject);
         setPhoneNames(phoneNamesObject);
       } else {
@@ -7867,7 +7880,7 @@ console.log(baseUrl);
                         ? Object.values(phoneNames)[0]
                         : Object.keys(phoneNames).length > 1
                         ? "Select phone"
-                        : "Loading phones..."
+                        : `Loading phones...`
                       }
                     </span>
                     <Lucide

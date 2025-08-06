@@ -43,7 +43,7 @@ function PublicFeedbackForm() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [responses, setResponses] = useState<{ [fieldId: string]: string | number }>({});
-  const [phoneNumber, setPhoneNumber] = useState(phone || '');
+  const [phoneNumber, setPhoneNumber] = useState( '');
   const [baseUrl] = useState<string>('https://juta-dev.ngrok.dev');
 
   useEffect(() => {
