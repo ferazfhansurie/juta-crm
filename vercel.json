@@ -1,5 +1,3 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/" }],
-  "buildCommand": "chmod +x vercel-build.sh && ./vercel-build.sh",
-  "installCommand": "npm install --legacy-peer-deps"
+  "rewrites": [{ "source": "/(.*)", "destination": "/" }]
 }
