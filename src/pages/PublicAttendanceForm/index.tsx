@@ -89,7 +89,7 @@ function PublicAttendanceForm() {
         setIsConfirmed(true);
         setTimeout(() => {
           alert('Attendance confirmed successfully! Thank you for confirming.');
-          navigate('/');
+       
         }, 2000);
       } else {
         throw new Error(response.data.error);
