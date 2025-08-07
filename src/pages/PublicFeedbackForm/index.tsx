@@ -3,6 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Button from "@/components/Base/Button";
 import LoadingIcon from '@/components/Base/LoadingIcon';
 import axios from 'axios';
+import { generateCertificate } from '@/utils/pdfCert';
+import Papa from 'papaparse';
+
+// CSV URL for participant data
+const RSVP_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9Wlb5GVpeT1FUavQdufnLukU1oyRWh1AaKKSJlGoFAAgjqxIh4JeHcNkK58JHT4BBP_qrkQacDtYc/pub?output=csv";
 
 interface FormField {
   id: string;
@@ -118,6 +123,14 @@ function PublicFeedbackForm() {
       const response = await axios.post(`${baseUrl}/api/feedback-forms/submit`, formResponse);
       
       if (response.data.success) {
+        // Generate and download PDF certificate
+        try {
+          await generateAndSendCertificate();
+        } catch (certError) {
+          console.error('Error generating certificate:', certError);
+          // Continue to thank you page even if certificate fails
+        }
+        
         navigate('/thank-you');
       } else {
         throw new Error(response.data.error);
@@ -146,6 +159,206 @@ function PublicFeedbackForm() {
       alert('Failed to submit form. Please try again.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Helper function to fetch and parse CSV data
+  const fetchParticipantData = async () => {
+    try {
+      const response = await fetch(RSVP_CSV_URL);
+      const csvText = await response.text();
+      
+      return new Promise((resolve, reject) => {
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            resolve(results.data);
+          },
+          error: (error: any) => {
+            reject(error);
+          }
+        });
+      });
+    } catch (error) {
+      console.error('Error fetching participant data:', error);
+      return [];
+    }
+  };
+
+  // Helper function to normalize phone number for comparison
+  const normalizePhoneNumber = (phone: string) => {
+    return phone.replace(/\D/g, ""); // Remove all non-digits
+  };
+
+  // Helper function to find participant by phone number
+  const findParticipantByPhone = (participants: any[], phoneNumber: string) => {
+    const normalizedSearchPhone = normalizePhoneNumber(phoneNumber);
+    
+    return participants.find((participant: any) => {
+      const participantPhone = participant.Phone || participant['Mobile Number'] || '';
+      const normalizedParticipantPhone = normalizePhoneNumber(participantPhone);
+      
+      return normalizedParticipantPhone === normalizedSearchPhone;
+    });
+  };
+
+  // Helper function to get company data from NeonDB
+  const getCompanyApiUrl = async () => {
+    const userEmail = localStorage.getItem("userEmail");
+    if (!userEmail) {
+      throw new Error("No user email found");
+    }
+
+    const response = await fetch(
+      `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
+        userEmail
+      )}`,
+      {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch company data");
+    }
+
+    const data = await response.json();
+
+    return {
+      apiUrl:
+        data.companyData.api_url || baseUrl,
+      companyId: data.userData.companyId,
+    };
+  };
+
+  // Helper to upload a file to NeonDB storage and get a public URL
+  const uploadFile = async (file: File | Blob, fileName: string): Promise<string> => {
+    const { apiUrl, companyId } = await getCompanyApiUrl();
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('fileName', fileName);
+    formData.append('companyId', companyId);
+    
+    const response = await fetch(`${apiUrl}/api/upload-file`, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to upload file');
+    }
+    
+    const result = await response.json();
+    return result.url;
+  };
+
+  // Helper to send a WhatsApp document message
+  const sendDocumentMessage = async (chatId: string, documentUrl: string, fileName: string, caption: string) => {
+    const { apiUrl, companyId } = await getCompanyApiUrl();
+    const userName = localStorage.getItem("userName") || localStorage.getItem("userEmail") || '';
+    // Use phoneIndex 0 for now (or extend if needed)
+    const phoneIndex = 0;
+    const response = await fetch(`${apiUrl}/api/v2/messages/document/${companyId}/${chatId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        documentUrl: documentUrl,
+        filename: fileName,
+        phoneIndex: phoneIndex,
+        userName: userName,
+      }),
+    });
+    if (!response.ok) throw new Error(`API failed with status ${response.status}`);
+    return await response.json();
+  };
+
+  // Helper to send a WhatsApp text message
+  const sendTextMessage = async (chatId: string, text: string) => {
+    const { apiUrl, companyId } = await getCompanyApiUrl();
+    const userName = localStorage.getItem("userName") || localStorage.getItem("userEmail") || '';
+    const phoneIndex = 0;
+    const response = await fetch(`${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: text,
+        phoneIndex: phoneIndex,
+        userName: userName,
+      }),
+    });
+    if (!response.ok) throw new Error(`API failed with status ${response.status}`);
+    return await response.json();
+  };
+
+  // Helper function to generate and send certificate via WhatsApp
+  const generateAndSendCertificate = async () => {
+    try {
+      console.log('Starting certificate generation...');
+      
+      // Fetch participant data from CSV
+      console.log('Fetching participant data from CSV...');
+      const participants = await fetchParticipantData() as any[];
+      console.log('Fetched participants:', participants.length);
+      
+      // Find participant by phone number
+      const participant = findParticipantByPhone(participants, phoneNumber);
+      
+      if (!participant) {
+        console.log('No participant found for phone number:', phoneNumber);
+        return; // Don't generate certificate if no match found
+      }
+      
+      // Get participant name from CSV data
+      const participantName = participant['Full Name'] || participant.Nama || participant['Full Namea'] || 'Participant';
+      console.log('Found participant:', participantName);
+      
+      // Generate PDF certificate as blob
+      console.log('Generating PDF certificate...');
+      const certBlob = await generateCertificate(participantName, participant['Program Date & Time'] || undefined, { returnBlob: true }) as Blob;
+      console.log('Certificate generated, blob size:', certBlob.size);
+      
+      // Send WhatsApp message and certificate
+      console.log('Sending WhatsApp message...');
+      await sendWhatsAppMessage(participantName, certBlob, participant);
+      console.log('WhatsApp message sent successfully');
+      
+    } catch (error) {
+      console.error('Error in generateAndSendCertificate:', error);
+      // Don't throw the error - just log it and continue
+      // This ensures the form submission still succeeds even if certificate generation fails
+    }
+  };
+
+  // Helper function to send WhatsApp message and certificate
+  const sendWhatsAppMessage = async (participantName: string, certBlob: Blob, participant: any) => {
+    try {
+      // Format phone number for WhatsApp
+      let phoneDigits = String(phoneNumber).replace(/\D/g, "");
+      if (!phoneDigits.startsWith("6")) phoneDigits = "6" + phoneDigits;
+      const chatId = phoneDigits + "@c.us";
+
+      // Create thank you message based on program date
+      let thankYouText = '';
+      thankYouText = `Dear ${participantName}\n\nThank You for Attending FUTUREX.AI 2025\n\nOn behalf of the organizing team, we would like to extend our heartfelt thanks for your participation in FUTUREX.AI 2025 held on 7 August 2025.\n\nYour presence and engagement in the Business Automation & AI Chatbot Experience session greatly contributed to the success of the event.\n\nWe hope the experience was insightful and inspiring as we continue to explore how artificial intelligence and robotics can shape the future.\n\nWe hope you can join our next event as well.\n\nPlease find your digital certificate of participation attached.\n\nWarm regards,\nCo9P AI Chatbot`;
+
+      // Send text message
+      await sendTextMessage(chatId, thankYouText);
+
+      // Upload certificate and send as document
+      const fileName = `${participantName.replace(/[^a-zA-Z0-9]/g, "_")}_FUTUREX.AI_2025_Certificate.pdf`;
+      const certUrl = await uploadFile(certBlob, fileName);
+      await sendDocumentMessage(chatId, certUrl, fileName, "Certificate of Participation");
+
+    } catch (error) {
+      console.error('Error sending WhatsApp message:', error);
+      // Don't throw the error - just log it
+      // This ensures the form submission still succeeds even if WhatsApp sending fails
     }
   };
 
