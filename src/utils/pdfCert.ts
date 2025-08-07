@@ -1,37 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import download from 'downloadjs';
 
-// Event details mapping by date (add more as needed)
-const EVENT_DETAILS: Record<string, { title: string; subtitle: string; date: string; venue: string; location: string }> = {
-  '17 June 2025': {
-    title: 'ROBOCONNECT 2025:\nInnovate. Integrate. Inspire.',
-    subtitle: 'Smart Robotics in Action- From Code to Career',
-    date: '17 June 2025',
-    venue: 'Co9P Event Hall, Idea Tower 1, UPM-MTDC Technology Centre',
-    location: 'Serdang Selangor',
-  },
-  '19 June 2025': {
-    title: 'ROBOCONNECT 2025:\nInnovate. Integrate. Inspire.',
-    subtitle: 'Bicara CEO: "AI Meets Robotics: Empowering the Next Generation of Intelligent Machines"',
-    date: '19 June 2025',
-    venue: 'Co9P Event Hall, Idea Tower 1, UPM-MTDC Technology Centre',
-    location: 'Serdang Selangor',
-  },
-  '24 June 2025': {
-    title: 'ROBOCONNECT 2025:\nInnovate. Integrate. Inspire.',
-    subtitle: 'Robotics Technology Showcase & K-Youth Launching',
-    date: '24 June 2025',
-    venue: 'Co9P Event Hall, Idea Tower 1, UPM-MTDC Technology Centre',
-    location: 'Serdang Selangor',
-  },
-  '26 June 2025': {
-    title: 'ROBOCONNECT 2025:\nInnovate. Integrate. Inspire.',
-    subtitle: 'Bicara CEO: "A UTM Alumni\'s Journey to Global Robotics"',
-    date: '26 June 2025',
-    venue: 'Co9P Event Hall, Idea Tower 1, UPM-MTDC Technology Centre',
-    location: 'Serdang Selangor',
-  },
-};
+
 
 // Helper to normalize date string to 'D Month YYYY' (e.g., '26/05/2025 09:00:00' -> '26 May 2025')
 function normalizeDateToEventKey(dateStr?: string): string | undefined {
@@ -84,20 +54,13 @@ export async function generateCertificate(
   // Normalize date for lookup
   const normalizedDate = normalizeDateToEventKey(programDate);
   console.log(normalizedDate);
-  console.log('EVENT_DETAILS' ,EVENT_DETAILS)
-  const details = (normalizedDate && EVENT_DETAILS[normalizedDate]) || {
-    title: 'Co9P Gen.AI Program Series 2025',
-    subtitle: 'Business Automation & AI Chatbot Experience',
-    date: normalizedDate || programDate || '',
-    venue: 'Co9P Event Hall, Idea Tower 1, UPM-MTDC Technology Centre',
-    location: 'Serdang Selangor',
-  };
+
 
  
 
   let subtitleY = 225;
   // Subtitle (medium font)
-  if (details.subtitle) {
+ 
     // Helper to split text into lines that fit within a given width
     function splitTextToLines(text: string, font: any, fontSize: number, maxWidth: number): string[] {
       const words = text.split(' ');
@@ -122,7 +85,7 @@ export async function generateCertificate(
     const subtitleMaxWidth = 500; // Increased width for your layout
 
     const subtitleLineHeight = 18; // Adjust for spacing between lines
-    let subtitleLines = splitTextToLines(details.subtitle, subtitleFont, subtitleFontSize, subtitleMaxWidth);
+    let subtitleLines = splitTextToLines('Business Automation & AI Chatbot Experience', subtitleFont, subtitleFontSize, subtitleMaxWidth);
     if (subtitleLines.length > 3) {
       // Truncate to 3 lines and add ellipsis to the last line
       const firstTwo = subtitleLines.slice(0, 2);
@@ -157,21 +120,21 @@ export async function generateCertificate(
     if (subtitleLines.length < 2) {
       subtitleY -= 8; // You can adjust this value for more/less space
     }
-  }
+
 
   // Date (medium font)
-  if (details.date) {
-    page.drawText(details.date, {
+
+    page.drawText('7 August 2025', {
       x: 520,
       y: subtitleY,
       size: 14,
       font: helveticaBold,
       color: rgb(0, 0, 0),
     });
-  }
+
 
   // Venue (small font)
-  page.drawText(details.venue, {
+  page.drawText('Co9P Event Hall, Idea Tower 1, UPM-MTDC Technology Centre', {
     x: 395,
     y: 172,
     size: 12,
@@ -180,7 +143,7 @@ export async function generateCertificate(
   });
 
   // Location (small font)
-  page.drawText(details.location, {
+  page.drawText('Serdang Selangor', {
     x: 520,
     y: 162,
     size: 12,
@@ -199,3 +162,4 @@ export async function generateCertificate(
     download(pdfBytes, `${participantName}_FUTUREX.AI_2025__Certificate.pdf`, 'application/pdf');
   }
 }
+
