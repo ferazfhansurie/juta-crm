@@ -226,11 +226,30 @@ function Main() {
     sortKey?: string;
   };
 
-  interface QRCodeData {
-    phoneIndex: number;
-    status: string;
-    qrCode: string | null;
-  }
+  interface Phone {
+  phoneIndex: number;
+  status: string;
+  qrCode: string | null;
+  phoneInfo: string;
+}
+
+interface QRCodeData {
+  phoneIndex: number;
+  status: string;
+  qrCode: string | null;
+}
+
+interface BotStatusResponse {
+  qrCode: string | null;
+  status: string;
+  phoneInfo: boolean;
+  phones: Phone[];
+  companyId: string;
+  v2: boolean;
+  trialEndDate: string | null;
+  apiUrl: string | null;
+  phoneCount: number;
+}
 
   const DatePickerComponent = DatePicker as any;
 
@@ -5207,30 +5226,45 @@ const handleConfirmSyncFirebase = async () => {
 
   // Add this effect to fetch phone statuses periodically
   useEffect(() => {
-    // ... existing code ...
     const fetchPhoneStatuses = async () => {
       try {
         console.log("fetching status");
         setIsLoadingStatus(true);
 
-        // Get phone statuses from the localhost API
-        const response = await axios.get(
-          `${baseUrl}/api/phone-status/${companyId}`
+        const botStatusResponse = await axios.get(
+          `${baseUrl}/api/bot-status/${companyId}`
         );
-        console.log("Phone status API response data:", response.data); // <-- Add this line
 
-        if (response.status === 200) {
-          // Map the database response to QR code format
-          const qrCodesData = response.data.map((status: any) => ({
-            phoneIndex: parseInt(status.phone_number.split("_")[1] || "0"),
-            status: status.status,
-            qrCode: status.metadata?.qrCode || null,
-          }));
+        if (botStatusResponse.status === 200) {
+          const data: BotStatusResponse = botStatusResponse.data;
+          let qrCodesData: QRCodeData[] = [];
 
-          setQrCodes(qrCodesData);
+          // Check if phones array exists before mapping
+          if (data.phones && Array.isArray(data.phones)) {
+            // Multiple phones: transform array to QRCodeData[]
+            qrCodesData = data.phones.map((phone: any) => ({
+              phoneIndex: phone.phoneIndex,
+              status: phone.status,
+              qrCode: phone.qrCode,
+            }));
+            setQrCodes(qrCodesData);
+          
+          } else if ((data.phoneCount === 1 || data.phoneCount === 0) && data.phoneInfo) {
+            // Single phone: create QRCodeData from flat structure
+            qrCodesData = [
+              {
+                phoneIndex: 0,
+                status: data.status,
+                qrCode: data.qrCode,
+              },
+            ];
+            setQrCodes(qrCodesData);
+          } else {
+            setQrCodes([]);
+          }
 
           // If no phone is selected and we have connected phones, select the first connected one
-          if (selectedPhone === null) {
+          if (selectedPhone === null && qrCodesData.length > 0) {
             const connectedPhoneIndex = qrCodesData.findIndex(
               (phone: { status: string }) =>
                 phone.status === "ready" || phone.status === "authenticated"
@@ -5246,7 +5280,6 @@ const handleConfirmSyncFirebase = async () => {
         setIsLoadingStatus(false);
       }
     };
-    // ... existing code ...
 
     if (companyId) {
       fetchPhoneStatuses();

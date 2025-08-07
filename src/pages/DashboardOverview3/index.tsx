@@ -39,13 +39,20 @@ const CustomPieChart: React.FC<CustomPieChartProps> = ({
   className = "" 
 }) => {
   const chartData: ChartData = useMemo(() => {
+    // Ensure we have valid data
+    const validData = data.filter((value, index) => value > 0 && labels[index]);
+    const validLabels = labels.filter((label, index) => data[index] > 0);
+    
+    // Ensure colors array matches data length
+    const validColors = validData.map((_, index) => colors[index % colors.length]);
+    
     return {
-      labels: labels,
+      labels: validLabels,
       datasets: [
         {
-          data: data,
-          backgroundColor: colors,
-          hoverBackgroundColor: colors,
+          data: validData,
+          backgroundColor: validColors,
+          hoverBackgroundColor: validColors,
           borderWidth: 2,
           borderColor: '#ffffff',
         },
@@ -56,14 +63,34 @@ const CustomPieChart: React.FC<CustomPieChartProps> = ({
   const options: ChartOptions = useMemo(() => {
     return {
       maintainAspectRatio: false,
+      responsive: true,
       plugins: {
         legend: {
           display: true,
           position: 'bottom' as const,
+          labels: {
+            padding: 20,
+            usePointStyle: true,
+          },
+        },
+        tooltip: {
+          enabled: true,
         },
       },
     };
   }, []);
+
+  // Don't render if no valid data
+  if (!data || data.length === 0 || data.every(val => val === 0)) {
+    return (
+      <div className={`flex items-center justify-center ${className}`} style={{ width, height }}>
+        <div className="text-gray-500 text-center">
+          <div className="text-lg font-semibold">No Data Available</div>
+          <div className="text-sm">Select a program to view statistics</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Chart
@@ -73,6 +100,7 @@ const CustomPieChart: React.FC<CustomPieChartProps> = ({
       data={chartData}
       options={options}
       className={className}
+      getRef={() => {}}
     />
   );
 };
@@ -1228,6 +1256,8 @@ function DashboardOverview3() {
               data={selectedProgramProfessions.map(p => p.value)}
               labels={selectedProgramProfessions.map(p => p.label)}
               colors={chartColors}
+              width={300}
+              height={300}
             />
           </div>
           <div>
@@ -1238,6 +1268,8 @@ function DashboardOverview3() {
               data={selectedProgramCategories.map(c => c.value)}
               labels={selectedProgramCategories.map(c => c.label)}
               colors={chartColors}
+              width={300}
+              height={300}
             />
           </div>
         </div>
