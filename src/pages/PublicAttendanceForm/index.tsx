@@ -55,12 +55,12 @@ function PublicAttendanceForm() {
         setEvent(response.data.event);
       } else {
         alert('Event not found or inactive');
-        navigate('/');
+   
       }
     } catch (error) {
       console.error('Error fetching event:', error);
       alert('Failed to load event');
-      navigate('/');
+
     } finally {
       setIsLoading(false);
     }
