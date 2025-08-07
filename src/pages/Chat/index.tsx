@@ -567,6 +567,7 @@ interface ContactsState {
   currentPage: number;
 }
 
+
 function Main() {
   // Initial state setup with localStorage
   const { contacts: contextContacts, isLoading: contextLoading } =
@@ -776,6 +777,15 @@ function Main() {
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadedPages, setLoadedPages] = useState<Set<number>>(new Set());
+
+  // Real progress tracking for loading contacts
+  const [realLoadingProgress, setRealLoadingProgress] = useState(0);
+  const [loadingSteps, setLoadingSteps] = useState({
+    userConfig: false,
+    contactsFetch: false,
+    contactsProcess: false,
+    complete: false
+  });
 
   // Add back missing state variables
   const [isRecording, setIsRecording] = useState(false);
@@ -1520,12 +1530,18 @@ function Main() {
     }
 
     setIsInitialLoading(true);
-    setLoadingProgress(0);
+    setRealLoadingProgress(0);
+    setLoadingSteps({
+      userConfig: false,
+      contactsFetch: false,
+      contactsProcess: false,
+      complete: false
+    });
 
     try {
-      // Get user config to get companyId
-      setLoadingProgress(5);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Step 1: Get user config to get companyId (25%)
+      setRealLoadingProgress(30);
+      setLoadingSteps(prev => ({ ...prev, userConfig: true }));
       
       const userResponse = await fetch(
         `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
@@ -1544,18 +1560,13 @@ function Main() {
         return;
       }
 
-      setLoadingProgress(15);
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      setRealLoadingProgress(60);
       const userData = await userResponse.json();
       const companyId = userData.company_id;
       
-      setLoadingProgress(25);
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Fetch all contacts from SQL database (original API call)
-      setLoadingProgress(35);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Step 2: Fetch contacts from database (50%)
+      setRealLoadingProgress(80);
+      setLoadingSteps(prev => ({ ...prev, contactsFetch: true }));
       
       const contactsResponse = await fetch(
         `${baseUrl}/api/companies/${companyId}/contacts?email=${userEmail}`,
@@ -1574,46 +1585,40 @@ function Main() {
         return;
       }
 
-      setLoadingProgress(50);
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      setRealLoadingProgress(90);
       const data = await contactsResponse.json();
       
-      setLoadingProgress(60);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Step 3: Process contacts (75%)
+      setRealLoadingProgress(95);
+      setLoadingSteps(prev => ({ ...prev, contactsProcess: true }));
       
-      // Process contacts with real-time progress
+      // Process contacts with real-time progress - ultra fast processing
       const allContacts = [];
       const totalContacts = data.contacts.length;
       
-      for (let i = 0; i < totalContacts; i++) {
-        const contact = data.contacts[i];
-        allContacts.push({
-          ...contact,
-          id: contact.id,
-          chat_id: contact.chat_id,
-          contactName: contact.name,
-          phone: contact.phone,
-          email: contact.email,
-          profile: contact.profile,
-          profilePicUrl: contact.profileUrl,
-          tags: contact.tags,
-          createdAt: contact.createdAt,
-          lastUpdated: contact.lastUpdated,
-          last_message: contact.last_message,
-          isIndividual: contact.isIndividual,
-        } as Contact);
-        
-        // Update progress every 100 contacts or at least every 1%
-        if (i % Math.max(1, Math.floor(totalContacts / 100)) === 0) {
-          const progress = 60 + Math.floor((i / totalContacts) * 30);
-          setLoadingProgress(progress);
-          await new Promise(resolve => setTimeout(resolve, 10));
-        }
-      }
-
-      setLoadingProgress(95);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Process all contacts at once for maximum speed
+      allContacts.push(...data.contacts.map((contact: any) => ({
+        ...contact,
+        id: contact.id,
+        chat_id: contact.chat_id,
+        contactName: contact.name,
+        phone: contact.phone,
+        email: contact.email,
+        profile: contact.profile,
+        profilePicUrl: contact.profileUrl,
+        tags: contact.tags,
+        createdAt: contact.createdAt,
+        lastUpdated: contact.lastUpdated,
+        last_message: contact.last_message,
+        isIndividual: contact.isIndividual,
+      } as Contact)));
+      
+      // Update progress to 100% immediately
+      setRealLoadingProgress(100);
+      setLoadingSteps(prev => ({ ...prev, complete: true }));
+      
+      // Minimal delay for UI update
+      await new Promise(resolve => setTimeout(resolve, 5));
 
       // Set total contacts count
       setTotalContacts(allContacts.length);
@@ -1631,14 +1636,22 @@ function Main() {
       }
       setLoadedPages(initialLoadedPages);
       
-      setLoadingProgress(100);
+      // Step 4: Complete loading (100%)
+      setRealLoadingProgress(100);
+      setLoadingSteps(prev => ({ ...prev, complete: true }));
       await new Promise(resolve => setTimeout(resolve, 200));
     } catch (error) {
       console.error("Error fetching contacts:", error);
       toast.error("Error fetching contacts");
     } finally {
       setIsInitialLoading(false);
-      setLoadingProgress(0);
+      setRealLoadingProgress(0);
+      setLoadingSteps({
+        userConfig: false,
+        contactsFetch: false,
+        contactsProcess: false,
+        complete: false
+      });
     }
   };
 
@@ -8402,28 +8415,10 @@ console.log(baseUrl);
                 {companyName}
               </div>
               <div className="flex items-center gap-3">
-                              <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
-                Total Contacts: {totalContacts}
-              </div>
-              
-              {/* Loading Progress Bar */}
-              {isInitialLoading && (
-                <div className="mt-2">
-                  <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
-                    <span>Loading contacts...</span>
-                    <span>{loadingProgress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                            <div 
-                          className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
-                          style={{ width: `${loadingProgress}%` }}
-                        ></div>
-                  </div>
+                <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
+                  Total Contacts: {totalContacts}
                 </div>
-              )}
-
-
-
+                
                 {/* Error Message - Show below if there's an error */}
                 {wsError && (
                   <div className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
@@ -9481,20 +9476,32 @@ console.log(baseUrl);
                     <div className="mt-4 w-full max-w-xs">
                       <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
                         <span>Loading contacts...</span>
-                        <span>{loadingProgress}%</span>
+                        <span>{realLoadingProgress}%</span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div 
                           className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
-                          style={{ width: `${loadingProgress}%` }}
+                          style={{ width: `${realLoadingProgress}%` }}
                         ></div>
                       </div>
+                      {loadingSteps.userConfig && (
+                        <div className="text-xs text-gray-500 mt-1">✓ User configuration loaded</div>
+                      )}
+                      {loadingSteps.contactsFetch && (
+                        <div className="text-xs text-gray-500 mt-1">✓ Contacts fetched</div>
+                      )}
+                      {loadingSteps.contactsProcess && (
+                        <div className="text-xs text-gray-500 mt-1">✓ Processing contacts...</div>
+                      )}
+                      {loadingSteps.complete && (
+                        <div className="text-xs text-green-500 mt-1">✓ Loading complete!</div>
+                      )}
                     </div>
                   )}
                 </div>
               )}
             </div>
-          ) : (
+          ) : !isInitialLoading ? (
             paginatedContacts.map((contact, index) => (
               <React.Fragment
                 key={
@@ -9894,29 +9901,69 @@ console.log(baseUrl);
                 )}
               </React.Fragment>
             ))
-          )}
+          ) : null}
         </div>
         <div className={`flex justify-center items-center mt-4 mb-4 ${isLoadingMoreContacts ? 'opacity-50' : ''}`}>
           <ReactPaginate
-            breakLabel="..."
+            breakLabel="…"
             nextLabel="Next"
             onPageChange={isLoadingMoreContacts ? () => {} : handlePageChange}
-            pageRangeDisplayed={2}
+            pageRangeDisplayed={5}
+            marginPagesDisplayed={2}
             pageCount={Math.ceil(totalContacts / contactsPerPage)}
             previousLabel="Previous"
             renderOnZeroPageCount={null}
-            containerClassName="flex justify-center items-center"
-            pageClassName="mx-1"
-            pageLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
-            previousClassName="mx-1"
-            nextClassName="mx-1"
-            previousLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
-            nextLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+            containerClassName="flex justify-center items-center flex-wrap gap-1"
+            pageClassName="mx-0.5"
+            pageLinkClassName="px-1.5 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs min-w-[28px] text-center"
+            previousClassName="mx-0.5"
+            nextClassName="mx-0.5"
+            previousLinkClassName="px-1.5 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs"
+            nextLinkClassName="px-1.5 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs"
             disabledClassName="opacity-50 cursor-not-allowed"
             activeClassName="font-bold"
             activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
             forcePage={currentPage}
           />
+          
+          {/* Quick Navigation */}
+          <div className="flex items-center gap-2 ml-4">
+            <span className="text-xs text-gray-600 dark:text-gray-400">Go to:</span>
+            <input
+              type="number"
+              min="1"
+              max={Math.ceil(totalContacts / contactsPerPage)}
+              value={currentPage + 1}
+              onChange={(e) => {
+                const page = parseInt(e.target.value) - 1;
+                if (page >= 0 && page < Math.ceil(totalContacts / contactsPerPage)) {
+                  handlePageChange({ selected: page });
+                }
+              }}
+              className="w-16 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+            />
+            <span className="text-xs text-gray-600 dark:text-gray-400">
+              of {Math.ceil(totalContacts / contactsPerPage)}
+            </span>
+            
+            {/* Quick Jump Buttons */}
+            <div className="flex items-center gap-1 ml-2">
+              <button
+                onClick={() => handlePageChange({ selected: 0 })}
+                disabled={currentPage === 0}
+                className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
+              >
+                First
+              </button>
+              <button
+                onClick={() => handlePageChange({ selected: Math.ceil(totalContacts / contactsPerPage) - 1 })}
+                disabled={currentPage === Math.ceil(totalContacts / contactsPerPage) - 1}
+                className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
+              >
+                Last
+              </button>
+            </div>
+          </div>
         </div>
         {isLoadingMoreContacts && (
           <div className="flex flex-col items-center justify-center mt-4 mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
