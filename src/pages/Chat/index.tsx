@@ -10650,82 +10650,88 @@ console.log(baseUrl);
                                   </div>
                                 )}
                               {message.type === "image" && message.image && (
-                                <div className="p-0 message-content image-message">
-                                  <img
-                                    src={(() => {
-                                      // Priority: base64 data > url > link
-                                      if (
-                                        message.image.data &&
-                                        message.image.mimetype
-                                      ) {
-                                        return `data:${message.image.mimetype};base64,${message.image.data}`;
-                                      }
-                                      if (message.image.url) {
-                                        return getFullImageUrl(
-                                          message.image.url
+                                <>
+                                  <div className="p-0 message-content image-message">
+                                    <img
+                                      src={(() => {
+                                        // Priority: base64 data > url > link
+                                        if (
+                                          message.image.data &&
+                                          message.image.mimetype
+                                        ) {
+                                          return `data:${message.image.mimetype};base64,${message.image.data}`;
+                                        }
+                                        if (message.image.url) {
+                                          return getFullImageUrl(
+                                            message.image.url
+                                          );
+                                        }
+                                        if (message.image.link) {
+                                          return getFullImageUrl(
+                                            message.image.link
+                                          );
+                                        }
+                                        console.warn(
+                                          "No valid image source found:",
+                                          message.image
                                         );
-                                      }
-                                      if (message.image.link) {
-                                        return getFullImageUrl(
-                                          message.image.link
+                                        return logoImage; // Fallback to placeholder
+                                      })()}
+                                      alt="Image"
+                                      className="rounded-lg message-image cursor-pointer"
+                                      style={{
+                                        maxWidth: "auto",
+                                        maxHeight: "auto",
+                                        objectFit: "contain",
+                                      }}
+                                      onClick={() => {
+                                        const imageUrl =
+                                          message.image?.data &&
+                                          message.image?.mimetype
+                                            ? `data:${message.image.mimetype};base64,${message.image.data}`
+                                            : message.image?.url
+                                            ? getFullImageUrl(message.image.url)
+                                            : message.image?.link
+                                            ? getFullImageUrl(message.image.link)
+                                            : "";
+                                        if (imageUrl) {
+                                          openImageModal(imageUrl);
+                                        }
+                                      }}
+                                      onError={(e) => {
+                                        const originalSrc = e.currentTarget.src;
+                                        console.error(
+                                          "Error loading image:",
+                                          originalSrc
                                         );
-                                      }
-                                      console.warn(
-                                        "No valid image source found:",
-                                        message.image
-                                      );
-                                      return logoImage; // Fallback to placeholder
-                                    })()}
-                                    alt="Image"
-                                    className="rounded-lg message-image cursor-pointer"
-                                    style={{
-                                      maxWidth: "auto",
-                                      maxHeight: "auto",
-                                      objectFit: "contain",
-                                    }}
-                                    onClick={() => {
-                                      const imageUrl =
-                                        message.image?.data &&
-                                        message.image?.mimetype
-                                          ? `data:${message.image.mimetype};base64,${message.image.data}`
-                                          : message.image?.url
-                                          ? getFullImageUrl(message.image.url)
-                                          : message.image?.link
-                                          ? getFullImageUrl(message.image.link)
-                                          : "";
-                                      if (imageUrl) {
-                                        openImageModal(imageUrl);
-                                      }
-                                    }}
-                                    onError={(e) => {
-                                      const originalSrc = e.currentTarget.src;
-                                      console.error(
-                                        "Error loading image:",
-                                        originalSrc
-                                      );
-                                      console.error(
-                                        "Image object:",
-                                        message.image
-                                      );
-                                      // Prevent infinite loop by checking if we're already showing the fallback
-                                      if (originalSrc !== logoImage) {
-                                        e.currentTarget.src = logoImage;
-                                      }
-                                    }}
-                                  />
+                                        console.error(
+                                          "Image object:",
+                                          message.image
+                                        );
+                                        // Prevent infinite loop by checking if we're already showing the fallback
+                                        if (originalSrc !== logoImage) {
+                                          e.currentTarget.src = logoImage;
+                                        }
+                                      }}
+                                    />
+                                  </div>
                                   {message.image?.caption && (
                                     <div
-                                      className="mt-2 text-sm font-medium text-gray-200 dark:text-gray-200 break-words"
+                                      className={`p-2 mb-2 rounded ${
+                                        message.from_me ? myFirstMessageClass : otherFirstMessageClass
+                                      }`}
                                       style={{
-                                        maxWidth: "100%",
-                                        wordBreak: "break-word",
+                                        maxWidth: "70%",
+                                        width: `${Math.min((message.image.caption.length || 0) * 10, 350)}px`,
+                                        minWidth: "75px",
                                       }}
-                                      data-testid="image-caption"
                                     >
-                                      {message.image.caption}
+                                                                              <div className="whitespace-pre-wrap break-words text-black dark:text-white">
+                                          {message.image.caption}
+                                        </div>
                                     </div>
                                   )}
-                                </div>
+                                </>
                               )}
                               {message.type === "order" && message.order && (
                                 <div className="p-0 message-content">
@@ -10781,68 +10787,96 @@ console.log(baseUrl);
                                 </div>
                               )}
                               {message.type === "gif" && message.gif && (
-                                <div className="gif-content p-0 message-content image-message">
-                                  <img
-                                    src={message.gif.link}
-                                    alt="GIF"
-                                    className="rounded-lg message-image cursor-pointer"
-                                    style={{ maxWidth: "300px" }}
-                                    onClick={() =>
-                                      openImageModal(message.gif?.link || "")
-                                    }
-                                  />
-                                  <div className="caption text-white dark:text-gray-200">
-                                    {message.gif.caption}
+                                <>
+                                  <div className="gif-content p-0 message-content image-message">
+                                    <img
+                                      src={message.gif.link}
+                                      alt="GIF"
+                                      className="rounded-lg message-image cursor-pointer"
+                                      style={{ maxWidth: "300px" }}
+                                      onClick={() =>
+                                        openImageModal(message.gif?.link || "")
+                                      }
+                                    />
                                   </div>
-                                </div>
+                                  {message.gif?.caption && (
+                                    <div
+                                      className={`p-2 mb-2 rounded ${
+                                        message.from_me ? myFirstMessageClass : otherFirstMessageClass
+                                      }`}
+                                      style={{
+                                        maxWidth: "70%",
+                                        width: `${Math.min((message.gif.caption.length || 0) * 10, 350)}px`,
+                                        minWidth: "75px",
+                                      }}
+                                    >
+                                      <div className="whitespace-pre-wrap break-words text-black dark:text-white">
+                                        {message.gif.caption}
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
                               )}
                               {(message.type === "audio" ||
                                 message.type === "ptt") &&
                                 (message.audio || message.ptt) && (
-                                  <div className="audio-content p-0 message-content image-message">
-                                    <audio
-                                      controls
-                                      className="rounded-lg message-image cursor-pointer"
-                                      src={(() => {
-                                        const audioData =
-                                          message.audio?.data ||
-                                          message.ptt?.data;
-                                        const mimeType =
-                                          message.audio?.mimetype ||
-                                          message.ptt?.mimetype;
-                                        if (audioData && mimeType) {
-                                          const byteCharacters =
-                                            atob(audioData);
-                                          const byteNumbers = new Array(
-                                            byteCharacters.length
-                                          );
-                                          for (
-                                            let i = 0;
-                                            i < byteCharacters.length;
-                                            i++
-                                          ) {
-                                            byteNumbers[i] =
-                                              byteCharacters.charCodeAt(i);
+                                  <>
+                                    <div className="audio-content p-0 message-content image-message">
+                                      <audio
+                                        controls
+                                        className="rounded-lg message-image cursor-pointer"
+                                        src={(() => {
+                                          const audioData =
+                                            message.audio?.data ||
+                                            message.ptt?.data;
+                                          const mimeType =
+                                            message.audio?.mimetype ||
+                                            message.ptt?.mimetype;
+                                          if (audioData && mimeType) {
+                                            const byteCharacters =
+                                              atob(audioData);
+                                            const byteNumbers = new Array(
+                                              byteCharacters.length
+                                            );
+                                            for (
+                                              let i = 0;
+                                              i < byteCharacters.length;
+                                              i++
+                                            ) {
+                                              byteNumbers[i] =
+                                                byteCharacters.charCodeAt(i);
+                                            }
+                                            const byteArray = new Uint8Array(
+                                              byteNumbers
+                                            );
+                                            const blob = new Blob([byteArray], {
+                                              type: mimeType,
+                                            });
+                                            return URL.createObjectURL(blob);
                                           }
-                                          const byteArray = new Uint8Array(
-                                            byteNumbers
-                                          );
-                                          const blob = new Blob([byteArray], {
-                                            type: mimeType,
-                                          });
-                                          return URL.createObjectURL(blob);
-                                        }
-                                        return "";
-                                      })()}
-                                    />
+                                          return "";
+                                        })()}
+                                      />
+                                    </div>
                                     {(message.audio?.caption ||
                                       message.ptt?.caption) && (
-                                      <div className="caption text-white dark:text-gray-200 mt-2">
-                                        {message.audio?.caption ||
-                                          message.ptt?.caption}
+                                      <div
+                                        className={`p-2 mb-2 rounded ${
+                                          message.from_me ? myFirstMessageClass : otherFirstMessageClass
+                                        }`}
+                                        style={{
+                                          maxWidth: "70%",
+                                          width: `${Math.min(((message.audio?.caption || message.ptt?.caption || "").length || 0) * 10, 350)}px`,
+                                          minWidth: "75px",
+                                        }}
+                                      >
+                                        <div className="whitespace-pre-wrap break-words text-black dark:text-white">
+                                          {message.audio?.caption ||
+                                            message.ptt?.caption}
+                                        </div>
                                       </div>
                                     )}
-                                  </div>
+                                  </>
                                 )}
                               {message.type === "voice" && message.voice && (
                                 <div className="voice-content p-0 message-content image-message w-auto h-auto">
@@ -10855,91 +10889,103 @@ console.log(baseUrl);
                               )}
                               {message.type === "document" &&
                                 message.document && (
-                                  <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
-                                    <div
-                                      className="w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 p-4 rounded-lg"
-                                      onClick={() => {
-                                        if (message.document) {
-                                          const docUrl =
-                                            message.document.link ||
-                                            (message.document.data
-                                              ? `data:${message.document.mimetype};base64,${message.document.data}`
-                                              : null);
-                                          if (docUrl) {
-                                            openPDFModal(docUrl);
+                                  <>
+                                    <div className="document-content flex flex-col items-center p-4 rounded-md shadow-md bg-white dark:bg-gray-800">
+                                      <div
+                                        className="w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 p-4 rounded-lg"
+                                        onClick={() => {
+                                          if (message.document) {
+                                            const docUrl =
+                                              message.document.link ||
+                                              (message.document.data
+                                                ? `data:${message.document.mimetype};base64,${message.document.data}`
+                                                : null);
+                                            if (docUrl) {
+                                              openPDFModal(docUrl);
+                                            }
                                           }
-                                        }
-                                      }}
-                                    >
-                                      <div className="flex items-center">
-                                        {message.document.mimetype?.startsWith(
-                                          "video/"
-                                        ) ? (
-                                          <Lucide
-                                            icon="Video"
-                                            className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3"
-                                          />
-                                        ) : message.document.mimetype?.startsWith(
-                                            "image/"
+                                        }}
+                                      >
+                                        <div className="flex items-center">
+                                          {message.document.mimetype?.startsWith(
+                                            "video/"
                                           ) ? (
-                                          <Lucide
-                                            icon="Image"
-                                            className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3"
-                                          />
-                                        ) : message.document.mimetype?.includes(
-                                            "pdf"
-                                          ) ? (
-                                          <Lucide
-                                            icon="FileText"
-                                            className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3"
-                                          />
-                                        ) : (
-                                          <Lucide
-                                            icon="File"
-                                            className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3"
-                                          />
-                                        )}
+                                            <Lucide
+                                              icon="Video"
+                                              className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3"
+                                            />
+                                          ) : message.document.mimetype?.startsWith(
+                                              "image/"
+                                            ) ? (
+                                            <Lucide
+                                              icon="Image"
+                                              className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3"
+                                            />
+                                          ) : message.document.mimetype?.includes(
+                                              "pdf"
+                                            ) ? (
+                                            <Lucide
+                                              icon="FileText"
+                                              className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3"
+                                            />
+                                          ) : (
+                                            <Lucide
+                                              icon="File"
+                                              className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3"
+                                            />
+                                          )}
 
-                                        <div className="flex-1">
-                                          <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">
-                                            {message.document.file_name ||
-                                              message.document.filename ||
-                                              "Document"}
+                                          <div className="flex-1">
+                                            <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+                                              {message.document.file_name ||
+                                                message.document.filename ||
+                                                "Document"}
+                                            </div>
+                                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                                              {message.document.page_count &&
+                                                `${
+                                                  message.document.page_count
+                                                } page${
+                                                  message.document.page_count > 1
+                                                    ? "s"
+                                                    : ""
+                                                } • `}
+                                              {message.document.mimetype ||
+                                                "Unknown"}{" "}
+                                              •{" "}
+                                              {(
+                                                (message.document.file_size ||
+                                                  message.document.fileSize ||
+                                                  0) /
+                                                (1024 * 1024)
+                                              ).toFixed(2)}{" "}
+                                              MB
+                                            </div>
                                           </div>
-                                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                                            {message.document.page_count &&
-                                              `${
-                                                message.document.page_count
-                                              } page${
-                                                message.document.page_count > 1
-                                                  ? "s"
-                                                  : ""
-                                              } • `}
-                                            {message.document.mimetype ||
-                                              "Unknown"}{" "}
-                                            •{" "}
-                                            {(
-                                              (message.document.file_size ||
-                                                message.document.fileSize ||
-                                                0) /
-                                              (1024 * 1024)
-                                            ).toFixed(2)}{" "}
-                                            MB
-                                          </div>
+                                          <Lucide
+                                            icon="ExternalLink"
+                                            className="w-5 h-5 text-gray-400 dark:text-gray-500 ml-3"
+                                          />
                                         </div>
-                                        <Lucide
-                                          icon="ExternalLink"
-                                          className="w-5 h-5 text-gray-400 dark:text-gray-500 ml-3"
-                                        />
                                       </div>
                                     </div>
-
                                     {message.document?.caption && (
-                                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                        {message.document.caption}
-                                      </p>
+                                      <div
+                                        className={`p-2 mb-2 rounded ${
+                                          message.from_me ? myFirstMessageClass : otherFirstMessageClass
+                                        }`}
+                                        style={{
+                                          maxWidth: "70%",
+                                          width: `${Math.min((message.document.caption.length || 0) * 10, 350)}px`,
+                                          minWidth: "75px",
+                                        }}
+                                      >
+                                        <div className="whitespace-pre-wrap break-words text-black dark:text-white">
+                                          {message.document.caption}
+                                        </div>
+                                      </div>
                                     )}
-                                  </div>
+                                  </>
                                 )}
                               {message.type === "link_preview" &&
                                 message.link_preview && (
