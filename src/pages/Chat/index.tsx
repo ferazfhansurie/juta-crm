@@ -675,7 +675,7 @@ function Main() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  const [contactsPerPage] = useState(50);
+  const [contactsPerPage] = useState(20); // Show 20 contacts per page
   const contactListRef = useRef<HTMLDivElement>(null);
   const [response, setResponse] = useState<string>("");
   const [qrCodeImage, setQrCodeImage] = useState<string>("");
@@ -767,19 +767,26 @@ function Main() {
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [caption, setCaption] = useState(""); // Add this line to define setCaption
+
+  // Add new state variables for lazy loading pagination
+  const [loadedContacts, setLoadedContacts] = useState<Contact[]>([]);
+  const [isLoadingMoreContacts, setIsLoadingMoreContacts] = useState(false);
+  const [hasMoreContacts, setHasMoreContacts] = useState(true);
+  const [lastLoadedPage, setLastLoadedPage] = useState(-1);
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadedPages, setLoadedPages] = useState<Set<number>>(new Set());
+
+  // Add back missing state variables
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isRecordingPopupOpen, setIsRecordingPopupOpen] = useState(false);
-  const [selectedDocumentURL, setSelectedDocumentURL] = useState<string | null>(
-    null
-  );
+  const [selectedDocumentURL, setSelectedDocumentURL] = useState<string | null>(null);
   const [documentCaption, setDocumentCaption] = useState("");
   const [isPhoneDropdownOpen, setIsPhoneDropdownOpen] = useState(false);
   const [showAllForwardTags, setShowAllForwardTags] = useState(false);
-  const [visibleForwardTags, setVisibleForwardTags] = useState<typeof tagList>(
-    []
-  );
+  const [visibleForwardTags, setVisibleForwardTags] = useState<typeof tagList>([]);
   const [totalContacts, setTotalContacts] = useState<number>(0);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [reactionMessage, setReactionMessage] = useState<any>(null);
@@ -800,23 +807,15 @@ function Main() {
   const [sleepAfterMessages, setSleepAfterMessages] = useState(20);
   const [sleepDuration, setSleepDuration] = useState(5);
   const [wsVersion, setWsVersion] = useState(0);
-  //testing
-  const [scheduledMessages, setScheduledMessages] = useState<
-    ScheduledMessage[]
-  >([]);
-  const [currentScheduledMessage, setCurrentScheduledMessage] =
-    useState<ScheduledMessage | null>(null);
-  const [editScheduledMessageModal, setEditScheduledMessageModal] =
-    useState(false);
-  // Add these after your existing state declarations, before the useEffect hooks
+  const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([]);
+  const [currentScheduledMessage, setCurrentScheduledMessage] = useState<ScheduledMessage | null>(null);
+  const [editScheduledMessageModal, setEditScheduledMessageModal] = useState(false);
   const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [wsReconnectAttempts, setWsReconnectAttempts] = useState(0);
   const [wsError, setWsError] = useState<string | null>(null);
   const maxReconnectAttempts = 5;
-  const [scrollToMessageId, setScrollToMessageId] = useState<string | null>(
-    null
-  );
+  const [scrollToMessageId, setScrollToMessageId] = useState<string | null>(null);
   const [qrCodes, setQrCodes] = useState<QRCodeData[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [quickReplyCategory, setQuickReplyCategory] = useState<string>("all");
@@ -828,7 +827,6 @@ function Main() {
     currentPage: 1,
   });
   const CONTACTS_PER_PAGE = 50;
-
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [employeeSearch, setEmployeeSearch] = useState("");
@@ -1087,6 +1085,12 @@ function Main() {
             return updatedContacts;
           });
           
+          setLoadedContacts((prevLoadedContacts) => {
+            const updatedLoadedContacts = prevLoadedContacts.map(updateContactWithNewMessage);
+            console.log("📨 [WEBSOCKET] Updated loaded contacts for current chat");
+            return updatedLoadedContacts;
+          });
+          
           setFilteredContacts((prevFilteredContacts) => {
             const updatedFilteredContacts = prevFilteredContacts.map(updateContactWithNewMessage);
             console.log("📨 [WEBSOCKET] Updated filtered contacts for current chat");
@@ -1153,6 +1157,12 @@ function Main() {
           const updatedContacts = prevContacts.map(updateContactWithNewMessage);
           console.log("📨 [WEBSOCKET] Updated contacts for different chat");
           return updatedContacts;
+        });
+        
+        setLoadedContacts((prevLoadedContacts) => {
+          const updatedLoadedContacts = prevLoadedContacts.map(updateContactWithNewMessage);
+          console.log("📨 [WEBSOCKET] Updated loaded contacts for different chat");
+          return updatedLoadedContacts;
         });
         
         setFilteredContacts((prevFilteredContacts) => {
@@ -1447,22 +1457,22 @@ function Main() {
     }
   };
 
-// ... existing code ...
+  // ... existing code ...
 
-useEffect(() => {
-  const fetchPhoneStatuses = async () => {
-    try {
-      const email = getCurrentUserEmail();
-      if (!email || !companyId) return;
+  useEffect(() => {
+    const fetchPhoneStatuses = async () => {
+      try {
+        const email = getCurrentUserEmail();
+        if (!email || !companyId) return;
 
       const botStatusResponse = await axios.get(
         `${baseUrl}/api/bot-status/${companyId}`
       );
-
+      console.log(botStatusResponse);
       
       if (botStatusResponse.status === 200) {
         const data: BotStatusResponse = botStatusResponse.data;
-
+        
         // Check if phones array exists before mapping
         if (data.phones && Array.isArray(data.phones)) {
           // Multiple phones: transform array to QRCodeData[]
@@ -1472,8 +1482,7 @@ useEffect(() => {
             qrCode: phone.qrCode,
           }));
           setQrCodes(qrCodesData);
-        
-        } else if ((data.phoneCount === 1||data.phoneCount === 0 )&& data.phoneInfo) {
+        } else if (data.phoneCount === 1 && data.phoneInfo) {
           // Single phone: create QRCodeData from flat structure
           setQrCodes([
             {
@@ -1486,79 +1495,100 @@ useEffect(() => {
           setQrCodes([]);
         }
       }
-      
     } catch (error) {
       console.error("Error fetching phone statuses:", error);
     }
   };
 
-  // Only fetch if we have companyId
-  if (companyId) {
-    fetchPhoneStatuses();
-    
-    // Set up an interval to refresh the status every 30 seconds
-    const intervalId = setInterval(fetchPhoneStatuses, 30000);
-    
-    return () => clearInterval(intervalId);
-  }
+    // Only fetch if we have companyId
+    if (companyId) {
+      fetchPhoneStatuses();
+      
+      // Set up an interval to refresh the status every 30 seconds
+      const intervalId = setInterval(fetchPhoneStatuses, 30000);
+      
+      return () => clearInterval(intervalId);
+    }
   }, [companyId]); // Add companyId as dependency
 
-  // Fetch contacts once on component mount (only if context contacts are empty)
-  useEffect(() => {
-    const fetchContactsOnce = async () => {
-      // Only fetch if context contacts are empty
-      if (contextContacts && contextContacts.length > 0) {
-        return; // Context already has contacts
-      }
+  // Fetch contacts with client-side lazy loading
+  const fetchContactsWithLazyLoading = async () => {
+    const userEmail = localStorage.getItem("userEmail");
+    if (!userEmail) {
+      toast.error("No user email found");
+      return;
+    }
 
-      const userEmail = localStorage.getItem("userEmail");
-      if (!userEmail) {
-        toast.error("No user email found");
+    setIsInitialLoading(true);
+    setLoadingProgress(0);
+
+    try {
+      // Get user config to get companyId
+      setLoadingProgress(5);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const userResponse = await fetch(
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!userResponse.ok) {
+        toast.error("Failed to fetch user config");
         return;
       }
 
-      try {
-        // Get user config to get companyId
-        const userResponse = await fetch(
-          `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            credentials: "include",
-          }
-        );
+      setLoadingProgress(15);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+      
+      setLoadingProgress(25);
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-        if (!userResponse.ok) {
-          toast.error("Failed to fetch user config");
-          return;
+      // Fetch all contacts from SQL database (original API call)
+      setLoadingProgress(35);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const contactsResponse = await fetch(
+        `${baseUrl}/api/companies/${companyId}/contacts?email=${userEmail}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
         }
+      );
 
-        const userData = await userResponse.json();
-        const companyId = userData.company_id;
+      if (!contactsResponse.ok) {
+        toast.error("Failed to fetch contacts");
+        return;
+      }
 
-        // Fetch contacts from SQL database
-        const contactsResponse = await fetch(
-          `${baseUrl}/api/companies/${companyId}/contacts?email=${userEmail}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            credentials: "include",
-          }
-        );
-
-        if (!contactsResponse.ok) {
-          toast.error("Failed to fetch contacts");
-          return;
-        }
-
-        const data = await contactsResponse.json();
-        const updatedContacts = data.contacts.map((contact: any) => ({
+      setLoadingProgress(50);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const data = await contactsResponse.json();
+      
+      setLoadingProgress(60);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Process contacts with real-time progress
+      const allContacts = [];
+      const totalContacts = data.contacts.length;
+      
+      for (let i = 0; i < totalContacts; i++) {
+        const contact = data.contacts[i];
+        allContacts.push({
           ...contact,
           id: contact.id,
           chat_id: contact.chat_id,
@@ -1572,14 +1602,56 @@ useEffect(() => {
           lastUpdated: contact.lastUpdated,
           last_message: contact.last_message,
           isIndividual: contact.isIndividual,
-        } as Contact));
-
-        setTotalContacts(updatedContacts.length);
-        setContacts(updatedContacts);
-      } catch (error) {
-        console.error("Error fetching contacts:", error);
-        toast.error("Error fetching contacts");
+        } as Contact);
+        
+        // Update progress every 100 contacts or at least every 1%
+        if (i % Math.max(1, Math.floor(totalContacts / 100)) === 0) {
+          const progress = 60 + Math.floor((i / totalContacts) * 30);
+          setLoadingProgress(progress);
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
       }
+
+      setLoadingProgress(95);
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Set total contacts count
+      setTotalContacts(allContacts.length);
+      
+      // Store all contacts but only display first 200
+      setContacts(allContacts);
+      setLoadedContacts(allContacts.slice(0, 200));
+      setLastLoadedPage(0);
+      setHasMoreContacts(allContacts.length > 200);
+      
+      // Mark first 10 pages as loaded (200 contacts / 20 contacts per page = 10 pages)
+      const initialLoadedPages = new Set<number>();
+      for (let page = 0; page < 10; page++) {
+        initialLoadedPages.add(page);
+      }
+      setLoadedPages(initialLoadedPages);
+      
+      setLoadingProgress(100);
+      await new Promise(resolve => setTimeout(resolve, 200));
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+      toast.error("Error fetching contacts");
+    } finally {
+      setIsInitialLoading(false);
+      setLoadingProgress(0);
+    }
+  };
+
+  // Fetch contacts once on component mount (only if context contacts are empty)
+  useEffect(() => {
+    const fetchContactsOnce = async () => {
+      // Only fetch if context contacts are empty
+      if (contextContacts && contextContacts.length > 0) {
+        return; // Context already has contacts
+      }
+
+      // Load contacts with lazy loading
+      await fetchContactsWithLazyLoading();
     };
 
     // Only run once on mount
@@ -2473,7 +2545,7 @@ console.log(baseUrl);
     }
 
     let fil = filterContactsByUserRole(
-      contacts,
+      loadedContacts.length > 0 ? loadedContacts : contacts,
       userRole,
       userData?.name || ""
     );
@@ -3541,20 +3613,45 @@ console.log(baseUrl);
         setMessageMode("phone1");
       }
       // Set phone index data
+      console.log("Full API response data:", data);
+      console.log("companyData:", data.companyData);
       console.log("Raw phoneNames from API:", data.companyData.phoneNames);
       if (data.companyData.phoneNames) {
         let phoneNamesObject: Record<number, string> = {};
         if (Array.isArray(data.companyData.phoneNames)) {
           data.companyData.phoneNames.forEach((name: string, index: number) => {
-            phoneNamesObject[index] = name;
+            // Clean the phone name to remove connection status
+            const cleanName = name.replace(/\s+(Connected|Not Connected)$/, '');
+            phoneNamesObject[index] = cleanName;
           });
         } else if (typeof data.companyData.phoneNames === "object") {
-          phoneNamesObject = { ...data.companyData.phoneNames };
+          // Clean each phone name in the object
+          Object.entries(data.companyData.phoneNames).forEach(([index, name]) => {
+            const cleanName = (name as string).replace(/\s+(Connected|Not Connected)$/, '');
+            phoneNamesObject[parseInt(index)] = cleanName;
+          });
         }
         console.log("Transformed phoneNames object:", phoneNamesObject);
         setPhoneNames(phoneNamesObject);
+        // Initialize userPhone with first phone if not set
+        if (userPhone === null && Object.keys(phoneNamesObject).length > 0) {
+          setUserPhone(0);
+        }
       } else {
         console.log("phoneNames is not an array or is undefined:", data.companyData.phoneNames);
+        // Create default phone names based on phoneCount
+        if (data.companyData.phoneCount > 0) {
+          const defaultPhoneNames: Record<number, string> = {};
+          for (let i = 0; i < data.companyData.phoneCount; i++) {
+            defaultPhoneNames[i] = `Phone ${i + 1}`;
+          }
+          console.log("Created default phone names:", defaultPhoneNames);
+          setPhoneNames(defaultPhoneNames);
+        }
+        // Set default userPhone if no phoneNames available
+        if (userPhone === null) {
+          setUserPhone(0);
+        }
       }
       setToken(data.companyData.whapiToken);
 
@@ -3612,6 +3709,13 @@ console.log(baseUrl);
       console.error("Error fetching config:", error);
     }
   }
+
+  // Add useEffect to initialize userPhone when phoneNames are loaded
+  useEffect(() => {
+    if (userPhone === null && Object.keys(phoneNames).length > 0) {
+      setUserPhone(0);
+    }
+  }, [phoneNames, userPhone]);
 
   // Add the fetchTags function
   const fetchTags = async (employeeList: string[]) => {
@@ -3738,6 +3842,56 @@ console.log(baseUrl);
         const backgroundTasks = [updateFirebaseUnreadCount(contact)];
 
         await Promise.all(backgroundTasks);
+
+        // Immediately reset unread count in local state
+        const resetUnreadCount = (contactItem: Contact) => {
+          const contactMatches = 
+            contactItem.id === contact.id ||
+            contactItem.chat_id === contact.chat_id ||
+            contactItem.contact_id === contact.contact_id ||
+            contactItem.phone === contact.phone;
+            
+          if (contactMatches) {
+            return {
+              ...contactItem,
+              unreadCount: 0,
+            };
+          }
+          return contactItem;
+        };
+
+        // Update all contact lists immediately
+        setContacts((prevContacts) => {
+          const updatedContacts = prevContacts.map(resetUnreadCount);
+          return updatedContacts;
+        });
+        
+        setLoadedContacts((prevLoadedContacts) => {
+          const updatedLoadedContacts = prevLoadedContacts.map(resetUnreadCount);
+          return updatedLoadedContacts;
+        });
+        
+        setFilteredContacts((prevFilteredContacts) => {
+          const updatedFilteredContacts = prevFilteredContacts.map(resetUnreadCount);
+          return updatedFilteredContacts;
+        });
+
+        // Update localStorage for contacts
+        const storedContacts = localStorage.getItem("contacts");
+        if (storedContacts) {
+          try {
+            const decompressedContacts = JSON.parse(
+              LZString.decompress(storedContacts)!
+            );
+            const updatedContacts = decompressedContacts.map(resetUnreadCount);
+            localStorage.setItem(
+              "contacts",
+              LZString.compress(JSON.stringify(updatedContacts))
+            );
+          } catch (error) {
+            console.error("Error updating contacts in localStorage:", error);
+          }
+        }
 
         // Update URL
         const newUrl = `/chat?chatId=${chatId.replace("@c.us", "")}`;
@@ -3899,6 +4053,7 @@ console.log(baseUrl);
       }));
 
       setContacts(updatedContacts);
+      setLoadedContacts(updatedContacts);
       localStorage.setItem(
         "contacts",
         LZString.compress(JSON.stringify(updatedContacts))
@@ -5595,7 +5750,7 @@ console.log(baseUrl);
   );
 
   useEffect(() => {
-    setFilteredContacts(contacts);
+          setFilteredContacts(loadedContacts.length > 0 ? loadedContacts : contacts);
   }, [contacts]);
 
   // Add this function to your Chat page
@@ -5957,8 +6112,97 @@ console.log(baseUrl);
     fetchAndDisplayScheduledMessages();
   };
 
-  const handlePageChange = ({ selected }: { selected: number }) => {
+  const handlePageChange = async ({ selected }: { selected: number }) => {
     setCurrentPage(selected);
+    
+    // Calculate how many contacts we need to display
+    const startIndex = selected * contactsPerPage;
+    const endIndex = startIndex + contactsPerPage;
+    
+    // Check if this page is already loaded
+    const isPageLoaded = loadedPages.has(selected);
+    
+    // Only show loading if we need to load more contacts and this page isn't already loaded
+    if (endIndex > loadedContacts.length && hasMoreContacts && !isLoadingMoreContacts && !isPageLoaded) {
+      setIsLoadingMoreContacts(true);
+      setLoadingProgress(0);
+      
+      try {
+        // Add a small delay to show the loading state
+        await new Promise(resolve => setTimeout(resolve, 100));
+        setLoadingProgress(10);
+        
+        // Calculate the range of pages to load (10 pages around the target)
+        const targetPage = selected;
+        const startPage = Math.max(0, targetPage - 5); // 5 pages before target
+        const endPage = Math.min(Math.floor(totalContacts / contactsPerPage) - 1, targetPage + 5); // 5 pages after target
+        
+        setLoadingProgress(20);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Calculate the exact contacts needed for this specific range
+        const rangeStartIndex = startPage * contactsPerPage;
+        const rangeEndIndex = (endPage + 1) * contactsPerPage;
+        
+        // Calculate how many contacts we need to load to reach this range
+        const contactsNeeded = Math.max(0, rangeEndIndex - loadedContacts.length);
+        
+        setLoadingProgress(30);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Load contacts for the 10-page range
+        if (contactsNeeded > 0) {
+          const batchesNeeded = Math.ceil(contactsNeeded / 200);
+          
+          console.log(`Loading ${contactsNeeded} contacts in ${batchesNeeded} batches for pages ${startPage}-${endPage}`);
+          
+          // Load the required number of batches (200 contacts each)
+          for (let i = 0; i < batchesNeeded; i++) {
+            const batchStart = loadedContacts.length + (i * 200);
+            const batchEnd = Math.min(batchStart + 200, contacts.length);
+            const nextBatch = contacts.slice(batchStart, batchEnd);
+            
+            console.log(`Loading batch ${i + 1}/${batchesNeeded}: ${nextBatch.length} contacts`);
+            
+            setLoadedContacts(prevLoaded => [...prevLoaded, ...nextBatch]);
+            
+            // Update progress for each batch
+            const batchProgress = 30 + Math.floor(((i + 1) / batchesNeeded) * 60);
+            setLoadingProgress(batchProgress);
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            // Update hasMoreContacts after each batch
+            setHasMoreContacts(batchEnd < contacts.length);
+          }
+        } else {
+          console.log('No contacts needed to load for this range');
+        }
+        
+        setLoadingProgress(95);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Mark the 10-page range as loaded
+        const newLoadedPages = new Set<number>(loadedPages);
+        for (let page = startPage; page <= endPage; page++) {
+          newLoadedPages.add(page);
+        }
+        setLoadedPages(newLoadedPages);
+        
+        setLastLoadedPage(Math.floor(loadedContacts.length / 200));
+        
+        setLoadingProgress(100);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        console.log(`Successfully loaded contacts for pages ${startPage}-${endPage}`);
+      } catch (error) {
+        console.error("Error loading more contacts:", error);
+        toast.error("Error loading more contacts");
+      } finally {
+        console.log('Finishing loading process');
+        setIsLoadingMoreContacts(false);
+        setLoadingProgress(0);
+      }
+    }
   };
 
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
@@ -6071,13 +6315,15 @@ console.log(baseUrl);
   //   }
   // }, [contacts, searchQuery, activeTags, currentUserName, employeeList, userRole, userData, selectedEmployee]);
 
-  // Update the pagination logic
+  // Update the pagination logic to work with loaded contacts
 
   useEffect(() => {
     const startIndex = currentPage * contactsPerPage;
     const endIndex = startIndex + contactsPerPage;
-    setPaginatedContacts(filteredContacts.slice(startIndex, endIndex));
-  }, [currentPage, contactsPerPage, filteredContacts]);
+    const paginated = loadedContacts.slice(startIndex, endIndex);
+    setPaginatedContacts(paginated);
+    console.log('Pagination:', { currentPage, startIndex, endIndex, loadedContactsLength: loadedContacts.length, paginatedLength: paginated.length });
+  }, [currentPage, contactsPerPage, loadedContacts]);
 
   const getSortedContacts = useCallback((contactsToSort: Contact[]) => {
     return [...contactsToSort].sort((a, b) => {
@@ -6096,8 +6342,12 @@ console.log(baseUrl);
   }, []);
 
   useEffect(() => {
-    setFilteredContacts(filteredContactsSearch);
-  }, [filteredContactsSearch]);
+    // Use loaded contacts for filtering instead of all contacts
+    const filteredFromLoaded = filteredContactsSearch.filter(contact => 
+      loadedContacts.some(loadedContact => loadedContact.id === contact.id)
+    );
+    setFilteredContacts(filteredFromLoaded);
+  }, [filteredContactsSearch, loadedContacts]);
 
 
   const filterTagContact = (tag: string) => {
@@ -8152,9 +8402,25 @@ console.log(baseUrl);
                 {companyName}
               </div>
               <div className="flex items-center gap-3">
-                <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
-                  Total Contacts: {totalContacts}
+                              <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
+                Total Contacts: {totalContacts}
+              </div>
+              
+              {/* Loading Progress Bar */}
+              {isInitialLoading && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    <span>Loading contacts...</span>
+                    <span>{loadingProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                            <div 
+                          className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${loadingProgress}%` }}
+                        ></div>
+                  </div>
                 </div>
+              )}
 
 
 
@@ -8623,6 +8889,75 @@ console.log(baseUrl);
                         </div>
                       )}
                     </div>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Phone
+                    </label>
+                    <Menu as="div" className="relative inline-block text-left w-full">
+                      <div>
+                        <Menu.Button className="flex items-center justify-between w-full text-left px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                          <span className="text-sm">
+                            {userData?.phone !== undefined && phoneNames[userData.phone] 
+                              ? phoneNames[userData.phone].replace(/\s+(Connected|Not Connected)$/, '')
+                              : Object.keys(phoneNames).length === 1
+                              ? Object.values(phoneNames)[0].replace(/\s+(Connected|Not Connected)$/, '')
+                              : Object.keys(phoneNames).length > 1
+                              ? "Select phone"
+                              : `Loading phones...`
+                            }
+                          </span>
+                          <Lucide
+                            icon="ChevronDown"
+                            className="w-4 h-4 text-gray-500"
+                          />
+                        </Menu.Button>
+                      </div>
+                      <Menu.Items className="absolute right-0 mt-2 w-full rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50">
+                        <div
+                          className="py-1 max-h-60 overflow-y-auto"
+                          role="menu"
+                          aria-orientation="vertical"
+                          aria-labelledby="options-menu"
+                        >
+                          {Object.entries(phoneNames).map(([index, phoneName]) => {
+                            const phoneStatus = qrCodes[parseInt(index)]?.status || "unknown";
+                            const isConnected =
+                              phoneStatus === "ready" ||
+                              phoneStatus === "authenticated";
+                            
+                            // Clean up phone name to remove connection status if it's included
+                            const cleanPhoneName = phoneName.replace(/\s+(Connected|Not Connected)$/, '');
+
+                            return (
+                              <Menu.Item key={index}>
+                                {({ active }) => (
+                                  <button
+                                    onClick={() => setUserPhone(parseInt(index))}
+                                    className={`${
+                                      active
+                                        ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                                        : "text-gray-700 dark:text-gray-200"
+                                    } block w-full text-left px-4 py-2 text-sm flex items-center justify-between`}
+                                  >
+                                    <span>{cleanPhoneName}</span>
+                                    <span
+                                      className={`text-xs px-2 py-1 rounded-full ${
+                                        isConnected
+                                          ? "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200"
+                                          : "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200"
+                                      }`}
+                                    >
+                                      {isConnected ? "Connected" : "Not Connected"}
+                                    </span>
+                                  </button>
+                                )}
+                              </Menu.Item>
+                            );
+                          })}
+                        </div>
+                      </Menu.Items>
+                    </Menu>
                   </div>
                   <div className="flex justify-end mt-4">
                     <button
@@ -9118,12 +9453,20 @@ console.log(baseUrl);
           {isTagsExpanded ? "Show Less" : "Show More"}
         </span>
         <div
-          className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full"
+          className="bg-gray-100 dark:bg-gray-900 flex-1 overflow-y-scroll h-full relative"
           ref={contactListRef}
         >
-          {paginatedContacts.length === 0 ? ( // Check if paginatedContacts is empty
+          {isLoadingMoreContacts && (
+            <div className="absolute inset-0 bg-white dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 flex items-center justify-center z-10">
+              <div className="flex flex-col items-center">
+                <LoadingIcon icon="oval" className="w-8 h-8 text-primary" />
+                <span className="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading more contacts...</span>
+              </div>
+            </div>
+          )}
+                        {loadedContacts.length === 0 ? ( // Check if loadedContacts is empty
             <div className="flex items-center justify-center h-full">
-              {paginatedContacts.length === 0 && (
+                              {loadedContacts.length === 0 && (
                 <div className="flex flex-col items-center">
                   <div>
                     <Lucide
@@ -9132,8 +9475,22 @@ console.log(baseUrl);
                     />
                   </div>
                   <div className="text-gray-500 text-2xl dark:text-gray-400 mt-2">
-                    No contacts found
+                    {isInitialLoading ? "Loading contacts..." : "No contacts found"}
                   </div>
+                  {isInitialLoading && (
+                    <div className="mt-4 w-full max-w-xs">
+                      <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+                        <span>Loading contacts...</span>
+                        <span>{loadingProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${loadingProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -9539,26 +9896,39 @@ console.log(baseUrl);
             ))
           )}
         </div>
-        <ReactPaginate
-          breakLabel="..."
-          nextLabel="Next"
-          onPageChange={handlePageChange}
-          pageRangeDisplayed={2}
-          pageCount={Math.ceil(filteredContacts.length / contactsPerPage)}
-          previousLabel="Previous"
-          renderOnZeroPageCount={null}
-          containerClassName="flex justify-center items-center mt-4 mb-4"
-          pageClassName="mx-1"
-          pageLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
-          previousClassName="mx-1"
-          nextClassName="mx-1"
-          previousLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
-          nextLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
-          disabledClassName="opacity-50 cursor-not-allowed"
-          activeClassName="font-bold"
-          activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
-          forcePage={currentPage}
-        />
+        <div className={`flex justify-center items-center mt-4 mb-4 ${isLoadingMoreContacts ? 'opacity-50' : ''}`}>
+          <ReactPaginate
+            breakLabel="..."
+            nextLabel="Next"
+            onPageChange={isLoadingMoreContacts ? () => {} : handlePageChange}
+            pageRangeDisplayed={2}
+            pageCount={Math.ceil(totalContacts / contactsPerPage)}
+            previousLabel="Previous"
+            renderOnZeroPageCount={null}
+            containerClassName="flex justify-center items-center"
+            pageClassName="mx-1"
+            pageLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+            previousClassName="mx-1"
+            nextClassName="mx-1"
+            previousLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+            nextLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+            disabledClassName="opacity-50 cursor-not-allowed"
+            activeClassName="font-bold"
+            activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
+            forcePage={currentPage}
+          />
+        </div>
+        {isLoadingMoreContacts && (
+          <div className="flex flex-col items-center justify-center mt-4 mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <LoadingIcon icon="oval" className="w-6 h-6 text-primary" />
+            <span className="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading more contacts...</span>
+            <div className="mt-2 w-full max-w-xs">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div className="bg-primary h-2 rounded-full animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <div className="flex flex-col w-full sm:w-3/4  dark:bg-gray-900 relative flext-1 overflow-hidden">
         {selectedChatId ? (
