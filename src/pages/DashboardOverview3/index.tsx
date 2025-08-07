@@ -1037,11 +1037,8 @@ function DashboardOverview3() {
     for (let i = 0; i < attendees.length; i++) {
       const attendee = attendees[i];
       let thankYouText = '';
-      if ((attendee["Program Date & Time"] || '').includes('17')) {
-        thankYouText = `Dear ${attendee["Full Name"]}\n\nThank You for Attending ROBOCONNECT 2025\n\nOn behalf of the organizing team, we would like to extend our heartfelt thanks for your participation in ROBOCONNECT 2025 held on 17 June 2025.\n\nYour presence and engagement in the Smart Robotics in Action- From Code to Career session greatly contributed to the success of the event.\n\nWe hope the experience was insightful and inspiring as we continue to explore how artificial intelligence and robotics can shape the future.\n\nWe hope you can join our next event as well.\n\nPlease find your digital certificate of participation attached.\n\nWarm regards,\nCo9P AI Chatbot`;
-      } else {
-        thankYouText = `Dear ${attendee["Full Name"]}\n\nThank You for Attending ROBOCONNECT 2025\n\nOn behalf of the organizing team, we would like to extend our heartfelt thanks for your participation in ROBOCONNECT 2025 held on 19 June 2025.\n\nYour presence and engagement in the Bicara CEO: \"AI Meets Robotics: Empowering the Next Generation of Intelligent Machines\" session greatly contributed to the success of the event.\n\nWe hope the experience was insightful and inspiring as we continue to explore how artificial intelligence and robotics can shape the future.\n\nWe hope you can join our next event as well.\n\nPlease find your digital certificate of participation attached.\n\nWarm regards,\nCo9P AI Chatbot`;
-      }
+      thankYouText = `Dear ${attendee["Full Name"]}\n\nThank You for Attending FUTUREX.AI 2025\n\nOn behalf of the organizing team, we would like to extend our heartfelt thanks for your participation in FUTUREX.AI 2025 held on 7 August 2025.\n\nYour presence and engagement in the Business Automation & AI Chatbot Experience session greatly contributed to the success of the event.\n\nWe hope the experience was insightful and inspiring as we continue to explore how artificial intelligence and robotics can shape the future.\n\nWe hope you can join our next event as well.\n\nPlease find your digital certificate of participation attached.\n\nWarm regards,\nCo9P AI Chatbot`;
+
       let status = "pending";
       try {
         const name = attendee["Full Name"];
@@ -1052,7 +1049,7 @@ function DashboardOverview3() {
         const chatId = phoneDigits + "@c.us";
         await sendTextMessage(chatId, thankYouText);
         const certBlob = await generateCertificate(name, attendee["Program Date & Time"], { returnBlob: true }) as Blob;
-        const fileName = `${name.replace(/[^a-zA-Z0-9]/g, "_")}_ROBOCONNECT_2025_Certificate.pdf.pdf`;
+        const fileName = `${name.replace(/[^a-zA-Z0-9]/g, "_")}_FUTUREX.AI_2025_Certificate.pdf`;
         const certUrl = await uploadFile(certBlob, fileName);
         await sendDocumentMessage(chatId, certUrl, fileName, "Certificate of Participation");
         status = "success";
