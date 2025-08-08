@@ -23,6 +23,12 @@ function SettingsPage() {
   const [role, setRole] = useState<string>('');
   const [aiDelay, setAiDelay] = useState<number>(0);
   const [aiAutoResponse, setAiAutoResponse] = useState(false);
+  
+  // New state for companyId change functionality
+  const [userEmail, setUserEmail] = useState<string>('');
+  const [showCompanyIdChange, setShowCompanyIdChange] = useState(false);
+  const [newCompanyId, setNewCompanyId] = useState('');
+  const [isChangingCompanyId, setIsChangingCompanyId] = useState(false);
 
   const firestore = getFirestore();
 
@@ -36,7 +42,12 @@ function SettingsPage() {
 const fetchSettings = async () => {
   try {
     const userEmail = localStorage.getItem('userEmail');
+    setUserEmail(userEmail || '');
 
+    // Check if email includes juta.com
+    if (userEmail && userEmail.includes('juta.com')) {
+      setShowCompanyIdChange(true);
+    }
 
     setIsLoading(true); // Assuming setIsLoading is a state setter
 
@@ -149,6 +160,38 @@ const fetchSettings = async () => {
     }
   };
 
+  const handleChangeCompanyId = async () => {
+    if (!newCompanyId.trim()) {
+      alert('Please enter a valid Company ID');
+      return;
+    }
+
+    setIsChangingCompanyId(true);
+    setError(null);
+
+    try {
+      // Update user's company_id in the database
+      const response = await axios.put(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+        company_id: newCompanyId.trim()
+      });
+
+      if (response.data.success) {
+        alert('Company ID changed successfully! Please refresh the page to see the changes.');
+        setCompanyId(newCompanyId.trim());
+        setNewCompanyId('');
+        // Optionally refresh the page or refetch settings
+        window.location.reload();
+      } else {
+        throw new Error(response.data.error || 'Failed to change Company ID');
+      }
+    } catch (error) {
+      console.error('Error changing Company ID:', error);
+      setError('Failed to change Company ID. Please try again.');
+    } finally {
+      setIsChangingCompanyId(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -207,6 +250,51 @@ const fetchSettings = async () => {
             </Link>
           )}
         </div>
+
+        {/* Company ID Change Section - Only show for juta.com users */}
+        {showCompanyIdChange && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-6">Change Company ID</h2>
+            
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block mb-2">Current Company ID</label>
+                <input
+                  type="text"
+                  value={companyId || ''}
+                  disabled
+                  className="w-full px-3 py-2 border rounded bg-gray-100 dark:bg-gray-700 dark:border-gray-600"
+                />
+              </div>
+
+              <div>
+                <label className="block mb-2">New Company ID</label>
+                <input
+                  type="text"
+                  value={newCompanyId}
+                  onChange={(e) => setNewCompanyId(e.target.value)}
+                  placeholder="Enter new Company ID"
+                  className="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                />
+              </div>
+
+              <Button
+                variant="warning"
+                onClick={handleChangeCompanyId}
+                disabled={isChangingCompanyId || !newCompanyId.trim()}
+                className="shadow-md"
+              >
+                {isChangingCompanyId ? 'Changing...' : 'Change Company ID'}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Daily Report Settings Section */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">

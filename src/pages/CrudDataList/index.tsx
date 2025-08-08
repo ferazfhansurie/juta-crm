@@ -46,7 +46,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { rateLimiter } from "../../utils/rate";
 import { useNavigate } from "react-router-dom";
 import LoadingIcon from "@/components/Base/LoadingIcon";
-import { useContacts } from "@/contact";
+
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import LZString from "lz-string";
 import DatePicker from "react-datepicker";
@@ -125,7 +125,36 @@ function Main() {
     passport?: string | null;
     importedTags?: string[] | null;
     customFields?: { [key: string]: string };
-    notes?: string | null; // Add this line to the Contact interface
+    notes?: string | null;
+    leadNumber?: string | null;
+    company_id?: string | null;
+    profile?: any | null;
+    reaction?: string | null;
+    reaction_timestamp?: string | null;
+    last_updated?: string | null;
+    edited?: boolean | null;
+    edited_at?: string | null;
+    whapi_token?: string | null;
+    additional_emails?: string[] | null;
+    assigned_to?: string | null;
+    business_id?: string | null;
+    chat_data?: any | null;
+    is_group?: boolean | null;
+    unread_count?: number | null;
+    last_message?: any | null;
+    multi_assign?: boolean | null;
+    not_spam?: boolean | null;
+    profile_pic_url?: string | null;
+    pinned?: boolean | null;
+    customer_message?: any | null;
+    storage_requirements?: string | null;
+    form_submission?: string | null;
+    phone_indexes?: string[] | null;
+    personal_id?: string | null;
+    last_name?: string | null;
+    updated_at?: string | null;
+    location_id?: string | null;
+    vehicle_number?: string | null;
   }
 
   interface Employee {
@@ -264,6 +293,7 @@ interface BotStatusResponse {
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [showAddUserButton, setShowAddUserButton] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
   const [currentContact, setCurrentContact] = useState<Contact | null>(null);
   const [isTabOpen, setIsTabOpen] = useState(false);
   const [addContactModal, setAddContactModal] = useState(false);
@@ -281,7 +311,7 @@ interface BotStatusResponse {
   const [currentPage, setCurrentPage] = useState(0);
   const contactsPerPage = 200;
   const contactListRef = useRef<HTMLDivElement>(null);
-  const { contacts: initialContacts, refetchContacts } = useContacts();
+
   const [totalContacts, setTotalContacts] = useState(contacts.length);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(
     null
@@ -315,7 +345,6 @@ interface BotStatusResponse {
     address1: "",
     companyName: "",
     locationId: "",
-    points: 0,
     branch: "",
     expiryDate: "",
     vehicleNumber: "",
@@ -405,7 +434,6 @@ interface BotStatusResponse {
     expiryDate: true,
     vehicleNumber: true,
     branch: true,
-    points: true,
     notes: true,
     createdAt: true,
     actions: true,
@@ -420,7 +448,6 @@ interface BotStatusResponse {
     "expiryDate",
     "vehicleNumber",
     "branch",
-    "points",
     "notes",
     "createdAt",
     "actions",
@@ -438,6 +465,8 @@ interface BotStatusResponse {
         checkbox: true,
         contact: true,
         phone: true,
+        vehicleNumber: true, // Ensure vehicle number column is always visible
+        branch: true, // Ensure branch column is always visible
         actions: true,
       };
     }
@@ -488,6 +517,8 @@ interface BotStatusResponse {
     setVisibleColumns((prev) => ({
       ...defaultVisibleColumns,
       ...prev,
+      vehicleNumber: true, // Ensure vehicle number column is always visible
+      branch: true, // Ensure branch column is always visible
     }));
   }, []);
 
@@ -626,11 +657,6 @@ interface BotStatusResponse {
         // Sort by first tag, or empty string if no tags
         aValue = a.tags?.[0] || "";
         bValue = b.tags?.[0] || "";
-      } else if (sortField === "points") {
-        // Sort numerically for points
-        aValue = Number(a.points || 0);
-        bValue = Number(b.points || 0);
-        return sortDirection === "asc" ? aValue - bValue : bValue - aValue;
       } else if (
         sortField === "createdAt" ||
         sortField === "dateAdded" ||
@@ -649,7 +675,7 @@ interface BotStatusResponse {
 
       // Convert to strings for comparison (except for points and dates which are handled above)
       if (
-        sortField !== "points" &&
+      
         sortField !== "createdAt" &&
         sortField !== "dateAdded" &&
         sortField !== "dateUpdated" &&
@@ -841,6 +867,39 @@ interface BotStatusResponse {
 
       const data = await contactsResponse.json();
 
+      // Debug: Log multiple contacts to see what fields are available
+      if (data.contacts && data.contacts.length > 0) {
+        console.log("Total contacts fetched:", data.contacts.length);
+        
+    
+
+        // Search for specific contact with phone 60103089696
+        const targetContact = data.contacts.find((contact: any) => 
+          contact.phone === '+60103089696' || 
+          contact.phone === '60103089696' || 
+          contact.phone === '+60 10-308 9696' ||
+          contact.phone?.includes('60103089696')
+        );
+        
+        if (targetContact) {
+          console.log("=== FOUND TARGET CONTACT ===");
+          console.log("Target contact:", targetContact);
+          console.log("Target contact fields:", Object.keys(targetContact));
+          console.log("Target contact custom fields:", targetContact.customFields);
+          console.log("Target contact branch:", targetContact.branch);
+          console.log("Target contact vehicleNumber:", targetContact.vehicleNumber);
+          console.log("Target contact ic:", targetContact.ic);
+          console.log("Target contact expiryDate:", targetContact.expiryDate);
+          console.log("Target contact leadNumber:", targetContact.leadNumber);
+          console.log("Target contact phoneIndex:", targetContact.phoneIndex);
+          console.log("=== END TARGET CONTACT ===");
+        } else {
+          console.log("Contact with phone 60103089696 not found in current batch");
+          // Log all phone numbers to see what we have
+          console.log("Available phone numbers:", data.contacts.map((c: any) => c.phone).slice(0, 10));
+        }
+      }
+
       const fetchedContacts = data.contacts.map((contact: any) => {
         // Filter out empty tags
         if (contact.tags) {
@@ -864,6 +923,31 @@ interface BotStatusResponse {
           lastUpdated: contact.lastUpdated,
           last_message: contact.last_message,
           isIndividual: contact.isIndividual,
+          // Try to extract data from profile JSON if it exists
+          ...(contact.profile && typeof contact.profile === 'string' ? 
+            (() => {
+              try {
+                const profileData = JSON.parse(contact.profile);
+                return {
+                  branch: contact.branch || profileData.branch,
+                  vehicleNumber: contact.vehicleNumber || contact.vehicle_number || profileData.vehicleNumber,
+                  ic: contact.ic || profileData.ic,
+                  expiryDate: contact.expiryDate || contact.expiry_date || profileData.expiryDate,
+                };
+              } catch (e) {
+                return {};
+              }
+            })() : {}),
+          // Map fields with multiple possible names and custom fields
+          branch: contact.branch || contact.customFields?.branch || contact.customFields?.['BRANCH'],
+          vehicleNumber: contact.vehicleNumber || contact.vehicle_number || contact.customFields?.['VEH. NO.'] || contact.customFields?.vehicleNumber || contact.customFields?.['VEHICLE NUMBER'],
+          ic: contact.ic || contact.customFields?.ic || contact.customFields?.['IC'],
+          expiryDate: contact.expiryDate || contact.expiry_date || contact.customFields?.expiryDate || contact.customFields?.['EXPIRY DATE'],
+      
+          phoneIndex: contact.phoneIndex || contact.phone_index,
+          leadNumber: contact.leadNumber || contact.lead_number || contact.customFields?.['LEAD NUMBER'],
+          notes: contact.notes,
+          customFields: contact.customFields || {},
         } as Contact;
       });
       console.log(fetchedContacts);
@@ -933,7 +1017,7 @@ interface BotStatusResponse {
           contactListRef.current.clientHeight >=
           contactListRef.current.scrollHeight
       ) {
-        loadMoreContacts();
+     
       }
     };
 
@@ -948,21 +1032,7 @@ interface BotStatusResponse {
     };
   }, [filteredContacts]);
   useEffect(() => {}, [selectedTags]);
-  const loadMoreContacts = () => {
-    if (initialContacts.length <= contacts.length) return;
 
-    const nextPage = currentPage + 1;
-    const newContacts = initialContacts.slice(
-      contacts.length,
-      nextPage * contactsPerPage
-    );
-
-    setContacts(
-      (prevContacts: Contact[]) =>
-        [...prevContacts, ...newContacts] as Contact[]
-    );
-    setCurrentPage(nextPage);
-  };
   const handleExportContacts = () => {
     if (userRole === "2" || userRole === "3") {
       toast.error("You don't have permission to export contacts.");
@@ -1307,7 +1377,7 @@ interface BotStatusResponse {
         locationId: newContact.locationId,
         dateAdded: new Date().toISOString(),
         unreadCount: 0,
-        points: newContact.points || 0,
+   
         branch: newContact.branch,
         expiryDate: newContact.expiryDate,
         vehicleNumber: newContact.vehicleNumber,
@@ -1336,7 +1406,7 @@ interface BotStatusResponse {
           address1: "",
           companyName: "",
           locationId: "",
-          points: 0,
+
           branch: "",
           expiryDate: "",
           vehicleNumber: "",
@@ -1921,9 +1991,7 @@ interface BotStatusResponse {
           lastAssignedAt: serverTimestamp(),
         };
 
-        if (contact.points !== undefined) {
-          updateData.points = contact.points;
-        }
+    
 
         batch.update(contactRef, updateData);
 
@@ -3174,7 +3242,7 @@ interface BotStatusResponse {
           "branch",
           "expiryDate",
           "vehicleNumber",
-          "points",
+    
           "IC",
           "assistantId",
           "threadid",
@@ -3400,6 +3468,7 @@ interface BotStatusResponse {
       const phone = (contact.phone || "").toLowerCase();
       const tags = (contact.tags || []).map((tag) => tag.toLowerCase());
       const searchTerm = searchQuery.toLowerCase();
+   
 
       // Check basic fields
       const basicFieldMatch =
@@ -3524,6 +3593,7 @@ interface BotStatusResponse {
 
       return (
         matchesSearch &&
+     
         matchesTagFilters &&
         matchesUserFilters &&
         notExcluded &&
@@ -3533,6 +3603,7 @@ interface BotStatusResponse {
   }, [
     contacts,
     searchQuery,
+
     selectedTagFilters,
     selectedUserFilters,
     excludedTags,
@@ -4730,7 +4801,7 @@ interface BotStatusResponse {
       "branch",
       "expiryDate",
       "vehicleNumber",
-      "points",
+
       "IC",
       "notes",
       ...Object.keys(contacts[0]?.customFields || {}), // Include any custom fields
@@ -4744,8 +4815,7 @@ interface BotStatusResponse {
           switch (field) {
             case "phone":
               return "60123456789";
-            case "points":
-              return "100";
+    
             case "email":
               return "john@example.com";
             case "IC":
@@ -4938,10 +5008,13 @@ interface BotStatusResponse {
           "vehicle number",
           "vehicle no",
           "car number",
+          "vehiclenumber",
+          "vehicle_number",
         ],
-        points: ["points", "reward points"],
         ic: ["ic", "identification", "id number", "IC"],
-        Notes: ["notes", "note", "comments", "remarks"],
+        notes: ["notes", "note", "comments", "remarks"],
+        leadNumber: ["lead_number", "leadnumber", "lead number"],
+        phoneIndex: ["phone_index", "phoneindex", "phone index"],
       };
 
       // Validate and prepare contacts for import
@@ -4984,9 +5057,9 @@ interface BotStatusResponse {
                 if (cleanedPhone) {
                   baseContact[fieldName] = cleanedPhone;
                 }
-              } else if (fieldName === "Notes") {
-                baseContact["Notes"] = value || "";
-              } else if (fieldName === "expiryDate" || fieldName === "ic") {
+              } else if (fieldName === "notes") {
+                baseContact["notes"] = value || "";
+              } else if (fieldName === "expiryDate" || fieldName === "ic" || fieldName === "phoneIndex" || fieldName === "leadNumber") {
                 baseContact[fieldName] = value || null;
               } else {
                 baseContact[fieldName] = value || "";
@@ -5043,7 +5116,7 @@ interface BotStatusResponse {
           locationId: contact.locationId,
           dateAdded: new Date().toISOString(),
           unreadCount: 0,
-          points: contact.points || 0,
+   
           branch: contact.branch,
           expiryDate: contact.expiryDate,
           vehicleNumber: contact.vehicleNumber,
@@ -5052,6 +5125,8 @@ interface BotStatusResponse {
           notes: contact.notes,
           customFields: contact.customFields,
           tags: contact.tags,
+          phoneIndex: contact.phoneIndex,
+          leadNumber: contact.leadNumber,
         };
       });
 
@@ -6034,6 +6109,7 @@ const handleConfirmSyncFirebase = async () => {
                         />
                       )}
                     </div>
+
                   </>
                 )}
               </div>
@@ -7060,7 +7136,11 @@ const handleConfirmSyncFirebase = async () => {
                                       ref={provided.innerRef}
                                       {...provided.draggableProps}
                                       {...provided.dragHandleProps}
-                                      className="p-4 font-medium text-gray-700 dark:text-gray-300 cursor-move hover:bg-gray-50 dark:hover:bg-gray-600"
+                                      className={`p-4 font-medium text-gray-700 dark:text-gray-300 cursor-move hover:bg-gray-50 dark:hover:bg-gray-600 ${
+                                        columnId === "branch" ? "min-w-[200px]" : ""
+                                      } ${
+                                        columnId === "vehicleNumber" ? "min-w-[120px]" : ""
+                                      }`}
                                     >
                                       {columnId === "checkbox" && (
                                         <input
@@ -7175,7 +7255,7 @@ const handleConfirmSyncFirebase = async () => {
                                       )}
                                       {columnId === "vehicleNumber" && (
                                         <div
-                                          className="flex items-center"
+                                          className="flex items-center min-w-[120px]"
                                           onClick={() =>
                                             handleSort("vehicleNumber")
                                           }
@@ -7195,7 +7275,7 @@ const handleConfirmSyncFirebase = async () => {
                                       )}
                                       {columnId === "branch" && (
                                         <div
-                                          className="flex items-center"
+                                          className="flex items-center min-w-[200px]"
                                           onClick={() => handleSort("branch")}
                                         >
                                           Branch
@@ -7211,24 +7291,7 @@ const handleConfirmSyncFirebase = async () => {
                                           )}
                                         </div>
                                       )}
-                                      {columnId === "points" && (
-                                        <div
-                                          className="flex items-center"
-                                          onClick={() => handleSort("points")}
-                                        >
-                                          Points
-                                          {sortField === "points" && (
-                                            <Lucide
-                                              icon={
-                                                sortDirection === "asc"
-                                                  ? "ChevronUp"
-                                                  : "ChevronDown"
-                                              }
-                                              className="w-4 h-4 ml-1"
-                                            />
-                                          )}
-                                        </div>
-                                      )}
+
                                       {columnId === "notes" && (
                                         <div
                                           className="flex items-center"
@@ -7422,11 +7485,7 @@ const handleConfirmSyncFirebase = async () => {
                                     )}
                                   </div>
                                 )}
-                                {columnId === "points" && (
-                                  <span className="text-gray-600 dark:text-gray-400">
-                                    {contact.points || 0}
-                                  </span>
-                                )}
+                              
                                 {columnId === "notes" && (
                                   <span className="text-gray-600 dark:text-gray-400">
                                     {contact.notes || "-"}
@@ -7526,6 +7585,16 @@ const handleConfirmSyncFirebase = async () => {
                                 {columnId === "expiryDate" && (
                                   <span className="text-gray-600 dark:text-gray-400">
                                     {contact.expiryDate || "-"}
+                                  </span>
+                                )}
+                                {columnId === "vehicleNumber" && (
+                                  <span className="text-gray-600 dark:text-gray-400 min-w-[120px] block">
+                                    {contact.vehicleNumber || "-"}
+                                  </span>
+                                )}
+                                {columnId === "branch" && (
+                                  <span className="text-gray-600 dark:text-gray-400 min-w-[200px] block">
+                                    {contact.branch || "-"}
                                   </span>
                                 )}
                                 {columnId.startsWith("customField_") && (
@@ -7637,9 +7706,7 @@ const handleConfirmSyncFirebase = async () => {
                         </div>
 
                         <div className="mt-2">
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Points: {contact.points || 0}
-                          </div>
+                         
                           <div className="flex flex-wrap gap-2">
                             {contact.tags && contact.tags.length > 0 ? (
                               contact.tags.map((tag, index) => (
@@ -7745,22 +7812,7 @@ const handleConfirmSyncFirebase = async () => {
                       }
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Points
-                    </label>
-                    <input
-                      type="number"
-                      className="block w-full mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-gray-900 dark:text-white"
-                      value={newContact.points || 0}
-                      onChange={(e) =>
-                        setNewContact({
-                          ...newContact,
-                          points: parseInt(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Email

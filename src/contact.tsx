@@ -56,6 +56,21 @@ export interface Contact {
   threadid?: string;
   phoneIndex?: number;
   firstName?: string | null;
+  // Add the missing fields
+  branch?: string | null;
+  vehicleNumber?: string | null;
+  ic?: string | null;
+  expiryDate?: string | null;
+  points?: number | null;
+  leadNumber?: string | null;
+  notes?: string | null;
+  customFields?: { [key: string]: string };
+  lastName?: string | null;
+  email?: string | null;
+  profileUrl?: string | null;
+  createdAt?: string | null;
+  lastUpdated?: string | null;
+  isIndividual?: boolean;
 }
 
 const app = initializeApp(firebaseConfig);
@@ -101,63 +116,162 @@ export const ContactsProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false);
         return;
       }
-  
-      // If no stored contacts, fetch from Firestore (existing code)
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
+
+      const userEmail = user.email;
+      if (!userEmail) {
         setIsLoading(false);
         return;
       }
-    
-      const dataUser = docUserSnapshot.data();
-      setDataUser(dataUser);
-      const companyId = dataUser?.companyId;
-      if (!companyId) {
+
+      // Get user config to get companyId
+      const userResponse = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/user/config?email=${encodeURIComponent(
+          userEmail
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!userResponse.ok) {
+        console.error('Failed to fetch user config');
         setIsLoading(false);
         return;
       }
-  
+
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+      const userRole = userData.role;
+      const userName = userData.name;
+
+      // Set user data
+      setDataUser(userData);
+      setCompanyData(userData.companyData);
+      setEmployeeList(userData.employeeList || []);
+      setV2(userData.companyData?.v2 || false);
+
       // Check for v2
-      const companyDocRef = doc(firestore, 'companies', companyId);
-      const companyDocSnapshot = await getDoc(companyDocRef);
-      if (companyDocSnapshot.exists()) {
-        const companyData = companyDocSnapshot.data();
-        setCompanyData(companyData);
-        setEmployeeList(companyData.employees || []);
-        setV2(companyData.v2 || false);
-        if (companyData.v2) {
-          if (!location.pathname.includes('/chat')) {
-            navigate('/loading');
-            return;
-          }
+      if (userData.companyData?.v2) {
+        if (!location.pathname.includes('/chat')) {
+          navigate('/loading');
+          return;
         }
       }
-  
-      // Fetch all contacts without pagination
-      const contactsCollectionRef = collection(firestore, `companies/${companyId}/contacts`) as CollectionReference<DocumentData>;
-      const contactsSnapshot = await getDocs(contactsCollectionRef);
+
+      // Fetch contacts from SQL database
+      const contactsResponse = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/companies/${companyId}/contacts?email=${userEmail}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!contactsResponse.ok) {
+        throw new Error(`Failed to fetch contacts: ${contactsResponse.status}`);
+      }
+
+      const data = await contactsResponse.json();
       
-      let allContacts: Contact[] = contactsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Contact));
-  
-      // Sort contactsData by pinned status and last_message timestamp
-      allContacts.sort((a, b) => {
-        if (a.pinned && !b.pinned) return -1;
-        if (!a.pinned && b.pinned) return 1;
-        const dateA = a.last_message?.createdAt
-          ? new Date(a.last_message.createdAt)
-          : a.last_message?.timestamp
-            ? new Date(a.last_message.timestamp * 1000)
-            : new Date(0);
-        const dateB = b.last_message?.createdAt
-          ? new Date(b.last_message.createdAt)
-          : b.last_message?.timestamp
-            ? new Date(b.last_message.timestamp * 1000)
-            : new Date(0);
-        return dateB.getTime() - dateA.getTime();
+      // Map SQL fields to match Contact interface
+      const fetchedContacts = data.contacts.map((contact: any) => {
+        // Filter out empty tags
+        if (contact.tags) {
+          contact.tags = contact.tags.filter(
+            (tag: any) =>
+              tag && tag.trim() !== "" && tag !== null && tag !== undefined
+          );
+        }
+
+        // Map SQL fields to match your Contact interface
+        return {
+          ...contact,
+          id: contact.id,
+          chat_id: contact.chat_id,
+          contactName: contact.name,
+          phone: contact.phone,
+          email: contact.email,
+          profile: contact.profile,
+          tags: contact.tags,
+          createdAt: contact.createdAt,
+          lastUpdated: contact.lastUpdated,
+          last_message: contact.last_message,
+          isIndividual: contact.isIndividual,
+          // Try to extract data from profile JSON if it exists
+          ...(contact.profile && typeof contact.profile === 'string' ? 
+            (() => {
+              try {
+                const profileData = JSON.parse(contact.profile);
+                return {
+                  branch: contact.branch || profileData.branch,
+                  vehicleNumber: contact.vehicleNumber || contact.vehicle_number || profileData.vehicleNumber,
+                  ic: contact.ic || profileData.ic,
+                  expiryDate: contact.expiryDate || contact.expiry_date || profileData.expiryDate,
+                };
+              } catch (e) {
+                return {};
+              }
+            })() : {}),
+          // Map fields with multiple possible names and custom fields
+          branch: contact.branch || contact.customFields?.branch || contact.customFields?.['BRANCH'],
+          vehicleNumber: contact.vehicleNumber || contact.vehicle_number || contact.customFields?.['VEH. NO.'] || contact.customFields?.vehicleNumber || contact.customFields?.['VEHICLE NUMBER'],
+          ic: contact.ic || contact.customFields?.ic || contact.customFields?.['IC'],
+          expiryDate: contact.expiryDate || contact.expiry_date || contact.customFields?.expiryDate || contact.customFields?.['EXPIRY DATE'],
+          phoneIndex: contact.phoneIndex || contact.phone_index,
+          leadNumber: contact.leadNumber || contact.lead_number || contact.customFields?.['LEAD NUMBER'],
+          notes: contact.notes,
+          customFields: contact.customFields || {},
+        } as Contact;
       });
-      setContacts(allContacts);
-      localStorage.setItem('contacts', LZString.compress(JSON.stringify(allContacts)));
+
+      // Function to check if a chat_id is for an individual contact
+      const isIndividual = (chat_id: string | undefined) => {
+        return chat_id?.endsWith("@c.us") || false;
+      };
+
+      // Separate contacts into categories
+      const individuals = fetchedContacts.filter((contact: { chat_id: any }) =>
+        isIndividual(contact.chat_id || "")
+      );
+      const groups = fetchedContacts.filter(
+        (contact: { chat_id: any }) => !isIndividual(contact.chat_id || "")
+      );
+
+      // Combine all contacts in the desired order
+      const allSortedContacts = [...individuals, ...groups];
+
+      // Helper function to get timestamp value
+      const getTimestamp = (createdAt: any): number => {
+        if (!createdAt) return 0;
+        if (typeof createdAt === "string") {
+          return new Date(createdAt).getTime();
+        }
+        if (createdAt.seconds) {
+          return (
+            createdAt.seconds * 1000 + (createdAt.nanoseconds || 0) / 1000000
+          );
+        }
+        return 0;
+      };
+
+      // Sort contacts based on createdAt
+      allSortedContacts.sort((a, b) => {
+        const dateA = getTimestamp(a.createdAt);
+        const dateB = getTimestamp(b.createdAt);
+        return dateB - dateA; // For descending order
+      });
+
+      setContacts(allSortedContacts);
+      localStorage.setItem('contacts', LZString.compress(JSON.stringify(allSortedContacts)));
   
     } catch (error) {
       console.error('Error fetching contacts:', error);
