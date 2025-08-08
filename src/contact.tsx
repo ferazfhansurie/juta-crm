@@ -15,7 +15,7 @@ const firebaseConfig = {
   appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
   measurementId: "G-2C9J1RY67L"
 };
-interface Contact {
+export interface Contact {
   chat_id: string;
   chat_pic?: string | null;
   chat_pic_full?: string | null;

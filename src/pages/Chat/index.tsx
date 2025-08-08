@@ -19,6 +19,7 @@ import LoadingIcon from "@/components/Base/LoadingIcon";
 import { useLocation } from "react-router-dom";
 import { useContacts } from "../../contact";
 import LZString from "lz-string";
+import { handleBotStatusUpdate, handleContactAssignmentUpdate, handleContactTagsUpdate } from "../../utils/websocketHandlers";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import Tippy from "@/components/Base/Tippy";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
@@ -568,6 +569,51 @@ interface ContactsState {
 }
 
 
+// Helper function to extract the most recent timestamp from a contact
+const getContactTimestamp = (contact: Contact): number => {
+  let timestamp = 0;
+  let source = "none";
+  
+  // Try to get timestamp from last message first
+  if (contact.last_message) {
+    if (contact.last_message.createdAt) {
+      timestamp = new Date(contact.last_message.createdAt).getTime();
+      source = "last_message.createdAt";
+    } else if (contact.last_message.timestamp) {
+      // Handle both milliseconds and seconds timestamps
+      const ts = contact.last_message.timestamp;
+      timestamp = ts > 1000000000000 ? ts : ts * 1000; // If timestamp is in seconds, convert to milliseconds
+      source = "last_message.timestamp";
+    } else if (contact.last_message.dateAdded) {
+      timestamp = new Date(contact.last_message.dateAdded).getTime();
+      source = "last_message.dateAdded";
+    }
+  }
+  
+  // Fallback to contact-level timestamps if no message timestamp
+  if (timestamp === 0) {
+    if (contact.dateUpdated) {
+      timestamp = new Date(contact.dateUpdated).getTime();
+      source = "contact.dateUpdated";
+    } else if (contact.dateAdded) {
+      timestamp = new Date(contact.dateAdded).getTime();
+      source = "contact.dateAdded";
+    }
+  }
+  
+  // Debug logging for problematic cases
+  if (timestamp === 0 || isNaN(timestamp)) {
+    console.warn(`🚨 Invalid timestamp for contact ${contact.contactName || contact.firstName}:`, {
+      contact: contact,
+      source: source,
+      timestamp: timestamp,
+      last_message: contact.last_message
+    });
+  }
+  
+  return timestamp || 0; // No timestamp available
+};
+
 function Main() {
   // Initial state setup with localStorage
   const { contacts: contextContacts, isLoading: contextLoading } =
@@ -997,6 +1043,8 @@ function Main() {
     });
   };
   // Add the handleNewMessage function
+
+
   const handleNewMessage = (data: any) => {
     console.log("📨 [WEBSOCKET] New message received:", data);
     
@@ -1091,20 +1139,38 @@ function Main() {
 
           setContacts((prevContacts) => {
             const updatedContacts = prevContacts.map(updateContactWithNewMessage);
-            console.log("📨 [WEBSOCKET] Updated contacts for current chat");
-            return updatedContacts;
+            // Re-sort contacts to move the one with new message to top
+            const sortedContacts = [...updatedContacts].sort((a, b) => {
+              if (a.pinned && !b.pinned) return -1;
+              if (!a.pinned && b.pinned) return 1;
+              return getContactTimestamp(b) - getContactTimestamp(a);
+            });
+            console.log("📨 [WEBSOCKET] Updated and re-sorted contacts for current chat");
+            return sortedContacts;
           });
           
           setLoadedContacts((prevLoadedContacts) => {
             const updatedLoadedContacts = prevLoadedContacts.map(updateContactWithNewMessage);
-            console.log("📨 [WEBSOCKET] Updated loaded contacts for current chat");
-            return updatedLoadedContacts;
+            // Re-sort loaded contacts to move the one with new message to top
+            const sortedLoadedContacts = [...updatedLoadedContacts].sort((a, b) => {
+              if (a.pinned && !b.pinned) return -1;
+              if (!a.pinned && b.pinned) return 1;
+              return getContactTimestamp(b) - getContactTimestamp(a);
+            });
+            console.log("📨 [WEBSOCKET] Updated and re-sorted loaded contacts for current chat");
+            return sortedLoadedContacts;
           });
           
           setFilteredContacts((prevFilteredContacts) => {
             const updatedFilteredContacts = prevFilteredContacts.map(updateContactWithNewMessage);
-            console.log("📨 [WEBSOCKET] Updated filtered contacts for current chat");
-            return updatedFilteredContacts;
+            // Re-sort filtered contacts to move the one with new message to top
+            const sortedFilteredContacts = [...updatedFilteredContacts].sort((a, b) => {
+              if (a.pinned && !b.pinned) return -1;
+              if (!a.pinned && b.pinned) return 1;
+              return getContactTimestamp(b) - getContactTimestamp(a);
+            });
+            console.log("📨 [WEBSOCKET] Updated and re-sorted filtered contacts for current chat");
+            return sortedFilteredContacts;
           });
 
           // Update localStorage for contacts
@@ -1165,20 +1231,38 @@ function Main() {
 
         setContacts((prevContacts) => {
           const updatedContacts = prevContacts.map(updateContactWithNewMessage);
-          console.log("📨 [WEBSOCKET] Updated contacts for different chat");
-          return updatedContacts;
+          // Re-sort contacts to move the one with new message to top
+          const sortedContacts = [...updatedContacts].sort((a, b) => {
+            if (a.pinned && !b.pinned) return -1;
+            if (!a.pinned && b.pinned) return 1;
+            return getContactTimestamp(b) - getContactTimestamp(a);
+          });
+          console.log("📨 [WEBSOCKET] Updated and re-sorted contacts for different chat");
+          return sortedContacts;
         });
         
         setLoadedContacts((prevLoadedContacts) => {
           const updatedLoadedContacts = prevLoadedContacts.map(updateContactWithNewMessage);
-          console.log("📨 [WEBSOCKET] Updated loaded contacts for different chat");
-          return updatedLoadedContacts;
+          // Re-sort loaded contacts to move the one with new message to top
+          const sortedLoadedContacts = [...updatedLoadedContacts].sort((a, b) => {
+            if (a.pinned && !b.pinned) return -1;
+            if (!a.pinned && b.pinned) return 1;
+            return getContactTimestamp(b) - getContactTimestamp(a);
+          });
+          console.log("📨 [WEBSOCKET] Updated and re-sorted loaded contacts for different chat");
+          return sortedLoadedContacts;
         });
         
         setFilteredContacts((prevFilteredContacts) => {
           const updatedFilteredContacts = prevFilteredContacts.map(updateContactWithNewMessage);
-          console.log("📨 [WEBSOCKET] Updated filtered contacts for different chat");
-          return updatedFilteredContacts;
+          // Re-sort filtered contacts to move the one with new message to top
+          const sortedFilteredContacts = [...updatedFilteredContacts].sort((a, b) => {
+            if (a.pinned && !b.pinned) return -1;
+            if (!a.pinned && b.pinned) return 1;
+            return getContactTimestamp(b) - getContactTimestamp(a);
+          });
+          console.log("📨 [WEBSOCKET] Updated and re-sorted filtered contacts for different chat");
+          return sortedFilteredContacts;
         });
 
         // Update localStorage for contacts
@@ -1233,6 +1317,7 @@ function Main() {
       console.error("❌ [WEBSOCKET] Raw data:", data);
     }
   };
+
   // Add WebSocket utility functions
   const sendWebSocketMessage = (message: any) => {
     if (wsConnection && wsConnected) {
@@ -1624,8 +1709,15 @@ function Main() {
       setTotalContacts(allContacts.length);
       
       // Store all contacts but only display first 200
-      setContacts(allContacts);
-      setLoadedContacts(allContacts.slice(0, 200));
+      // Sort contacts before setting them to ensure proper order
+      const sortedContacts = [...allContacts].sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return getContactTimestamp(b) - getContactTimestamp(a);
+      });
+      
+      setContacts(sortedContacts);
+      setLoadedContacts(sortedContacts.slice(0, 200));
       setLastLoadedPage(0);
       setHasMoreContacts(allContacts.length > 200);
       
@@ -2680,7 +2772,7 @@ console.log(baseUrl);
         
         const matchesTag = 
           tag === "all"
-            ? !isGroup
+            ? true // Show all conversations (both individual and groups)
             : tag === "unread"
             ? contact.unreadCount && contact.unreadCount > 0
             : tag === "mine"
@@ -2710,13 +2802,10 @@ console.log(baseUrl);
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
 
-      const timestampA = a.last_message?.timestamp
-        ? new Date(a.last_message.timestamp).getTime()
-        : 0;
-      const timestampB = b.last_message?.timestamp
-        ? new Date(b.last_message.timestamp).getTime()
-        : 0;
+      const timestampA = getContactTimestamp(a);
+      const timestampB = getContactTimestamp(b);
 
+      // Sort by most recent first (descending order)
       return timestampB - timestampA;
     });
   }, [contacts, searchQuery, activeTags, userPhone, userData, phoneNames, currentUserName, employeeList, userRole, selectedEmployee]);
@@ -2724,6 +2813,49 @@ console.log(baseUrl);
   // Debug: Log the filtered results
   useEffect(() => {
     console.log("📊 RESULT - Filtered contacts:", filteredContactsSearch.length);
+    if (filteredContactsSearch.length > 0) {
+      console.log("📊 SORTING - First 10 contacts sorted by timestamp:");
+      filteredContactsSearch.slice(0, 10).forEach((contact, index) => {
+        const timestampMs = getContactTimestamp(contact);
+        const now = Date.now();
+        const timeDiff = now - timestampMs;
+        const minutesAgo = Math.floor(timeDiff / (1000 * 60));
+        const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
+        const daysAgo = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        
+        let timeAgo = "Unknown";
+        if (minutesAgo < 1) {
+          timeAgo = "Just now";
+        } else if (minutesAgo < 60) {
+          timeAgo = `${minutesAgo}m ago`;
+        } else if (hoursAgo < 24) {
+          timeAgo = `${hoursAgo}h ago`;
+        } else {
+          timeAgo = `${daysAgo}d ago`;
+        }
+        
+        const isGroup = contact.chat_id?.endsWith("@g.us") ? " [GROUP]" : " [INDIVIDUAL]";
+        const timestamp = timestampMs > 0 ? new Date(timestampMs).toLocaleString() : "No timestamp";
+        
+        // Show detailed timestamp info for debugging
+        let timestampSource = "None";
+        if (contact.last_message) {
+          if (contact.last_message.createdAt) {
+            timestampSource = `createdAt: ${contact.last_message.createdAt}`;
+          } else if (contact.last_message.timestamp) {
+            timestampSource = `timestamp: ${contact.last_message.timestamp}`;
+          } else if (contact.last_message.dateAdded) {
+            timestampSource = `msg.dateAdded: ${contact.last_message.dateAdded}`;
+          }
+        } else if (contact.dateUpdated) {
+          timestampSource = `contact.dateUpdated: ${contact.dateUpdated}`;
+        } else if (contact.dateAdded) {
+          timestampSource = `contact.dateAdded: ${contact.dateAdded}`;
+        }
+        
+        console.log(`📊 ${index + 1}. ${contact.contactName || contact.firstName || 'Unknown'}${isGroup} - ${timeAgo} (${timestamp}) [${timestampSource}]`);
+      });
+    }
   }, [filteredContactsSearch]);
 
   useEffect(() => {
@@ -3449,6 +3581,15 @@ console.log(baseUrl);
             if (data.type === "new_message") {
               console.log("📨 [WEBSOCKET] Received new_message:", data);
               handleNewMessage(data);
+            } else if (data.type === "bot_status_update") {
+              console.log("🤖 [WEBSOCKET] Received bot_status_update:", data);
+              handleBotStatusUpdate(data, setContacts, setLoadedContacts, setFilteredContacts, setSelectedContact, selectedContact, contacts);
+            } else if (data.type === "contact_assignment_update") {
+              console.log("👤 [WEBSOCKET] Received contact_assignment_update:", data);
+              handleContactAssignmentUpdate(data, setContacts, setLoadedContacts, setFilteredContacts, setSelectedContact, selectedContact, contacts);
+            } else if (data.type === "contact_tags_update") {
+              console.log("🏷️ [WEBSOCKET] Received contact_tags_update:", data);
+              handleContactTagsUpdate(data, setContacts, setLoadedContacts, setFilteredContacts, setSelectedContact, selectedContact, contacts);
             } else if (data.type === "error") {
               console.error("WebSocket error message:", data.message);
               setWsError(data.message);
@@ -5721,28 +5862,110 @@ console.log(baseUrl);
         }
 
         data = await response.json();
-        newTags = data.tags || [];
+        const apiTags = data.tags || [];
 
-        // Update both contacts and filteredContacts states immediately
+        // Manually construct the new tags to ensure we preserve existing tags
+        const currentTags = contact.tags || [];
+        if (!hasLabel) {
+          // Adding "stop bot" tag - preserve all existing tags
+          newTags = currentTags.includes("stop bot") ? currentTags : [...currentTags, "stop bot"];
+        } else {
+          // Removing "stop bot" tag - preserve all other tags
+          newTags = currentTags.filter(tag => tag !== "stop bot");
+        }
+
+
+
+        // Update all contact states immediately with better matching - preserve all existing data
         const updateContactsList = (prevContacts: Contact[]) =>
-          prevContacts.map((c) =>
-            c.id === contact.id ? { ...c, tags: newTags } : c
-          );
+          prevContacts.map((c) => {
+            if (c.id === contact.id || c.contact_id === contact.contact_id) {
+              // Preserve all existing contact data, only update tags
+              return { 
+                ...c, 
+                tags: newTags,
+                // Ensure other fields are preserved
+                assignedTo: c.assignedTo,
+                notes: c.notes,
+                points: c.points,
+                // Preserve any other custom fields
+                ...Object.fromEntries(
+                  Object.entries(c).filter(([key]) => 
+                    !['tags'].includes(key)
+                  )
+                )
+              };
+            }
+            return c;
+          });
 
         setContacts(updateContactsList);
+        setLoadedContacts((prevLoadedContacts) =>
+          updateContactsList(prevLoadedContacts)
+        );
         setFilteredContacts((prevFilteredContacts) =>
           updateContactsList(prevFilteredContacts)
         );
 
+        // Update selectedContact if it's the same contact - preserve all fields
+        if (selectedContact && (selectedContact.id === contact.id || selectedContact.contact_id === contact.contact_id)) {
+          setSelectedContact((prevContact: Contact) => ({
+            ...prevContact,
+            tags: newTags,
+            // Explicitly preserve critical fields
+            assignedTo: prevContact.assignedTo,
+            notes: prevContact.notes,
+            points: prevContact.points,
+          }));
+        }
+
         // Update localStorage immediately
-        const updatedContacts = updateContactsList(contacts);
-        localStorage.setItem(
-          "contacts",
-          LZString.compress(JSON.stringify(updatedContacts))
-        );
+        const storedContacts = localStorage.getItem("contacts");
+        if (storedContacts) {
+          try {
+            const decompressedContacts = JSON.parse(
+              LZString.decompress(storedContacts)!
+            );
+            const updatedContacts = decompressedContacts.map((c: Contact) => {
+              if (c.id === contact.id || c.contact_id === contact.contact_id) {
+                // Preserve all existing contact data, only update tags
+                return { 
+                  ...c, 
+                  tags: newTags,
+                  // Ensure critical fields are preserved
+                  assignedTo: c.assignedTo,
+                  notes: c.notes,
+                  points: c.points,
+                };
+              }
+              return c;
+            });
+            localStorage.setItem(
+              "contacts",
+              LZString.compress(JSON.stringify(updatedContacts))
+            );
+          } catch (error) {
+            console.error("Error updating contacts in localStorage:", error);
+          }
+        }
         sessionStorage.setItem("contactsFetched", "true");
 
         console.log("📝 [TAG] Updated contact tags for:", contact.contactName, "new tags:", newTags);
+
+
+
+        // Send WebSocket message to notify other clients
+        if (wsConnection && wsConnected) {
+          const wsMessage = {
+            type: "bot_status_update",
+            contactId: contact.contact_id,
+            botEnabled: !hasLabel,
+            updatedTags: newTags,
+            timestamp: Date.now()
+          };
+          wsConnection.send(JSON.stringify(wsMessage));
+          console.log("🤖 [WEBSOCKET] Sent bot status update:", wsMessage);
+        }
 
         // Show a success toast
         toast.success(
@@ -5765,6 +5988,38 @@ console.log(baseUrl);
   useEffect(() => {
           setFilteredContacts(loadedContacts.length > 0 ? loadedContacts : contacts);
   }, [contacts]);
+
+  // Update selectedContact when contacts array changes (for real-time updates)
+  useEffect(() => {
+    if (selectedContact && contacts.length > 0) {
+      const updatedSelectedContact = contacts.find(
+        (c) => c.id === selectedContact.id || c.contact_id === selectedContact.contact_id
+      );
+      
+      if (updatedSelectedContact && JSON.stringify(updatedSelectedContact) !== JSON.stringify(selectedContact)) {
+        console.log("📝 [REALTIME] Updating selectedContact from contacts array changes");
+        console.log("📝 [REALTIME] Old selectedContact tags:", selectedContact.tags);
+        console.log("📝 [REALTIME] New selectedContact tags:", updatedSelectedContact.tags);
+        console.log("📝 [REALTIME] Old selectedContact assignedTo:", selectedContact.assignedTo);
+        console.log("📝 [REALTIME] New selectedContact assignedTo:", updatedSelectedContact.assignedTo);
+        setSelectedContact(updatedSelectedContact);
+      }
+    }
+  }, [contacts]);
+
+  // Also watch filteredContacts for real-time updates
+  useEffect(() => {
+    if (selectedContact && filteredContacts.length > 0) {
+      const updatedSelectedContact = filteredContacts.find(
+        (c) => c.id === selectedContact.id || c.contact_id === selectedContact.contact_id
+      );
+      
+      if (updatedSelectedContact && JSON.stringify(updatedSelectedContact) !== JSON.stringify(selectedContact)) {
+        console.log("📝 [REALTIME] Updating selectedContact from filteredContacts array changes");
+        setSelectedContact(updatedSelectedContact);
+      }
+    }
+  }, [filteredContacts]);
 
   // Add this function to your Chat page
   const handleTagFollowUp = async (
@@ -5879,7 +6134,18 @@ console.log(baseUrl);
     tagName: string,
     contact: Contact
   ) => {
-    console.log(contact);
+    console.log("🏷️ [TAG ASSIGNMENT] Starting tag assignment:");
+    console.log("🏷️ [TAG ASSIGNMENT] Tag name:", tagName);
+    console.log("🏷️ [TAG ASSIGNMENT] Contact:", contact);
+    console.log("🏷️ [TAG ASSIGNMENT] Contact ID:", contact?.contact_id);
+    console.log("🏷️ [TAG ASSIGNMENT] Contact Name:", contact?.contactName || contact?.firstName);
+    
+    if (!contact || !contact.contact_id) {
+      toast.error("No contact selected or contact ID missing");
+      console.error("🏷️ [TAG ASSIGNMENT] Missing contact or contact ID");
+      return;
+    }
+    
     try {
       // Get company and user data from your backend
       const userEmail = localStorage.getItem("userEmail");
@@ -5903,6 +6169,15 @@ console.log(baseUrl);
 
       // Check if the tag is an employee name
       const employee = employeeList.find((emp) => emp.name === tagName);
+      console.log("🔍 Employee search for tag:", tagName, "found:", employee);
+      console.log("🔍 Available employees:", employeeList.map(emp => emp.name));
+      console.log("🔍 Employee list length:", employeeList.length);
+
+      if (employeeList.length === 0) {
+        console.warn("🔍 Employee list is empty, may need to fetch employees");
+        toast.warning("Employee list not loaded yet. Please try again in a moment.");
+        return;
+      }
 
       if (employee) {
         // Assign employee to contact (requires backend endpoint for assignment logic)
@@ -5918,26 +6193,42 @@ console.log(baseUrl);
           }
         );
         if (!response.ok) {
-          toast.error(`Failed to assign ${tagName} to contact`);
+          const errorText = await response.text();
+          console.error("Failed to assign employee:", errorText);
+          toast.error(`Failed to assign ${tagName} to contact: ${errorText}`);
           return;
         }
 
+        const assignmentResult = await response.json();
+        console.log("✅ Employee assignment successful:", assignmentResult);
+
         // Update contact immediately with the new assignment
-        const updatedTags = [...(contact.tags || []), tagName];
+        // Remove any existing employee tags first, then add the new one
+        const currentTags = contact.tags || [];
+        const nonEmployeeTags = currentTags.filter(tag => 
+          !employeeList.some(emp => emp.name === tag)
+        );
+        const updatedTags = [...nonEmployeeTags, tagName];
+        console.log("🏷️ [EMPLOYEE ASSIGNMENT] Updated tags:", updatedTags);
+        console.log("🏷️ [EMPLOYEE ASSIGNMENT] Previous tags:", currentTags);
+        
         const updateContactsList = (prevContacts: Contact[]) =>
           prevContacts.map((c) =>
-            c.id === contact.id 
+            (c.id === contact.id || c.contact_id === contact.contact_id)
               ? { ...c, tags: updatedTags, assignedTo: [tagName] }
               : c
           );
 
         setContacts(updateContactsList);
+        setLoadedContacts((prevLoadedContacts) =>
+          updateContactsList(prevLoadedContacts)
+        );
         setFilteredContacts((prevFilteredContacts) =>
           updateContactsList(prevFilteredContacts)
         );
 
         // Update selectedContact if it's the same contact
-        if (selectedContact && selectedContact.id === contact.id) {
+        if (selectedContact && (selectedContact.id === contact.id || selectedContact.contact_id === contact.contact_id)) {
           setSelectedContact((prevContact: Contact) => ({
             ...prevContact,
             tags: updatedTags,
@@ -5951,6 +6242,19 @@ console.log(baseUrl);
           "contacts",
           LZString.compress(JSON.stringify(updatedContacts))
         );
+
+        // Send WebSocket message to notify other clients
+        if (wsConnection && wsConnected) {
+          const wsMessage = {
+            type: "contact_assignment_update",
+            contactId: contact.contact_id,
+            assignedTo: tagName,
+            updatedTags: updatedTags,
+            timestamp: Date.now()
+          };
+          wsConnection.send(JSON.stringify(wsMessage));
+          console.log("👤 [WEBSOCKET] Sent contact assignment update:", wsMessage);
+        }
 
         toast.success(`Contact assigned to ${tagName}`);
         return;
@@ -5994,10 +6298,13 @@ console.log(baseUrl);
         // Update both contacts and filteredContacts states immediately
         const updateContactsList = (prevContacts: Contact[]) =>
           prevContacts.map((c) =>
-            c.id === contact.id ? { ...c, tags: newTags } : c
+            (c.id === contact.id || c.contact_id === contact.contact_id) ? { ...c, tags: newTags } : c
           );
 
         setContacts(updateContactsList);
+        setLoadedContacts((prevLoadedContacts) =>
+          updateContactsList(prevLoadedContacts)
+        );
         setFilteredContacts((prevFilteredContacts) =>
           updateContactsList(prevFilteredContacts)
         );
@@ -6010,11 +6317,25 @@ console.log(baseUrl);
         );
 
         // Update selectedContact if it's the same contact
-        if (selectedContact && selectedContact.id === contact.id) {
+        if (selectedContact && (selectedContact.id === contact.id || selectedContact.contact_id === contact.contact_id)) {
           setSelectedContact((prevContact: Contact) => ({
             ...prevContact,
             tags: newTags,
           }));
+        }
+
+        // Send WebSocket message to notify other clients
+        if (wsConnection && wsConnected) {
+          const wsMessage = {
+            type: "contact_tags_update",
+            contactId: contact.contact_id,
+            action: "add",
+            tagName: tagName,
+            updatedTags: newTags,
+            timestamp: Date.now()
+          };
+          wsConnection.send(JSON.stringify(wsMessage));
+          console.log("🏷️ [WEBSOCKET] Sent contact tags update:", wsMessage);
         }
 
         console.log("📝 [TAG] Added tag to contact:", contact.contactName, "tag:", tagName, "new tags:", newTags);
@@ -6059,12 +6380,12 @@ console.log(baseUrl);
   };
 
   const formatText = (text: string) => {
-    // Split text into segments that need formatting and those that don't
-    const segments = text.split(/(\*[^*]+\*|~[^~]+~)/g);
+    // Enhanced regex to capture more formatting patterns
+    const segments = text.split(/(\*[^*]+\*|~[^~]+~|_[^_]+_|`[^`]+`|```[^`]+```|https?:\/\/[^\s]+|@[a-zA-Z0-9_]+)/g);
 
     return segments.map((segment, index) => {
       // Check if segment is bold (surrounded by *)
-      if (segment.startsWith("*") && segment.endsWith("*")) {
+      if (segment.startsWith("*") && segment.endsWith("*") && segment.length > 2) {
         return (
           <span key={index} className="font-bold">
             {segment.slice(1, -1)}
@@ -6072,8 +6393,17 @@ console.log(baseUrl);
         );
       }
 
+      // Check if segment is italic (surrounded by _)
+      if (segment.startsWith("_") && segment.endsWith("_") && segment.length > 2) {
+        return (
+          <span key={index} className="italic">
+            {segment.slice(1, -1)}
+          </span>
+        );
+      }
+
       // Check if segment is strikethrough (surrounded by ~)
-      if (segment.startsWith("~") && segment.endsWith("~")) {
+      if (segment.startsWith("~") && segment.endsWith("~") && segment.length > 2) {
         return (
           <span key={index} className="line-through">
             {segment.slice(1, -1)}
@@ -6081,8 +6411,50 @@ console.log(baseUrl);
         );
       }
 
-      // Return regular text
-      return segment;
+      // Check if segment is inline code (surrounded by `)
+      if (segment.startsWith("`") && segment.endsWith("`") && segment.length > 2 && !segment.startsWith("```")) {
+        return (
+          <span key={index} className="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-sm font-mono">
+            {segment.slice(1, -1)}
+          </span>
+        );
+      }
+
+      // Check if segment is code block (surrounded by ```)
+      if (segment.startsWith("```") && segment.endsWith("```") && segment.length > 6) {
+        return (
+          <div key={index} className="bg-gray-200 dark:bg-gray-700 p-2 rounded mt-1 mb-1 font-mono text-sm overflow-x-auto">
+            <pre className="whitespace-pre-wrap">{segment.slice(3, -3)}</pre>
+          </div>
+        );
+      }
+
+      // Check if segment is a URL
+      if (segment.match(/^https?:\/\/[^\s]+$/)) {
+        return (
+          <a 
+            key={index} 
+            href={segment} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-500 dark:text-blue-400 underline hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
+          >
+            {segment}
+          </a>
+        );
+      }
+
+      // Check if segment is a mention (starts with @)
+      if (segment.match(/^@[a-zA-Z0-9_]+$/)) {
+        return (
+          <span key={index} className="text-blue-600 dark:text-blue-400 font-medium">
+            {segment}
+          </span>
+        );
+      }
+
+      // Return regular text with improved line spacing
+      return <span key={index}>{segment}</span>;
     });
   };
   const openEditMessage = (message: Message) => {
@@ -6333,23 +6705,21 @@ console.log(baseUrl);
   useEffect(() => {
     const startIndex = currentPage * contactsPerPage;
     const endIndex = startIndex + contactsPerPage;
-    const paginated = loadedContacts.slice(startIndex, endIndex);
+    // Use filteredContactsSearch instead of loadedContacts to ensure proper sorting
+    const paginated = filteredContactsSearch.slice(startIndex, endIndex);
     setPaginatedContacts(paginated);
-    console.log('Pagination:', { currentPage, startIndex, endIndex, loadedContactsLength: loadedContacts.length, paginatedLength: paginated.length });
-  }, [currentPage, contactsPerPage, loadedContacts]);
+    console.log('Pagination:', { currentPage, startIndex, endIndex, filteredContactsLength: filteredContactsSearch.length, paginatedLength: paginated.length });
+  }, [currentPage, contactsPerPage, filteredContactsSearch]);
 
   const getSortedContacts = useCallback((contactsToSort: Contact[]) => {
     return [...contactsToSort].sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
 
-      const timestampA = a.last_message?.timestamp
-        ? new Date(a.last_message.timestamp).getTime()
-        : 0;
-      const timestampB = b.last_message?.timestamp
-        ? new Date(b.last_message.timestamp).getTime()
-        : 0;
+      const timestampA = getContactTimestamp(a);
+      const timestampB = getContactTimestamp(b);
 
+      // Sort by most recent first (descending order)
       return timestampB - timestampA;
     });
   }, []);
@@ -6406,14 +6776,6 @@ console.log(baseUrl);
       return matchesSearch && matchesTags;
     });
   };
-
-  // Update the pagination logic
-  const indexOfLastContact = currentPage * contactsPerPage;
-  const indexOfFirstContact = indexOfLastContact - contactsPerPage;
-  const currentContacts = filteredContactsSearch.slice(
-    indexOfFirstContact,
-    indexOfLastContact
-  );
 
   // Update the total pages calculation
   const totalPages = Math.ceil(filteredContactsSearch.length / contactsPerPage);
@@ -7278,7 +7640,7 @@ console.log(baseUrl);
       // Update state immediately
       const updateContactsList = (prevContacts: Contact[]) =>
         prevContacts.map((contact) =>
-          contact.id === contactId
+          (contact.id === contactId || contact.contact_id === contactId)
             ? {
                 ...contact,
                 tags: contact.tags!.filter((tag) => tag !== tagName),
@@ -7288,6 +7650,9 @@ console.log(baseUrl);
         );
 
       setContacts(updateContactsList);
+      setLoadedContacts((prevLoadedContacts) =>
+        updateContactsList(prevLoadedContacts)
+      );
       setFilteredContacts((prevFilteredContacts) =>
         updateContactsList(prevFilteredContacts)
       );
@@ -7300,12 +7665,26 @@ console.log(baseUrl);
       );
 
       // Update selectedContact if it's the same contact
-      if (selectedContact && selectedContact.id === contactId) {
+      if (selectedContact && (selectedContact.id === contactId || selectedContact.contact_id === contactId)) {
         setSelectedContact((prevContact: Contact) => ({
           ...prevContact,
           tags: prevContact.tags!.filter((tag: string) => tag !== tagName),
           assignedTo: undefined,
         }));
+      }
+
+      // Send WebSocket message to notify other clients
+      if (wsConnection && wsConnected) {
+        const wsMessage = {
+          type: "contact_tags_update",
+          contactId: contactId,
+          action: "remove",
+          tagName: tagName,
+          updatedTags: contact.tags!.filter((tag) => tag !== tagName),
+          timestamp: Date.now()
+        };
+        wsConnection.send(JSON.stringify(wsMessage));
+        console.log("🏷️ [WEBSOCKET] Sent contact tags update:", wsMessage);
       }
 
       console.log("📝 [TAG] Removed tag from contact:", contactId, "tag:", tagName);
@@ -10108,12 +10487,13 @@ console.log(baseUrl);
                                     ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
                                     : "text-gray-700 dark:text-gray-200"
                                 }`}
-                                onClick={() =>
+                                onClick={() => {
+                                  console.log("🎯 [UI] Employee assignment clicked:", employee.name, selectedContact);
                                   handleAddTagToSelectedContacts(
                                     employee.name,
                                     selectedContact
-                                  )
-                                }
+                                  );
+                                }}
                               >
                                 <span>{employee.name}</span>
                                 <div className="flex items-center space-x-2 text-xs">
@@ -10148,12 +10528,13 @@ console.log(baseUrl);
                                 ? "bg-gray-200 dark:bg-gray-700"
                                 : ""
                             }`}
-                            onClick={() =>
+                            onClick={() => {
+                              console.log("🎯 [UI] Tag assignment clicked:", tag.name, selectedContact);
                               handleAddTagToSelectedContacts(
                                 tag.name,
                                 selectedContact
-                              )
-                            }
+                              );
+                            }}
                           >
                             <Lucide
                               icon="User"
@@ -10288,12 +10669,13 @@ console.log(baseUrl);
                             <Menu.Item key={tag.id}>
                               <button
                                 className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                                onClick={() =>
+                                onClick={() => {
+                                  console.log("🎯 [UI] Tag assignment clicked (menu 2):", tag.name, selectedContact);
                                   handleAddTagToSelectedContacts(
                                     tag.name,
                                     selectedContact
-                                  )
-                                }
+                                  );
+                                }}
                               >
                                 <span className="text-gray-800 dark:text-gray-200">
                                   {tag.name}
@@ -10630,14 +11012,16 @@ console.log(baseUrl);
                                         </div>
                                       )}
                                     <div
-                                      className={`whitespace-pre-wrap break-words overflow-hidden text-[15px] ${
+                                      className={`whitespace-pre-wrap break-words overflow-hidden leading-relaxed text-[15px] font-normal ${
                                         message.from_me
-                                          ? myMessageTextClass
-                                          : otherMessageTextClass
+                                          ? `${myMessageTextClass}`
+                                          : `${otherMessageTextClass}`
                                       }`}
                                       style={{
                                         wordBreak: "break-word",
                                         overflowWrap: "break-word",
+                                        lineHeight: "1.5",
+                                        letterSpacing: "0.01em",
                                       }}
                                     >
                                       {formatText(message.text.body)}
@@ -10717,17 +11101,23 @@ console.log(baseUrl);
                                   </div>
                                   {message.image?.caption && (
                                     <div
-                                      className={`p-2 mb-2 rounded ${
-                                        message.from_me ? myFirstMessageClass : otherFirstMessageClass
-                                      }`}
+                                      className="mb-2"
                                       style={{
                                         maxWidth: "70%",
                                         width: `${Math.min((message.image.caption.length || 0) * 10, 350)}px`,
                                         minWidth: "75px",
                                       }}
                                     >
-                                                                              <div className="whitespace-pre-wrap break-words text-black dark:text-white">
-                                          {message.image.caption}
+                                      <div className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
+                                        message.from_me 
+                                          ? 'text-white dark:text-white' 
+                                          : 'text-black dark:text-white'
+                                      }`}
+                                      style={{
+                                        lineHeight: "1.5",
+                                        letterSpacing: "0.01em",
+                                      }}>
+                                          {formatText(message.image.caption)}
                                         </div>
                                     </div>
                                   )}
@@ -10801,18 +11191,24 @@ console.log(baseUrl);
                                   </div>
                                   {message.gif?.caption && (
                                     <div
-                                      className={`p-2 mb-2 rounded ${
-                                        message.from_me ? myFirstMessageClass : otherFirstMessageClass
-                                      }`}
+                                      className="mb-2"
                                       style={{
                                         maxWidth: "70%",
                                         width: `${Math.min((message.gif.caption.length || 0) * 10, 350)}px`,
                                         minWidth: "75px",
                                       }}
                                     >
-                                      <div className="whitespace-pre-wrap break-words text-black dark:text-white">
-                                        {message.gif.caption}
-                                      </div>
+                                      <div className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
+                                        message.from_me 
+                                          ? 'text-white dark:text-white' 
+                                          : 'text-black dark:text-white'
+                                      }`}
+                                      style={{
+                                        lineHeight: "1.5",
+                                        letterSpacing: "0.01em",
+                                      }}>
+                                          {formatText(message.gif.caption)}
+                                        </div>
                                     </div>
                                   )}
                                 </>
@@ -10861,18 +11257,23 @@ console.log(baseUrl);
                                     {(message.audio?.caption ||
                                       message.ptt?.caption) && (
                                       <div
-                                        className={`p-2 mb-2 rounded ${
-                                          message.from_me ? myFirstMessageClass : otherFirstMessageClass
-                                        }`}
+                                        className="mb-2"
                                         style={{
                                           maxWidth: "70%",
                                           width: `${Math.min(((message.audio?.caption || message.ptt?.caption || "").length || 0) * 10, 350)}px`,
                                           minWidth: "75px",
                                         }}
                                       >
-                                        <div className="whitespace-pre-wrap break-words text-black dark:text-white">
-                                          {message.audio?.caption ||
-                                            message.ptt?.caption}
+                                        <div className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
+                                          message.from_me 
+                                            ? 'text-white dark:text-white' 
+                                            : 'text-black dark:text-white'
+                                        }`}
+                                        style={{
+                                          lineHeight: "1.5",
+                                          letterSpacing: "0.01em",
+                                        }}>
+                                          {formatText(message.audio?.caption || message.ptt?.caption || "")}
                                         </div>
                                       </div>
                                     )}
@@ -10971,17 +11372,23 @@ console.log(baseUrl);
                                     </div>
                                     {message.document?.caption && (
                                       <div
-                                        className={`p-2 mb-2 rounded ${
-                                          message.from_me ? myFirstMessageClass : otherFirstMessageClass
-                                        }`}
+                                        className="mb-2"
                                         style={{
                                           maxWidth: "70%",
                                           width: `${Math.min((message.document.caption.length || 0) * 10, 350)}px`,
                                           minWidth: "75px",
                                         }}
                                       >
-                                        <div className="whitespace-pre-wrap break-words text-black dark:text-white">
-                                          {message.document.caption}
+                                        <div className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
+                                          message.from_me 
+                                            ? 'text-white dark:text-white' 
+                                            : 'text-black dark:text-white'
+                                        }`}
+                                        style={{
+                                          lineHeight: "1.5",
+                                          letterSpacing: "0.01em",
+                                        }}>
+                                          {formatText(message.document.caption)}
                                         </div>
                                       </div>
                                     )}
@@ -12966,23 +13373,21 @@ console.log(baseUrl);
               </div>
               {/* Add the new Notes section */}
               <div className="bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden ">
-                <div className="bg-yellow-50 dark:bg-yellow-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                      Notes
-                    </h3>
-                    {!isEditing && (
-                      <button
-                        onClick={() => {
-                          setIsEditing(true);
-                          setEditedContact({ ...selectedContact });
-                        }}
-                        className="px-3 py-1 bg-primary text-white rounded-md hover:bg-primary-dark transition duration-200"
-                      >
-                        Edit Notes
-                      </button>
-                    )}
-                  </div>
+                <div className="bg-yellow-50 dark:bg-yellow-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    Notes
+                  </h3>
+                  {!isEditing && (
+                    <button
+                      onClick={() => {
+                        setIsEditing(true);
+                        setEditedContact({ ...selectedContact });
+                      }}
+                      className="px-3 py-1 bg-primary text-white rounded-md hover:bg-primary-dark transition duration-200"
+                    >
+                      Edit Notes
+                    </button>
+                  )}
                 </div>
                 <div className="p-4">
                   {isEditing ? (
