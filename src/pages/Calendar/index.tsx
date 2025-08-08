@@ -2361,9 +2361,9 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
       return true;
     }
 
-    // More permissive regex that includes holiday calendar format
+    // More permissive regex that includes holiday calendar format and group calendars
     const regex =
-      /^[\w.-]+[#]?[\w.-]*@(calendar\.google\.com|gmail\.com)$/;
+      /^[\w.-]+[#]?[\w.-]*@(calendar\.google\.com|group\.calendar\.google\.com|gmail\.com)$/;
     const isValid = regex.test(calendarId.trim());
     debugLog("Calendar ID validation result", isValid);
     return isValid;
