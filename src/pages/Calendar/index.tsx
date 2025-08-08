@@ -1,42 +1,38 @@
 import Lucide from "@/components/Base/Lucide";
 import { Menu, Dialog } from "@/components/Base/Headless";
 import Button from "@/components/Base/Button";
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import googleCalendarPlugin from '@fullcalendar/google-calendar';
-import { ChangeEvent, JSXElementConstructor, Key, ReactElement, ReactNode, useEffect, useState, useRef, Component, ErrorInfo } from "react";
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin from "@fullcalendar/interaction";
+import googleCalendarPlugin from "@fullcalendar/google-calendar";
+import {
+  ChangeEvent,
+  JSXElementConstructor,
+  Key,
+  ReactElement,
+  ReactNode,
+  useEffect,
+  useState,
+  useRef,
+  Component,
+  ErrorInfo,
+} from "react";
 import axios from "axios";
-import { getAuth } from 'firebase/auth';
-import { initializeApp } from "firebase/app";
-import { format, parse, addHours, subHours } from 'date-fns';
-import { getDoc, getFirestore, doc, setDoc, collection, addDoc, getDocs, updateDoc, deleteDoc, QueryDocumentSnapshot, DocumentData, query, where, Timestamp } from 'firebase/firestore';
+import { format, parse, addHours, subHours } from "date-fns";
 import { useContacts } from "@/contact";
-import Select from 'react-select';
+import Select from "react-select";
 import { error } from "console";
 import { title } from "process";
-import CreatableSelect from 'react-select/creatable';
+import CreatableSelect from "react-select/creatable";
 import React from "react";
-import { toast } from 'react-toastify';
-import { useNavigate } from 'react-router-dom';
+import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 import { Switch } from "@headlessui/react";
 import Modal from "@/components/Base/Modal";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
-  authDomain: "onboarding-a5fcb.firebaseapp.com",
-  databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "onboarding-a5fcb",
-  storageBucket: "onboarding-a5fcb.appspot.com",
-  messagingSenderId: "334607574757",
-  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
-  measurementId: "G-2C9J1RY67L"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const firestore = getFirestore(app);
+// Configuration
+const baseUrl = "https://juta-dev.ngrok.dev"; // Your PostgreSQL server URL
 
 interface Appointment {
   id: string;
@@ -45,21 +41,29 @@ interface Appointment {
   endTime: string;
   address: string;
   appointmentStatus: string;
+  appointmentType?: string;
   staff: string[];
   tags: Tag[];
   color: string;
-  packageId: string | null;
   dateAdded: string;
-  contacts: { id: string, name: string, session: number, phone: string, email: string }[];
+  contacts: {
+    contact_id: string;
+    id: string;
+    name: string;
+    phone: string;
+    email: string;
+  }[];
   meetLink?: string;
   notificationSent?: boolean;
   minyak?: number;
   toll?: number;
   details?: string;
+  // Additional metadata fields that might come from the backend
+  [key: string]: any;
 }
 interface CalendarConfig {
-  calendarId: string;  // Keep original calendarId for backwards compatibility
-  additionalCalendarIds: string[];  // Add new field for additional calendars
+  calendarId: string; // Keep original calendarId for backwards compatibility
+  additionalCalendarIds: string[]; // Add new field for additional calendars
   startHour: number;
   endHour: number;
   slotDuration: number;
@@ -79,7 +83,7 @@ interface Contact {
   businessId: string | null;
   city: string | null;
   companyName: string | null;
-  contactName: string;
+  name: string;
   country: string;
   customFields: any[];
   dateAdded: string;
@@ -91,6 +95,7 @@ interface Contact {
   firstName: string;
   followers: string[];
   id: string;
+  contact_id: string;
   lastName: string;
   locationId: string;
   phone: string | null;
@@ -98,24 +103,13 @@ interface Contact {
   source: string | null;
   state: string | null;
   tags: string[];
-  type: string;
   website: string | null;
-}
-
-interface ContactWithSession extends Contact {
-  session: number;
 }
 
 type BackgroundStyle = {
   backgroundColor?: string;
   background?: string;
 };
-
-interface Package {
-  id: string;
-  name: string;
-  sessions: number;
-}
 
 interface Tag {
   id: string;
@@ -126,10 +120,10 @@ interface ReminderSettings {
   reminders: Array<{
     enabled: boolean;
     time: number;
-    timeUnit: 'minutes' | 'hours' | 'days';
-    type: 'before' | 'after';
+    timeUnit: "minutes" | "hours" | "days";
+    type: "before" | "after";
     message: string;
-    recipientType?: 'contacts' | 'employees'; // Who should receive the reminder
+    recipientType?: "contacts" | "employees"; // Who should receive the reminder
     selectedEmployees?: string[]; // Array of employee IDs when recipientType is 'employees'
   }>;
 }
@@ -138,52 +132,54 @@ function Main() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
-  const [accessToken, setAccessToken] = useState<string>('');
-  const [locationId, setLocationId] = useState<string>('');
+  const [accessToken, setAccessToken] = useState<string>("");
+  const [locationId, setLocationId] = useState<string>("");
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [currentEvent, setCurrentEvent] = useState<any>(null);
-  const [view, setView] = useState<string>('dayGridMonth');
+  const [view, setView] = useState<string>("dayGridMonth");
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<string>('');
-  const [filterDate, setFilterDate] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [filterDate, setFilterDate] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const { contacts: initialContacts } = useContacts();
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [selectedStaff, setSelectedStaff] = useState<string>('');
-  const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
-  const [contactSessions, setContactSessions] = useState<{ [key: string]: number }>({});
-  const [initialAppointmentStatus, setInitialAppointmentStatus] = useState<string | null>(null);
-  const [packages, setPackages] = useState<Package[]>([]);
-  const [newPackageName, setNewPackageName] = useState("");
-  const [newPackageSessions, setNewPackageSessions] = useState(0);
-  const [isAddingPackage, setIsAddingPackage] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<string>("");
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [initialAppointmentStatus, setInitialAppointmentStatus] = useState<
+    string | null
+  >(null);
   const [isMobile, setIsMobile] = useState(false);
   const calendarRef = useRef(null);
   const [appointmentTags, setAppointmentTags] = useState<Tag[]>([]);
-  const [companyId, setCompanyId] = useState<string>('');
-  const [viewType, setViewType] = useState('calendar'); // 'calendar' or 'grid'
+  const [companyId, setCompanyId] = useState<string>("");
+  const [viewType, setViewType] = useState("calendar"); // 'calendar' or 'grid'
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [employeeExpenses, setEmployeeExpenses] = useState<Record<string, { minyak: number; toll: number }>>({});
+  const [employeeExpenses, setEmployeeExpenses] = useState<
+    Record<string, { minyak: number; toll: number }>
+  >({});
   const navigate = useNavigate();
   const [isCalendarConfigOpen, setIsCalendarConfigOpen] = useState(false);
   const [isReminderSettingsOpen, setIsReminderSettingsOpen] = useState(false);
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>({
-    reminders: []
+    reminders: [],
   });
-  
-  class ErrorBoundary extends Component<{ children: ReactNode; onError: (error: Error) => void }> {
+
+  class ErrorBoundary extends Component<{
+    children: ReactNode;
+    onError: (error: Error) => void;
+  }> {
     componentDidCatch(error: Error, errorInfo: ErrorInfo) {
       this.props.onError(error);
     }
-  
+
     render() {
       return this.props.children;
     }
   }
   const [config, setConfig] = useState<CalendarConfig>({
-    calendarId: '',
+    calendarId: "",
     additionalCalendarIds: [],
     startHour: 11,
     endHour: 21,
@@ -193,67 +189,61 @@ function Main() {
 
   useEffect(() => {
     const fetchCompanyId = async () => {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      if (user) {
-        const docUserRef = doc(firestore, 'user', user.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (docUserSnapshot.exists()) {
-          const dataUser = docUserSnapshot.data();
-          setCompanyId(dataUser.companyId);
+      const userEmail = localStorage.getItem("userEmail");
+      if (userEmail) {
+        try {
+          const response = await axios.get(
+            `${baseUrl}/api/user-context?email=${encodeURIComponent(userEmail)}`
+          );
+          const userData = response.data;
+          setCompanyId(userData.companyId);
+        } catch (error) {
+          console.error("Error fetching company ID:", error);
         }
       }
     };
-  
+
     fetchCompanyId();
     fetchTags();
     fetchReminderSettings();
-  }, [auth]);
+  }, []);
 
   const fetchReminderSettings = async () => {
     try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      if (!user?.email) return;
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
 
-      const docUserRef = doc(firestore, 'user', user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
-
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-
-      const reminderSettingsRef = doc(firestore, `companies/${companyId}/config/reminders`);
-      const reminderSettingsSnapshot = await getDoc(reminderSettingsRef);
-
-      if (reminderSettingsSnapshot.exists()) {
-        const settings = reminderSettingsSnapshot.data() as ReminderSettings;
+      const response = await axios.get(
+        `${baseUrl}/api/reminder-settings?email=${encodeURIComponent(
+          userEmail
+        )}`
+      );
+      if (response.data) {
+        const apiResponse = response.data;
+        const settings: ReminderSettings = {
+          reminders: apiResponse.reminders || []
+        };
         setReminderSettings(settings);
       }
     } catch (error) {
-      console.error('Error fetching reminder settings:', error);
+      console.error("Error fetching reminder settings:", error);
     }
   };
 
   const updateReminderSettings = async (settings: ReminderSettings) => {
     try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      if (!user?.email) return;
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
 
-      const docUserRef = doc(firestore, 'user', user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
+      await axios.put(`${baseUrl}/api/reminder-settings`, {
+        email: userEmail,
+        reminders: settings.reminders,
+      });
 
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-
-      const reminderSettingsRef = doc(firestore, `companies/${companyId}/config/reminders`);
-      await setDoc(reminderSettingsRef, settings);
       setReminderSettings(settings);
       setIsReminderSettingsOpen(false);
     } catch (error) {
-      console.error('Error updating reminder settings:', error);
+      console.error("Error updating reminder settings:", error);
       throw error;
     }
   };
@@ -264,13 +254,18 @@ function Main() {
   }, []);
 
   const fetchTags = async () => {
-    
-    if (companyId) {
-      const tagsCollectionRef = collection(firestore, `companies/${companyId}/tags`);
-      const querySnapshot = await getDocs(tagsCollectionRef);
-      const tags = querySnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
-      
-      setAppointmentTags(tags);
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
+
+      const response = await axios.get(
+        `${baseUrl}/api/appointment-tags?email=${encodeURIComponent(userEmail)}`
+      );
+      if (response.data && response.data.tags) {
+        setAppointmentTags(response.data.tags);
+      }
+    } catch (error) {
+      console.error("Error fetching tags:", error);
     }
   };
 
@@ -280,32 +275,35 @@ function Main() {
     };
 
     handleResize();
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
 
-    return () => window.removeEventListener('resize', handleResize);
-
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  
+  const generateTimeSlots = (isWeekend: boolean): string[] => {
+    const start = isWeekend ? 8 : 8; // Start time (8 AM)
+    const end = isWeekend ? 20 : 20; // End time (8 PM)
+    const slots: string[] = [];
 
-// ... existing code ...
+    for (let hour = start; hour < end; hour++) {
+      // Add the full hour slot
+      slots.push(
+        `${hour.toString().padStart(2, "0")}:00 - ${hour
+          .toString()
+          .padStart(2, "0")}:30`
+      );
+      // Add the half hour slot
+      slots.push(
+        `${hour.toString().padStart(2, "0")}:30 - ${(hour + 1)
+          .toString()
+          .padStart(2, "0")}:00`
+      );
+    }
 
-const generateTimeSlots = (isWeekend: boolean): string[] => {
-  const start = isWeekend ? 8 : 8; // Start time (8 AM)
-  const end = isWeekend ? 20 : 20;  // End time (8 PM)
-  const slots: string[] = [];
+    return slots;
+  };
 
-  for (let hour = start; hour < end; hour++) {
-    // Add the full hour slot
-    slots.push(`${hour.toString().padStart(2, '0')}:00 - ${hour.toString().padStart(2, '0')}:30`);
-    // Add the half hour slot
-    slots.push(`${hour.toString().padStart(2, '0')}:30 - ${(hour + 1).toString().padStart(2, '0')}:00`);
-  }
-
-  return slots;
-};
-
-// ... rest of the code ...
+  // ... rest of the code ...
   // Utility function to blend two colors
   const blendColors = (color1: string, color2: string): string => {
     const hex = (color: string) => {
@@ -320,554 +318,470 @@ const generateTimeSlots = (isWeekend: boolean): string[] => {
     const g2 = parseInt(hex(color2).substring(2, 4), 16);
     const b2 = parseInt(hex(color2).substring(4, 6), 16);
 
-    const r = Math.round((r1 + r2) / 2).toString(16).padStart(2, "0");
-    const g = Math.round((g1 + g2) / 2).toString(16).padStart(2, "0");
-    const b = Math.round((b1 + b2) / 2).toString(16).padStart(2, "0");
+    const r = Math.round((r1 + r2) / 2)
+      .toString(16)
+      .padStart(2, "0");
+    const g = Math.round((g1 + g2) / 2)
+      .toString(16)
+      .padStart(2, "0");
+    const b = Math.round((b1 + b2) / 2)
+      .toString(16)
+      .padStart(2, "0");
 
     return `#${r}${g}${b}`;
   };
-
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const dateStr = e.target.value;
     const date = new Date(dateStr);
     const dayOfWeek = date.getUTCDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday (0) or Saturday (6)
-    setCurrentEvent({ ...currentEvent, dateStr, isWeekend, timeSlots: generateTimeSlots(isWeekend) });
+    setCurrentEvent({
+      ...currentEvent,
+      dateStr,
+      isWeekend,
+      timeSlots: generateTimeSlots(isWeekend),
+    });
   };
-  
+
   const handleTimeSlotChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const [startTimeStr, endTimeStr] = e.target.value.split(' - ');
+    const [startTimeStr, endTimeStr] = e.target.value.split(" - ");
     setCurrentEvent({ ...currentEvent, startTimeStr, endTimeStr });
   };
 
   let role = 1;
-  let userName = '';
+  let userName = "";
 
   useEffect(() => {
     fetchEmployees();
   }, []);
 
+  const fetchEmployees = async () => {
+    try {
+      // Get the current user's email (from Firebase Auth or however you store it)
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("No user email found");
+        return;
+      }
+      // First, fetch user config to get companyId
+      const userResponse = await fetch(
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(
+          userEmail
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
 
+      if (!userResponse.ok) {
+        throw new Error("Failed to fetch company data");
+      }
 
-// ... existing code ...
-const fetchEmployees = async () => {
-  try {
-    // Get the current user's email (from Firebase Auth or however you store it)
-    const userEmail = localStorage.getItem('userEmail');
-    if (!userEmail) {
-      console.error('No user email found');
-      return;
+      const userData = await userResponse.json();
+      const companyId = userData.company_id || userData.companyId;
+      if (!companyId) {
+        console.error("No companyId found in user config");
+        return;
+      }
+
+      // Now fetch employees from the new endpoint
+      const employeesResponse = await fetch(
+        `${baseUrl}/api/employees-data/${encodeURIComponent(
+          companyId
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!employeesResponse.ok) {
+        throw new Error("Failed to fetch employees data");
+      }
+
+      const employeeListData = await employeesResponse.json();
+      console.log(employeeListData);
+      // Optionally, add color/backgroundStyle as before
+      const colors = [
+        "#FF5733",
+        "#006400",
+        "#3357FF",
+        "#FF33A1",
+        "#33FFF5",
+        "#FF8C33",
+        "#8C33FF",
+        "#33FF8C",
+      ];
+      const backgroundStyles = [
+        "linear-gradient(to right, #1F3A8A 0%, #1F3A8A 50%, #2196F3 50%, #2196F3 100%)",
+        "linear-gradient(to right, #8A2BE2 0%, #8A2BE2 50%, #9C27B0 50%, #9C27B0 100%)",
+        "linear-gradient(to right, #00BCD4 0%, #00BCD4 50%, #795548 50%, #795548 100%)",
+        "linear-gradient(to right, #607D8B 0%, #607D8B 50%, #E91E63 50%, #E91E63 100%)",
+      ];
+      let colorIndex = 0;
+
+      const employeesWithColors = employeeListData.map((emp: any) => ({
+        ...emp,
+        color: colors[colorIndex % colors.length],
+        backgroundStyle: backgroundStyles[colorIndex % backgroundStyles.length],
+        id: emp.id || emp._id, // adjust if your API uses _id
+      }));
+
+      setEmployees(employeesWithColors);
+      // If you need to fetch appointments, update that logic as well
+      fetchAppointments(userEmail);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
     }
-    // First, fetch user config to get companyId
-    const userResponse = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      credentials: 'include'
-    });
+  };
 
-    if (!userResponse.ok) {
-      throw new Error('Failed to fetch company data');
+  const fetchAppointments = async (userEmail: string) => {
+    setLoading(true);
+    try {
+      // Always fetch all appointments and handle filtering on client side
+      let url = `${baseUrl}/api/appointments?email=${encodeURIComponent(
+        userEmail
+      )}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch appointments");
+      }
+
+      const data = await response.json();
+      console.log('Fetched appointments:', data);
+      
+      // Process appointments to ensure all fields have proper defaults
+      const processedAppointments = (data.appointments || data || []).map((appointment: any) => ({
+        ...appointment,
+        // Ensure required fields have defaults
+        contacts: appointment.contacts || [],
+        tags: appointment.tags || [],
+        staff: appointment.staff || [],
+        color: appointment.color || '#51484f',
+        address: appointment.address || '',
+        details: appointment.details || '',
+        meetLink: appointment.meetLink || '',
+        appointmentStatus: appointment.appointmentStatus || 'scheduled',
+        appointmentType: appointment.appointmentType || 'general',
+        // Handle potential null/undefined values
+        title: appointment.title || 'Untitled Appointment',
+        startTime: appointment.startTime,
+        endTime: appointment.endTime,
+        dateAdded: appointment.dateAdded || appointment.created_at
+      }));
+
+      // Sort appointments by date
+      setAppointments(
+        processedAppointments.sort(
+          (a: any, b: any) =>
+            new Date(b.dateAdded || b.created_at).getTime() - 
+            new Date(a.dateAdded || a.created_at).getTime()
+        )
+      );
+    } catch (error) {
+      console.error("Error fetching appointments:", error);
+      setAppointments([]); // Set empty array on error
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const userData = await userResponse.json();
-    const companyId = userData.company_id || userData.companyId;
-    if (!companyId) {
-      console.error('No companyId found in user config');
-      return;
-    }
-
-    // Now fetch employees from the new endpoint
-    const employeesResponse = await fetch(`https://juta-dev.ngrok.dev/api/employees-data/${encodeURIComponent(companyId)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      credentials: 'include'
-    });
-
-    if (!employeesResponse.ok) {
-      throw new Error('Failed to fetch employees data');
-    }
-
-    const employeeListData = await employeesResponse.json();
-    console.log(employeeListData);
-    // Optionally, add color/backgroundStyle as before
-    const colors = ["#FF5733", "#006400", "#3357FF", "#FF33A1", "#33FFF5", "#FF8C33", "#8C33FF", "#33FF8C"];
-    const backgroundStyles = [
-      "linear-gradient(to right, #1F3A8A 0%, #1F3A8A 50%, #2196F3 50%, #2196F3 100%)",
-      "linear-gradient(to right, #8A2BE2 0%, #8A2BE2 50%, #9C27B0 50%, #9C27B0 100%)",
-      "linear-gradient(to right, #00BCD4 0%, #00BCD4 50%, #795548 50%, #795548 100%)",
-      "linear-gradient(to right, #607D8B 0%, #607D8B 50%, #E91E63 50%, #E91E63 100%)"
-    ];
-    let colorIndex = 0;
-
-    const employeesWithColors = employeeListData.map((emp: any) => ({
-      ...emp,
-      color: colors[colorIndex % colors.length],
-      backgroundStyle: backgroundStyles[colorIndex % backgroundStyles.length],
-      id: emp.id || emp._id // adjust if your API uses _id
-    }));
-
-    setEmployees(employeesWithColors);
-    // If you need to fetch appointments, update that logic as well
-    fetchAppointments(userEmail);
-  } catch (error) {
-    console.error('Error fetching employees:', error);
-  }
-};
-
-
-// ... existing code ...
-const fetchAppointments = async (userEmail: string) => {
-  setLoading(true);
-  try {
-    // Build the API URL, optionally with employee filter
-    let url = `https://juta-dev.ngrok.dev/api/appointments?email=${encodeURIComponent(userEmail)}`;
-    if (selectedEmployeeId) {
-      url += `&employeeId=${encodeURIComponent(selectedEmployeeId)}`;
-    }
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch appointments');
-    }
-
-    const data = await response.json();
-    // If your API returns an array of appointments directly:
-    // const appointments = data.appointments || data; // adjust if needed
-
-    // If you need to fetch package details, you can do it here (or have your API include them)
-    // For now, just set the appointments
-    setAppointments(
-      (data.appointments || data).sort((a: any, b: any) =>
-        new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
-      )
-    );
-  } catch (error) {
-    console.error('Error fetching appointments:', error);
-  } finally {
-    setLoading(false);
-  }
-};
-// ... existing code ...
-  const handleEmployeeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleEmployeeChange = (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
     const employeeId = event.target.value;
     setSelectedEmployeeId(employeeId);
-    
-    fetchAppointments(employeeId);
   };
 
   const fetchContacts = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user?.email) return;
-  
-      const docUserRef = doc(firestore, 'user', user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
+
+      // First get user context to get company ID
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-context?email=${encodeURIComponent(userEmail)}`
+      );
+      const userData = await userResponse.json();
+      
+      if (!userData.companyId) {
+        console.error("No company ID found for user");
         return;
       }
-  
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      
-      const contactsRef = collection(firestore, `companies/${companyId}/contacts`);
-      const contactsSnapshot = await getDocs(contactsRef);
-  
-      const contactsData: Contact[] = [];
-      contactsSnapshot.forEach((doc) => {
-        const contactData = doc.data();
-        contactsData.push({ 
-          id: doc.id,
-          additionalEmails: contactData.additionalEmails || [],
-          address1: contactData.address1 || null,
-          assignedTo: contactData.assignedTo || null,
-          businessId: contactData.businessId || null,
-          city: contactData.city || null,
-          companyName: contactData.companyName || null,
-          contactName: contactData.contactName || '',
-          country: contactData.country || '',
-          customFields: contactData.customFields || [],
-          dateAdded: contactData.dateAdded || new Date().toISOString(),
-          dateOfBirth: contactData.dateOfBirth || null,
-          dateUpdated: contactData.dateUpdated || new Date().toISOString(),
-          dnd: contactData.dnd || false,
-          dndSettings: contactData.dndSettings || {},
-          email: contactData.email || null,
-          firstName: contactData.firstName || '',
-          followers: contactData.followers || [],
-          lastName: contactData.lastName || '',
-          locationId: contactData.locationId || '',
-          phone: contactData.phone || null,
-          postalCode: contactData.postalCode || null,
-          source: contactData.source || null,
-          state: contactData.state || null,
-          tags: contactData.tags || [],
-          type: contactData.type || '',
-          website: contactData.website || null
-        });
-      });
-  
-      // Remove duplicates by contactName before setting state
-      const uniqueContacts = contactsData.reduce((acc: Contact[], current) => {
-        const isDuplicate = acc.find(contact => 
-          contact.contactName === current.contactName || 
-          contact.id === current.id
-        );
-        if (!isDuplicate) {
-          acc.push(current);
+
+      // Now fetch contacts using the correct endpoint
+      const response = await axios.get(
+        `${baseUrl}/api/companies/${userData.companyId}/contacts`,
+        {
+          params: { email: userEmail }
         }
-        return acc;
-      }, []);
+      );
+      console.log('Fetched contacts response:', response.data);
+      const contactsData = response.data.contacts || [];
+      console.log('Fetched contacts:', contactsData);
 
       // Sort alphabetically
-      const sortedContacts = uniqueContacts.sort((a, b) => 
-        (a.contactName || '').localeCompare(b.contactName || '')
+      const sortedContacts = contactsData.sort((a: Contact, b: Contact) =>
+        (a.name || "").localeCompare(b.name || "")
       );
 
       setContacts(sortedContacts);
     } catch (error) {
-      console.error('Error fetching contacts:', error);
+      console.error("Error fetching contacts:", error);
     }
   };
-  
+
   // Add this useEffect to fetch contacts when component mounts
   useEffect(() => {
     fetchContacts();
   }, []);
 
-  const fetchContactSession = async (contactId: string) => {
-    try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
-      }
-
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-
-      const sessionsCollectionRef = collection(firestore, `companies/${companyId}/session`);
-      const q = query(sessionsCollectionRef, where('id', '==', contactId));
-      const querySnapshot = await getDocs(q);
-
-      let sessionNumber = 0;
-      querySnapshot.forEach((doc) => {
-        sessionNumber = doc.data().session;
-      });
-
-      setContactSessions((prevSessions) => ({
-        ...prevSessions,
-        [contactId]: sessionNumber,
-      }));
-    } catch (error) {
-      console.error('Error fetching contact session:', error);
+  const handleContactChange = (selectedOption: any) => {
+    if (selectedOption) {
+      const selectedContactData = contacts.find((contact) =>
+        contact.id === selectedOption.value
+      );
+      setSelectedContact(selectedContactData || null);
+    } else {
+      setSelectedContact(null);
     }
-  };
-
-  const handleContactChange = (selectedOptions: any) => {
-    const selectedContactIds = selectedOptions.map((option: any) => option.value);
-    const selectedContactsData = contacts.filter(contact => 
-      selectedContactIds.includes(contact.id)
-    );
-    setSelectedContacts(selectedContactsData);
   };
 
   const handleEventClick = async (info: any) => {
-    const appointment = appointments.find(app => app.id === info.event.id);
-  
+    const appointment = appointments.find((app) => app.id === info.event.id);
+
     if (!appointment) {
-      console.error('Appointment not found!');
+      console.error("Appointment not found!");
       return;
     }
-  
-    const startStr = format(new Date(appointment.startTime), 'HH:mm');
-    const endStr = format(new Date(appointment.endTime), 'HH:mm');
-    const dateStr = format(new Date(appointment.startTime), 'yyyy-MM-dd');
+
+    const startStr = format(new Date(appointment.startTime), "HH:mm");
+    const endStr = format(new Date(appointment.endTime), "HH:mm");
+    const dateStr = format(new Date(appointment.startTime), "yyyy-MM-dd");
     const date = new Date(dateStr);
     const dayOfWeek = date.getUTCDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const eventContacts = appointment.contacts || [];
-    const eventDetails = appointment.details || '';
-    const eventMeetLink = appointment.meetLink || '';
-  
-    
-    
-  
-    // Fetch the contact sessions if not already fetched
-    const fetchContactSessions = async () => {
-      const newContactSessions: { [key: string]: number } = {};
-      await Promise.all(eventContacts.map(async (contact: { id: string }) => {
-        const auth = getAuth(app);
-        const user = auth.currentUser;
-        if (!user || !user.email) {
-          console.error('No authenticated user or email found');
-          return;
-        }
-  
-        const docUserRef = doc(firestore, 'user', user.email);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          console.error('No such document for user!');
-          return;
-        }
-  
-        const dataUser = docUserSnapshot.data();
-        const companyId = dataUser.companyId as string;
-        const contactRef = doc(firestore, `companies/${companyId}/session`, contact.id);
-        const contactSnapshot = await getDoc(contactRef);
-  
-        if (contactSnapshot.exists()) {
-          const contactData = contactSnapshot.data();
-          newContactSessions[contact.id] = contactData.session;
-          
-        }
-      }));
-  
-      setContactSessions((prevSessions) => {
-        const updatedSessions = { ...prevSessions, ...newContactSessions };
-        
-        return updatedSessions;
+    const eventDetails = appointment.details || "";
+    const eventMeetLink = appointment.meetLink || "";
+
+    // Set selected contact based on the appointment's first contact
+    if (eventContacts.length > 0) {
+      // Take only the first contact from the appointment
+      const eventContact = eventContacts[0];
+      
+      // Try to find the contact in the contacts array
+      const fullContact = contacts.find(contact => 
+        contact.id === eventContact.id || 
+        contact.id === eventContact.contact_id ||
+        contact.name === eventContact.name ||
+        contact.phone === eventContact.phone
+      );
+
+      console.log('Full contact found:', fullContact);
+      
+      // If found, set the full contact, otherwise create a minimal contact object
+      setSelectedContact(fullContact || {
+        id: eventContact.id,
+        contact_id: eventContact.contact_id,
+        name: eventContact.name || 'Unknown Contact',
+        firstName: eventContact.name?.split(' ')[0] || '',
+        lastName: eventContact.name?.split(' ').slice(1).join(' ') || '',
+        phone: eventContact.phone || '',
+        email: eventContact.email || '',
+        // Add other required Contact interface fields with defaults
+        additionalEmails: [],
+        address1: null,
+        assignedTo: null,
+        businessId: null,
+        city: null,
+        companyName: null,
+        country: '',
+        customFields: [],
+        dateAdded: new Date().toISOString(),
+        dateOfBirth: null,
+        dateUpdated: new Date().toISOString(),
+        dnd: false,
+        dndSettings: {},
+        followers: [],
+        locationId: '',
+        postalCode: null,
+        source: null,
+        state: null,
+        tags: [],
+        website: null,
       });
-    };
-  
-    // Fetch contact sessions and wait for completion
-    await fetchContactSessions();
-  
-    // Map event contacts to ContactWithSession objects
-    const fullContacts: ContactWithSession[] = eventContacts.map((contact: { id: string }) => {
-      const foundContact = contacts.find(c => c.id === contact.id);
-      if (foundContact) {
-        
-        return {
-          ...foundContact,
-          session: contactSessions[contact.id] || 0
-        };
-      }
-      return null;
-    }).filter((contact): contact is ContactWithSession => contact !== null);
-  
-    
-  
-    setSelectedContacts(fullContacts);
-    
-  
+    } else {
+      setSelectedContact(null);
+    }
+
     setCurrentEvent({
       id: appointment.id,
-      title: appointment.title,
+      title: appointment.title || '',
       dateStr: dateStr,
       startTimeStr: startStr,
       endTimeStr: endStr,
       extendedProps: {
-        address: appointment.address,
-        appointmentStatus: appointment.appointmentStatus,
-        staff: appointment.staff,
-        package: packages.find(p => p.id === appointment.packageId) || null,
-        dateAdded: appointment.dateAdded,
-        contacts: eventContacts, // Include contacts in currentEvent
-        tags: appointment.tags || [],
-        details: appointment.details || '',
-        meetLink: appointment.meetLink || '',
-      },
-      isWeekend: isWeekend,
-      timeSlots: generateTimeSlots(isWeekend),
-      details: eventDetails,
-      meetLink: eventMeetLink
-    });
-    console.log('Current event set:', {
-      id: appointment.id,
-      title: appointment.title,
-      dateStr: dateStr,
-      startTimeStr: startStr,
-      endTimeStr: endStr,
-      extendedProps: {
-        address: appointment.address,
-        appointmentStatus: appointment.appointmentStatus,
-        staff: appointment.staff,
-        package: packages.find(p => p.id === appointment.packageId) || null,
-        dateAdded: appointment.dateAdded,
+        address: appointment.address || '',
+        appointmentStatus: appointment.appointmentStatus || 'scheduled',
+        appointmentType: appointment.appointmentType || 'general',
+        staff: appointment.staff || [],
+        dateAdded: appointment.dateAdded || appointment.created_at,
         contacts: eventContacts,
         tags: appointment.tags || [],
-        details: appointment.details || '',
-        meetLink: appointment.meetLink || '',
+        details: appointment.details || "",
+        meetLink: appointment.meetLink || "",
+        notificationSent: appointment.notificationSent || false,
+        minyak: appointment.minyak || 0,
+        toll: appointment.toll || 0,
       },
       isWeekend: isWeekend,
       timeSlots: generateTimeSlots(isWeekend),
       details: eventDetails,
-      meetLink: eventMeetLink
+      meetLink: eventMeetLink,
     });
-    setInitialAppointmentStatus(appointment.appointmentStatus);
+    
+    setInitialAppointmentStatus(appointment.appointmentStatus || 'scheduled');
     setEditModalOpen(true);
   };
 
   const handleTagChange = (newValue: any, actionMeta: any) => {
-    const selectedTags = newValue ? newValue.map((item: any) => ({ id: item.value, name: item.label })) : [];
+    const selectedTags = newValue
+      ? newValue.map((item: any) => ({ id: item.value, name: item.label }))
+      : [];
     setCurrentEvent({
       ...currentEvent,
       extendedProps: {
         ...currentEvent.extendedProps,
-        tags: selectedTags
-      }
+        tags: selectedTags,
+      },
     });
   };
-  const sendWhatsAppNotification = async (contacts: any[], appointmentDetails: any, companyId: string, reminderConfig?: any) => {
+  const sendWhatsAppNotification = async (
+    contacts: any[],
+    appointmentDetails: any,
+    companyId: string,
+    reminderConfig?: any
+  ) => {
     try {
-      const user = getAuth().currentUser;
-      if (!user) {
-        console.error("User not authenticated");
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("User email not found");
         return false;
       }
-      const docUserRef = doc(firestore, 'user', user?.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        return false;
-      }
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      const docRef = doc(firestore, 'companies', companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        return false;
-      }
-      const data2 = docSnapshot.data();
-      const baseUrl = data2.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-      
+
+      // Get company data from API
+      const companyResponse = await axios.get(
+        `${baseUrl}/api/company-data-user?email=${encodeURIComponent(userEmail)}`
+      );
+      const companyData = companyResponse.data;
+
       // Format the message
-      let message = '';
+      let message = "";
       if (reminderConfig) {
         // Use the reminder template if provided
         const startTime = new Date(appointmentDetails.startTime);
-        message = formatReminderMessage(reminderConfig.message, appointmentDetails, startTime);
+        message = formatReminderMessage(
+          reminderConfig.message,
+          appointmentDetails,
+          startTime
+        );
       } else {
         // Use the default message format
         message = `
 🗓️ New Appointment Details:
 📌 ${appointmentDetails.title}
-📅 Date: ${format(new Date(appointmentDetails.startTime), 'MMMM dd, yyyy')}
-⏰ Time: ${format(new Date(appointmentDetails.startTime), 'h:mm a')} - ${format(new Date(appointmentDetails.endTime), 'h:mm a')}
-${appointmentDetails.meetLink ? `\n🎥 Join Meeting: ${appointmentDetails.meetLink}` : ''}
+📅 Date: ${format(new Date(appointmentDetails.startTime), "MMMM dd, yyyy")}
+⏰ Time: ${format(new Date(appointmentDetails.startTime), "h:mm a")} - ${format(
+          new Date(appointmentDetails.endTime),
+          "h:mm a"
+        )}
+${
+  appointmentDetails.meetLink
+    ? `\n🎥 Join Meeting: ${appointmentDetails.meetLink}`
+    : ""
+}
 `;
       }
 
       // Determine recipients based on reminderConfig
-      let recipients: { id: string, phone?: string }[] = [];
-      
-      if (reminderConfig && reminderConfig.recipientType === 'employees' && reminderConfig.selectedEmployees?.length > 0) {
-        // Get employee phone numbers
-        const employeePromises = reminderConfig.selectedEmployees.map(async (employeeId: string) => {
-          const employeeRef = doc(firestore, `companies/${companyId}/employee/${employeeId}`);
-          const employeeSnapshot = await getDoc(employeeRef);
-          if (employeeSnapshot.exists()) {
-            const employeeData = employeeSnapshot.data();
-            if (employeeData.phoneNumber) {
-              return { id: employeeId, phone: employeeData.phoneNumber };
-            }
-          }
-          return null;
-        });
-        
-        const employeeResults = await Promise.all(employeePromises);
-        recipients = employeeResults.filter(Boolean) as { id: string, phone: string }[];
+      let recipients: { id: string; phone?: string }[] = [];
+
+      if (
+        reminderConfig &&
+        reminderConfig.recipientType === "employees" &&
+        reminderConfig.selectedEmployees?.length > 0
+      ) {
+        // Get employee phone numbers from API
+        const employeesResponse = await axios.get(
+          `${baseUrl}/api/employees?email=${encodeURIComponent(
+            userEmail
+          )}&employeeIds=${reminderConfig.selectedEmployees.join(",")}`
+        );
+        recipients = employeesResponse.data
+          .filter((emp: any) => emp.phoneNumber)
+          .map((emp: any) => ({ id: emp.id, phone: emp.phoneNumber }));
       } else {
         // Use appointment contacts
         recipients = contacts;
       }
 
       if (recipients.length === 0) {
-        console.warn('No valid recipients found for WhatsApp notification');
+        console.warn("No valid recipients found for WhatsApp notification");
         return false;
       }
 
       // Send WhatsApp message to each recipient
       const sendPromises = recipients.map(async (recipient) => {
         const contactId = recipient.id;
-        const phoneNumber = recipient.phone || '';
-        
+        const phoneNumber = recipient.phone || "";
+
         if (!contactId && !phoneNumber) {
-          console.error('Recipient missing ID and phone:', recipient);
+          console.error("Recipient missing ID and phone:", recipient);
           return;
         }
-        
+
         try {
-          // If we have a contact ID, use the API endpoint with contact ID
-          if (contactId) {
-            const response = await fetch(`${baseUrl}/api/v2/messages/text/${companyId}/${contactId}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ message }),
-            });
+          // Send notification via API
+          const notificationData = {
+            contactId,
+            phoneNumber,
+            message,
+            companyId,
+            userEmail,
+          };
 
-            if (!response.ok) {
-              throw new Error(`WhatsApp API responded with status: ${response.status}`);
-            }
-
-            const result = await response.json();
-            return result;
-          } 
-          // If we have a phone number but no contact ID (for employees), use the direct phone number API
-          else if (phoneNumber) {
-            // Format phone number for WhatsApp
-            const formattedPhone = phoneNumber.replace(/\D/g, '') + "@c.us";
-            
-            const scheduledMessageData = {
-              chatIds: [formattedPhone],
-              phoneIndex: 0,
-              message: message,
-              companyId,
-              v2: data2.v2 || false,
-              whapiToken: data2.whapiToken || '',
-              scheduledTime: {
-                seconds: Math.floor(Date.now() / 1000),
-                nanoseconds: 0
-              },
-              status: "scheduled",
-              createdAt: {
-                seconds: Math.floor(Date.now() / 1000),
-                nanoseconds: 0
-              },
-              batchQuantity: 1,
-              messages: [],
-              messageDelays: [],
-              repeatInterval: null,
-              repeatUnit: null,
-              minDelay: 0,
-              maxDelay: 0,
-              activateSleep: false,
-              sleepAfterMessages: null,
-              sleepDuration: null,
-              activeHours: {
-                start: null,
-                end: null
-              },
-              infiniteLoop: false,
-              numberOfBatches: 1
-            };
-            
-            const response = await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, scheduledMessageData);
-            return response.data;
-          }
+          const response = await axios.post(
+            `${baseUrl}/api/send-whatsapp-notification`,
+            notificationData
+          );
+          return response.data;
         } catch (error) {
-          console.error(`Failed to send WhatsApp notification to recipient ${contactId || phoneNumber}:`, error);
+          console.error(
+            `Failed to send WhatsApp notification to recipient ${
+              contactId || phoneNumber
+            }:`,
+            error
+          );
           throw error;
         }
       });
@@ -875,1056 +789,932 @@ ${appointmentDetails.meetLink ? `\n🎥 Join Meeting: ${appointmentDetails.meetL
       await Promise.all(sendPromises);
       return true;
     } catch (error) {
-      console.error('Error sending WhatsApp notifications:', error);
+      console.error("Error sending WhatsApp notifications:", error);
       return false;
     }
   };
-  
+
   const handleSaveAppointment = async () => {
     try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      if (!user || !user.email) {
-        console.error("User not authenticated or email missing");
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("User email not found");
         return;
       }
 
-      const { id, title, dateStr, startTimeStr, endTimeStr, extendedProps } = currentEvent;
+      const { id, title, dateStr, startTimeStr, endTimeStr, extendedProps } =
+        currentEvent;
       const startTime = new Date(`${dateStr}T${startTimeStr}`).toISOString();
       const endTime = new Date(`${dateStr}T${endTimeStr}`).toISOString();
-  
+
       // Combine title with type and units if they exist
-      const combinedTitle = extendedProps.units 
-        ? `${title} | ${extendedProps.type || ''} | ${extendedProps.units} Units`
-        : title;
-  
-      const firstEmployeeId = extendedProps.staff?.[0];
-      const secondEmployeeId = extendedProps.staff?.[1];
-      const firstEmployee = employees.find(emp => emp.id === firstEmployeeId);
-      const secondEmployee = employees.find(emp => emp.id === secondEmployeeId);
-  
+      const combinedTitle = extendedProps?.units
+        ? `${title || ''} | ${extendedProps.type || ""} | ${
+            extendedProps.units
+          } Units`
+        : title || '';
+
+      const firstEmployeeId = extendedProps?.staff?.[0];
+      const secondEmployeeId = extendedProps?.staff?.[1];
+      const firstEmployee = employees.find((emp) => emp.id === firstEmployeeId);
+      const secondEmployee = employees.find(
+        (emp) => emp.id === secondEmployeeId
+      );
+
       let color;
       if (firstEmployee && secondEmployee) {
         color = `linear-gradient(to right, ${firstEmployee.color} 50%, ${secondEmployee.color} 50%)`;
       } else if (firstEmployee) {
         color = firstEmployee.color;
       } else {
-        color = '#51484f'; // Default color
+        color = "#51484f"; // Default color
       }
-  
-      // Get company ID
-      const userDocRef = doc(firestore, 'user', user.email);
-      const userDocSnap = await getDoc(userDocRef);
-      if (!userDocSnap.exists()) {
-        throw new Error('User document not found');
-      }
-      const companyId = userDocSnap.data().companyId;
-  
-      // Ensure appointmentStatus is set and normalized
-      const appointmentStatus = (extendedProps.appointmentStatus || 'new').toLowerCase();
-  
-      // Create appointment object with reminder settings
-      const updatedAppointment: Partial<Appointment> = {
-        id,
+
+      // Prepare the appointment data for the new backend structure
+      const appointmentData = {
+        userEmail, // Required for authentication
         title: combinedTitle,
         startTime,
         endTime,
-        address: extendedProps.address || '',
-        appointmentStatus,
-        staff: extendedProps.staff || [],
+        appointmentStatus: (extendedProps?.appointmentStatus || "scheduled").toLowerCase(),
+        appointmentType: extendedProps?.appointmentType || "general",
+        details: extendedProps?.details || "",
+        address: extendedProps?.address || "",
+        staff: extendedProps?.staff || [],
+        contact_id: selectedContact?.contact_id || null,
+        // Additional fields that will go to metadata
         color: color,
-        tags: extendedProps.tags || [],
-        packageId: extendedProps.package?.id || null,
-        dateAdded: extendedProps.dateAdded || new Date().toISOString(),
-        contacts: selectedContacts.map(contact => ({
-          id: contact.id,
-          name: contact.contactName,
-          phone: contact.phone || '',
-          email: contact.email || '',
-          session: contactSessions[contact.id] || 0
-        })),
-        minyak: Number(extendedProps.minyak) || 0,
-        toll: Number(extendedProps.toll) || 0,
-        details: extendedProps.details || '',
-        meetLink: extendedProps.meetLink || '',
+        tags: extendedProps?.tags || [],
+        minyak: Number(extendedProps?.minyak) || 0,
+        toll: Number(extendedProps?.toll) || 0,
+        meetLink: extendedProps?.meetLink || "",
+        notificationSent: extendedProps?.notificationSent || false,
+        units: extendedProps?.units,
+        type: extendedProps?.type,
       };
-  
-      // Only add meetLink and notificationSent if they exist
-      if (extendedProps.meetLink) {
-        updatedAppointment.meetLink = extendedProps.meetLink;
-        updatedAppointment.notificationSent = extendedProps.notificationSent || false;
+      console.log('Appointment data to save:', appointmentData);
+      console.log('Selected contact:', selectedContact);
+
+      let response;
+      
+      if (id && id !== 'temp') {
+        // Update existing appointment
+        console.log('Updating appointment:', appointmentData);
+        response = await axios.put(`${baseUrl}/api/appointments/${id}`, appointmentData);
+      } else {
+        // Create new appointment
+        console.log('Creating appointment:', appointmentData);
+        response = await axios.post(`${baseUrl}/api/appointments`, appointmentData);
       }
-  
-      // Remove any remaining undefined values
-      const cleanAppointment = Object.fromEntries(
-        Object.entries(updatedAppointment).filter(([_, value]) => value !== undefined)
-      ) as unknown as Appointment;
-  
-      const appointmentRef = doc(firestore, `user/${user.email}/appointments/${id}`);
-      await setDoc(appointmentRef, cleanAppointment);
-  
-      // Update expenses if they exist
-      if (extendedProps.minyak || extendedProps.toll) {
-        for (const staffId of extendedProps.staff || []) {
-          const expenseRef = doc(
-            firestore,
-            `user/${user.email}/expenses/${format(new Date(startTime), 'yyyy-MM-dd')}_${staffId}`
-          );
-          await setDoc(expenseRef, {
-            date: format(new Date(startTime), 'yyyy-MM-dd'),
-            employeeId: staffId,
-            minyak: Number(extendedProps.minyak) || 0,
-            toll: Number(extendedProps.toll) || 0
-          }, { merge: true });
+
+      const savedAppointment = response.data;
+      console.log('Saved appointment response:', savedAppointment);
+
+      // Create expenses if they exist
+      if (extendedProps?.minyak || extendedProps?.toll) {
+        const expenseData = {
+          email: userEmail,
+          appointment_id: savedAppointment.id,
+          amount: (Number(extendedProps?.minyak) || 0) + (Number(extendedProps?.toll) || 0),
+          description: `Appointment expenses - Fuel: ${extendedProps?.minyak || 0}, Toll: ${extendedProps?.toll || 0}`,
+          category: 'appointment',
+          date: format(new Date(startTime), "yyyy-MM-dd"),
+        };
+
+        await axios.post(`${baseUrl}/api/expenses`, expenseData);
+      }
+
+      // Send WhatsApp notification only if meetLink exists and contact is selected
+      if (
+        appointmentData.meetLink &&
+        !appointmentData.notificationSent &&
+        selectedContact
+      ) {
+        try {
+          const notificationResponse = await axios.post(`${baseUrl}/api/send-whatsapp-notification`, {
+            email: userEmail,
+            contacts: [selectedContact],
+            message: `Your appointment "${combinedTitle}" is scheduled for ${format(new Date(startTime), 'PPp')}. Meeting link: ${appointmentData.meetLink}`,
+            appointmentDetails: savedAppointment
+          });
+          
+          if (notificationResponse.data.success) {
+            // Update the appointment to mark notification as sent
+            await axios.put(`${baseUrl}/api/appointments/${savedAppointment.id}`, {
+              ...appointmentData,
+              notificationSent: true
+            });
+          }
+        } catch (notificationError) {
+          console.error("Error sending WhatsApp notification:", notificationError);
+          // Continue execution even if notification fails
         }
       }
-  
-      // Send WhatsApp notification only if meetLink exists and contacts are selected
-      if (cleanAppointment.meetLink && !cleanAppointment.notificationSent && selectedContacts.length > 0) {
-        const notificationSent = await sendWhatsAppNotification(selectedContacts, cleanAppointment, companyId);
-        if (notificationSent) {
-          cleanAppointment.notificationSent = true;
-          await setDoc(appointmentRef, cleanAppointment);
-        }
-      }
-  
+
       // Process reminders for this appointment
-      await processAppointmentReminders(cleanAppointment);
-  
-      // Update the appointments state with the normalized status
-      setAppointments(prevAppointments =>
-        prevAppointments.map(appointment =>
-          appointment.id === id ? cleanAppointment : appointment
-        )
-      );
-  
+      await processAppointmentReminders(savedAppointment);
+
+      // Update the appointments state
+      setAppointments((prevAppointments) => {
+        if (id && id !== 'temp') {
+          // Update existing appointment
+          return prevAppointments.map((appointment) =>
+            appointment.id === id ? savedAppointment : appointment
+          );
+        } else {
+          // Add new appointment
+          return [...prevAppointments, savedAppointment];
+        }
+      });
+
       // Close the modal
       setEditModalOpen(false);
-  
+      toast.success("Appointment saved successfully!");
     } catch (error) {
-      console.error('Error saving appointment:', error);
-      toast.error('Failed to save appointment');
+      console.error("Error saving appointment:", error);
+      toast.error("Failed to save appointment");
     }
   };
 
-
   const handleDateSelect = (selectInfo: any) => {
-    const dateStr = format(new Date(selectInfo.startStr), 'yyyy-MM-dd');
+    const dateStr = format(new Date(selectInfo.startStr), "yyyy-MM-dd");
     const date = new Date(dateStr);
     const dayOfWeek = date.getUTCDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday (0) or Saturday (6)
 
     setCurrentEvent({
-      title: '',
+      title: "",
       dateStr: dateStr,
-      startTimeStr: '',
-      endTimeStr: '',
+      startTimeStr: "",
+      endTimeStr: "",
       extendedProps: {
-        address: '',
-        appointmentStatus: '',
-        staff: '',
-        package: '',
+        address: "",
+        appointmentStatus: "",
+        staff: "",
         dateAdded: new Date().toISOString(),
         tags: [],
-        details: '',
-        meetLink: '',
+        details: "",
+        meetLink: "",
       },
       isWeekend: isWeekend,
-      timeSlots: generateTimeSlots(isWeekend)
+      timeSlots: generateTimeSlots(isWeekend),
     });
 
     setAddModalOpen(true);
   };
-  const scheduleMessages = async (phoneNumber: string, appointmentTime: Date) => {
+  const scheduleMessages = async (
+    phoneNumber: string,
+    appointmentTime: Date
+  ) => {
     const currentTime = new Date();
     if (appointmentTime < currentTime) {
-      console.log('Appointment is in the past, skipping message scheduling');
+      console.log("Appointment is in the past, skipping message scheduling");
       return;
     }
     try {
-      const user = auth.currentUser;
-      if (!user?.email) return;
-  
-      // Get company data for API configuration
-      const docUserRef = doc(firestore, 'user', user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
-  
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-  
-      const companyRef = doc(firestore, 'companies', companyId);
-      const companySnapshot = await getDoc(companyRef);
-      if (!companySnapshot.exists()) return;
-  
-      const companyData = companySnapshot.data();
-      const baseUrl = companyData.apiUrl || 'https://mighty-dane-newly.ngrok-free.app';
-      const isV2 = companyData.v2 || false;
-      const whapiToken = companyData.whapiToken || '';
-  
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
+
       // Format phone number for WhatsApp
-      const formattedPhone = phoneNumber.replace(/\D/g, '') + "@c.us";
-  
+      const formattedPhone = phoneNumber.replace(/\D/g, "") + "@c.us";
+
       // Format appointment time
-      const formattedTime = appointmentTime.toLocaleString('en-US', {
-        hour: 'numeric',
-        minute: 'numeric',
+      const formattedTime = appointmentTime.toLocaleString("en-US", {
+        hour: "numeric",
+        minute: "numeric",
         hour12: true,
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
+        month: "long",
+        day: "numeric",
+        year: "numeric",
       });
-  
+
       // Prepare messages
       const messages = [
         {
           text: `Peringatan: Temujanji anda dengan BAROKAH AIRCOND akan bermula dalam masa 1 jam pada ${formattedTime}. \nKami akan memberikan perkhidmatan yang terbaik untuk anda! 😊`,
-          time: new Date(appointmentTime.getTime() - 60 * 60 * 1000) // 1 hour before
+          time: new Date(appointmentTime.getTime() - 60 * 60 * 1000), // 1 hour before
         },
         {
           text: `TERIMA KASIH di atas kepecayaan cik menggunakan perkidmatan BAROKAH AIRCOND\n
 
 Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpuas hati dengan perkhidmatan dari Barokah Aircond?`,
-          time: new Date(appointmentTime.getTime() + 3 * 60 * 60 * 1000) // 3 hours after
-        }
+          time: new Date(appointmentTime.getTime() + 3 * 60 * 60 * 1000), // 3 hours after
+        },
       ];
-  
-      // Schedule both messages
-      for (const message of messages) {
-        const scheduledMessageData = {
-          chatIds: [formattedPhone],
-          phoneIndex: 0,
-          message: message.text,
-          companyId,
-          v2: isV2,
-          whapiToken: isV2 ? null : whapiToken,
-          scheduledTime: {
-            seconds: Math.floor(message.time.getTime() / 1000),
-            nanoseconds: 0
-          },
-          status: "scheduled",
-          createdAt: {
-            seconds: Math.floor(Date.now() / 1000),
-            nanoseconds: 0
-          },
-          batchQuantity: 1,
-          messages: [],
-          messageDelays: [],
-          repeatInterval: null,
-          repeatUnit: null,
-          minDelay: 0,
-          maxDelay: 0,
-          activateSleep: false,
-          sleepAfterMessages: null,
-          sleepDuration: null,
-          activeHours: {
-            start: null,
-            end: null
-          },
-          infiniteLoop: false,
-          numberOfBatches: 1
-        };
-  
-        await axios.post(`${baseUrl}/api/schedule-message/${companyId}`, scheduledMessageData);
-      }
-  
-      toast.success('Reminder and feedback messages scheduled successfully');
-  
+
+      // Schedule both messages via API
+      const scheduleData = {
+        userEmail,
+        phoneNumber: formattedPhone,
+        messages,
+        appointmentTime: appointmentTime.toISOString(),
+      };
+
+      await axios.post(
+        `${baseUrl}/api/schedule-appointment-messages`,
+        scheduleData
+      );
+      toast.success("Reminder and feedback messages scheduled successfully");
     } catch (error) {
-      console.error('Error scheduling messages:', error);
-      toast.error('Failed to schedule messages');
+      console.error("Error scheduling messages:", error);
+      toast.error("Failed to schedule messages");
       throw error; // Re-throw to handle in calling function
     }
   };
-  
-// ... existing code ...
 
-const handleAddAppointment = async () => {
-  try {
-    const firstEmployeeId = selectedEmployeeIds[0];
-    const secondEmployeeId = selectedEmployeeIds[1];
-    const firstEmployee = employees.find(emp => emp.id === firstEmployeeId);
-    const secondEmployee = employees.find(emp => emp.id === secondEmployeeId);
+  const handleAddAppointment = async () => {
+    try {
+      const firstEmployeeId = selectedEmployeeIds[0];
+      const secondEmployeeId = selectedEmployeeIds[1];
+      const firstEmployee = employees.find((emp) => emp.id === firstEmployeeId);
+      const secondEmployee = employees.find(
+        (emp) => emp.id === secondEmployeeId
+      );
 
-    let color;
-    if (firstEmployee && secondEmployee) {
-      color = `linear-gradient(to right, ${firstEmployee.color} 50%, ${secondEmployee.color} 50%)`;
-    } else if (firstEmployee) {
-      color = firstEmployee.color;
-    } else {
-      color = '#51484f'; // Default color
-    }
-
-    // Combine title and address
-    const combinedTitle = currentEvent.extendedProps.units 
-      ? `${currentEvent.title} | ${currentEvent.extendedProps.type} | ${currentEvent.extendedProps.units} Units`
-      : currentEvent.title;
-
-    const newEvent = {
-      title: combinedTitle,
-      startTime: new Date(`${currentEvent.dateStr}T${currentEvent.startTimeStr}`).toISOString(),
-      endTime: new Date(`${currentEvent.dateStr}T${currentEvent.endTimeStr}`).toISOString(),
-      address: currentEvent.extendedProps.address,
-      appointmentStatus: currentEvent.extendedProps.appointmentStatus,
-      staff: selectedEmployeeIds,
-      tags: currentEvent.extendedProps.tags || [],
-      color: color,
-      contacts: selectedContacts.map(contact => ({
-        id: contact.id,
-        name: contact.contactName,
-        session: contactSessions[contact.id] || getPackageSessions(currentEvent.extendedProps.package)
-      })),
-      packageId: currentEvent.extendedProps.package?.id || null,
-      minyak: currentEvent.extendedProps?.minyak || 0,
-      toll: currentEvent.extendedProps?.toll || 0,
-      details: currentEvent.extendedProps?.details || '',
-      meetLink: currentEvent.extendedProps?.meetLink || '',
-    };
-
-    const phoneRegex = /(?:\/|\\)?(\d{10,11})/;
-    const match = combinedTitle.match(phoneRegex);
-    let phoneNumber = match ? match[1] : '';
-    if (phoneNumber && !phoneNumber.startsWith('6')) {
-      phoneNumber = '6' + phoneNumber;
-    }
-
-    // Use the new local API
-    const newAppointment = await createAppointment(newEvent);
-
-    if (newAppointment) {
-      if (phoneNumber) {
-        try {
-          await scheduleMessages(
-            phoneNumber,
-            new Date(newAppointment.startTime)
-          );
-        } catch (error) {
-          console.error('Error scheduling reminder:', error);
-          toast.error('Appointment created but failed to schedule reminder');
-        }
+      let color;
+      if (firstEmployee && secondEmployee) {
+        color = `linear-gradient(to right, ${firstEmployee.color} 50%, ${secondEmployee.color} 50%)`;
+      } else if (firstEmployee) {
+        color = firstEmployee.color;
+      } else {
+        color = "#51484f"; // Default color
       }
 
-      // Process reminders for this appointment
-      await processAppointmentReminders(newAppointment);
+      // Combine title and address
+      const combinedTitle = currentEvent?.extendedProps?.units
+        ? `${currentEvent.title || ''} | ${currentEvent.extendedProps.type || ''} | ${currentEvent.extendedProps.units} Units`
+        : currentEvent?.title || '';
 
-      // Update the calendar immediately
-      if (calendarRef.current) {
-        const calendarApi = (calendarRef.current as any).getApi();
-        calendarApi.addEvent({
-          id: newAppointment.id,
-          title: newAppointment.title,
-          start: new Date(newAppointment.startTime),
-          end: new Date(newAppointment.endTime),
-          backgroundColor: newAppointment.color,
-          borderColor: 'transparent',
-          extendedProps: {
-            appointmentStatus: newAppointment.appointmentStatus,
-            staff: newAppointment.staff,
-            tags: newAppointment.tags || [],
-            details: newAppointment.details || '',
-            meetLink: newAppointment.meetLink || '',
+      const newEvent = {
+        title: combinedTitle,
+        startTime: new Date(
+          `${currentEvent.dateStr}T${currentEvent.startTimeStr}`
+        ).toISOString(),
+        endTime: new Date(
+          `${currentEvent.dateStr}T${currentEvent.endTimeStr}`
+        ).toISOString(),
+        address: currentEvent?.extendedProps?.address || '',
+        appointmentStatus: currentEvent?.extendedProps?.appointmentStatus || 'scheduled',
+        appointmentType: currentEvent?.extendedProps?.appointmentType || 'general',
+        staff: selectedEmployeeIds || [],
+        tags: currentEvent?.extendedProps?.tags || [],
+        color: color,
+        contact_id: selectedContact?.contact_id || null,
+        details: currentEvent?.extendedProps?.details || "",
+        meetLink: currentEvent?.extendedProps?.meetLink || "",
+        // Additional fields that will go to metadata
+        minyak: currentEvent?.extendedProps?.minyak || 0,
+        toll: currentEvent?.extendedProps?.toll || 0,
+        units: currentEvent?.extendedProps?.units,
+        type: currentEvent?.extendedProps?.type,
+      };
+
+      const phoneRegex = /(?:\/|\\)?(\d{10,11})/;
+      const match = combinedTitle.match(phoneRegex);
+      let phoneNumber = match ? match[1] : "";
+      if (phoneNumber && !phoneNumber.startsWith("6")) {
+        phoneNumber = "6" + phoneNumber;
+      }
+
+      console.log('Creating new appointment:', newEvent);
+
+      // Use the new local API
+      const newAppointment = await createAppointment(newEvent);
+
+      if (newAppointment) {
+        if (phoneNumber) {
+          try {
+            await scheduleMessages(
+              phoneNumber,
+              new Date(newAppointment.startTime)
+            );
+          } catch (error) {
+            console.error("Error scheduling reminder:", error);
+            toast.error("Appointment created but failed to schedule reminder");
           }
-        });
-      }
-      setAddModalOpen(false);
-    }
-  } catch (error) {
-    console.error('Error adding appointment:', error);
-    toast.error('Failed to add appointment');
-  }
-};
+        }
 
-const createAppointment = async (newEvent: any) => {
-  try {
-    // Get user email from localStorage (or however you store it)
-    const userEmail = localStorage.getItem('userEmail');
-    if (!userEmail) {
-      console.error('No authenticated user or email found');
+        // Process reminders for this appointment
+        await processAppointmentReminders(newAppointment);
+
+        // Update the calendar immediately
+        if (calendarRef.current) {
+          const calendarApi = (calendarRef.current as any).getApi();
+          calendarApi.addEvent({
+            id: newAppointment.id,
+            title: newAppointment.title,
+            start: new Date(newAppointment.startTime),
+            end: new Date(newAppointment.endTime),
+            backgroundColor: newAppointment.color || '#51484f',
+            borderColor: "transparent",
+            extendedProps: {
+              appointmentStatus: newAppointment.appointmentStatus,
+              appointmentType: newAppointment.appointmentType,
+              staff: newAppointment.staff,
+              tags: newAppointment.tags || [],
+              details: newAppointment.details || "",
+              meetLink: newAppointment.meetLink || "",
+              contacts: newAppointment.contacts || [],
+            },
+          });
+        }
+        setAddModalOpen(false);
+        setSelectedContact(null); // Clear selected contact
+        toast.success("Appointment created successfully!");
+      }
+    } catch (error) {
+      console.error("Error adding appointment:", error);
+      toast.error("Failed to add appointment");
+    }
+  };
+
+  const createAppointment = async (newEvent: any) => {
+    try {
+      // Get user email from localStorage (or however you store it)
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("No authenticated user or email found");
+        return null;
+      }
+
+      // Prepare the appointment data - send all fields, let backend handle schema mapping
+      const appointmentData = {
+        ...newEvent,
+        userEmail, // Required for authentication
+        // Ensure contact_id is properly formatted for single contact
+        contact_id: newEvent.contact_id || null,
+        // Map common fields that might be named differently
+        startTime: newEvent.startTime || newEvent.start,
+        endTime: newEvent.endTime || newEvent.end,
+        appointmentStatus: newEvent.appointmentStatus || 'scheduled',
+        appointmentType: newEvent.appointmentType || newEvent.status || 'general',
+        details: newEvent.details || newEvent.description || '',
+        staff: newEvent.staff || [],
+        metadata: {
+          // Any extra fields that don't map to schema go here
+          address: newEvent.address || '',
+          color: newEvent.color || '#51484f',
+          tags: newEvent.tags || [],
+          meetLink: newEvent.meetLink || '',
+          notificationSent: newEvent.notificationSent || false,
+          minyak: newEvent.minyak || 0,
+          toll: newEvent.toll || 0,
+          ...newEvent.extendedProps // Include any extended properties
+        }
+      };
+
+      console.log('Sending appointment data:', appointmentData);
+
+      // Call your local API to create the appointment
+      const response = await fetch(
+        `${baseUrl}/api/appointments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(appointmentData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Failed to create appointment:", errorData);
+        throw new Error(errorData.error || "Failed to create appointment");
+      }
+
+      const newAppointment = await response.json();
+      console.log('Received appointment response:', newAppointment);
+
+      // Ensure the appointment has all required fields with proper defaults
+      const processedAppointment = {
+        ...newAppointment,
+        contacts: newAppointment.contacts || [],
+        tags: newAppointment.tags || [],
+        staff: newAppointment.staff || [],
+        color: newAppointment.color || '#51484f',
+        address: newAppointment.address || '',
+        details: newAppointment.details || '',
+        meetLink: newAppointment.meetLink || '',
+        appointmentStatus: newAppointment.appointmentStatus || 'scheduled',
+        appointmentType: newAppointment.appointmentType || 'general'
+      };
+
+      setAppointments((prevAppointments) => [
+        ...prevAppointments,
+        processedAppointment,
+      ]);
+      return processedAppointment;
+    } catch (error) {
+      console.error("Error creating appointment:", error);
       return null;
     }
-
-    // Call your local API to create the appointment
-    const response = await fetch('https://juta-dev.ngrok.dev/api/appointments', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        ...newEvent,
-        userEmail, // pass user email if your backend needs it
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to create appointment');
-    }
-
-    const newAppointment = await response.json();
-
-    setAppointments(prevAppointments => [...prevAppointments, newAppointment]);
-    return newAppointment;
-  } catch (error) {
-    console.error('Error creating appointment:', error);
-    return null;
-  }
-};
-
-// ... existing code ...
+  };
 
   const handleEventDrop = async (eventDropInfo: any) => {
     const { event } = eventDropInfo;
-  
+
     // Fetch the full appointment data to get the contacts array
     try {
-      const user = auth.currentUser;
-      if (!user || !user.email) {
-        console.error('No authenticated user or email found');
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("No user email found");
         return;
       }
-  
-      const userRef = doc(firestore, 'user', user.email);
-      const appointmentsCollectionRef = collection(userRef, 'appointments');
-      const appointmentRef = doc(appointmentsCollectionRef, event.id);
-      const appointmentDoc = await getDoc(appointmentRef);
-  
-      if (!appointmentDoc.exists()) {
-        console.error('No such document!');
+
+      // Get appointment data from API
+      const response = await axios.get(
+        `${baseUrl}/api/appointments/${event.id}?email=${encodeURIComponent(
+          userEmail
+        )}`
+      );
+      const appointmentData = response.data;
+
+      if (!appointmentData) {
+        console.error("No appointment found!");
         return;
       }
-  
-      const appointmentData = appointmentDoc.data() as Appointment;
-  
+
       const updatedAppointment: Appointment = {
         ...appointmentData,
         startTime: event.start.toISOString(),
-        endTime: event.end.toISOString()
+        endTime: event.end.toISOString(),
       };
-  
-      await setDoc(appointmentRef, updatedAppointment);
+
+      // Update appointment via API
+      await axios.put(`${baseUrl}/api/appointments/${event.id}`, {
+        email: userEmail,
+        appointment: updatedAppointment,
+      });
 
       // Process reminders for this updated appointment
       await processAppointmentReminders(updatedAppointment);
-  
-      setAppointments(appointments.map(appointment =>
-        appointment.id === event.id ? updatedAppointment : appointment
-      ));
 
-      toast.success('Appointment time updated successfully');
+      setAppointments(
+        appointments.map((appointment) =>
+          appointment.id === event.id ? updatedAppointment : appointment
+        )
+      );
+
+      toast.success("Appointment time updated successfully");
     } catch (error) {
-      console.error('Error updating appointment:', error);
-      toast.error('Failed to update appointment time');
+      console.error("Error updating appointment:", error);
+      toast.error("Failed to update appointment time");
       // Revert the drag if there was an error
       eventDropInfo.revert();
     }
   };
-  
 
-  const handleStatusFilterChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    console.log('Status Filter Changed:', {
+  const handleStatusFilterChange = (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    console.log("Status Filter Changed:", {
       newStatus: event.target.value,
-      currentAppointments: appointments.map(a => ({
+      currentAppointments: appointments.map((a) => ({
         id: a.id,
-        status: a.appointmentStatus
-      }))
+        status: a.appointmentStatus,
+      })),
     });
     setFilterStatus(event.target.value);
   };
 
-  const handleDateFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDateFilterChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     setFilterDate(event.target.value);
   };
 
-  const filteredAppointments = appointments.filter(appointment => {
-    // Case-insensitive status matching
-    const statusMatch = !filterStatus || 
-      appointment.appointmentStatus?.toLowerCase() === filterStatus.toLowerCase();
-    
-    // Date matching
-    const dateMatch = !filterDate || 
-      format(new Date(appointment.startTime), 'yyyy-MM-dd') === filterDate;
-    
-    // Employee matching
-    const employeeMatch = !selectedEmployeeId || 
-      (appointment.staff && appointment.staff.includes(selectedEmployeeId));
-    
-    console.log('Filtering Appointment:', {
+  const filteredAppointments = appointments.filter((appointment) => {
+    // Case-insensitive status matching - handle null/undefined values
+    const statusMatch =
+      !filterStatus ||
+      (appointment.appointmentStatus && 
+       appointment.appointmentStatus.toLowerCase() === filterStatus.toLowerCase());
+
+    // Date matching - handle invalid dates gracefully
+    let dateMatch = true;
+    if (filterDate) {
+      try {
+        const appointmentDate = format(new Date(appointment.startTime), "yyyy-MM-dd");
+        dateMatch = appointmentDate === filterDate;
+      } catch (error) {
+        console.warn("Invalid date in appointment:", appointment.id, appointment.startTime);
+        dateMatch = false;
+      }
+    }
+
+    // Employee matching - handle different staff data structures
+    let employeeMatch = true;
+    if (selectedEmployeeId) {
+      if (Array.isArray(appointment.staff)) {
+        // If staff is an array of IDs
+        employeeMatch = appointment.staff.includes(selectedEmployeeId);
+      } else if (typeof appointment.staff === 'string') {
+        // If staff is a single ID string
+        employeeMatch = appointment.staff === selectedEmployeeId;
+      } else {
+        // If no staff data, don't match
+        employeeMatch = false;
+      }
+    }
+
+    console.log("Filtering Appointment:", {
       id: appointment.id,
+      title: appointment.title,
       appointmentStatus: appointment.appointmentStatus,
       filterStatus,
       statusMatch,
+      startTime: appointment.startTime,
+      filterDate,
       dateMatch,
-      employeeMatch
+      staff: appointment.staff,
+      selectedEmployeeId,
+      employeeMatch,
+      finalResult: statusMatch && dateMatch && employeeMatch
     });
-    
+
     return statusMatch && dateMatch && employeeMatch;
   });
 
+  // Debug log to see filter results
+  console.log("Filter Summary:", {
+    totalAppointments: appointments.length,
+    filteredAppointments: filteredAppointments.length,
+    filterStatus,
+    filterDate,
+    selectedEmployeeId,
+    appointmentStatuses: appointments.map(a => a.appointmentStatus),
+    staffData: appointments.map(a => ({ id: a.id, staff: a.staff }))
+  });
+
   const handleAppointmentClick = async (appointment: Appointment) => {
-    // Fetch the contact sessions if not already fetched
-    const fetchContactSessions = async () => {
-      const newContactSessions: { [key: string]: number } = {};
-      await Promise.all(appointment.contacts.map(async (contact) => {
-        const auth = getAuth(app);
-        const user = auth.currentUser;
-        if (!user || !user.email) {
-          console.error('No authenticated user or email found');
-          return;
-        }
-  
-        const docUserRef = doc(firestore, 'user', user.email);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          console.error('No such document for user!');
-          return;
-        }
-  
-        const dataUser = docUserSnapshot.data();
-        const companyId = dataUser.companyId as string;
-        const contactRef = doc(firestore, `companies/${companyId}/session`, contact.id);
-        const contactSnapshot = await getDoc(contactRef);
-  
-        if (contactSnapshot.exists()) {
-          const contactData = contactSnapshot.data();
-          newContactSessions[contact.id] = contactData.session;
-          
-        }
-      }));
-  
-      setContactSessions((prevSessions) => {
-        const updatedSessions = { ...prevSessions, ...newContactSessions };
-        
-        return updatedSessions;
-      });
-    };
-  
-    // Fetch contact sessions and wait for completion
-    await fetchContactSessions();
-  
-    // Map appointment contacts to ContactWithSession objects
-    const fullContacts: ContactWithSession[] = appointment.contacts.map(contact => {
-      const foundContact = contacts.find(c => c.id === contact.id);
-      if (foundContact) {
-        
-        return {
-          ...foundContact,
-          session: contactSessions[contact.id] || 0
-        };
-      }
-      return null;
-    }).filter((contact): contact is ContactWithSession => contact !== null);
-  
-    
-  
-    setSelectedContacts(fullContacts);
-    
-  
+    // Set selected contact to the appointment's contact (single contact)
+    setSelectedContact(
+      appointment.contacts && appointment.contacts.length > 0
+        ? {
+            id: appointment.contacts[0].id,
+            contact_id: appointment.contacts[0].contact_id,
+            name: appointment.contacts[0].name || 'Unknown Contact',
+            firstName: appointment.contacts[0].name?.split(' ')[0] || '',
+            lastName: appointment.contacts[0].name?.split(' ').slice(1).join(' ') || '',
+            phone: appointment.contacts[0].phone || '',
+            email: appointment.contacts[0].email || '',
+            additionalEmails: [],
+            address1: null,
+            assignedTo: null,
+            businessId: null,
+            city: null,
+            companyName: null,
+            country: '',
+            customFields: [],
+            dateAdded: new Date().toISOString(),
+            dateOfBirth: null,
+            dateUpdated: new Date().toISOString(),
+            dnd: false,
+            dndSettings: {},
+            followers: [],
+            locationId: '',
+            postalCode: null,
+            source: null,
+            state: null,
+            tags: [],
+            website: null,
+          }
+        : null
+    );
+
     setCurrentEvent({
       id: appointment.id,
       title: appointment.title,
-      dateStr: format(new Date(appointment.startTime), 'yyyy-MM-dd'),
-      startTimeStr: format(new Date(appointment.startTime), 'HH:mm'),
-      endTimeStr: format(new Date(appointment.endTime), 'HH:mm'),
+      dateStr: format(new Date(appointment.startTime), "yyyy-MM-dd"),
+      startTimeStr: format(new Date(appointment.startTime), "HH:mm"),
+      endTimeStr: format(new Date(appointment.endTime), "HH:mm"),
       extendedProps: {
         address: appointment.address,
         appointmentStatus: appointment.appointmentStatus,
         staff: appointment.staff,
-        package: packages.find(p => p.id === appointment.packageId) || null,
         dateAdded: appointment.dateAdded,
         contacts: appointment.contacts, // Include contacts in currentEvent
         tags: appointment.tags || [],
-        details: appointment.details || '',
-        meetLink: appointment.meetLink || '',
-      }
+        details: appointment.details || "",
+        meetLink: appointment.meetLink || "",
+      },
     });
-    console.log('Current event set:', {
+    console.log("Current event set:", {
       id: appointment.id,
       title: appointment.title,
-      dateStr: format(new Date(appointment.startTime), 'yyyy-MM-dd'),
-      startTimeStr: format(new Date(appointment.startTime), 'HH:mm'),
-      endTimeStr: format(new Date(appointment.endTime), 'HH:mm'),
+      dateStr: format(new Date(appointment.startTime), "yyyy-MM-dd"),
+      startTimeStr: format(new Date(appointment.startTime), "HH:mm"),
+      endTimeStr: format(new Date(appointment.endTime), "HH:mm"),
       extendedProps: {
         address: appointment.address,
         appointmentStatus: appointment.appointmentStatus,
         staff: appointment.staff,
-        package: packages.find(p => p.id === appointment.packageId) || null,
         dateAdded: appointment.dateAdded,
         contacts: appointment.contacts,
         tags: appointment.tags || [],
-        details: appointment.details || '',
-        meetLink: appointment.meetLink || '',
-      }
+        details: appointment.details || "",
+        meetLink: appointment.meetLink || "",
+      },
     });
     setInitialAppointmentStatus(appointment.appointmentStatus);
     setEditModalOpen(true);
   };
 
   const handleDeleteAppointment = async (appointmentId: string) => {
-    const user = auth.currentUser;
-    if (!user) return;
-  
-    const appointmentDocRef = doc(firestore, `user/${user.email}/appointments/${appointmentId}`);
-  
+    const userEmail = localStorage.getItem("userEmail");
+    if (!userEmail) return;
+
     try {
-      await deleteDoc(appointmentDocRef);
-  
-      setAppointments(prevAppointments => prevAppointments.filter(appointment => appointment.id !== appointmentId));
+      await axios.delete(`${baseUrl}/api/appointments/${appointmentId}`, {
+        data: { email: userEmail },
+      });
+
+      setAppointments((prevAppointments) =>
+        prevAppointments.filter(
+          (appointment) => appointment.id !== appointmentId
+        )
+      );
     } catch (error) {
-      console.error('Error deleting appointment from Firestore:', error);
+      console.error("Error deleting appointment:", error);
     }
   };
-  
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'new':
-        return 'bg-gray-500';
-      case 'confirmed':
-        return 'bg-green-500';
-      case 'cancelled':
-        return 'bg-red-500';
-      case 'showed':
-        return 'bg-green-500';
-      case 'noshow':
-        return 'bg-red-500';
-      case 'rescheduled':
-        return 'bg-gray-500';
-      case 'lost':
-        return 'bg-red-500';
-      case 'closed':
-        return 'bg-blue-700';
+      case "new":
+        return "bg-gray-500";
+      case "confirmed":
+        return "bg-green-500";
+      case "cancelled":
+        return "bg-red-500";
+      case "showed":
+        return "bg-green-500";
+      case "noshow":
+        return "bg-red-500";
+      case "rescheduled":
+        return "bg-gray-500";
+      case "lost":
+        return "bg-red-500";
+      case "closed":
+        return "bg-blue-700";
       default:
-        return 'bg-gray-500';
+        return "bg-gray-500";
     }
-  };
-
-  const getPackageName = (packageId: string): string => {
-    const pkg = packages.find(p => p.id === packageId);
-    return pkg ? pkg.name : packageId;
   };
 
   const renderEventContent = (eventInfo: any) => {
     const { event } = eventInfo;
     const { extendedProps } = event;
-    const startTime = format(new Date(event.start), 'HH:mm');
-    const endTime = event.end ? format(new Date(event.end), 'HH:mm') : '';
-    const status = extendedProps.appointmentStatus || '';
+    const startTime = format(new Date(event.start), "HH:mm");
+    const endTime = event.end ? format(new Date(event.end), "HH:mm") : "";
+    const status = extendedProps.appointmentStatus || "";
     const contacts = extendedProps.contacts || [];
     const isMobile = window.innerWidth < 768;
 
     // Define status-based colors with type
     const statusColors: Record<string, { bg: string; text: string }> = {
-      new: { bg: '#F3F4F6', text: '#6B7280' },
-      confirmed: { bg: '#e8f5e9', text: '#2e7d32' },
-      cancelled: { bg: '#ffebee', text: '#c62828' },
-      showed: { bg: '#f3e5f5', text: '#6a1b9a' },
-      noshow: { bg: '#fff3e0', text: '#ef6c00' },
-      rescheduled: { bg: '#e0f2f1', text: '#00695c' },
-      lost: { bg: '#fafafa', text: '#424242' },
-      closed: { bg: '#DBE9FE', text: '#1C4ED8' }
+      new: { bg: "#F3F4F6", text: "#6B7280" },
+      confirmed: { bg: "#e8f5e9", text: "#2e7d32" },
+      cancelled: { bg: "#ffebee", text: "#c62828" },
+      showed: { bg: "#f3e5f5", text: "#6a1b9a" },
+      noshow: { bg: "#fff3e0", text: "#ef6c00" },
+      rescheduled: { bg: "#e0f2f1", text: "#00695c" },
+      lost: { bg: "#fafafa", text: "#424242" },
+      closed: { bg: "#DBE9FE", text: "#1C4ED8" },
     };
 
-    const statusColor = statusColors[status.toLowerCase()] || { bg: '#f5f5f5', text: '#333333' };
+    const statusColor = statusColors[status.toLowerCase()] || {
+      bg: "#f5f5f5",
+      text: "#333333",
+    };
 
     return (
       <div
         className={`event-content ${status.toLowerCase()}`}
         style={{
           backgroundColor: statusColor.bg,
-          padding: '6px 8px',
-          borderRadius: '8px',
-          height: '100%',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '4px',
-          fontSize: isMobile ? '11px' : '12px',
+          padding: "6px 8px",
+          borderRadius: "8px",
+          height: "100%",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          gap: "4px",
+          fontSize: isMobile ? "11px" : "12px",
           border: `1px solid ${statusColor.text}20`,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-          transition: 'all 0.2s ease',
-          cursor: 'pointer'
+          boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+          transition: "all 0.2s ease",
+          cursor: "pointer",
         }}
       >
-        <div style={{ 
-          fontWeight: 600,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          color: statusColor.text,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px'
-        }}>
-          <span style={{ 
-            width: '8px', 
-            height: '8px', 
-            borderRadius: '50%', 
-            backgroundColor: statusColor.text,
-            display: 'inline-block'
-          }}></span>
+        <div
+          style={{
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            color: statusColor.text,
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+          }}
+        >
+          <span
+            style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              backgroundColor: statusColor.text,
+              display: "inline-block",
+            }}
+          ></span>
           {event.title}
         </div>
-        <div style={{ 
-          fontWeight: 500,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          color: statusColor.text
-        }}>
+        <div
+          style={{
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            color: statusColor.text,
+          }}
+        >
           {startTime} - {endTime}
         </div>
-        <div style={{ 
-          fontWeight: 500,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          color: statusColor.text,
-          fontSize: '11px'
-        }}>
-          {contacts.map((c: any) => c.name).join(', ')}
+        <div
+          style={{
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            color: statusColor.text,
+            fontSize: "11px",
+          }}
+        >
+          {contacts.map((c: any) => c.name).join(", ")}
         </div>
         {!isMobile && extendedProps.details && (
-          <div style={{
-            fontSize: '11px',
-            color: `${statusColor.text}99`,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            fontStyle: 'italic'
-          }}>
+          <div
+            style={{
+              fontSize: "11px",
+              color: `${statusColor.text}99`,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              fontStyle: "italic",
+            }}
+          >
             {extendedProps.details}
           </div>
         )}
-        {extendedProps.package && (
-          <div style={{
-            fontSize: '10px',
-            backgroundColor: `${statusColor.text}15`,
-            padding: '2px 8px',
-            borderRadius: '12px',
-            alignSelf: 'flex-start',
-            color: statusColor.text,
-            fontWeight: 500
-          }}>
-            {getPackageName(extendedProps.package)}
-          </div>
-        )}
         {extendedProps.meetLink && (
-          <div style={{
-            position: 'absolute',
-            top: '6px',
-            right: '6px',
-            width: '6px',
-            height: '6px',
-            borderRadius: '50%',
-            backgroundColor: '#2196f3'
-          }}></div>
+          <div
+            style={{
+              position: "absolute",
+              top: "6px",
+              right: "6px",
+              width: "6px",
+              height: "6px",
+              borderRadius: "50%",
+              backgroundColor: "#2196f3",
+            }}
+          ></div>
         )}
       </div>
     );
-  }
+  };
 
-  const selectedEmployee = employees.find(employee => employee.id === selectedEmployeeId);
+  const selectedEmployee = employees.find(
+    (employee) => employee.id === selectedEmployeeId
+  );
 
   const handleStaffChange = (employeeId: string) => {
-    setCurrentEvent((prevEvent: { extendedProps: { staff: string[]; }; }) => {
+    setCurrentEvent((prevEvent: { extendedProps: { staff: string[] } }) => {
       const isSelected = prevEvent.extendedProps.staff.includes(employeeId);
       const newStaff = isSelected
-        ? prevEvent.extendedProps.staff.filter((id: string) => id !== employeeId)
+        ? prevEvent.extendedProps.staff.filter(
+            (id: string) => id !== employeeId
+          )
         : [...prevEvent.extendedProps.staff, employeeId];
-  
+
       return {
         ...prevEvent,
         extendedProps: {
           ...prevEvent.extendedProps,
-          staff: newStaff
-        }
+          staff: newStaff,
+        },
       };
     });
   };
-  
+
   const handleStaffChangeAddModal = (employeeId: string) => {
     setSelectedEmployeeIds((prevSelected) => {
       const isSelected = prevSelected.includes(employeeId);
-      return isSelected ? prevSelected.filter((id) => id !== employeeId) : [...prevSelected, employeeId];
+      return isSelected
+        ? prevSelected.filter((id) => id !== employeeId)
+        : [...prevSelected, employeeId];
     });
-  };
-
-  const getPackageSessions = (packageType: string) => {
-    switch (packageType) {
-      case 'priv4':
-        return 4;
-      case 'priv10':
-        return 10;
-      case 'priv20':
-        return 20;
-      case 'duo4':
-        return 4;
-      case 'duo10':
-        return 10;
-      case 'duo20':
-        return 20;
-      default:
-        return null; // Default to 1 for any other package types
-    }
-  };
-  
-  const decrementSession = async (contactId: string) => {
-    try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      if (!user || !user.email) {
-        console.error('No authenticated user or email found');
-        return;
-      }
-  
-      const docUserRef = doc(firestore, 'user', user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
-        return;
-      }
-  
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId as string;
-      const contactRef = doc(firestore, `companies/${companyId}/session`, contactId);
-      const contactSnapshot = await getDoc(contactRef);
-  
-      if (!contactSnapshot.exists()) {
-        console.error('No such document for contact!');
-        return;
-      }
-  
-      const contactData = contactSnapshot.data();
-      const currentSessionCount = contactData.session;
-      const newSessionCount = currentSessionCount - 1;
-  
-      setContactSessions({
-        ...contactSessions,
-        [contactId]: newSessionCount
-      });
-  
-      await updateDoc(contactRef, { session: newSessionCount });
-    } catch (error) {
-      console.error('Error decrementing session count:', error);
-    }
-  };
-
-  const incrementSession = async (contactId: string) => {
-    // Fetch the current session count from the database
-    try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      if (!user || !user.email) {
-        console.error('No authenticated user or email found');
-        return;
-      }
-  
-      const docUserRef = doc(firestore, 'user', user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error('No such document for user!');
-        return;
-      }
-  
-      const dataUser = docUserSnapshot.data();
-      if (!dataUser) {
-        console.error('No data found for user!');
-        return;
-      }
-  
-      const companyId = dataUser.companyId as string;
-      const contactRef = doc(firestore, `companies/${companyId}/session`, contactId);
-      const contactSnapshot = await getDoc(contactRef);
-  
-      if (!contactSnapshot.exists()) {
-        console.error('No such document for contact!');
-        return;
-      }
-  
-      const contactData = contactSnapshot.data();
-      const currentSessionCount = contactData.session;
-      
-      // Increment the session count
-      const newSessionCount = currentSessionCount < getPackageSessions ? currentSessionCount + getPackageSessions : 0;
-      
-      // Update the session count in the state
-      setContactSessions({
-        ...contactSessions,
-        [contactId]: newSessionCount
-      });
-  
-      // Update the session count in the database
-      await updateDoc(contactRef, { session: newSessionCount });
-    } catch (error) {
-      console.error('Error incrementing session count:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchPackages();
-  }, []);
-
-  const fetchPackages = async () => {
-    try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-
-      if (!user) return;
-
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
-      }
-
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      const packagesRef = collection(firestore, `companies/${companyId}/packages`);
-      const packagesSnapshot = await getDocs(packagesRef);
-
-      const packagesData: Package[] = [];
-      packagesSnapshot.forEach((doc) => {
-        packagesData.push({ id: doc.id, ...doc.data() } as Package);
-      });
-
-      setPackages(packagesData);
-    } catch (error) {
-      console.error('Error fetching packages:', error);
-    }
-  };
-
-  const addNewPackage = async () => {
-    try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-
-      if (!user) return;
-
-      const docUserRef = doc(firestore, 'user', user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        
-        return;
-      }
-
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      const packagesRef = collection(firestore, `companies/${companyId}/packages`);
-
-      const newPackage = {
-        name: newPackageName,
-        sessions: newPackageSessions,
-      };
-
-      const docRef = await addDoc(packagesRef, newPackage);
-      setPackages([...packages, { id: docRef.id, ...newPackage }]);
-      setNewPackageName("");
-      setNewPackageSessions(0);
-      setIsAddingPackage(false);
-    } catch (error) {
-      console.error('Error adding new package:', error);
-    }
   };
 
   useEffect(() => {
     const fetchCalendarConfig = async () => {
       try {
-        const auth = getAuth(app);
-        const user = auth.currentUser;
-        if (!user) return;
-  
-        const docUserRef = doc(firestore, 'user', user.email!);
-        const docUserSnapshot = await getDoc(docUserRef);
-        if (!docUserSnapshot.exists()) {
-          
-          return;
-        }
-  
-        const dataUser = docUserSnapshot.data();
-        const companyId = dataUser.companyId;
-        
-        const configRef = doc(firestore, `companies/${companyId}/config/calendar`);
-        const configSnapshot = await getDoc(configRef);
-        
-        if (configSnapshot.exists()) {
-          const calendarConfig = configSnapshot.data() as CalendarConfig;
+        const userEmail = localStorage.getItem("userEmail");
+        if (!userEmail) return;
+
+        const response = await axios.get(
+          `${baseUrl}/api/calendar-config?email=${encodeURIComponent(
+            userEmail
+          )}`
+        );
+
+        if (response.data) {
+          const calendarConfig = response.data as CalendarConfig;
           setConfig(calendarConfig);
         } else {
           const defaultConfig: CalendarConfig = {
-            calendarId: '',
+            calendarId: "",
             additionalCalendarIds: [],
             startHour: 11,
             endHour: 21,
             slotDuration: 30,
             daysAhead: 3,
           };
-          await setDoc(configRef, defaultConfig);
+
+          await axios.post(`${baseUrl}/api/calendar-config`, {
+            email: userEmail,
+            config: defaultConfig,
+          });
+
           setConfig(defaultConfig);
         }
       } catch (error) {
-        console.error('Error fetching calendar config:', error);
+        console.error("Error fetching calendar config:", error);
       }
     };
-  
+
     fetchCalendarConfig();
   }, []);
 
   const updateCalendarConfig = async (newConfig: CalendarConfig) => {
     try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      if (!user || !user.email) return;
-  
-      const docUserRef = doc(firestore, 'user', user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
-  
-      const dataUser = docUserSnapshot.data();
-      const companyId = dataUser.companyId;
-      
-      const configRef = doc(firestore, `companies/${companyId}/config/calendar`);
-      await setDoc(configRef, newConfig);
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
+      console.log("Updating calendar config:", newConfig);
+
+      await axios.put(`${baseUrl}/api/calendar-config`, {
+        email: userEmail,
+        config: newConfig,
+      });
     } catch (error) {
-      console.error('Error updating calendar config:', error);
+      console.error("Error updating calendar config:", error);
       throw error;
     }
   };
 
   // Helper function to format reminder message
-  const formatReminderMessage = (template: string, appointment: any, startTime: Date) => {
-    return `${template}\n\n` +
-      `📅 Date: ${format(startTime, 'MMMM dd, yyyy')}\n` +
-      `⏰ Time: ${format(startTime, 'h:mm a')}\n` +
-      `${appointment.meetLink ? `\n🎥 Join Meeting: ${appointment.meetLink}` : ''}`;
+  const formatReminderMessage = (
+    template: string,
+    appointment: any,
+    startTime: Date
+  ) => {
+    return (
+      `${template}\n\n` +
+      `📅 Date: ${format(startTime, "MMMM dd, yyyy")}\n` +
+      `⏰ Time: ${format(startTime, "h:mm a")}\n` +
+      `${
+        appointment.meetLink ? `\n🎥 Join Meeting: ${appointment.meetLink}` : ""
+      }`
+    );
   };
 
   // Add this function to process reminders for appointments
   const processAppointmentReminders = async (appointment: Appointment) => {
     try {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      if (!user?.email) return;
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
 
-      const docUserRef = doc(firestore, 'user', user.email);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
+      // Get reminder settings from API
+      const settingsResponse = await axios.get(
+        `${baseUrl}/api/reminder-settings?email=${encodeURIComponent(
+          userEmail
+        )}`
+      );
 
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-
-      // Get reminder settings
-      const reminderSettingsRef = doc(firestore, `companies/${companyId}/config/reminders`);
-      const reminderSettingsSnapshot = await getDoc(reminderSettingsRef);
-
-      if (!reminderSettingsSnapshot.exists()) {
-        console.log('No reminder settings found');
+      if (!settingsResponse.data) {
+        console.log("No reminder settings found");
         return;
       }
 
-      const settings = reminderSettingsSnapshot.data() as ReminderSettings;
-      
+      // The API now returns { company_id, reminders: [...] }
+      const apiResponse = settingsResponse.data;
+      const settings: ReminderSettings = {
+        reminders: apiResponse.reminders || []
+      };
+
       // Process each enabled reminder
       for (const reminder of settings.reminders) {
         if (!reminder.enabled) continue;
@@ -1933,89 +1723,111 @@ const createAppointment = async (newEvent: any) => {
         const appointmentTime = new Date(appointment.startTime);
         let reminderTime: Date;
 
-        if (reminder.type === 'before') {
+        if (reminder.type === "before") {
           // Calculate time before appointment
           reminderTime = new Date(appointmentTime);
-          if (reminder.timeUnit === 'minutes') {
+          if (reminder.timeUnit === "minutes") {
             reminderTime.setMinutes(reminderTime.getMinutes() - reminder.time);
-          } else if (reminder.timeUnit === 'hours') {
+          } else if (reminder.timeUnit === "hours") {
             reminderTime.setHours(reminderTime.getHours() - reminder.time);
-          } else if (reminder.timeUnit === 'days') {
+          } else if (reminder.timeUnit === "days") {
             reminderTime.setDate(reminderTime.getDate() - reminder.time);
           }
         } else {
           // Calculate time after appointment
           reminderTime = new Date(appointmentTime);
-          if (reminder.timeUnit === 'minutes') {
+          if (reminder.timeUnit === "minutes") {
             reminderTime.setMinutes(reminderTime.getMinutes() + reminder.time);
-          } else if (reminder.timeUnit === 'hours') {
+          } else if (reminder.timeUnit === "hours") {
             reminderTime.setHours(reminderTime.getHours() + reminder.time);
-          } else if (reminder.timeUnit === 'days') {
+          } else if (reminder.timeUnit === "days") {
             reminderTime.setDate(reminderTime.getDate() + reminder.time);
           }
         }
 
         // Skip if reminder time is in the past
         if (reminderTime < new Date()) {
-          console.log('Reminder time is in the past, skipping');
+          console.log("Reminder time is in the past, skipping");
           continue;
         }
 
-        // Schedule the reminder
+        // Schedule the reminder via API
         const scheduledMessageData = {
+          userEmail,
           appointment: appointment,
           reminderConfig: reminder,
           scheduledTime: reminderTime,
-          processed: false
+          processed: false,
         };
 
-        // Store the scheduled reminder in Firestore
-        const reminderRef = doc(collection(firestore, `companies/${companyId}/scheduledReminders`));
-        await setDoc(reminderRef, scheduledMessageData);
+        await axios.post(
+          `${baseUrl}/api/schedule-reminder`,
+          scheduledMessageData
+        );
 
         // If the reminder is due soon (within the next hour), send it immediately
         const oneHourFromNow = new Date();
         oneHourFromNow.setHours(oneHourFromNow.getHours() + 1);
-        
+
         if (reminderTime <= oneHourFromNow) {
           // Send the reminder immediately
+          const companyResponse = await axios.get(
+            `${baseUrl}/api/user-context?email=${encodeURIComponent(userEmail)}`
+          );
+          const companyId = companyResponse.data.companyId;
+
           await sendWhatsAppNotification(
             appointment.contacts,
             appointment,
             companyId,
             reminder
           );
-          
+
           // Mark as processed
-          await updateDoc(reminderRef, { processed: true });
+          await axios.put(`${baseUrl}/api/mark-reminder-processed`, {
+            userEmail,
+            appointmentId: appointment.id,
+            reminderTime: reminderTime.toISOString(),
+          });
         }
       }
     } catch (error) {
-      console.error('Error processing appointment reminders:', error);
+      console.error("Error processing appointment reminders:", error);
     }
   };
 
   // Add this JSX somewhere in your return statement, perhaps in the settings section or as a new modal
   const renderCalendarConfigModal = () => (
-    <Dialog open={isCalendarConfigOpen} onClose={() => setIsCalendarConfigOpen(false)}>
+    <Dialog
+      open={isCalendarConfigOpen}
+      onClose={() => setIsCalendarConfigOpen(false)}
+    >
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
         <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10 dark:bg-gray-800">
-          <h2 className="text-lg font-medium mb-4 dark:text-white">Calendar Settings</h2>
+          <h2 className="text-lg font-medium mb-4 dark:text-white">
+            Calendar Settings
+          </h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Primary Google Calendar ID</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Primary Google Calendar ID
+              </label>
               <input
                 type="text"
                 className="block w-full mt-1 border-gray-300 rounded-md shadow-sm"
-                value={config.calendarId || ''}
-                onChange={(e) => setConfig({ ...config, calendarId: e.target.value })}
+                value={config.calendarId || ""}
+                onChange={(e) =>
+                  setConfig({ ...config, calendarId: e.target.value })
+                }
                 placeholder="example@group.calendar.google.com"
               />
             </div>
 
             {/* Additional Calendar IDs */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Additional Calendar IDs</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Additional Calendar IDs
+              </label>
               {(config.additionalCalendarIds || []).map((calendarId, index) => (
                 <div key={index} className="flex items-center mt-2 gap-2">
                   <input
@@ -2023,16 +1835,26 @@ const createAppointment = async (newEvent: any) => {
                     className="flex-1 block w-full mt-1 border-gray-300 rounded-md shadow-sm"
                     value={calendarId}
                     onChange={(e) => {
-                      const newCalendarIds = [...(config.additionalCalendarIds || [])];
+                      const newCalendarIds = [
+                        ...(config.additionalCalendarIds || []),
+                      ];
                       newCalendarIds[index] = e.target.value;
-                      setConfig({ ...config, additionalCalendarIds: newCalendarIds });
+                      setConfig({
+                        ...config,
+                        additionalCalendarIds: newCalendarIds,
+                      });
                     }}
                     placeholder="example@group.calendar.google.com"
                   />
                   <button
                     onClick={() => {
-                      const newCalendarIds = (config.additionalCalendarIds || []).filter((_, i) => i !== index);
-                      setConfig({ ...config, additionalCalendarIds: newCalendarIds });
+                      const newCalendarIds = (
+                        config.additionalCalendarIds || []
+                      ).filter((_, i) => i !== index);
+                      setConfig({
+                        ...config,
+                        additionalCalendarIds: newCalendarIds,
+                      });
                     }}
                     className="p-2 text-red-600 hover:text-red-800"
                   >
@@ -2040,12 +1862,15 @@ const createAppointment = async (newEvent: any) => {
                   </button>
                 </div>
               ))}
-              
+
               <button
                 onClick={() => {
                   setConfig({
                     ...config,
-                    additionalCalendarIds: [...(config.additionalCalendarIds || []), '']
+                    additionalCalendarIds: [
+                      ...(config.additionalCalendarIds || []),
+                      "",
+                    ],
                   });
                 }}
                 className="mt-2 px-3 py-1 text-sm text-primary border border-primary rounded hover:bg-primary hover:text-white"
@@ -2056,46 +1881,65 @@ const createAppointment = async (newEvent: any) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Hour (24h)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Start Hour (24h)
+              </label>
               <input
                 type="number"
                 min="0"
                 max="23"
                 className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 value={config.startHour}
-                onChange={(e) => setConfig({ ...config, startHour: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  setConfig({ ...config, startHour: parseInt(e.target.value) })
+                }
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">End Hour (24h)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                End Hour (24h)
+              </label>
               <input
                 type="number"
                 min="0"
                 max="23"
                 className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 value={config.endHour}
-                onChange={(e) => setConfig({ ...config, endHour: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  setConfig({ ...config, endHour: parseInt(e.target.value) })
+                }
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Slot Duration (minutes)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Slot Duration (minutes)
+              </label>
               <input
                 type="number"
                 min="15"
                 step="15"
                 className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 value={config.slotDuration}
-                onChange={(e) => setConfig({ ...config, slotDuration: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    slotDuration: parseInt(e.target.value),
+                  })
+                }
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Days Ahead</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Days Ahead
+              </label>
               <input
                 type="number"
                 min="1"
                 className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 value={config.daysAhead}
-                onChange={(e) => setConfig({ ...config, daysAhead: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  setConfig({ ...config, daysAhead: parseInt(e.target.value) })
+                }
               />
             </div>
             <div className="flex justify-end space-x-2">
@@ -2109,16 +1953,20 @@ const createAppointment = async (newEvent: any) => {
                 className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
                 onClick={async () => {
                   if (!config.calendarId) {
-                    alert('Please enter a Calendar ID');
+                    alert("Please enter a Calendar ID");
                     return;
                   }
-                  
-                  const isValid = await testGoogleCalendarConnection(config.calendarId);
+
+                  const isValid = await testGoogleCalendarConnection(
+                    config.calendarId
+                  );
                   if (!isValid) {
-                    alert('Unable to connect to the calendar. Please check the Calendar ID and try again.');
+                    alert(
+                      "Unable to connect to the calendar. Please check the Calendar ID and try again."
+                    );
                     return;
                   }
-                  
+
                   updateCalendarConfig(config);
                   setIsCalendarConfigOpen(false);
                 }}
@@ -2127,252 +1975,355 @@ const createAppointment = async (newEvent: any) => {
               </button>
             </div>
           </div>
-          
         </Dialog.Panel>
       </div>
     </Dialog>
   );
 
   const renderReminderModal = () => (
-    <Dialog open={isReminderSettingsOpen} onClose={() => setIsReminderSettingsOpen(false)}>
+    <Dialog
+      open={isReminderSettingsOpen}
+      onClose={() => setIsReminderSettingsOpen(false)}
+    >
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
         <Dialog.Panel className="w-full max-w-2xl p-6 bg-white rounded-lg shadow-xl mt-10 dark:bg-gray-800">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold dark:text-white">Reminder Settings</h2>
+            <h2 className="text-xl font-semibold dark:text-white">
+              Reminder Settings
+            </h2>
             <button
               onClick={() => setIsReminderSettingsOpen(false)}
               className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
 
           <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-            {reminderSettings?.reminders?.map((reminder: any, index: number) => (
-              <div key={index} className="p-5 border rounded-lg dark:border-gray-700 bg-white dark:bg-gray-750 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <span className="flex items-center justify-center w-8 h-8 text-sm font-semibold text-white bg-primary rounded-full">
-                      {index + 1}
-                    </span>
-                    <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300">
-                      Reminder {index + 1}
-                    </h3>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center">
-                      <label className="mr-2 text-sm text-gray-600 dark:text-gray-400">Enable</label>
-                      <input
-                        type="checkbox"
-                        checked={reminder.enabled}
-                        onChange={(e) => {
-                          const newReminders = [...(reminderSettings?.reminders || [])];
-                          newReminders[index].enabled = e.target.checked;
-                          setReminderSettings({ reminders: newReminders });
-                        }}
-                        className="form-checkbox h-5 w-5 text-primary rounded border-gray-300 focus:ring-primary"
-                      />
+            {reminderSettings?.reminders?.map(
+              (reminder: any, index: number) => (
+                <div
+                  key={index}
+                  className="p-5 border rounded-lg dark:border-gray-700 bg-white dark:bg-gray-750 shadow-sm"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <span className="flex items-center justify-center w-8 h-8 text-sm font-semibold text-white bg-primary rounded-full">
+                        {index + 1}
+                      </span>
+                      <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                        Reminder {index + 1}
+                      </h3>
                     </div>
-                    <button
-                      onClick={() => {
-                        const newReminders = reminderSettings.reminders.filter((_, i) => i !== index);
-                        setReminderSettings({ reminders: newReminders });
-                      }}
-                      className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors duration-200"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                {reminder.enabled && (
-                  <div className="space-y-4">
-                    {/* Recipient Type Selection */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        Send Reminder To
-                      </label>
-                      <div className="flex space-x-4">
-                        <label className="inline-flex items-center">
-                          <input
-                            type="radio"
-                            className="form-radio text-primary"
-                            name={`recipient-type-${index}`}
-                            value="contacts"
-                            checked={!reminder.recipientType || reminder.recipientType === 'contacts'}
-                            onChange={() => {
-                              const newReminders = [...(reminderSettings?.reminders || [])];
-                              newReminders[index].recipientType = 'contacts';
-                              setReminderSettings({ reminders: newReminders });
-                            }}
-                          />
-                          <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Appointment Contacts</span>
-                        </label>
-                        <label className="inline-flex items-center">
-                          <input
-                            type="radio"
-                            className="form-radio text-primary"
-                            name={`recipient-type-${index}`}
-                            value="employees"
-                            checked={reminder.recipientType === 'employees'}
-                            onChange={() => {
-                              const newReminders = [...(reminderSettings?.reminders || [])];
-                              newReminders[index].recipientType = 'employees';
-                              if (!newReminders[index].selectedEmployees) {
-                                newReminders[index].selectedEmployees = [];
-                              }
-                              setReminderSettings({ reminders: newReminders });
-                            }}
-                          />
-                          <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Specific Employees</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Employee Selection (only shown when recipientType is 'employees') */}
-                    {reminder.recipientType === 'employees' && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          Select Employees
-                        </label>
-                        <div className="max-h-40 overflow-y-auto border rounded-md p-2 bg-white dark:bg-gray-700">
-                          {employees.map((employee) => (
-                            <div key={employee.id} className="flex items-center space-x-2 mb-2">
-                              <input
-                                type="checkbox"
-                                checked={reminder.selectedEmployees?.includes(employee.id) || false}
-                                onChange={(e) => {
-                                  const newReminders = [...(reminderSettings?.reminders || [])];
-                                  if (!newReminders[index].selectedEmployees) {
-                                    newReminders[index].selectedEmployees = [];
-                                  }
-                                  
-                                  if (e.target.checked) {
-                                    newReminders[index].selectedEmployees = [
-                                      ...(newReminders[index].selectedEmployees || []),
-                                      employee.id
-                                    ];
-                                  } else {
-                                    newReminders[index].selectedEmployees = newReminders[index].selectedEmployees?.filter(
-                                      id => id !== employee.id
-                                    );
-                                  }
-                                  
-                                  setReminderSettings({ reminders: newReminders });
-                                }}
-                                className="rounded text-indigo-600 focus:ring-indigo-500"
-                              />
-                              <span className="text-gray-900 dark:text-white">{employee.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                        {(!reminder.selectedEmployees || reminder.selectedEmployees.length === 0) && (
-                          <p className="mt-1 text-xs text-red-500">Please select at least one employee</p>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          Time
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center">
+                        <label className="mr-2 text-sm text-gray-600 dark:text-gray-400">
+                          Enable
                         </label>
                         <input
-                          type="number"
-                          min="1"
-                          value={reminder.time}
+                          type="checkbox"
+                          checked={reminder.enabled}
                           onChange={(e) => {
-                            const newReminders = [...(reminderSettings?.reminders || [])];
-                            newReminders[index].time = parseInt(e.target.value);
+                            const newReminders = [
+                              ...(reminderSettings?.reminders || []),
+                            ];
+                            newReminders[index].enabled = e.target.checked;
                             setReminderSettings({ reminders: newReminders });
                           }}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          className="form-checkbox h-5 w-5 text-primary rounded border-gray-300 focus:ring-primary"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          Unit
-                        </label>
-                        <select
-                          value={reminder.timeUnit}
-                          onChange={(e) => {
-                            const newReminders = [...(reminderSettings?.reminders || [])];
-                            newReminders[index].timeUnit = e.target.value as 'minutes' | 'hours' | 'days';
-                            setReminderSettings({ reminders: newReminders });
-                          }}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      <button
+                        onClick={() => {
+                          const newReminders =
+                            reminderSettings.reminders.filter(
+                              (_, i) => i !== index
+                            );
+                          setReminderSettings({ reminders: newReminders });
+                        }}
+                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors duration-200"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
                         >
-                          <option value="minutes">Minutes</option>
-                          <option value="hours">Hours</option>
-                          <option value="days">Days</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          When to Send
-                        </label>
-                        <select
-                          value={reminder.type}
-                          onChange={(e) => {
-                            const newReminders = [...(reminderSettings?.reminders || [])];
-                            newReminders[index].type = e.target.value as 'before' | 'after';
-                            setReminderSettings({ reminders: newReminders });
-                          }}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        >
-                          <option value="before">Before Appointment</option>
-                          <option value="after">After Appointment</option>
-                        </select>
-                      </div>
+                          <path
+                            fillRule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        Message Template
-                      </label>
-                      <div className="relative">
-                        <textarea
-                          value={reminder.message}
-                          onChange={(e) => {
-                            const newReminders = [...(reminderSettings?.reminders || [])];
-                            newReminders[index].message = e.target.value;
-                            setReminderSettings({ reminders: newReminders });
-                          }}
-                          rows={3}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                          placeholder="Enter your message here. Use {time}, {unit}, and {when} as placeholders."
-                        />
-                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                          Available placeholders: {"{time}"}, {"{unit}"}, {"{when}"}
+                  </div>
+
+                  {reminder.enabled && (
+                    <div className="space-y-4">
+                      {/* Recipient Type Selection */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          Send Reminder To
+                        </label>
+                        <div className="flex space-x-4">
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              className="form-radio text-primary"
+                              name={`recipient-type-${index}`}
+                              value="contacts"
+                              checked={
+                                !reminder.recipientType ||
+                                reminder.recipientType === "contacts"
+                              }
+                              onChange={() => {
+                                const newReminders = [
+                                  ...(reminderSettings?.reminders || []),
+                                ];
+                                newReminders[index].recipientType = "contacts";
+                                setReminderSettings({
+                                  reminders: newReminders,
+                                });
+                              }}
+                            />
+                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                              Appointment Contacts
+                            </span>
+                          </label>
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              className="form-radio text-primary"
+                              name={`recipient-type-${index}`}
+                              value="employees"
+                              checked={reminder.recipientType === "employees"}
+                              onChange={() => {
+                                const newReminders = [
+                                  ...(reminderSettings?.reminders || []),
+                                ];
+                                newReminders[index].recipientType = "employees";
+                                if (!newReminders[index].selectedEmployees) {
+                                  newReminders[index].selectedEmployees = [];
+                                }
+                                setReminderSettings({
+                                  reminders: newReminders,
+                                });
+                              }}
+                            />
+                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                              Specific Employees
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Employee Selection (only shown when recipientType is 'employees') */}
+                      {reminder.recipientType === "employees" && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Select Employees
+                          </label>
+                          <div className="max-h-40 overflow-y-auto border rounded-md p-2 bg-white dark:bg-gray-700">
+                            {employees.map((employee) => (
+                              <div
+                                key={employee.id}
+                                className="flex items-center space-x-2 mb-2"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    reminder.selectedEmployees?.includes(
+                                      employee.id
+                                    ) || false
+                                  }
+                                  onChange={(e) => {
+                                    const newReminders = [
+                                      ...(reminderSettings?.reminders || []),
+                                    ];
+                                    if (
+                                      !newReminders[index].selectedEmployees
+                                    ) {
+                                      newReminders[index].selectedEmployees =
+                                        [];
+                                    }
+
+                                    if (e.target.checked) {
+                                      newReminders[index].selectedEmployees = [
+                                        ...(newReminders[index]
+                                          .selectedEmployees || []),
+                                        employee.id,
+                                      ];
+                                    } else {
+                                      newReminders[index].selectedEmployees =
+                                        newReminders[
+                                          index
+                                        ].selectedEmployees?.filter(
+                                          (id) => id !== employee.id
+                                        );
+                                    }
+
+                                    setReminderSettings({
+                                      reminders: newReminders,
+                                    });
+                                  }}
+                                  className="rounded text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-gray-900 dark:text-white">
+                                  {employee.name}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          {(!reminder.selectedEmployees ||
+                            reminder.selectedEmployees.length === 0) && (
+                            <p className="mt-1 text-xs text-red-500">
+                              Please select at least one employee
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Time
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={reminder.time}
+                            onChange={(e) => {
+                              const newReminders = [
+                                ...(reminderSettings?.reminders || []),
+                              ];
+                              newReminders[index].time = parseInt(
+                                e.target.value
+                              );
+                              setReminderSettings({ reminders: newReminders });
+                            }}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Unit
+                          </label>
+                          <select
+                            value={reminder.timeUnit}
+                            onChange={(e) => {
+                              const newReminders = [
+                                ...(reminderSettings?.reminders || []),
+                              ];
+                              newReminders[index].timeUnit = e.target.value as
+                                | "minutes"
+                                | "hours"
+                                | "days";
+                              setReminderSettings({ reminders: newReminders });
+                            }}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          >
+                            <option value="minutes">Minutes</option>
+                            <option value="hours">Hours</option>
+                            <option value="days">Days</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            When to Send
+                          </label>
+                          <select
+                            value={reminder.type}
+                            onChange={(e) => {
+                              const newReminders = [
+                                ...(reminderSettings?.reminders || []),
+                              ];
+                              newReminders[index].type = e.target.value as
+                                | "before"
+                                | "after";
+                              setReminderSettings({ reminders: newReminders });
+                            }}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          >
+                            <option value="before">Before Appointment</option>
+                            <option value="after">After Appointment</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          Message Template
+                        </label>
+                        <div className="relative">
+                          <textarea
+                            value={reminder.message}
+                            onChange={(e) => {
+                              const newReminders = [
+                                ...(reminderSettings?.reminders || []),
+                              ];
+                              newReminders[index].message = e.target.value;
+                              setReminderSettings({ reminders: newReminders });
+                            }}
+                            rows={3}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            placeholder="Enter your message here. Use {time}, {unit}, and {when} as placeholders."
+                          />
+                          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Available placeholders: {"{time}"}, {"{unit}"},{" "}
+                            {"{when}"}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              )
+            )}
           </div>
 
           <div className="mt-6 space-y-4">
             <button
               className="w-full px-4 py-3 text-sm font-medium text-white bg-primary rounded-lg hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center space-x-2"
               onClick={() => {
-                const newReminders = [...(reminderSettings?.reminders || []), {
-                  enabled: true,
-                  time: 24,
-                  timeUnit: 'hours' as const,
-                  type: 'before' as const,
-                  message: "You have an upcoming appointment {time} {unit} {when}.",
-                  recipientType: 'contacts' as const
-                }];
+                const newReminders = [
+                  ...(reminderSettings?.reminders || []),
+                  {
+                    enabled: true,
+                    time: 24,
+                    timeUnit: "hours" as const,
+                    type: "before" as const,
+                    message:
+                      "You have an upcoming appointment {time} {unit} {when}.",
+                    recipientType: "contacts" as const,
+                  },
+                ];
                 setReminderSettings({ reminders: newReminders });
               }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span>Add New Reminder</span>
             </button>
@@ -2396,91 +2347,91 @@ const createAppointment = async (newEvent: any) => {
       </div>
     </Dialog>
   );
-                
+
   // Add this logging function to help debug
-  const debugLog = (message: string, data?: any) => {
-    
-  };
+  const debugLog = (message: string, data?: any) => {};
 
   // Update the validation function to be more permissive and add logging
   const validateCalendarId = (calendarId: string | null | undefined) => {
-    debugLog('Validating calendar ID', calendarId);
-    
+    debugLog("Validating calendar ID", calendarId);
+
     // Allow empty, null, or undefined calendar IDs
-    if (!calendarId || calendarId.trim() === '') {
-      debugLog('Empty calendar ID - valid');
+    if (!calendarId || calendarId.trim() === "") {
+      debugLog("Empty calendar ID - valid");
       return true;
     }
-    
+
     // More permissive regex that includes holiday calendar format
-    const regex = /^[\w.-]+[#]?[\w.-]*@[\w.-]+\.(calendar\.google\.com|gmail\.com)$/;
+    const regex =
+      /^[\w.-]+[#]?[\w.-]*@(calendar\.google\.com|gmail\.com)$/;
     const isValid = regex.test(calendarId.trim());
-    debugLog('Calendar ID validation result', isValid);
+    debugLog("Calendar ID validation result", isValid);
     return isValid;
   };
 
   // Update the Google Calendar connection test
   const testGoogleCalendarConnection = async (calendarId: string) => {
-    console.log('Testing connection for calendar:', calendarId);
+    console.log("Testing connection for calendar:", calendarId);
     try {
       if (!validateCalendarId(calendarId)) {
-        console.log('Invalid calendar ID format');
+        console.log("Invalid calendar ID format");
         return {
           success: false,
-          error: 'Invalid calendar ID format'
+          error: "Invalid calendar ID format",
         };
       }
 
       const encodedCalendarId = encodeURIComponent(calendarId.trim());
       const apiKey = import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY;
-      
+
       const url = `https://www.googleapis.com/calendar/v3/calendars/${encodedCalendarId}/events?key=${apiKey}&maxResults=1`;
-      console.log('Making request to:', url);
+      console.log("Making request to:", url);
 
       const response = await fetch(url);
-      console.log('Response status:', response.status);
-      
+      console.log("Response status:", response.status);
+
       const errorData = await response.json();
-      console.log('Full error response:', errorData);
-      
+      console.log("Full error response:", errorData);
+
       if (!response.ok) {
-        if (errorData.error?.status === 'PERMISSION_DENIED') {
+        if (errorData.error?.status === "PERMISSION_DENIED") {
           return {
             success: false,
-            error: 'Calendar access denied. Please make sure the calendar is public or shared properly.'
+            error:
+              "Calendar access denied. Please make sure the calendar is public or shared properly.",
           };
-        } else if (errorData.error?.status === 'NOT_FOUND') {
+        } else if (errorData.error?.status === "NOT_FOUND") {
           return {
             success: false,
-            error: 'Calendar not found. Please check the calendar ID.'
+            error: "Calendar not found. Please check the calendar ID.",
           };
         }
-        
+
         return {
           success: false,
-          error: `API Error: ${errorData.error?.message || 'Unknown error'}`
+          error: `API Error: ${errorData.error?.message || "Unknown error"}`,
         };
       }
-      
+
       return {
-        success: true
+        success: true,
       };
     } catch (error) {
-      console.error('Connection test error:', error);
+      console.error("Connection test error:", error);
       return {
         success: false,
-        error: 'Network error while testing calendar connection'
+        error: "Network error while testing calendar connection",
       };
     }
   };
 
   // Update the save function to use the new response format
   const handleSaveCalendarConfig = async () => {
-    debugLog('Saving calendar config', config);
-    
+    debugLog("Saving calendar config", config);
+
     const newConfig = {
       ...config,
-      calendarId: config.calendarId?.trim() || ''
+      calendarId: config.calendarId?.trim() || "",
     };
 
     // Skip validation for empty calendar ID
@@ -2488,12 +2439,12 @@ const createAppointment = async (newEvent: any) => {
       try {
         const result = await testGoogleCalendarConnection(newConfig.calendarId);
         if (!result.success) {
-          toast.error(result.error || 'Failed to connect to calendar');
+          toast.error(result.error || "Failed to connect to calendar");
           return;
         }
       } catch (error) {
-        debugLog('Connection test error', error);
-        toast.error('Error testing calendar connection');
+        debugLog("Connection test error", error);
+        toast.error("Error testing calendar connection");
         return;
       }
     }
@@ -2501,24 +2452,24 @@ const createAppointment = async (newEvent: any) => {
     try {
       await updateCalendarConfig(newConfig);
       setConfig(newConfig);
-      
+
       // Safely refresh the calendar
       if (calendarRef.current) {
         const calendarApi = (calendarRef.current as any).getApi();
         try {
           calendarApi.removeAllEventSources();
           await calendarApi.refetchEvents();
-          debugLog('Calendar refreshed successfully');
-          toast.success('Calendar settings updated successfully');
+          debugLog("Calendar refreshed successfully");
+          toast.success("Calendar settings updated successfully");
         } catch (error) {
-          debugLog('Calendar refresh error', error);
+          debugLog("Calendar refresh error", error);
         }
       }
-      
+
       setIsCalendarConfigOpen(false);
     } catch (error) {
-      debugLog('Save config error', error);
-      toast.error('Error saving calendar configuration');
+      debugLog("Save config error", error);
+      toast.error("Error saving calendar configuration");
     }
   };
 
@@ -2528,14 +2479,13 @@ const createAppointment = async (newEvent: any) => {
       dayGridPlugin,
       timeGridPlugin,
       interactionPlugin,
-      googleCalendarPlugin
+      googleCalendarPlugin,
     ],
     initialView: view,
     headerToolbar: {
-      left: 'title',
-      center: '',
-      right: 'today prev,next'
-
+      left: "title",
+      center: "",
+      right: "today prev,next",
     },
     editable: true, // Enable event editing
     eventClick: handleEventClick, // Add this to handle event clicks
@@ -2545,70 +2495,82 @@ const createAppointment = async (newEvent: any) => {
     googleCalendarApiKey: import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY,
     eventSources: [
       {
-    events: filteredAppointments.map(appointment => ({
-      id: appointment.id,
-      title: appointment.title,
-      start: new Date(appointment.startTime),
-      end: new Date(appointment.endTime),
-          backgroundColor: appointment.color || '#51484f',
-          borderColor: 'transparent',
-      extendedProps: {
-        address: appointment.address,
-        appointmentStatus: appointment.appointmentStatus,
-        staff: appointment.staff,
-            package: packages.find(p => p.id === appointment.packageId) || null,
-        dateAdded: appointment.dateAdded,
-        contacts: appointment.contacts,
-        tags: appointment.tags || [],
-        details: appointment.details || '',
-        meetLink: appointment.meetLink || '',
-      }
-        }))
+        events: filteredAppointments.map((appointment) => ({
+          id: appointment.id,
+          title: appointment.title,
+          start: new Date(appointment.startTime),
+          end: new Date(appointment.endTime),
+          backgroundColor: appointment.color || "#51484f",
+          borderColor: "transparent",
+          extendedProps: {
+            address: appointment.address,
+            appointmentStatus: appointment.appointmentStatus,
+            staff: appointment.staff,
+            dateAdded: appointment.dateAdded,
+            contacts: appointment.contacts,
+            tags: appointment.tags || [],
+            details: appointment.details || "",
+            meetLink: appointment.meetLink || "",
+          },
+        })),
       },
-      ...(config.calendarId && config.calendarId.trim() !== '' && validateCalendarId(config.calendarId) ? [{
-        googleCalendarId: config.calendarId,
-        className: 'gcal-event',
-        color: '#a8d7e0',
-        editable: false
-      }] : []),
+      ...(config.calendarId &&
+      config.calendarId.trim() !== "" &&
+      validateCalendarId(config.calendarId)
+        ? [
+            {
+              googleCalendarId: config.calendarId,
+              className: "gcal-event",
+              color: "#a8d7e0",
+              editable: false,
+            },
+          ]
+        : []),
       ...(config.additionalCalendarIds || [])
-        .filter(id => id && id.trim() !== '' && validateCalendarId(id))
-        .map(calendarId => ({
+        .filter((id) => id && id.trim() !== "" && validateCalendarId(id))
+        .map((calendarId) => ({
           googleCalendarId: calendarId,
-          className: 'gcal-event',
-          color: '#a8d7e0',  // You might want to assign different colors for different calendars
-          editable: false
-        }))
+          className: "gcal-event",
+          color: "#a8d7e0", // You might want to assign different colors for different calendars
+          editable: false,
+        })),
     ],
     eventContent: renderEventContent, // Add this to use your custom event rendering
     eventDidMount: (info: any) => {
       // Apply the color directly to the event element
       if (info.event.source?.googleCalendarId) return; // Skip for Google Calendar events
-      
+
       const staffIds = info.event.extendedProps?.staff || [];
       const staffColors = employees
-        .filter(employee => staffIds.includes(employee.id))
-        .map(employee => employee.color);
+        .filter((employee) => staffIds.includes(employee.id))
+        .map((employee) => employee.color);
 
       if (staffColors.length === 1) {
         info.el.style.backgroundColor = staffColors[0];
       } else if (staffColors.length === 2) {
         info.el.style.background = `linear-gradient(to right, ${staffColors[0]} 50%, ${staffColors[1]} 50%)`;
       }
-      
+
       // Make sure the event is clickable
-      info.el.style.cursor = 'pointer';
-    }
+      info.el.style.cursor = "pointer";
+    },
   };
 
   // 3. Add error boundary around the calendar component
-  const CalendarErrorBoundary = ({ children }: { children: React.ReactNode }) => {
+  const CalendarErrorBoundary = ({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) => {
     const [hasError, setHasError] = React.useState(false);
 
     if (hasError) {
       return (
         <div className="p-4 text-center">
-          <p>Something went wrong loading the calendar. Please try refreshing the page.</p>
+          <p>
+            Something went wrong loading the calendar. Please try refreshing the
+            page.
+          </p>
         </div>
       );
     }
@@ -2627,160 +2589,159 @@ const createAppointment = async (newEvent: any) => {
         {...calendarOptions}
         ref={calendarRef}
         slotLabelFormat={{
-          hour: 'numeric' as const,
-          minute: '2-digit' as const,
-          meridiem: 'short' as const
+          hour: "numeric" as const,
+          minute: "2-digit" as const,
+          meridiem: "short" as const,
         }}
       />
     </CalendarErrorBoundary>
-  </div>
+  </div>;
 
   // Add new component for grid view
   const GridView = () => {
-    const hours = ['9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'];
-    const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
+    const hours = [
+      "9:00 AM",
+      "10:00 AM",
+      "11:00 AM",
+      "12:00 PM",
+      "2:00 PM",
+      "3:00 PM",
+      "4:00 PM",
+    ];
+    const [selectedCell, setSelectedCell] = useState<{
+      row: number;
+      col: number;
+    } | null>(null);
     const gridRef = useRef<HTMLDivElement>(null);
-    
+
     // Debug logs
 
-    
     // Convert UTC to local time for comparison
-    const selectedDateAppointments = appointments.filter(apt => {
+    const selectedDateAppointments = appointments.filter((apt) => {
       const aptDate = new Date(apt.startTime);
       const localAptDate = new Date(aptDate.getTime());
-      const aptDateStr = format(localAptDate, 'yyyy-MM-dd');
-      const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-      
-      console.log('Comparing dates:', {
+      const aptDateStr = format(localAptDate, "yyyy-MM-dd");
+      const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+
+      console.log("Comparing dates:", {
         appointment: apt.title,
         appointmentDate: aptDateStr,
         selectedDate: selectedDateStr,
-        isMatch: aptDateStr === selectedDateStr
+        isMatch: aptDateStr === selectedDateStr,
       });
-      
+
       return aptDateStr === selectedDateStr;
     });
-  
-    
-  
+
     const formatAppointmentTime = (isoString: string) => {
       const date = new Date(isoString);
-      return format(date, 'h:mm a');
+      return format(date, "h:mm a");
     };
-  
+
     // Helper function to find employee by email
     const findEmployeeByEmail = (email: string) => {
-      const employee = employees.find(emp => emp.id === email);
-      
+      const employee = employees.find((emp) => emp.id === email);
+
       return employee;
     };
-  
-    const [employeeExpenses, setEmployeeExpenses] = useState<Record<string, { minyak: number; toll: number }>>({});
-  
+
+    const [employeeExpenses, setEmployeeExpenses] = useState<
+      Record<string, { minyak: number; toll: number }>
+    >({});
+
     // Handle keyboard navigation
     useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
         if (!selectedCell) return;
-  
+
         const { row, col } = selectedCell;
         const maxRow = hours.length - 1;
         const maxCol = employees.length - 1;
-  
+
         switch (e.key) {
-          case 'ArrowUp':
+          case "ArrowUp":
             e.preventDefault();
             if (row > 0) {
               setSelectedCell({ row: row - 1, col });
               scrollToCell(row - 1, col);
             }
             break;
-          case 'ArrowDown':
+          case "ArrowDown":
             e.preventDefault();
             if (row < maxRow) {
               setSelectedCell({ row: row + 1, col });
               scrollToCell(row + 1, col);
             }
             break;
-          case 'ArrowLeft':
+          case "ArrowLeft":
             e.preventDefault();
             if (col > 0) {
               setSelectedCell({ row, col: col - 1 });
               scrollToCell(row, col - 1);
             }
             break;
-          case 'ArrowRight':
+          case "ArrowRight":
             e.preventDefault();
             if (col < maxCol) {
               setSelectedCell({ row, col: col + 1 });
               scrollToCell(row, col + 1);
             }
             break;
-          case 'Enter':
-          case ' ':
+          case "Enter":
+          case " ":
             e.preventDefault();
             const employee = employees[col];
             const hour = hours[row];
             if (employee && hour) {
               // Assuming handleEmptySlotClick is a function that needs to be defined
-              const handleEmptySlotClick = () => {
-                
-              };
+              const handleEmptySlotClick = () => {};
               handleEmptySlotClick();
             }
             break;
         }
       };
-  
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
+
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
     }, [selectedCell, hours, employees]);
-  
+
     // Helper function to scroll to a specific cell
     const scrollToCell = (row: number, col: number) => {
-      const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+      const cell = document.querySelector(
+        `[data-row="${row}"][data-col="${col}"]`
+      );
       if (cell && gridRef.current) {
         cell.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
-          inline: 'nearest'
+          behavior: "smooth",
+          block: "nearest",
+          inline: "nearest",
         });
       }
     };
-  
+
     // Fetch expenses useEffect
     useEffect(() => {
       const fetchExpenses = async () => {
         try {
-          const user = auth.currentUser;
-          if (!user?.email) return;
-    
-          const expensesPromises = employees.map(async (employee) => {
-            const expenseRef = doc(
-              firestore,
-              `user/${user.email}/expenses/${format(selectedDate, 'yyyy-MM-dd')}_${employee.id}`
-            );
-            const expenseDoc = await getDoc(expenseRef);
-            return {
-              employeeId: employee.id,
-              expenses: expenseDoc.exists() ? expenseDoc.data() : { minyak: 0, toll: 0 }
-            };
-          });
-    
-          const expenses = await Promise.all(expensesPromises);
-          const expensesMap = expenses.reduce((acc, { employeeId, expenses }) => {
-            acc[employeeId] = expenses as { minyak: number; toll: number };
-            return acc;
-          }, {} as Record<string, { minyak: number; toll: number }>);
-    
-          setEmployeeExpenses(expensesMap);
+          const userEmail = localStorage.getItem("userEmail");
+          if (!userEmail) return;
+
+          const response = await axios.get(
+            `${baseUrl}/api/expenses?email=${encodeURIComponent(
+              userEmail
+            )}&date=${format(selectedDate, "yyyy-MM-dd")}`
+          );
+          const expensesData = response.data || {};
+
+          setEmployeeExpenses(expensesData);
         } catch (error) {
-          console.error('Error fetching expenses:', error);
+          console.error("Error fetching expenses:", error);
         }
       };
-    
+
       fetchExpenses();
     }, [selectedDate, employees]);
-  
+
     return (
       <div className="flex flex-col h-[calc(100vh-200px)]">
         {/* Date selector */}
@@ -2790,55 +2751,55 @@ const createAppointment = async (newEvent: any) => {
             onClick={() => {
               const newDate = new Date(selectedDate);
               newDate.setDate(newDate.getDate() - 1);
-              
+
               setSelectedDate(newDate);
             }}
           >
             <Lucide icon="ChevronLeft" className="w-4 h-4" />
           </button>
-          
+
           <input
             type="date"
-            value={format(selectedDate, 'yyyy-MM-dd')}
+            value={format(selectedDate, "yyyy-MM-dd")}
             onChange={(e) => {
               const newDate = new Date(e.target.value);
-          
+
               setSelectedDate(newDate);
             }}
             className="px-3 py-2 text-sm font-medium border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           />
-          
+
           <button
             className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
             onClick={() => {
               const newDate = new Date(selectedDate);
               newDate.setDate(newDate.getDate() + 1);
-        
+
               setSelectedDate(newDate);
             }}
           >
             <Lucide icon="ChevronRight" className="w-4 h-4" />
           </button>
-          
+
           <button
             className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
             onClick={() => {
               const newDate = new Date();
-           
+
               setSelectedDate(newDate);
             }}
           >
             Today
           </button>
         </div>
-  
+
         {/* Grid container with scroll */}
-        <div 
+        <div
           ref={gridRef}
           className="overflow-auto flex-1 border border-gray-300 dark:border-gray-600 rounded-lg"
           style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'rgb(156 163 175) transparent'
+            scrollbarWidth: "thin",
+            scrollbarColor: "rgb(156 163 175) transparent",
           }}
         >
           <table className="min-w-full border-collapse h-full">
@@ -2848,12 +2809,15 @@ const createAppointment = async (newEvent: any) => {
                   <div className="flex justify-between items-center">
                     <span className="text-gray-800 dark:text-white">TIME</span>
                     <span className="text-sm text-gray-600 dark:text-white">
-                      {format(selectedDate, 'dd/MM/yyyy')}
+                      {format(selectedDate, "dd/MM/yyyy")}
                     </span>
                   </div>
                 </th>
                 {employees.map((employee) => (
-                  <th key={employee.id} className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-100 dark:bg-gray-700">
+                  <th
+                    key={employee.id}
+                    className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-100 dark:bg-gray-700"
+                  >
                     <div className="font-medium text-sm text-gray-800 dark:text-white">
                       {employee.name}
                     </div>
@@ -2868,48 +2832,52 @@ const createAppointment = async (newEvent: any) => {
                     {hour}
                   </td>
                   {employees.map((employee, colIndex) => {
-                    const appointments = selectedDateAppointments.filter(apt => {
-                      const aptTime = formatAppointmentTime(apt.startTime);
-                      const isAssignedToStaff = apt.staff.length === 0 || apt.staff.includes(employee.id);
-                      return aptTime === hour && isAssignedToStaff;
-                    });
-  
+                    const appointments = selectedDateAppointments.filter(
+                      (apt) => {
+                        const aptTime = formatAppointmentTime(apt.startTime);
+                        const isAssignedToStaff =
+                          apt.staff.length === 0 ||
+                          apt.staff.includes(employee.id);
+                        return aptTime === hour && isAssignedToStaff;
+                      }
+                    );
+
                     const handleEmptySlotClick = () => {
-                      const timeDate = parse(hour, 'h:mm a', new Date());
-                      const formattedHour = format(timeDate, 'HH:mm');
+                      const timeDate = parse(hour, "h:mm a", new Date());
+                      const formattedHour = format(timeDate, "HH:mm");
                       const endTimeDate = addHours(timeDate, 1);
-                      const formattedEndHour = format(endTimeDate, 'HH:mm');
-  
+                      const formattedEndHour = format(endTimeDate, "HH:mm");
+
                       setCurrentEvent({
-                        title: '',
-                        dateStr: format(selectedDate, 'yyyy-MM-dd'),
+                        title: "",
+                        dateStr: format(selectedDate, "yyyy-MM-dd"),
                         startTimeStr: formattedHour,
                         endTimeStr: formattedEndHour,
                         extendedProps: {
-                          address: '',
-                          appointmentStatus: 'new',
+                          address: "",
+                          appointmentStatus: "new",
                           staff: [employee.id],
-                          package: '',
                           dateAdded: new Date().toISOString(),
                           tags: [],
-                          details: '',
-                          meetLink: '',
-                        }
+                          details: "",
+                          meetLink: "",
+                        },
                       });
-  
+
                       setSelectedEmployeeIds([employee.id]);
                       setAddModalOpen(true);
                     };
-  
+
                     return (
-                      <td 
+                      <td
                         key={`${employee.id}-${hour}`}
                         data-row={rowIndex}
                         data-col={colIndex}
                         className={`border border-gray-300 dark:border-gray-600 p-2 min-w-[200px] relative cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                          selectedCell?.row === rowIndex && selectedCell?.col === colIndex
-                            ? 'ring-2 ring-primary ring-inset'
-                            : ''
+                          selectedCell?.row === rowIndex &&
+                          selectedCell?.col === colIndex
+                            ? "ring-2 ring-primary ring-inset"
+                            : ""
                         }`}
                         onClick={() => {
                           setSelectedCell({ row: rowIndex, col: colIndex });
@@ -2920,11 +2888,11 @@ const createAppointment = async (newEvent: any) => {
                         tabIndex={0}
                       >
                         {appointments.map((apt) => (
-                          <div 
+                          <div
                             key={apt.id}
                             className="text-xs p-2 mb-1 rounded cursor-pointer hover:opacity-90 text-white"
                             style={{
-                              backgroundColor: '#51484f',
+                              backgroundColor: "#51484f",
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2932,43 +2900,31 @@ const createAppointment = async (newEvent: any) => {
                             }}
                           >
                             <div className="font-medium flex justify-between items-center">
-                              <span>{apt.title || 'Untitled'}</span>
+                              <span>{apt.title || "Untitled"}</span>
                               {apt.appointmentStatus && (
                                 <span className="text-xs px-1 rounded bg-white/20 text-white">
                                   {apt.appointmentStatus}
                                 </span>
                               )}
                             </div>
-                            
-                            {apt.contacts && apt.contacts.length > 0 && (
-                              <div className="mt-1">
-                                {apt.contacts.map((contact) => (
-                                  <div key={contact.id} className="flex items-center justify-between text-xs text-white">
-                                    <span>{contact.name}</span>
-                                    {contact.session !== undefined && (
-                                      <span className="bg-white/20 px-1 rounded text-white">
-                                        Session {contact.session}
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            
+
                             {apt.address && (
                               <div className="text-xs mt-1 opacity-75 text-white">
                                 📍 {apt.address}
                               </div>
                             )}
-                            
+
                             <div className="text-xs mt-1 opacity-75 text-white">
-                              {formatAppointmentTime(apt.startTime)} - {formatAppointmentTime(apt.endTime)}
+                              {formatAppointmentTime(apt.startTime)} -{" "}
+                              {formatAppointmentTime(apt.endTime)}
                             </div>
                           </div>
                         ))}
                         {appointments.length === 0 && (
                           <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100">
-                            <span className="text-xs text-gray-400 dark:text-gray-500">Click to add appointment</span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                              Click to add appointment
+                            </span>
                           </div>
                         )}
                       </td>
@@ -2981,41 +2937,44 @@ const createAppointment = async (newEvent: any) => {
                   MINYAK & TOL
                 </td>
                 {employees.map((employee) => {
-                  const expenses = employeeExpenses[employee.id] || { minyak: 0, toll: 0 };
-  
-                  const handleExpenseChange = async (type: 'minyak' | 'toll', value: number) => {
+                  const expenses = employeeExpenses[employee.id] || {
+                    minyak: 0,
+                    toll: 0,
+                  };
+
+                  const handleExpenseChange = async (
+                    type: "minyak" | "toll",
+                    value: number
+                  ) => {
                     try {
-                      const user = auth.currentUser;
-                      if (!user?.email) return;
-  
+                      const userEmail = localStorage.getItem("userEmail");
+                      if (!userEmail) return;
+
                       const newExpenses = {
                         ...expenses,
-                        [type]: value
+                        [type]: value,
                       };
-  
-                      setEmployeeExpenses(prev => ({
+
+                      setEmployeeExpenses((prev) => ({
                         ...prev,
-                        [employee.id]: newExpenses
+                        [employee.id]: newExpenses,
                       }));
-  
-                      const expenseRef = doc(
-                        firestore,
-                        `user/${user.email}/expenses/${format(selectedDate, 'yyyy-MM-dd')}_${employee.id}`
-                      );
-  
-                      await setDoc(expenseRef, {
-                        date: format(selectedDate, 'yyyy-MM-dd'),
+
+                      await axios.put(`${baseUrl}/api/expenses`, {
+                        email: userEmail,
+                        date: format(selectedDate, "yyyy-MM-dd"),
                         employeeId: employee.id,
-                        ...newExpenses
-                      }, { merge: true });
-  
+                        expenses: newExpenses,
+                      });
                     } catch (error) {
-                      console.error('Error updating expense:', error);
+                      console.error("Error updating expense:", error);
                     }
                   };
-  
                   return (
-                    <td key={`${employee.id}-expenses`} className="border border-gray-300 dark:border-gray-600 p-2">
+                    <td
+                      key={`${employee.id}-expenses`}
+                      className="border border-gray-300 dark:border-gray-600 p-2"
+                    >
                       <div className="text-sm">
                         <div className="flex justify-between items-center mb-2">
                           <span>Minyak:</span>
@@ -3026,10 +2985,17 @@ const createAppointment = async (newEvent: any) => {
                               min="0"
                               step="1"
                               className="w-20 px-2 py-1 text-right border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                              value={expenses.minyak === 0 ? "0" : expenses.minyak || ""}
+                              value={
+                                expenses.minyak === 0
+                                  ? "0"
+                                  : expenses.minyak || ""
+                              }
                               onChange={(e) => {
-                                const value = e.target.value === "" ? 0 : parseFloat(e.target.value);
-                                handleExpenseChange('minyak', value);
+                                const value =
+                                  e.target.value === ""
+                                    ? 0
+                                    : parseFloat(e.target.value);
+                                handleExpenseChange("minyak", value);
                               }}
                             />
                           </div>
@@ -3043,17 +3009,27 @@ const createAppointment = async (newEvent: any) => {
                               min="0"
                               step="1"
                               className="w-20 px-2 py-1 text-right border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                              value={expenses.toll === 0 ? "0" : expenses.toll || ""}
+                              value={
+                                expenses.toll === 0 ? "0" : expenses.toll || ""
+                              }
                               onChange={(e) => {
-                                const value = e.target.value === "" ? 0 : parseFloat(e.target.value);
-                                handleExpenseChange('toll', value);
+                                const value =
+                                  e.target.value === ""
+                                    ? 0
+                                    : parseFloat(e.target.value);
+                                handleExpenseChange("toll", value);
                               }}
                             />
                           </div>
                         </div>
                         <div className="flex justify-between font-medium border-t border-gray-200 dark:border-gray-600 mt-1 pt-1">
                           <span>Total:</span>
-                          <span>RM {((expenses.minyak || 0) + (expenses.toll || 0)).toFixed(2)}</span>
+                          <span>
+                            RM{" "}
+                            {(
+                              (expenses.minyak || 0) + (expenses.toll || 0)
+                            ).toFixed(2)}
+                          </span>
                         </div>
                       </div>
                     </td>
@@ -3063,7 +3039,7 @@ const createAppointment = async (newEvent: any) => {
             </tbody>
           </table>
         </div>
-  
+
         {/* Scroll indicators */}
         <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
           Use arrow keys to navigate or scroll to view more
@@ -3076,27 +3052,32 @@ const createAppointment = async (newEvent: any) => {
   return (
     <>
       <div className="flex flex-col items-start mt-8 intro-y sm:flex-row sm:flex-wrap lg:flex-nowrap">
-           {/* Add view toggle button */}
-           <div className="w-full mb-4 sm:w-auto sm:mr-2 lg:mb-0 lg:mr-4">
+        {/* Add view toggle button */}
+        <div className="w-full mb-4 sm:w-auto sm:mr-2 lg:mb-0 lg:mr-4">
           <button
             className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
-            onClick={() => setViewType(viewType === 'calendar' ? 'grid' : 'calendar')}
+            onClick={() =>
+              setViewType(viewType === "calendar" ? "grid" : "calendar")
+            }
           >
             <Lucide
-              icon={viewType === 'calendar' ? 'Calendar' : 'TableProperties'}
+              icon={viewType === "calendar" ? "Calendar" : "TableProperties"}
               className="w-4 h-4 mb-0.5 mr-2 inline-block"
             />
-            {viewType === 'calendar' ? 'Calendar' : 'Slots'}
+            {viewType === "calendar" ? "Calendar" : "Slots"}
           </button>
         </div>
         {/* Add new Appointment Requests button */}
-        {companyId === '0153' && (
+        {companyId === "0153" && (
           <div className="w-full mb-4 sm:w-auto sm:mr-2 lg:mb-0 lg:mr-4">
             <button
               className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
-              onClick={() => navigate('/appointment-requests')}
+              onClick={() => navigate("/appointment-requests")}
             >
-              <Lucide icon="ClipboardList" className="w-4 h-4 mr-2 inline-block" />
+              <Lucide
+                icon="ClipboardList"
+                className="w-4 h-4 mr-2 inline-block"
+              />
               Appointment Requests
             </button>
           </div>
@@ -3110,7 +3091,7 @@ const createAppointment = async (newEvent: any) => {
               className="w-full text-white bg-primary hover:bg-white hover:text-primary focus:ring-2 focus:ring-blue-300 font-medium rounded-lg text-sm text-start inline-flex items-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
             >
               <option value="">Select an employee</option>
-              {employees.map(employee => (
+              {employees.map((employee) => (
                 <option key={employee.id} value={employee.id}>
                   {employee.name}
                 </option>
@@ -3149,23 +3130,19 @@ const createAppointment = async (newEvent: any) => {
           </div>
           {filterDate && (
             <button
-              onClick={() => setFilterDate('')}
+              onClick={() => setFilterDate("")}
               className="absolute inset-y-0 right-0 flex items-center pr-3"
             >
-              <Lucide icon="X" className="w-6 h-6 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300" />
+              <Lucide
+                icon="X"
+                className="w-6 h-6 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              />
             </button>
           )}
         </div>
 
-        {/* Add New Package and Calendar Settings buttons */}
+        {/* Add Calendar Settings buttons */}
         <div className="w-full mb-4 sm:w-1/4 sm:mr-2 lg:w-auto lg:mb-0 lg:mr-4 flex gap-2">
-          <button
-            className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 flex items-center"
-            onClick={() => setIsAddingPackage(true)}
-          >
-            <Lucide icon="Package" className="w-4 h-4 mr-2" />
-            <span>Add Package</span>
-          </button>
           <button
             className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
             onClick={() => setIsCalendarConfigOpen(true)}
@@ -3189,37 +3166,39 @@ const createAppointment = async (newEvent: any) => {
             type="button"
             className="w-full"
             onClick={() => {
-              setSelectedContacts([]);
+              setSelectedContact(null);
               setCurrentEvent({
-                title: '',
-                dateStr: '',
-                startTimeStr: '',
-                endTimeStr: '',
+                title: "",
+                dateStr: "",
+                startTimeStr: "",
+                endTimeStr: "",
                 extendedProps: {
-                  address: '',
-                  appointmentStatus: '',
-                  staff: '',
-                  package: '',
+                  address: "",
+                  appointmentStatus: "",
+                  staff: "",
                   dateAdded: new Date().toISOString(),
                   tags: [],
-                  details: '',
-                  meetLink: '',
-                }
+                  details: "",
+                  meetLink: "",
+                },
               });
               setAddModalOpen(true);
             }}
           >
-            <Lucide icon="FilePenLine" className="w-4 h-4 mr-2" /> Add Appointment
+            <Lucide icon="FilePenLine" className="w-4 h-4 mr-2" /> Add
+            Appointment
           </Button>
         </div>
-
-     
       </div>
 
       {/* Main content grid */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-5 mt-5">
         {/* Appointments list */}
-        <div className={`${isMobile ? 'order-1' : ''} md:col-span-4 xl:col-span-4 2xl:col-span-3`}>
+        <div
+          className={`${
+            isMobile ? "order-1" : ""
+          } md:col-span-4 xl:col-span-4 2xl:col-span-3`}
+        >
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm h-full">
             <div className="p-5">
               <div className="flex justify-between items-center mb-6">
@@ -3249,42 +3228,60 @@ const createAppointment = async (newEvent: any) => {
               <div className="space-y-3 max-h-[calc(100vh-12rem)] overflow-y-auto pr-2">
                 {filteredAppointments.length > 0 ? (
                   filteredAppointments.map((appointment, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       onClick={() => handleAppointmentClick(appointment)}
                       className="group relative bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-200 cursor-pointer"
                     >
                       <div className="flex p-4">
-                        <div className={`w-1 rounded-full ${getStatusColor(appointment.appointmentStatus)} mr-4`}></div>
+                        <div
+                          className={`w-1 rounded-full ${getStatusColor(
+                            appointment.appointmentStatus
+                          )} mr-4`}
+                        ></div>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start mb-2">
                             <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate pr-4">
                               {appointment.title}
                             </h3>
                             <div className="text-right text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                              {new Date(appointment.startTime).toLocaleString('en-US', {
-                                weekday: 'short',
-                                month: 'short',
-                                day: 'numeric'
-                              })}
+                              {new Date(appointment.startTime).toLocaleString(
+                                "en-US",
+                                {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                }
+                              )}
                               <div>
-                                {new Date(appointment.startTime).toLocaleString('en-US', {
-                                  hour: 'numeric',
-                                  minute: 'numeric',
-                                  hour12: true
-                                })} - {new Date(appointment.endTime).toLocaleString('en-US', {
-                                  hour: 'numeric',
-                                  minute: 'numeric',
-                                  hour12: true
-                                })}
+                                {new Date(appointment.startTime).toLocaleString(
+                                  "en-US",
+                                  {
+                                    hour: "numeric",
+                                    minute: "numeric",
+                                    hour12: true,
+                                  }
+                                )}{" "}
+                                -{" "}
+                                {new Date(appointment.endTime).toLocaleString(
+                                  "en-US",
+                                  {
+                                    hour: "numeric",
+                                    minute: "numeric",
+                                    hour12: true,
+                                  }
+                                )}
                               </div>
                             </div>
                           </div>
 
                           {appointment.tags && appointment.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mb-2">
-                              {appointment.tags.slice(0, 2).map(tag => (
-                                <span key={tag.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                              {appointment.tags.slice(0, 2).map((tag) => (
+                                <span
+                                  key={tag.id}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                                >
                                   {tag.name}
                                 </span>
                               ))}
@@ -3295,18 +3292,6 @@ const createAppointment = async (newEvent: any) => {
                               )}
                             </div>
                           )}
-
-                          {packages.find(p => p.id === appointment.packageId) && packages.find(p => p.id === appointment.packageId)?.name !== 'No Packages' && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
-                                {packages.find(p => p.id === appointment.packageId)?.name}
-                                {(packages.find(p => p.id === appointment.packageId)?.sessions ?? 0) > 0 && 
-                                  ` (${packages.find(p => p.id === appointment.packageId)?.sessions ?? 0} sessions)`}
-                              </span>
-                            </div>
-                          )}
-
-            
 
                           {appointment.details && (
                             <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
@@ -3330,11 +3315,18 @@ const createAppointment = async (newEvent: any) => {
         </div>
 
         {/* Calendar/Grid View */}
-        <div className={`${isMobile ? 'hidden' : ''} md:col-span-8 xl:col-span-8 2xl:col-span-9`}>
+        <div
+          className={`${
+            isMobile ? "hidden" : ""
+          } md:col-span-8 xl:col-span-8 2xl:col-span-9`}
+        >
           <div className="p-5 box intro-y">
-            {viewType === 'calendar' ? (
+            {viewType === "calendar" ? (
               <CalendarErrorBoundary>
-                <div className="calendar-container" style={{ height: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+                <div
+                  className="calendar-container"
+                  style={{ height: "calc(100vh - 200px)", overflowY: "auto" }}
+                >
                   <FullCalendar {...calendarOptions} ref={calendarRef} />
                 </div>
               </CalendarErrorBoundary>
@@ -3355,38 +3347,59 @@ const createAppointment = async (newEvent: any) => {
                   <Lucide icon="User" className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-xl dark:text-white">Edit Appointment</span>
+                  <span className="text-xl dark:text-white">
+                    Edit Appointment
+                  </span>
                 </div>
               </div>
               <div className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Title
+                  </label>
                   <input
                     type="text"
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.title || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
+                    value={currentEvent?.title || ""}
+                    onChange={(e) =>
+                      setCurrentEvent({
+                        ...currentEvent,
+                        title: e.target.value,
+                      })
+                    }
                   />
                 </div>
 
                 {/* Address */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Address
+                  </label>
                   <input
                     type="text"
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.address || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, address: e.target.value } })}
+                    value={currentEvent?.extendedProps?.address || ""}
+                    onChange={(e) =>
+                      setCurrentEvent({
+                        ...currentEvent,
+                        extendedProps: {
+                          ...currentEvent.extendedProps,
+                          address: e.target.value,
+                        },
+                      })
+                    }
                   />
                 </div>
 
                 {/* Date and Time */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Date</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Date
+                  </label>
                   <input
                     type="date"
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.dateStr || ''}
+                    value={currentEvent?.dateStr || ""}
                     onChange={handleDateChange}
                   />
                 </div>
@@ -3395,43 +3408,67 @@ const createAppointment = async (newEvent: any) => {
                 <div>
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <label className="block text-xs text-gray-500 dark:text-gray-400">Start Time</label>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400">
+                        Start Time
+                      </label>
                       <input
                         type="time"
                         className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        value={currentEvent?.startTimeStr || ''}
+                        value={currentEvent?.startTimeStr || ""}
                         onChange={(e) => {
                           const startTime = e.target.value;
-                          setCurrentEvent((prev: { endTimeStr: any; }) => ({
+                          setCurrentEvent((prev: { endTimeStr: any }) => ({
                             ...prev,
                             startTimeStr: startTime,
                             // Automatically set end time to 1 hour after start time if not set
-                            endTimeStr: prev?.endTimeStr || format(addHours(parse(startTime, 'HH:mm', new Date()), 1), 'HH:mm')
+                            endTimeStr:
+                              prev?.endTimeStr ||
+                              format(
+                                addHours(
+                                  parse(startTime, "HH:mm", new Date()),
+                                  1
+                                ),
+                                "HH:mm"
+                              ),
                           }));
                         }}
                       />
                     </div>
 
                     <div className="flex-1">
-                      <label className="block text-xs text-gray-500 dark:text-gray-400">End Time</label>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400">
+                        End Time
+                      </label>
                       <input
                         type="time"
                         className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        value={currentEvent?.endTimeStr || ''}
-                        min={currentEvent?.startTimeStr || '00:00'}
+                        value={currentEvent?.endTimeStr || ""}
+                        min={currentEvent?.startTimeStr || "00:00"}
                         onChange={(e) => {
                           const endTime = e.target.value;
-                          if (endTime <= (currentEvent?.startTimeStr || '00:00')) {
+                          if (
+                            endTime <= (currentEvent?.startTimeStr || "00:00")
+                          ) {
                             // If end time is before or equal to start time, set it to 1 hour after start time
-                            const newEndTime = format(addHours(parse(currentEvent?.startTimeStr || '00:00', 'HH:mm', new Date()), 1), 'HH:mm');
+                            const newEndTime = format(
+                              addHours(
+                                parse(
+                                  currentEvent?.startTimeStr || "00:00",
+                                  "HH:mm",
+                                  new Date()
+                                ),
+                                1
+                              ),
+                              "HH:mm"
+                            );
                             setCurrentEvent((prev: any) => ({
                               ...prev,
-                              endTimeStr: newEndTime
+                              endTimeStr: newEndTime,
                             }));
                           } else {
                             setCurrentEvent((prev: any) => ({
                               ...prev,
-                              endTimeStr: endTime
+                              endTimeStr: endTime,
                             }));
                           }
                         }}
@@ -3441,13 +3478,25 @@ const createAppointment = async (newEvent: any) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Appointment Status</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Appointment Status
+                  </label>
                   <select
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.appointmentStatus || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
+                    value={currentEvent?.extendedProps?.appointmentStatus || ""}
+                    onChange={(e) =>
+                      setCurrentEvent({
+                        ...currentEvent,
+                        extendedProps: {
+                          ...currentEvent.extendedProps,
+                          appointmentStatus: e.target.value,
+                        },
+                      })
+                    }
                   >
-                    <option value="" disabled>Set a status</option>
+                    <option value="" disabled>
+                      Set a status
+                    </option>
                     <option value="new">New</option>
                     <option value="confirmed">Confirmed</option>
                     <option value="cancelled">Cancelled</option>
@@ -3458,116 +3507,169 @@ const createAppointment = async (newEvent: any) => {
                     <option value="closed">Closed</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-    Google Meet Link
-  </label>
-  <div className="flex gap-2">
-    <input
-      type="text"
-      className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-      value={currentEvent?.extendedProps?.meetLink || ''}
-      onChange={(e) => setCurrentEvent({
-        ...currentEvent,
-        extendedProps: {
-          ...currentEvent.extendedProps,
-          meetLink: e.target.value
-        }
-      })}
-      placeholder="https://meet.google.com/..."
-    />
-
-  </div>
-  {currentEvent?.extendedProps?.meetLink && (
-    <div className="flex justify-between items-center mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
-      <a
-        href={currentEvent.extendedProps.meetLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-blue-600 dark:text-blue-400 text-sm hover:underline"
-      >
-        Open Meet Link
-      </a>
-      <button
-        className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-        onClick={() => {
-          navigator.clipboard.writeText(currentEvent.extendedProps.meetLink);
-        }}
-      >
-        Copy Link
-      </button>
-    </div>
-  )}
-  {!currentEvent?.extendedProps?.notificationSent && currentEvent?.extendedProps?.meetLink && (
-    <div className="text-sm text-gray-600 dark:text-gray-400">
-      Meeting link will be sent to contacts when you save
-    </div>
-  )}
-  {currentEvent?.extendedProps?.notificationSent && (
-    <div className="text-sm text-green-600 dark:text-green-400">
-      Meeting link has been sent to contacts
-    </div>
-  )}
-</div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tags</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Appointment Type
+                  </label>
+                  <select
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    value={currentEvent?.extendedProps?.appointmentType || "general"}
+                    onChange={(e) =>
+                      setCurrentEvent({
+                        ...currentEvent,
+                        extendedProps: {
+                          ...currentEvent.extendedProps,
+                          appointmentType: e.target.value,
+                        },
+                      })
+                    }
+                  >
+                    <option value="general">General</option>
+                    <option value="consultation">Consultation</option>
+                    <option value="service">Service</option>
+                    <option value="installation">Installation</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="repair">Repair</option>
+                    <option value="follow-up">Follow-up</option>
+                    <option value="emergency">Emergency</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Google Meet Link
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      value={currentEvent?.extendedProps?.meetLink || ""}
+                      onChange={(e) =>
+                        setCurrentEvent({
+                          ...currentEvent,
+                          extendedProps: {
+                            ...currentEvent.extendedProps,
+                            meetLink: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="https://meet.google.com/..."
+                    />
+                  </div>
+                  {currentEvent?.extendedProps?.meetLink && (
+                    <div className="flex justify-between items-center mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                      <a
+                        href={currentEvent.extendedProps.meetLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 dark:text-blue-400 text-sm hover:underline"
+                      >
+                        Open Meet Link
+                      </a>
+                      <button
+                        className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            currentEvent.extendedProps.meetLink
+                          );
+                        }}
+                      >
+                        Copy Link
+                      </button>
+                    </div>
+                  )}
+                  {!currentEvent?.extendedProps?.notificationSent &&
+                    currentEvent?.extendedProps?.meetLink && (
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Meeting link will be sent to contacts when you save
+                      </div>
+                    )}
+                  {currentEvent?.extendedProps?.notificationSent && (
+                    <div className="text-sm text-green-600 dark:text-green-400">
+                      Meeting link has been sent to contacts
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Tags
+                  </label>
                   <Select
                     isMulti
-                    options={appointmentTags.map((tag: any) => ({ value: tag.id, label: tag.name }))}
-                    value={currentEvent?.extendedProps?.tags?.map((tag: any) => ({ value: tag.id, label: tag.name })) || []}
+                    options={appointmentTags.map((tag: any) => ({
+                      value: tag.id,
+                      label: tag.name,
+                    }))}
+                    value={
+                      currentEvent?.extendedProps?.tags?.map((tag: any) => ({
+                        value: tag.id,
+                        label: tag.name,
+                      })) || []
+                    }
                     onChange={handleTagChange}
                     className="capitalize"
                     styles={{
                       control: (provided, state) => ({
                         ...provided,
-                        backgroundColor: state.isFocused ? '#ffffff' : '#f9fafb', // Light mode background
-                        borderColor: state.isFocused ? '#2563eb' : '#d1d5db', // Light mode border
-                        boxShadow: state.isFocused ? '0 0 0 1px #2563eb' : 'none', // Light mode shadow
-                        '&:hover': {
-                          borderColor: '#2563eb', // Light mode hover border
+                        backgroundColor: state.isFocused
+                          ? "#ffffff"
+                          : "#f9fafb", // Light mode background
+                        borderColor: state.isFocused ? "#2563eb" : "#d1d5db", // Light mode border
+                        boxShadow: state.isFocused
+                          ? "0 0 0 1px #2563eb"
+                          : "none", // Light mode shadow
+                        "&:hover": {
+                          borderColor: "#2563eb", // Light mode hover border
                         },
-                        '&.dark': {
-                          backgroundColor: state.isFocused ? '#374151' : '#1f2937', // Dark mode background
-                          borderColor: state.isFocused ? '#3b82f6' : '#4b5563', // Dark mode border
-                          boxShadow: state.isFocused ? '0 0 0 1px #3b82f6' : 'none', // Dark mode shadow
-                          '&:hover': {
-                            borderColor: '#3b82f6', // Dark mode hover border
+                        "&.dark": {
+                          backgroundColor: state.isFocused
+                            ? "#374151"
+                            : "#1f2937", // Dark mode background
+                          borderColor: state.isFocused ? "#3b82f6" : "#4b5563", // Dark mode border
+                          boxShadow: state.isFocused
+                            ? "0 0 0 1px #3b82f6"
+                            : "none", // Dark mode shadow
+                          "&:hover": {
+                            borderColor: "#3b82f6", // Dark mode hover border
                           },
                         },
                       }),
                       menu: (provided, state) => ({
                         ...provided,
-                        backgroundColor: state.selectProps.menuIsOpen ? '#ffffff' : '#f9fafb', // Light mode menu background
-                        '&.dark': {
-                          backgroundColor: state.selectProps.menuIsOpen ? '#374151' : '#1f2937', // Dark mode menu background
+                        backgroundColor: state.selectProps.menuIsOpen
+                          ? "#ffffff"
+                          : "#f9fafb", // Light mode menu background
+                        "&.dark": {
+                          backgroundColor: state.selectProps.menuIsOpen
+                            ? "#374151"
+                            : "#1f2937", // Dark mode menu background
                         },
                       }),
                       multiValue: (provided, state) => ({
                         ...provided,
-                        backgroundColor: '#e5e7eb', // Light mode multi-value background
-                        '&.dark': {
-                          backgroundColor: '#4b5563', // Dark mode multi-value background
+                        backgroundColor: "#e5e7eb", // Light mode multi-value background
+                        "&.dark": {
+                          backgroundColor: "#4b5563", // Dark mode multi-value background
                         },
                       }),
                       multiValueLabel: (provided, state) => ({
                         ...provided,
-                        color: '#1f2937', // Light mode multi-value label color
-                        '&.dark': {
-                          color: '#d1d5db', // Dark mode multi-value label color
+                        color: "#1f2937", // Light mode multi-value label color
+                        "&.dark": {
+                          color: "#d1d5db", // Dark mode multi-value label color
                         },
                       }),
                       multiValueRemove: (provided, state) => ({
                         ...provided,
-                        color: '#1f2937', // Light mode multi-value remove color
-                        '&:hover': {
-                          backgroundColor: '#d1d5db', // Light mode multi-value remove hover background
-                          color: '#111827', // Light mode multi-value remove hover color
+                        color: "#1f2937", // Light mode multi-value remove color
+                        "&:hover": {
+                          backgroundColor: "#d1d5db", // Light mode multi-value remove hover background
+                          color: "#111827", // Light mode multi-value remove hover color
                         },
-                        '&.dark': {
-                          color: '#d1d5db', // Dark mode multi-value remove color
-                          '&:hover': {
-                            backgroundColor: '#6b7280', // Dark mode multi-value remove hover background
-                            color: '#f9fafb', // Dark mode multi-value remove hover color
+                        "&.dark": {
+                          color: "#d1d5db", // Dark mode multi-value remove color
+                          "&:hover": {
+                            backgroundColor: "#6b7280", // Dark mode multi-value remove hover background
+                            color: "#f9fafb", // Dark mode multi-value remove hover color
                           },
                         },
                       }),
@@ -3575,18 +3677,25 @@ const createAppointment = async (newEvent: any) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Staff</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Staff
+                  </label>
                   <div className="block w-full mt-1 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 dark:bg-gray-700 dark:border-gray-600">
                     {employees.map((employee) => (
                       <div key={employee.id} className="flex items-center">
                         <input
                           type="checkbox"
                           id={`employee-${employee.id}`}
-                          checked={currentEvent?.extendedProps?.staff.includes(employee.id)}
+                          checked={currentEvent?.extendedProps?.staff.includes(
+                            employee.id
+                          )}
                           onChange={() => handleStaffChange(employee.id)}
                           className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500"
                         />
-                        <label htmlFor={`employee-${employee.id}`} className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <label
+                          htmlFor={`employee-${employee.id}`}
+                          className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >
                           {employee.name}
                         </label>
                       </div>
@@ -3594,97 +3703,64 @@ const createAppointment = async (newEvent: any) => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Package</label>
-                  <select
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.package?.id || ''}
-                    onChange={(e) => {
-                      const packageId = e.target.value;
-                      setCurrentEvent({
-                        ...currentEvent,
-                        extendedProps: {
-                          ...currentEvent.extendedProps,
-                          package: packageId === '' ? null : packages.find(p => p.id === packageId)
-                        }
-                      });
-                    }}
-                  >
-                    <option value="">No Package</option>
-                    {packages.map((pkg) => (
-                      <option key={pkg.id} value={pkg.id}>
-                        {pkg.name} - {pkg.sessions} Sessions
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="mt-2 px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/80 dark:bg-blue-600 dark:hover:bg-blue-700"
-                    onClick={() => setIsAddingPackage(true)}
-                  >
-                    Add New Package
-                  </button>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contacts</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Contacts
+                  </label>
                   <Select
-                    isMulti
                     options={contacts
-                      // Remove duplicates and sort alphabetically
-                      .filter((contact, index, self) => 
-                        index === self.findIndex(c => c.id === contact.id)
+                      // Remove duplicates and sort alphabetically, filter out invalid contacts
+                      .filter(
+                        (contact, index, self) =>
+                          contact?.id && 
+                          index === self.findIndex((c) => c.id === contact.id) &&
+                          (contact?.name || contact?.firstName || contact?.lastName)
                       )
-                      .sort((a, b) => a.contactName.localeCompare(b.contactName))
-                      .map(contact => ({
+                      .sort((a, b) => {
+                        const nameA = a.name || `${a.firstName || ''} ${a.lastName || ''}`.trim() || 'Unnamed Contact';
+                        const nameB = b.name || `${b.firstName || ''} ${b.lastName || ''}`.trim() || 'Unnamed Contact';
+                        return nameA.localeCompare(nameB);
+                      })
+                      .map((contact) => ({
                         value: contact.id,
-                        label: contact.contactName || `${contact.firstName} ${contact.lastName}`.trim()
+                        label: contact.name || 
+                               `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 
+                               'Unnamed Contact',
                       }))}
-                    value={selectedContacts.map(contact => ({
-                      value: contact.id,
-                      label: contact.contactName || `${contact.firstName} ${contact.lastName}`.trim()
-                    }))}
+                    value={selectedContact ? {
+                      value: selectedContact.id,
+                      label: selectedContact.name || 
+                             `${selectedContact.firstName || ''} ${selectedContact.lastName || ''}`.trim() || 
+                             'Unnamed Contact',
+                    } : null}
                     onChange={handleContactChange}
                     className="react-select-container"
                     classNamePrefix="react-select"
                     styles={{
                       control: (base) => ({
                         ...base,
-                        minHeight: '42px',
-                        borderColor: 'rgb(209 213 219)',
-                        backgroundColor: 'white',
-                        '&:hover': {
-                          borderColor: 'rgb(107 114 128)'
-                        }
+                        minHeight: "42px",
+                        borderColor: "rgb(209 213 219)",
+                        backgroundColor: "white",
+                        "&:hover": {
+                          borderColor: "rgb(107 114 128)",
+                        },
                       }),
                       option: (base, state) => ({
                         ...base,
-                        backgroundColor: state.isSelected ? '#1e40af' : state.isFocused ? '#e5e7eb' : 'white',
-                        color: state.isSelected ? 'white' : 'black',
-                        '&:active': {
-                          backgroundColor: '#1e40af'
-                        }
+                        backgroundColor: state.isSelected
+                          ? "#1e40af"
+                          : state.isFocused
+                          ? "#e5e7eb"
+                          : "white",
+                        color: state.isSelected ? "white" : "black",
+                        "&:active": {
+                          backgroundColor: "#1e40af",
+                        },
                       }),
-                      multiValue: (base) => ({
-                        ...base,
-                        backgroundColor: '#e5e7eb'
-                      }),
-                      multiValueLabel: (base) => ({
-                        ...base,
-                        color: '#374151'
-                      }),
-                      multiValueRemove: (base) => ({
-                        ...base,
-                        '&:hover': {
-                          backgroundColor: '#d1d5db',
-                          color: '#374151'
-                        }
-                      })
                     }}
-                    placeholder="Select contacts..."
+                    placeholder="Select contact..."
+                    isClearable
                   />
-                  {selectedContacts.map(contact => (
-                    <div key={contact.id} className="capitalize text-sm text-gray-600 dark:text-gray-300">
-                      {contact.contactName}: Session {contactSessions[contact.id] || 'N/A'}
-                    </div>
-                  ))}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -3692,14 +3768,16 @@ const createAppointment = async (newEvent: any) => {
                   </label>
                   <textarea
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.details || ''}
-                    onChange={(e) => setCurrentEvent({
-                      ...currentEvent,
-                      extendedProps: {
-                        ...currentEvent.extendedProps,
-                        details: e.target.value
-                      }
-                    })}
+                    value={currentEvent?.extendedProps?.details || ""}
+                    onChange={(e) =>
+                      setCurrentEvent({
+                        ...currentEvent,
+                        extendedProps: {
+                          ...currentEvent.extendedProps,
+                          details: e.target.value,
+                        },
+                      })
+                    }
                     rows={4}
                     placeholder="Add any additional details about the appointment..."
                   />
@@ -3707,7 +3785,7 @@ const createAppointment = async (newEvent: any) => {
                 {/* <div className="mt-6 border-t pt-6">
                   <h3 className="text-lg font-medium mb-4 dark:text-white">Reminder Settings</h3>
                   
-                  {selectedContacts.length > 0 ? (
+                  {selectedContact ? (
                     <div className="space-y-4">
                       <div className="flex items-center">
                         <input
@@ -3835,14 +3913,15 @@ const createAppointment = async (newEvent: any) => {
                 >
                   Cancel
                 </button>
-                {(initialAppointmentStatus !== 'showed' && initialAppointmentStatus !== 'noshow') &&  (
-                  <button
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
-                    onClick={handleSaveAppointment}
-                  >
-                    Save
-                  </button>
-                )}
+                {initialAppointmentStatus !== "showed" &&
+                  initialAppointmentStatus !== "noshow" && (
+                    <button
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
+                      onClick={handleSaveAppointment}
+                    >
+                      Save
+                    </button>
+                  )}
               </div>
             </Dialog.Panel>
           </div>
@@ -3859,86 +3938,133 @@ const createAppointment = async (newEvent: any) => {
                   <Lucide icon="User" className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-xl dark:text-white">Add New Appointment</span>
+                  <span className="text-xl dark:text-white">
+                    Add New Appointment
+                  </span>
                 </div>
               </div>
               <div className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Title
+                  </label>
                   <input
                     type="text"
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.title || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, title: e.target.value })}
+                    value={currentEvent?.title || ""}
+                    onChange={(e) =>
+                      setCurrentEvent({
+                        ...currentEvent,
+                        title: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Address
+                  </label>
                   <input
                     type="text"
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.address || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, address: e.target.value } })}
+                    value={currentEvent?.extendedProps?.address || ""}
+                    onChange={(e) =>
+                      setCurrentEvent({
+                        ...currentEvent,
+                        extendedProps: {
+                          ...currentEvent.extendedProps,
+                          address: e.target.value,
+                        },
+                      })
+                    }
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Date</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Date
+                  </label>
                   <input
                     type="date"
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.dateStr || ''}
+                    value={currentEvent?.dateStr || ""}
                     onChange={handleDateChange}
                   />
                 </div>
                 <div>
-  <div className="flex gap-2">
-    <div className="flex-1">
-      <label className="block text-xs text-gray-500 dark:text-gray-400">Start Time</label>
-      <input
-        type="time"
-        className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-        value={currentEvent?.startTimeStr || ''}
-        onChange={(e) => {
-          const startTime = e.target.value;
-          setCurrentEvent((prev: { endTimeStr: any; }) => ({
-            ...prev,
-            startTimeStr: startTime,
-            // Automatically set end time to 1 hour after start time if not set
-            endTimeStr: prev?.endTimeStr || format(addHours(parse(startTime, 'HH:mm', new Date()), 1), 'HH:mm')
-          }));
-        }}
-      />
-    </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-500 dark:text-gray-400">
+                        Start Time
+                      </label>
+                      <input
+                        type="time"
+                        className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        value={currentEvent?.startTimeStr || ""}
+                        onChange={(e) => {
+                          const startTime = e.target.value;
+                          setCurrentEvent((prev: { endTimeStr: any }) => ({
+                            ...prev,
+                            startTimeStr: startTime,
+                            // Automatically set end time to 1 hour after start time if not set
+                            endTimeStr:
+                              prev?.endTimeStr ||
+                              format(
+                                addHours(
+                                  parse(startTime, "HH:mm", new Date()),
+                                  1
+                                ),
+                                "HH:mm"
+                              ),
+                          }));
+                        }}
+                      />
+                    </div>
 
-    <div className="flex-1">
-      <label className="block text-xs text-gray-500 dark:text-gray-400">End Time</label>
-      <input
-        type="time"
-        className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-        value={currentEvent?.endTimeStr || ''}
-        min={currentEvent?.startTimeStr || '00:00'}
-        onChange={(e) => {
-          const endTime = e.target.value;
-          if (endTime <= (currentEvent?.startTimeStr || '00:00')) {
-            // If end time is before or equal to start time, set it to 1 hour after start time
-            const newEndTime = format(addHours(parse(currentEvent?.startTimeStr || '00:00', 'HH:mm', new Date()), 1), 'HH:mm');
-            setCurrentEvent((prev: any) => ({
-              ...prev,
-              endTimeStr: newEndTime
-            }));
-          } else {
-            setCurrentEvent((prev: any) => ({
-              ...prev,
-              endTimeStr: endTime
-            }));
-          }
-        }}
-      />
-    </div>
-  </div>
-</div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-500 dark:text-gray-400">
+                        End Time
+                      </label>
+                      <input
+                        type="time"
+                        className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        value={currentEvent?.endTimeStr || ""}
+                        min={currentEvent?.startTimeStr || "00:00"}
+                        onChange={(e) => {
+                          const endTime = e.target.value;
+                          if (
+                            endTime <= (currentEvent?.startTimeStr || "00:00")
+                          ) {
+                            // If end time is before or equal to start time, set it to 1 hour after start time
+                            const newEndTime = format(
+                              addHours(
+                                parse(
+                                  currentEvent?.startTimeStr || "00:00",
+                                  "HH:mm",
+                                  new Date()
+                                ),
+                                1
+                              ),
+                              "HH:mm"
+                            );
+                            setCurrentEvent((prev: any) => ({
+                              ...prev,
+                              endTimeStr: newEndTime,
+                            }));
+                          } else {
+                            setCurrentEvent((prev: any) => ({
+                              ...prev,
+                              endTimeStr: endTime,
+                            }));
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Staff</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Staff
+                  </label>
                   <div className="block w-full mt-1 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 dark:bg-gray-700 dark:border-gray-600">
                     {employees.map((employee) => (
                       <div key={employee.id} className="flex items-center">
@@ -3946,26 +4072,42 @@ const createAppointment = async (newEvent: any) => {
                           type="checkbox"
                           id={`employee-${employee.id}`}
                           checked={selectedEmployeeIds.includes(employee.id)}
-                          onChange={() => handleStaffChangeAddModal(employee.id)}
+                          onChange={() =>
+                            handleStaffChangeAddModal(employee.id)
+                          }
                           className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500"
                         />
-                        <label htmlFor={`employee-${employee.id}`} className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <label
+                          htmlFor={`employee-${employee.id}`}
+                          className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >
                           {employee.name}
                         </label>
                       </div>
                     ))}
                   </div>
                 </div>
- 
-                <div>
 
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Appointment Status</label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Appointment Status
+                  </label>
                   <select
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.appointmentStatus || ''}
-                    onChange={(e) => setCurrentEvent({ ...currentEvent, extendedProps: { ...currentEvent.extendedProps, appointmentStatus: e.target.value } })}
+                    value={currentEvent?.extendedProps?.appointmentStatus || ""}
+                    onChange={(e) =>
+                      setCurrentEvent({
+                        ...currentEvent,
+                        extendedProps: {
+                          ...currentEvent.extendedProps,
+                          appointmentStatus: e.target.value,
+                        },
+                      })
+                    }
                   >
-                    <option value="" disabled>Set a status</option>
+                    <option value="" disabled>
+                      Set a status
+                    </option>
                     <option value="new">New</option>
                     <option value="confirmed">Confirmed</option>
                     <option value="cancelled">Cancelled</option>
@@ -3977,60 +4119,70 @@ const createAppointment = async (newEvent: any) => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tags</label>
-                  <Select
-                    isMulti
-                    options={appointmentTags.map((tag: any) => ({ value: tag.id, label: tag.name }))}
-                    value={currentEvent?.extendedProps?.tags?.map((tag: any) => ({ value: tag.id, label: tag.name })) || []}
-                    onChange={handleTagChange}
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 bg-white text-gray-700 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                </div>
-             
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Package</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Appointment Type
+                  </label>
                   <select
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.package?.id || ''}
-                    onChange={(e) => {
-                      const packageId = e.target.value;
+                    value={currentEvent?.extendedProps?.appointmentType || "general"}
+                    onChange={(e) =>
                       setCurrentEvent({
                         ...currentEvent,
                         extendedProps: {
                           ...currentEvent.extendedProps,
-                          package: packageId === '' ? null : packages.find(p => p.id === packageId)
-                        }
-                      });
-                    }}
+                          appointmentType: e.target.value,
+                        },
+                      })
+                    }
                   >
-                    <option value="">No Package</option>
-                    {packages.map((pkg) => (
-                      <option key={pkg.id} value={pkg.id}>
-                        {pkg.name} - {pkg.sessions} Sessions
-                      </option>
-                    ))}
+                    <option value="general">General</option>
+                    <option value="consultation">Consultation</option>
+                    <option value="service">Service</option>
+                    <option value="installation">Installation</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="repair">Repair</option>
+                    <option value="follow-up">Follow-up</option>
+                    <option value="emergency">Emergency</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contacts</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Tags
+                  </label>
                   <Select
                     isMulti
-                    options={contacts.map(contact => ({ 
-                      value: contact.id, 
-                      label: contact.contactName 
+                    options={appointmentTags.map((tag: any) => ({
+                      value: tag.id,
+                      label: tag.name,
                     }))}
-                    value={selectedContacts.map(contact => ({ 
-                      value: contact.id, 
-                      label: contact.contactName 
+                    value={
+                      currentEvent?.extendedProps?.tags?.map((tag: any) => ({
+                        value: tag.id,
+                        label: tag.name,
+                      })) || []
+                    }
+                    onChange={handleTagChange}
+                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 bg-white text-gray-700 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Contacts
+                  </label>
+                  <Select
+                    options={contacts.map((contact) => ({
+                      value: contact.id,
+                      label: contact.name,
                     }))}
+                    value={selectedContact ? {
+                      value: selectedContact.id,
+                      label: selectedContact.name,
+                    } : null}
                     onChange={handleContactChange}
                     className="capitalize dark:bg-gray-700 dark:text-white"
+                    placeholder="Select contact..."
+                    isClearable
                   />
-                  {selectedContacts.map(contact => (
-                    <div key={contact.id} className="capitalize text-sm text-gray-600 dark:text-gray-300">
-                      {contact.contactName}: Session {contactSessions[contact.id] || 'N/A'}
-                    </div>
-                  ))}
                 </div>
               </div>
               <div>
@@ -4039,15 +4191,15 @@ const createAppointment = async (newEvent: any) => {
                 </label>
                 <textarea
                   className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  value={currentEvent?.extendedProps?.details || ''}
+                  value={currentEvent?.extendedProps?.details || ""}
                   onChange={(e) => {
                     const newDetails = e.target.value;
                     setCurrentEvent({
                       ...currentEvent,
                       extendedProps: {
                         ...currentEvent.extendedProps,
-                        details: newDetails
-                      }
+                        details: newDetails,
+                      },
                     });
                   }}
                   rows={4}
@@ -4059,7 +4211,7 @@ const createAppointment = async (newEvent: any) => {
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
                   onClick={() => {
                     setAddModalOpen(false);
-                    setSelectedContacts([]);
+                    setSelectedContact(null);
                   }}
                 >
                   Cancel
@@ -4075,50 +4227,6 @@ const createAppointment = async (newEvent: any) => {
           </div>
         </Dialog>
       )}
-
-      {/* Add Package Modal */}
-      <Dialog open={isAddingPackage} onClose={() => setIsAddingPackage(false)}>
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10 dark:bg-gray-800">
-            <h2 className="text-lg font-medium mb-4 dark:text-white">Add New Package</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Package Name</label>
-                <input
-                  type="text"
-                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  value={newPackageName}
-                  onChange={(e) => setNewPackageName(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Number of Sessions</label>
-                <input
-                  type="number"
-                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  value={newPackageSessions}
-                  onChange={(e) => setNewPackageSessions(parseInt(e.target.value))}
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <button
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
-                  onClick={() => setIsAddingPackage(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
-                  onClick={addNewPackage}
-                >
-                  Add Package
-                </button>
-              </div>
-            </div>
-          </Dialog.Panel>
-        </div>
-      </Dialog>
-
       {renderCalendarConfigModal()}
       {renderReminderModal()}
     </>

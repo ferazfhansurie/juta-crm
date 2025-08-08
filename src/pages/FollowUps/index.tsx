@@ -2417,7 +2417,7 @@ const FollowUpsPage: React.FC = () => {
               </Button>
               <Button
                 onClick={(e: React.MouseEvent) =>
-                  editTemplate(editingTemplate.id)
+                  editTemplate(editingTemplate.templateId)
                 }
                 disabled={!editingTemplate.name.trim()}
                 className="text-white bg-primary hover:bg-primary-dark"
