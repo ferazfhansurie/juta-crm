@@ -168,26 +168,34 @@ function Main() {
         setIsLoading(false);
         return;
       }
+  
+      // Generate a unique company ID with proper padding
+      const timestamp = Date.now().toString().slice(-6);
+      const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const newCompanyId = `${randomPart}${timestamp.slice(-3)}`;
 
-      // Call the localhost API endpoint to create user
-      const userResponse = await axios.post(`https://juta-dev.ngrok.dev/api/create-user/${encodeURIComponent(email)}/${encodeURIComponent(formatPhoneNumber(phoneNumber))}/${encodeURIComponent(password)}/1`);
-
-      if (userResponse.data) {
-        // Generate a unique company ID with proper padding
-        const timestamp = Date.now().toString().slice(-6);
-        const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        const newCompanyId = `${randomPart}${timestamp.slice(-3)}`;
-
-        // Call the channel create endpoint
-        const channelResponse = await axios.post(`https://juta-dev.ngrok.dev/api/channel/create/${newCompanyId}`);
-
+      // Call the localhost API endpoint to create user with companyId
+      const userResponse = await axios.post(`https://juta-dev.ngrok.dev/api/create-user/${encodeURIComponent(email)}/${encodeURIComponent(formatPhoneNumber(phoneNumber))}/${encodeURIComponent(password)}/1/${newCompanyId}`);
+  
+            if (userResponse.data) {
+        // Call the channel create endpoint with additional data
+        const channelResponse = await axios.post(`https://juta-dev.ngrok.dev/api/channel/create/${newCompanyId}`, {
+          name: name,
+          companyName: companyName,
+          phoneNumber: formatPhoneNumber(phoneNumber),
+          email: email,
+          password: password,
+          plan: selectedPlan,
+          country: selectedCountry
+        });
+  
         if (channelResponse.data) {
           // Sign in the user after successful registration
           navigate('/loading');
           toast.success("Registration successful!");
         }
       }
-
+  
     } catch (error) {
       if (axios.isAxiosError(error)) {
         console.error("Axios error:", error.response?.data || error.message);

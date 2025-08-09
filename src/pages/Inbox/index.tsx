@@ -4,31 +4,19 @@ import Button from "@/components/Base/Button";
 import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import {
-  DocumentReference,
   updateDoc,
   getDoc,
-  getDocs,
-  deleteDoc,
 } from "firebase/firestore";
 import {
   getFirestore,
-  collection,
   doc,
-  setDoc,
-  DocumentSnapshot,
 } from "firebase/firestore";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import logoUrl from "@/assets/images/logo.png";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { Tab } from "@headlessui/react";
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  listAll,
-} from "firebase/storage";
+
 import { Link } from "react-router-dom";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
@@ -595,23 +583,64 @@ const Main: React.FC = () => {
   const fetchFiles = async () => {
     if (!companyId) return;
 
-    const filesCollectionRef = collection(
-      firestore,
-      "companies",
-      companyId,
-      "assistantFiles"
-    );
-
+    const baseUrl = "https://juta-dev.ngrok.dev";
+    
     try {
-      const querySnapshot = await getDocs(filesCollectionRef);
-      const fileList = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Array<{ id: string; name: string; url: string }>;
-      setFiles(fileList);
+      // Get user email for API calls
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        throw new Error("No user email found");
+      }
+
+      // Get company API URL
+      const response = await fetch(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch company data");
+      }
+
+      const data = await response.json();
+      const apiUrl = data.companyData.api_url || baseUrl;
+
+      // Fetch files from backend
+      const filesResponse = await fetch(`${apiUrl}/api/assistant-files?companyId=${companyId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (!filesResponse.ok) {
+        throw new Error("Failed to fetch files from backend");
+      }
+
+      const fileList = await filesResponse.json();
+      
+      // Ensure fileList is an array, handle different response formats
+      if (Array.isArray(fileList)) {
+        setFiles(fileList);
+      } else if (fileList && Array.isArray(fileList.files)) {
+        setFiles(fileList.files);
+      } else if (fileList && Array.isArray(fileList.data)) {
+        setFiles(fileList.data);
+      } else {
+        console.warn("Unexpected response format for files:", fileList);
+        setFiles([]);
+      }
     } catch (error) {
       console.error("Error fetching files:", error);
       toast.error("Failed to fetch files");
+      setFiles([]); // Ensure files is always an array
     }
   };
 
@@ -622,22 +651,60 @@ const Main: React.FC = () => {
     if (!file || !companyId) return;
 
     setUploading(true);
-    const storage = getStorage(app);
-    const storageRef = ref(storage, `files/${companyId}/${file.name}`);
+    const baseUrl = "https://juta-dev.ngrok.dev";
 
     try {
-      // Upload to Firebase Storage
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
+      // Get user email for API calls
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        throw new Error("No user email found");
+      }
 
-      // First, upload file to OpenAI
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("purpose", "assistants");
+      // Get company API URL
+      const response = await fetch(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch company data");
+      }
+
+      const data = await response.json();
+      const apiUrl = data.companyData.api_url || baseUrl;
+
+      // Upload file to backend storage
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", file);
+      uploadFormData.append("fileName", file.name);
+      uploadFormData.append("companyId", companyId);
+
+      const uploadResponse = await fetch(`${apiUrl}/api/upload-file`, {
+        method: "POST",
+        body: uploadFormData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload file to backend storage");
+      }
+
+      const uploadResult = await uploadResponse.json();
+      const downloadURL = uploadResult.url;
+
+      // Upload file to OpenAI
+      const openAIFormData = new FormData();
+      openAIFormData.append("file", file);
+      openAIFormData.append("purpose", "assistants");
 
       const openAIFileResponse = await axios.post(
         "https://api.openai.com/v1/files",
-        formData,
+        openAIFormData,
         {
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -649,32 +716,60 @@ const Main: React.FC = () => {
       // Create or get existing vector store
       let vectorStoreId;
       try {
-        // Try to get existing vector store
-        const vectorStoreResponse = await axios.get(
-          `https://api.openai.com/v1/vector_stores/${companyId}-knowledge-base`,
-          {
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "OpenAI-Beta": "assistants=v2",
-            },
-          }
-        );
-        vectorStoreId = vectorStoreResponse.data.id;
-      } catch (error) {
-        // If not found, create new vector store
-        const createVectorStoreResponse = await axios.post(
+        // List all vector stores to find one with matching name
+        const listVectorStoresResponse = await axios.get(
           "https://api.openai.com/v1/vector_stores",
           {
-            name: `${companyId}-knowledge-base`,
-          },
-          {
             headers: {
               Authorization: `Bearer ${apiKey}`,
               "OpenAI-Beta": "assistants=v2",
             },
           }
         );
-        vectorStoreId = createVectorStoreResponse.data.id;
+        
+        // Find existing vector store with matching name
+        const existingVectorStore = listVectorStoresResponse.data.data.find(
+          (store: any) => store.name === `${companyId}-knowledge-base`
+        );
+        
+        if (existingVectorStore) {
+          vectorStoreId = existingVectorStore.id;
+        } else {
+          // Create new vector store if not found
+          const createVectorStoreResponse = await axios.post(
+            "https://api.openai.com/v1/vector_stores",
+            {
+              name: `${companyId}-knowledge-base`,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "OpenAI-Beta": "assistants=v2",
+              },
+            }
+          );
+          vectorStoreId = createVectorStoreResponse.data.id;
+        }
+      } catch (error) {
+        // If listing fails, try to create a new vector store
+        try {
+          const createVectorStoreResponse = await axios.post(
+            "https://api.openai.com/v1/vector_stores",
+            {
+              name: `${companyId}-knowledge-base`,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "OpenAI-Beta": "assistants=v2",
+              },
+            }
+          );
+          vectorStoreId = createVectorStoreResponse.data.id;
+        } catch (createError) {
+          console.error("Failed to create vector store:", createError);
+          throw new Error("Failed to create or access vector store");
+        }
       }
 
       // Add file to vector store
@@ -691,19 +786,33 @@ const Main: React.FC = () => {
         }
       );
 
-      // Add file info to Firestore
-      const fileDocRef = doc(
-        collection(firestore, "companies", companyId, "assistantFiles")
-      );
-      await setDoc(fileDocRef, {
+      // Save file info to backend database instead of Firestore
+      const fileData = {
         name: file.name,
         url: downloadURL,
         vectorStoreId: vectorStoreId,
         openAIFileId: openAIFileResponse.data.id,
+        companyId: companyId,
+        createdBy: userEmail,
+      };
+
+      const saveFileResponse = await fetch(`${apiUrl}/api/assistant-files`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(fileData),
       });
 
+      if (!saveFileResponse.ok) {
+        throw new Error("Failed to save file info to database");
+      }
+
+      const savedFile = await saveFileResponse.json();
+
       const newFile = {
-        id: fileDocRef.id,
+        id: savedFile.id || `file-${Date.now()}`,
         name: file.name,
         url: downloadURL,
         vectorStoreId: vectorStoreId,
@@ -751,10 +860,46 @@ const Main: React.FC = () => {
   const deleteFile = async (fileId: string) => {
     if (!companyId) return;
 
+    const baseUrl = "https://juta-dev.ngrok.dev";
+
     try {
-      await deleteDoc(
-        doc(firestore, "companies", companyId, "assistantFiles", fileId)
+      // Get user email for API calls
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        throw new Error("No user email found");
+      }
+
+      // Get company API URL
+      const response = await fetch(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch company data");
+      }
+
+      const data = await response.json();
+      const apiUrl = data.companyData.api_url || baseUrl;
+
+      // Delete file from backend
+      const deleteResponse = await fetch(`${apiUrl}/api/assistant-files/${fileId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (!deleteResponse.ok) {
+        throw new Error("Failed to delete file from backend");
+      }
 
       // Remove file from local state
       setFiles((prevFiles) => prevFiles.filter((file) => file.id !== fileId));
@@ -912,17 +1057,17 @@ const Main: React.FC = () => {
     if (!companyId) return;
 
     try {
-      await deleteDoc(
-        doc(
-          firestore,
-          "companies",
-          companyId,
-          "instructionTemplates",
-          templateId
-        )
+      // Delete template from backend
+      const response = await axios.delete(
+        `https://juta-dev.ngrok.dev/api/instruction-templates/${templateId}`
       );
-      toast.success("Template deleted successfully");
-      fetchTemplates(); // Refresh templates list
+
+      if (response.data.success) {
+        toast.success("Template deleted successfully");
+        fetchTemplates(); // Refresh templates list
+      } else {
+        throw new Error("Failed to delete template");
+      }
     } catch (error) {
       console.error("Error deleting template:", error);
       toast.error("Failed to delete template");
@@ -1248,7 +1393,7 @@ const Main: React.FC = () => {
                   </div>
                   <div className="mb-4">
                     <ul className="list-disc list-inside">
-                      {files.map((file) => (
+                      {(files || []).map((file) => (
                         <li
                           key={file.id}
                           className="text-sm text-blue-500 flex items-center justify-between"
