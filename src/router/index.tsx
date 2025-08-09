@@ -93,6 +93,7 @@ import PublicFeedbackForm from "../pages/PublicFeedbackForm";
 import PublicAttendanceForm from "../pages/PublicAttendanceForm";
 import DataImport from "../pages/DataImport";
 import Builder2 from "../pages/Builder2";
+import SplitTest from "../pages/SplitTest";
 import ThankYou from "../pages/ThankYou";
 
 function Router() {
@@ -167,6 +168,7 @@ function Router() {
         { path: "seller-detail", element: <SellerDetail /> },
         { path: "reviews", element: <Reviews /> },
         { path: "inbox", element: <Inbox /> },
+        { path: "split-test", element: <SplitTest /> },
         { path: "file-manager", element: <FileManager /> },
         { path: "point-of-sale", element: <PointOfSale /> },
         { path: "chat", element: <Chat /> },

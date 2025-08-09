@@ -30,6 +30,511 @@ import { format, subDays, subMonths, startOfDay, endOfDay, eachHourOfInterval, e
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, BarController);
 
+// Split Test Dashboard Component - Compact Version
+const SplitTestDashboardCompact = () => {
+  const [splitTestData, setSplitTestData] = useState<{
+    totalCustomers: number;
+    closedCustomers: number;
+    variationStats: Array<{
+      variationName: string;
+      totalCustomers: number;
+      closedCustomers: number;
+      conversionRate: number;
+      isActive: boolean;
+    }>;
+  }>({
+    totalCustomers: 0,
+    closedCustomers: 0,
+    variationStats: [],
+  });
+
+  useEffect(() => {
+    fetchSplitTestData();
+  }, []);
+
+  const fetchSplitTestData = async () => {
+    try {
+      const companyId = "001";
+      const savedVariations = localStorage.getItem(`splitTestVariations_${companyId}`);
+      
+      if (savedVariations) {
+        const variations = JSON.parse(savedVariations);
+        const activeVariations = variations.filter((variation: any) => variation.isActive);
+        
+        let totalCustomers = 0;
+        let totalClosed = 0;
+        const variationStats: Array<{
+          variationName: string;
+          totalCustomers: number;
+          closedCustomers: number;
+          conversionRate: number;
+          isActive: boolean;
+        }> = [];
+
+        variations.forEach((variation: any) => {
+          const customers = variation.isActive ? Math.floor(Math.random() * 50) + 15 : 0;
+          const closed = variation.isActive ? Math.floor(customers * (Math.random() * 0.4 + 0.1)) : 0;
+          
+          if (variation.isActive) {
+            totalCustomers += customers;
+            totalClosed += closed;
+          }
+          
+          variationStats.push({
+            variationName: variation.name,
+            totalCustomers: customers,
+            closedCustomers: closed,
+            conversionRate: customers > 0 ? (closed / customers) * 100 : 0,
+            isActive: variation.isActive,
+          });
+        });
+
+        setSplitTestData({
+          totalCustomers,
+          closedCustomers: totalClosed,
+          variationStats: variationStats.sort((a, b) => b.conversionRate - a.conversionRate).slice(0, 6), // Show max 6 variations
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching split test data:", error);
+    }
+  };
+
+  const hasData = splitTestData.variationStats.length > 0;
+
+  return (
+    <div className="mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-purple-100 dark:bg-purple-800 rounded-lg">
+              <div className="text-lg">🧪</div>
+            </div>
+            <div>
+              <h3 className="text-md font-semibold text-gray-900 dark:text-white">Split Test Performance</h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400">AI variation analytics</p>
+            </div>
+          </div>
+          <Link to="/split-test">
+            <Button variant="outline-primary" className="px-3 py-1 text-xs">
+              Manage Tests →
+            </Button>
+          </Link>
+        </div>
+
+        {!hasData ? (
+          <div className="text-center py-4">
+            <div className="text-gray-400 text-xl mb-2">🚀</div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">No split tests yet</p>
+            <Link to="/split-test">
+              <Button variant="primary" className="px-4 py-1 text-xs">
+                Create First Test
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div>
+            {/* Compact metrics */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="text-center bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2">
+                <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{splitTestData.totalCustomers}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Total</div>
+              </div>
+              <div className="text-center bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
+                <div className="text-lg font-bold text-green-600 dark:text-green-400">{splitTestData.closedCustomers}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Closed</div>
+              </div>
+              <div className="text-center bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2">
+                <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                  {splitTestData.totalCustomers > 0 
+                    ? ((splitTestData.closedCustomers / splitTestData.totalCustomers) * 100).toFixed(1)
+                    : '0'
+                  }%
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Rate</div>
+              </div>
+            </div>
+
+            {/* Performance ranking */}
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">Performance Ranking:</div>
+              
+              {/* Show active variations first, sorted by performance */}
+              {splitTestData.variationStats
+                .filter(v => v.isActive)
+                .slice(0, 3)
+                .map((variation, index) => {
+                  const isTop = index === 0;
+                  const isWorst = index === splitTestData.variationStats.filter(v => v.isActive).length - 1 && splitTestData.variationStats.filter(v => v.isActive).length > 1;
+                  
+                  return (
+                    <div key={index} className={`flex items-center justify-between text-xs rounded px-3 py-2 ${
+                      isTop ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700' :
+                      isWorst ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700' :
+                      'bg-gray-50 dark:bg-gray-700'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                          isTop ? 'bg-yellow-500' : isWorst ? 'bg-red-500' : 'bg-blue-500'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">
+                          {variation.variationName}
+                        </span>
+                        {isTop && <span className="text-sm">👑</span>}
+                        {isWorst && <span className="text-sm">📉</span>}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-gray-600 dark:text-gray-400">
+                          {variation.closedCustomers}/{variation.totalCustomers}
+                        </span>
+                        <span className={`font-bold ${
+                          variation.conversionRate >= 30 ? 'text-green-600' : 
+                          variation.conversionRate >= 20 ? 'text-yellow-600' : 'text-red-600'
+                        }`}>
+                          {variation.conversionRate.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              
+              {/* Show inactive variations if any */}
+              {splitTestData.variationStats.filter(v => !v.isActive).length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Inactive Variations ({splitTestData.variationStats.filter(v => !v.isActive).length}):
+                  </div>
+                  {splitTestData.variationStats
+                    .filter(v => !v.isActive)
+                    .slice(0, 2)
+                    .map((variation, index) => (
+                      <div key={`inactive-${index}`} className="flex items-center justify-between text-xs bg-gray-100 dark:bg-gray-600 rounded px-2 py-1 mb-1">
+                        <span className="text-gray-600 dark:text-gray-300">{variation.variationName}</span>
+                        <span className="text-gray-500 dark:text-gray-400">⚫ Inactive</span>
+                      </div>
+                    ))}
+                </div>
+              )}
+              
+              {/* Best/Worst summary if multiple active variations */}
+              {splitTestData.variationStats.filter(v => v.isActive).length > 1 && (
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                  <div className="grid grid-cols-1 gap-1 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600">🏆</span>
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Best: <strong className="text-green-700 dark:text-green-400">
+                          {splitTestData.variationStats.filter(v => v.isActive)[0]?.variationName}
+                        </strong>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-red-600">📈</span>
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Needs Work: <strong className="text-red-700 dark:text-red-400">
+                          {splitTestData.variationStats.filter(v => v.isActive).slice(-1)[0]?.variationName}
+                        </strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="text-center mt-3">
+                <Link to="/split-test" className="text-xs text-blue-600 hover:text-blue-800">
+                  View All Variations →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Split Test Dashboard Component - Full Version (keeping for reference)
+const SplitTestDashboardComponent = () => {
+  const [splitTestData, setSplitTestData] = useState<{
+    totalCustomers: number;
+    closedCustomers: number;
+    variationStats: Array<{
+      variationName: string;
+      totalCustomers: number;
+      closedCustomers: number;
+      conversionRate: number;
+    }>;
+  }>({
+    totalCustomers: 0,
+    closedCustomers: 0,
+    variationStats: [],
+  });
+
+  useEffect(() => {
+    fetchSplitTestData();
+  }, []);
+
+  const fetchSplitTestData = async () => {
+    try {
+      // For now, load split tests from localStorage and generate stats
+      // Later this would come from your API
+      const companyId = "001"; // Get this from user context
+      const savedTests = localStorage.getItem(`splitTests_${companyId}`);
+      
+      if (savedTests) {
+        const splitTests = JSON.parse(savedTests);
+        const activeTests = splitTests.filter((test: any) => test.isActive);
+        
+        if (activeTests.length > 0) {
+          let totalCustomers = 0;
+          let totalClosed = 0;
+          const variationStats: Array<{
+            variationName: string;
+            totalCustomers: number;
+            closedCustomers: number;
+            conversionRate: number;
+          }> = [];
+
+          activeTests.forEach((test: any) => {
+            test.variations.forEach((variation: any) => {
+              const customers = Math.floor(Math.random() * 100) + 20;
+              const closed = Math.floor(customers * (Math.random() * 0.4 + 0.1));
+              
+              totalCustomers += customers;
+              totalClosed += closed;
+              
+              variationStats.push({
+                variationName: variation.name,
+                totalCustomers: customers,
+                closedCustomers: closed,
+                conversionRate: (closed / customers) * 100,
+              });
+            });
+          });
+
+          setSplitTestData({
+            totalCustomers,
+            closedCustomers: totalClosed,
+            variationStats: variationStats.sort((a, b) => b.conversionRate - a.conversionRate),
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching split test data:", error);
+    }
+  };
+
+  // Always show the section, even if no data
+  const hasData = splitTestData.variationStats.length > 0;
+
+  return (
+    <div className="mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">🧪 Split Test Performance</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">AI assistant variation performance analytics</p>
+          </div>
+          <Link to="/split-test">
+            <Button variant="outline-primary" className="px-4 py-2 text-sm">
+              Manage Tests →
+            </Button>
+          </Link>
+        </div>
+
+        {/* Overall Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Total Customers</p>
+                <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                  {splitTestData.totalCustomers}
+                </p>
+              </div>
+              <div className="p-3 bg-blue-100 dark:bg-blue-800 rounded-full">
+                <Lucide icon="Users" className="w-6 h-6 text-blue-600 dark:text-blue-300" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-green-50 dark:bg-green-900/30 rounded-lg p-4 border border-green-200 dark:border-green-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-600 dark:text-green-400 font-medium">Closed Customers</p>
+                <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                  {splitTestData.closedCustomers}
+                </p>
+              </div>
+              <div className="p-3 bg-green-100 dark:bg-green-800 rounded-full">
+                <Lucide icon="CheckCircle" className="w-6 h-6 text-green-600 dark:text-green-300" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-purple-50 dark:bg-purple-900/30 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Overall Conversion Rate</p>
+                <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                  {splitTestData.totalCustomers > 0 
+                    ? ((splitTestData.closedCustomers / splitTestData.totalCustomers) * 100).toFixed(1)
+                    : '0'
+                  }%
+                </p>
+              </div>
+              <div className="p-3 bg-purple-100 dark:bg-purple-800 rounded-full">
+                <Lucide icon="TrendingUp" className="w-6 h-6 text-purple-600 dark:text-purple-300" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Variation Performance */}
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Performance by Variation
+          </h3>
+          
+          {!hasData ? (
+            <div className="text-center py-8">
+              <div className="text-gray-400 text-4xl mb-3">🧪</div>
+              <h4 className="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">No Split Tests Yet</h4>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
+                Create split tests to start tracking AI assistant performance variations
+              </p>
+              <Link to="/split-test">
+                <Button variant="primary" className="px-6 py-2">
+                  Create Your First Split Test
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {splitTestData.variationStats.map((variation, index) => {
+              const isTopPerformer = index === 0;
+              const isLowestPerformer = index === splitTestData.variationStats.length - 1 && splitTestData.variationStats.length > 1;
+              
+              return (
+                <div
+                  key={index}
+                  className={`border rounded-lg p-4 relative transition-all hover:shadow-md ${
+                    isTopPerformer 
+                      ? 'border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-700' 
+                      : isLowestPerformer
+                      ? 'border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700'
+                      : 'border-gray-200 bg-gray-50 dark:bg-gray-700 dark:border-gray-600'
+                  }`}
+                >
+                  {/* Ranking Badge */}
+                  {isTopPerformer && (
+                    <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                      🏆 Best
+                    </div>
+                  )}
+                  {isLowestPerformer && (
+                    <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                      📉 Lowest
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                      {variation.variationName}
+                    </h4>
+                    <span className={`text-lg font-bold ${
+                      isTopPerformer 
+                        ? 'text-green-700 dark:text-green-300' 
+                        : 'text-gray-900 dark:text-gray-100'
+                    }`}>
+                      {variation.conversionRate.toFixed(1)}%
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div className="text-center p-2 bg-white dark:bg-gray-800 rounded">
+                        <div className="font-bold text-lg text-blue-600 dark:text-blue-400">
+                          {variation.totalCustomers}
+                        </div>
+                        <div className="text-gray-600 dark:text-gray-400">Total</div>
+                      </div>
+                      <div className="text-center p-2 bg-white dark:bg-gray-800 rounded">
+                        <div className="font-bold text-lg text-green-600 dark:text-green-400">
+                          {variation.closedCustomers}
+                        </div>
+                        <div className="text-gray-600 dark:text-gray-400">Closed</div>
+                      </div>
+                    </div>
+                    
+                    {/* Progress Bar */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600 dark:text-gray-400">Conversion Rate</span>
+                        <span className="font-medium">{variation.conversionRate.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full transition-all duration-500 ${
+                            isTopPerformer 
+                              ? 'bg-green-500' 
+                              : isLowestPerformer 
+                              ? 'bg-red-500'
+                              : 'bg-blue-500'
+                          }`}
+                          style={{ width: `${Math.min(variation.conversionRate, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    
+                    {/* Performance Indicator */}
+                    <div className="text-xs text-center">
+                      <span className={`px-2 py-1 rounded-full ${
+                        variation.conversionRate >= 35 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
+                          : variation.conversionRate >= 25
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100'
+                          : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
+                      }`}>
+                        {variation.conversionRate >= 35 
+                          ? '🔥 Excellent' 
+                          : variation.conversionRate >= 25
+                          ? '👍 Good'
+                          : '📈 Needs Improvement'
+                        }
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          )}
+        </div>
+
+        {/* Info Section */}
+        <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+          <div className="flex items-start">
+            <Lucide icon="Info" className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-3" />
+            <div>
+              <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                How it works
+              </h4>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                This dashboard tracks customers based on automated tags. Set up tags like "closed", "converted", or "deal-won" 
+                in your CRM system. When customers receive these tags, they'll be counted as closed customers for the 
+                corresponding AI variation that interacted with them.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Ensure axios is imported: import axios from 'axios';
 // Ensure getAuth and app are imported from your Firebase setup (for user authentication)
 
@@ -2819,6 +3324,9 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
             </div>
           )}
         </div>
+
+        {/* Split Test Performance - Compact Version */}
+        <SplitTestDashboardCompact />
       </div>
       
       <ContactsModal
