@@ -32,7 +32,7 @@ import { Switch } from "@headlessui/react";
 import Modal from "@/components/Base/Modal";
 
 // Configuration
-const baseUrl = "https://juta-dev.ngrok.dev"; // Your PostgreSQL server URL
+const baseUrl = "https://juta.ngrok.app"; // Your PostgreSQL server URL
 
 interface Appointment {
   id: string;
@@ -162,6 +162,16 @@ function Main() {
   const navigate = useNavigate();
   const [isCalendarConfigOpen, setIsCalendarConfigOpen] = useState(false);
   const [isReminderSettingsOpen, setIsReminderSettingsOpen] = useState(false);
+  const [isBookingLinkModalOpen, setIsBookingLinkModalOpen] = useState(false);
+  const [bookingLinkForm, setBookingLinkForm] = useState({
+    title: '',
+    description: '',
+    location: '',
+    phone: '',
+    selectedStaff: [] as string[],
+    duration: 60
+  });
+  const [generatedBookingLink, setGeneratedBookingLink] = useState('');
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>({
     reminders: [],
   });
@@ -267,6 +277,88 @@ function Main() {
     } catch (error) {
       console.error("Error fetching tags:", error);
     }
+  };
+
+  const generateBookingLink = async () => {
+    if (!bookingLinkForm.title || bookingLinkForm.selectedStaff.length === 0) {
+      alert('Please fill in the title and select at least one staff member');
+      return;
+    }
+
+    try {
+      // Create a slug from the title (similar to how PublicAttendanceForm works)
+      const slug = bookingLinkForm.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+
+      // Create individual booking slots for each staff member
+      const createdSlots = [];
+      for (const staffName of bookingLinkForm.selectedStaff) {
+        // Add timestamp to ensure unique slug
+        const timestamp = Date.now();
+        const staffSlug = `${slug}-${staffName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}-${timestamp}`;
+        
+        const bookingSlotData = {
+          title: `${bookingLinkForm.title} with ${staffName}`,
+          slug: staffSlug,
+          description: bookingLinkForm.description,
+          location: bookingLinkForm.location,
+          duration: bookingLinkForm.duration,
+          staffName: staffName,
+          is_active: true,
+          created_by: localStorage.getItem('userEmail'),
+          company_id: companyId
+        };
+
+        // Save booking slot to backend
+        const userEmail = localStorage.getItem('userEmail');
+        const response = await axios.post(`http://localhost:8443/api/booking-slots`, bookingSlotData, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${userEmail}` // Adjust based on your auth system
+          }
+        });
+
+        if (response.data.success) {
+          const baseUrlWindow = window.location.origin;
+          const staffNameSlug = staffName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+          const link = `${baseUrlWindow}/booking/${staffSlug}/${staffNameSlug}/${bookingLinkForm.phone || 'PHONE'}`;
+          createdSlots.push({
+            staffName,
+            link
+          });
+        } else {
+          throw new Error(response.data.error || `Failed to create booking slot for ${staffName}`);
+        }
+      }
+
+      // Display all generated links
+      const linksText = createdSlots.map(slot => `${slot.staffName}: ${slot.link}`).join('\n\n');
+      setGeneratedBookingLink(linksText);
+      toast.success(`${createdSlots.length} booking links created successfully!`);
+    } catch (error) {
+      console.error('Error creating booking slots:', error);
+      toast.error('Failed to create booking slots. Please try again.');
+    }
+  };
+
+  const copyBookingLink = () => {
+    navigator.clipboard.writeText(generatedBookingLink);
+    toast.success('Booking link copied to clipboard!');
+  };
+
+  const resetBookingLinkForm = () => {
+    setBookingLinkForm({
+      title: '',
+      description: '',
+      location: '',
+      phone: '',
+      selectedStaff: [],
+      duration: 60
+    });
+    setGeneratedBookingLink('');
   };
 
   useEffect(() => {
@@ -2348,6 +2440,191 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
     </Dialog>
   );
 
+  const renderBookingLinkModal = () => (
+    <Dialog
+      open={isBookingLinkModalOpen}
+      onClose={() => {
+        setIsBookingLinkModalOpen(false);
+        resetBookingLinkForm();
+      }}
+    >
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <Dialog.Panel className="w-full max-w-2xl p-6 bg-white rounded-lg shadow-xl mt-10 dark:bg-gray-800">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold dark:text-white">
+              Generate Booking Link
+            </h2>
+            <button
+              onClick={() => {
+                setIsBookingLinkModalOpen(false);
+                resetBookingLinkForm();
+              }}
+              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={bookingLinkForm.title}
+                  onChange={(e) => setBookingLinkForm({...bookingLinkForm, title: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  placeholder="e.g., Consultation Appointment"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  value={bookingLinkForm.duration}
+                  onChange={(e) => setBookingLinkForm({...bookingLinkForm, duration: parseInt(e.target.value) || 60})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  placeholder="60"
+                  min="15"
+                  max="480"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Location
+              </label>
+              <input
+                type="text"
+                value={bookingLinkForm.location}
+                onChange={(e) => setBookingLinkForm({...bookingLinkForm, location: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="e.g., Office Location"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Description
+              </label>
+              <textarea
+                value={bookingLinkForm.description}
+                onChange={(e) => setBookingLinkForm({...bookingLinkForm, description: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                rows={3}
+                placeholder="Brief description of the appointment..."
+              />
+            </div>
+
+            {employees.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Available Staff Members
+                </label>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {employees.map((employee) => (
+                    <label key={employee.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={bookingLinkForm.selectedStaff.includes(employee.name)}
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          const updatedStaff = isChecked
+                            ? [...bookingLinkForm.selectedStaff, employee.name]
+                            : bookingLinkForm.selectedStaff.filter(name => name !== employee.name);
+                          setBookingLinkForm({...bookingLinkForm, selectedStaff: updatedStaff});
+                        }}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{employee.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Phone (Optional)
+              </label>
+              <input
+                type="tel"
+                value={bookingLinkForm.phone}
+                onChange={(e) => setBookingLinkForm({...bookingLinkForm, phone: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="+60123456789 (leave blank to show PHONE placeholder)"
+              />
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Users will select their preferred date and time on the booking page
+              </p>
+            </div>
+
+            {generatedBookingLink && (
+              <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Generated Booking Links (One per Staff Member)
+                </label>
+                <div className="space-y-2">
+                  <textarea
+                    value={generatedBookingLink}
+                    readOnly
+                    rows={bookingLinkForm.selectedStaff.length + 1}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 dark:bg-gray-600 dark:border-gray-500 dark:text-white text-sm"
+                  />
+                  <button
+                    onClick={copyBookingLink}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                  >
+                    Copy All Links
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Each staff member gets their own unique booking link. Share the appropriate link with clients.
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                onClick={() => {
+                  setIsBookingLinkModalOpen(false);
+                  resetBookingLinkForm();
+                }}
+                className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={generateBookingLink}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Generate Link
+              </button>
+            </div>
+          </div>
+        </Dialog.Panel>
+      </div>
+    </Dialog>
+  );
+
   // Add this logging function to help debug
   const debugLog = (message: string, data?: any) => {};
 
@@ -3082,6 +3359,19 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
             </button>
           </div>
         )}
+        {/* Add Generate Booking Link button */}
+        <div className="w-full mb-4 sm:w-auto sm:mr-2 lg:mb-0 lg:mr-4">
+          <button
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+            onClick={() => setIsBookingLinkModalOpen(true)}
+          >
+            <Lucide
+              icon="Link"
+              className="w-4 h-4 mr-2 inline-block"
+            />
+            Generate Booking Link
+          </button>
+        </div>
         {/* Employee selection dropdown */}
         <div className="w-full mb-4 sm:w-1/4 sm:mr-2 lg:w-auto lg:mb-0 lg:mr-4">
           {employees.length > 0 && (
@@ -4229,6 +4519,7 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
       )}
       {renderCalendarConfigModal()}
       {renderReminderModal()}
+      {renderBookingLinkModal()}
     </>
   );
 }

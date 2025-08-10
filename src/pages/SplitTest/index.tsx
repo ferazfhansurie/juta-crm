@@ -1,31 +1,11 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Button from "@/components/Base/Button";
-import { getAuth } from "firebase/auth";
-import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, updateDoc } from "firebase/firestore";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import logoUrl from "@/assets/images/logo.png";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { Link } from "react-router-dom";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
-  authDomain: "onboarding-a5fcb.firebaseapp.com",
-  databaseURL:
-    "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "onboarding-a5fcb",
-  storageBucket: "onboarding-a5fcb.appspot.com",
-  messagingSenderId: "334607574757",
-  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
-  measurementId: "G-2C9J1RY67L",
-};
-
-let companyId = "001";
-
-const app = initializeApp(firebaseConfig);
-const firestore = getFirestore(app);
 
 interface Variation {
   id: string;
@@ -40,6 +20,7 @@ const SplitTest: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<string>("");
   const [apiKey, setApiKey] = useState<string>("");
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [variations, setVariations] = useState<Variation[]>([
     {
       id: "variation-1",
@@ -57,86 +38,191 @@ const SplitTest: React.FC = () => {
 
   useEffect(() => {
     if (companyId) {
-      fetchUserRole();
-      fetchFirebaseConfig();
+      fetchCompanyConfig();
       loadVariations();
+      // Set up periodic refresh of performance data
+      const interval = setInterval(() => {
+        loadVariations();
+      }, 30000); // Refresh every 30 seconds
+      
+      return () => clearInterval(interval);
     }
   }, [companyId]);
 
   const fetchCompanyId = async () => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        const userDocRef = doc(firestore, "users", user.uid);
-        const userDocSnapshot = await getDoc(userDocRef);
-        if (userDocSnapshot.exists()) {
-          const userData = userDocSnapshot.data();
-          companyId = userData.companyId;
-        }
-      } catch (error) {
-        console.error("Error fetching company ID:", error);
-      }
+    const userEmail = localStorage.getItem("userEmail");
+    if (!userEmail) {
+      toast.error("No user email found");
+      setLoading(false);
+      return;
     }
-  };
 
-  const fetchUserRole = async () => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        const userDocRef = doc(firestore, "users", user.uid);
-        const userDocSnapshot = await getDoc(userDocRef);
-        if (userDocSnapshot.exists()) {
-          const userData = userDocSnapshot.data();
-          setUserRole(userData.role || "");
-        }
-      } catch (error) {
-        console.error("Error fetching user role:", error);
-      }
-    }
-  };
-
-  const fetchFirebaseConfig = async () => {
     try {
-      const configDocRef = doc(firestore, "companies", companyId);
-      const configDocSnapshot = await getDoc(configDocRef);
-      if (configDocSnapshot.exists()) {
-        const configData = configDocSnapshot.data();
-        setApiKey(configData.apiKey || "");
+      // Get user config to get companyId
+      const userResponse = await fetch(
+        `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(
+          userEmail
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!userResponse.ok) {
+        toast.error("Failed to fetch user config");
+        setLoading(false);
+        return;
+      }
+
+      const userData = await userResponse.json();
+      console.log(userData);
+      setCompanyId(userData.company_id);
+      setUserRole(userData.role);
+    } catch (error) {
+      console.error("Error fetching company ID:", error);
+      toast.error("Failed to fetch company ID");
+      setLoading(false);
+    }
+  };
+
+  const fetchCompanyConfig = async () => {
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get(
+        `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(
+          userEmail
+        )}`
+      );
+
+      if (response.status === 200) {
+        const { companyData } = response.data;
+        console.log(companyData);
+        
+        const response2 = await axios.get(
+          `https://juta-dev.ngrok.dev/api/company-config/${companyId}`
+        );
+
+        const { openaiApiKey } = response2.data;
+        setApiKey(openaiApiKey);
       }
     } catch (error) {
-      console.error("Error fetching Firebase config:", error);
+      console.error("Error fetching company config:", error);
+      toast.error("Failed to fetch company configuration");
     } finally {
       setLoading(false);
     }
   };
 
-  const loadVariations = () => {
+  const loadVariations = async () => {
+    if (!companyId) return;
+    
     try {
-      const savedVariations = localStorage.getItem(`splitTestVariations_${companyId}`);
-      if (savedVariations) {
-        const parsedVariations = JSON.parse(savedVariations);
-        // Add mock performance data
-        const variationsWithData = parsedVariations.map((variation: Variation) => ({
-          ...variation,
-          customers: variation.isActive ? Math.floor(Math.random() * 100) + 20 : 0,
-          closedCustomers: variation.isActive ? Math.floor((Math.random() * 100 + 20) * (Math.random() * 0.4 + 0.1)) : 0,
-        }));
-        setVariations(variationsWithData);
+      // Fetch variations from backend API
+      const response = await axios.get(
+        `https://juta-dev.ngrok.dev/api/split-test/variations?companyId=${companyId}`
+      );
+      
+      if (response.status === 200) {
+        let variations = response.data;
+        
+        // Handle different response formats
+        if (variations && variations.variations) {
+          variations = variations.variations;
+        } else if (variations && Array.isArray(variations.data)) {
+          variations = variations.data;
+        } else if (!Array.isArray(variations)) {
+          console.warn("Unexpected variations format:", variations);
+          variations = [];
+        }
+        
+        // Ensure we have an array and set default if empty
+        if (Array.isArray(variations) && variations.length > 0) {
+          setVariations(variations);
+        } else {
+          // If no variations exist, create default one
+          setVariations([{
+            id: "variation-1",
+            name: "Variation A",
+            instructions: "You are a helpful AI assistant. Please assist the customer with their inquiries.",
+            isActive: false,
+            customers: 0,
+            closedCustomers: 0,
+          }]);
+        }
+      } else {
+        // If no variations exist, create default one
+        setVariations([{
+          id: "variation-1",
+          name: "Variation A",
+          instructions: "You are a helpful AI assistant. Please assist the customer with their inquiries.",
+          isActive: false,
+          customers: 0,
+          closedCustomers: 0,
+        }]);
       }
     } catch (error) {
       console.error("Error loading variations:", error);
+      // Fallback to default variation if API fails
+      setVariations([{
+        id: "variation-1",
+        name: "Variation A",
+        instructions: "You are a helpful AI assistant. Please assist the customer with their inquiries.",
+        isActive: false,
+        customers: 0,
+        closedCustomers: 0,
+      }]);
     }
   };
 
-  const saveVariations = () => {
+  const saveVariations = async () => {
+    if (!companyId) return;
+    
+    // Validate variations before saving
+    const invalidVariations = variations.filter(v => !v.name.trim() || !v.instructions.trim());
+    if (invalidVariations.length > 0) {
+      toast.error("All variations must have both a name and instructions before saving");
+      return;
+    }
+    
     try {
-      localStorage.setItem(`splitTestVariations_${companyId}`, JSON.stringify(variations));
-      toast.success("Variations saved successfully");
-    } catch (error) {
+      const response = await axios.post(
+        "https://juta-dev.ngrok.dev/api/split-test/variations",
+        {
+          companyId,
+          variations: variations.map(v => ({
+            id: v.id,
+            name: v.name.trim(),
+            instructions: v.instructions.trim(),
+            isActive: v.isActive
+          }))
+        }
+      ); 
+      console.log(response);
+      
+      if (response.status === 200) {
+        toast.success("Variations saved successfully");
+        // Reload variations to get updated data with performance metrics
+        await loadVariations();
+      } else {
+        toast.error("Failed to save variations");
+      }
+    } catch (error: any) {
       console.error("Error saving variations:", error);
-      toast.error("Failed to save variations");
+      if (error.response?.data?.message) {
+        toast.error(`Failed to save variations: ${error.response.data.message}`);
+      } else {
+        toast.error("Failed to save variations");
+      }
     }
   };
 
@@ -163,7 +249,7 @@ const SplitTest: React.FC = () => {
       {
         id: newVariationId,
         name: `Variation ${newVariationLetter}`,
-        instructions: "",
+        instructions: "You are a helpful AI assistant. Please assist the customer with their inquiries.",
         isActive: false,
         customers: 0,
         closedCustomers: 0,
@@ -171,28 +257,58 @@ const SplitTest: React.FC = () => {
     ]);
   };
 
-  const removeVariation = (variationId: string) => {
+  const removeVariation = async (variationId: string) => {
     if (variations.length <= 1) {
       toast.error("You must have at least one variation");
       return;
     }
     
-    setVariations((prev) => prev.filter((variation) => variation.id !== variationId));
+    if (!companyId) return;
+    
+    try {
+      const response = await axios.delete(
+        `https://juta-dev.ngrok.dev/api/split-test/variations/${variationId}?companyId=${companyId}`
+      );
+      
+      if (response.status === 200) {
+        setVariations((prev) => prev.filter((variation) => variation.id !== variationId));
+        toast.success("Variation deleted successfully");
+      } else {
+        toast.error("Failed to delete variation");
+      }
+    } catch (error) {
+      console.error("Error deleting variation:", error);
+      toast.error("Failed to delete variation");
+    }
   };
 
-  const toggleVariationStatus = (variationId: string) => {
-    setVariations((prev) =>
-      prev.map((variation) =>
-        variation.id === variationId
-          ? { 
-              ...variation, 
-              isActive: !variation.isActive,
-              customers: !variation.isActive ? Math.floor(Math.random() * 100) + 20 : 0,
-              closedCustomers: !variation.isActive ? Math.floor((Math.random() * 100 + 20) * (Math.random() * 0.4 + 0.1)) : 0,
-            }
-          : variation
-      )
-    );
+  const toggleVariationStatus = async (variationId: string) => {
+    if (!companyId) return;
+    
+    try {
+      const response = await axios.patch(
+        `https://juta-dev.ngrok.dev/api/split-test/variations/${variationId}/toggle`,
+        { companyId }
+      );
+      
+      if (response.status === 200) {
+        setVariations((prev) =>
+          prev.map((variation) =>
+            variation.id === variationId
+              ? { ...variation, isActive: !variation.isActive }
+              : variation
+          )
+        );
+        toast.success("Variation status updated successfully");
+        // Reload variations to get updated performance data
+        await loadVariations();
+      } else {
+        toast.error("Failed to update variation status");
+      }
+    } catch (error) {
+      console.error("Error toggling variation status:", error);
+      toast.error("Failed to update variation status");
+    }
   };
 
   if (loading) {
@@ -209,9 +325,9 @@ const SplitTest: React.FC = () => {
     );
   }
 
-  const activeVariations = variations.filter(v => v.isActive);
-  const totalCustomers = activeVariations.reduce((sum, v) => sum + v.customers, 0);
-  const totalClosed = activeVariations.reduce((sum, v) => sum + v.closedCustomers, 0);
+  const activeVariations = Array.isArray(variations) ? variations.filter(v => v.isActive) : [];
+  const totalCustomers = activeVariations.reduce((sum, v) => sum + (v.customers || 0), 0);
+  const totalClosed = activeVariations.reduce((sum, v) => sum + (v.closedCustomers || 0), 0);
   const overallConversion = totalCustomers > 0 ? (totalClosed / totalCustomers) * 100 : 0;
 
   return (
@@ -466,7 +582,7 @@ const SplitTest: React.FC = () => {
               {/* Horizontal scrollable variations */}
               <div className="overflow-x-auto pb-4" style={{ scrollBehavior: 'smooth' }}>
                 <div className="flex gap-4 min-w-max">
-                  {variations.map((variation, index) => (
+                  {Array.isArray(variations) && variations.map((variation, index) => (
                     <div
                       key={variation.id}
                       className="flex-shrink-0 w-80 border border-slate-200 dark:border-slate-600 rounded-lg p-4 bg-slate-50 dark:bg-slate-700"
@@ -478,8 +594,12 @@ const SplitTest: React.FC = () => {
                           onChange={(e) =>
                             handleVariationChange(variation.id, "name", e.target.value)
                           }
-                          className="text-lg font-medium bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none focus:border-blue-500 dark:text-slate-200 flex-1 mr-2"
-                          placeholder="Variation name..."
+                          className={`text-lg font-medium bg-transparent border-b focus:outline-none dark:text-slate-200 flex-1 mr-2 ${
+                            !variation.name.trim()
+                              ? 'border-red-300 dark:border-red-500 focus:border-red-500'
+                              : 'border-slate-300 dark:border-slate-600 focus:border-blue-500'
+                          }`}
+                          placeholder="Variation name... *"
                           disabled={userRole === "3"}
                         />
                         {variations.length > 1 && (
@@ -499,8 +619,12 @@ const SplitTest: React.FC = () => {
                           onChange={(e) =>
                             handleVariationChange(variation.id, "instructions", e.target.value)
                           }
-                          placeholder="Enter the AI instructions for this variation..."
-                          className="w-full p-3 border border-slate-300 rounded-lg text-sm bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-y-auto"
+                          placeholder="Enter the AI instructions for this variation... *"
+                          className={`w-full p-3 border rounded-lg text-sm bg-white dark:bg-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 resize-none overflow-y-auto ${
+                            !variation.instructions.trim()
+                              ? 'border-red-300 dark:border-red-500 focus:ring-red-500'
+                              : 'border-slate-300 dark:border-slate-600 focus:ring-blue-500'
+                          }`}
                           disabled={userRole === "3"}
                           style={{ 
                             height: '300px',
@@ -518,7 +642,14 @@ const SplitTest: React.FC = () => {
               </div>
 
               {/* Save Button */}
-              <div className="flex justify-end mt-6">
+              <div className="flex justify-between items-center mt-6">
+                <Button
+                  variant="outline-secondary"
+                  onClick={loadVariations}
+                  className="px-4 py-2"
+                >
+                  🔄 Refresh Data
+                </Button>
                 <Button
                   variant="primary"
                   onClick={saveVariations}
@@ -545,7 +676,7 @@ const SplitTest: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {variations.map((variation) => {
+                  {Array.isArray(variations) && variations.map((variation) => {
                     const conversionRate = variation.customers > 0 
                       ? (variation.closedCustomers / variation.customers) * 100 
                       : 0;
