@@ -32,7 +32,7 @@ import { Switch } from "@headlessui/react";
 import Modal from "@/components/Base/Modal";
 
 // Configuration
-const baseUrl = "https://juta.ngrok.app"; // Your PostgreSQL server URL
+const baseUrl = "https://juta-dev.ngrok.dev"; // Your PostgreSQL server URL
 
 interface Appointment {
   id: string;

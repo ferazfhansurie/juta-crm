@@ -318,7 +318,7 @@ const GuestChat: React.FC = () => {
       
       const data = companyDoc.data();
       const baseUrl = 'https://mighty-dane-newly.ngrok-free.app';
-      //const baseUrl = data.apiUrl || 'https://juta.ngrok.app';
+      //const baseUrl = data.apiUrl || 'https://juta-dev.ngrok.dev';
       
       const res = await axios.get(`${baseUrl}/api/assistant-test-guest/`, {
         params: {

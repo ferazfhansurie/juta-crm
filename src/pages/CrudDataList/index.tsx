@@ -2051,7 +2051,7 @@ interface BotStatusResponse {
       }
       const data2 = docSnapshot.data();
       const baseUrl =
-        data2.apiUrl || "https://juta.ngrok.app";
+        data2.apiUrl || "https://juta-dev.ngrok.dev";
 
       // Check for trigger tags
       const templatesRef = collection(
@@ -2275,7 +2275,7 @@ interface BotStatusResponse {
       }
       const companyData = docSnapshot.data();
       const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
+        companyData.apiUrl || "https://juta-dev.ngrok.dev";
       let message = `Hello ${
         assignedEmployee.name
       }, a new contact has been assigned to you:\n\nName: ${
@@ -2595,7 +2595,7 @@ interface BotStatusResponse {
       if (!docSnapshot.exists()) throw new Error("No company document found");
       const companyData = docSnapshot.data();
       const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
+        companyData.apiUrl || "https://juta-dev.ngrok.dev";
       const contactRef = doc(
         firestore,
         `companies/${companyId}/contacts`,
@@ -3032,7 +3032,7 @@ interface BotStatusResponse {
 
       const companyData = docSnapshot.data();
       const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
+        companyData.apiUrl || "https://juta-dev.ngrok.dev";
 
       // Process each contact
       let contactsProcessed = 0;
@@ -3900,7 +3900,7 @@ interface BotStatusResponse {
 
       const companyData = docSnapshot.data();
       const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
+        companyData.apiUrl || "https://juta-dev.ngrok.dev";
       const accessToken = companyData.ghl_accessToken;
       const whapiToken = companyData.whapiToken;
       const phoneNumber = id.split("+")[1];

@@ -5404,7 +5404,7 @@ console.log(baseUrl);
 
       if (!companyResponse.ok) throw new Error("Failed to fetch company data");
       const companyData = await companyResponse.json();
-      const apiUrl = companyData.api_url || "https://juta.ngrok.app";
+      const apiUrl = companyData.api_url || "https://juta-dev.ngrok.dev";
 
       if (messageMode === "privateNote") {
         handleAddPrivateNote(messageText);

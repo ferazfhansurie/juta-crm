@@ -114,7 +114,7 @@ function Main() {
         return;
       }
       const data2 = docSnapshot.data();
-      const baseUrl = data2.apiUrl || 'https://juta.ngrok.app';
+      const baseUrl = data2.apiUrl || 'https://juta-dev.ngrok.dev';
       const response = await fetch(`${baseUrl}/api/v2/messages/text/001/${formattedPhone}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
