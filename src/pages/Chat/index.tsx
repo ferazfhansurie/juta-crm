@@ -7686,6 +7686,9 @@ console.log(baseUrl);
       }
 
       console.log("📝 [TAG] Removed tag from contact:", contactId, "tag:", tagName);
+
+      // The backend API already handles follow-up template cleanup in handleTagDeletion
+      // So we just show success message - the cleanup was done in the main API call above
       toast.success("Tag removed successfully!");
     } catch (error) {
       console.error("Error removing tag:", error);
