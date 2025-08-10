@@ -16,9 +16,9 @@ interface BookingSlot {
   created_at: string;
   updated_at: string;
   is_active: boolean;
-  staff?: string[];
   appointmentType?: string;
-  staffNames?: string[];
+  staff_name?: string;
+  staff_phone?: string; // Add staff phone number
   duration?: number; // in minutes
 }
 
@@ -55,6 +55,41 @@ interface BookingRecord {
   staffName?: string;
 }
 
+// New interfaces for reminder functionality
+interface ReminderSettings {
+  reminders: Array<{
+    enabled: boolean;
+    time: number;
+    timeUnit: "minutes" | "hours" | "days";
+    type: "before" | "after";
+    message: string;
+    recipientType?: "contacts" | "employees" | "both";
+    selectedEmployees?: string[];
+  }>;
+}
+
+interface ReminderData {
+  userEmail: string;
+  appointment: {
+    id: string;
+    title: string;
+    startTime: string;
+    endTime: string;
+    address: string;
+    contacts: Array<{
+      id: string;
+      name: string;
+      phone: string;
+      email: string;
+    }>;
+    staff: string[];
+    staff_name?: string[];
+  };
+  reminderConfig: any;
+  scheduledTime: Date;
+  processed: boolean;
+}
+
 function PublicBookingForm() {
   const { slotTitle, staffName, phone } = useParams<{ slotTitle: string; staffName: string; phone: string }>();
   const navigate = useNavigate();
@@ -67,7 +102,7 @@ function PublicBookingForm() {
   const [email, setEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [isBooked, setIsBooked] = useState(false);
-  const [baseUrl] = useState<string>('http://localhost:8443');
+  const [baseUrl] = useState<string>('https://juta-dev.ngrok.dev');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [selectedStaff, setSelectedStaff] = useState<string>(staffName || '');
@@ -78,6 +113,7 @@ function PublicBookingForm() {
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{date: string, time: string} | null>(null);
+  const [employees, setEmployees] = useState<any[]>([]);
 
   useEffect(() => {
     console.log('🚀 useEffect triggered with slotTitle:', slotTitle);
@@ -86,38 +122,13 @@ function PublicBookingForm() {
       fetchSlot(slotTitle).catch(error => {
         console.error('🚨 fetchSlot failed completely:', error);
         // Emergency fallback
-        setSlot({
-          id: 'emergency-slot-' + slotTitle,
-          title: slotTitle.includes('farah') ? 'Test with Farah' : 'Test Booking',
-          slug: slotTitle,
-          description: 'Emergency fallback booking session',
-          location: 'Online Meeting',
-          company_id: '0210',
-          created_by: 'admin@juta.com',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_active: true,
-          duration: 60
-        });
+  
         setIsLoading(false);
       });
     } else {
       console.log('🎭 No slotTitle, using mock data');
       // For testing purposes, set mock data
-      setSlot({
-        id: 'test-slot-1',
-        title: 'The A-List Introduction With Tika',
-        slug: 'do-the-alist-introduction-with-tika',
-        description: 'Book a 30-minute introduction session with Tika from The A-List team.',
-        location: 'Online Meeting',
-        company_id: 'test-company',
-        created_by: 'test@example.com',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        is_active: true,
-        staffNames: ['Tika'], // Single staff member for this booking link
-        duration: 30
-      });
+
       setSelectedStaff('Tika'); // Pre-select the staff member
       setIsLoading(false);
     }
@@ -126,19 +137,7 @@ function PublicBookingForm() {
     const timeoutId = setTimeout(() => {
       console.log('⏰ Ultra-fast fallback triggered - preventing "Not Found" message');
       if (!slot) {
-        setSlot({
-          id: 'ultra-fast-fallback-' + (slotTitle || 'unknown'),
-          title: slotTitle && slotTitle.includes('farah') ? 'Test with Farah' : 'Test Booking',
-          slug: slotTitle || 'test-booking',
-          description: 'Ultra-fast fallback booking session',
-          location: 'Online Meeting',
-          company_id: '0210',
-          created_by: 'admin@juta.com',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_active: true,
-          duration: 60
-        });
+ 
         setIsLoading(false);
       }
     }, 1000);
@@ -173,6 +172,30 @@ function PublicBookingForm() {
   useEffect(() => {
     fetchGoogleCalendarAvailability(currentWeekStart);
   }, [currentWeekStart]);
+
+  useEffect(() => {
+    if (slot) {
+      console.log('🎯 Slot loaded, testing employee lookup...');
+      console.log('👨‍💼 Slot staff name:', slot);
+      // Extract staff name from slot data
+      if (slot.staff_name) {
+        setSelectedStaff(slot.staff_name);
+        console.log('👨‍💼 Staff name extracted from slot:', slot.staff_name);
+      } else {
+        // Try to extract from slot title (e.g., "introduction-faeez" -> "faeez")
+        const titleParts = slot.title.toLowerCase().split('-');
+        const possibleStaffName = titleParts[titleParts.length - 1];
+        if (possibleStaffName && possibleStaffName.length > 2) {
+          // Capitalize first letter
+          const staffName = possibleStaffName.charAt(0).toUpperCase() + possibleStaffName.slice(1);
+          setSelectedStaff(staffName);
+          console.log('👨‍💼 Staff name extracted from title:', staffName);
+        }
+      }
+      
+      testEmployeeLookup();
+    }
+  }, [slot]);
 
   const generateTimeSlots = () => {
     const slots: TimeSlot[] = [];
@@ -457,7 +480,7 @@ function PublicBookingForm() {
           return matches;
         });
         
-        console.log(`📅 Found ${dayEvents.length} events for ${dateStr}:`);
+        console.log(`�� Found ${dayEvents.length} events for ${dateStr}:`);
         if (dayEvents.length > 0) {
           dayEvents.forEach((event, i) => {
             console.log(`  ${i + 1}. ${event.summary}`);
@@ -553,14 +576,7 @@ function PublicBookingForm() {
         console.log(`📊 Event Summary: ${events.length} total (${timedEvents.length} timed, ${allDayEvents.length} all-day, ${invalidEvents.length} invalid)`);
         
         events.forEach((event, index) => {
-          console.log(`📋 Event ${index + 1}:`, {
-            summary: event.summary,
-            start: event.start,
-            end: event.end,
-            id: event.id,
-            status: event.status
-          });
-          
+         
           // Show parsed dates for easier reading
           if (event.start.dateTime && event.end.dateTime) {
             const eventStart = new Date(event.start.dateTime);
@@ -569,16 +585,7 @@ function PublicBookingForm() {
             const isAllDay = (duration >= 24 * 60 * 60 * 1000) && 
                             (eventStart.getHours() === 0 && eventStart.getMinutes() === 0);
             
-            if (isAllDay) {
-              console.log(`  📅 All-day Event (dateTime): ${event.summary}`);
-              console.log(`     Duration: ${duration / (60 * 60 * 1000)} hours`);
-              console.log(`     Start: ${eventStart.toLocaleString()}`);
-              console.log(`     End: ${eventEnd.toLocaleString()}`);
-            } else {
-              console.log(`  ⏰ Timed Event: ${event.summary}`);
-              console.log(`     Start: ${eventStart.toLocaleString()}`);
-              console.log(`     End: ${eventEnd.toLocaleString()}`);
-            }
+            
             console.log(`     Date: ${formatDate(eventStart)}`);
           } else if (event.start.date) {
             console.log(`  📅 All-day Event (date): ${event.summary}`);
@@ -874,54 +881,71 @@ function PublicBookingForm() {
   const fetchSlot = async (title: string) => {
     console.log('🔍 Fetching slot for title:', title);
     try {
-      const response = await axios.get(`${baseUrl}/api/booking-slots/public/${title}`, {
-        timeout: 2000 // 2 second timeout for faster fallback
+      // Use the correct Neon database endpoint for booking slots
+      const response = await axios.get(`${baseUrl}/api/booking-slots/${title}`, {
+  
       });
+      
       console.log('📡 API Response:', response.data);
-      if (response.data.success) {
-        console.log('✅ Setting slot from API:', response.data.slot);
-        setSlot(response.data.slot);
+      
+      if (response.data.success && response.data.bookingSlot) {
+        console.log('✅ Setting slot from API:', response.data.bookingSlot);
+        setSlot(response.data.bookingSlot);
+        
+        // If we have a company_id, fetch employees for this company
+        if (response.data.bookingSlot.company_id) {
+          await fetchEmployees(response.data.bookingSlot.company_id);
+        }
       } else {
-        // Fallback to mock data for testing
-        console.warn('⚠️ API returned no data, using mock data for:', title);
-        const mockSlot = {
-          id: 'mock-slot-' + title,
-          title: title.includes('farah') ? 'Test with Farah' : 'Test Booking',
-          slug: title,
-          description: 'Test booking session',
-          location: 'Online Meeting',
-          company_id: '0210',
-          created_by: 'admin@juta.com',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_active: true,
-          duration: 60
-        };
-        console.log('🎭 Setting mock slot:', mockSlot);
-        setSlot(mockSlot);
+        throw new Error('No booking slot found in response');
       }
     } catch (error) {
       console.error('❌ Error fetching booking slot:', error);
-      // Fallback to mock data for testing
-      console.warn('🎭 API call failed, using mock data for:', title);
-      const mockSlot = {
-        id: 'mock-slot-' + title,
-        title: title.includes('farah') ? 'Test with Farah' : 'Test Booking',
-        slug: title,
-        description: 'Test booking session',
-        location: 'Online Meeting',
-        company_id: '0210',
-        created_by: 'admin@juta.com',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        is_active: true,
-        duration: 60
-      };
-      console.log('🎭 Setting mock slot after error:', mockSlot);
-      setSlot(mockSlot);
+      throw error; // Let the useEffect handle the fallback
     } finally {
       console.log('🏁 Setting isLoading to false');
       setIsLoading(false);
+    }
+  };
+
+  const fetchEmployees = async (companyId: string) => {
+    console.log('👥 Fetching employees for company:', companyId);
+    try {
+      const response = await axios.get(`${baseUrl}/api/employees-data/${companyId}`, {
+        timeout: 5000
+      });
+      
+      console.log('👥 Employees API Response:', response.data);
+      
+      if (response.data && Array.isArray(response.data)) {
+        console.log('✅ Setting employees from API:', response.data);
+        setEmployees(response.data);
+        
+        // If staffName is provided in URL params, find and set the selected staff
+        if (staffName && response.data.length > 0) {
+          const matchingEmployee = response.data.find((emp: any) => 
+            emp.name?.toLowerCase().includes(staffName.toLowerCase()) ||
+            emp.fullName?.toLowerCase().includes(staffName.toLowerCase())
+          );
+          if (matchingEmployee) {
+            setSelectedStaff(matchingEmployee.name || matchingEmployee.fullName || staffName);
+            console.log('✅ Pre-selected staff from URL:', matchingEmployee);
+            
+            // Update slot with staff phone if available
+            const staffPhone = matchingEmployee.phoneNumber || matchingEmployee.phone || '';
+            if (staffPhone && slot) {
+              setSlot(prevSlot => prevSlot ? {
+                ...prevSlot,
+                staff_phone: staffPhone
+              } : prevSlot);
+              console.log('✅ Updated slot with staff phone:', staffPhone);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error fetching employees:', error);
+      // Don't throw error, just log it as employees are not critical for basic booking
     }
   };
 
@@ -950,8 +974,17 @@ function PublicBookingForm() {
         bookedAt: new Date().toISOString(),
         selectedDate: selectedSlot.date,
         selectedTime: selectedSlot.time,
-        staffName: selectedStaff
+        staffName: selectedStaff || slot?.staff_name || 'Unassigned' // Fallback to slot staff_name if selectedStaff is empty
       };
+
+      console.log('📋 Created booking record:', bookingRecord);
+      console.log('👨‍💼 Selected staff:', selectedStaff);
+      console.log('👨‍💼 Staff name type:', typeof selectedStaff);
+      console.log('👨‍💼 Staff name value:', JSON.stringify(selectedStaff));
+
+      // Parse the appointment start time for reminders
+      const eventDate = new Date(selectedSlot.date);
+      const startTime = parseTimeSlot(eventDate, selectedSlot.time);
 
       // For test mode, skip database booking but try Google Calendar
       if (!slotTitle) {
@@ -963,6 +996,14 @@ function PublicBookingForm() {
           console.log('✅ Google Calendar event created successfully in test mode');
         } catch (error) {
           console.warn('⚠️ Google Calendar creation failed in test mode (API not ready):', error instanceof Error ? error.message : String(error));
+        }
+
+        // Schedule reminders for test mode
+        try {
+          await scheduleReminders(bookingRecord, startTime);
+          console.log('✅ Reminders scheduled successfully in test mode');
+        } catch (error) {
+          console.warn('⚠️ Reminder scheduling failed in test mode:', error);
         }
         
         // Preserve booking details for confirmation page
@@ -988,6 +1029,14 @@ function PublicBookingForm() {
           console.log('✅ Google Calendar event created successfully');
         } catch (error) {
           console.warn('⚠️ Google Calendar creation failed (booking still confirmed):', error instanceof Error ? error.message : String(error));
+        }
+
+        // Schedule reminders after successful booking
+        try {
+          await scheduleReminders(bookingRecord, startTime);
+          console.log('✅ Reminders scheduled successfully');
+        } catch (error) {
+          console.warn('⚠️ Reminder scheduling failed (booking still confirmed):', error);
         }
         
         // Preserve booking details for confirmation page
@@ -1071,6 +1120,661 @@ function PublicBookingForm() {
     }
   };
 
+  const checkContactExists = async (phoneNumber: string, companyId: string): Promise<string | null> => {
+    try {
+      // Format the phone number (remove any non-digit characters)
+      const formattedPhone = phoneNumber.replace(/\D/g, '');
+      
+      // Generate the expected contact_id format
+      const expectedContactId = companyId + "-" + formattedPhone;
+      
+      // Try to fetch the contact to see if it exists
+      const response = await axios.get(
+        `${baseUrl}/api/contacts/${expectedContactId}`
+      );
+      
+      if (response.data && response.data.success && response.data.contact) {
+        console.log('✅ Contact already exists:', expectedContactId);
+        return expectedContactId;
+      }
+      
+      return null;
+    } catch (error) {
+      // Contact doesn't exist, which is fine
+      return null;
+    }
+  };
+
+  const createContactForReminder = async (bookingRecord: BookingRecord, companyId: string): Promise<string | null> => {
+    try {
+      // Format the phone number (remove any non-digit characters)
+      const formattedPhone = bookingRecord.phoneNumber.replace(/\D/g, '');
+      
+      // Generate contact_id as companyId + phone (same format as CrudDataList)
+      const contact_id = companyId + "-" + formattedPhone;
+      
+      // Generate chat_id for WhatsApp
+      const chat_id = formattedPhone + "@c.us";
+      
+      // Prepare the contact data
+      const contactData = {
+        contact_id,
+        companyId,
+        contactName: `${bookingRecord.name} ${lastName}`,
+        name: `${bookingRecord.name} ${lastName}`,
+        last_name: lastName,
+        email: bookingRecord.email || '',
+        phone: `+${formattedPhone}`,
+        address1: '',
+        companyName: '',
+        locationId: '',
+        dateAdded: new Date().toISOString(),
+        unreadCount: 0,
+        branch: '',
+        expiryDate: '',
+        vehicleNumber: '',
+        ic: '',
+        chat_id: chat_id,
+        notes: `Auto-created from booking form for appointment reminder`,
+      };
+
+      console.log('📝 Creating contact for reminder:', contactData);
+      
+      // Send POST request to create the contact
+      const response = await axios.post(
+        `${baseUrl}/api/contacts`,
+        contactData
+      );
+
+      if (response.data.success) {
+        console.log('✅ Contact created successfully for reminder');
+        return contact_id;
+      } else {
+        console.warn('⚠️ Contact creation response not successful:', response.data);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Failed to create contact for reminder:', error);
+      return null;
+    }
+  };
+
+  // New function to fetch employee data including phone number
+  const fetchEmployeeData = async (staffName: string, companyId: string): Promise<{ phoneNumber: string; contactId: string } | null> => {
+    try {
+      console.log('🔍 Fetching employee data for:', staffName);
+      console.log('🏢 Company ID:', companyId);
+      
+      // First try to get employee data from user-page-context
+      try {
+        console.log('🔄 Trying user-page-context endpoint...');
+        const response = await axios.get(`${baseUrl}/api/user-page-context?email=${slot?.created_by || 'admin@juta.com'}`);
+        
+        if (response.data && response.data.employees) {
+          console.log('📋 Found employees in user-page-context:', response.data.employees);
+          
+          // Find the employee by name (case-insensitive)
+          const employee = response.data.employees.find((emp: any) => 
+            emp.name?.toLowerCase() === staffName.toLowerCase() || 
+            emp.email?.toLowerCase() === staffName.toLowerCase()
+          );
+          
+          if (employee && employee.phoneNumber) {
+            console.log('✅ Found employee with phone number:', employee);
+            
+            // Format phone number and create contact_id
+            const formattedPhone = employee.phoneNumber.replace(/\D/g, '');
+            const contactId = companyId + "-" + formattedPhone;
+            
+            return {
+              phoneNumber: formattedPhone,
+              contactId: contactId
+            };
+          } else {
+            console.log('⚠️ Employee found but no phone number:', employee);
+          }
+        } else {
+          console.log('⚠️ No employees found in user-page-context response');
+        }
+      } catch (error) {
+        console.log('⚠️ user-page-context endpoint failed:', error);
+      }
+      
+      // Fallback: Try to get employee data from a different endpoint
+      try {
+        console.log('🔄 Trying alternative employee data endpoint...');
+        const altResponse = await axios.get(`${baseUrl}/api/employees?companyId=${companyId}&search=${encodeURIComponent(staffName)}`);
+        
+        if (altResponse.data && altResponse.data.employees) {
+          console.log('📋 Found employees in alternative endpoint:', altResponse.data.employees);
+          
+          const employee = altResponse.data.employees.find((emp: any) => 
+            emp.name?.toLowerCase() === staffName.toLowerCase() || 
+            emp.email?.toLowerCase() === staffName.toLowerCase()
+          );
+          
+          if (employee && employee.phoneNumber) {
+            console.log('✅ Found employee via alternative endpoint:', employee);
+            
+            const formattedPhone = employee.phoneNumber.replace(/\D/g, '');
+            const contactId = companyId + "-" + formattedPhone;
+            
+            return {
+              phoneNumber: formattedPhone,
+              contactId: contactId
+            };
+          } else {
+            console.log('⚠️ Employee found in alternative endpoint but no phone number:', employee);
+          }
+        } else {
+          console.log('⚠️ No employees found in alternative endpoint response');
+        }
+      } catch (altError) {
+        console.log('⚠️ Alternative endpoint also failed:', altError);
+      }
+      
+      // Try one more approach: search by name in the employees endpoint
+      try {
+        console.log('🔄 Trying direct name search in employees endpoint...');
+        const searchResponse = await axios.get(`${baseUrl}/api/employees?companyId=${companyId}`);
+        
+        if (searchResponse.data && searchResponse.data.employees) {
+          console.log('📋 All employees in company:', searchResponse.data.employees);
+          
+          // Find employee by name (case-insensitive partial match)
+          const employee = searchResponse.data.employees.find((emp: any) => 
+            emp.name?.toLowerCase().includes(staffName.toLowerCase()) ||
+            staffName.toLowerCase().includes(emp.name?.toLowerCase())
+          );
+          
+          if (employee && employee.phoneNumber) {
+            console.log('✅ Found employee via name search:', employee);
+            
+            const formattedPhone = employee.phoneNumber.replace(/\D/g, '');
+            const contactId = companyId + "-" + formattedPhone;
+            
+            return {
+              phoneNumber: formattedPhone,
+              contactId: contactId
+            };
+          }
+        }
+      } catch (searchError) {
+        console.log('⚠️ Direct name search also failed:', searchError);
+      }
+      
+      console.log('❌ Employee not found or no phone number for:', staffName);
+      return null;
+    } catch (error) {
+      console.error('❌ Error fetching employee data:', error);
+      return null;
+    }
+  };
+
+  // New simplified function to create staff contact directly from phone number
+  const ensureStaffContactFromPhone = async (staffName: string, staffPhone: string, companyId: string): Promise<string | null> => {
+    try {
+      console.log('📞 Creating staff contact from phone for:', staffName);
+      console.log('📞 Staff phone:', staffPhone);
+      console.log('🏢 Company ID:', companyId);
+      
+      // Format the phone number (remove any non-digit characters)
+      const formattedPhone = staffPhone.replace(/\D/g, '');
+      const contactId = companyId + "-" + formattedPhone;
+      
+      // Check if contact already exists
+      const existingContact = await checkContactExists(formattedPhone, companyId);
+      if (existingContact) {
+        console.log('✅ Staff contact already exists:', existingContact);
+        return existingContact;
+      }
+      
+      console.log('📝 Staff contact does not exist, creating new one...');
+      
+      // Create staff contact
+      const contactData = {
+        contact_id: contactId,
+        companyId,
+        contactName: staffName,
+        name: staffName,
+        last_name: '',
+        email: '', // Staff email not available from booking slot
+        phone: `+${formattedPhone}`,
+        address1: '',
+        companyName: '',
+        locationId: '',
+        dateAdded: new Date().toISOString(),
+        unreadCount: 0,
+        branch: '',
+        expiryDate: '',
+        vehicleNumber: '',
+        staff: true // Mark as staff contact
+      };
+      
+      console.log('📝 Creating staff contact with data:', contactData);
+      
+      const response = await axios.post(
+        `${baseUrl}/api/contacts`,
+        contactData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      
+      if (response.data && response.data.success) {
+        console.log('✅ Staff contact created successfully:', contactId);
+        return contactId;
+      } else {
+        console.error('❌ Failed to create staff contact:', response.data);
+        return null;
+      }
+      
+    } catch (error) {
+      console.error('❌ Error creating staff contact from phone:', error);
+      return null;
+    }
+  };
+
+  // New function to create or get employee contact for reminders (fallback method)
+  const ensureEmployeeContact = async (staffName: string, companyId: string): Promise<string | null> => {
+    try {
+      console.log('🔧 Ensuring employee contact exists for:', staffName);
+      console.log('🏢 Company ID:', companyId);
+      
+      // First try to fetch employee data
+      const employeeData = await fetchEmployeeData(staffName, companyId);
+      
+      if (employeeData) {
+        console.log('✅ Employee data retrieved:', employeeData);
+        
+        // Check if contact already exists
+        const existingContact = await checkContactExists(employeeData.phoneNumber, companyId);
+        if (existingContact) {
+          console.log('✅ Employee contact already exists:', existingContact);
+          return existingContact;
+        }
+        
+        console.log('📝 Employee contact does not exist, creating new one...');
+        
+        // Create employee contact if it doesn't exist
+        const contactData = {
+          contact_id: employeeData.contactId,
+          companyId,
+          contactName: staffName,
+          name: staffName,
+          last_name: '',
+          email: staffName, // Use staff name as email for now
+          phone: `+${employeeData.phoneNumber}`,
+          address1: '',
+          companyName: '',
+          locationId: '',
+          dateAdded: new Date().toISOString(),
+          unreadCount: 0,
+          branch: '',
+          expiryDate: '',
+          vehicleNumber: '',
+          ic: '',
+          chat_id: `${employeeData.phoneNumber}@c.us`,
+          notes: `Auto-created employee contact for appointment reminder`,
+        };
+
+        console.log('📝 Creating employee contact for reminder:', contactData);
+        
+        const response = await axios.post(
+          `${baseUrl}/api/contacts`,
+          contactData
+        );
+
+        if (response.data.success) {
+          console.log('✅ Employee contact created successfully');
+          return employeeData.contactId;
+        } else {
+          console.warn('⚠️ Employee contact creation response not successful:', response.data);
+        }
+      } else {
+        console.warn('⚠️ Could not retrieve employee data for:', staffName);
+      }
+      
+      console.warn('⚠️ Could not create employee contact, using fallback');
+      return null;
+    } catch (error) {
+      console.error('❌ Error ensuring employee contact:', error);
+      return null;
+    }
+  };
+
+  const scheduleReminders = async (bookingRecord: BookingRecord, startTime: Date) => {
+    try {
+      console.log('🔔 Scheduling reminders for booking:', bookingRecord);
+      console.log('📅 Appointment start time:', startTime.toLocaleString());
+      console.log('🔍 Debug staff values at start of scheduleReminders:');
+      console.log('   bookingRecord.staffName:', bookingRecord.staffName);
+      console.log('   selectedStaff:', selectedStaff);
+      console.log('   slot?.staff_name:', slot?.staff_name);
+      console.log('   slot?.staff_phone:', slot?.staff_phone);
+      
+      // Get the company admin's email (the person who created the booking slot)
+      const adminEmail = slot?.created_by || 'admin@juta.com';
+      console.log('👤 Admin email for reminders:', adminEmail);
+      
+      // Create appointment object for reminder processing
+      const appointment = {
+        id: `booking-${Date.now()}`,
+        title: `${slot?.title} - ${bookingRecord.name}`,
+        startTime: startTime.toISOString(),
+        endTime: new Date(startTime.getTime() + (slot?.duration || 30) * 60000).toISOString(),
+        address: slot?.location || 'Location TBD',
+        contacts: [{
+          id: `contact-${Date.now()}`,
+          name: `${bookingRecord.name} ${lastName}`,
+          phone: bookingRecord.phoneNumber,
+          email: bookingRecord.email || ''
+        }],
+        staff: [bookingRecord.staffName || 'Unassigned'], // Array for appointment system
+        staff_name: [bookingRecord.staffName || 'Unassigned'] // Array for reminder system
+      };
+
+      console.log('📋 Created appointment object:', appointment);
+
+      // Get reminder settings from the company admin
+      let reminderSettings = await fetchReminderSettings(adminEmail);
+      
+      if (!reminderSettings || !reminderSettings.reminders) {
+        console.log('No reminder settings found, using defaults');
+        // Set default reminder settings
+        reminderSettings = {
+          reminders: [
+            {
+              enabled: true,
+              time: 24, // 24 hours = 1 day
+              timeUnit: "hours" as const,
+              type: "before" as const,
+              message: "Reminder: You have an appointment tomorrow at {time} {unit} {when}. Please be prepared!",
+              recipientType: "both" as const,
+              selectedEmployees: []
+            }
+          ]
+        };
+        console.log('✅ Using default reminder settings:', reminderSettings);
+      } else {
+        console.log('✅ Found existing reminder settings:', reminderSettings);
+      }
+
+      // Process each enabled reminder
+      for (const reminder of reminderSettings.reminders) {
+        if (!reminder.enabled) {
+          console.log('⏭️ Skipping disabled reminder:', reminder);
+          continue;
+        }
+        
+        console.log('🔄 Processing reminder:', reminder);
+
+        // Calculate the reminder time
+        let reminderTime: Date;
+        if (reminder.type === "before") {
+          reminderTime = new Date(startTime);
+          if (reminder.timeUnit === "minutes") {
+            reminderTime.setMinutes(reminderTime.getMinutes() - reminder.time);
+          } else if (reminder.timeUnit === "hours") {
+            reminderTime.setHours(reminderTime.getHours() - reminder.time);
+          } else if (reminder.timeUnit === "days") {
+            reminderTime.setDate(reminderTime.getDate() - reminder.time);
+          }
+        } else {
+          reminderTime = new Date(startTime);
+          if (reminder.timeUnit === "minutes") {
+            reminderTime.setMinutes(reminderTime.getMinutes() + reminder.time);
+          } else if (reminder.timeUnit === "hours") {
+            reminderTime.setHours(reminderTime.getHours() + reminder.time);
+          } else if (reminder.timeUnit === "days") {
+            reminderTime.setDate(reminderTime.getDate() + reminder.time);
+          }
+        }
+
+        console.log(`⏰ Calculated reminder time: ${reminderTime.toLocaleString()}`);
+
+        // Send CLIENT REMINDER separately
+        if (reminder.recipientType === "contacts" || reminder.recipientType === "both") {
+          console.log('📞 Processing CLIENT reminder...');
+          
+          const clientMessage = `CLIENT REMINDER: You have an appointment scheduled for ${startTime.toLocaleDateString()} at ${startTime.toLocaleTimeString()}. Please be prepared!`;
+          
+          // Create or get contact for client reminder
+          console.log('📞 Processing client reminder for:', bookingRecord.phoneNumber);
+          let contactId = await checkContactExists(bookingRecord.phoneNumber, slot?.company_id || 'default-company');
+          
+          if (!contactId) {
+            contactId = await createContactForReminder(bookingRecord, slot?.company_id || 'default-company');
+          }
+          
+          if (contactId) {
+            console.log('✅ Client contact ready:', contactId);
+            
+            const clientScheduledData = {
+              chatIds: [contactId],
+              message: clientMessage,
+              messages: [{
+                chatId: contactId,
+                message: clientMessage,
+                contactData: {
+                  contactName: `${bookingRecord.name} ${lastName}`,
+                  firstName: bookingRecord.name,
+                  lastName: lastName,
+                  email: bookingRecord.email || '',
+                  phone: bookingRecord.phoneNumber,
+                  vehicleNumber: '',
+                  branch: '',
+                  expiryDate: '',
+                  ic: ''
+                }
+              }],
+              batchQuantity: 1,
+              companyId: slot?.company_id || 'default-company',
+              contact_id: [contactId],
+              createdAt: new Date().toISOString(),
+              documentUrl: "",
+              fileName: null,
+              mediaUrl: "",
+              mimeType: null,
+              repeatInterval: 0,
+              repeatUnit: "days",
+              scheduledTime: reminderTime.toISOString(),
+              status: "scheduled",
+              v2: true,
+              whapiToken: null,
+              phoneIndex: 0,
+              minDelay: 0,
+              maxDelay: 0,
+              activateSleep: false,
+              sleepAfterMessages: null,
+              sleepDuration: null,
+              multiple: false,
+            };
+
+            try {
+              console.log('📤 Sending CLIENT reminder to schedule-message API');
+              const clientResponse = await axios.post(
+                `${baseUrl}/api/schedule-message/${slot?.company_id || 'default-company'}`,
+                clientScheduledData
+              );
+              
+              if (clientResponse.data.success) {
+                console.log(`✅ CLIENT reminder scheduled successfully for ${reminderTime.toLocaleString()}`);
+                console.log(`📞 Client: ${contactId}`);
+                console.log(`📝 Client Message: ${clientMessage}`);
+              } else {
+                console.warn('⚠️ Client reminder scheduling failed:', clientResponse.data);
+              }
+            } catch (error) {
+              console.error('❌ Failed to schedule CLIENT reminder:', error);
+            }
+          } else {
+            console.warn('⚠️ Failed to create/get client contact, skipping client reminder');
+          }
+        }
+
+        // Send STAFF REMINDER separately
+        if (reminder.recipientType === "employees" || reminder.recipientType === "both") {
+          console.log('👨‍💼 Processing STAFF reminder...');
+          
+          const staffMessage = `STAFF REMINDER: You have an appointment with ${bookingRecord.name} ${lastName} scheduled for ${startTime.toLocaleDateString()} at ${startTime.toLocaleTimeString()}. Please be prepared!`;
+          
+          if (bookingRecord.staffName && slot?.staff_phone) {
+            console.log('📞 Using staff phone from slot:', slot.staff_phone);
+            const employeeContactId = await ensureStaffContactFromPhone(bookingRecord.staffName, slot.staff_phone, slot?.company_id || 'default-company');
+            
+            if (employeeContactId) {
+              console.log('✅ Staff contact ready:', employeeContactId);
+              console.log('📞 Staff will receive reminder at phone:', slot.staff_phone);
+              
+              const staffScheduledData = {
+                chatIds: [employeeContactId],
+                message: staffMessage,
+                messages: [{
+                  chatId: employeeContactId,
+                  message: staffMessage,
+                  contactData: {
+                    contactName: bookingRecord.staffName,
+                    firstName: bookingRecord.staffName,
+                    lastName: '',
+                    email: '',
+                    phone: slot.staff_phone,
+                    vehicleNumber: '',
+                    branch: '',
+                    expiryDate: '',
+                    ic: ''
+                  }
+                }],
+                batchQuantity: 1,
+                companyId: slot?.company_id || 'default-company',
+                contact_id: [employeeContactId],
+                createdAt: new Date().toISOString(),
+                documentUrl: "",
+                fileName: null,
+                mediaUrl: "",
+                mimeType: null,
+                repeatInterval: 0,
+                repeatUnit: "days",
+                scheduledTime: reminderTime.toISOString(),
+                status: "scheduled",
+                v2: true,
+                whapiToken: null,
+                phoneIndex: 0,
+                minDelay: 0,
+                maxDelay: 0,
+                activateSleep: false,
+                sleepAfterMessages: null,
+                sleepDuration: null,
+                multiple: false,
+              };
+
+              try {
+                console.log('📤 Sending STAFF reminder to schedule-message API');
+                const staffResponse = await axios.post(
+                  `${baseUrl}/api/schedule-message/${slot?.company_id || 'default-company'}`,
+                  staffScheduledData
+                );
+                
+                if (staffResponse.data.success) {
+                  console.log(`✅ STAFF reminder scheduled successfully for ${reminderTime.toLocaleString()}`);
+                  console.log(`👨‍💼 Staff: ${employeeContactId}`);
+                  console.log(`📝 Staff Message: ${staffMessage}`);
+                } else {
+                  console.warn('⚠️ Staff reminder scheduling failed:', staffResponse.data);
+                }
+              } catch (error) {
+                console.error('❌ Failed to schedule STAFF reminder:', error);
+              }
+            } else {
+              console.warn('⚠️ Could not create staff contact, skipping staff reminder');
+            }
+          } else {
+            console.log('⚠️ Missing staff info - staffName:', bookingRecord.staffName, 'staff_phone:', slot?.staff_phone);
+          }
+        }
+      }
+      
+      console.log('🎉 Reminder scheduling process completed');
+    } catch (error) {
+      console.error('❌ Error scheduling reminders:', error);
+      // Don't fail the booking if reminder scheduling fails
+    }
+  };
+
+  const fetchReminderSettings = async (userEmail: string): Promise<ReminderSettings | null> => {
+    try {
+      const response = await axios.get(
+        `${baseUrl}/api/reminder-settings?email=${encodeURIComponent(userEmail)}`
+      );
+      
+      if (response.data && response.data.reminders && response.data.reminders.length > 0) {
+        // Transform the backend data structure to match our interface
+        const transformedReminders = response.data.reminders.map((reminder: any) => ({
+          enabled: reminder.enabled !== false, // Default to true if not specified
+          time: reminder.hours_before || reminder.time || 24, // Use hours_before if available
+          timeUnit: "hours" as const, // Backend uses hours_before, so default to hours
+          type: "before" as const, // Backend uses hours_before, so default to before
+          message: reminder.message_template || reminder.message || "Reminder: You have an appointment scheduled for {datetime}",
+          recipientType: "both", // Force to "both" for booking appointments - always send to staff and clients
+          selectedEmployees: reminder.selected_employees || []
+        }));
+        
+        return {
+          reminders: transformedReminders
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error fetching reminder settings:', error);
+      return null;
+    }
+  };
+
+  // Test function to check available employees
+  const testEmployeeLookup = async () => {
+    try {
+      console.log('🧪 Testing employee lookup...');
+      console.log('🏢 Company ID:', slot?.company_id);
+      console.log('👤 Admin email:', slot?.created_by);
+      
+      // Test user-page-context endpoint
+      try {
+        const response = await axios.get(`${baseUrl}/api/user-page-context?email=${slot?.created_by || 'admin@juta.com'}`);
+        console.log('📋 user-page-context response:', response.data);
+        if (response.data && response.data.employees) {
+          console.log('👥 Available employees:', response.data.employees);
+          response.data.employees.forEach((emp: any, index: number) => {
+            console.log(`👤 Employee ${index + 1}:`, {
+              name: emp.name,
+              email: emp.email,
+              phoneNumber: emp.phoneNumber,
+              hasPhone: !!emp.phoneNumber
+            });
+          });
+        }
+      } catch (error) {
+        console.log('❌ user-page-context failed:', error);
+      }
+      
+      // Test employees endpoint
+      try {
+        const empResponse = await axios.get(`${baseUrl}/api/employees?companyId=${slot?.company_id || '0210'}`);
+        console.log('📋 employees endpoint response:', empResponse.data);
+        if (empResponse.data && empResponse.data.employees) {
+          console.log('👥 Available employees from employees endpoint:', empResponse.data.employees);
+        }
+      } catch (error) {
+        console.log('❌ employees endpoint failed:', error);
+      }
+      
+    } catch (error) {
+      console.error('❌ Test employee lookup failed:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -1122,6 +1826,26 @@ function PublicBookingForm() {
                   <span className="text-gray-700">{slot.location}</span>
                 </div>
               </div>
+
+              {/* Reminder Notification */}
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 19h6l-6 6v-6zM4 13h6l-6 6v-6zM4 7h6l-6 6V7zM10 19h6l-6 6v-6zM10 13h6l-6 6v-6zM10 7h6l-6 6V7z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-blue-800 mb-1">
+                      🔔 Reminders Set Up
+                    </h3>
+                    <p className="text-sm text-blue-700">
+                      We've automatically set up reminders for both you and your assigned staff member. 
+                      You'll receive a WhatsApp notification 24 hours before your appointment to ensure everyone is prepared.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1135,7 +1859,7 @@ function PublicBookingForm() {
         {/* Header */}
         <div className="flex items-start justify-between mb-8 pb-6">
           <div>
-            <h1 className="text-3xl font-normal text-gray-900 mb-2">{selectedStaff || 'Tika'}</h1>
+            <h1 className="text-3xl font-normal text-gray-900 mb-2">{selectedStaff || 'Select Staff'}</h1>
             <h2 className="text-xl font-normal text-gray-700 mb-4">{slot.title}</h2>
             
             <div className="flex items-center text-gray-600 mb-2">
@@ -1381,9 +2105,9 @@ function PublicBookingForm() {
                   })} at {selectedTime}
                 </span>
                 {selectedStaff && (
-                  <span className="ml-4 text-blue-600">
+                  <div className="text-sm text-gray-600">
                     with {selectedStaff}
-                  </span>
+                  </div>
                 )}
               </div>
             </div>
@@ -1431,6 +2155,18 @@ function PublicBookingForm() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="john@example.com"
                   />
+                </div>
+              </div>
+
+              {/* Reminder Information */}
+              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm text-green-700">
+                    🔔 Automatic reminders will be set up for both you and your staff member 24 hours before the appointment
+                  </span>
                 </div>
               </div>
 
@@ -1502,6 +2238,23 @@ function PublicBookingForm() {
                   <path d="M2 6a2 2 0 012-2h6l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM5 8a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h8a1 1 0 100-2H6z" />
                 </svg>
                 <span className="text-sm">Google Meet video conference info added after booking</span>
+              </div>
+            </div>
+
+            {/* Reminder Information */}
+            <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start space-x-2">
+                <svg className="w-4 h-4 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 19h6l-6 6v-6zM4 13h6l-6 6v-6zM4 7h6l-6 6V7zM10 19h6l-6 6v-6zM10 13h6l-6 6v-6zM10 7h6l-6 6V7z" />
+                </svg>
+                <div>
+                  <h3 className="text-sm font-medium text-blue-800 mb-1">
+                    🔔 Automatic Reminders
+                  </h3>
+                  <p className="text-xs text-blue-700">
+                    We'll automatically set up WhatsApp reminders for both you and your staff member 24 hours before the appointment.
+                  </p>
+                </div>
               </div>
             </div>
 

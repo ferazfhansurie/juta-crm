@@ -3479,7 +3479,7 @@ interface BotStatusResponse {
       // Check custom fields
       const customFieldMatch = contact.customFields
         ? Object.entries(contact.customFields).some(([key, value]) =>
-            value?.toLowerCase().includes(searchTerm)
+            String(value || "").toLowerCase().includes(searchTerm)
           )
         : false;
 

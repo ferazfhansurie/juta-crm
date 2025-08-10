@@ -72,6 +72,9 @@ interface CalendarConfig {
 interface Employee {
   id: string;
   name: string;
+  fullName?: string;
+  phoneNumber?: string;
+  phone?: string;
   color: string;
   backgroundStyle: string;
 }
@@ -123,8 +126,8 @@ interface ReminderSettings {
     timeUnit: "minutes" | "hours" | "days";
     type: "before" | "after";
     message: string;
-    recipientType?: "contacts" | "employees"; // Who should receive the reminder
-    selectedEmployees?: string[]; // Array of employee IDs when recipientType is 'employees'
+    recipientType?: "contacts" | "employees" | "both"; // Who should receive the reminder
+    selectedEmployees?: string[]; // Array of employee IDs when recipientType is 'employees' or 'both'
   }>;
 }
 
@@ -228,15 +231,75 @@ function Main() {
           userEmail
         )}`
       );
-      if (response.data) {
+      if (response.data && response.data.reminders && response.data.reminders.length > 0) {
         const apiResponse = response.data;
         const settings: ReminderSettings = {
           reminders: apiResponse.reminders || []
         };
         setReminderSettings(settings);
+      } else {
+        // Set default reminder settings if none exist
+        const defaultSettings: ReminderSettings = {
+          reminders: [
+            {
+              enabled: true,
+              time: 1,
+              timeUnit: "days",
+              type: "before",
+              message:
+                "Reminder: You have an appointment tomorrow at {time} {unit} {when}. Please be prepared!",
+              recipientType: "both",
+              selectedEmployees: [],
+            },
+            {
+              enabled: true,
+              time: 2,
+              timeUnit: "hours",
+              type: "before",
+              message:
+                "Final reminder: Your appointment starts in {time} {unit} {when}. Please be on time!",
+              recipientType: "both",
+              selectedEmployees: [],
+            },
+          ],
+        };
+        setReminderSettings(defaultSettings);
+        
+        // Save default settings to backend
+        try {
+          await updateReminderSettings(defaultSettings);
+        } catch (saveError) {
+          console.error("Failed to save default reminder settings:", saveError);
+        }
       }
     } catch (error) {
       console.error("Error fetching reminder settings:", error);
+      // Set default reminder settings on error
+      const defaultSettings: ReminderSettings = {
+        reminders: [
+          {
+            enabled: true,
+            time: 1,
+            timeUnit: "days",
+            type: "before",
+            message:
+              "Reminder: You have an appointment tomorrow at {time} {unit} {when}. Please be prepared!",
+            recipientType: "both",
+            selectedEmployees: [],
+          },
+          {
+            enabled: true,
+            time: 2,
+            timeUnit: "hours",
+            type: "before",
+            message:
+              "Final reminder: Your appointment starts in {time} {unit} {when}. Please be on time!",
+              recipientType: "both",
+              selectedEmployees: [],
+          },
+        ],
+      };
+      setReminderSettings(defaultSettings);
     }
   };
 
@@ -296,6 +359,10 @@ function Main() {
       // Create individual booking slots for each staff member
       const createdSlots = [];
       for (const staffName of bookingLinkForm.selectedStaff) {
+        // Find staff phone number from employees data
+        const staffEmployee = employees.find(emp => emp.name === staffName || emp.fullName === staffName);
+        const staffPhone = staffEmployee?.phoneNumber || staffEmployee?.phone || '';
+        
         // Add timestamp to ensure unique slug
         const timestamp = Date.now();
         const staffSlug = `${slug}-${staffName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}-${timestamp}`;
@@ -307,6 +374,7 @@ function Main() {
           location: bookingLinkForm.location,
           duration: bookingLinkForm.duration,
           staffName: staffName,
+          staff_phone: staffPhone, // Add staff phone number
           is_active: true,
           created_by: localStorage.getItem('userEmail'),
           company_id: companyId
@@ -314,7 +382,7 @@ function Main() {
 
         // Save booking slot to backend
         const userEmail = localStorage.getItem('userEmail');
-        const response = await axios.post(`http://localhost:8443/api/booking-slots`, bookingSlotData, {
+        const response = await axios.post(`${baseUrl}/api/booking-slots`, bookingSlotData, {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${userEmail}` // Adjust based on your auth system
@@ -787,16 +855,25 @@ function Main() {
       );
       const companyData = companyResponse.data;
 
-      // Format the message
+      // Format the message based on recipient type
       let message = "";
       if (reminderConfig) {
         // Use the reminder template if provided
         const startTime = new Date(appointmentDetails.startTime);
-        message = formatReminderMessage(
+        let baseMessage = formatReminderMessage(
           reminderConfig.message,
           appointmentDetails,
           startTime
         );
+        
+        // Customize message for different recipient types
+        if (reminderConfig.recipientType === "employees") {
+          message = `👨‍💼 EMPLOYEE REMINDER:\n\n${baseMessage}\n\n📍 Location: ${appointmentDetails.address || 'TBD'}\n👥 Staff: ${appointmentDetails.staff?.length || 0} assigned\n\nPlease ensure you're prepared for this appointment.`;
+        } else if (reminderConfig.recipientType === "contacts") {
+          message = `📱 CLIENT REMINDER:\n\n${baseMessage}\n\n📍 Location: ${appointmentDetails.address || 'TBD'}\n⏰ Duration: ${Math.round((new Date(appointmentDetails.endTime).getTime() - new Date(appointmentDetails.startTime).getTime()) / (1000 * 60))} minutes\n\nWe look forward to serving you!`;
+        } else {
+          message = baseMessage;
+        }
       } else {
         // Use the default message format
         message = `
@@ -832,8 +909,11 @@ ${
         recipients = employeesResponse.data
           .filter((emp: any) => emp.phoneNumber)
           .map((emp: any) => ({ id: emp.id, phone: emp.phoneNumber }));
-      } else {
+      } else if (reminderConfig && reminderConfig.recipientType === "contacts") {
         // Use appointment contacts
+        recipients = contacts;
+      } else {
+        // Default fallback
         recipients = contacts;
       }
 
@@ -1868,12 +1948,31 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
           );
           const companyId = companyResponse.data.companyId;
 
-          await sendWhatsAppNotification(
-            appointment.contacts,
-            appointment,
-            companyId,
-            reminder
-          );
+          // Handle different recipient types
+          if (reminder.recipientType === "both") {
+            // Send to both contacts and employees
+            await sendWhatsAppNotification(
+              appointment.contacts,
+              appointment,
+              companyId,
+              { ...reminder, recipientType: "contacts" }
+            );
+            
+            await sendWhatsAppNotification(
+              [],
+              appointment,
+              companyId,
+              { ...reminder, recipientType: "employees" }
+            );
+          } else {
+            // Send to single recipient type
+            await sendWhatsAppNotification(
+              appointment.contacts,
+              appointment,
+              companyId,
+              reminder
+            );
+          }
 
           // Mark as processed
           await axios.put(`${baseUrl}/api/mark-reminder-processed`, {
@@ -2104,6 +2203,16 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
             </button>
           </div>
 
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-800">
+            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+              💡 Pro Tip
+            </h3>
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              Set up reminders for both employees and clients to ensure everyone is prepared for appointments. 
+              You can create separate reminders for each group or use the "Both Parties" option for convenience.
+            </p>
+          </div>
+
           <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
             {reminderSettings?.reminders?.map(
               (reminder: any, index: number) => (
@@ -2220,11 +2329,35 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                               Specific Employees
                             </span>
                           </label>
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              className="form-radio text-primary"
+                              name={`recipient-type-${index}`}
+                              value="both"
+                              checked={reminder.recipientType === "both"}
+                              onChange={() => {
+                                const newReminders = [
+                                  ...(reminderSettings?.reminders || []),
+                                ];
+                                newReminders[index].recipientType = "both";
+                                if (!newReminders[index].selectedEmployees) {
+                                  newReminders[index].selectedEmployees = [];
+                                }
+                                setReminderSettings({
+                                  reminders: newReminders,
+                                });
+                              }}
+                            />
+                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                              Both Parties
+                            </span>
+                          </label>
                         </div>
                       </div>
 
-                      {/* Employee Selection (only shown when recipientType is 'employees') */}
-                      {reminder.recipientType === "employees" && (
+                      {/* Employee Selection (only shown when recipientType is 'employees' or 'both') */}
+                      {(reminder.recipientType === "employees" || reminder.recipientType === "both") && (
                         <div>
                           <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
                             Select Employees
@@ -2394,12 +2527,12 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                   ...(reminderSettings?.reminders || []),
                   {
                     enabled: true,
-                    time: 24,
-                    timeUnit: "hours" as const,
+                    time: 1,
+                    timeUnit: "days" as const,
                     type: "before" as const,
                     message:
-                      "You have an upcoming appointment {time} {unit} {when}.",
-                    recipientType: "contacts" as const,
+                      "Reminder: You have an appointment tomorrow at {time} {unit} {when}. Please be prepared!",
+                    recipientType: "both" as const,
                   },
                 ];
                 setReminderSettings({ reminders: newReminders });

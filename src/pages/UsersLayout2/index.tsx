@@ -83,6 +83,7 @@ function Main() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
   const navigate = useNavigate();
   const [employeeIdToDelete, setEmployeeIdToDelete] = useState<string>('');
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
@@ -129,6 +130,7 @@ function Main() {
 
   const fetchUserContext = async () => {
     try {
+      setIsLoading(true);
       const userEmail = localStorage.getItem('userEmail');
       if (!userEmail) {
         toast.error("No user email found");
@@ -137,14 +139,20 @@ function Main() {
 
       setCurrentUserEmail(userEmail);
 
+      console.log('Fetching user context for email:', userEmail);
+
       // Fetch user context which includes user data, company data, and employees
       const response = await axios.get(`${baseUrl}/api/user-page-context?email=${encodeURIComponent(userEmail)}`);
       const data = response.data;
+
+      console.log('User context data received:', data);
 
       // Set user data
       setRole(data.role);
       setCompanyId(data.companyId);
       setCurrentUserEmail(data.email);
+
+      console.log('Setting companyId:', data.companyId);
 
       // Set company data
       setCompanyData(data.companyData);
@@ -167,9 +175,14 @@ function Main() {
         await fetchGroups(data.companyId);
       }
 
+      setIsDataLoaded(true);
+      console.log('User context loaded successfully');
+
     } catch (error) {
       console.error('Error fetching user context:', error);
       toast.error("Failed to fetch user data");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -210,6 +223,17 @@ function Main() {
         throw new Error('Employee email not found');
       }
 
+      if (!isDataLoaded) {
+        throw new Error('Data is still loading. Please wait a moment and try again.');
+      }
+
+      if (!companyId) {
+        throw new Error('Company ID not available. Please wait for data to load.');
+      }
+
+      setIsLoading(true);
+      console.log('Attempting to delete employee:', { email: employeeEmail, companyId });
+
       // Delete user via API
       const response = await axios.delete(`${baseUrl}/api/delete-user`, {
         data: { 
@@ -239,6 +263,8 @@ function Main() {
       } else {
         toast.error('Failed to delete employee: ' + (error instanceof Error ? error.message : 'Unknown error'));
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -607,10 +633,21 @@ function Main() {
           </div>
         </div>
       </div>
-
+      
+      {/* Loading Indicator */}
+      {isLoading && !isDataLoaded && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">Loading user data...</p>
+          </div>
+        </div>
+      )}
+      
       {/* Main Content */}
-      <div className="flex-1 px-5 py-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {isDataLoaded && (
+        <div className="flex-1 px-5 py-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {paginatedEmployees.map((employee, index) => (
             <div 
               key={index} 
@@ -703,6 +740,7 @@ function Main() {
           />
         </div>
       </div>
+      )}
 
       {/* Rest of the modals remain unchanged */}
       {isModalOpen && (
@@ -730,9 +768,14 @@ function Main() {
                 <button
                   type="button"
                   onClick={() => handleDeleteEmployee(employeeIdToDelete)}
-                  className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto"
+                  disabled={!isDataLoaded || isLoading}
+                  className={`inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm sm:ml-3 sm:w-auto ${
+                    !isDataLoaded || isLoading 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-red-600 hover:bg-red-500'
+                  }`}
                 >
-                  Delete
+                  {isLoading ? 'Deleting...' : 'Delete'}
                 </button>
                 <button
                   type="button"

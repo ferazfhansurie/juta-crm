@@ -3554,9 +3554,7 @@ console.log(baseUrl);
         console.log("🔗 [WEBSOCKET] User email:", userEmail);
 
         // Create WebSocket connection with proper protocol handling
-        const wsUrl = window.location.protocol === 'https:' 
-          ? `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
-          : `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
+        const wsUrl =`wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
         console.log("🔗 [WEBSOCKET] WebSocket URL:", wsUrl);
         ws = new WebSocket(wsUrl);
         setWsConnection(ws);
