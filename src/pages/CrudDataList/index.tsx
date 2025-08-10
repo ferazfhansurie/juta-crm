@@ -6114,297 +6114,286 @@ const handleConfirmSyncFirebase = async () => {
                 )}
               </div>
               {/* Scheduled Messages Section */}
-              <div className="mt-3 mb-5">
-                <div className="flex items-center">
-                  <h2 className="z-10 text-xl font-semibold mb-1 text-gray-700 dark:text-gray-300">
-                    Scheduled Messages
-                  </h2>
-                  <button
-                    onClick={() => setShowScheduledMessages((prev) => !prev)}
-                    className="text-gray-700 dark:text-gray-300"
-                  >
-                    <Lucide
-                      icon={showScheduledMessages ? "ChevronUp" : "ChevronDown"}
-                      className="w-6 h-6 ml-2 mb-1 text-gray-700 dark:text-gray-300"
-                    />
-                  </button>
-                  {selectedScheduledMessages.length > 0 && (
-                    <div className="mb-4 flex gap-2">
-                      <button
-                        onClick={handleSendSelectedNow}
-                        className="text-sm bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition-colors duration-200"
-                      >
-                        Send Selected ({selectedScheduledMessages.length})
-                      </button>
-                      <button
-                        onClick={handleDeleteSelected}
-                        className="text-sm bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition-colors duration-200"
-                      >
-                        Delete Selected ({selectedScheduledMessages.length})
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {showScheduledMessages &&
-                  (getFilteredScheduledMessages().length > 0 ? (
-                    <div className="z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-                      {combineScheduledMessages(
-                        getFilteredScheduledMessages()
-                      ).map((message) => (
-                        <div
-                          key={message.id}
-                          className="z-10 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col h-full"
+              {!searchQuery && (
+                <div className="mt-3 mb-5">
+                  <div className="flex items-center">
+                    <h2 className="z-10 text-xl font-semibold mb-1 text-gray-700 dark:text-gray-300">
+                      Scheduled Messages
+                    </h2>
+                    <button
+                      onClick={() => setShowScheduledMessages((prev) => !prev)}
+                      className="text-gray-700 dark:text-gray-300"
+                    >
+                      <Lucide
+                        icon={showScheduledMessages ? "ChevronUp" : "ChevronDown"}
+                        className="w-6 h-6 ml-2 mb-1 text-gray-700 dark:text-gray-300"
+                      />
+                    </button>
+                    {selectedScheduledMessages.length > 0 && (
+                      <div className="mb-4 flex gap-2">
+                        <button
+                          onClick={handleSendSelectedNow}
+                          className="text-sm bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition-colors duration-200"
                         >
-                          <div className="z-10 p-4 flex-grow">
-                            <div className="z-10 flex justify-between items-center mb-2">
-                              <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                                {message.status === "scheduled"
-                                  ? "Scheduled"
-                                  : message.status}
-                              </span>
+                          Send Selected ({selectedScheduledMessages.length})
+                        </button>
+                        <button
+                          onClick={handleDeleteSelected}
+                          className="text-sm bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition-colors duration-200"
+                        >
+                          Delete Selected ({selectedScheduledMessages.length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {showScheduledMessages &&
+                    (getFilteredScheduledMessages().length > 0 ? (
+                      <div className="z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+                        {combineScheduledMessages(
+                          getFilteredScheduledMessages()
+                        ).map((message) => (
+                          <div
+                            key={message.id}
+                            className="z-10 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col h-full"
+                          >
+                            <div className="z-10 p-4 flex-grow">
+                              <div className="z-10 flex justify-between items-center mb-2">
+                                <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                                  {message.status === "scheduled"
+                                    ? "Scheduled"
+                                    : message.status}
+                                </span>
 
-                              <input
-                                type="checkbox"
-                                checked={selectedScheduledMessages.includes(
-                                  message.id!
-                                )}
-                                onChange={() =>
-                                  toggleScheduledMessageSelection(message.id!)
-                                }
-                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                              />
-                            </div>
-                            <div className="text-gray-800 dark:text-gray-200 mb-2 font-medium text-md">
-                              {/* First Message */}
-                              <p className="line-clamp-2">
-                                {message.messageContent
-                                  ? message.messageContent
-                                  : "No message content"}
-                              </p>
-
-                              {/* Scheduled Time and Contact Info */}
-                              <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                  <div>
-                                    <span className="font-semibold">
-                                      Scheduled:
-                                    </span>{" "}
-                                    {message.scheduledTime
-                                      ? new Date(
-                                          message.scheduledTime
-                                        ).toLocaleString()
-                                      : "Not set"}
-                                  </div>
-
-                                  {Array.isArray(message.contactIds) && message.contactIds.length > 0 ? (
-                                    <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
-                                      <Lucide icon="Users" className="w-4 h-4 mr-1" />
-                                      <span className="font-semibold">Recipients:</span>{" "}
-                                      <span className="ml-1 flex flex-wrap gap-1">
-                                        {Array.isArray(message.contactIds) && message.contactIds.length > 0
-                                          ? message.contactIds
-                                              .map((id: string) => {
-                                                const phoneNumber = id?.split("-")[1]?.replace(/\D/g, "") || "";
-                                                const contact = contacts.find(c => c.phone?.replace(/\D/g, "") === phoneNumber);
-                                                return (
-                                                  <span key={id} className="truncate mr-1">
-                                                    {contact?.contactName || phoneNumber || "Unknown"}
-                                                  </span>
-                                                );
-                                              })
-                                          : "Unknown"}
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
-                                      <Lucide icon="Users" className="w-4 h-4 mr-1" />
-                                      <span className="font-semibold">Recipient: </span>{" "}
-                                      {(() => {
-                                        const phoneNumber = message.contactId?.split("-")[1]?.replace(/\D/g, "") || "";
-                                        const contact = contacts.find(c => c.phone?.replace(/\D/g, "") === phoneNumber);
-                                        return contact?.contactName || phoneNumber || "Unknown";
-                                      })()}
-                                    </div>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedScheduledMessages.includes(
+                                    message.id!
                                   )}
-                                </div>
+                                  onChange={() =>
+                                    toggleScheduledMessageSelection(message.id!)
+                                  }
+                                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                />
                               </div>
-                              {/* Additional Messages */}
-                              {message.messages &&
-                                message.messages.length > 0 &&
-                                message.messages.some(
-                                  (msg) => msg.message !== message.message
-                                ) && (
-                                  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                    {message.messages.map(
-                                      (msg: any, index: number) => {
-                                        // Only show messages that are different from the first message
-                                        if (msg.message !== message.message) {
-                                          return (
-                                            <div key={index} className="mt-2">
-                                              <p className="line-clamp-2">
-                                                Message {index + 2}: {msg.text}
-                                              </p>
-                                              {message.messageDelays &&
-                                                message.messageDelays[index] >
-                                                  0 && (
-                                                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                    Delay:{" "}
-                                                    {
-                                                      message.messageDelays[
-                                                        index
-                                                      ]
-                                                    }{" "}
-                                                    seconds
-                                                  </span>
-                                                )}
-                                            </div>
-                                          );
-                                        }
-                                        return null;
-                                      }
+                              <div className="text-gray-800 dark:text-gray-200 mb-2 font-medium text-md">
+                                {/* First Message */}
+                                <p className="line-clamp-2">
+                                  {message.messageContent
+                                    ? message.messageContent
+                                    : "No message content"}
+                                </p>
+
+                                {/* Scheduled Time and Contact Info */}
+                                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <div>
+                                      <span className="font-semibold">
+                                        Scheduled:
+                                      </span>{" "}
+                                      {message.scheduledTime
+                                        ? new Date(
+                                            message.scheduledTime
+                                          ).toLocaleString()
+                                        : "Not set"}
+                                    </div>
+
+                                    {Array.isArray(message.contactIds) && message.contactIds.length > 0 ? (
+                                      <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
+                                        <Lucide icon="Users" className="w-4 h-4 mr-1" />
+                                        <span className="font-semibold">Recipients:</span>{" "}
+                                        <span className="ml-1 flex flex-wrap gap-1">
+                                          {Array.isArray(message.contactIds) && message.contactIds.length > 0
+                                            ? message.contactIds
+                                                .map((id: string) => {
+                                                  const phoneNumber = id?.split("-")[1]?.replace(/\D/g, "") || "";
+                                                  const contact = contacts.find(c => c.phone?.replace(/\D/g, "") === phoneNumber);
+                                                  return (
+                                                    <span key={id} className="truncate mr-1">
+                                                      {contact?.contactName || phoneNumber || "Unknown"}
+                                                    </span>
+                                                  );
+                                                })
+                                            : "Unknown"}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
+                                        <Lucide icon="Users" className="w-4 h-4 mr-1" />
+                                        <span className="font-semibold">Recipient: </span>{" "}
+                                        {(() => {
+                                          const phoneNumber = message.contactId?.split("-")[1]?.replace(/\D/g, "") || "";
+                                          const contact = contacts.find(c => c.phone?.replace(/\D/g, "") === phoneNumber);
+                                          return contact?.contactName || phoneNumber || "Unknown";
+                                        })()}
+                                      </div>
                                     )}
                                   </div>
-                                )}
-
-                              {/* Message Settings */}
-                              <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                  {/* Batch Settings */}
-
-                                  {message.batchQuantity != undefined && (
-                                    <div>
-                                      <span className="font-semibold">
-                                        Batch Size:
-                                      </span>{" "}
-                                      {message.batchQuantity}
+                                </div>
+                                {/* Additional Messages */}
+                                {message.messages &&
+                                  message.messages.length > 0 &&
+                                  message.messages.some(
+                                    (msg) => msg.message !== message.message
+                                  ) && (
+                                    <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                      {message.messages.map(
+                                        (msg: any, index: number) => {
+                                          // Only show messages that are different from the first message
+                                          if (msg.message !== message.message) {
+                                            return (
+                                              <div key={index} className="mt-2">
+                                                <p className="line-clamp-2">
+                                                  Message {index + 2}: {msg.text}
+                                                </p>
+                                                {message.messageDelays &&
+                                                  message.messageDelays[index] >
+                                                    0 && (
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                      Delay:{" "}
+                                                      {
+                                                        message.messageDelays[
+                                                          index
+                                                        ]
+                                                      }{" "}
+                                                      seconds
+                                                    </span>
+                                                  )}
+                                              </div>
+                                            );
+                                          }
+                                          return null;
+                                        }
+                                      )}
                                     </div>
                                   )}
-                                  {/* Delay Settings */}
-                                  {message.minDelay != undefined && (
-                                    <div>
-                                      <span className="font-semibold">
-                                        Delay:
-                                      </span>{" "}
-                                      {message.minDelay}-{message.maxDelay}s
-                                    </div>
-                                  )}
 
-                                  {/* Repeat Settings */}
-                                  {message.repeatInterval > 0 && (
-                                    <div>
-                                      <span className="font-semibold">
-                                        Repeat:
-                                      </span>{" "}
-                                      Every {message.repeatInterval}{" "}
-                                      {message.repeatUnit}
-                                    </div>
-                                  )}
+                                {/* Message Settings */}
+                                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                    {/* Batch Settings */}
 
-                                  {/* Sleep Settings */}
-                                  {message.activateSleep != undefined && (
-                                    <>
+                                    {message.batchQuantity != undefined && (
                                       <div>
                                         <span className="font-semibold">
-                                          Sleep After:
+                                          Batch Size:
                                         </span>{" "}
-                                        {message.sleepAfterMessages} messages
+                                        {message.batchQuantity}
                                       </div>
+                                    )}
+                                    {/* Delay Settings */}
+                                    {message.minDelay != undefined && (
                                       <div>
                                         <span className="font-semibold">
-                                          Sleep Duration:
+                                          Delay:
                                         </span>{" "}
-                                        {message.sleepDuration} minutes
+                                        {message.minDelay}-{message.maxDelay}s
                                       </div>
-                                    </>
-                                  )}
+                                    )}
 
-                                  {/* Active Hours */}
+                                    {/* Repeat Settings */}
+                                    {message.repeatInterval > 0 && (
+                                      <div>
+                                        <span className="font-semibold">
+                                          Repeat:
+                                        </span>{" "}
+                                        Every {message.repeatInterval}{" "}
+                                        {message.repeatUnit}
+                                      </div>
+                                    )}
 
-                                  {message.activeHours != undefined && (
-                                    <div className="col-span-2">
-                                      <span className="font-semibold">
-                                        Active Hours:
-                                      </span>{" "}
-                                      {message.activeHours?.start} -{" "}
-                                      {message.activeHours?.end}
-                                    </div>
-                                  )}
-                                  {/* Infinite Loop */}
-                                  {message.infiniteLoop && (
-                                    <div className="col-span-2 text-indigo-600 dark:text-indigo-400 flex items-center">
-                                      <Lucide
-                                        icon="RefreshCw"
-                                        className="w-4 h-4 mr-1"
-                                      />
-                                      Messages will loop indefinitely
-                                    </div>
-                                  )}
+                                    {/* Sleep Settings */}
+                                    {message.activateSleep != undefined && (
+                                      <>
+                                        <div>
+                                          <span className="font-semibold">
+                                            Sleep After:
+                                          </span>{" "}
+                                          {message.sleepAfterMessages} messages
+                                        </div>
+                                        <div>
+                                          <span className="font-semibold">
+                                            Sleep Duration:
+                                          </span>{" "}
+                                          {message.sleepDuration} minutes
+                                        </div>
+                                      </>
+                                    )}
+
+                                    {/* Active Hours */}
+
+                                    {message.activeHours != undefined && (
+                                      <div className="col-span-2">
+                                        <span className="font-semibold">
+                                          Active Hours:
+                                        </span>{" "}
+                                        {message.activeHours?.start} -{" "}
+                                        {message.activeHours?.end}
+                                      </div>
+                                    )}
+                                    {/* Infinite Loop */}
+                                    {message.infiniteLoop && (
+                                      <div className="col-span-2 text-indigo-600 dark:text-indigo-400 flex items-center">
+                                        <Lucide
+                                          icon="RefreshCw"
+                                          className="w-4 h-4 mr-1"
+                                        />
+                                        Messages will loop indefinitely
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            {message.mediaUrl && (
-                              <div className="flex items-center text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                <Lucide icon="Image" className="w-4 h-4 mr-1" />
-                                <span>Media attached</span>
-                              </div>
-                            )}
-                            {message.documentUrl && (
-                              <div className="flex items-center text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                <Lucide icon="File" className="w-4 h-4 mr-1" />
-                                <span>
-                                  {message.fileName || "Document attached"}
-                                </span>
-                              </div>
-                            )}
+                              {message.mediaUrl && (
+                                <div className="flex items-center text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                  <Lucide icon="Image" className="w-4 h-4 mr-1" />
+                                  <span>Media attached</span>
+                                </div>
+                              )}
+                              {message.documentUrl && (
+                                <div className="flex items-center text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                  <Lucide icon="File" className="w-4 h-4 mr-1" />
+                                  <span>
+                                    {message.fileName || "Document attached"}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 flex justify-end mt-auto">
+                              <button
+                                onClick={() => handleSendNow(message)}
+                                className="text-sm bg-green-600 hover:bg-green-700 text-white font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200 mr-2"
+                                title="Send message immediately"
+                              >
+                                Send Now
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleEditScheduledMessage(message)
+                                }
+                                className="text-sm bg-white dark:bg-gray-600 hover:bg-gray-50 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200 mr-2"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleDeleteScheduledMessage(message.id!)
+                                }
+                                className="text-sm bg-red-600 hover:bg-red-700 text-white font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
-                          <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 flex justify-end mt-auto">
-                            <button
-                              onClick={() => handleSendNow(message)}
-                              className="text-sm bg-green-600 hover:bg-green-700 text-white font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200 mr-2"
-                              title="Send message immediately"
-                            >
-                              Send Now
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleEditScheduledMessage(message)
-                              }
-                              className="text-sm bg-white dark:bg-gray-600 hover:bg-gray-50 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200 mr-2"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleDeleteScheduledMessage(message.id!)
-                              }
-                              className="text-sm bg-red-600 hover:bg-red-700 text-white font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="z-1 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-center">
-                      <Lucide
-                        icon="Calendar"
-                        className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-600 mb-4"
-                      />
-                      <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
-                        {searchQuery
-                          ? "No matching scheduled messages"
-                          : "No scheduled messages yet"}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                        {searchQuery
-                          ? "Try a different search term"
-                          : "When you schedule messages, they will appear here."}
-                      </p>
-                    </div>
-                  ))}
-              </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-gray-500 dark:text-gray-400 text-center py-4">
+                        No scheduled messages found.
+                      </div>
+                    ))}
+                </div>
+              )}
               {/* Edit Scheduled Message Modal */}
               <Dialog
                 open={editScheduledMessageModal}
@@ -8780,10 +8769,10 @@ const handleConfirmSyncFirebase = async () => {
                       />
                     </div>
 
-                    {/* Repeat Settings */}
+                    {/* Delay Between Batches */}
                     <div className="mt-4">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Repeat Every
+                        Delay Between Batches
                       </label>
                       <div className="flex items-center">
                         <input
@@ -8808,46 +8797,6 @@ const handleConfirmSyncFirebase = async () => {
                           <option value="hours">Hours</option>
                           <option value="days">Days</option>
                         </select>
-                      </div>
-                    </div>
-
-                    {/* Delay Settings */}
-                    <div className="mt-4">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Delay between batches
-                      </label>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <div className="flex items-center">
-                          <span className="text-sm text-gray-600 dark:text-gray-400 mr-2">
-                            Wait between:
-                          </span>
-                          <input
-                            type="number"
-                            value={minDelay}
-                            onChange={(e) =>
-                              setMinDelay(parseInt(e.target.value))
-                            }
-                            min={1}
-                            className="w-20 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          />
-                        </div>
-                        <div className="flex items-center">
-                          <span className="text-sm text-gray-600 dark:text-gray-400 mx-2">
-                            and
-                          </span>
-                          <input
-                            type="number"
-                            value={maxDelay}
-                            onChange={(e) =>
-                              setMaxDelay(parseInt(e.target.value))
-                            }
-                            min={1}
-                            className="w-20 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          />
-                          <span className="text-sm text-gray-600 dark:text-gray-400 ml-2">
-                            Seconds
-                          </span>
-                        </div>
                       </div>
                     </div>
 
