@@ -19,7 +19,11 @@ import LoadingIcon from "@/components/Base/LoadingIcon";
 import { useLocation } from "react-router-dom";
 import { useContacts } from "../../contact";
 import LZString from "lz-string";
-import { handleBotStatusUpdate, handleContactAssignmentUpdate, handleContactTagsUpdate } from "../../utils/websocketHandlers";
+import {
+  handleBotStatusUpdate,
+  handleContactAssignmentUpdate,
+  handleContactTagsUpdate,
+} from "../../utils/websocketHandlers";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import Tippy from "@/components/Base/Tippy";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
@@ -568,12 +572,11 @@ interface ContactsState {
   currentPage: number;
 }
 
-
 // Helper function to extract the most recent timestamp from a contact
 const getContactTimestamp = (contact: Contact): number => {
   let timestamp = 0;
   let source = "none";
-  
+
   // Try to get timestamp from last message first
   if (contact.last_message) {
     if (contact.last_message.createdAt) {
@@ -589,7 +592,7 @@ const getContactTimestamp = (contact: Contact): number => {
       source = "last_message.dateAdded";
     }
   }
-  
+
   // Fallback to contact-level timestamps if no message timestamp
   if (timestamp === 0) {
     if (contact.dateUpdated) {
@@ -600,17 +603,22 @@ const getContactTimestamp = (contact: Contact): number => {
       source = "contact.dateAdded";
     }
   }
-  
+
   // Debug logging for problematic cases
   if (timestamp === 0 || isNaN(timestamp)) {
-    console.warn(`🚨 Invalid timestamp for contact ${contact.contactName || contact.firstName}:`, {
-      contact: contact,
-      source: source,
-      timestamp: timestamp,
-      last_message: contact.last_message
-    });
+    console.warn(
+      `🚨 Invalid timestamp for contact ${
+        contact.contactName || contact.firstName
+      }:`,
+      {
+        contact: contact,
+        source: source,
+        timestamp: timestamp,
+        last_message: contact.last_message,
+      }
+    );
   }
-  
+
   return timestamp || 0; // No timestamp available
 };
 
@@ -637,7 +645,9 @@ function Main() {
       setContacts(contextContacts as Contact[]);
       // Also update localStorage
       try {
-        const compressedContacts = LZString.compress(JSON.stringify(contextContacts));
+        const compressedContacts = LZString.compress(
+          JSON.stringify(contextContacts)
+        );
         localStorage.setItem("contacts", compressedContacts);
       } catch (error) {
         console.error("Error saving contacts to localStorage:", error);
@@ -830,7 +840,7 @@ function Main() {
     userConfig: false,
     contactsFetch: false,
     contactsProcess: false,
-    complete: false
+    complete: false,
   });
 
   // Add back missing state variables
@@ -838,11 +848,15 @@ function Main() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isRecordingPopupOpen, setIsRecordingPopupOpen] = useState(false);
-  const [selectedDocumentURL, setSelectedDocumentURL] = useState<string | null>(null);
+  const [selectedDocumentURL, setSelectedDocumentURL] = useState<string | null>(
+    null
+  );
   const [documentCaption, setDocumentCaption] = useState("");
   const [isPhoneDropdownOpen, setIsPhoneDropdownOpen] = useState(false);
   const [showAllForwardTags, setShowAllForwardTags] = useState(false);
-  const [visibleForwardTags, setVisibleForwardTags] = useState<typeof tagList>([]);
+  const [visibleForwardTags, setVisibleForwardTags] = useState<typeof tagList>(
+    []
+  );
   const [totalContacts, setTotalContacts] = useState<number>(0);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [reactionMessage, setReactionMessage] = useState<any>(null);
@@ -863,15 +877,21 @@ function Main() {
   const [sleepAfterMessages, setSleepAfterMessages] = useState(20);
   const [sleepDuration, setSleepDuration] = useState(5);
   const [wsVersion, setWsVersion] = useState(0);
-  const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([]);
-  const [currentScheduledMessage, setCurrentScheduledMessage] = useState<ScheduledMessage | null>(null);
-  const [editScheduledMessageModal, setEditScheduledMessageModal] = useState(false);
+  const [scheduledMessages, setScheduledMessages] = useState<
+    ScheduledMessage[]
+  >([]);
+  const [currentScheduledMessage, setCurrentScheduledMessage] =
+    useState<ScheduledMessage | null>(null);
+  const [editScheduledMessageModal, setEditScheduledMessageModal] =
+    useState(false);
   const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [wsReconnectAttempts, setWsReconnectAttempts] = useState(0);
   const [wsError, setWsError] = useState<string | null>(null);
   const maxReconnectAttempts = 5;
-  const [scrollToMessageId, setScrollToMessageId] = useState<string | null>(null);
+  const [scrollToMessageId, setScrollToMessageId] = useState<string | null>(
+    null
+  );
   const [qrCodes, setQrCodes] = useState<QRCodeData[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [quickReplyCategory, setQuickReplyCategory] = useState<string>("all");
@@ -926,8 +946,6 @@ function Main() {
                 })
               );
               setEmployeeList(employeeListData);
-
-            
             } catch (error) {
               console.error("Error fetching user data:", error);
             }
@@ -966,7 +984,10 @@ function Main() {
   // Sync userPhone with userData.phone
   useEffect(() => {
     if (userData?.phone !== undefined && userData.phone !== null) {
-      const phoneIndex = typeof userData.phone === 'string' ? parseInt(userData.phone, 10) : userData.phone;
+      const phoneIndex =
+        typeof userData.phone === "string"
+          ? parseInt(userData.phone, 10)
+          : userData.phone;
       setUserPhone(phoneIndex);
     }
   }, [userData]);
@@ -1044,10 +1065,9 @@ function Main() {
   };
   // Add the handleNewMessage function
 
-
   const handleNewMessage = (data: any) => {
     console.log("📨 [WEBSOCKET] New message received:", data);
-    
+
     try {
       // Handle both old and new message formats
       const chatId = data.chatId || data.chat_id;
@@ -1068,12 +1088,13 @@ function Main() {
         fromMe,
         timestamp,
         messageType,
-        contactName
+        contactName,
       });
 
       // Create a proper message object that matches your Message interface
       const newMessage: Message = {
-        id: data.messageId || data.message_id || `${Date.now()}-${Math.random()}`,
+        id:
+          data.messageId || data.message_id || `${Date.now()}-${Math.random()}`,
         chat_id: chatId,
         text: { body: messageContent },
         from_me: fromMe,
@@ -1085,7 +1106,7 @@ function Main() {
         author: contactName,
         phoneIndex: data.phoneIndex || 0,
         dateAdded: timestamp,
-        userName: contactName
+        userName: contactName,
       };
 
       console.log("📨 [WEBSOCKET] Created message object:", newMessage);
@@ -1094,82 +1115,114 @@ function Main() {
 
       // If the message is for the currently viewed chat
       if (chatId === selectedChatId) {
-        console.log("📨 [WEBSOCKET] Message is for current chat - adding to messages");
-        
+        console.log(
+          "📨 [WEBSOCKET] Message is for current chat - adding to messages"
+        );
+
         // Add message to allMessages first
-        setAllMessages(prevAllMessages => {
+        setAllMessages((prevAllMessages) => {
           // Check if message already exists to prevent duplicates
           const messageExists = prevAllMessages.some(
-            msg => msg.id === newMessage.id || 
-            (Math.abs((msg.timestamp || 0) - (newMessage.timestamp || 0)) < 1000 && 
-             msg.text?.body === newMessage.text?.body)
+            (msg) =>
+              msg.id === newMessage.id ||
+              (Math.abs((msg.timestamp || 0) - (newMessage.timestamp || 0)) <
+                1000 &&
+                msg.text?.body === newMessage.text?.body)
           );
-          
+
           if (!messageExists) {
             console.log("📨 [WEBSOCKET] Adding new message to allMessages");
             return [...prevAllMessages, newMessage];
           } else {
-            console.log("📨 [WEBSOCKET] Message already exists in allMessages, skipping");
+            console.log(
+              "📨 [WEBSOCKET] Message already exists in allMessages, skipping"
+            );
             return prevAllMessages;
           }
         });
 
         // Update contact's last message for current chat as well
         if (selectedContact) {
-          console.log("📨 [WEBSOCKET] Updating current contact's last message:", selectedContact.contactName);
-          
+          console.log(
+            "📨 [WEBSOCKET] Updating current contact's last message:",
+            selectedContact.contactName
+          );
+
           const updateContactWithNewMessage = (contact: Contact) => {
             // Match by multiple criteria to ensure we find the right contact
-            const contactMatches = 
+            const contactMatches =
               contact.id === selectedContact.id ||
               contact.chat_id === selectedContact.chat_id ||
               contact.contact_id === selectedContact.contact_id ||
               contact.phone === selectedContact.phone;
-              
+
             if (contactMatches) {
-              console.log("📨 [WEBSOCKET] Updating contact:", contact.contactName, "with new message:", messageContent);
+              console.log(
+                "📨 [WEBSOCKET] Updating contact:",
+                contact.contactName,
+                "with new message:",
+                messageContent
+              );
               return {
                 ...contact,
                 last_message: newMessage,
-                unreadCount: (!fromMe ? (contact.unreadCount || 0) + 1 : contact.unreadCount || 0),
+                unreadCount: !fromMe
+                  ? (contact.unreadCount || 0) + 1
+                  : contact.unreadCount || 0,
               };
             }
             return contact;
           };
 
           setContacts((prevContacts) => {
-            const updatedContacts = prevContacts.map(updateContactWithNewMessage);
+            const updatedContacts = prevContacts.map(
+              updateContactWithNewMessage
+            );
             // Re-sort contacts to move the one with new message to top
             const sortedContacts = [...updatedContacts].sort((a, b) => {
               if (a.pinned && !b.pinned) return -1;
               if (!a.pinned && b.pinned) return 1;
               return getContactTimestamp(b) - getContactTimestamp(a);
             });
-            console.log("📨 [WEBSOCKET] Updated and re-sorted contacts for current chat");
+            console.log(
+              "📨 [WEBSOCKET] Updated and re-sorted contacts for current chat"
+            );
             return sortedContacts;
           });
-          
+
           setLoadedContacts((prevLoadedContacts) => {
-            const updatedLoadedContacts = prevLoadedContacts.map(updateContactWithNewMessage);
+            const updatedLoadedContacts = prevLoadedContacts.map(
+              updateContactWithNewMessage
+            );
             // Re-sort loaded contacts to move the one with new message to top
-            const sortedLoadedContacts = [...updatedLoadedContacts].sort((a, b) => {
-              if (a.pinned && !b.pinned) return -1;
-              if (!a.pinned && b.pinned) return 1;
-              return getContactTimestamp(b) - getContactTimestamp(a);
-            });
-            console.log("📨 [WEBSOCKET] Updated and re-sorted loaded contacts for current chat");
+            const sortedLoadedContacts = [...updatedLoadedContacts].sort(
+              (a, b) => {
+                if (a.pinned && !b.pinned) return -1;
+                if (!a.pinned && b.pinned) return 1;
+                return getContactTimestamp(b) - getContactTimestamp(a);
+              }
+            );
+            console.log(
+              "📨 [WEBSOCKET] Updated and re-sorted loaded contacts for current chat"
+            );
             return sortedLoadedContacts;
           });
-          
+
           setFilteredContacts((prevFilteredContacts) => {
-            const updatedFilteredContacts = prevFilteredContacts.map(updateContactWithNewMessage);
+            const updatedFilteredContacts = prevFilteredContacts.map(
+              updateContactWithNewMessage
+            );
             // Re-sort filtered contacts to move the one with new message to top
-            const sortedFilteredContacts = [...updatedFilteredContacts].sort((a, b) => {
-              if (a.pinned && !b.pinned) return -1;
-              if (!a.pinned && b.pinned) return 1;
-              return getContactTimestamp(b) - getContactTimestamp(a);
-            });
-            console.log("📨 [WEBSOCKET] Updated and re-sorted filtered contacts for current chat");
+            const sortedFilteredContacts = [...updatedFilteredContacts].sort(
+              (a, b) => {
+                if (a.pinned && !b.pinned) return -1;
+                if (!a.pinned && b.pinned) return 1;
+                return getContactTimestamp(b) - getContactTimestamp(a);
+              }
+            );
+            console.log(
+              "📨 [WEBSOCKET] Updated and re-sorted filtered contacts for current chat"
+            );
             return sortedFilteredContacts;
           });
 
@@ -1180,7 +1233,9 @@ function Main() {
               const decompressedContacts = JSON.parse(
                 LZString.decompress(storedContacts)!
               );
-              const updatedContacts = decompressedContacts.map(updateContactWithNewMessage);
+              const updatedContacts = decompressedContacts.map(
+                updateContactWithNewMessage
+              );
               localStorage.setItem(
                 "contacts",
                 LZString.compress(JSON.stringify(updatedContacts))
@@ -1195,7 +1250,8 @@ function Main() {
         // Scroll to bottom to show new message
         setTimeout(() => {
           if (messageListRef.current) {
-            messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+            messageListRef.current.scrollTop =
+              messageListRef.current.scrollHeight;
           }
         }, 100);
 
@@ -1205,25 +1261,39 @@ function Main() {
           console.log("📨 [WEBSOCKET] New message in current chat");
         }
       } else {
-        console.log("📨 [WEBSOCKET] Message is for different chat - updating contact list");
-        
+        console.log(
+          "📨 [WEBSOCKET] Message is for different chat - updating contact list"
+        );
+
         // Message is for a different chat - update contact list only
         const updateContactWithNewMessage = (contact: Contact) => {
           // Try multiple ways to match the contact
-          const contactMatches = 
-            contact.chat_id === chatId || 
+          const contactMatches =
+            contact.chat_id === chatId ||
             contact.id === contactId ||
             contact.contact_id === contactId ||
-            contact.phone?.replace(/\D/g, "") === extractedNumber?.replace(/\D/g, "") ||
+            contact.phone?.replace(/\D/g, "") ===
+              extractedNumber?.replace(/\D/g, "") ||
             contact.chat_id === extractedNumber + "@c.us" ||
             contact.phone === extractedNumber;
-            
+
           if (contactMatches) {
-            console.log("📨 [WEBSOCKET] Updating contact:", contact.contactName, "for chatId:", chatId, "contactId:", contactId, "message:", messageContent);
+            console.log(
+              "📨 [WEBSOCKET] Updating contact:",
+              contact.contactName,
+              "for chatId:",
+              chatId,
+              "contactId:",
+              contactId,
+              "message:",
+              messageContent
+            );
             return {
               ...contact,
               last_message: newMessage,
-              unreadCount: (!fromMe ? (contact.unreadCount || 0) + 1 : contact.unreadCount || 0),
+              unreadCount: !fromMe
+                ? (contact.unreadCount || 0) + 1
+                : contact.unreadCount || 0,
             };
           }
           return contact;
@@ -1237,31 +1307,45 @@ function Main() {
             if (!a.pinned && b.pinned) return 1;
             return getContactTimestamp(b) - getContactTimestamp(a);
           });
-          console.log("📨 [WEBSOCKET] Updated and re-sorted contacts for different chat");
+          console.log(
+            "📨 [WEBSOCKET] Updated and re-sorted contacts for different chat"
+          );
           return sortedContacts;
         });
-        
+
         setLoadedContacts((prevLoadedContacts) => {
-          const updatedLoadedContacts = prevLoadedContacts.map(updateContactWithNewMessage);
+          const updatedLoadedContacts = prevLoadedContacts.map(
+            updateContactWithNewMessage
+          );
           // Re-sort loaded contacts to move the one with new message to top
-          const sortedLoadedContacts = [...updatedLoadedContacts].sort((a, b) => {
-            if (a.pinned && !b.pinned) return -1;
-            if (!a.pinned && b.pinned) return 1;
-            return getContactTimestamp(b) - getContactTimestamp(a);
-          });
-          console.log("📨 [WEBSOCKET] Updated and re-sorted loaded contacts for different chat");
+          const sortedLoadedContacts = [...updatedLoadedContacts].sort(
+            (a, b) => {
+              if (a.pinned && !b.pinned) return -1;
+              if (!a.pinned && b.pinned) return 1;
+              return getContactTimestamp(b) - getContactTimestamp(a);
+            }
+          );
+          console.log(
+            "📨 [WEBSOCKET] Updated and re-sorted loaded contacts for different chat"
+          );
           return sortedLoadedContacts;
         });
-        
+
         setFilteredContacts((prevFilteredContacts) => {
-          const updatedFilteredContacts = prevFilteredContacts.map(updateContactWithNewMessage);
+          const updatedFilteredContacts = prevFilteredContacts.map(
+            updateContactWithNewMessage
+          );
           // Re-sort filtered contacts to move the one with new message to top
-          const sortedFilteredContacts = [...updatedFilteredContacts].sort((a, b) => {
-            if (a.pinned && !b.pinned) return -1;
-            if (!a.pinned && b.pinned) return 1;
-            return getContactTimestamp(b) - getContactTimestamp(a);
-          });
-          console.log("📨 [WEBSOCKET] Updated and re-sorted filtered contacts for different chat");
+          const sortedFilteredContacts = [...updatedFilteredContacts].sort(
+            (a, b) => {
+              if (a.pinned && !b.pinned) return -1;
+              if (!a.pinned && b.pinned) return 1;
+              return getContactTimestamp(b) - getContactTimestamp(a);
+            }
+          );
+          console.log(
+            "📨 [WEBSOCKET] Updated and re-sorted filtered contacts for different chat"
+          );
           return sortedFilteredContacts;
         });
 
@@ -1272,12 +1356,16 @@ function Main() {
             const decompressedContacts = JSON.parse(
               LZString.decompress(storedContacts)!
             );
-            const updatedContacts = decompressedContacts.map(updateContactWithNewMessage);
+            const updatedContacts = decompressedContacts.map(
+              updateContactWithNewMessage
+            );
             localStorage.setItem(
               "contacts",
               LZString.compress(JSON.stringify(updatedContacts))
             );
-            console.log("📨 [WEBSOCKET] Updated contacts in localStorage for different chat");
+            console.log(
+              "📨 [WEBSOCKET] Updated contacts in localStorage for different chat"
+            );
           } catch (error) {
             console.error("Error updating contacts in localStorage:", error);
           }
@@ -1286,9 +1374,10 @@ function Main() {
         // Show notification for other chats only if not from me
         if (!fromMe) {
           console.log("📨 [WEBSOCKET] Showing notification for other chat");
-          const messagePreview = messageContent?.substring(0, 50) || "New message";
-          
-          // Commented out toast notification for now 
+          const messagePreview =
+            messageContent?.substring(0, 50) || "New message";
+
+          // Commented out toast notification for now
           // toast.info(`📱 ${contactName}: ${messagePreview}${messageContent && messageContent.length > 50 ? '...' : ''}`, {
           //   autoClose: 4000,
           //   onClick: () => {
@@ -1311,7 +1400,6 @@ function Main() {
           // }
         }
       }
-
     } catch (error) {
       console.error("❌ [WEBSOCKET] Error processing new message:", error);
       console.error("❌ [WEBSOCKET] Raw data:", data);
@@ -1350,16 +1438,20 @@ function Main() {
 
       // Helper to determine API endpoint based on mediaUrl
       const getApiEndpoint = (mediaUrl: string | undefined, chatId: string) => {
-        if (!mediaUrl) return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
+        if (!mediaUrl)
+          return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
         const ext = mediaUrl.split(".").pop()?.toLowerCase();
-        if (!ext) return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
+        if (!ext)
+          return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
         if (["mp4", "mov", "avi", "webm"].includes(ext)) {
           return `${apiUrl}/api/v2/messages/video/${companyId}/${chatId}`;
         }
         if (["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(ext)) {
           return `${apiUrl}/api/v2/messages/image/${companyId}/${chatId}`;
         }
-        if (["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext)) {
+        if (
+          ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext)
+        ) {
           return `${apiUrl}/api/v2/messages/document/${companyId}/${chatId}`;
         }
         return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
@@ -1395,9 +1487,7 @@ function Main() {
         contactList = message.contactIds
           .map((cid: string) => {
             const phone = cid.split("-")[1];
-            return contacts.find(
-              (c) => c.phone?.replace(/\D/g, "") === phone
-            );
+            return contacts.find((c) => c.phone?.replace(/\D/g, "") === phone);
           })
           .filter(Boolean) as Contact[];
       } else if (!isConsolidated && message.contactId) {
@@ -1430,15 +1520,13 @@ function Main() {
         }
 
         // Process message with contact data and custom fields
-        let processedMessage = mainMessage.messageContent || mainMessage.text || "";
+        let processedMessage =
+          mainMessage.messageContent || mainMessage.text || "";
 
         if (contact) {
           processedMessage = processedMessage
             .replace(/@{contactName}/g, contact.contactName || "")
-            .replace(
-              /@{firstName}/g,
-              contact.contactName?.split(" ")[0] || ""
-            )
+            .replace(/@{firstName}/g, contact.contactName?.split(" ")[0] || "")
             .replace(/@{lastName}/g, contact.lastName || "")
             .replace(/@{email}/g, contact.email || "")
             .replace(/@{phone}/g, contact.phone || "")
@@ -1448,10 +1536,15 @@ function Main() {
             .replace(/@{ic}/g, contact.ic || "");
 
           if (contact.customFields) {
-            Object.entries(contact.customFields).forEach(([fieldName, value]) => {
-              const placeholder = new RegExp(`@{${fieldName}}`, "g");
-              processedMessage = processedMessage.replace(placeholder, value || "");
-            });
+            Object.entries(contact.customFields).forEach(
+              ([fieldName, value]) => {
+                const placeholder = new RegExp(`@{${fieldName}}`, "g");
+                processedMessage = processedMessage.replace(
+                  placeholder,
+                  value || ""
+                );
+              }
+            );
           }
         }
 
@@ -1516,7 +1609,7 @@ function Main() {
       await Promise.all(sendPromises);
       toast.success("Messages sent successfully!");
       await fetchScheduledMessages(selectedContact.contact_id);
-      return;      
+      return;
     } catch (error) {
       console.error("Error sending messages:", error);
       toast.error("Failed to send messages. Please try again.");
@@ -1528,7 +1621,7 @@ function Main() {
     setBlastMessage(message.message || ""); // Set the blast message to the current message text
     setEditScheduledMessageModal(true);
   };
-  
+
   const handleDeleteScheduledMessage = async (messageId: string) => {
     try {
       const email = getCurrentUserEmail();
@@ -1560,48 +1653,48 @@ function Main() {
         const email = getCurrentUserEmail();
         if (!email || !companyId) return;
 
-      const botStatusResponse = await axios.get(
-        `${baseUrl}/api/bot-status/${companyId}`
-      );
-      console.log(botStatusResponse);
-      
-      if (botStatusResponse.status === 200) {
-        const data: BotStatusResponse = botStatusResponse.data;
-        
-        // Check if phones array exists before mapping
-        if (data.phones && Array.isArray(data.phones)) {
-          // Multiple phones: transform array to QRCodeData[]
-          const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
-            phoneIndex: phone.phoneIndex,
-            status: phone.status,
-            qrCode: phone.qrCode,
-          }));
-          setQrCodes(qrCodesData);
-        } else if (data.phoneCount === 1 && data.phoneInfo) {
-          // Single phone: create QRCodeData from flat structure
-          setQrCodes([
-            {
-              phoneIndex: 0,
-              status: data.status,
-              qrCode: data.qrCode,
-            },
-          ]);
-        } else {
-          setQrCodes([]);
+        const botStatusResponse = await axios.get(
+          `${baseUrl}/api/bot-status/${companyId}`
+        );
+        console.log(botStatusResponse);
+
+        if (botStatusResponse.status === 200) {
+          const data: BotStatusResponse = botStatusResponse.data;
+
+          // Check if phones array exists before mapping
+          if (data.phones && Array.isArray(data.phones)) {
+            // Multiple phones: transform array to QRCodeData[]
+            const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
+              phoneIndex: phone.phoneIndex,
+              status: phone.status,
+              qrCode: phone.qrCode,
+            }));
+            setQrCodes(qrCodesData);
+          } else if (data.phoneCount === 1 && data.phoneInfo) {
+            // Single phone: create QRCodeData from flat structure
+            setQrCodes([
+              {
+                phoneIndex: 0,
+                status: data.status,
+                qrCode: data.qrCode,
+              },
+            ]);
+          } else {
+            setQrCodes([]);
+          }
         }
+      } catch (error) {
+        console.error("Error fetching phone statuses:", error);
       }
-    } catch (error) {
-      console.error("Error fetching phone statuses:", error);
-    }
-  };
+    };
 
     // Only fetch if we have companyId
     if (companyId) {
       fetchPhoneStatuses();
-      
+
       // Set up an interval to refresh the status every 30 seconds
       const intervalId = setInterval(fetchPhoneStatuses, 30000);
-      
+
       return () => clearInterval(intervalId);
     }
   }, [companyId]); // Add companyId as dependency
@@ -1620,14 +1713,14 @@ function Main() {
       userConfig: false,
       contactsFetch: false,
       contactsProcess: false,
-      complete: false
+      complete: false,
     });
 
     try {
       // Step 1: Get user config to get companyId (25%)
       setRealLoadingProgress(30);
-      setLoadingSteps(prev => ({ ...prev, userConfig: true }));
-      
+      setLoadingSteps((prev) => ({ ...prev, userConfig: true }));
+
       const userResponse = await fetch(
         `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
@@ -1648,11 +1741,11 @@ function Main() {
       setRealLoadingProgress(60);
       const userData = await userResponse.json();
       const companyId = userData.company_id;
-      
+
       // Step 2: Fetch contacts from database (50%)
       setRealLoadingProgress(80);
-      setLoadingSteps(prev => ({ ...prev, contactsFetch: true }));
-      
+      setLoadingSteps((prev) => ({ ...prev, contactsFetch: true }));
+
       const contactsResponse = await fetch(
         `${baseUrl}/api/companies/${companyId}/contacts?email=${userEmail}`,
         {
@@ -1672,42 +1765,47 @@ function Main() {
 
       setRealLoadingProgress(90);
       const data = await contactsResponse.json();
-      
+
       // Step 3: Process contacts (75%)
       setRealLoadingProgress(95);
-      setLoadingSteps(prev => ({ ...prev, contactsProcess: true }));
-      
+      setLoadingSteps((prev) => ({ ...prev, contactsProcess: true }));
+
       // Process contacts with real-time progress - ultra fast processing
       const allContacts = [];
       const totalContacts = data.contacts.length;
-      
+
       // Process all contacts at once for maximum speed
-      allContacts.push(...data.contacts.map((contact: any) => ({
-        ...contact,
-        id: contact.id,
-        chat_id: contact.chat_id,
-        contactName: contact.name,
-        phone: contact.phone,
-        email: contact.email,
-        profile: contact.profile,
-        profilePicUrl: contact.profileUrl,
-        tags: contact.tags,
-        createdAt: contact.createdAt,
-        lastUpdated: contact.lastUpdated,
-        last_message: contact.last_message,
-        isIndividual: contact.isIndividual,
-      } as Contact)));
-      
+      allContacts.push(
+        ...data.contacts.map(
+          (contact: any) =>
+            ({
+              ...contact,
+              id: contact.id,
+              chat_id: contact.chat_id,
+              contactName: contact.name,
+              phone: contact.phone,
+              email: contact.email,
+              profile: contact.profile,
+              profilePicUrl: contact.profileUrl,
+              tags: contact.tags,
+              createdAt: contact.createdAt,
+              lastUpdated: contact.lastUpdated,
+              last_message: contact.last_message,
+              isIndividual: contact.isIndividual,
+            } as Contact)
+        )
+      );
+
       // Update progress to 100% immediately
       setRealLoadingProgress(100);
-      setLoadingSteps(prev => ({ ...prev, complete: true }));
-      
+      setLoadingSteps((prev) => ({ ...prev, complete: true }));
+
       // Minimal delay for UI update
-      await new Promise(resolve => setTimeout(resolve, 5));
+      await new Promise((resolve) => setTimeout(resolve, 5));
 
       // Set total contacts count
       setTotalContacts(allContacts.length);
-      
+
       // Store all contacts but only display first 200
       // Sort contacts before setting them to ensure proper order
       const sortedContacts = [...allContacts].sort((a, b) => {
@@ -1715,23 +1813,23 @@ function Main() {
         if (!a.pinned && b.pinned) return 1;
         return getContactTimestamp(b) - getContactTimestamp(a);
       });
-      
+
       setContacts(sortedContacts);
       setLoadedContacts(sortedContacts.slice(0, 200));
       setLastLoadedPage(0);
       setHasMoreContacts(allContacts.length > 200);
-      
+
       // Mark first 10 pages as loaded (200 contacts / 20 contacts per page = 10 pages)
       const initialLoadedPages = new Set<number>();
       for (let page = 0; page < 10; page++) {
         initialLoadedPages.add(page);
       }
       setLoadedPages(initialLoadedPages);
-      
+
       // Step 4: Complete loading (100%)
       setRealLoadingProgress(100);
-      setLoadingSteps(prev => ({ ...prev, complete: true }));
-      await new Promise(resolve => setTimeout(resolve, 200));
+      setLoadingSteps((prev) => ({ ...prev, complete: true }));
+      await new Promise((resolve) => setTimeout(resolve, 200));
     } catch (error) {
       console.error("Error fetching contacts:", error);
       toast.error("Error fetching contacts");
@@ -1742,7 +1840,7 @@ function Main() {
         userConfig: false,
         contactsFetch: false,
         contactsProcess: false,
-        complete: false
+        complete: false,
       });
     }
   };
@@ -1762,8 +1860,6 @@ function Main() {
     // Only run once on mount
     fetchContactsOnce();
   }, []); // Empty dependency array = run only once
-
-  
 
   // Add useEffect to close dropdown when clicking outside
   useEffect(() => {
@@ -1812,9 +1908,7 @@ function Main() {
     }
 
     const response = await fetch(
-      `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
-        userEmail
-      )}`,
+      `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
       {
         method: "GET",
         credentials: "include",
@@ -1831,8 +1925,7 @@ function Main() {
     const data = await response.json();
     console.log("Company data:", data);
     return {
-      apiUrl:
-        data.companyData.api_url || baseUrl,
+      apiUrl: data.companyData.api_url || baseUrl,
       companyId: data.userData.companyId,
     };
   };
@@ -1999,8 +2092,6 @@ function Main() {
     }
   };
 
-
-
   const toggleRecordingPopup = () => {
     setIsRecordingPopupOpen(!isRecordingPopupOpen);
     if (!isRecordingPopupOpen) {
@@ -2034,7 +2125,7 @@ function Main() {
       } = await getCompanyData();
       if (!uData) {
         throw new Error("User not authenticated");
-      }      
+      }
       // Check the size of the video file
       const maxSizeInMB = 20;
       const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
@@ -2080,7 +2171,6 @@ function Main() {
       toast.error("Failed to send video message");
     }
   };
-
 
   const sendVoiceMessage = async () => {
     if (audioBlob && selectedChatId && userData) {
@@ -2284,9 +2374,6 @@ function Main() {
     setMessageSearchQuery(e.target.value);
   };
 
-
-
- 
   useEffect(() => {
     const fetchCompanyData = async () => {
       const userEmail = localStorage.getItem("userEmail");
@@ -2519,7 +2606,7 @@ function Main() {
               (tag) => tag.toLowerCase() === userName.toLowerCase()
             )
           );
-        
+
         case "3": // Observer
         case "4": // Manager
           // Sales, Observer, and Manager see only contacts assigned to them
@@ -2542,7 +2629,7 @@ function Main() {
   const handlePhoneChange = async (newPhoneIndex: number) => {
     // Store the current phone index for potential rollback
     const currentPhoneIndex = userPhone;
-    
+
     // Update local state immediately for instant filtering
     setUserPhone(newPhoneIndex);
     setUserData((prevState) => {
@@ -2580,7 +2667,7 @@ function Main() {
         });
         return;
       }
-console.log(baseUrl);
+      console.log(baseUrl);
       // Update phone index via API
       const requestBody = {
         email,
@@ -2589,7 +2676,7 @@ console.log(baseUrl);
       console.log("Request body:", requestBody);
       console.log("Request URL:", `${baseUrl}/api/user/update-phone`);
       console.log("New phone index:", newPhoneIndex);
-      
+
       const response = await fetch(`${baseUrl}/api/user/update-phone`, {
         method: "POST",
         headers: {
@@ -2600,7 +2687,7 @@ console.log(baseUrl);
 
       console.log("Response status:", response.status);
       console.log("Response headers:", response.headers);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Response error:", errorText);
@@ -2616,8 +2703,6 @@ console.log(baseUrl);
         toast.error("Failed to update phone");
         return;
       }
-
-
 
       toast.success("Phone updated successfully");
     } catch (error) {
@@ -2640,12 +2725,22 @@ console.log(baseUrl);
     let currentPhoneIndex = 0; // Default to first phone
     if (userPhone !== null && userPhone !== undefined) {
       currentPhoneIndex = userPhone;
-    } else if (userData?.phone !== undefined && userData.phone !== null && userData.phone !== -1) {
-      currentPhoneIndex = typeof userData.phone === 'string' ? parseInt(userData.phone, 10) : userData.phone;
+    } else if (
+      userData?.phone !== undefined &&
+      userData.phone !== null &&
+      userData.phone !== -1
+    ) {
+      currentPhoneIndex =
+        typeof userData.phone === "string"
+          ? parseInt(userData.phone, 10)
+          : userData.phone;
     }
 
     // Set message mode based on current phone index
-    if (currentPhoneIndex !== null && phoneNames[currentPhoneIndex] !== undefined) {
+    if (
+      currentPhoneIndex !== null &&
+      phoneNames[currentPhoneIndex] !== undefined
+    ) {
       setMessageMode(`phone${currentPhoneIndex + 1}`);
     }
 
@@ -2660,48 +2755,82 @@ console.log(baseUrl);
     // Check if we're using multi-phone API (contacts are already filtered by phone)
     const phoneCount = Object.keys(phoneNames).length;
     const hasMultiplePhones = phoneCount > 1;
-    const isUsingMultiPhoneAPI = hasMultiplePhones && userPhone !== null && userPhone !== undefined;
+    const isUsingMultiPhoneAPI =
+      hasMultiplePhones && userPhone !== null && userPhone !== undefined;
 
-    console.log("sortContacts - isUsingMultiPhoneAPI:", isUsingMultiPhoneAPI, "phoneCount:", phoneCount, "userPhone:", userPhone);
+    console.log(
+      "sortContacts - isUsingMultiPhoneAPI:",
+      isUsingMultiPhoneAPI,
+      "phoneCount:",
+      phoneCount,
+      "userPhone:",
+      userPhone
+    );
 
     // Always apply phone filtering when userPhone is set
     if (userPhone !== null && userPhone !== undefined) {
       console.log("🔍 Before phone filtering - contacts count:", fil.length);
       console.log("🔍 Filtering by userPhone:", userPhone);
-      
+
       // Debug first few contacts
       fil.slice(0, 3).forEach((contact, index) => {
-        console.log(`🔍 Contact ${index}:`, contact.contactName, "phoneIndexes:", contact.phoneIndexes, "phoneIndex:", contact.phoneIndex);
+        console.log(
+          `🔍 Contact ${index}:`,
+          contact.contactName,
+          "phoneIndexes:",
+          contact.phoneIndexes,
+          "phoneIndex:",
+          contact.phoneIndex
+        );
       });
-      
+
       const beforeFilter = fil.length;
       fil = fil.filter((contact) => {
         // Check if contact has phoneIndexes and it's not empty
-        let hasPhone = contact.phoneIndexes && contact.phoneIndexes.length > 0
-          ? contact.phoneIndexes.includes(userPhone)
-          : contact.phoneIndex === userPhone;
-        
+        let hasPhone =
+          contact.phoneIndexes && contact.phoneIndexes.length > 0
+            ? contact.phoneIndexes.includes(userPhone)
+            : contact.phoneIndex === userPhone;
+
         // If not found in phoneIndex/phoneIndexes, check messages for this phone
         if (!hasPhone && contact.chat && contact.chat.length > 0) {
-          hasPhone = contact.chat.some((message: any) => 
-            message.phoneIndex === userPhone || 
-            (message.messages && message.messages.some((msg: any) => msg.phoneIndex === userPhone))
+          hasPhone = contact.chat.some(
+            (message: any) =>
+              message.phoneIndex === userPhone ||
+              (message.messages &&
+                message.messages.some(
+                  (msg: any) => msg.phoneIndex === userPhone
+                ))
           );
         }
-        
+
         // Also check last_message
         if (!hasPhone && contact.last_message) {
           hasPhone = contact.last_message.phoneIndex === userPhone;
         }
-        
+
         // Debug first few contacts
         if (fil.indexOf(contact) < 3) {
-          console.log("🔍 Contact:", contact.contactName, "phoneIndexes:", contact.phoneIndexes, "phoneIndex:", contact.phoneIndex, "hasPhone:", hasPhone);
+          console.log(
+            "🔍 Contact:",
+            contact.contactName,
+            "phoneIndexes:",
+            contact.phoneIndexes,
+            "phoneIndex:",
+            contact.phoneIndex,
+            "hasPhone:",
+            hasPhone
+          );
         }
-        
+
         return hasPhone;
       });
-      console.log("🔍 After phone filtering - contacts count:", fil.length, "filtered out:", beforeFilter - fil.length);
+      console.log(
+        "🔍 After phone filtering - contacts count:",
+        fil.length,
+        "filtered out:",
+        beforeFilter - fil.length
+      );
     } else if (!isUsingMultiPhoneAPI) {
       // Legacy filtering logic for single phone or when userPhone is not set
       let userPhoneIndex =
@@ -2769,8 +2898,8 @@ console.log(baseUrl);
 
       fil = fil.filter((contact) => {
         const isGroup = contact.chat_id?.endsWith("@g.us");
-        
-        const matchesTag = 
+
+        const matchesTag =
           tag === "all"
             ? true // Show all conversations (both individual and groups)
             : tag === "unread"
@@ -2808,11 +2937,25 @@ console.log(baseUrl);
       // Sort by most recent first (descending order)
       return timestampB - timestampA;
     });
-  }, [contacts, searchQuery, activeTags, userPhone, userData, phoneNames, currentUserName, employeeList, userRole, selectedEmployee]);
+  }, [
+    contacts,
+    searchQuery,
+    activeTags,
+    userPhone,
+    userData,
+    phoneNames,
+    currentUserName,
+    employeeList,
+    userRole,
+    selectedEmployee,
+  ]);
 
   // Debug: Log the filtered results
   useEffect(() => {
-    console.log("📊 RESULT - Filtered contacts:", filteredContactsSearch.length);
+    console.log(
+      "📊 RESULT - Filtered contacts:",
+      filteredContactsSearch.length
+    );
     if (filteredContactsSearch.length > 0) {
       console.log("📊 SORTING - First 10 contacts sorted by timestamp:");
       filteredContactsSearch.slice(0, 10).forEach((contact, index) => {
@@ -2822,7 +2965,7 @@ console.log(baseUrl);
         const minutesAgo = Math.floor(timeDiff / (1000 * 60));
         const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
         const daysAgo = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-        
+
         let timeAgo = "Unknown";
         if (minutesAgo < 1) {
           timeAgo = "Just now";
@@ -2833,10 +2976,15 @@ console.log(baseUrl);
         } else {
           timeAgo = `${daysAgo}d ago`;
         }
-        
-        const isGroup = contact.chat_id?.endsWith("@g.us") ? " [GROUP]" : " [INDIVIDUAL]";
-        const timestamp = timestampMs > 0 ? new Date(timestampMs).toLocaleString() : "No timestamp";
-        
+
+        const isGroup = contact.chat_id?.endsWith("@g.us")
+          ? " [GROUP]"
+          : " [INDIVIDUAL]";
+        const timestamp =
+          timestampMs > 0
+            ? new Date(timestampMs).toLocaleString()
+            : "No timestamp";
+
         // Show detailed timestamp info for debugging
         let timestampSource = "None";
         if (contact.last_message) {
@@ -2852,8 +3000,12 @@ console.log(baseUrl);
         } else if (contact.dateAdded) {
           timestampSource = `contact.dateAdded: ${contact.dateAdded}`;
         }
-        
-        console.log(`📊 ${index + 1}. ${contact.contactName || contact.firstName || 'Unknown'}${isGroup} - ${timeAgo} (${timestamp}) [${timestampSource}]`);
+
+        console.log(
+          `📊 ${index + 1}. ${
+            contact.contactName || contact.firstName || "Unknown"
+          }${isGroup} - ${timeAgo} (${timestamp}) [${timestampSource}]`
+        );
       });
     }
   }, [filteredContactsSearch]);
@@ -3531,9 +3683,7 @@ console.log(baseUrl);
 
         // Get user config to get companyId
         const userResponse = await fetch(
-          `${baseUrl}/api/user/config?email=${encodeURIComponent(
-            userEmail
-          )}`,
+          `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
           {
             method: "GET",
             headers: {
@@ -3554,7 +3704,7 @@ console.log(baseUrl);
         console.log("🔗 [WEBSOCKET] User email:", userEmail);
 
         // Create WebSocket connection with proper protocol handling
-        const wsUrl =`wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
+        const wsUrl = `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
         console.log("🔗 [WEBSOCKET] WebSocket URL:", wsUrl);
         ws = new WebSocket(wsUrl);
         setWsConnection(ws);
@@ -3581,13 +3731,40 @@ console.log(baseUrl);
               handleNewMessage(data);
             } else if (data.type === "bot_status_update") {
               console.log("🤖 [WEBSOCKET] Received bot_status_update:", data);
-              handleBotStatusUpdate(data, setContacts, setLoadedContacts, setFilteredContacts, setSelectedContact, selectedContact, contacts);
+              handleBotStatusUpdate(
+                data,
+                setContacts,
+                setLoadedContacts,
+                setFilteredContacts,
+                setSelectedContact,
+                selectedContact,
+                contacts
+              );
             } else if (data.type === "contact_assignment_update") {
-              console.log("👤 [WEBSOCKET] Received contact_assignment_update:", data);
-              handleContactAssignmentUpdate(data, setContacts, setLoadedContacts, setFilteredContacts, setSelectedContact, selectedContact, contacts);
+              console.log(
+                "👤 [WEBSOCKET] Received contact_assignment_update:",
+                data
+              );
+              handleContactAssignmentUpdate(
+                data,
+                setContacts,
+                setLoadedContacts,
+                setFilteredContacts,
+                setSelectedContact,
+                selectedContact,
+                contacts
+              );
             } else if (data.type === "contact_tags_update") {
               console.log("🏷️ [WEBSOCKET] Received contact_tags_update:", data);
-              handleContactTagsUpdate(data, setContacts, setLoadedContacts, setFilteredContacts, setSelectedContact, selectedContact, contacts);
+              handleContactTagsUpdate(
+                data,
+                setContacts,
+                setLoadedContacts,
+                setFilteredContacts,
+                setSelectedContact,
+                selectedContact,
+                contacts
+              );
             } else if (data.type === "error") {
               console.error("WebSocket error message:", data.message);
               setWsError(data.message);
@@ -3602,9 +3779,13 @@ console.log(baseUrl);
         ws.onerror = (error) => {
           console.error("WebSocket error:", error);
           // Check if it's a security error (insecure connection from HTTPS)
-          if (error instanceof Event && window.location.protocol === 'https:') {
-            console.warn("Security error detected. This might be due to insecure WebSocket connection from HTTPS page.");
-            setWsError("WebSocket connection failed. Server may not support secure connections.");
+          if (error instanceof Event && window.location.protocol === "https:") {
+            console.warn(
+              "Security error detected. This might be due to insecure WebSocket connection from HTTPS page."
+            );
+            setWsError(
+              "WebSocket connection failed. Server may not support secure connections."
+            );
           } else {
             handleWebSocketError(error);
           }
@@ -3673,9 +3854,6 @@ console.log(baseUrl);
     };
   }, [wsVersion]); // Empty dependency array - only run on mount
 
-
-
-
   /*useEffect(() => {
     const fetchContact = async () => {
       const params = new URLSearchParams(location.search);
@@ -3730,9 +3908,7 @@ console.log(baseUrl);
 
     try {
       const response = await fetch(
-        `${baseUrl}/api/user-config?email=${encodeURIComponent(
-          userEmail
-        )}`,
+        `${baseUrl}/api/user-config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           credentials: "include",
@@ -3753,7 +3929,7 @@ console.log(baseUrl);
       console.log("datas:", data);
 
       //console.log('role',data.userData.role);
-      
+
       user_role = data.userData.role;
       setCompanyId(data.userData.companyId);
       user_name = data.userData.name;
@@ -3773,15 +3949,20 @@ console.log(baseUrl);
         if (Array.isArray(data.companyData.phoneNames)) {
           data.companyData.phoneNames.forEach((name: string, index: number) => {
             // Clean the phone name to remove connection status
-            const cleanName = name.replace(/\s+(Connected|Not Connected)$/, '');
+            const cleanName = name.replace(/\s+(Connected|Not Connected)$/, "");
             phoneNamesObject[index] = cleanName;
           });
         } else if (typeof data.companyData.phoneNames === "object") {
           // Clean each phone name in the object
-          Object.entries(data.companyData.phoneNames).forEach(([index, name]) => {
-            const cleanName = (name as string).replace(/\s+(Connected|Not Connected)$/, '');
-            phoneNamesObject[parseInt(index)] = cleanName;
-          });
+          Object.entries(data.companyData.phoneNames).forEach(
+            ([index, name]) => {
+              const cleanName = (name as string).replace(
+                /\s+(Connected|Not Connected)$/,
+                ""
+              );
+              phoneNamesObject[parseInt(index)] = cleanName;
+            }
+          );
         }
         console.log("Transformed phoneNames object:", phoneNamesObject);
         setPhoneNames(phoneNamesObject);
@@ -3790,7 +3971,10 @@ console.log(baseUrl);
           setUserPhone(0);
         }
       } else {
-        console.log("phoneNames is not an array or is undefined:", data.companyData.phoneNames);
+        console.log(
+          "phoneNames is not an array or is undefined:",
+          data.companyData.phoneNames
+        );
         // Create default phone names based on phoneCount
         if (data.companyData.phoneCount > 0) {
           const defaultPhoneNames: Record<number, string> = {};
@@ -3997,12 +4181,12 @@ console.log(baseUrl);
 
         // Immediately reset unread count in local state
         const resetUnreadCount = (contactItem: Contact) => {
-          const contactMatches = 
+          const contactMatches =
             contactItem.id === contact.id ||
             contactItem.chat_id === contact.chat_id ||
             contactItem.contact_id === contact.contact_id ||
             contactItem.phone === contact.phone;
-            
+
           if (contactMatches) {
             return {
               ...contactItem,
@@ -4017,14 +4201,16 @@ console.log(baseUrl);
           const updatedContacts = prevContacts.map(resetUnreadCount);
           return updatedContacts;
         });
-        
+
         setLoadedContacts((prevLoadedContacts) => {
-          const updatedLoadedContacts = prevLoadedContacts.map(resetUnreadCount);
+          const updatedLoadedContacts =
+            prevLoadedContacts.map(resetUnreadCount);
           return updatedLoadedContacts;
         });
-        
+
         setFilteredContacts((prevFilteredContacts) => {
-          const updatedFilteredContacts = prevFilteredContacts.map(resetUnreadCount);
+          const updatedFilteredContacts =
+            prevFilteredContacts.map(resetUnreadCount);
           return updatedFilteredContacts;
         });
 
@@ -4148,9 +4334,7 @@ console.log(baseUrl);
     try {
       // Get user config to get companyId
       const userResponse = await fetch(
-        `${baseUrl}/api/user/config?email=${encodeURIComponent(
-          userEmail
-        )}`,
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -4223,9 +4407,7 @@ console.log(baseUrl);
       if (userEmail) {
         try {
           const response = await fetch(
-            `${baseUrl}/api/user-role?email=${encodeURIComponent(
-              userEmail
-            )}`,
+            `${baseUrl}/api/user-role?email=${encodeURIComponent(userEmail)}`,
             {
               method: "GET",
               credentials: "include",
@@ -4240,7 +4422,7 @@ console.log(baseUrl);
           }
 
           const data = await response.json();
-       
+
           setUserRole(data.role);
         } catch (error) {
           console.error("Error fetching user role:", error);
@@ -4420,7 +4602,7 @@ console.log(baseUrl);
       console.log(selectedContact);
       console.log(selectedChatId);
       fetchMessages(selectedChatId, whapiToken!);
-      
+
       // Immediately check for new messages to ensure real-time updates
       setTimeout(() => {
         pollForNewMessages();
@@ -4436,14 +4618,26 @@ console.log(baseUrl);
     }
 
     const hasMultiplePhones = Object.keys(phoneNames).length > 1;
-    const shouldFilterByPhone = hasMultiplePhones && userPhone !== null && userPhone !== undefined;
-    
-    console.log("Filtering messages - hasMultiplePhones:", hasMultiplePhones, "userPhone:", userPhone, "shouldFilterByPhone:", shouldFilterByPhone);
-    
+    const shouldFilterByPhone =
+      hasMultiplePhones && userPhone !== null && userPhone !== undefined;
+
+    console.log(
+      "Filtering messages - hasMultiplePhones:",
+      hasMultiplePhones,
+      "userPhone:",
+      userPhone,
+      "shouldFilterByPhone:",
+      shouldFilterByPhone
+    );
+
     if (shouldFilterByPhone) {
       // Filter messages by selected phone index
-      const filteredMessages = allMessages.filter(message => message.phoneIndex === userPhone);
-      console.log(`Filtered ${filteredMessages.length} messages from ${allMessages.length} total for phone index ${userPhone}`);
+      const filteredMessages = allMessages.filter(
+        (message) => message.phoneIndex === userPhone
+      );
+      console.log(
+        `Filtered ${filteredMessages.length} messages from ${allMessages.length} total for phone index ${userPhone}`
+      );
       setMessages(filteredMessages);
     } else {
       // Show all messages if no phone filtering is needed
@@ -4520,7 +4714,11 @@ console.log(baseUrl);
           });
         } else {
           const formattedMessage: any = {
-            id: message.message_id || `main-${message.chat_id}-${message.timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+            id:
+              message.message_id ||
+              `main-${message.chat_id}-${message.timestamp}-${Math.random()
+                .toString(36)
+                .substr(2, 9)}`,
             from_me: message.from_me,
             from_name: message.author,
             from: message.customer_phone,
@@ -4698,11 +4896,13 @@ console.log(baseUrl);
       // Update last message timestamp for polling
       if (formattedMessages.length > 0) {
         const latestMessage = formattedMessages[formattedMessages.length - 1];
-        const latestTimestamp = new Date(latestMessage.timestamp || latestMessage.createdAt || 0).getTime();
+        const latestTimestamp = new Date(
+          latestMessage.timestamp || latestMessage.createdAt || 0
+        ).getTime();
         setLastMessageTimestamp(latestTimestamp);
       }
 
-  //  fetchContactsBackground();
+      //  fetchContactsBackground();
     } catch (error) {
       console.error("Failed to fetch messages:", error);
     } finally {
@@ -4742,7 +4942,7 @@ console.log(baseUrl);
       if (!messagesResponse.ok) return;
 
       const messages = await messagesResponse.json();
-      
+
       // Filter messages that are newer than our last known timestamp
       const newMessages = messages.filter((message: any) => {
         const messageTimestamp = new Date(message.timestamp).getTime();
@@ -4751,7 +4951,7 @@ console.log(baseUrl);
 
       if (newMessages.length > 0) {
         console.log(`Found ${newMessages.length} new messages`);
-        
+
         // Format new messages using the same logic as fetchMessages
         const formattedNewMessages: any[] = [];
         const reactionsMap: Record<string, any[]> = {};
@@ -4771,7 +4971,11 @@ console.log(baseUrl);
             });
           } else {
             const formattedMessage: any = {
-              id: message.message_id || `poll-${message.chat_id}-${message.timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+              id:
+                message.message_id ||
+                `poll-${message.chat_id}-${message.timestamp}-${Math.random()
+                  .toString(36)
+                  .substr(2, 9)}`,
               from_me: message.from_me,
               from_name: message.author,
               from: message.customer_phone,
@@ -4844,7 +5048,8 @@ console.log(baseUrl);
                   link: message.media_url,
                   data: message.media_data,
                   mimetype:
-                    message.media_metadata?.mimetype || "audio/ogg; codecs=opus",
+                    message.media_metadata?.mimetype ||
+                    "audio/ogg; codecs=opus",
                 };
                 if (
                   message.content &&
@@ -4945,32 +5150,43 @@ console.log(baseUrl);
         });
 
         // Add new messages to existing all messages
-        setAllMessages(prevAllMessages => {
+        setAllMessages((prevAllMessages) => {
           // Filter out any messages that already exist to prevent duplicates
-          const existingMessageIds = new Set(prevAllMessages.map(msg => msg.id));
-          const uniqueNewMessages = formattedNewMessages.filter(msg => !existingMessageIds.has(msg.id));
-          
+          const existingMessageIds = new Set(
+            prevAllMessages.map((msg) => msg.id)
+          );
+          const uniqueNewMessages = formattedNewMessages.filter(
+            (msg) => !existingMessageIds.has(msg.id)
+          );
+
           // Only add truly new messages
           if (uniqueNewMessages.length > 0) {
-            const updatedAllMessages = [...prevAllMessages, ...uniqueNewMessages];
+            const updatedAllMessages = [
+              ...prevAllMessages,
+              ...uniqueNewMessages,
+            ];
             // Store updated messages in localStorage
             storeMessagesInLocalStorage(selectedChatId, updatedAllMessages);
-            
+
             // Update last message timestamp only for unique new messages
-            const latestMessage = uniqueNewMessages[uniqueNewMessages.length - 1];
-            const latestTimestamp = new Date(latestMessage.timestamp || latestMessage.createdAt || 0).getTime();
+            const latestMessage =
+              uniqueNewMessages[uniqueNewMessages.length - 1];
+            const latestTimestamp = new Date(
+              latestMessage.timestamp || latestMessage.createdAt || 0
+            ).getTime();
             setLastMessageTimestamp(latestTimestamp);
-            
+
             // Scroll to bottom when new messages arrive
             setTimeout(() => {
               if (messageListRef.current) {
-                messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+                messageListRef.current.scrollTop =
+                  messageListRef.current.scrollHeight;
               }
             }, 100);
-            
+
             return updatedAllMessages;
           }
-          
+
           // No new messages, return previous state
           return prevAllMessages;
         });
@@ -4987,13 +5203,13 @@ console.log(baseUrl);
     if (selectedChatId && userData) {
       console.log("Starting message polling for chat:", selectedChatId);
       setIsPolling(true);
-      
+
       // Start polling every 15 seconds
       pollingIntervalRef.current = setInterval(pollForNewMessages, 5000); // Poll every 5 seconds for better real-time updates
     } else {
       console.log("Stopping message polling");
       setIsPolling(false);
-      
+
       // Clear polling interval
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
@@ -5018,9 +5234,7 @@ console.log(baseUrl);
     try {
       // Get user data and company info from SQL
       const userResponse = await fetch(
-        `${baseUrl}/api/user-data?email=${encodeURIComponent(
-          userEmail || ""
-        )}`,
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
         {
           credentials: "include",
         }
@@ -5253,7 +5467,6 @@ console.log(baseUrl);
       storeMessagesInLocalStorage(selectedChatId, formattedMessages);
       setAllMessages(formattedMessages); // Store all messages for filtering
       console.log(messages);
-     
     } catch (error) {
       console.error("Failed to fetch messages:", error);
     }
@@ -5338,7 +5551,7 @@ console.log(baseUrl);
     // Get the current phoneIndex the user is using
     const currentPhoneIndex = userData?.phone;
     const userEmail = localStorage.getItem("userEmail");
-    
+
     // Create temporary message object for immediate display
     const tempMessage = {
       id: `temp_${Date.now()}`,
@@ -5351,7 +5564,7 @@ console.log(baseUrl);
       from_name: userEmail || "",
       timestamp: Math.floor(Date.now() / 1000),
     };
-    
+
     // Update UI immediately for instant feedback
     setMessages((prevMessages) => [
       ...prevMessages,
@@ -5378,9 +5591,7 @@ console.log(baseUrl);
 
       // Get user data from SQL
       const userResponse = await fetch(
-        `${baseUrl}/api/user-data?email=${encodeURIComponent(
-          userEmail || ""
-        )}`,
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
         {
           credentials: "include",
         }
@@ -5509,7 +5720,7 @@ console.log(baseUrl);
 
       // Fetch updated messages in the background to ensure consistency
       fetchMessagesBackground(selectedChatId, companyData.api_token);
-      
+
       // Update the temporary message with the actual server response
       if (data && data.message_id) {
         setMessages((prevMessages) =>
@@ -5519,7 +5730,7 @@ console.log(baseUrl);
               : msg
           )
         );
-        
+
         setAllMessages((prevAllMessages) =>
           prevAllMessages.map((msg) =>
             msg.id === tempMessage.id
@@ -5528,12 +5739,12 @@ console.log(baseUrl);
           )
         );
       }
-      
+
       // Immediately trigger a message refresh to ensure the system reflects the sent message
       setTimeout(() => {
         pollForNewMessages();
       }, 1000);
-      
+
       // Update the contact's last message in the contact list
       if (selectedContact) {
         const finalMessage: Message = {
@@ -5546,30 +5757,32 @@ console.log(baseUrl);
           phoneIndex: phoneIndex,
           from_name: userName,
           status: "sent" as const,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
         };
 
         const updateContactWithNewMessage = (contact: Contact) => {
-          if (contact.id === selectedContact.id || 
-              contact.chat_id === selectedContact.chat_id ||
-              contact.contact_id === selectedContact.contact_id) {
+          if (
+            contact.id === selectedContact.id ||
+            contact.chat_id === selectedContact.chat_id ||
+            contact.contact_id === selectedContact.contact_id
+          ) {
             return {
               ...contact,
               last_message: {
                 ...finalMessage,
                 created_at: new Date().toISOString(),
-                status: "sent" as const
+                status: "sent" as const,
               },
             };
           }
           return contact;
         };
 
-        setContacts((prevContacts) => 
+        setContacts((prevContacts) =>
           prevContacts.map(updateContactWithNewMessage)
         );
-        
-        setFilteredContacts((prevFilteredContacts) => 
+
+        setFilteredContacts((prevFilteredContacts) =>
           prevFilteredContacts.map(updateContactWithNewMessage)
         );
 
@@ -5580,7 +5793,9 @@ console.log(baseUrl);
             const decompressedContacts = JSON.parse(
               LZString.decompress(storedContacts)!
             );
-            const updatedContacts = decompressedContacts.map(updateContactWithNewMessage);
+            const updatedContacts = decompressedContacts.map(
+              updateContactWithNewMessage
+            );
             localStorage.setItem(
               "contacts",
               LZString.compress(JSON.stringify(updatedContacts))
@@ -5590,7 +5805,7 @@ console.log(baseUrl);
           }
         }
       }
-      
+
       // Update localStorage with the final message
       const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
       const updatedMessages = currentMessages.map((msg) =>
@@ -5599,7 +5814,6 @@ console.log(baseUrl);
           : msg
       );
       storeMessagesInLocalStorage(selectedChatId, updatedMessages);
-      
     } catch (error) {
       console.error("Error sending message:", error);
 
@@ -5607,15 +5821,25 @@ console.log(baseUrl);
       setMessages((prevMessages) =>
         prevMessages.map((msg) =>
           msg.id === tempMessage.id
-            ? { ...msg, status: "failed", error: error instanceof Error ? error.message : "Failed to send" }
+            ? {
+                ...msg,
+                status: "failed",
+                error:
+                  error instanceof Error ? error.message : "Failed to send",
+              }
             : msg
         )
       );
-      
+
       setAllMessages((prevAllMessages) =>
         prevAllMessages.map((msg) =>
           msg.id === tempMessage.id
-            ? { ...msg, status: "failed", error: error instanceof Error ? error.message : "Failed to send" }
+            ? {
+                ...msg,
+                status: "failed",
+                error:
+                  error instanceof Error ? error.message : "Failed to send",
+              }
             : msg
         )
       );
@@ -5624,13 +5848,19 @@ console.log(baseUrl);
       const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
       const updatedMessages = currentMessages.map((msg) =>
         msg.id === tempMessage.id
-          ? { ...msg, status: "failed", error: error instanceof Error ? error.message : "Failed to send" }
+          ? {
+              ...msg,
+              status: "failed",
+              error: error instanceof Error ? error.message : "Failed to send",
+            }
           : msg
       );
       storeMessagesInLocalStorage(selectedChatId, updatedMessages);
-      
+
       // Show error toast but keep message visible
-      toast.error("Message sent but may not have been delivered. Please check your connection.");
+      toast.error(
+        "Message sent but may not have been delivered. Please check your connection."
+      );
     }
   };
 
@@ -5640,19 +5870,22 @@ console.log(baseUrl);
       setMessages((prevMessages) =>
         prevMessages.filter((msg) => msg.id !== message.id)
       );
-      
+
       setAllMessages((prevAllMessages) =>
         prevAllMessages.filter((msg) => msg.id !== message.id)
       );
 
       // Remove from localStorage
-      const currentMessages = getMessagesFromLocalStorage(selectedChatId || '') || [];
-      const filteredMessages = currentMessages.filter((msg) => msg.id !== message.id);
-      storeMessagesInLocalStorage(selectedChatId || '', filteredMessages);
+      const currentMessages =
+        getMessagesFromLocalStorage(selectedChatId || "") || [];
+      const filteredMessages = currentMessages.filter(
+        (msg) => msg.id !== message.id
+      );
+      storeMessagesInLocalStorage(selectedChatId || "", filteredMessages);
 
       // Retry sending the message
       await handleSendMessage(message.text?.body || message.text);
-      
+
       toast.success("Message retried successfully!");
     } catch (error) {
       console.error("Error retrying message:", error);
@@ -5715,9 +5948,7 @@ console.log(baseUrl);
 
       // Fetch user config to get companyId
       const userResponse = await fetch(
-        `${baseUrl}/api/user/config?email=${encodeURIComponent(
-          userEmail
-        )}`,
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -5866,21 +6097,21 @@ console.log(baseUrl);
         const currentTags = contact.tags || [];
         if (!hasLabel) {
           // Adding "stop bot" tag - preserve all existing tags
-          newTags = currentTags.includes("stop bot") ? currentTags : [...currentTags, "stop bot"];
+          newTags = currentTags.includes("stop bot")
+            ? currentTags
+            : [...currentTags, "stop bot"];
         } else {
           // Removing "stop bot" tag - preserve all other tags
-          newTags = currentTags.filter(tag => tag !== "stop bot");
+          newTags = currentTags.filter((tag) => tag !== "stop bot");
         }
-
-
 
         // Update all contact states immediately with better matching - preserve all existing data
         const updateContactsList = (prevContacts: Contact[]) =>
           prevContacts.map((c) => {
             if (c.id === contact.id || c.contact_id === contact.contact_id) {
               // Preserve all existing contact data, only update tags
-              return { 
-                ...c, 
+              return {
+                ...c,
                 tags: newTags,
                 // Ensure other fields are preserved
                 assignedTo: c.assignedTo,
@@ -5888,10 +6119,8 @@ console.log(baseUrl);
                 points: c.points,
                 // Preserve any other custom fields
                 ...Object.fromEntries(
-                  Object.entries(c).filter(([key]) => 
-                    !['tags'].includes(key)
-                  )
-                )
+                  Object.entries(c).filter(([key]) => !["tags"].includes(key))
+                ),
               };
             }
             return c;
@@ -5906,7 +6135,11 @@ console.log(baseUrl);
         );
 
         // Update selectedContact if it's the same contact - preserve all fields
-        if (selectedContact && (selectedContact.id === contact.id || selectedContact.contact_id === contact.contact_id)) {
+        if (
+          selectedContact &&
+          (selectedContact.id === contact.id ||
+            selectedContact.contact_id === contact.contact_id)
+        ) {
           setSelectedContact((prevContact: Contact) => ({
             ...prevContact,
             tags: newTags,
@@ -5927,8 +6160,8 @@ console.log(baseUrl);
             const updatedContacts = decompressedContacts.map((c: Contact) => {
               if (c.id === contact.id || c.contact_id === contact.contact_id) {
                 // Preserve all existing contact data, only update tags
-                return { 
-                  ...c, 
+                return {
+                  ...c,
                   tags: newTags,
                   // Ensure critical fields are preserved
                   assignedTo: c.assignedTo,
@@ -5948,9 +6181,12 @@ console.log(baseUrl);
         }
         sessionStorage.setItem("contactsFetched", "true");
 
-        console.log("📝 [TAG] Updated contact tags for:", contact.contactName, "new tags:", newTags);
-
-
+        console.log(
+          "📝 [TAG] Updated contact tags for:",
+          contact.contactName,
+          "new tags:",
+          newTags
+        );
 
         // Send WebSocket message to notify other clients
         if (wsConnection && wsConnected) {
@@ -5959,7 +6195,7 @@ console.log(baseUrl);
             contactId: contact.contact_id,
             botEnabled: !hasLabel,
             updatedTags: newTags,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           };
           wsConnection.send(JSON.stringify(wsMessage));
           console.log("🤖 [WEBSOCKET] Sent bot status update:", wsMessage);
@@ -5984,22 +6220,42 @@ console.log(baseUrl);
   );
 
   useEffect(() => {
-          setFilteredContacts(loadedContacts.length > 0 ? loadedContacts : contacts);
+    setFilteredContacts(loadedContacts.length > 0 ? loadedContacts : contacts);
   }, [contacts]);
 
   // Update selectedContact when contacts array changes (for real-time updates)
   useEffect(() => {
     if (selectedContact && contacts.length > 0) {
       const updatedSelectedContact = contacts.find(
-        (c) => c.id === selectedContact.id || c.contact_id === selectedContact.contact_id
+        (c) =>
+          c.id === selectedContact.id ||
+          c.contact_id === selectedContact.contact_id
       );
-      
-      if (updatedSelectedContact && JSON.stringify(updatedSelectedContact) !== JSON.stringify(selectedContact)) {
-        console.log("📝 [REALTIME] Updating selectedContact from contacts array changes");
-        console.log("📝 [REALTIME] Old selectedContact tags:", selectedContact.tags);
-        console.log("📝 [REALTIME] New selectedContact tags:", updatedSelectedContact.tags);
-        console.log("📝 [REALTIME] Old selectedContact assignedTo:", selectedContact.assignedTo);
-        console.log("📝 [REALTIME] New selectedContact assignedTo:", updatedSelectedContact.assignedTo);
+
+      if (
+        updatedSelectedContact &&
+        JSON.stringify(updatedSelectedContact) !==
+          JSON.stringify(selectedContact)
+      ) {
+        console.log(
+          "📝 [REALTIME] Updating selectedContact from contacts array changes"
+        );
+        console.log(
+          "📝 [REALTIME] Old selectedContact tags:",
+          selectedContact.tags
+        );
+        console.log(
+          "📝 [REALTIME] New selectedContact tags:",
+          updatedSelectedContact.tags
+        );
+        console.log(
+          "📝 [REALTIME] Old selectedContact assignedTo:",
+          selectedContact.assignedTo
+        );
+        console.log(
+          "📝 [REALTIME] New selectedContact assignedTo:",
+          updatedSelectedContact.assignedTo
+        );
         setSelectedContact(updatedSelectedContact);
       }
     }
@@ -6009,11 +6265,19 @@ console.log(baseUrl);
   useEffect(() => {
     if (selectedContact && filteredContacts.length > 0) {
       const updatedSelectedContact = filteredContacts.find(
-        (c) => c.id === selectedContact.id || c.contact_id === selectedContact.contact_id
+        (c) =>
+          c.id === selectedContact.id ||
+          c.contact_id === selectedContact.contact_id
       );
-      
-      if (updatedSelectedContact && JSON.stringify(updatedSelectedContact) !== JSON.stringify(selectedContact)) {
-        console.log("📝 [REALTIME] Updating selectedContact from filteredContacts array changes");
+
+      if (
+        updatedSelectedContact &&
+        JSON.stringify(updatedSelectedContact) !==
+          JSON.stringify(selectedContact)
+      ) {
+        console.log(
+          "📝 [REALTIME] Updating selectedContact from filteredContacts array changes"
+        );
         setSelectedContact(updatedSelectedContact);
       }
     }
@@ -6136,14 +6400,17 @@ console.log(baseUrl);
     console.log("🏷️ [TAG ASSIGNMENT] Tag name:", tagName);
     console.log("🏷️ [TAG ASSIGNMENT] Contact:", contact);
     console.log("🏷️ [TAG ASSIGNMENT] Contact ID:", contact?.contact_id);
-    console.log("🏷️ [TAG ASSIGNMENT] Contact Name:", contact?.contactName || contact?.firstName);
-    
+    console.log(
+      "🏷️ [TAG ASSIGNMENT] Contact Name:",
+      contact?.contactName || contact?.firstName
+    );
+
     if (!contact || !contact.contact_id) {
       toast.error("No contact selected or contact ID missing");
       console.error("🏷️ [TAG ASSIGNMENT] Missing contact or contact ID");
       return;
     }
-    
+
     try {
       // Get company and user data from your backend
       const userEmail = localStorage.getItem("userEmail");
@@ -6168,12 +6435,17 @@ console.log(baseUrl);
       // Check if the tag is an employee name
       const employee = employeeList.find((emp) => emp.name === tagName);
       console.log("🔍 Employee search for tag:", tagName, "found:", employee);
-      console.log("🔍 Available employees:", employeeList.map(emp => emp.name));
+      console.log(
+        "🔍 Available employees:",
+        employeeList.map((emp) => emp.name)
+      );
       console.log("🔍 Employee list length:", employeeList.length);
 
       if (employeeList.length === 0) {
         console.warn("🔍 Employee list is empty, may need to fetch employees");
-        toast.warning("Employee list not loaded yet. Please try again in a moment.");
+        toast.warning(
+          "Employee list not loaded yet. Please try again in a moment."
+        );
         return;
       }
 
@@ -6203,16 +6475,16 @@ console.log(baseUrl);
         // Update contact immediately with the new assignment
         // Remove any existing employee tags first, then add the new one
         const currentTags = contact.tags || [];
-        const nonEmployeeTags = currentTags.filter(tag => 
-          !employeeList.some(emp => emp.name === tag)
+        const nonEmployeeTags = currentTags.filter(
+          (tag) => !employeeList.some((emp) => emp.name === tag)
         );
         const updatedTags = [...nonEmployeeTags, tagName];
         console.log("🏷️ [EMPLOYEE ASSIGNMENT] Updated tags:", updatedTags);
         console.log("🏷️ [EMPLOYEE ASSIGNMENT] Previous tags:", currentTags);
-        
+
         const updateContactsList = (prevContacts: Contact[]) =>
           prevContacts.map((c) =>
-            (c.id === contact.id || c.contact_id === contact.contact_id)
+            c.id === contact.id || c.contact_id === contact.contact_id
               ? { ...c, tags: updatedTags, assignedTo: [tagName] }
               : c
           );
@@ -6226,7 +6498,11 @@ console.log(baseUrl);
         );
 
         // Update selectedContact if it's the same contact
-        if (selectedContact && (selectedContact.id === contact.id || selectedContact.contact_id === contact.contact_id)) {
+        if (
+          selectedContact &&
+          (selectedContact.id === contact.id ||
+            selectedContact.contact_id === contact.contact_id)
+        ) {
           setSelectedContact((prevContact: Contact) => ({
             ...prevContact,
             tags: updatedTags,
@@ -6248,10 +6524,13 @@ console.log(baseUrl);
             contactId: contact.contact_id,
             assignedTo: tagName,
             updatedTags: updatedTags,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           };
           wsConnection.send(JSON.stringify(wsMessage));
-          console.log("👤 [WEBSOCKET] Sent contact assignment update:", wsMessage);
+          console.log(
+            "👤 [WEBSOCKET] Sent contact assignment update:",
+            wsMessage
+          );
         }
 
         toast.success(`Contact assigned to ${tagName}`);
@@ -6296,7 +6575,9 @@ console.log(baseUrl);
         // Update both contacts and filteredContacts states immediately
         const updateContactsList = (prevContacts: Contact[]) =>
           prevContacts.map((c) =>
-            (c.id === contact.id || c.contact_id === contact.contact_id) ? { ...c, tags: newTags } : c
+            c.id === contact.id || c.contact_id === contact.contact_id
+              ? { ...c, tags: newTags }
+              : c
           );
 
         setContacts(updateContactsList);
@@ -6315,7 +6596,11 @@ console.log(baseUrl);
         );
 
         // Update selectedContact if it's the same contact
-        if (selectedContact && (selectedContact.id === contact.id || selectedContact.contact_id === contact.contact_id)) {
+        if (
+          selectedContact &&
+          (selectedContact.id === contact.id ||
+            selectedContact.contact_id === contact.contact_id)
+        ) {
           setSelectedContact((prevContact: Contact) => ({
             ...prevContact,
             tags: newTags,
@@ -6330,13 +6615,20 @@ console.log(baseUrl);
             action: "add",
             tagName: tagName,
             updatedTags: newTags,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           };
           wsConnection.send(JSON.stringify(wsMessage));
           console.log("🏷️ [WEBSOCKET] Sent contact tags update:", wsMessage);
         }
 
-        console.log("📝 [TAG] Added tag to contact:", contact.contactName, "tag:", tagName, "new tags:", newTags);
+        console.log(
+          "📝 [TAG] Added tag to contact:",
+          contact.contactName,
+          "tag:",
+          tagName,
+          "new tags:",
+          newTags
+        );
         toast.success(`Tag "${tagName}" added to contact`);
       } else {
         toast.info(`Tag "${tagName}" already exists for this contact`);
@@ -6379,11 +6671,17 @@ console.log(baseUrl);
 
   const formatText = (text: string) => {
     // Enhanced regex to capture more formatting patterns
-    const segments = text.split(/(\*[^*]+\*|~[^~]+~|_[^_]+_|`[^`]+`|```[^`]+```|https?:\/\/[^\s]+|@[a-zA-Z0-9_]+)/g);
+    const segments = text.split(
+      /(\*[^*]+\*|~[^~]+~|_[^_]+_|`[^`]+`|```[^`]+```|https?:\/\/[^\s]+|@[a-zA-Z0-9_]+)/g
+    );
 
     return segments.map((segment, index) => {
       // Check if segment is bold (surrounded by *)
-      if (segment.startsWith("*") && segment.endsWith("*") && segment.length > 2) {
+      if (
+        segment.startsWith("*") &&
+        segment.endsWith("*") &&
+        segment.length > 2
+      ) {
         return (
           <span key={index} className="font-bold">
             {segment.slice(1, -1)}
@@ -6392,7 +6690,11 @@ console.log(baseUrl);
       }
 
       // Check if segment is italic (surrounded by _)
-      if (segment.startsWith("_") && segment.endsWith("_") && segment.length > 2) {
+      if (
+        segment.startsWith("_") &&
+        segment.endsWith("_") &&
+        segment.length > 2
+      ) {
         return (
           <span key={index} className="italic">
             {segment.slice(1, -1)}
@@ -6401,7 +6703,11 @@ console.log(baseUrl);
       }
 
       // Check if segment is strikethrough (surrounded by ~)
-      if (segment.startsWith("~") && segment.endsWith("~") && segment.length > 2) {
+      if (
+        segment.startsWith("~") &&
+        segment.endsWith("~") &&
+        segment.length > 2
+      ) {
         return (
           <span key={index} className="line-through">
             {segment.slice(1, -1)}
@@ -6410,18 +6716,33 @@ console.log(baseUrl);
       }
 
       // Check if segment is inline code (surrounded by `)
-      if (segment.startsWith("`") && segment.endsWith("`") && segment.length > 2 && !segment.startsWith("```")) {
+      if (
+        segment.startsWith("`") &&
+        segment.endsWith("`") &&
+        segment.length > 2 &&
+        !segment.startsWith("```")
+      ) {
         return (
-          <span key={index} className="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-sm font-mono">
+          <span
+            key={index}
+            className="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-sm font-mono"
+          >
             {segment.slice(1, -1)}
           </span>
         );
       }
 
       // Check if segment is code block (surrounded by ```)
-      if (segment.startsWith("```") && segment.endsWith("```") && segment.length > 6) {
+      if (
+        segment.startsWith("```") &&
+        segment.endsWith("```") &&
+        segment.length > 6
+      ) {
         return (
-          <div key={index} className="bg-gray-200 dark:bg-gray-700 p-2 rounded mt-1 mb-1 font-mono text-sm overflow-x-auto">
+          <div
+            key={index}
+            className="bg-gray-200 dark:bg-gray-700 p-2 rounded mt-1 mb-1 font-mono text-sm overflow-x-auto"
+          >
             <pre className="whitespace-pre-wrap">{segment.slice(3, -3)}</pre>
           </div>
         );
@@ -6430,10 +6751,10 @@ console.log(baseUrl);
       // Check if segment is a URL
       if (segment.match(/^https?:\/\/[^\s]+$/)) {
         return (
-          <a 
-            key={index} 
-            href={segment} 
-            target="_blank" 
+          <a
+            key={index}
+            href={segment}
+            target="_blank"
             rel="noopener noreferrer"
             className="text-blue-500 dark:text-blue-400 underline hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
           >
@@ -6445,7 +6766,10 @@ console.log(baseUrl);
       // Check if segment is a mention (starts with @)
       if (segment.match(/^@[a-zA-Z0-9_]+$/)) {
         return (
-          <span key={index} className="text-blue-600 dark:text-blue-400 font-medium">
+          <span
+            key={index}
+            className="text-blue-600 dark:text-blue-400 font-medium"
+          >
             {segment}
           </span>
         );
@@ -6497,91 +6821,111 @@ console.log(baseUrl);
 
   const handlePageChange = async ({ selected }: { selected: number }) => {
     setCurrentPage(selected);
-    
+
     // Calculate how many contacts we need to display
     const startIndex = selected * contactsPerPage;
     const endIndex = startIndex + contactsPerPage;
-    
+
     // Check if this page is already loaded
     const isPageLoaded = loadedPages.has(selected);
-    
+
     // Only show loading if we need to load more contacts and this page isn't already loaded
-    if (endIndex > loadedContacts.length && hasMoreContacts && !isLoadingMoreContacts && !isPageLoaded) {
+    if (
+      endIndex > loadedContacts.length &&
+      hasMoreContacts &&
+      !isLoadingMoreContacts &&
+      !isPageLoaded
+    ) {
       setIsLoadingMoreContacts(true);
       setLoadingProgress(0);
-      
+
       try {
         // Add a small delay to show the loading state
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
         setLoadingProgress(10);
-        
+
         // Calculate the range of pages to load (10 pages around the target)
         const targetPage = selected;
         const startPage = Math.max(0, targetPage - 5); // 5 pages before target
-        const endPage = Math.min(Math.floor(totalContacts / contactsPerPage) - 1, targetPage + 5); // 5 pages after target
-        
+        const endPage = Math.min(
+          Math.floor(totalContacts / contactsPerPage) - 1,
+          targetPage + 5
+        ); // 5 pages after target
+
         setLoadingProgress(20);
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
         // Calculate the exact contacts needed for this specific range
         const rangeStartIndex = startPage * contactsPerPage;
         const rangeEndIndex = (endPage + 1) * contactsPerPage;
-        
+
         // Calculate how many contacts we need to load to reach this range
-        const contactsNeeded = Math.max(0, rangeEndIndex - loadedContacts.length);
-        
+        const contactsNeeded = Math.max(
+          0,
+          rangeEndIndex - loadedContacts.length
+        );
+
         setLoadingProgress(30);
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
         // Load contacts for the 10-page range
         if (contactsNeeded > 0) {
           const batchesNeeded = Math.ceil(contactsNeeded / 200);
-          
-          console.log(`Loading ${contactsNeeded} contacts in ${batchesNeeded} batches for pages ${startPage}-${endPage}`);
-          
+
+          console.log(
+            `Loading ${contactsNeeded} contacts in ${batchesNeeded} batches for pages ${startPage}-${endPage}`
+          );
+
           // Load the required number of batches (200 contacts each)
           for (let i = 0; i < batchesNeeded; i++) {
-            const batchStart = loadedContacts.length + (i * 200);
+            const batchStart = loadedContacts.length + i * 200;
             const batchEnd = Math.min(batchStart + 200, contacts.length);
             const nextBatch = contacts.slice(batchStart, batchEnd);
-            
-            console.log(`Loading batch ${i + 1}/${batchesNeeded}: ${nextBatch.length} contacts`);
-            
-            setLoadedContacts(prevLoaded => [...prevLoaded, ...nextBatch]);
-            
+
+            console.log(
+              `Loading batch ${i + 1}/${batchesNeeded}: ${
+                nextBatch.length
+              } contacts`
+            );
+
+            setLoadedContacts((prevLoaded) => [...prevLoaded, ...nextBatch]);
+
             // Update progress for each batch
-            const batchProgress = 30 + Math.floor(((i + 1) / batchesNeeded) * 60);
+            const batchProgress =
+              30 + Math.floor(((i + 1) / batchesNeeded) * 60);
             setLoadingProgress(batchProgress);
-            await new Promise(resolve => setTimeout(resolve, 50));
-            
+            await new Promise((resolve) => setTimeout(resolve, 50));
+
             // Update hasMoreContacts after each batch
             setHasMoreContacts(batchEnd < contacts.length);
           }
         } else {
-          console.log('No contacts needed to load for this range');
+          console.log("No contacts needed to load for this range");
         }
-        
+
         setLoadingProgress(95);
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
         // Mark the 10-page range as loaded
         const newLoadedPages = new Set<number>(loadedPages);
         for (let page = startPage; page <= endPage; page++) {
           newLoadedPages.add(page);
         }
         setLoadedPages(newLoadedPages);
-        
+
         setLastLoadedPage(Math.floor(loadedContacts.length / 200));
-        
+
         setLoadingProgress(100);
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        console.log(`Successfully loaded contacts for pages ${startPage}-${endPage}`);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        console.log(
+          `Successfully loaded contacts for pages ${startPage}-${endPage}`
+        );
       } catch (error) {
         console.error("Error loading more contacts:", error);
         toast.error("Error loading more contacts");
       } finally {
-        console.log('Finishing loading process');
+        console.log("Finishing loading process");
         setIsLoadingMoreContacts(false);
         setLoadingProgress(0);
       }
@@ -6706,7 +7050,13 @@ console.log(baseUrl);
     // Use filteredContactsSearch instead of loadedContacts to ensure proper sorting
     const paginated = filteredContactsSearch.slice(startIndex, endIndex);
     setPaginatedContacts(paginated);
-    console.log('Pagination:', { currentPage, startIndex, endIndex, filteredContactsLength: filteredContactsSearch.length, paginatedLength: paginated.length });
+    console.log("Pagination:", {
+      currentPage,
+      startIndex,
+      endIndex,
+      filteredContactsLength: filteredContactsSearch.length,
+      paginatedLength: paginated.length,
+    });
   }, [currentPage, contactsPerPage, filteredContactsSearch]);
 
   const getSortedContacts = useCallback((contactsToSort: Contact[]) => {
@@ -6724,12 +7074,11 @@ console.log(baseUrl);
 
   useEffect(() => {
     // Use loaded contacts for filtering instead of all contacts
-    const filteredFromLoaded = filteredContactsSearch.filter(contact => 
-      loadedContacts.some(loadedContact => loadedContact.id === contact.id)
+    const filteredFromLoaded = filteredContactsSearch.filter((contact) =>
+      loadedContacts.some((loadedContact) => loadedContact.id === contact.id)
     );
     setFilteredContacts(filteredFromLoaded);
   }, [filteredContactsSearch, loadedContacts]);
-
 
   const filterTagContact = (tag: string) => {
     if (
@@ -6777,8 +7126,6 @@ console.log(baseUrl);
 
   // Update the total pages calculation
   const totalPages = Math.ceil(filteredContactsSearch.length / contactsPerPage);
-
-
 
   const handleSnoozeContact = async (contact: Contact) => {
     try {
@@ -7638,7 +7985,7 @@ console.log(baseUrl);
       // Update state immediately
       const updateContactsList = (prevContacts: Contact[]) =>
         prevContacts.map((contact) =>
-          (contact.id === contactId || contact.contact_id === contactId)
+          contact.id === contactId || contact.contact_id === contactId
             ? {
                 ...contact,
                 tags: contact.tags!.filter((tag) => tag !== tagName),
@@ -7663,7 +8010,11 @@ console.log(baseUrl);
       );
 
       // Update selectedContact if it's the same contact
-      if (selectedContact && (selectedContact.id === contactId || selectedContact.contact_id === contactId)) {
+      if (
+        selectedContact &&
+        (selectedContact.id === contactId ||
+          selectedContact.contact_id === contactId)
+      ) {
         setSelectedContact((prevContact: Contact) => ({
           ...prevContact,
           tags: prevContact.tags!.filter((tag: string) => tag !== tagName),
@@ -7679,13 +8030,18 @@ console.log(baseUrl);
           action: "remove",
           tagName: tagName,
           updatedTags: contact.tags!.filter((tag) => tag !== tagName),
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
         wsConnection.send(JSON.stringify(wsMessage));
         console.log("🏷️ [WEBSOCKET] Sent contact tags update:", wsMessage);
       }
 
-      console.log("📝 [TAG] Removed tag from contact:", contactId, "tag:", tagName);
+      console.log(
+        "📝 [TAG] Removed tag from contact:",
+        contactId,
+        "tag:",
+        tagName
+      );
 
       // The backend API already handles follow-up template cleanup in handleTagDeletion
       // So we just show success message - the cleanup was done in the main API call above
@@ -7941,7 +8297,6 @@ console.log(baseUrl);
   }, [contacts]);
 
   useEffect(() => {
-  
     const checkBotsStatus = () => {
       const allStopped = contacts.every((contact) =>
         contact.tags?.includes("stop bot")
@@ -8065,8 +8420,6 @@ console.log(baseUrl);
       }))
     );
     setPhoneCount(data.phoneCount);
-   
-  
 
     return {
       companyId: data.companyId,
@@ -8179,7 +8532,9 @@ console.log(baseUrl);
 
       // Get user/company info
       const userResponse = await fetch(
-        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
+          userEmail
+        )}`
       );
       if (!userResponse.ok) return;
       const userData = await userResponse.json();
@@ -8392,7 +8747,6 @@ console.log(baseUrl);
       toast.error("Please select a future time for the reminder.");
       return;
     }
-
   };
 
   const formatDuration = (seconds: number): string => {
@@ -8515,7 +8869,9 @@ console.log(baseUrl);
       }
 
       const response = await axios.get(
-        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
+          userEmail
+        )}`
       );
 
       if (response.status !== 200) {
@@ -8535,13 +8891,16 @@ console.log(baseUrl);
 
       const assistantId = assistantIds[0] || "";
 
-      const res = await axios.get(`${companyData.apiUrl || baseUrl}/api/assistant-test/`, {
-        params: {
-          message: messageText,
-          email: userEmail,
-          assistantid: assistantId,
-        },
-      });
+      const res = await axios.get(
+        `${companyData.apiUrl || baseUrl}/api/assistant-test/`,
+        {
+          params: {
+            message: messageText,
+            email: userEmail,
+            assistantid: assistantId,
+          },
+        }
+      );
 
       return res.data.answer;
     } catch (error) {
@@ -8750,17 +9109,15 @@ console.log(baseUrl);
       }
 
       updateData.companyId = companyIdToUse;
-      updateData.name = updateData.contactName || editedContact.contactName || "";
+      updateData.name =
+        updateData.contactName || editedContact.contactName || "";
 
-      const response = await fetch(
-        `${baseUrl}/api/contacts/${contact_id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(updateData),
-        }
-      );
+      const response = await fetch(`${baseUrl}/api/contacts/${contact_id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(updateData),
+      });
 
       if (!response.ok) {
         toast.error("Failed to update contact.");
@@ -8798,7 +9155,7 @@ console.log(baseUrl);
                 <div className="text-start text-lg font-medium text-gray-600 dark:text-gray-400">
                   Total Contacts: {totalContacts}
                 </div>
-                
+
                 {/* Error Message - Show below if there's an error */}
                 {wsError && (
                   <div className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
@@ -8810,8 +9167,7 @@ console.log(baseUrl);
           </div>
 
           <div className="flex flex-col gap-2">
-            
-            {(
+            {
               <Menu as="div" className="relative inline-block text-left">
                 <div>
                   <Menu.Button className="flex items-center space-x-2 text-lg font-semibold opacity-75 bg-white dark:bg-gray-800 px-3 py-2 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-blue-500">
@@ -8820,14 +9176,14 @@ console.log(baseUrl);
                       className="w-5 h-5 text-gray-800 dark:text-white"
                     />
                     <span className="text-gray-800 font-medium dark:text-white">
-                      {userData?.phone !== undefined && phoneNames[userData.phone] 
-                        ? phoneNames[userData.phone] 
+                      {userData?.phone !== undefined &&
+                      phoneNames[userData.phone]
+                        ? phoneNames[userData.phone]
                         : Object.keys(phoneNames).length === 1
                         ? Object.values(phoneNames)[0]
                         : Object.keys(phoneNames).length > 1
                         ? "Select phone"
-                        : `Loading phones...`
-                      }
+                        : `Loading phones...`}
                     </span>
                     <Lucide
                       icon="ChevronDown"
@@ -8843,7 +9199,8 @@ console.log(baseUrl);
                     aria-labelledby="options-menu"
                   >
                     {Object.entries(phoneNames).map(([index, phoneName]) => {
-                      const phoneStatus = qrCodes[parseInt(index)]?.status || "unknown";
+                      const phoneStatus =
+                        qrCodes[parseInt(index)]?.status || "unknown";
                       const isConnected =
                         phoneStatus === "ready" ||
                         phoneStatus === "authenticated";
@@ -8877,8 +9234,8 @@ console.log(baseUrl);
                   </div>
                 </Menu.Items>
               </Menu>
-            )}
-            
+            }
+
             {/* WebSocket Status - Clickable to disconnect */}
             <div className="flex items-center gap-2 w-full">
               <button
@@ -9269,18 +9626,27 @@ console.log(baseUrl);
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Phone
                     </label>
-                    <Menu as="div" className="relative inline-block text-left w-full">
+                    <Menu
+                      as="div"
+                      className="relative inline-block text-left w-full"
+                    >
                       <div>
                         <Menu.Button className="flex items-center justify-between w-full text-left px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                           <span className="text-sm">
-                            {userData?.phone !== undefined && phoneNames[userData.phone] 
-                              ? phoneNames[userData.phone].replace(/\s+(Connected|Not Connected)$/, '')
+                            {userData?.phone !== undefined &&
+                            phoneNames[userData.phone]
+                              ? phoneNames[userData.phone].replace(
+                                  /\s+(Connected|Not Connected)$/,
+                                  ""
+                                )
                               : Object.keys(phoneNames).length === 1
-                              ? Object.values(phoneNames)[0].replace(/\s+(Connected|Not Connected)$/, '')
+                              ? Object.values(phoneNames)[0].replace(
+                                  /\s+(Connected|Not Connected)$/,
+                                  ""
+                                )
                               : Object.keys(phoneNames).length > 1
                               ? "Select phone"
-                              : `Loading phones...`
-                            }
+                              : `Loading phones...`}
                           </span>
                           <Lucide
                             icon="ChevronDown"
@@ -9295,41 +9661,51 @@ console.log(baseUrl);
                           aria-orientation="vertical"
                           aria-labelledby="options-menu"
                         >
-                          {Object.entries(phoneNames).map(([index, phoneName]) => {
-                            const phoneStatus = qrCodes[parseInt(index)]?.status || "unknown";
-                            const isConnected =
-                              phoneStatus === "ready" ||
-                              phoneStatus === "authenticated";
-                            
-                            // Clean up phone name to remove connection status if it's included
-                            const cleanPhoneName = phoneName.replace(/\s+(Connected|Not Connected)$/, '');
+                          {Object.entries(phoneNames).map(
+                            ([index, phoneName]) => {
+                              const phoneStatus =
+                                qrCodes[parseInt(index)]?.status || "unknown";
+                              const isConnected =
+                                phoneStatus === "ready" ||
+                                phoneStatus === "authenticated";
 
-                            return (
-                              <Menu.Item key={index}>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() => setUserPhone(parseInt(index))}
-                                    className={`${
-                                      active
-                                        ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
-                                        : "text-gray-700 dark:text-gray-200"
-                                    } block w-full text-left px-4 py-2 text-sm flex items-center justify-between`}
-                                  >
-                                    <span>{cleanPhoneName}</span>
-                                    <span
-                                      className={`text-xs px-2 py-1 rounded-full ${
-                                        isConnected
-                                          ? "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200"
-                                          : "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200"
-                                      }`}
+                              // Clean up phone name to remove connection status if it's included
+                              const cleanPhoneName = phoneName.replace(
+                                /\s+(Connected|Not Connected)$/,
+                                ""
+                              );
+
+                              return (
+                                <Menu.Item key={index}>
+                                  {({ active }) => (
+                                    <button
+                                      onClick={() =>
+                                        setUserPhone(parseInt(index))
+                                      }
+                                      className={`${
+                                        active
+                                          ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                                          : "text-gray-700 dark:text-gray-200"
+                                      } block w-full text-left px-4 py-2 text-sm flex items-center justify-between`}
                                     >
-                                      {isConnected ? "Connected" : "Not Connected"}
-                                    </span>
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            );
-                          })}
+                                      <span>{cleanPhoneName}</span>
+                                      <span
+                                        className={`text-xs px-2 py-1 rounded-full ${
+                                          isConnected
+                                            ? "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200"
+                                            : "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200"
+                                        }`}
+                                      >
+                                        {isConnected
+                                          ? "Connected"
+                                          : "Not Connected"}
+                                      </span>
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                              );
+                            }
+                          )}
                         </div>
                       </Menu.Items>
                     </Menu>
@@ -9750,7 +10126,9 @@ console.log(baseUrl);
               }
               const unreadCount = newfilter.filter((contact) => {
                 const contactTags =
-                  contact.tags?.map((t) => t.toLowerCase()) || [];
+                  contact.tags?.map((t) =>
+                    typeof t === "string" ? t.toLowerCase() : ""
+                  ) || [];
                 const isGroup = contact.chat_id?.endsWith("@g.us");
                 const phoneIndex = Object.entries(phoneNames).findIndex(
                   ([_, name]) => name.toLowerCase() === tagLower
@@ -9835,13 +10213,15 @@ console.log(baseUrl);
             <div className="absolute inset-0 bg-white dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 flex items-center justify-center z-10">
               <div className="flex flex-col items-center">
                 <LoadingIcon icon="oval" className="w-8 h-8 text-primary" />
-                <span className="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading more contacts...</span>
+                <span className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  Loading more contacts...
+                </span>
               </div>
             </div>
           )}
-                        {loadedContacts.length === 0 ? ( // Check if loadedContacts is empty
+          {loadedContacts.length === 0 ? ( // Check if loadedContacts is empty
             <div className="flex items-center justify-center h-full">
-                              {loadedContacts.length === 0 && (
+              {loadedContacts.length === 0 && (
                 <div className="flex flex-col items-center">
                   <div>
                     <Lucide
@@ -9850,7 +10230,9 @@ console.log(baseUrl);
                     />
                   </div>
                   <div className="text-gray-500 text-2xl dark:text-gray-400 mt-2">
-                    {isInitialLoading ? "Loading contacts..." : "No contacts found"}
+                    {isInitialLoading
+                      ? "Loading contacts..."
+                      : "No contacts found"}
                   </div>
                   {isInitialLoading && (
                     <div className="mt-4 w-full max-w-xs">
@@ -9859,22 +10241,30 @@ console.log(baseUrl);
                         <span>{realLoadingProgress}%</span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        <div 
+                        <div
                           className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
                           style={{ width: `${realLoadingProgress}%` }}
                         ></div>
                       </div>
                       {loadingSteps.userConfig && (
-                        <div className="text-xs text-gray-500 mt-1">✓ User configuration loaded</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          ✓ User configuration loaded
+                        </div>
                       )}
                       {loadingSteps.contactsFetch && (
-                        <div className="text-xs text-gray-500 mt-1">✓ Contacts fetched</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          ✓ Contacts fetched
+                        </div>
                       )}
                       {loadingSteps.contactsProcess && (
-                        <div className="text-xs text-gray-500 mt-1">✓ Processing contacts...</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          ✓ Processing contacts...
+                        </div>
                       )}
                       {loadingSteps.complete && (
-                        <div className="text-xs text-green-500 mt-1">✓ Loading complete!</div>
+                        <div className="text-xs text-green-500 mt-1">
+                          ✓ Loading complete!
+                        </div>
                       )}
                     </div>
                   )}
@@ -10283,7 +10673,11 @@ console.log(baseUrl);
             ))
           ) : null}
         </div>
-        <div className={`flex justify-center items-center mt-4 mb-4 ${isLoadingMoreContacts ? 'opacity-50' : ''}`}>
+        <div
+          className={`flex justify-center items-center mt-4 mb-4 ${
+            isLoadingMoreContacts ? "opacity-50" : ""
+          }`}
+        >
           <ReactPaginate
             breakLabel="…"
             nextLabel="Next"
@@ -10305,10 +10699,12 @@ console.log(baseUrl);
             activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
             forcePage={currentPage}
           />
-          
+
           {/* Quick Navigation */}
           <div className="flex items-center gap-2 ml-4">
-            <span className="text-xs text-gray-600 dark:text-gray-400">Go to:</span>
+            <span className="text-xs text-gray-600 dark:text-gray-400">
+              Go to:
+            </span>
             <input
               type="number"
               min="1"
@@ -10316,7 +10712,10 @@ console.log(baseUrl);
               value={currentPage + 1}
               onChange={(e) => {
                 const page = parseInt(e.target.value) - 1;
-                if (page >= 0 && page < Math.ceil(totalContacts / contactsPerPage)) {
+                if (
+                  page >= 0 &&
+                  page < Math.ceil(totalContacts / contactsPerPage)
+                ) {
                   handlePageChange({ selected: page });
                 }
               }}
@@ -10325,7 +10724,7 @@ console.log(baseUrl);
             <span className="text-xs text-gray-600 dark:text-gray-400">
               of {Math.ceil(totalContacts / contactsPerPage)}
             </span>
-            
+
             {/* Quick Jump Buttons */}
             <div className="flex items-center gap-1 ml-2">
               <button
@@ -10336,8 +10735,14 @@ console.log(baseUrl);
                 First
               </button>
               <button
-                onClick={() => handlePageChange({ selected: Math.ceil(totalContacts / contactsPerPage) - 1 })}
-                disabled={currentPage === Math.ceil(totalContacts / contactsPerPage) - 1}
+                onClick={() =>
+                  handlePageChange({
+                    selected: Math.ceil(totalContacts / contactsPerPage) - 1,
+                  })
+                }
+                disabled={
+                  currentPage === Math.ceil(totalContacts / contactsPerPage) - 1
+                }
                 className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
               >
                 Last
@@ -10348,7 +10753,9 @@ console.log(baseUrl);
         {isLoadingMoreContacts && (
           <div className="flex flex-col items-center justify-center mt-4 mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <LoadingIcon icon="oval" className="w-6 h-6 text-primary" />
-            <span className="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading more contacts...</span>
+            <span className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              Loading more contacts...
+            </span>
             <div className="mt-2 w-full max-w-xs">
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div className="bg-primary h-2 rounded-full animate-pulse"></div>
@@ -10489,7 +10896,11 @@ console.log(baseUrl);
                                     : "text-gray-700 dark:text-gray-200"
                                 }`}
                                 onClick={() => {
-                                  console.log("🎯 [UI] Employee assignment clicked:", employee.name, selectedContact);
+                                  console.log(
+                                    "🎯 [UI] Employee assignment clicked:",
+                                    employee.name,
+                                    selectedContact
+                                  );
                                   handleAddTagToSelectedContacts(
                                     employee.name,
                                     selectedContact
@@ -10530,7 +10941,11 @@ console.log(baseUrl);
                                 : ""
                             }`}
                             onClick={() => {
-                              console.log("🎯 [UI] Tag assignment clicked:", tag.name, selectedContact);
+                              console.log(
+                                "🎯 [UI] Tag assignment clicked:",
+                                tag.name,
+                                selectedContact
+                              );
                               handleAddTagToSelectedContacts(
                                 tag.name,
                                 selectedContact
@@ -10671,7 +11086,11 @@ console.log(baseUrl);
                               <button
                                 className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
                                 onClick={() => {
-                                  console.log("🎯 [UI] Tag assignment clicked (menu 2):", tag.name, selectedContact);
+                                  console.log(
+                                    "🎯 [UI] Tag assignment clicked (menu 2):",
+                                    tag.name,
+                                    selectedContact
+                                  );
                                   handleAddTagToSelectedContacts(
                                     tag.name,
                                     selectedContact
@@ -10814,7 +11233,11 @@ console.log(baseUrl);
                       }
 
                       return (
-                        <React.Fragment key={`${message.id}-${index}-${message.timestamp || message.createdAt || index}`}>
+                        <React.Fragment
+                          key={`${message.id}-${index}-${
+                            message.timestamp || message.createdAt || index
+                          }`}
+                        >
                           {showDateHeader && (
                             <div className="flex justify-center my-4">
                               <div className="inline-block bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold py-1 px-4 rounded-lg shadow-md">
@@ -10956,18 +11379,18 @@ console.log(baseUrl);
                                     <div
                                       className="text-sm font-medium"
                                       style={{
-                                      color: getAuthorColor(
-                                        message.text.context.from
-                                      ),
+                                        color: getAuthorColor(
+                                          message.text.context.from
+                                        ),
                                       }}
                                     >
                                       {message.text.context.from === "Me"
-                                      ? "Me"
-                                      : selectedContact?.contactName ||
-                                        selectedContact?.firstName ||
-                                        selectedContact?.phone ||
-                                        message.text.context.from ||
-                                        ""}
+                                        ? "Me"
+                                        : selectedContact?.contactName ||
+                                          selectedContact?.firstName ||
+                                          selectedContact?.phone ||
+                                          message.text.context.from ||
+                                          ""}
                                     </div>
                                     <div className="text-sm text-gray-700 dark:text-gray-300">
                                       {message.text.context.body || ""}
@@ -11008,7 +11431,7 @@ console.log(baseUrl);
                                       message.userName &&
                                       message.userName !== "" &&
                                       message.chat_id &&
-                                      (message.chat_id.includes("@g.us")) && (
+                                      message.chat_id.includes("@g.us") && (
                                         <div className="text-sm text-gray-300 dark:text-gray-300 mb-1 capitalize font-medium">
                                           {message.userName}
                                         </div>
@@ -11078,7 +11501,9 @@ console.log(baseUrl);
                                             : message.image?.url
                                             ? getFullImageUrl(message.image.url)
                                             : message.image?.link
-                                            ? getFullImageUrl(message.image.link)
+                                            ? getFullImageUrl(
+                                                message.image.link
+                                              )
                                             : "";
                                         if (imageUrl) {
                                           openImageModal(imageUrl);
@@ -11106,21 +11531,27 @@ console.log(baseUrl);
                                       className="mb-2"
                                       style={{
                                         maxWidth: "70%",
-                                        width: `${Math.min((message.image.caption.length || 0) * 10, 350)}px`,
+                                        width: `${Math.min(
+                                          (message.image.caption.length || 0) *
+                                            10,
+                                          350
+                                        )}px`,
                                         minWidth: "75px",
                                       }}
                                     >
-                                      <div className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
-                                        message.from_me 
-                                          ? 'text-white dark:text-white' 
-                                          : 'text-black dark:text-white'
-                                      }`}
-                                      style={{
-                                        lineHeight: "1.5",
-                                        letterSpacing: "0.01em",
-                                      }}>
-                                          {formatText(message.image.caption)}
-                                        </div>
+                                      <div
+                                        className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
+                                          message.from_me
+                                            ? "text-white dark:text-white"
+                                            : "text-black dark:text-white"
+                                        }`}
+                                        style={{
+                                          lineHeight: "1.5",
+                                          letterSpacing: "0.01em",
+                                        }}
+                                      >
+                                        {formatText(message.image.caption)}
+                                      </div>
                                     </div>
                                   )}
                                 </>
@@ -11196,21 +11627,27 @@ console.log(baseUrl);
                                       className="mb-2"
                                       style={{
                                         maxWidth: "70%",
-                                        width: `${Math.min((message.gif.caption.length || 0) * 10, 350)}px`,
+                                        width: `${Math.min(
+                                          (message.gif.caption.length || 0) *
+                                            10,
+                                          350
+                                        )}px`,
                                         minWidth: "75px",
                                       }}
                                     >
-                                      <div className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
-                                        message.from_me 
-                                          ? 'text-white dark:text-white' 
-                                          : 'text-black dark:text-white'
-                                      }`}
-                                      style={{
-                                        lineHeight: "1.5",
-                                        letterSpacing: "0.01em",
-                                      }}>
-                                          {formatText(message.gif.caption)}
-                                        </div>
+                                      <div
+                                        className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
+                                          message.from_me
+                                            ? "text-white dark:text-white"
+                                            : "text-black dark:text-white"
+                                        }`}
+                                        style={{
+                                          lineHeight: "1.5",
+                                          letterSpacing: "0.01em",
+                                        }}
+                                      >
+                                        {formatText(message.gif.caption)}
+                                      </div>
                                     </div>
                                   )}
                                 </>
@@ -11262,20 +11699,33 @@ console.log(baseUrl);
                                         className="mb-2"
                                         style={{
                                           maxWidth: "70%",
-                                          width: `${Math.min(((message.audio?.caption || message.ptt?.caption || "").length || 0) * 10, 350)}px`,
+                                          width: `${Math.min(
+                                            ((
+                                              message.audio?.caption ||
+                                              message.ptt?.caption ||
+                                              ""
+                                            ).length || 0) * 10,
+                                            350
+                                          )}px`,
                                           minWidth: "75px",
                                         }}
                                       >
-                                        <div className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
-                                          message.from_me 
-                                            ? 'text-white dark:text-white' 
-                                            : 'text-black dark:text-white'
-                                        }`}
-                                        style={{
-                                          lineHeight: "1.5",
-                                          letterSpacing: "0.01em",
-                                        }}>
-                                          {formatText(message.audio?.caption || message.ptt?.caption || "")}
+                                        <div
+                                          className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
+                                            message.from_me
+                                              ? "text-white dark:text-white"
+                                              : "text-black dark:text-white"
+                                          }`}
+                                          style={{
+                                            lineHeight: "1.5",
+                                            letterSpacing: "0.01em",
+                                          }}
+                                        >
+                                          {formatText(
+                                            message.audio?.caption ||
+                                              message.ptt?.caption ||
+                                              ""
+                                          )}
                                         </div>
                                       </div>
                                     )}
@@ -11349,7 +11799,8 @@ console.log(baseUrl);
                                                 `${
                                                   message.document.page_count
                                                 } page${
-                                                  message.document.page_count > 1
+                                                  message.document.page_count >
+                                                  1
                                                     ? "s"
                                                     : ""
                                                 } • `}
@@ -11377,19 +11828,25 @@ console.log(baseUrl);
                                         className="mb-2"
                                         style={{
                                           maxWidth: "70%",
-                                          width: `${Math.min((message.document.caption.length || 0) * 10, 350)}px`,
+                                          width: `${Math.min(
+                                            (message.document.caption.length ||
+                                              0) * 10,
+                                            350
+                                          )}px`,
                                           minWidth: "75px",
                                         }}
                                       >
-                                        <div className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
-                                          message.from_me 
-                                            ? 'text-white dark:text-white' 
-                                            : 'text-black dark:text-white'
-                                        }`}
-                                        style={{
-                                          lineHeight: "1.5",
-                                          letterSpacing: "0.01em",
-                                        }}>
+                                        <div
+                                          className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
+                                            message.from_me
+                                              ? "text-white dark:text-white"
+                                              : "text-black dark:text-white"
+                                          }`}
+                                          style={{
+                                            lineHeight: "1.5",
+                                            letterSpacing: "0.01em",
+                                          }}
+                                        >
                                           {formatText(message.document.caption)}
                                         </div>
                                       </div>
@@ -11657,7 +12114,7 @@ console.log(baseUrl);
                                         message.dateAdded ||
                                         message.timestamp
                                     )}
-                                    
+
                                     {/* Message status indicator for sent messages */}
                                     {message.from_me && (
                                       <div className="flex items-center ml-2">
@@ -11666,10 +12123,15 @@ console.log(baseUrl);
                                             <Lucide
                                               icon="XCircle"
                                               className="w-4 h-4 text-red-500"
-                                              title={message.error || "Failed to send"}
+                                              title={
+                                                message.error ||
+                                                "Failed to send"
+                                              }
                                             />
                                             <button
-                                              onClick={() => handleRetryMessage(message)}
+                                              onClick={() =>
+                                                handleRetryMessage(message)
+                                              }
                                               className="text-xs text-blue-500 hover:text-blue-700 underline"
                                               title="Retry sending message"
                                             >
@@ -13030,7 +13492,9 @@ console.log(baseUrl);
                         });
                         // Update the global phone selection which triggers message filtering
                         await handlePhoneChange(newPhoneIndex);
-                        toast.info(`Phone updated to ${phoneNames[newPhoneIndex]}`);
+                        toast.info(
+                          `Phone updated to ${phoneNames[newPhoneIndex]}`
+                        );
                       }}
                       className="px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ml-4 w-32"
                     >
