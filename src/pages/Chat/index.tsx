@@ -2597,13 +2597,13 @@ function Main() {
         case "user": // User
           return contacts.filter((contact) =>
             contact.tags?.some(
-              (tag) => tag.toLowerCase() === userName.toLowerCase()
+              (tag) => (typeof tag === "string" ? tag : String(tag)).toLowerCase() === userName.toLowerCase()
             )
           );
         case "2": // Sales
           return contacts.filter((contact) =>
             contact.tags?.some(
-              (tag) => tag.toLowerCase() === userName.toLowerCase()
+              (tag) => (typeof tag === "string" ? tag : String(tag)).toLowerCase() === userName.toLowerCase()
             )
           );
 
@@ -2612,7 +2612,7 @@ function Main() {
           // Sales, Observer, and Manager see only contacts assigned to them
           return contacts.filter((contact) =>
             contact.tags?.some(
-              (tag) => tag.toLowerCase() === userName.toLowerCase()
+              (tag) => (typeof tag === "string" ? tag : String(tag)).toLowerCase() === userName.toLowerCase()
             )
           );
         case "5": // Other role
@@ -2878,7 +2878,7 @@ function Main() {
             searchQuery.toLowerCase()
           ) ||
           contact.tags?.some((tag) =>
-            tag.toLowerCase().includes(searchQuery.toLowerCase())
+            (typeof tag === "string" ? tag : String(tag)).toLowerCase().includes(searchQuery.toLowerCase())
           )
       );
     }
@@ -2887,7 +2887,7 @@ function Main() {
     if (selectedEmployee) {
       fil = fil.filter((contact) =>
         contact.tags?.some(
-          (tag) => tag.toLowerCase() === selectedEmployee.toLowerCase()
+          (tag) => (typeof tag === "string" ? tag : String(tag)).toLowerCase() === selectedEmployee.toLowerCase()
         )
       );
     }
@@ -2909,7 +2909,7 @@ function Main() {
             : tag === "unassigned"
             ? !contact.tags?.some((t: string) =>
                 employeeList.some(
-                  (e) => (e.name?.toLowerCase() || "") === t.toLowerCase()
+                  (e) => (e.name?.toLowerCase() || "") === (typeof t === "string" ? t : String(t)).toLowerCase()
                 )
               )
             : tag === "snooze"
@@ -2920,7 +2920,7 @@ function Main() {
             ? isGroup
             : tag === "stop bot"
             ? contact.tags?.includes("stop bot")
-            : contact.tags?.map((t: string) => t.toLowerCase()).includes(tag);
+            : contact.tags?.map((t: string) => (typeof t === "string" ? t : String(t)).toLowerCase()).includes(tag);
 
         return matchesTag;
       });
@@ -3048,7 +3048,7 @@ function Main() {
       const employees = activeTags.filter((tag) =>
         employeeList.some(
           (employee) =>
-            (employee.name?.toLowerCase() || "") === (tag?.toLowerCase() || "")
+            (employee.name?.toLowerCase() || "") === (typeof tag === "string" ? tag : String(tag)).toLowerCase()
         )
       );
       const others = activeTags.filter(
@@ -3057,7 +3057,7 @@ function Main() {
           !employeeList.some(
             (employee) =>
               (employee.name?.toLowerCase() || "") ===
-              (tag?.toLowerCase() || "")
+              (typeof tag === "string" ? tag : String(tag)).toLowerCase()
           )
       );
 
@@ -4011,7 +4011,7 @@ function Main() {
             const emailUsername = data.userData.viewEmployee.split("@")[0];
             const employeeByUsername = data.employeeList.find(
               (emp: { id: string }) =>
-                emp.id.toLowerCase().includes(emailUsername.toLowerCase())
+                (typeof emp.id === "string" ? emp.id : String(emp.id)).toLowerCase().includes(emailUsername.toLowerCase())
             );
             if (employeeByUsername) {
               setSelectedEmployee(employeeByUsername.name);
@@ -4031,7 +4031,7 @@ function Main() {
             const emailUsername = viewEmployeeEmail.split("@")[0];
             const employeeByUsername = data.employeeList.find(
               (emp: { id: string }) =>
-                emp.id.toLowerCase().includes(emailUsername.toLowerCase())
+                (typeof emp.id === "string" ? emp.id : String(emp.id)).toLowerCase().includes(emailUsername.toLowerCase())
             );
             if (employeeByUsername) {
               setSelectedEmployee(employeeByUsername.name);
@@ -4153,7 +4153,7 @@ function Main() {
             Array.isArray(contactSelect.assignedTo) &&
             contactSelect.assignedTo.some(
               (assignedTo) =>
-                assignedTo.toLowerCase() === userData?.name?.toLowerCase()
+                (typeof assignedTo === "string" ? assignedTo : String(assignedTo)).toLowerCase() === userData?.name?.toLowerCase()
             )
           )
         ) {
@@ -7083,12 +7083,12 @@ function Main() {
   const filterTagContact = (tag: string) => {
     if (
       employeeList.some(
-        (employee) => (employee.name?.toLowerCase() || "") === tag.toLowerCase()
+        (employee) => (employee.name?.toLowerCase() || "") === (typeof tag === "string" ? tag : String(tag)).toLowerCase()
       )
     ) {
       setSelectedEmployee(tag === selectedEmployee ? null : tag);
     } else {
-      setActiveTags([tag.toLowerCase()]);
+      setActiveTags([(typeof tag === "string" ? tag : String(tag)).toLowerCase()]);
     }
     setSearchQuery("");
   };
@@ -8973,7 +8973,7 @@ function Main() {
         if (contact.tags) {
           contact.tags.forEach((tag: string) => {
             const employee = employeeList.find(
-              (emp: any) => emp.name.toLowerCase() === tag.toLowerCase()
+              (emp: any) => emp.name.toLowerCase() === (typeof tag === "string" ? tag : String(tag)).toLowerCase()
             );
             if (employee) {
               employeeAssignments[employee.id] =
@@ -10148,7 +10148,7 @@ function Main() {
                             (typeof e.name === "string"
                               ? e.name.toLowerCase()
                               : "") ===
-                            (typeof t === "string" ? t.toLowerCase() : "")
+                            (typeof t === "string" ? t.toLowerCase() : String(t).toLowerCase())
                         )
                       )
                     : tagLower === "snooze"
@@ -10390,7 +10390,7 @@ function Main() {
                                 employeeList.some(
                                   (employee) =>
                                     (employee.name?.toLowerCase() || "") ===
-                                    (tag?.toLowerCase() || "")
+                                    (typeof tag === "string" ? tag : String(tag)).toLowerCase()
                                 )
                               ) || [];
 
@@ -10400,7 +10400,7 @@ function Main() {
                                   !employeeList.some(
                                     (employee) =>
                                       (employee.name?.toLowerCase() || "") ===
-                                      (tag?.toLowerCase() || "")
+                                      (typeof tag === "string" ? tag : String(tag)).toLowerCase()
                                   )
                               ) || [];
 
@@ -10464,13 +10464,13 @@ function Main() {
                                   )}
                                 </button>
                                 {uniqueTags.filter(
-                                  (tag) => tag.toLowerCase() !== "stop bot"
+                                  (tag) => (typeof tag === "string" ? tag : String(tag)).toLowerCase() !== "stop bot"
                                 ).length > 0 && (
                                   <Tippy
                                     content={uniqueTags
                                       .filter(
                                         (tag) =>
-                                          tag.toLowerCase() !== "stop bot"
+                                          (typeof tag === "string" ? tag : String(tag)).toLowerCase() !== "stop bot"
                                       )
                                       .map(
                                         (tag) =>
@@ -10492,7 +10492,7 @@ function Main() {
                                         {
                                           uniqueTags.filter(
                                             (tag) =>
-                                              tag.toLowerCase() !== "stop bot"
+                                              (typeof tag === "string" ? tag : String(tag)).toLowerCase() !== "stop bot"
                                           ).length
                                         }
                                       </span>
@@ -10506,7 +10506,7 @@ function Main() {
                                         const employee = employeeList.find(
                                           (e) =>
                                             (e.name?.toLowerCase() || "") ===
-                                            (tag?.toLowerCase() || "")
+                                            (typeof tag === "string" ? tag : String(tag)).toLowerCase()
                                         );
                                         return employee ? employee.name : tag;
                                       })
@@ -10523,12 +10523,11 @@ function Main() {
                                       />
                                       <span className="ml-1 text-xxs capitalize">
                                         {employeeTags.length === 1
-                                          ? employeeList.find(
+                                          ?                                             employeeList.find(
                                               (e) =>
                                                 (e.name?.toLowerCase() ||
                                                   "") ===
-                                                (employeeTags[0]?.toLowerCase() ||
-                                                  "")
+                                                (typeof employeeTags[0] === "string" ? employeeTags[0] : String(employeeTags[0])).toLowerCase()
                                             )?.employeeId ||
                                             (employeeTags[0]?.length > 8
                                               ? employeeTags[0].slice(0, 6)
@@ -13603,7 +13602,7 @@ function Main() {
                     employeeList.some(
                       (employee) =>
                         (employee.name?.toLowerCase() || "") ===
-                        (tag?.toLowerCase() || "")
+                        (typeof tag === "string" ? tag : String(tag)).toLowerCase()
                     )
                   ) && (
                     <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl p-6 border border-green-200 dark:border-green-700 mb-6">
@@ -13621,7 +13620,7 @@ function Main() {
                             employeeList.some(
                               (employee) =>
                                 (employee.name?.toLowerCase() || "") ===
-                                (tag?.toLowerCase() || "")
+                                (typeof tag === "string" ? tag : String(tag)).toLowerCase()
                             )
                           )
                           .map((employeeTag: string, index: number) => (
@@ -13668,11 +13667,11 @@ function Main() {
                         {selectedContact.tags
                           .filter(
                             (tag: string) =>
-                              (tag?.toLowerCase() || "") !== "stop bot" &&
+                              (typeof tag === "string" ? tag : String(tag)).toLowerCase() !== "stop bot" &&
                               !employeeList.some(
                                 (employee) =>
                                   (employee.name?.toLowerCase() || "") ===
-                                  (tag?.toLowerCase() || "")
+                                  (typeof tag === "string" ? tag : String(tag)).toLowerCase()
                               )
                           )
                           .map((tag: string, index: number) => (
