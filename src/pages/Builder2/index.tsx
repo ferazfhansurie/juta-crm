@@ -23,6 +23,8 @@ interface ChatMessage {
     title: string;
     content: string;
   }[];
+  isBrainstorm?: boolean;
+  suggestions?: string[];
 }
 
 interface AssistantInfo {
@@ -39,14 +41,17 @@ interface MessageListProps {
   onSendMessage: (message: string) => void;
   assistantName: string;
   deleteThread: () => void;
-  threadId: string; // Add this line
+  threadId: string;
+  isApplyingChanges: boolean;
+  applyProgress: number;
+  onApplyChanges: () => void;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assistantName, deleteThread, threadId }) => {
+const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assistantName, deleteThread, threadId, isApplyingChanges, applyProgress, onApplyChanges }) => {
   const [newMessage, setNewMessage] = useState('');
 
-  const myMessageClass = "bg-blue-500 dark:bg-blue-600 text-white rounded-tr-lg rounded-tl-lg rounded-br-sm rounded-bl-lg shadow-md";
-  const otherMessageClass = "bg-gray-700 dark:bg-gray-600 text-white rounded-tr-lg rounded-tl-lg rounded-br-lg rounded-bl-sm shadow-md";
+  const myMessageClass = "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white rounded-tr-lg rounded-tl-lg rounded-br-sm rounded-bl-lg shadow-md border border-blue-400 dark:border-blue-500";
+  const otherMessageClass = "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-tr-lg rounded-tl-lg rounded-br-lg rounded-bl-sm shadow-md";
 
   const handleSendMessage = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -92,13 +97,21 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Welcome to Prompt Builder!</h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Welcome to AI Prompt Builder!</h3>
             <p className="text-gray-600 dark:text-gray-400 max-w-md">
-              Ask me to improve your prompt instructions. I'll analyze and enhance them to make your assistant more effective.
+              I'll help you brainstorm improvements to your prompt instructions. Ask me questions and I'll provide suggestions to make your assistant more effective.
             </p>
-            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                💡 <strong>Try asking:</strong> "Make this prompt more specific" or "Add examples to this instruction"
+                💡 <strong>Workflow:</strong> 
+                <br />1. Ask me to improve your prompt
+                <br />2. Review my suggestions
+                <br />3. Click "Apply Changes" to implement them
+              </p>
+            </div>
+            <div className="mt-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
+              <p className="text-sm text-green-800 dark:text-green-200">
+                🚀 <strong>Try asking:</strong> "Make this prompt more specific" or "Add examples to this instruction"
               </p>
             </div>
           </div>
@@ -129,33 +142,90 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
                 <>
                   {message.type === 'text' && (
                     <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                      {message.isLongContent && message.sections ? (
-                        <div className="space-y-4">
-                          {message.sections.map((section, idx) => (
-                            <div key={idx} className={`border-l-2 pl-3 ${
-                              section.title === 'What Changed' 
-                                ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 rounded-r-lg p-3' 
-                                : 'border-blue-200 dark:border-blue-700'
-                            }`}>
-                              <h4 className={`font-semibold mb-2 ${
-                                section.title === 'What Changed' 
-                                  ? 'text-green-700 dark:text-green-300' 
-                                  : 'text-blue-600 dark:text-blue-400'
-                              }`}>
-                                {section.title}
+                      {/* Format the AI response text nicely */}
+                      <div className="max-w-none">
+                        {message.text.split('\n').map((line, index) => {
+                          // Handle different line types for better formatting
+                          if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
+                            // Bold headers
+                            return (
+                              <h4 key={index} className="font-bold text-blue-700 dark:text-blue-300 mt-4 mb-3 text-lg border-b border-blue-200 dark:border-blue-700 pb-1">
+                                {line.replace(/\*\*/g, '')}
                               </h4>
-                              <div className={`text-sm ${
-                                section.title === 'What Changed' 
-                                  ? 'text-green-800 dark:text-green-200 font-medium' 
-                                  : 'text-gray-700 dark:text-gray-300'
-                              }`}>
-                                {section.content}
+                            );
+                          } else if (line.trim().match(/^\d+\./)) {
+                            // Numbered lists
+                            return (
+                              <div key={index} className="ml-6 mb-3 flex items-start">
+                                <span className="text-blue-600 dark:text-blue-400 font-semibold mr-2 min-w-[20px]">{line.match(/^\d+\./)?.[0]}</span>
+                                <span className="text-gray-800 dark:text-white leading-relaxed">{line.replace(/^\d+\.\s*/, '')}</span>
+                              </div>
+                            );
+                          } else if (line.trim().startsWith('- ')) {
+                            // Bullet points
+                            return (
+                              <div key={index} className="ml-6 mb-3 flex items-start">
+                                <span className="text-blue-500 dark:text-blue-400 mr-3 mt-1">•</span>
+                                <span className="text-gray-800 dark:text-white leading-relaxed">{line.substring(2)}</span>
+                              </div>
+                            );
+                          } else if (line.trim()) {
+                            // Regular text
+                            return (
+                              <p key={index} className="mb-3 text-gray-800 dark:text-white leading-relaxed">
+                                {line}
+                              </p>
+                            );
+                          } else {
+                            // Empty lines for spacing
+                            return <div key={index} className="h-3"></div>;
+                          }
+                        })}
+                      </div>
+                      
+                      {/* Show Apply Changes button for brainstorm messages */}
+                      {message.isBrainstorm && message.suggestions && message.suggestions.length > 0 && (
+                        <div className="mt-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                          {/* Progress bar for apply changes */}
+                          {isApplyingChanges && (
+                            <div className="mb-3">
+                              <div className="flex items-center justify-between text-xs text-green-600 dark:text-green-400 mb-1">
+                                <span>Applying changes...</span>
+                                <span>{applyProgress}%</span>
+                              </div>
+                              <div className="w-full bg-green-200 dark:bg-green-700 rounded-full h-2">
+                                <div 
+                                  className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full transition-all duration-300 ease-out"
+                                  style={{ width: `${applyProgress}%` }}
+                                ></div>
                               </div>
                             </div>
-                          ))}
+                          )}
+                          
+                          <button
+                            onClick={onApplyChanges}
+                            disabled={isApplyingChanges}
+                            className={`w-full px-4 py-2 text-sm font-medium text-white rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-200 dark:focus:ring-green-800 shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
+                              isApplyingChanges 
+                                ? 'bg-green-400 dark:bg-green-500 cursor-not-allowed' 
+                                : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+                            }`}
+                          >
+                            {isApplyingChanges ? (
+                              <div className="flex items-center justify-center space-x-2">
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <span>Applying Changes...</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center space-x-2">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>Apply Changes</span>
+                              </div>
+                            )}
+                          </button>
                         </div>
-                      ) : (
-                        message.text
                       )}
                     </div>
                   )}
@@ -174,7 +244,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
           <div className="flex-1">
             <textarea
               className="w-full min-h-[40px] max-h-32 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 resize-none transition-all duration-200"
-              placeholder="Ask me to improve your prompt..."
+              placeholder="Ask me to brainstorm improvements for your prompt..."
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={handleSendMessage}
@@ -231,6 +301,10 @@ const Main: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isApplyingChanges, setIsApplyingChanges] = useState(false);
+  const [applyProgress, setApplyProgress] = useState(0);
+  const [brainstormSuggestions, setBrainstormSuggestions] = useState<string[]>([]);
+  const [currentBrainstormMessage, setCurrentBrainstormMessage] = useState<string>('');
 
   const navigate = useNavigate();
 
@@ -535,12 +609,12 @@ const Main: React.FC = () => {
         return;
       }
   
-      // Use the prompt-engineer-neon endpoint directly
+      // Use the brainstorming endpoint for suggestions
       const apiUrl = 'https://juta-dev.ngrok.dev';
   
       const res = await axios({
         method: 'post',
-        url: `${apiUrl}/api/prompt-engineer-neon/`,
+        url: `${apiUrl}/api/prompt-brainstorm/`,
         params: {
           message: messageText,
           email: userEmail
@@ -554,58 +628,58 @@ const Main: React.FC = () => {
         throw new Error(res.data.details || 'Failed to process prompt');
       }
   
-      const { analysis, updatedPrompt } = res.data.data;
-  
-      // Update assistant instructions with the new prompt
-      setAssistantInfo(prevInfo => ({
-        ...prevInfo,
-        instructions: updatedPrompt
-      }));
+      // Extract the AI response from the suggestions field
+      let responseText = 'No suggestions provided';
+      let suggestions: string[] = [];
       
-      // Mark that there are unsaved changes
-      setHasChanges(true);
-  
-      // Parse the AI response to extract changes
-      const parseAIResponse = (analysis: string, updatedPrompt: string) => {
-        // Extract what changed from the analysis
-        const changeMatch = analysis.match(/I changed (.+?) as requested/i);
-        const changes = changeMatch ? changeMatch[1] : 'the prompt';
-        
-        // Check if there are specific changes mentioned
-        const hasSpecificChanges = analysis.toLowerCase().includes('changed') || 
-                                 analysis.toLowerCase().includes('updated') ||
-                                 analysis.toLowerCase().includes('modified');
-        
-        return {
-          changes,
-          hasSpecificChanges,
-          analysis,
-          updatedPrompt
-        };
-      };
+      // Debug logging
+      console.log('Full API Response:', res.data);
       
-      const parsedResponse = parseAIResponse(analysis, updatedPrompt);
-      const isLongContent = analysis.length > 200 || updatedPrompt.length > 500;
+      // The AI response is in the suggestions field
+      if (res.data.data && res.data.data.suggestions) {
+        responseText = res.data.data.suggestions;
+        suggestions = [res.data.data.suggestions]; // Store as a single suggestion for now
+      } else if (res.data.suggestions) {
+        responseText = res.data.suggestions;
+        suggestions = [res.data.suggestions];
+      } else if (res.data.data && typeof res.data.data === 'string') {
+        // If data is directly a string
+        responseText = res.data.data;
+      } else if (res.data.data && res.data.data.analysis) {
+        // Fallback to analysis field
+        responseText = res.data.data.analysis;
+      } else if (res.data.data && res.data.data.message) {
+        // Fallback to message field
+        responseText = res.data.data.message;
+      }
       
-      const sections = isLongContent ? [
-        { 
-          title: 'What Changed', 
-          content: parsedResponse.hasSpecificChanges 
-            ? `✅ ${parsedResponse.changes}`
-            : '✅ The prompt has been updated with your requested changes'
-        },
-        { title: 'Analysis', content: parsedResponse.analysis },
-        { title: 'Updated Prompt', content: parsedResponse.updatedPrompt }
-      ] : undefined;
-  
+      // Clean up the response text - remove escape characters and format properly
+      if (responseText && responseText !== 'No suggestions provided') {
+        // Replace \n with actual line breaks and clean up formatting
+        responseText = responseText
+          .replace(/\\n/g, '\n')
+          .replace(/\\"/g, '"')
+          .replace(/\\t/g, '\t')
+          .trim();
+      }
+      
+      console.log('Extracted response text:', responseText);
+      console.log('Extracted suggestions:', suggestions);
+      
+      // Store suggestions for later use
+      setBrainstormSuggestions(suggestions);
+      setCurrentBrainstormMessage(messageText);
+      
       const assistantResponse: ChatMessage = {
         from_me: false,
         type: 'text',
-        text: isLongContent ? `${parsedResponse.analysis}\n\n${parsedResponse.updatedPrompt}` : `Analysis:\n${parsedResponse.analysis}\n\nUpdated Prompt:\n${parsedResponse.updatedPrompt}`,
+        text: responseText,
         createdAt: new Date().toISOString(),
-        isLongContent,
-        sections
+        isBrainstorm: true,
+        suggestions: suggestions
       };
+      
+
   
       // Remove loading message and add the real response
       setMessages(prevMessages => {
@@ -622,6 +696,136 @@ const Main: React.FC = () => {
       setMessages(prevMessages => prevMessages.filter(msg => !msg.isLoading));
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const applyChangesToPrompt = async () => {
+    if (isApplyingChanges || !brainstormSuggestions.length) return;
+    
+    setIsApplyingChanges(true);
+    setApplyProgress(0);
+    setError(null);
+    
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        throw new Error("User not authenticated");
+      }
+  
+      // Start with initial progress
+      setApplyProgress(1);
+      
+      // Call the apply changes API
+      const apiUrl = 'https://juta-dev.ngrok.dev';
+      
+      // Smooth progress animation that increments by 1% at a time
+      const progressInterval = setInterval(() => {
+        setApplyProgress(prev => {
+          if (prev >= 15) {
+            clearInterval(progressInterval);
+            return 15;
+          }
+          return prev + 1;
+        });
+      }, 50); // Update every 50ms for smooth animation
+      
+      // Update progress to show API call starting
+      setApplyProgress(15);
+      
+      const res = await axios({
+        method: 'post',
+        url: `${apiUrl}/api/prompt-apply-changes/`,
+        params: {
+          email: userEmail
+        },
+        data: {
+          currentPrompt: assistantInfo.instructions || '',
+          changesToApply: currentBrainstormMessage,
+          brainstormContext: brainstormSuggestions
+        }
+      });
+      
+      // Smooth progress animation to 60%
+      const progressInterval2 = setInterval(() => {
+        setApplyProgress(prev => {
+          if (prev >= 60) {
+            clearInterval(progressInterval2);
+            return 60;
+          }
+          return prev + 1;
+        });
+      }, 30); // Update every 30ms for smooth animation
+      
+      // Update progress to show API call completed
+      setApplyProgress(60);
+      
+      if (!res.data.success) {
+        throw new Error(res.data.details || 'Failed to apply changes');
+      }
+  
+      const { updatedPrompt, analysis } = res.data.data;
+      
+      // Smooth progress animation to 80%
+      const progressInterval3 = setInterval(() => {
+        setApplyProgress(prev => {
+          if (prev >= 80) {
+            clearInterval(progressInterval3);
+            return 80;
+          }
+          return prev + 1;
+        });
+      }, 20); // Update every 20ms for smooth animation
+      
+      // Update progress to show processing
+      setApplyProgress(80);
+      
+      // Update assistant instructions with the new prompt
+      setAssistantInfo(prevInfo => ({
+        ...prevInfo,
+        instructions: updatedPrompt
+      }));
+      
+      // Mark that there are unsaved changes
+      setHasChanges(true);
+      
+      // Smooth progress animation to 100%
+      const progressInterval4 = setInterval(() => {
+        setApplyProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(progressInterval4);
+            return 100;
+          }
+          return prev + 1;
+        });
+      }, 15); // Update every 15ms for smooth animation
+      
+      // Complete progress
+      setApplyProgress(100);
+      
+      // Add success message
+      const successMessage: ChatMessage = {
+        from_me: false,
+        type: 'text',
+        text: `✅ Changes applied successfully!\n\n${analysis || 'Your prompt has been updated with the requested changes.'}`,
+        createdAt: new Date().toISOString(),
+      };
+      
+      setMessages(prevMessages => [successMessage, ...prevMessages]);
+      
+      // Clear suggestions after successful application
+      setBrainstormSuggestions([]);
+      setCurrentBrainstormMessage('');
+      
+      toast.success('Changes applied successfully! 🎉');
+      
+    } catch (error) {
+      console.error('Error applying changes:', error);
+      setError("Failed to apply changes. Please try again.");
+      setApplyProgress(0);
+    } finally {
+      setIsApplyingChanges(false);
+      // Reset progress after a delay
+      setTimeout(() => setApplyProgress(0), 1000);
     }
   };
 
@@ -700,6 +904,9 @@ return (
                 assistantName={assistantInfo?.name} 
                 deleteThread={deleteThread} 
                 threadId={threadId}
+                isApplyingChanges={isApplyingChanges}
+                applyProgress={applyProgress}
+                onApplyChanges={applyChangesToPrompt}
               />
             </div>
             {/* Assistant details moved to right side */}
@@ -891,7 +1098,7 @@ return (
                           id="instructions"
                           name="instructions"
                           className="w-full h-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-none"
-                          placeholder="Instructions for the assistant"
+                          placeholder="Tell your assistant what to do. Be specific about its role, tone, and capabilities..."
                           value={assistantInfo.instructions}
                           onChange={handleInputChange}
                           onFocus={handleFocus}
@@ -975,6 +1182,9 @@ return (
                   assistantName={assistantInfo?.name || 'Juta Assistant'} 
                   deleteThread={deleteThread} 
                   threadId={threadId}
+                  isApplyingChanges={isApplyingChanges}
+                  applyProgress={applyProgress}
+                  onApplyChanges={applyChangesToPrompt}
                 />
               </Tab.Panel>
             </Tab.Panels>

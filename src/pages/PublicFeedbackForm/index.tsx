@@ -582,7 +582,7 @@ function PublicFeedbackForm() {
                       <span>Submitting...</span>
                     </div>
                   ) : (
-                    'Submit Feedback'
+                    'Submit'
                   )}
                 </Button>
               </div>
