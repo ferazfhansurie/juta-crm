@@ -905,7 +905,10 @@ interface BotStatusResponse {
         if (contact.tags) {
           contact.tags = contact.tags.filter(
             (tag: any) =>
-              tag && tag.trim() !== "" && tag !== null && tag !== undefined
+              typeof tag === "string" &&
+              tag.trim() !== "" &&
+              tag !== null &&
+              tag !== undefined
           );
         }
 
