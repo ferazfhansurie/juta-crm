@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Button from "@/components/Base/Button";
 import LoadingIcon from '@/components/Base/LoadingIcon';
 import axios from 'axios';
-import { generateCertificate } from '@/utils/pdfCert';
+// import { generateCertificate } from '@/utils/pdfCert';
 import Papa from 'papaparse';
 
 // CSV URL for participant data
@@ -104,9 +104,17 @@ function PublicFeedbackForm() {
   };
 
   const submitForm = async () => {
-    if (!validateForm() || !form) return;
+    const requestId = Math.random().toString(36).substring(2, 10);
+    console.log(`[Form][${requestId}] ===== FORM SUBMISSION STARTED =====`);
+    
+    if (!validateForm() || !form) {
+      console.log(`[Form][${requestId}] ❌ Form validation failed, cannot submit`);
+      return;
+    }
 
+    console.log(`[Form][${requestId}] ✅ Form validation passed, starting submission...`);
     setIsSubmitting(true);
+    
     try {
       const formResponse: FormResponse = {
         formId: form.id,
@@ -120,48 +128,74 @@ function PublicFeedbackForm() {
         submittedAt: new Date().toISOString()
       };
 
+      console.log(`[Form][${requestId}] Form response prepared:`, JSON.stringify(formResponse, null, 2));
+      console.log(`[Form][${requestId}] Submitting to: ${baseUrl}/api/feedback-forms/submit`);
+
+      const startTime = Date.now();
       const response = await axios.post(`${baseUrl}/api/feedback-forms/submit`, formResponse);
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      
+      console.log(`[Form][${requestId}] Form submission completed in ${duration}ms`);
+      console.log(`[Form][${requestId}] Response status: ${response.status}`);
+      console.log(`[Form][${requestId}] Response data:`, JSON.stringify(response.data, null, 2));
       
       if (response.data.success) {
+        console.log(`[Form][${requestId}] ✅ Form submitted successfully, initiating certificate generation...`);
+        
         // Generate and download PDF certificate
         try {
+          console.log(`[Form][${requestId}] Starting certificate generation process...`);
           await generateAndSendCertificate();
+          console.log(`[Form][${requestId}] Certificate generation process completed`);
         } catch (certError) {
-          console.error('Error generating certificate:', certError);
+          console.error(`[Form][${requestId}] ❌ Error generating certificate:`, certError);
+          console.log(`[Form][${requestId}] Continuing to thank you page despite certificate error`);
           // Continue to thank you page even if certificate fails
         }
         
+        console.log(`[Form][${requestId}] Navigating to thank you page...`);
         navigate('/thank-you');
       } else {
+        console.error(`[Form][${requestId}] ❌ Form submission failed:`, response.data.error);
         throw new Error(response.data.error);
       }
     } catch (error: any) {
-      console.error('Error submitting form:', error);
+      console.error(`[Form][${requestId}] ❌ Error submitting form:`, error);
       
       // Check if it's an axios error with response data
       if (error.response && error.response.data) {
         const errorMessage = error.response.data.error;
+        console.log(`[Form][${requestId}] Error response data:`, JSON.stringify(error.response.data, null, 2));
         
         // Check if the error indicates the form has already been submitted
         if (errorMessage && errorMessage.includes('already submitted')) {
+          console.log(`[Form][${requestId}] Form already submitted, navigating to thank you page`);
           navigate('/thank-you');
           return;
         }
         
         // For other specific errors, show the actual error message
         if (errorMessage) {
+          console.log(`[Form][${requestId}] Showing error message to user: ${errorMessage}`);
           alert(errorMessage);
           return;
         }
       }
       
       // Generic error message for other cases
+      console.log(`[Form][${requestId}] Showing generic error message to user`);
       alert('Failed to submit form. Please try again.');
     } finally {
+      console.log(`[Form][${requestId}] Form submission process completed, setting isSubmitting to false`);
       setIsSubmitting(false);
     }
+    
+    console.log(`[Form][${requestId}] ===== FORM SUBMISSION COMPLETED =====`);
   };
 
+  // Note: CSV parsing and participant lookup are now handled by the backend API
+  /*
   // Helper function to fetch and parse CSV data
   const fetchParticipantData = async () => {
     try {
@@ -202,6 +236,7 @@ function PublicFeedbackForm() {
       return normalizedParticipantPhone === normalizedSearchPhone;
     });
   };
+  */
 
   // Helper function to get company data from NeonDB
   const getCompanyApiUrl = async () => {
@@ -230,12 +265,26 @@ function PublicFeedbackForm() {
     const data = await response.json();
 
     return {
-      apiUrl:
-        data.companyData.api_url || baseUrl,
+      apiUrl:'http://localhost:5173',
       companyId: data.userData.companyId,
     };
   };
 
+  // Helper function to get company ID
+  const getCompanyId = async () => {
+    try {
+      console.log('[getCompanyId] Getting company data...');
+      const { companyId } = await getCompanyApiUrl();
+      console.log('[getCompanyId] Company ID retrieved:', companyId);
+      return companyId;
+    } catch (error) {
+      console.error('[getCompanyId] Error getting company ID:', error);
+      throw error;
+    }
+  };
+
+  // Note: File upload is now handled by the backend API
+  /*
   // Helper to upload a file to NeonDB storage and get a public URL
   const uploadFile = async (file: File | Blob, fileName: string): Promise<string> => {
     const { apiUrl, companyId } = await getCompanyApiUrl();
@@ -257,10 +306,13 @@ function PublicFeedbackForm() {
     const result = await response.json();
     return result.url;
   };
+  */
 
+  // Note: WhatsApp document messaging is now handled by the backend API
+  /*
   // Helper to send a WhatsApp document message
   const sendDocumentMessage = async (chatId: string, documentUrl: string, fileName: string, caption: string) => {
-    const { apiUrl, companyId } = await getCompanyApiUrl();
+    const { apiUrl, companyId } = await getCompanyId();
     const userName = localStorage.getItem("userName") || localStorage.getItem("userEmail") || '';
     // Use phoneIndex 0 for now (or extend if needed)
     const phoneIndex = 0;
@@ -277,7 +329,10 @@ function PublicFeedbackForm() {
     if (!response.ok) throw new Error(`API failed with status ${response.status}`);
     return await response.json();
   };
+  */
 
+  // Note: WhatsApp text messaging is now handled by the backend API
+  /*
   // Helper to send a WhatsApp text message
   const sendTextMessage = async (chatId: string, text: string) => {
     const { apiUrl, companyId } = await getCompanyApiUrl();
@@ -288,6 +343,7 @@ function PublicFeedbackForm() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: text,
+        phoneNumber: phoneNumber,
         phoneIndex: phoneIndex,
         userName: userName,
       }),
@@ -295,47 +351,115 @@ function PublicFeedbackForm() {
     if (!response.ok) throw new Error(`API failed with status ${response.status}`);
     return await response.json();
   };
+  */
 
-  // Helper function to generate and send certificate via WhatsApp
+  // Helper function to call backend API for certificate generation and WhatsApp sending
   const generateAndSendCertificate = async () => {
+    const requestId = Math.random().toString(36).substring(2, 10);
+    console.log(`[Frontend][${requestId}] ===== CERTIFICATE GENERATION STARTED =====`);
+    
     try {
-      console.log('Starting certificate generation...');
+      // Get company ID first
+      console.log(`[Frontend][${requestId}] Getting company ID...`);
+      const companyId = await getCompanyId();
+      console.log(`[Frontend][${requestId}] Company ID: ${companyId}`);
       
-      // Fetch participant data from CSV
-      console.log('Fetching participant data from CSV...');
-      const participants = await fetchParticipantData() as any[];
-      console.log('Fetched participants:', participants.length);
+      // Prepare request payload
+      const requestPayload = {
+        phoneNumber: phoneNumber.trim(),
+        formId: form?.id,
+        formTitle: formTitle,
+        companyId: companyId
+      };
       
-      // Find participant by phone number
-      const participant = findParticipantByPhone(participants, phoneNumber);
+      console.log(`[Frontend][${requestId}] Request payload:`, JSON.stringify(requestPayload, null, 2));
+      console.log(`[Frontend][${requestId}] API endpoint: ${baseUrl}/api/certificates/generate-and-send`);
       
-      if (!participant) {
-        console.log('No participant found for phone number:', phoneNumber);
-        return; // Don't generate certificate if no match found
+      // Log individual field validation
+      console.log(`[Frontend][${requestId}] Field validation:`);
+      console.log(`[Frontend][${requestId}]   phoneNumber: ${requestPayload.phoneNumber ? `"${requestPayload.phoneNumber}"` : '❌ MISSING'}`);
+      console.log(`[Frontend][${requestId}]   formId: ${requestPayload.formId ? `"${requestPayload.formId}"` : '❌ MISSING'}`);
+      console.log(`[Frontend][${requestId}]   formTitle: ${requestPayload.formTitle ? `"${requestPayload.formTitle}"` : '❌ MISSING'}`);
+      console.log(`[Frontend][${requestId}]   companyId: ${requestPayload.companyId ? `"${requestPayload.companyId}"` : '❌ MISSING'}`);
+      
+      // Validate all required fields are present
+      if (!requestPayload.phoneNumber || !requestPayload.formId || !requestPayload.formTitle || !requestPayload.companyId) {
+        console.error(`[Frontend][${requestId}] ❌ Validation failed - missing required fields`);
+        console.error(`[Frontend][${requestId}] Cannot proceed with certificate generation`);
+        return;
       }
       
-      // Get participant name from CSV data
-      const participantName = participant['Full Name'] || participant.Nama || participant['Full Namea'] || 'Participant';
-      console.log('Found participant:', participantName);
+      console.log(`[Frontend][${requestId}] ✅ All required fields present, making API call...`);
       
-      // Generate PDF certificate as blob
-      console.log('Generating PDF certificate...');
-      const certBlob = await generateCertificate(participantName, participant['Program Date & Time'] || undefined, { returnBlob: true }) as Blob;
-      console.log('Certificate generated, blob size:', certBlob.size);
+      // Call backend API to handle certificate generation and WhatsApp sending
+      const startTime = Date.now();
+      console.log(`[Frontend][${requestId}] API call started at: ${new Date(startTime).toISOString()}`);
       
-      // Send WhatsApp message and certificate
-      console.log('Sending WhatsApp message...');
-      await sendWhatsAppMessage(participantName, certBlob, participant);
-      console.log('WhatsApp message sent successfully');
+      const response = await axios.post(`${baseUrl}/api/certificates/generate-and-send`, requestPayload);
       
-    } catch (error) {
-      console.error('Error in generateAndSendCertificate:', error);
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      console.log(`[Frontend][${requestId}] API call completed in ${duration}ms`);
+      
+      console.log(`[Frontend][${requestId}] Response status: ${response.status}`);
+      console.log(`[Frontend][${requestId}] Response data:`, JSON.stringify(response.data, null, 2));
+      
+      if (response.data.success) {
+        console.log(`[Frontend][${requestId}] ✅ Certificate generation and WhatsApp sending initiated successfully`);
+        console.log(`[Frontend][${requestId}] Participant: ${response.data.participantName}`);
+        console.log(`[Frontend][${requestId}] Certificate file: ${response.data.filename}`);
+        console.log(`[Frontend][${requestId}] WhatsApp status: ${response.data.whatsappStatus}`);
+        console.log(`[Frontend][${requestId}] Has WhatsApp client: ${response.data.hasWhatsAppClient}`);
+        
+        // Log success details
+        if (response.data.certificatePath) {
+          console.log(`[Frontend][${requestId}] Certificate saved to: ${response.data.certificatePath}`);
+        }
+      } else {
+        console.error(`[Frontend][${requestId}] ❌ Certificate generation failed`);
+        console.error(`[Frontend][${requestId}] Error: ${response.data.error}`);
+        if (response.data.details) {
+          console.error(`[Frontend][${requestId}] Details: ${response.data.details}`);
+        }
+      }
+      
+    } catch (error: any) {
+      console.error(`[Frontend][${requestId}] ❌ Error calling certificate API:`, error);
+      
+      // Log detailed error information
+      if (error.response) {
+        // Server responded with error status
+        console.error(`[Frontend][${requestId}] Error response status: ${error.response.status}`);
+        console.error(`[Frontend][${requestId}] Error response data:`, JSON.stringify(error.response.data, null, 2));
+        console.error(`[Frontend][${requestId}] Error response headers:`, error.response.headers);
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error(`[Frontend][${requestId}] No response received from server`);
+        console.error(`[Frontend][${requestId}] Request details:`, error.request);
+      } else {
+        // Something else happened
+        console.error(`[Frontend][${requestId}] Error message: ${error.message}`);
+        console.error(`[Frontend][${requestId}] Error stack:`, error.stack);
+      }
+      
+      // Log network/connection details
+      if (error.code) {
+        console.error(`[Frontend][${requestId}] Error code: ${error.code}`);
+      }
+      if (error.syscall) {
+        console.error(`[Frontend][${requestId}] System call: ${error.syscall}`);
+      }
+      
       // Don't throw the error - just log it and continue
       // This ensures the form submission still succeeds even if certificate generation fails
+      console.log(`[Frontend][${requestId}] Continuing with form submission despite certificate error`);
     }
+    
+    console.log(`[Frontend][${requestId}] ===== CERTIFICATE GENERATION COMPLETED =====`);
   };
 
-  // Helper function to send WhatsApp message and certificate
+  // Note: WhatsApp message sending is now handled by the backend API
+  /*
   const sendWhatsAppMessage = async (participantName: string, certBlob: Blob, participant: any) => {
     try {
       // Format phone number for WhatsApp
@@ -358,9 +482,10 @@ function PublicFeedbackForm() {
     } catch (error) {
       console.error('Error sending WhatsApp message:', error);
       // Don't throw the error - just log it
-      // This ensures the form submission still succeeds even if WhatsApp sending fails
+      // This ensures the form submission still succeeds even if certificate generation fails
     }
   };
+  */
 
   const renderField = (field: FormField) => {
     const value = responses[field.id] || '';

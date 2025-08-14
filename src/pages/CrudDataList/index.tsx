@@ -1799,394 +1799,160 @@ interface BotStatusResponse {
     tagName: string,
     contact: Contact
   ) => {
+    console.log("🏷️ [TAG ASSIGNMENT] Starting tag assignment:");
+    console.log("🏷️ [TAG ASSIGNMENT] Tag name:", tagName);
+    console.log("🏷️ [TAG ASSIGNMENT] Contact:", contact);
+    console.log("🏷️ [TAG ASSIGNMENT] Contact ID:", contact?.contact_id || contact?.id);
+    console.log(
+      "🏷️ [TAG ASSIGNMENT] Contact Name:",
+      contact?.contactName || contact?.firstName
+    );
+
     if (userRole === "3") {
       toast.error("You don't have permission to assign users to contacts.");
       return;
     }
 
+    if (!contact || (!contact.contact_id && !contact.id)) {
+      toast.error("No contact selected or contact ID missing");
+      console.error("🏷️ [TAG ASSIGNMENT] Missing contact or contact ID");
+      return;
+    }
+
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.error("No authenticated user");
+      // Get company and user data from your backend
+      const userEmail = localStorage.getItem("userEmail");
+
+      // Get user data from SQL
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!userResponse.ok) throw new Error("Failed to fetch user data");
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+
+      if (!companyId || (!contact.contact_id && !contact.id)) {
+        toast.error("Missing company or contact ID");
         return;
       }
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
-        return;
-      }
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
+      const contactId = contact.contact_id || contact.id;
 
       // Check if this is the 'Stop Blast' tag
       if (tagName.toLowerCase() === "stop blast") {
         const contactChatId =
           contact.phone?.replace(/\D/g, "") + "@s.whatsapp.net";
-        const scheduledMessagesRef = collection(
-          firestore,
-          `companies/${companyId}/scheduledMessages`
-        );
-        const scheduledSnapshot = await getDocs(scheduledMessagesRef);
 
-        // Create a log entry for this batch of deletions
-        const logsRef = collection(
-          firestore,
-          `companies/${companyId}/scheduledMessageLogs`
-        );
-        const batchLogRef = doc(logsRef);
+        try {
+          // Handle stop blast via API
+          const response = await fetch(
+            `${baseUrl}/api/contacts/${companyId}/${contactId}/stop-blast`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contactChatId: contactChatId,
+                userEmail: userEmail,
+                reason: "Stop Blast tag added",
+              }),
+            }
+          );
 
-        const deletedMessages: any[] = [];
-
-        // Delete all scheduled messages for this contact
-        const deletePromises = scheduledSnapshot.docs.map(async (doc) => {
-          const messageData = doc.data();
-          if (messageData.chatIds?.includes(contactChatId)) {
-            const logEntry = {
-              messageId: doc.id,
-              deletedAt: serverTimestamp(),
-              deletedBy: user.email,
-              reason: "Stop Blast tag added",
-              contactInfo: {
-                id: contact.id,
-                phone: contact.phone,
-                name: contact.contactName,
-              },
-              originalMessage: messageData,
-            };
-
-            if (messageData.chatIds.length === 1) {
-              // Full message deletion
-              try {
-                await axios.delete(
-                  `${baseUrl}/api/schedule-message/${companyId}/${doc.id}`
-                );
-              } catch (error) {}
+          if (response.ok) {
+            const result = await response.json();
+            if (result.deletedCount > 0) {
+              toast.success(
+                `Cancelled ${result.deletedCount} scheduled messages for this contact`
+              );
             } else {
-              // Partial message update (removing recipient)
-              try {
-                const updatedChatIds = messageData.chatIds.filter(
-                  (id: string) => id !== contactChatId
-                );
-                const updatedMessages =
-                  messageData.messages?.filter(
-                    (msg: any) => msg.chatId !== contactChatId
-                  ) || [];
-
-                await axios.put(
-                  `${baseUrl}/api/schedule-message/${companyId}/${doc.id}`,
-                  {
-                    ...messageData,
-                    chatIds: updatedChatIds,
-                    messages: updatedMessages,
-                  }
-                );
-
-                deletedMessages.push(logEntry);
-              } catch (error) {
-                console.error(
-                  `Error updating scheduled message ${doc.id}:`,
-                  error
-                );
-
-                deletedMessages.push(logEntry);
-              }
+              toast.info("No scheduled messages found for this contact");
             }
           }
-        });
-
-        await Promise.all(deletePromises);
-
-        // Save the batch log if there were any deletions
-        if (deletedMessages.length > 0) {
-          await setDoc(batchLogRef, {
-            timestamp: serverTimestamp(),
-            triggeredBy: user.email,
-            contactId: contact.id,
-            contactPhone: contact.phone,
-            reason: "Stop Blast tag added",
-            deletedMessages: deletedMessages,
-          });
-
-          console.log(`Logged ${deletedMessages.length} deleted messages`, {
-            logId: batchLogRef.id,
-            deletedMessages,
-          });
-
-          toast.success(
-            `Cancelled ${deletedMessages.length} scheduled messages for this contact`
-          );
-        } else {
-          toast.info("No scheduled messages found for this contact");
+        } catch (error) {
+          console.error("Error handling stop blast:", error);
+          toast.error("Failed to cancel scheduled messages");
         }
       }
-      // Check if the tag is an employee name
-      const employee = employeeList.find((emp) => emp.name === tagName);
 
-      if (employee) {
-        // Handle employee assignment
-        const employeeRef = doc(
-          firestore,
-          `companies/${companyId}/employee/${employee.id}`
-        );
-        const employeeDoc = await getDoc(employeeRef);
-
-        if (!employeeDoc.exists()) {
-          toast.error(`Employee document not found for ${tagName}`);
-          return;
-        }
-
-        const employeeData = employeeDoc.data();
-        const contactRef = doc(
-          firestore,
-          `companies/${companyId}/contacts/${contact.id}`
-        );
-        const contactDoc = await getDoc(contactRef);
-
-        if (!contactDoc.exists()) {
-          toast.error("Contact not found");
-          return;
-        }
-
-        const currentTags = contactDoc.data().tags || [];
-        const oldEmployeeTag = currentTags.find((tag: string) =>
-          employeeList.some((emp) => emp.name === tag)
-        );
-
-        // If contact was assigned to another employee, update their quota first
-        if (oldEmployeeTag) {
-          const oldEmployee = employeeList.find(
-            (emp) => emp.name === oldEmployeeTag
-          );
-          if (oldEmployee) {
-            const oldEmployeeRef = doc(
-              firestore,
-              `companies/${companyId}/employee/${oldEmployee.id}`
-            );
-            const oldEmployeeDoc = await getDoc(oldEmployeeRef);
-
-            if (oldEmployeeDoc.exists()) {
-              const oldEmployeeData = oldEmployeeDoc.data();
-              await updateDoc(oldEmployeeRef, {
-                assignedContacts: (oldEmployeeData.assignedContacts || 1) - 1,
-                quotaLeads: (oldEmployeeData.quotaLeads || 0) + 1,
-              });
-            }
-          }
-        }
-
-        // Remove any existing employee tags and add new one
-        const updatedTags = [
-          ...currentTags.filter(
-            (tag: string) => !employeeList.some((emp) => emp.name === tag)
-          ),
+      console.log(
+        "Adding tag",
+        tagName,
+        "to contact",
+        contactId,
+        "in company",
+        companyId
+      );
+      
+      // Handle non-employee tags (add tag to contact)
+      const hasTag = contact.tags?.includes(tagName) || false;
+      if (!hasTag) {
+        console.log(
+          "Adding tag",
           tagName,
-        ];
+          "to contact",
+          contactId,
+          "in company",
+          companyId
+        );
+        const response = await fetch(
+          `${baseUrl}/api/contacts/${companyId}/${contactId}/tags`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tags: [tagName] }),
+          }
+        );
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Failed to add tag to contact:", errorText);
+          toast.error("Failed to add tag to contact");
+          return;
+        }
+        const data = await response.json();
+        
+        // Calculate the updated tags by adding the new tag to existing tags
+        const currentTags = contact.tags || [];
+        const newTags = currentTags.includes(tagName) 
+          ? currentTags 
+          : [...currentTags, tagName];
 
-        // Use batch write for atomic update
-        const batch = writeBatch(firestore);
-
-        // Update contact with new tags and points if applicable
-        const updateData: any = {
-          tags: updatedTags,
-          assignedTo: tagName,
-          lastAssignedAt: serverTimestamp(),
-        };
-
-    
-
-        batch.update(contactRef, updateData);
-
-        // Update new employee's quota and assigned contacts
-        batch.update(employeeRef, {
-          quotaLeads: Math.max(0, (employeeData.quotaLeads || 0) - 1), // Prevent negative quota
-          assignedContacts: (employeeData.assignedContacts || 0) + 1,
-        });
-
-        await batch.commit();
-
-        // Update local states
-        setContacts((prevContacts) =>
+        // Update both contacts and filteredContacts states immediately
+        const updateContactsList = (prevContacts: Contact[]) =>
           prevContacts.map((c) =>
-            c.id === contact.id
-              ? { ...c, tags: updatedTags, assignedTo: tagName }
+            c.id === contact.id || c.contact_id === contact.contact_id
+              ? { ...c, tags: newTags }
               : c
-          )
+          );
+
+        setContacts(updateContactsList);
+        setFilteredContacts((prevFilteredContacts) =>
+          updateContactsList(prevFilteredContacts)
         );
 
-        if (selectedContact && selectedContact.id === contact.id) {
-          setSelectedContact((prevContact: any) => ({
+        // Update selectedContact if it's the same contact
+        if (
+          selectedContact &&
+          (selectedContact.id === contact.id ||
+            selectedContact.contact_id === contact.contact_id)
+        ) {
+          setSelectedContact((prevContact: Contact) => ({
             ...prevContact,
-            tags: updatedTags,
-            assignedTo: tagName,
+            tags: newTags,
           }));
         }
 
-        setEmployeeList((prevList) =>
-          prevList.map((emp) =>
-            emp.id === employee.id
-              ? {
-                  ...emp,
-                  quotaLeads: Math.max(0, (emp.quotaLeads || 0) - 1), // Prevent negative quota
-                  assignedContacts: (emp.assignedContacts || 0) + 1,
-                }
-              : oldEmployeeTag && emp.name === oldEmployeeTag
-              ? {
-                  ...emp,
-                  quotaLeads: (emp.quotaLeads || 0) + 1,
-                  assignedContacts: (emp.assignedContacts || 1) - 1,
-                }
-              : emp
-          )
+        console.log(
+          "📝 [TAG] Added tag to contact:",
+          contact.contactName,
+          "tag:",
+          tagName,
+          "new tags:",
+          newTags
         );
-
-        toast.success(`Contact assigned to ${tagName}`);
-        await sendAssignmentNotification(tagName, contact);
-        return;
-      }
-
-      // Handle non-employee tags
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        return;
-      }
-      const data2 = docSnapshot.data();
-      const baseUrl =
-        data2.apiUrl || "https://juta-dev.ngrok.dev";
-
-      // Check for trigger tags
-      const templatesRef = collection(
-        firestore,
-        "companies",
-        companyId,
-        "followUpTemplates"
-      );
-      const templatesSnapshot = await getDocs(templatesRef);
-
-      let matchingTemplate: any = null;
-      templatesSnapshot.forEach((doc) => {
-        const template = doc.data();
-        if (
-          template.triggerTags?.includes(tagName) &&
-          template.status === "active"
-        ) {
-          matchingTemplate = { id: doc.id, ...template };
-        }
-      });
-
-      // Update contact's tags
-      const contactRef = doc(
-        firestore,
-        `companies/${companyId}/contacts/${contact.id}`
-      );
-      const contactDoc = await getDoc(contactRef);
-
-      if (!contactDoc.exists()) {
-        toast.error("Contact not found");
-        return;
-      }
-
-      const currentTags = contactDoc.data().tags || [];
-
-      if (!currentTags.includes(tagName)) {
-        await updateDoc(contactRef, {
-          tags: arrayUnion(tagName),
-        });
-
-        setContacts((prevContacts) =>
-          prevContacts.map((c) =>
-            c.id === contact.id
-              ? { ...c, tags: [...(c.tags || []), tagName] }
-              : c
-          )
-        );
-
-        // Add these constants at the top of the file with other constants
-        const BATCH_SIZE = 10; // Number of requests to process at once
-        const DELAY_BETWEEN_BATCHES = 1000; // Delay in ms between batches
-
-        // Helper function to process requests in batches
-        const processBatchRequests = async (
-          requests: any[],
-          batchSize: number,
-          delayMs: number
-        ) => {
-          const results = [];
-          for (let i = 0; i < requests.length; i += batchSize) {
-            const batch = requests.slice(i, i + batchSize);
-            const batchResults = await Promise.all(batch);
-            results.push(...batchResults);
-
-            if (i + batchSize < requests.length) {
-              await new Promise((resolve) => setTimeout(resolve, delayMs));
-            }
-          }
-          return results;
-        };
-
-        // Update the relevant section in your code
-        if (matchingTemplate) {
-          try {
-            // Prepare the requests
-            const requests = selectedContacts.map((contact) => {
-              const phoneNumber = contact.phone?.replace(/\D/g, "");
-              return fetch(`${baseUrl}/api/tag/followup`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  requestType: "startTemplate",
-                  phone: phoneNumber,
-                  first_name:
-                    contact.contactName || contact.firstName || phoneNumber,
-                  phoneIndex: contact.phoneIndex || 0,
-                  templateId: matchingTemplate.id,
-                  idSubstring: companyId,
-                }),
-              })
-                .then(async (response) => {
-                  if (!response.ok) {
-                    throw new Error(
-                      `Follow-up API error for ${phoneNumber}: ${response.statusText}`
-                    );
-                  }
-                  return { success: true, phone: phoneNumber };
-                })
-                .catch((error) => {
-                  console.error(`Error processing ${phoneNumber}:`, error);
-                  return { success: false, phone: phoneNumber, error };
-                });
-            });
-
-            // Process requests in batches
-            const results = await processBatchRequests(
-              requests,
-              BATCH_SIZE,
-              DELAY_BETWEEN_BATCHES
-            );
-
-            // Count successes and failures
-            const successes = results.filter((r) => r.success).length;
-            const failures = results.filter((r) => !r.success).length;
-
-            // Show appropriate toast messages
-            if (successes > 0) {
-              toast.success(
-                `Follow-up sequences started for ${successes} contacts`
-              );
-            }
-            if (failures > 0) {
-              toast.error(
-                `Failed to start follow-up sequences for ${failures} contacts`
-              );
-            }
-          } catch (error) {
-            console.error("Error processing follow-up sequences:", error);
-            toast.error("Failed to process follow-up sequences");
-          }
-        }
-
         toast.success(`Tag "${tagName}" added to contact`);
       } else {
         toast.info(`Tag "${tagName}" already exists for this contact`);
@@ -2579,113 +2345,116 @@ interface BotStatusResponse {
   };
 
   const handleRemoveTag = async (contactId: string, tagName: string) => {
+    console.log("🗑️ [TAG REMOVAL] Starting tag removal:");
+    console.log("🗑️ [TAG REMOVAL] Tag name:", tagName);
+    console.log("🗑️ [TAG REMOVAL] Contact ID:", contactId);
+
     if (userRole === "3") {
       toast.error("You don't have permission to perform this action.");
       return;
     }
+
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      // Get company and user data from your backend
+      const userEmail = localStorage.getItem("userEmail");
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) return;
-
-      const userData = docUserSnapshot.data();
-      const companyId = userData.companyId;
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) throw new Error("No company document found");
-      const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://juta-dev.ngrok.dev";
-      const contactRef = doc(
-        firestore,
-        `companies/${companyId}/contacts`,
-        contactId
-      );
-      const contactDoc = await getDoc(contactRef);
-      const contactData = contactDoc.data();
-
-      // Remove the tag from the contact's tags array
-      await updateDoc(contactRef, {
-        tags: arrayRemove(tagName),
-      });
-
-      // Check if tag is a trigger tag
-      const templatesRef = collection(
-        firestore,
-        "companies",
-        companyId,
-        "followUpTemplates"
-      );
-      const templatesSnapshot = await getDocs(templatesRef);
-
-      // Find all templates where this tag is a trigger
-      const matchingTemplates = templatesSnapshot.docs
-        .filter((doc) => {
-          const template = doc.data();
-          return (
-            template.triggerTags?.includes(tagName) &&
-            template.status === "active"
-          );
-        })
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-      // If we found matching templates, call the follow-up API for each one
-      for (const template of matchingTemplates) {
-        try {
-          const phoneNumber = contactId.replace(/\D/g, "");
-          const response = await fetch(`${baseUrl}/api/tag/followup`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              requestType: "removeTemplate",
-              phone: phoneNumber,
-              first_name: contactData?.contactName || phoneNumber,
-              phoneIndex: userData.phone || 0,
-              templateId: template.id, // Using the actual template document ID
-              idSubstring: companyId,
-            }),
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Failed to remove template messages:", errorText);
-          } else {
-            toast.success("Follow-up sequence stopped");
-          }
-        } catch (error) {
-          console.error("Error removing template messages:", error);
+      // Get user data from SQL
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
+        {
+          credentials: "include",
         }
-      }
-
-      // Update local state
-      setContacts((prevContacts) =>
-        prevContacts.map((contact) =>
-          contact.id === contactId
-            ? {
-                ...contact,
-                tags: contact.tags?.filter((tag) => tag !== tagName),
-              }
-            : contact
-        )
       );
 
-      if (currentContact?.id === contactId) {
-        setCurrentContact((prevContact: any) => ({
+      if (!userResponse.ok) throw new Error("Failed to fetch user data");
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+
+      if (!companyId || !contactId) {
+        toast.error("Missing company or contact ID");
+        return;
+      }
+
+      console.log(
+        "🗑️ [TAG REMOVAL] Removing tag",
+        tagName,
+        "from contact",
+        contactId,
+        "in company",
+        companyId
+      );
+
+      // Remove tag from contact via API
+      const response = await fetch(
+        `${baseUrl}/api/contacts/${companyId}/${contactId}/tags`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags: [tagName] }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Failed to remove tag from contact:", errorText);
+        toast.error("Failed to remove tag from contact");
+        return;
+      }
+
+      const data = await response.json();
+      
+      // Calculate the updated tags by removing the specified tag from existing tags
+      const currentContact = contacts.find(c => c.id === contactId || c.contact_id === contactId);
+      const currentTags = currentContact?.tags || [];
+      const updatedTags = currentTags.filter(tag => tag !== tagName);
+
+      // Update both contacts and filteredContacts states immediately
+      const updateContactsList = (prevContacts: Contact[]) =>
+        prevContacts.map((contact) =>
+          contact.id === contactId || contact.contact_id === contactId
+            ? { ...contact, tags: updatedTags }
+            : contact
+        );
+
+      setContacts(updateContactsList);
+      setFilteredContacts((prevFilteredContacts) =>
+        updateContactsList(prevFilteredContacts)
+      );
+
+      // Update selectedContact if it's the same contact
+      if (
+        selectedContact &&
+        (selectedContact.id === contactId ||
+          selectedContact.contact_id === contactId)
+      ) {
+        setSelectedContact((prevContact: Contact) => ({
           ...prevContact,
-          tags: prevContact.tags?.filter((tag: string) => tag !== tagName),
+          tags: updatedTags,
         }));
       }
 
+      // Update currentContact if it's the same contact
+      if (
+        currentContact &&
+        (currentContact.id === contactId ||
+          currentContact.contact_id === contactId)
+      ) {
+        setCurrentContact((prevContact) =>
+          prevContact
+            ? { ...prevContact, tags: updatedTags }
+            : prevContact
+        );
+      }
+
+      console.log(
+        "🗑️ [TAG REMOVAL] Tag removed from contact:",
+        contactId,
+        "tag:",
+        tagName,
+        "remaining tags:",
+        updatedTags
+      );
       toast.success(`Tag "${tagName}" removed successfully!`);
-      await fetchContacts();
     } catch (error) {
       console.error("Error removing tag:", error);
       toast.error("Failed to remove tag.");
@@ -4776,7 +4545,7 @@ interface BotStatusResponse {
               className="absolute top-0 right-0 hidden group-hover:block bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs leading-none"
               onClick={(e) => {
                 e.stopPropagation();
-                handleRemoveTag(contact.id!, tag);
+                handleRemoveTag(contact.contact_id!, tag);
               }}
             >
               ×
@@ -7458,7 +7227,7 @@ const handleConfirmSyncFirebase = async () => {
                                             className="absolute right-0 top-0 transform translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-red-500 hover:text-red-700"
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              handleRemoveTag(contact.id!, tag);
+                                              handleRemoveTag(contact.contact_id!, tag);
                                             }}
                                           >
                                             <div className="w-4 h-4 bg-red-600 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-800 rounded-full flex items-center justify-center">
@@ -7716,7 +7485,7 @@ const handleConfirmSyncFirebase = async () => {
                                     className="absolute right-0 top-0 transform translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-red-500 hover:text-red-700"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleRemoveTag(contact.id!, tag);
+                                      handleRemoveTag(contact.contact_id!, tag);
                                     }}
                                   >
                                     <div className="w-4 h-4 bg-red-600 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-800 rounded-full flex items-center justify-center">
