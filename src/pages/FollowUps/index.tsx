@@ -5,6 +5,7 @@ import "react-toastify/dist/ReactToastify.css";
 import Select from "react-select";
 import { useNavigate } from "react-router-dom";
 import MessagePreview from "@/components/MessagePreview";
+import AIFollowupBuilder from "@/components/AIFollowupBuilder";
 import axios from "axios";
 
 interface FollowUpTemplate {
@@ -169,6 +170,7 @@ const FollowUpsPage: React.FC = () => {
     null
   );
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
+  const [isAIBuilderOpen, setIsAIBuilderOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
@@ -826,6 +828,71 @@ const FollowUpsPage: React.FC = () => {
     );
   };
 
+  // Add the callback function to handle AI-generated messages
+  const handleAIGeneratedMessages = async (
+    stageTemplates: any[],
+    templateName: string,
+    triggerTags: string[],
+    triggerKeywords: string[]
+  ) => {
+    try {
+      // Get user/company info
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
+
+      // Get companyId from backend
+      const userResponse = await axios.get(
+        `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(
+          userEmail
+        )}`
+      );
+      const companyId = userResponse.data.userData.companyId;
+
+      // Create the template with AI-generated data
+      const templateData = {
+        companyId,
+        name: templateName,
+        status: "active",
+        createdAt: new Date().toISOString(),
+        startTime: new Date().toISOString(),
+        isCustomStartTime: false,
+        trigger_tags: triggerTags,
+        trigger_keywords: triggerKeywords,
+        batchSettings: batchSettings,
+      };
+
+      const response = await axios.post(
+        "https://juta-dev.ngrok.dev/api/followup-templates",
+        templateData
+      );
+
+      if (response.data.success) {
+        // Refresh templates list
+        await fetchTemplates();
+        
+        // Find the newly created template
+        const newTemplate = response.data.template;
+        if (newTemplate) {
+          // Set it as selected
+          setSelectedTemplate(newTemplate.id);
+          setSelectedTemplate2(newTemplate.templateId);
+          
+          // If there are AI-generated stage templates, show success message
+          if (stageTemplates && stageTemplates.length > 0) {
+            toast.success(`AI stage templates created successfully! Created ${stageTemplates.length} stage templates for "${templateName}"`);
+          }
+        }
+        
+        toast.success("AI template created successfully");
+      } else {
+        toast.error("Failed to create AI template");
+      }
+    } catch (error) {
+      console.error("Error creating AI template:", error);
+      toast.error("Failed to create AI template");
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -836,12 +903,23 @@ const FollowUpsPage: React.FC = () => {
             Follow Up Templates
           </h2>
         </div>
-        <Button
-          onClick={() => setIsAddingTemplate(true)}
-          className="bg-primary hover:bg-primary-dark text-white"
-        >
-          Add Template
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setIsAddingTemplate(true)}
+            className="bg-primary hover:bg-primary-dark text-white"
+          >
+            Add Template
+          </Button>
+          <Button
+            onClick={() => setIsAIBuilderOpen(true)}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            AI Builder
+          </Button>
+        </div>
       </div>
 
       {/* Main Content - Two Column Layout */}
@@ -2862,6 +2940,15 @@ const FollowUpsPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* AI Follow-up Builder Modal */}
+      {isAIBuilderOpen && (
+        <AIFollowupBuilder
+          onClose={() => setIsAIBuilderOpen(false)}
+          onApplyMessages={handleAIGeneratedMessages}
+          tags={tags}
+        />
       )}
     </div>
   );

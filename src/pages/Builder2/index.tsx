@@ -50,8 +50,8 @@ interface MessageListProps {
 const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assistantName, deleteThread, threadId, isApplyingChanges, applyProgress, onApplyChanges }) => {
   const [newMessage, setNewMessage] = useState('');
 
-  const myMessageClass = "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white rounded-tr-lg rounded-tl-lg rounded-br-sm rounded-bl-lg shadow-md border border-blue-400 dark:border-blue-500";
-  const otherMessageClass = "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-tr-lg rounded-tl-lg rounded-br-lg rounded-bl-sm shadow-md";
+  const myMessageClass = "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white !text-white rounded-tr-lg rounded-tl-lg rounded-br-sm rounded-bl-lg shadow-md border border-blue-400 dark:border-blue-500";
+  const otherMessageClass = "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-tr-lg rounded-tl-lg rounded-br-lg rounded-bl-sm shadow-md text-gray-800 dark:text-gray-200";
 
   const handleSendMessage = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -126,7 +126,8 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
               className={`p-3 rounded-lg max-w-[80%] ${message.from_me ? myMessageClass : otherMessageClass}`}
               style={{
                 maxWidth: '80%',
-                minWidth: '60px'
+                minWidth: '60px',
+                color: message.from_me ? 'white' : 'inherit'
               }}
             >
               {message.isLoading ? (
@@ -141,7 +142,10 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
               ) : (
                 <>
                   {message.type === 'text' && (
-                    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                    <div 
+                      className={`whitespace-pre-wrap break-words text-sm leading-relaxed ${message.from_me ? 'text-white user-message-text' : ''}`}
+                      style={{ color: message.from_me ? 'white' : 'inherit' }}
+                    >
                       {/* Format the AI response text nicely */}
                       <div className="max-w-none">
                         {message.text.split('\n').map((line, index) => {
@@ -229,7 +233,10 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
                       )}
                     </div>
                   )}
-                  <div className="message-timestamp text-xs text-gray-500 dark:text-gray-300 mt-2 opacity-70">
+                  <div 
+                    className={`message-timestamp text-xs mt-2 opacity-70 ${message.from_me ? 'text-white user-message-timestamp' : 'text-gray-500 dark:text-gray-300'}`}
+                    style={{ color: message.from_me ? 'white' : 'inherit' }}
+                  >
                     {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </>
@@ -246,10 +253,20 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
               className="w-full min-h-[40px] max-h-32 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 resize-none transition-all duration-200"
               placeholder="Ask me to brainstorm improvements for your prompt..."
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={(e) => {
+                setNewMessage(e.target.value);
+                // Auto-resize the textarea
+                e.target.style.height = 'auto';
+                e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
+              }}
               onKeyDown={handleSendMessage}
               rows={1}
-              style={{ resize: 'none' }}
+              style={{ 
+                resize: 'none',
+                minHeight: '40px',
+                maxHeight: '128px',
+                overflowY: 'auto'
+              }}
             />
           </div>
           <button
@@ -837,6 +854,15 @@ const Main: React.FC = () => {
     }
   }, [assistantId, apiKey]);
 
+  // Reset textarea heights when instructions change
+  useEffect(() => {
+    const instructionsTextarea = document.getElementById('instructions') as HTMLTextAreaElement;
+    if (instructionsTextarea) {
+      instructionsTextarea.style.height = 'auto';
+      instructionsTextarea.style.height = Math.min(instructionsTextarea.scrollHeight, window.innerHeight - 300) + 'px';
+    }
+  }, [assistantInfo.instructions]);
+
   const deleteThread = async () => {
     const userEmail = localStorage.getItem("userEmail");
     if (!userEmail) {
@@ -939,10 +965,19 @@ return (
                         className="w-full h-full p-4 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-none"
                         placeholder="Tell your assistant what to do. Be specific about its role, tone, and capabilities..."
                         value={assistantInfo.instructions}
-                        onChange={handleInputChange}
+                        onChange={(e) => {
+                          handleInputChange(e);
+                          // Auto-resize the textarea
+                          e.target.style.height = 'auto';
+                          e.target.style.height = Math.min(e.target.scrollHeight, window.innerHeight - 300) + 'px';
+                        }}
                         onFocus={handleFocus}
                         disabled={userRole === "3"}
-                        style={{ minHeight: 'calc(100vh - 200px)' }}
+                        style={{ 
+                          minHeight: 'calc(100vh - 300px)',
+                          maxHeight: 'calc(100vh - 200px)',
+                          overflowY: 'auto'
+                        }}
                       />
                     </div>
                     <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
@@ -1100,10 +1135,19 @@ return (
                           className="w-full h-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-none"
                           placeholder="Tell your assistant what to do. Be specific about its role, tone, and capabilities..."
                           value={assistantInfo.instructions}
-                          onChange={handleInputChange}
+                          onChange={(e) => {
+                            handleInputChange(e);
+                            // Auto-resize the textarea
+                            e.target.style.height = 'auto';
+                            e.target.style.height = Math.min(e.target.scrollHeight, window.innerHeight - 400) + 'px';
+                          }}
                           onFocus={handleFocus}
                           disabled={userRole === "3"}
-                          style={{ minHeight: 'calc(100vh - 300px)' }}
+                          style={{ 
+                            minHeight: 'calc(100vh - 400px)',
+                            maxHeight: 'calc(100vh - 300px)',
+                            overflowY: 'auto'
+                          }}
                         />
                       </div>
                     </div>
