@@ -1156,26 +1156,6 @@ function LoadingPage() {
                     </span>
                   </div>
                   
-                  {/* Phone Selection */}
-                  {phones && phones.length > 1 && (
-                    <div className="mt-1 w-full max-w-md mx-auto">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Select Phone Number:
-                      </label>
-                      <select
-                        value={selectedPhoneIndex}
-                        onChange={(e) => handlePhoneSelection(Number(e.target.value))}
-                        className="w-full px-3 py-2 border rounded-md text-gray-700 focus:outline-none focus:border-blue-500 text-sm"
-                      >
-                        {phones.map((phone, index) => (
-                          <option key={phone.phoneIndex} value={phone.phoneIndex}>
-                            {phone.phoneInfo} - {phone.status}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  
                   <hr className="w-full my-1 border-t border-gray-300 dark:border-gray-700" />
                   {error && !qrCodeImage && (
                     <div className="mt-0.5 p-2 bg-red-50 border border-red-200 rounded-md w-full max-w-2xl mx-auto">
@@ -1225,17 +1205,40 @@ function LoadingPage() {
                       </p>
                     </div>
                   ) : qrCodeImage ? (
-                    <div className="bg-white p-2 rounded-lg mt-0.5 w-full max-w-lg mx-auto flex justify-center">
-                      <img
-                        src={qrCodeImage}
-                        alt="QR Code"
-                        className="max-w-full h-auto max-h-80 mx-auto"
-                      />
+                    <div className="mt-0.5 w-full flex flex-col items-center">
+                      {/* Phone Selection for Multiple Phones */}
                       {phones && phones.length > 1 && (
-                        <p className="mt-1 text-sm text-gray-600 text-center w-full">
-                          QR Code for: {phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo || ""}
-                        </p>
+                        <div className="w-full max-w-md mb-2">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-center">
+                            Select Phone Number:
+                          </label>
+                          <select
+                            value={selectedPhoneIndex}
+                            onChange={(e) => handlePhoneSelection(Number(e.target.value))}
+                            className="w-full px-3 py-2 border rounded-md text-gray-700 focus:outline-none focus:border-blue-500 text-sm"
+                          >
+                            {phones.map((phone, index) => (
+                              <option key={phone.phoneIndex} value={phone.phoneIndex}>
+                                {phone.phoneInfo} - {phone.status}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       )}
+                      
+                      {/* QR Code Container - Always Centered */}
+                      <div className="bg-white p-2 rounded-lg w-full max-w-lg flex flex-col items-center">
+                        <img
+                          src={qrCodeImage}
+                          alt="QR Code"
+                          className="max-w-full h-auto max-h-80"
+                        />
+                        {phones && phones.length > 1 && (
+                          <p className="mt-1 text-sm text-gray-600 text-center">
+                            QR Code for: {phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo || ""}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="mt-0.5 text-gray-600 dark:text-gray-400 text-sm">

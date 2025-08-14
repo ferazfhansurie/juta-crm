@@ -833,6 +833,7 @@ function Main() {
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadedPages, setLoadedPages] = useState<Set<number>>(new Set());
+  const [isTagFiltering, setIsTagFiltering] = useState(false);
 
   // Real progress tracking for loading contacts
   const [realLoadingProgress, setRealLoadingProgress] = useState(0);
@@ -2744,8 +2745,14 @@ function Main() {
       setMessageMode(`phone${currentPhoneIndex + 1}`);
     }
 
+    // For tag filtering, always use ALL contacts to ensure we find all tagged contacts
+    // For regular browsing, use loaded contacts for performance
+    const contactsToFilter = (activeTags.length > 0 && activeTags[0] !== "all") 
+      ? contacts  // Use all contacts when filtering by tags
+      : (loadedContacts.length > 0 ? loadedContacts : contacts); // Use loaded contacts for regular browsing
+    
     let fil = filterContactsByUserRole(
-      loadedContacts.length > 0 ? loadedContacts : contacts,
+      contactsToFilter,
       userRole,
       userData?.name || ""
     );
@@ -2895,9 +2902,14 @@ function Main() {
     // Tag filtering
     if (activeTags.length > 0) {
       const tag = activeTags[0]?.toLowerCase() || "all";
+      console.log("🔍 Filtering by tag:", tag);
+      console.log("🔍 Active tags:", activeTags);
 
       fil = fil.filter((contact) => {
         const isGroup = contact.chat_id?.endsWith("@g.us");
+        const contactTags = contact.tags?.map((t: string) => (typeof t === "string" ? t : String(t)).toLowerCase()) || [];
+        
+        console.log("🔍 Contact:", contact.contactName || contact.phone, "Tags:", contact.tags, "Lowercase tags:", contactTags);
 
         const matchesTag =
           tag === "all"
@@ -2920,10 +2932,13 @@ function Main() {
             ? isGroup
             : tag === "stop bot"
             ? contact.tags?.includes("stop bot")
-            : contact.tags?.map((t: string) => (typeof t === "string" ? t : String(t)).toLowerCase()).includes(tag);
+            : contactTags.includes(tag);
 
+        console.log("🔍 Contact matches tag:", matchesTag);
         return matchesTag;
       });
+      
+      console.log("🔍 After tag filtering, contacts count:", fil.length);
     }
 
     // Sort by timestamp (works for both APIs)
@@ -2956,6 +2971,20 @@ function Main() {
       "📊 RESULT - Filtered contacts:",
       filteredContactsSearch.length
     );
+    
+    // Debug: Log all available tags from contacts
+    const allTags = new Set<string>();
+    contacts.forEach(contact => {
+      if (contact.tags && Array.isArray(contact.tags)) {
+        contact.tags.forEach(tag => {
+          if (typeof tag === 'string') {
+            allTags.add(tag.toLowerCase());
+          }
+        });
+      }
+    });
+    console.log("🔍 All available tags in contacts:", Array.from(allTags).sort());
+    
     if (filteredContactsSearch.length > 0) {
       console.log("📊 SORTING - First 10 contacts sorted by timestamp:");
       filteredContactsSearch.slice(0, 10).forEach((contact, index) => {
@@ -7081,16 +7110,29 @@ function Main() {
   }, [filteredContactsSearch, loadedContacts]);
 
   const filterTagContact = (tag: string) => {
+    console.log("🔍 filterTagContact called with tag:", tag);
+    console.log("🔍 Current employeeList:", employeeList);
+    
+    // Set loading state for tag filtering
+    setIsTagFiltering(true);
+    
     if (
       employeeList.some(
         (employee) => (employee.name?.toLowerCase() || "") === (typeof tag === "string" ? tag : String(tag)).toLowerCase()
       )
     ) {
+      console.log("🔍 Tag is an employee, setting selectedEmployee:", tag);
       setSelectedEmployee(tag === selectedEmployee ? null : tag);
     } else {
+      console.log("🔍 Tag is not an employee, setting activeTags:", [tag.toLowerCase()]);
       setActiveTags([(typeof tag === "string" ? tag : String(tag)).toLowerCase()]);
     }
     setSearchQuery("");
+    
+    // Reset loading state after a short delay to allow filtering to complete
+    setTimeout(() => {
+      setIsTagFiltering(false);
+    }, 1000);
   };
 
   const filterForwardDialogContacts = (tag: string) => {
@@ -10232,6 +10274,8 @@ function Main() {
                   <div className="text-gray-500 text-2xl dark:text-gray-400 mt-2">
                     {isInitialLoading
                       ? "Loading contacts..."
+                      : isTagFiltering
+                      ? "Searching through all contacts..."
                       : "No contacts found"}
                   </div>
                   {isInitialLoading && (
@@ -10266,6 +10310,14 @@ function Main() {
                           ✓ Loading complete!
                         </div>
                       )}
+                    </div>
+                  )}
+                  {isTagFiltering && (
+                    <div className="mt-4 flex flex-col items-center">
+                      <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mb-2"></div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Searching through {contacts.length.toLocaleString()} contacts...
+                      </div>
                     </div>
                   )}
                 </div>
