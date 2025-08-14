@@ -69,11 +69,57 @@ export const getTheme = (search?: {
   })[0];
 };
 
+// Clean up corrupted localStorage data
+const cleanupLocalStorage = () => {
+  try {
+    const theme = localStorage.getItem("theme");
+    const layout = localStorage.getItem("layout");
+    
+    // Check if stored values are valid
+    const validThemes = ["tinker", "enigma", "icewall", "rubick"];
+    const validLayouts = ["side-menu", "simple-menu", "top-menu"];
+    
+    if (theme && !validThemes.includes(theme)) {
+      console.warn('Invalid theme in localStorage, clearing:', theme);
+      localStorage.removeItem("theme");
+    }
+    
+    if (layout && !validLayouts.includes(layout)) {
+      console.warn('Invalid layout in localStorage, clearing:', layout);
+      localStorage.removeItem("layout");
+    }
+  } catch (error) {
+    console.error('Error cleaning up localStorage:', error);
+    // Clear all theme-related localStorage if there's an error
+    localStorage.removeItem("theme");
+    localStorage.removeItem("layout");
+  }
+};
+
+// Clean up on module load
+cleanupLocalStorage();
+
 const initialState: ThemeState = {
-  value: getTheme() || {
-    name: themes[0].name,
-    layout: themes[0].layout,
-  },
+  value: (() => {
+    const theme = getTheme();
+    console.log('Initializing theme state, getTheme result:', theme);
+    
+    if (theme) {
+      const stateValue = {
+        name: theme.name,
+        layout: theme.layout,
+      };
+      console.log('Setting initial theme state to:', stateValue);
+      return stateValue;
+    }
+    
+    const fallbackValue = {
+      name: themes[0].name,
+      layout: themes[0].layout,
+    };
+    console.log('Using fallback theme state:', fallbackValue);
+    return fallbackValue;
+  })(),
 };
 
 export const themeSlice = createSlice({
@@ -81,20 +127,34 @@ export const themeSlice = createSlice({
   initialState,
   reducers: {
     setTheme: (state, action: PayloadAction<Themes["name"]>) => {
-      state.value = {
+      // Ensure only serializable values are stored
+      const newValue = {
         name: action.payload,
         layout: state.value.layout,
       };
-
-      localStorage.setItem("theme", action.payload);
+      
+      // Validate that we're not storing any non-serializable values
+      if (typeof newValue.name === 'string' && typeof newValue.layout === 'string') {
+        state.value = newValue;
+        localStorage.setItem("theme", action.payload);
+      } else {
+        console.error('Attempted to store non-serializable theme value:', newValue);
+      }
     },
     setLayout: (state, action: PayloadAction<Themes["layout"]>) => {
-      state.value = {
+      // Ensure only serializable values are stored
+      const newValue = {
         name: state.value.name,
         layout: action.payload,
       };
-
-      localStorage.setItem("layout", action.payload);
+      
+      // Validate that we're not storing any non-serializable values
+      if (typeof newValue.name === 'string' && typeof newValue.layout === 'string') {
+        state.value = newValue;
+        localStorage.setItem("layout", action.payload);
+      } else {
+        console.error('Attempted to store non-serializable layout value:', newValue);
+      }
     },
   },
 });
@@ -102,15 +162,32 @@ export const themeSlice = createSlice({
 export const { setTheme, setLayout } = themeSlice.actions;
 
 export const selectTheme = (state: RootState) => {
+  // Validate and set default theme if localStorage is corrupted
   if (localStorage.getItem("theme") === null) {
-    localStorage.setItem("theme", "rubick");
+    localStorage.setItem("theme", "tinker");
   }
 
-
+  // Validate and set default layout if localStorage is corrupted
+  if (localStorage.getItem("layout") === null) {
     localStorage.setItem("layout", "simple-menu");
+  }
 
+  // Ensure the returned state only contains serializable values
+  const themeState = state.theme.value;
+  
+  // Validate that the state only contains expected properties
+  if (themeState && typeof themeState === 'object') {
+    return {
+      name: themeState.name || "tinker",
+      layout: themeState.layout || "simple-menu",
+    };
+  }
 
-  return state.theme.value;
+  // Fallback to defaults if state is corrupted
+  return {
+    name: "tinker",
+    layout: "simple-menu",
+  };
 };
 
 export default themeSlice.reducer;

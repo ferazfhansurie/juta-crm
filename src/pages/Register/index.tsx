@@ -256,7 +256,7 @@ function Main() {
                   Sign Up
                 </h2>
                 <div className="mt-2 text-center intro-x text-slate-400 dark:text-slate-400 xl:hidden">
-                  Start your 7 days free trial now!
+                  Register Your Account Now!
                 </div>
                 <div className="mt-8 intro-x">
                   <FormInput
@@ -310,7 +310,6 @@ function Main() {
                     {[
                       ['blaster', 'Team Inbox', '50'],
                       ['enterprise', 'Standard AI', '168'],
-                      ['unlimited', 'Unlimited', '688']
                     ].map(([id, name, price]) => (
                       <div 
                         key={id}
@@ -339,7 +338,7 @@ function Main() {
                         Loading...
                       </div>
                     ) : (
-                      "Start Free Trial"
+                      "Register"
                     )}
                   </Button>
                   <Link to="/login">

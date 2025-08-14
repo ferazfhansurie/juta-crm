@@ -84,6 +84,7 @@ function LoadingPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [isPairingCodeLoading, setIsPairingCodeLoading] = useState(false);
+  const [showPairingCode, setShowPairingCode] = useState(false);
 
   const [loadingPhase, setLoadingPhase] = useState<string>("initializing");
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -91,12 +92,17 @@ function LoadingPage() {
   const [isAuthReady, setIsAuthReady] = useState(true);
   const [webSocket, setWebSocket] = useState(null);
   const isMountedRef = useRef(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
-  const fetchQRCode = async () => {
-    if (!isAuthReady || !isMountedRef.current) {
-      return;
-    }
+  // Debug useEffect to monitor state changes
+  useEffect(() => {
+    console.log("State changed - isQRLoading:", isQRLoading, "qrCodeImage:", !!qrCodeImage, "isLoading:", isLoading);
+  }, [isQRLoading, qrCodeImage, isLoading]);
 
+  const fetchQRCode = async () => {
+    if (!isMountedRef.current) return;
+    
+    console.log("fetchQRCode: Starting...");
     setIsLoading(true);
     setIsQRLoading(true);
     setError(null);
@@ -150,6 +156,8 @@ function LoadingPage() {
       console.log("Data phones:", data.phones);
       console.log("Data phones type:", typeof data.phones);
       console.log("Data phones is array:", Array.isArray(data.phones));
+      console.log("Data status:", data.status);
+      console.log("Data qrCode:", data.qrCode);
       
       // Validate the response data
       if (!data) {
@@ -173,27 +181,24 @@ function LoadingPage() {
           const now = new Date();
           if (now > trialEnd) {
             setTrialExpired(true);
-            return;
+            // Don't return here, let the finally block handle loading states
           }
         }
 
         // Check if any phone needs QR code
         const phoneNeedingQR = data.phones.find(phone => phone.status === "qr");
         if (phoneNeedingQR && phoneNeedingQR.qrCode) {
+          console.log("Setting QR code image:", phoneNeedingQR.qrCode);
           setQrCodeImage(phoneNeedingQR.qrCode);
           setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
           setBotStatus("qr");
-          console.log("QR Code image:", phoneNeedingQR.qrCode);
-        }
-        // Check if all phones are ready/authenticated
-        else if (data.phones.every(phone => phone.status === "ready" || phone.status === "authenticated")) {
+          console.log("QR Code image set successfully");
+        } else if (data.phones.every(phone => phone.status === "ready" || phone.status === "authenticated")) {
           setBotStatus("ready");
           setShouldFetchContacts(true);
           console.log("All phones ready, navigating to /chat");
           navigate("/chat");
-        }
-        // Set status based on first phone or overall status
-        else {
+        } else {
           setBotStatus(data.phones[0]?.status || "initializing");
         }
       } else {
@@ -215,15 +220,16 @@ function LoadingPage() {
           const now = new Date();
           if (now > trialEnd) {
             setTrialExpired(true);
-            return;
+            // Don't return here, let the finally block handle loading states
           }
         }
 
         // Handle status based on old format
         if (data.status === "qr" && data.qrCode) {
+          console.log("Old format: Setting QR code image:", data.qrCode);
           setQrCodeImage(data.qrCode);
           setBotStatus("qr");
-          console.log("QR Code image:", data.qrCode);
+          console.log("Old format: QR Code image set successfully");
         } else if (data.status === "ready" || data.status === "authenticated") {
           setBotStatus("ready");
           console.log("Setting shouldFetchContacts to true");
@@ -235,44 +241,88 @@ function LoadingPage() {
         }
       }
 
-      // Set up WebSocket for real-time updates with proper protocol handling
-      const baseUrl = "https://juta-dev.ngrok.dev";
-      const wsUrl = window.location.protocol === 'https:' 
-        ? `${baseUrl.replace("https", "wss")}/ws/${userEmail}/${companyId}`
-        : `${baseUrl.replace("https", "ws")}/ws/${userEmail}/${companyId}`;
-      const ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        console.log("WebSocket connected");
-      };
-
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        setError("Failed to connect to server. Please try again.");
-      };
-
-      ws.onclose = () => {
-        console.log("WebSocket connection closed");
-      };
-
+      // Remove duplicate WebSocket creation - it's handled in initWebSocket useEffect
       // setWebSocket(ws);
     } catch (error) {
-      setIsLoading(false);
+      console.error("Error in fetchQRCode:", error);
       if (error instanceof Error) {
         setError(error.message);
       } else {
         setError("An unknown error occurred. Please try again.");
       }
-      console.error("Error in fetchQRCode:", error);
     } finally {
       console.log("fetchQRCode finally block: setting isLoading to false");
-      setIsQRLoading(false);
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsQRLoading(false);
+        setIsLoading(false);
+      }
     }
   };
 
-  const handleRefresh = () => {
-    fetchQRCode();
+  const handleRefresh = async () => {
+    if (isRefreshing) {
+      console.log("Refresh already in progress, ignoring click");
+      return;
+    }
+    
+    console.log("Refresh button clicked - starting refresh process...");
+    console.log("Current states - isLoading:", isLoading, "isQRLoading:", isQRLoading, "qrCodeImage:", !!qrCodeImage);
+    
+    setIsRefreshing(true);
+    setError(""); // Clear any existing errors
+    setWsConnected(false); // Reset WebSocket connection state
+    setQrCodeImage(null); // Clear current QR code
+    setIsQRLoading(true); // Show loading state
+    setIsLoading(true); // Show loading state
+    
+    console.log("States reset, closing existing WebSocket...");
+    
+    // Close existing WebSocket connection
+    if (ws.current) {
+      ws.current.close();
+      ws.current = null;
+      console.log("Existing WebSocket closed");
+    }
+    
+    // Add a safety timeout to prevent infinite loading
+    const safetyTimeout = setTimeout(() => {
+      console.log("Safety timeout triggered - resetting loading states");
+      if (isMountedRef.current) {
+        setIsQRLoading(false);
+        setIsLoading(false);
+        setError("Refresh timed out. Please try again.");
+        setIsRefreshing(false);
+      }
+    }, 10000); // 10 second timeout
+    
+    try {
+      // Wait a moment for cleanup, then fetch new QR code
+      setTimeout(async () => {
+        console.log("Starting fresh QR code fetch...");
+        try {
+          await fetchQRCode();
+          console.log("fetchQRCode completed successfully");
+        } catch (error) {
+          console.error("fetchQRCode failed:", error);
+          // Ensure loading states are reset even on error
+          if (isMountedRef.current) {
+            setIsQRLoading(false);
+            setIsLoading(false);
+          }
+        } finally {
+          console.log("fetchQRCode completed (either success or error)");
+          // Clear the safety timeout once fetchQRCode completes
+          clearTimeout(safetyTimeout);
+          setIsRefreshing(false);
+        }
+      }, 100);
+    } catch (error) {
+      console.error("Error in refresh process:", error);
+      setIsQRLoading(false);
+      setIsLoading(false);
+      setIsRefreshing(false);
+      clearTimeout(safetyTimeout);
+    }
   };
 
   const handlePhoneSelection = (phoneIndex: number) => {
@@ -332,13 +382,80 @@ function LoadingPage() {
           const userData = await response.json();
           const companyId = userData.company_id;
 
+          // Test if WebSocket endpoint is accessible
+          console.log("Testing WebSocket endpoint accessibility...");
+          try {
+            const testResponse = await fetch(`https://juta-dev.ngrok.dev/api/health`, { 
+              method: 'GET',
+              mode: 'cors'
+            });
+            console.log("Backend health check response:", testResponse.status, testResponse.statusText);
+          } catch (testError) {
+            console.warn("Backend health check failed:", testError);
+            console.log("This might indicate WebSocket connectivity issues");
+          }
+
+          // Test basic WebSocket connectivity
+          console.log("Testing basic WebSocket connectivity...");
+          try {
+            const testWs = new WebSocket('wss://echo.websocket.org');
+            testWs.onopen = () => {
+              console.log("Basic WebSocket test successful - WebSocket is supported");
+              testWs.close();
+            };
+            testWs.onerror = (error) => {
+              console.warn("Basic WebSocket test failed:", error);
+              console.log("This might indicate a WebSocket support issue");
+            };
+          } catch (testWsError) {
+            console.warn("Could not create test WebSocket:", testWsError);
+          }
+
           // Connect to WebSocket with proper protocol handling
-          const wsUrl = window.location.protocol === 'https:' 
+          let wsUrl = window.location.protocol === 'https:' 
             ? `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
             : `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
-          ws.current = new WebSocket(wsUrl);
+          
+          console.log("Attempting WebSocket connection to:", wsUrl);
+          console.log("User email:", userEmail);
+          console.log("Company ID:", companyId);
+          console.log("Current protocol:", window.location.protocol);
+          console.log("Current location:", window.location.href);
+          
+          // Try to establish WebSocket connection
+          try {
+            ws.current = new WebSocket(wsUrl);
+            console.log("WebSocket object created successfully");
+          } catch (wsError) {
+            console.error("Error creating WebSocket:", wsError);
+            
+            // Try alternative WebSocket URL if first fails
+            const alternativeUrl = wsUrl.includes('wss://') 
+              ? `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
+              : `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
+            
+            console.log("Trying alternative WebSocket URL:", alternativeUrl);
+            try {
+              ws.current = new WebSocket(alternativeUrl);
+              console.log("Alternative WebSocket connection created successfully");
+            } catch (altError) {
+              console.error("Alternative WebSocket also failed:", altError);
+              throw new Error(`Failed to create WebSocket with both protocols: ${wsError}`);
+            }
+          }
+
+          // Add connection timeout
+          const connectionTimeout = setTimeout(() => {
+            if (ws.current && ws.current.readyState === WebSocket.CONNECTING) {
+              console.error("WebSocket connection timeout");
+              ws.current.close();
+              setError("WebSocket connection timeout. Please try again.");
+              setWsConnected(false);
+            }
+          }, 10000); // 10 second timeout
 
           ws.current.onopen = () => {
+            clearTimeout(connectionTimeout);
             setWsConnected(true);
             setError("");
           };
@@ -450,12 +567,25 @@ function LoadingPage() {
           };
 
           ws.current.onerror = (error) => {
+            clearTimeout(connectionTimeout);
             console.error("WebSocket error:", error);
+            console.error("WebSocket URL attempted:", wsUrl);
+            console.error("Current protocol:", window.location.protocol);
+            console.error("WebSocket readyState:", ws.current?.readyState);
+            console.error("Error details:", error);
             setError("WebSocket connection error. Please try again.");
+            setWsConnected(false);
           };
 
-          ws.current.onclose = () => {
+          ws.current.onclose = (event) => {
+            clearTimeout(connectionTimeout);
+            console.log("WebSocket connection closed:", event.code, event.reason);
+            console.log("Close event details:", event);
             setWsConnected(false);
+            if (event.code !== 1000) { // Not a normal closure
+              console.error("WebSocket closed with error code:", event.code, "Reason:", event.reason);
+              setError("WebSocket connection lost. Please refresh the page.");
+            }
           };
         } catch (error) {
           console.error("Error initializing WebSocket:", error);
@@ -465,8 +595,13 @@ function LoadingPage() {
             setError("Failed to initialize WebSocket. Please try again.");
           }
 
+          // Try alternative protocol if available
           if (retries > 0) {
+            console.log(`Retrying WebSocket connection in 2 seconds... (${retries} attempts remaining)`);
             setTimeout(() => initWebSocket(retries - 1), 2000);
+          } else {
+            console.error("WebSocket connection failed after all retries");
+            setError("Unable to establish WebSocket connection. Please check your internet connection and try again.");
           }
         }
       }
@@ -964,6 +1099,10 @@ function LoadingPage() {
     }
   };
 
+  const generateVerificationCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-900 py-8">
       {!isAuthReady ? (
@@ -994,26 +1133,39 @@ function LoadingPage() {
           </button>
         </div>
       ) : (
-        <div className="flex flex-col items-center w-full max-w-lg text-center px-4">
+        <div className="flex flex-col items-center w-full max-w-4xl text-center px-6 py-1">
           {
             <>
               {botStatus === "qr" ? (
                 <>
-                  <div className="mt-2 text-md text-gray-800 dark:text-gray-200">
+                  <div className="mt-0 text-base text-gray-800 dark:text-gray-200 w-full">
                     Please use your WhatsApp QR scanner to scan the code or
                     enter your phone number for a pairing code.
                   </div>
                   
+                  {/* Connection Status Indicator */}
+                  <div className="mt-1 flex items-center justify-center space-x-2">
+                    <div className={`w-2 h-2 rounded-full ${
+                      qrCodeImage ? 'bg-green-500' : wsConnected ? 'bg-green-500' : 'bg-red-500'
+                    }`}></div>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {qrCodeImage ? 'QR Code Active' : 
+                        wsConnected ? 'Connected to server' : 
+                        error ? (error.includes('WebSocket') ? 'WebSocket failed' : 'Connection failed') : 
+                        'Connecting to server...'}
+                    </span>
+                  </div>
+                  
                   {/* Phone Selection */}
                   {phones && phones.length > 1 && (
-                    <div className="mt-4 w-full">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <div className="mt-1 w-full max-w-md mx-auto">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Select Phone Number:
                       </label>
                       <select
                         value={selectedPhoneIndex}
                         onChange={(e) => handlePhoneSelection(Number(e.target.value))}
-                        className="w-full px-4 py-2 border rounded-md text-gray-700 focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 border rounded-md text-gray-700 focus:outline-none focus:border-blue-500 text-sm"
                       >
                         {phones.map((phone, index) => (
                           <option key={phone.phoneIndex} value={phone.phoneIndex}>
@@ -1024,81 +1176,133 @@ function LoadingPage() {
                     </div>
                   )}
                   
-                  <hr className="w-full my-4 border-t border-gray-300 dark:border-gray-700" />
-                  {error && (
-                    <div className="text-red-500 dark:text-red-400 mt-2">
-                      {error}
+                  <hr className="w-full my-1 border-t border-gray-300 dark:border-gray-700" />
+                  {error && !qrCodeImage && (
+                    <div className="mt-0.5 p-2 bg-red-50 border border-red-200 rounded-md w-full max-w-2xl mx-auto">
+                      <div className="text-red-700 font-medium mb-1 text-sm">
+                        {error}
+                      </div>
+                      {error.includes("WebSocket") && (
+                        <div className="text-sm text-red-600">
+                          <p className="mb-1 text-sm">Troubleshooting tips:</p>
+                          <ul className="list-disc list-inside space-y-0.5 text-sm">
+                            <li>Check your internet connection</li>
+                            <li>Try refreshing the page</li>
+                            <li><strong>Backend WebSocket endpoint not responding</strong></li>
+                            <li>Contact support if the issue persists</li>
+                          </ul>
+                          <button
+                            onClick={() => {
+                              setError("");
+                              setWsConnected(false);
+                              if (isAuthReady) {
+                                // Trigger WebSocket reconnection
+                                const userEmail = localStorage.getItem("userEmail");
+                                if (userEmail) {
+                                  // Force a re-fetch of user config and WebSocket connection
+                                  fetchQRCode();
+                                }
+                              }
+                            }}
+                            className="mt-2 px-3 py-1.5 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+                          >
+                            Retry Connection
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                   {isQRLoading ? (
-                    <div className="mt-4">
+                    <div className="mt-0.5">
                       <img
                         alt="Logo"
-                        className="w-32 h-32 animate-spin mx-auto"
+                        className="w-20 h-20 animate-spin mx-auto"
                         src={logoUrl}
                         style={{ animation: "spin 10s linear infinite" }}
                       />
-                      <p className="mt-2 text-gray-600 dark:text-gray-400">
+                      <p className="mt-0.5 text-gray-600 dark:text-gray-400 text-sm">
                         Loading QR Code...
                       </p>
                     </div>
                   ) : qrCodeImage ? (
-                    <div className="bg-white p-4 rounded-lg mt-4">
+                    <div className="bg-white p-2 rounded-lg mt-0.5 w-full max-w-lg mx-auto flex justify-center">
                       <img
                         src={qrCodeImage}
                         alt="QR Code"
-                        className="max-w-full h-auto"
+                        className="max-w-full h-auto max-h-80 mx-auto"
                       />
                       {phones && phones.length > 1 && (
-                        <p className="mt-2 text-sm text-gray-600">
+                        <p className="mt-1 text-sm text-gray-600 text-center w-full">
                           QR Code for: {phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo || ""}
                         </p>
                       )}
                     </div>
                   ) : (
-                    <div className="mt-4 text-gray-600 dark:text-gray-400">
+                    <div className="mt-0.5 text-gray-600 dark:text-gray-400 text-sm">
                       No QR Code available. Please try refreshing or use the
                       pairing code option below.
                     </div>
                   )}
 
-                  <div className="mt-4 w-full">
-                    <input
-                      type="tel"
-                      value={phoneNumber || (phones && phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo) || ""}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="Enter phone number with country code eg: 60123456789"
-                      className="w-full px-4 py-2 border rounded-md text-gray-700 focus:outline-none focus:border-blue-500"
-                    />
+                  {/* Success Message when QR Code is Working */}
+                  {qrCodeImage && (
+                    <div className="mt-1 p-2 bg-green-50 border border-green-200 rounded-md w-full max-w-2xl mx-auto">
+                      <div className="text-green-700 font-medium mb-1 text-sm text-center">
+                        QR Code Ready - Scan to Connect
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pairing Code Toggle Button */}
+                  <div className="mt-0.5 text-center">
                     <button
-                      onClick={requestPairingCode}
-                      disabled={isPairingCodeLoading || !phoneNumber}
-                      className="mt-2 px-6 py-3 bg-primary text-white text-lg font-semibold rounded hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 w-full disabled:bg-gray-400"
+                      onClick={() => setShowPairingCode(!showPairingCode)}
+                      className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 underline focus:outline-none"
                     >
-                      {isPairingCodeLoading ? (
-                        <span className="flex items-center justify-center">
-                          <LoadingIcon
-                            icon="three-dots"
-                            className="w-5 h-5 mr-2"
-                          />
-                          Generating...
-                        </span>
-                      ) : (
-                        "Get Pairing Code"
-                      )}
+                      {showPairingCode ? 'Hide' : 'Link With Phone Number (Optional)'}
                     </button>
                   </div>
 
+                  {/* Pairing Code Section - Hidden by Default */}
+                  {showPairingCode && (
+                    <div className="mt-1 w-full max-w-md mx-auto">
+                      <input
+                        type="tel"
+                        value={phoneNumber || (phones && phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo) || ""}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        placeholder="Enter phone number with country code eg: 60123456789"
+                        className="w-full px-3 py-2 border rounded-md text-gray-700 focus:outline-none focus:border-blue-500 text-sm"
+                      />
+                      <button
+                        onClick={requestPairingCode}
+                        disabled={isPairingCodeLoading || !phoneNumber}
+                        className="mt-1 px-4 py-2 bg-primary text-white text-sm font-semibold rounded hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 w-full disabled:bg-gray-400"
+                      >
+                        {isPairingCodeLoading ? (
+                          <span className="flex items-center justify-center">
+                            <LoadingIcon
+                              icon="three-dots"
+                              className="w-4 h-4 mr-1"
+                            />
+                            Generating...
+                          </span>
+                        ) : (
+                          "Get Pairing Code"
+                        )}
+                      </button>
+                    </div>
+                  )}
+
                   {isPairingCodeLoading && (
-                    <div className="mt-4 text-gray-600 dark:text-gray-400">
+                    <div className="mt-1 text-gray-600 dark:text-gray-400 text-sm">
                       Generating pairing code...
                     </div>
                   )}
 
                   {pairingCode && (
-                    <div className="mt-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+                    <div className="mt-1 p-2 bg-green-100 border border-green-400 text-green-700 rounded text-sm w-full max-w-md mx-auto">
                       Your pairing code: <strong>{pairingCode}</strong>
-                      <p className="text-sm mt-2">
+                      <p className="text-sm mt-1">
                         Enter this code in your WhatsApp app to authenticate.
                       </p>
                     </div>
@@ -1106,18 +1310,18 @@ function LoadingPage() {
                 </>
               ) : (
                 <>
-                  <div className="mt-2 text-xs text-gray-800 dark:text-gray-200">
+                  <div className="mt-1 text-xs text-gray-800 dark:text-gray-200">
                     {phones && phones.length > 0 ? (
                       <div>
-                        <div className="mb-2">
+                        <div className="mb-1">
                           {phones.every(phone => phone.status === "ready" || phone.status === "authenticated")
                             ? "All phones authenticated. Loading contacts..."
                             : "Phone Status:"}
                         </div>
                         {phones && phones.map((phone, index) => (
-                          <div key={phone.phoneIndex} className="text-xs mb-1 flex items-center justify-between">
+                          <div key={phone.phoneIndex} className="text-xs mb-0.5 flex items-center justify-between">
                             <span>{phone.phoneInfo}</span>
-                            <span className={`px-2 py-1 rounded text-xs ${
+                            <span className={`px-1 py-0.5 rounded text-xs ${
                               phone.status === "ready" || phone.status === "authenticated" 
                                 ? "bg-green-100 text-green-800" 
                                 : phone.status === "qr" 
@@ -1138,7 +1342,7 @@ function LoadingPage() {
                     )}
                   </div>
                   {isProcessingChats && (
-                    <div className="space-y-2 mt-4">
+                    <div className="space-y-0.5 mt-0.5">
                       <Progress className="w-full">
                         <Progress.Bar
                           className="transition-all duration-300 ease-in-out"
@@ -1149,7 +1353,7 @@ function LoadingPage() {
                           {Math.round((fetchedChats / totalChats) * 100)}%
                         </Progress.Bar>
                       </Progress>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
                         {processingComplete
                           ? contactsFetched
                             ? "Chats loaded. Preparing to navigate..."
@@ -1159,14 +1363,14 @@ function LoadingPage() {
                     </div>
                   )}
                   {(isLoading || !processingComplete || isFetchingChats) && (
-                    <div className="mt-4 flex flex-col items-center">
+                    <div className="mt-0.5 flex flex-col items-center">
                       <img
                         alt="Logo"
-                        className="w-32 h-32 animate-spin mx-auto"
+                        className="w-16 h-16 animate-spin mx-auto"
                         src={logoUrl}
                         style={{ animation: "spin 3s linear infinite" }}
                       />
-                      <p className="mt-2 text-gray-600 dark:text-gray-400">
+                      <p className="mt-0.5 text-gray-600 dark:text-gray-400 text-xs">
                         {isQRLoading
                           ? "Please wait while QR code is loading..."
                           : "Please wait while QR Code is loading..."}
@@ -1176,34 +1380,62 @@ function LoadingPage() {
                 </>
               )}
 
-              <hr className="w-full my-4 border-t border-gray-300 dark:border-gray-700" />
+              <hr className="w-full my-1 border-t border-gray-300 dark:border-gray-700" />
 
-              <button
-                onClick={handleRefresh}
-                className="mt-4 px-6 py-3 bg-primary text-white text-lg font-semibold rounded hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 w-full"
-              >
-                Refresh
-              </button>
-              <a
-                href="https://wa.link/pcgo1k"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 px-6 py-3 bg-green-500 text-white text-lg font-semibold rounded hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 w-full inline-block text-center"
-              >
-                Need Help?
-              </a>
-              <button
-                onClick={handleLogout}
-                className="mt-4 px-6 py-3 bg-red-500 text-white text-lg font-semibold rounded hover:bg-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 w-full"
-              >
-                Logout
-              </button>
-
-              {error && (
-                <div className="mt-2 text-red-500 dark:text-red-400">
-                  {error}
+              {/* Action Buttons Section */}
+              <div className="mt-2 space-y-2 w-full max-w-2xl mx-auto">
+                {/* Primary Actions Row */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="flex-1 px-4 py-3 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-blue-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 shadow-sm hover:shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      {isRefreshing ? (
+                        <img
+                          alt="Loading"
+                          className="w-4 h-4 animate-spin"
+                          src={logoUrl}
+                        />
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      )}
+                      <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+                    </div>
+                  </button>
+                  <a
+                    href="https://wa.link/pcgo1k"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 px-4 py-3 bg-green-500 text-white text-sm font-semibold rounded-lg hover:bg-green-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 shadow-sm hover:shadow-md text-center"
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Need Help?</span>
+                    </div>
+                  </a>
                 </div>
-              )}
+                
+                {/* Logout Button - Full Width */}
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-4 py-3 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-sm hover:shadow-md"
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span>Logout</span>
+                  </div>
+                </button>
+              </div>
+
+
             </>
           }
         </div>

@@ -28,6 +28,17 @@ export const store = configureStore({
     theme: themeReducer,
     config: configReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        // Ignore specific action types if needed
+        ignoredActions: [],
+        // Ignore specific field paths if needed
+        ignoredPaths: [],
+        // Enhanced serialization checking
+        warnAfter: 128,
+      },
+    }),
 });
 
 export type AppDispatch = typeof store.dispatch;
