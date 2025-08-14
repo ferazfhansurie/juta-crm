@@ -18,7 +18,7 @@ const FEEDBACK_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRF9tq
 const AI_HORIZON_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQs940ohQfGSntt_R3wkLw8sVDt7gRnvwB4W9WwmmWjrV49MstVq0Rz097egHvvDcBj9YXu97EO64Ep/pub?output=csv";
 
 // Neon database base URL
-const baseUrl = "http://localhost:8443";
+const baseUrl = "https://juta-dev.ngrok.dev";
 
 // Custom PieChart component that accepts data, labels, and colors
 interface CustomPieChartProps {
@@ -556,7 +556,7 @@ function DashboardOverview3() {
 
   // Totals
   const totalRegistered = mergedRSVP.length;
-  const totalAttended = mergedRSVP.filter((r: any) => r['Attendance status'] === 'Accepted').length;
+  // Note: totalAttended will be calculated later after Neon data is fetched
 
   // Feedback metrics
   const overallFeedback: { [key: string]: number } = {};
@@ -826,7 +826,7 @@ function DashboardOverview3() {
         
         const data = await response.json();
         console.log('✅ Company Data Response:', data);
-        const apiUrl = 'http://localhost:8443';
+        const apiUrl = 'https://juta-dev.ngrok.dev';
         const companyId = data.userData.companyId;
         console.log('🔑 Company ID:', companyId);
         
@@ -859,40 +859,85 @@ function DashboardOverview3() {
     fetchNeonData();
   }, []);
   
+  // Calculate total attended count from both sources for Participant Overview
+  const csvTotalAttended = mergedRSVP.filter((r: any) => r['Attendance status'] === 'Accepted').length;
+  const neonTotalAttended = neonAttendanceData.length;
+  const totalAttended = csvTotalAttended + neonTotalAttended;
+  
+  // Log the total attendance calculation
+  console.log('📊 Total Overview Attendance:', {
+    csvTotalAttended,
+    neonTotalAttended,
+    totalAttended,
+    totalRegistered: mergedRSVP.length
+  });
+  
   // Calculate total attended count from both sources
   const csvAttendedCount = selectedProgramFilteredParticipants.filter(
     (r: any) => r['Attendance status'] === 'Accepted'
   ).length;
   
   // Count Neon attendance records for the selected program
-  const neonAttendedCount = neonAttendanceData.filter((record: any) => {
-    // Find the event that matches this attendance record
-    const event = neonEvents.find((e: any) => e.id === record.event_id);
-    if (!event) return false;
-    
-    // Match the event name with the selected program name
-    const eventName = event.name || '';
-    const normalizedEventName = eventName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-    const normalizedProgramName = selectedCleanedName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-    
-    // Check if the event name contains key words from the program name
-    const programWords = normalizedProgramName.split(' ').filter((word: string) => word.length > 2);
-    const eventWords = normalizedEventName.split(' ').filter((word: string) => word.length > 2);
-    
-    // Count how many program words are found in the event name
-    const matchingWords = programWords.filter((word: string) => 
-      eventWords.some((eventWord: string) => eventWord.includes(word) || word.includes(eventWord))
-    );
-    
-    // Consider it a match if at least 2 key words match (to avoid false positives)
-    return matchingWords.length >= 2;
-  }).length;
+  let neonAttendedCount = 0;
+  
+  if (showAllProgramsInCategory && selectedCategory) {
+    // For "All Programs in Category" view, count Neon attendance for all programs in that category
+    neonAttendedCount = neonAttendanceData.filter((record: any) => {
+      // Find the event that matches this attendance record
+      const event = neonEvents.find((e: any) => e.id === record.event_id);
+      if (!event) return false;
+      
+      // Check if this event matches any of the programs in the selected category
+      return programsInSelectedCategoryForDashboard.some(programName => {
+        const normalizedEventName = (event.name || '').toLowerCase().replace(/[^a-z0-9]/g, ' ');
+        const normalizedProgramName = programName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+        
+        // Check if the event name contains key words from the program name
+        const programWords = normalizedProgramName.split(' ').filter((word: string) => word.length > 2);
+        const eventWords = normalizedEventName.split(' ').filter((word: string) => word.length > 2);
+        
+        // Count how many program words are found in the event name
+        const matchingWords = programWords.filter((word: string) => 
+          eventWords.some((eventWord: string) => eventWord.includes(word) || word.includes(eventWord))
+        );
+        
+        // Consider it a match if at least 2 key words match
+        return matchingWords.length >= 2;
+      });
+    }).length;
+  } else {
+    // For single program view, use the existing logic
+    neonAttendedCount = neonAttendanceData.filter((record: any) => {
+      // Find the event that matches this attendance record
+      const event = neonEvents.find((e: any) => e.id === record.event_id);
+      if (!event) return false;
+      
+      // Match the event name with the selected program name
+      const eventName = event.name || '';
+      const normalizedEventName = eventName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+      const normalizedProgramName = selectedCleanedName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+      
+      // Check if the event name contains key words from the program name
+      const programWords = normalizedProgramName.split(' ').filter((word: string) => word.length > 2);
+      const eventWords = normalizedEventName.split(' ').filter((word: string) => word.length > 2);
+      
+      // Count how many program words are found in the event name
+      const matchingWords = programWords.filter((word: string) => 
+        eventWords.some((eventWord: string) => eventWord.includes(word) || word.includes(eventWord))
+      );
+      
+      // Consider it a match if at least 2 key words match (to avoid false positives)
+      return matchingWords.length >= 2;
+    }).length;
+  }
   
   const attendedCount = csvAttendedCount + neonAttendedCount;
   
   // Log attendance calculations
   console.log('📊 Attendance Calculation:', {
     selectedProgram: selectedCleanedName,
+    showAllProgramsInCategory,
+    selectedCategory,
     csvAttendedCount,
     neonAttendedCount,
     totalAttendedCount: attendedCount,
@@ -1338,22 +1383,24 @@ function DashboardOverview3() {
                   (row: any) => row["Attendance status"] === "Accepted"
                 ).length;
                 
-                // Count Neon attendance for this specific program
+                // Count Neon attendance for this specific program using event names
                 const neonAttended = neonAttendanceData.filter((record: any) => {
-                  // Match by event_slug which contains the program identifier
-                  const eventSlug = record.event_slug || '';
+                  // Find the event that matches this attendance record
+                  const event = neonEvents.find((e: any) => e.id === record.event_id);
+                  if (!event) return false;
                   
-                  // Try to match the event_slug with the program name
-                  const normalizedEventSlug = eventSlug.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+                  // Match the event name with the program name
+                  const eventName = event.name || '';
+                  const normalizedEventName = eventName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
                   const normalizedProgramName = programName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
                   
-                  // Check if the event_slug contains key words from the program name
+                  // Check if the event name contains key words from the program name
                   const programWords = normalizedProgramName.split(' ').filter((word: string) => word.length > 2);
-                  const slugWords = normalizedEventSlug.split(' ').filter((word: string) => word.length > 2);
+                  const eventWords = normalizedEventName.split(' ').filter((word: string) => word.length > 2);
                   
-                  // Count how many program words are found in the slug
+                  // Count how many program words are found in the event name
                   const matchingWords = programWords.filter((word: string) => 
-                    slugWords.some((slugWord: string) => slugWord.includes(word) || word.includes(slugWord))
+                    eventWords.some((eventWord: string) => eventWord.includes(word) || word.includes(eventWord))
                   );
                   
                   // Consider it a match if at least 2 key words match
@@ -1361,6 +1408,14 @@ function DashboardOverview3() {
                 }).length;
                 
                 const attendedCount = csvAttended + neonAttended;
+                
+                // Log the breakdown for debugging
+                console.log(`📊 Program Breakdown - ${programName}:`, {
+                  csvAttended,
+                  neonAttended,
+                  totalAttended: attendedCount,
+                  registered: programParticipants.length
+                });
                 
                 return (
                   <div key={programName} className="bg-white dark:bg-slate-700 p-3 rounded border">
