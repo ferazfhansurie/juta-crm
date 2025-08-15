@@ -158,6 +158,8 @@ function Main() {
   const [appointmentTags, setAppointmentTags] = useState<Tag[]>([]);
   const [companyId, setCompanyId] = useState<string>("");
   const [viewType, setViewType] = useState("calendar"); // 'calendar' or 'grid'
+  // Mobile tab for switching between list and calendar views
+  const [mobileTab, setMobileTab] = useState<"list" | "calendar">("list");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [employeeExpenses, setEmployeeExpenses] = useState<
     Record<string, { minyak: number; toll: number }>
@@ -167,17 +169,21 @@ function Main() {
   const [isReminderSettingsOpen, setIsReminderSettingsOpen] = useState(false);
   const [isBookingLinkModalOpen, setIsBookingLinkModalOpen] = useState(false);
   const [bookingLinkForm, setBookingLinkForm] = useState({
-    title: '',
-    description: '',
-    location: '',
-    phone: '',
+    title: "",
+    description: "",
+    location: "",
+    phone: "",
     selectedStaff: [] as string[],
-    duration: 60
+    duration: 60,
   });
-  const [generatedBookingLink, setGeneratedBookingLink] = useState('');
+  const [generatedBookingLink, setGeneratedBookingLink] = useState("");
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>({
     reminders: [],
   });
+  // State to store database appointments for duplicate detection
+  const [databaseAppointments, setDatabaseAppointments] = useState<
+    Appointment[]
+  >([]);
 
   class ErrorBoundary extends Component<{
     children: ReactNode;
@@ -221,6 +227,35 @@ function Main() {
     fetchReminderSettings();
   }, []);
 
+  // Refresh calendar when database appointments change to apply duplicate filtering
+  useEffect(() => {
+    console.log(
+      "🔄 Database appointments changed, count:",
+      databaseAppointments.length
+    );
+
+    if (calendarRef.current && databaseAppointments.length > 0) {
+      const calendarApi = (calendarRef.current as any).getApi();
+      try {
+        console.log("🔄 Refreshing calendar to apply duplicate filtering...");
+        // Small delay to ensure state is updated
+        setTimeout(() => {
+          calendarApi.refetchEvents();
+          console.log(
+            "✅ Calendar refreshed after database appointments update"
+          );
+        }, 200); // Increased delay slightly
+      } catch (error) {
+        console.error(
+          "❌ Error refreshing calendar after database appointments update:",
+          error
+        );
+      }
+    } else if (calendarRef.current && databaseAppointments.length === 0) {
+      console.log("⚠️ No database appointments loaded yet");
+    }
+  }, [databaseAppointments]);
+
   const fetchReminderSettings = async () => {
     try {
       const userEmail = localStorage.getItem("userEmail");
@@ -231,10 +266,14 @@ function Main() {
           userEmail
         )}`
       );
-      if (response.data && response.data.reminders && response.data.reminders.length > 0) {
+      if (
+        response.data &&
+        response.data.reminders &&
+        response.data.reminders.length > 0
+      ) {
         const apiResponse = response.data;
         const settings: ReminderSettings = {
-          reminders: apiResponse.reminders || []
+          reminders: apiResponse.reminders || [],
         };
         setReminderSettings(settings);
       } else {
@@ -264,7 +303,7 @@ function Main() {
           ],
         };
         setReminderSettings(defaultSettings);
-        
+
         // Save default settings to backend
         try {
           await updateReminderSettings(defaultSettings);
@@ -294,8 +333,8 @@ function Main() {
             type: "before",
             message:
               "Final reminder: Your appointment starts in {time} {unit} {when}. Please be on time!",
-              recipientType: "both",
-              selectedEmployees: [],
+            recipientType: "both",
+            selectedEmployees: [],
           },
         ],
       };
@@ -344,7 +383,7 @@ function Main() {
 
   const generateBookingLink = async () => {
     if (!bookingLinkForm.title || bookingLinkForm.selectedStaff.length === 0) {
-      alert('Please fill in the title and select at least one staff member');
+      alert("Please fill in the title and select at least one staff member");
       return;
     }
 
@@ -352,21 +391,28 @@ function Main() {
       // Create a slug from the title (similar to how PublicAttendanceForm works)
       const slug = bookingLinkForm.title
         .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
+        .replace(/[^a-z0-9]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
 
       // Create individual booking slots for each staff member
       const createdSlots = [];
       for (const staffName of bookingLinkForm.selectedStaff) {
         // Find staff phone number from employees data
-        const staffEmployee = employees.find(emp => emp.name === staffName || emp.fullName === staffName);
-        const staffPhone = staffEmployee?.phoneNumber || staffEmployee?.phone || '';
-        
+        const staffEmployee = employees.find(
+          (emp) => emp.name === staffName || emp.fullName === staffName
+        );
+        const staffPhone =
+          staffEmployee?.phoneNumber || staffEmployee?.phone || "";
+
         // Add timestamp to ensure unique slug
         const timestamp = Date.now();
-        const staffSlug = `${slug}-${staffName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}-${timestamp}`;
-        
+        const staffSlug = `${slug}-${staffName
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "")}-${timestamp}`;
+
         const bookingSlotData = {
           title: `${bookingLinkForm.title} with ${staffName}`,
           slug: staffSlug,
@@ -376,57 +422,74 @@ function Main() {
           staffName: staffName,
           staff_phone: staffPhone, // Add staff phone number
           is_active: true,
-          created_by: localStorage.getItem('userEmail'),
-          company_id: companyId
+          created_by: localStorage.getItem("userEmail"),
+          company_id: companyId,
         };
 
         // Save booking slot to backend
-        const userEmail = localStorage.getItem('userEmail');
-        const response = await axios.post(`${baseUrl}/api/booking-slots`, bookingSlotData, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${userEmail}` // Adjust based on your auth system
+        const userEmail = localStorage.getItem("userEmail");
+        const response = await axios.post(
+          `${baseUrl}/api/booking-slots`,
+          bookingSlotData,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${userEmail}`, // Adjust based on your auth system
+            },
           }
-        });
+        );
 
         if (response.data.success) {
           const baseUrlWindow = window.location.origin;
-          const staffNameSlug = staffName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-          const link = `${baseUrlWindow}/booking/${staffSlug}/${staffNameSlug}/${bookingLinkForm.phone || 'PHONE'}`;
+          const staffNameSlug = staffName
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "");
+          const link = `${baseUrlWindow}/booking/${staffSlug}/${staffNameSlug}/${
+            bookingLinkForm.phone || "PHONE"
+          }`;
           createdSlots.push({
             staffName,
-            link
+            link,
           });
         } else {
-          throw new Error(response.data.error || `Failed to create booking slot for ${staffName}`);
+          throw new Error(
+            response.data.error ||
+              `Failed to create booking slot for ${staffName}`
+          );
         }
       }
 
       // Display all generated links
-      const linksText = createdSlots.map(slot => `${slot.staffName}: ${slot.link}`).join('\n\n');
+      const linksText = createdSlots
+        .map((slot) => `${slot.staffName}: ${slot.link}`)
+        .join("\n\n");
       setGeneratedBookingLink(linksText);
-      toast.success(`${createdSlots.length} booking links created successfully!`);
+      toast.success(
+        `${createdSlots.length} booking links created successfully!`
+      );
     } catch (error) {
-      console.error('Error creating booking slots:', error);
-      toast.error('Failed to create booking slots. Please try again.');
+      console.error("Error creating booking slots:", error);
+      toast.error("Failed to create booking slots. Please try again.");
     }
   };
 
   const copyBookingLink = () => {
     navigator.clipboard.writeText(generatedBookingLink);
-    toast.success('Booking link copied to clipboard!');
+    toast.success("Booking link copied to clipboard!");
   };
 
   const resetBookingLinkForm = () => {
     setBookingLinkForm({
-      title: '',
-      description: '',
-      location: '',
-      phone: '',
+      title: "",
+      description: "",
+      location: "",
+      phone: "",
       selectedStaff: [],
-      duration: 60
+      duration: 60,
     });
-    setGeneratedBookingLink('');
+    setGeneratedBookingLink("");
   };
 
   useEffect(() => {
@@ -439,6 +502,20 @@ function Main() {
 
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Keep FullCalendar view responsive to screen size
+  useEffect(() => {
+    const desiredView = isMobile ? "timeGridDay" : "dayGridMonth";
+    setView(desiredView);
+    if (calendarRef.current) {
+      try {
+        const api = (calendarRef.current as any).getApi();
+        api?.changeView(desiredView);
+      } catch (_) {
+        // no-op
+      }
+    }
+  }, [isMobile]);
 
   const generateTimeSlots = (isWeekend: boolean): string[] => {
     const start = isWeekend ? 8 : 8; // Start time (8 AM)
@@ -526,9 +603,7 @@ function Main() {
       }
       // First, fetch user config to get companyId
       const userResponse = await fetch(
-        `${baseUrl}/api/user/config?email=${encodeURIComponent(
-          userEmail
-        )}`,
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -552,9 +627,7 @@ function Main() {
 
       // Now fetch employees from the new endpoint
       const employeesResponse = await fetch(
-        `${baseUrl}/api/employees-data/${encodeURIComponent(
-          companyId
-        )}`,
+        `${baseUrl}/api/employees-data/${encodeURIComponent(companyId)}`,
         {
           method: "GET",
           headers: {
@@ -605,6 +678,238 @@ function Main() {
     }
   };
 
+  // Function to check if two appointments are duplicates based on contact info and timing
+  const areAppointmentsDuplicate = (
+    dbAppointment: any,
+    googleEvent: any
+  ): boolean => {
+    console.log("Checking duplicate for:", {
+      dbTitle: dbAppointment.title,
+      googleTitle: googleEvent.title || googleEvent.summary,
+      dbStart: dbAppointment.startTime,
+      googleStart: googleEvent.start,
+      googleDescription: googleEvent.description,
+    });
+
+    // Extract contact information from database appointment
+    const dbContacts = dbAppointment.contacts || [];
+    const dbContactNames = dbContacts.map((contact: any) =>
+      (contact.name || "").toLowerCase().trim()
+    );
+    const dbContactPhones = dbContacts.map(
+      (contact: any) => (contact.phone || contact.id || "").replace(/\D/g, "") // Remove non-digit characters
+    );
+
+    // Also extract phone and name from database appointment title (format: "Name +60123456789")
+    // The backend creates titles as: contact.name + " " + phoneNumber
+    const dbTitlePhones =
+      (dbAppointment.title || "").match(/(\+?[0-9]{8,15})/g) || [];
+    const dbTitleWords = (dbAppointment.title || "").split(" ");
+
+    // Extract name from title (everything except the last part if it's a phone number)
+    let dbTitleNames: string[] = [];
+    if (dbTitleWords.length > 1) {
+      const potentialPhone = dbTitleWords[dbTitleWords.length - 1];
+      if (/(\+?[0-9]{8,15})/.test(potentialPhone)) {
+        // Last word is a phone number, so name is everything before it
+        const nameFromTitle = dbTitleWords
+          .slice(0, -1)
+          .join(" ")
+          .toLowerCase()
+          .trim();
+        if (nameFromTitle) {
+          dbTitleNames.push(nameFromTitle);
+        }
+      }
+    }
+
+    const allDbPhones = [
+      ...dbContactPhones,
+      ...dbTitlePhones.map((phone: string) => phone.replace(/\D/g, "")),
+    ].filter((phone) => phone.length >= 8);
+
+    const allDbNames = [...dbContactNames, ...dbTitleNames].filter(
+      (name) => name.length > 1
+    );
+
+    // Extract contact information from Google Calendar event
+    const googleTitle = (
+      googleEvent.title ||
+      googleEvent.summary ||
+      ""
+    ).toLowerCase();
+    const googleDescription = (googleEvent.description || "").toLowerCase();
+
+    // Enhanced phone number extraction - more patterns
+    const phonePatterns = [
+      /\+?6[0-9]{9,10}/g, // Malaysian numbers
+      /\+?[0-9]{8,15}/g, // General international numbers
+      /(\([+]?[0-9]{1,4}\))?[\s.-]?[0-9]{3,4}[\s.-]?[0-9]{3,4}[\s.-]?[0-9]{3,4}/g, // Various formats
+    ];
+
+    let googlePhones: string[] = [];
+    phonePatterns.forEach((pattern) => {
+      const titleMatches = googleTitle.match(pattern) || [];
+      const descMatches = googleDescription.match(pattern) || [];
+      googlePhones.push(...titleMatches, ...descMatches);
+    });
+
+    googlePhones = googlePhones
+      .map((phone) => phone.replace(/\D/g, ""))
+      .filter((phone) => phone.length >= 8);
+
+    // Enhanced name extraction from Google Calendar event
+    const namePatterns = [
+      /contact:\s*([^,\n(]+)\s*\(/i, // "Contact: Name (phone)"
+      /contact:\s*([^,\n]+)/i, // "Contact: Name"
+      /-\s*([^,\n]+)$/i, // "Title - Name" at end
+      /([a-zA-Z\s]{2,})\s*\+/i, // Name before phone number starting with +
+      /([a-zA-Z\s]{2,})\s*[0-9]/i, // Name before phone number
+    ];
+
+    let googleNames: string[] = [];
+
+    // First check the title after " - " (from backend format: "summary - contact.name")
+    const titleSplit = (googleEvent.title || googleEvent.summary || "").split(
+      " - "
+    );
+    if (titleSplit.length > 1) {
+      googleNames.push(titleSplit[titleSplit.length - 1].trim().toLowerCase());
+    }
+
+    // Then check description patterns
+    for (const pattern of namePatterns) {
+      const titleMatch = googleTitle.match(pattern);
+      const descMatch = googleDescription.match(pattern);
+
+      if (titleMatch && titleMatch[1]) {
+        googleNames.push(titleMatch[1].trim().toLowerCase());
+      }
+      if (descMatch && descMatch[1]) {
+        googleNames.push(descMatch[1].trim().toLowerCase());
+      }
+    }
+
+    // Remove duplicates and filter out short names
+    googleNames = [...new Set(googleNames)].filter((name) => name.length > 2);
+
+    // Check time overlap with increased tolerance for timezone issues
+    const dbStart = new Date(dbAppointment.startTime);
+    const dbEnd = new Date(dbAppointment.endTime);
+
+    // Handle different date formats from Google Calendar
+    let googleStart, googleEnd;
+    if (typeof googleEvent.start === "string") {
+      googleStart = new Date(googleEvent.start);
+    } else if (googleEvent.start?.dateTime) {
+      googleStart = new Date(googleEvent.start.dateTime);
+    } else if (googleEvent.start?.date) {
+      googleStart = new Date(googleEvent.start.date);
+    } else {
+      googleStart = new Date(googleEvent.start);
+    }
+
+    if (typeof googleEvent.end === "string") {
+      googleEnd = new Date(googleEvent.end);
+    } else if (googleEvent.end?.dateTime) {
+      googleEnd = new Date(googleEvent.end.dateTime);
+    } else if (googleEvent.end?.date) {
+      googleEnd = new Date(googleEvent.end.date);
+    } else {
+      googleEnd = new Date(googleEvent.end);
+    }
+
+    const TOLERANCE_MINUTES = 60; // Increased tolerance for timezone differences
+    const toleranceMs = TOLERANCE_MINUTES * 60 * 1000;
+
+    const timeOverlap =
+      Math.abs(dbStart.getTime() - googleStart.getTime()) <= toleranceMs &&
+      Math.abs(dbEnd.getTime() - googleEnd.getTime()) <= toleranceMs;
+
+    // Check for matching contact information
+    let hasMatchingContact = false;
+
+    // Check phone number matches (more lenient comparison)
+    if (allDbPhones.length > 0 && googlePhones.length > 0) {
+      hasMatchingContact = allDbPhones.some((dbPhone: string) =>
+        googlePhones.some((googlePhone) => {
+          // Compare last 8-10 digits (ignoring country codes)
+          const dbLast = dbPhone.slice(-10);
+          const googleLast = googlePhone.slice(-10);
+          const dbShort = dbPhone.slice(-8);
+          const googleShort = googlePhone.slice(-8);
+
+          return (
+            (dbLast === googleLast && dbLast.length >= 8) ||
+            (dbShort === googleShort && dbShort.length >= 8) ||
+            (dbPhone.includes(googlePhone) && googlePhone.length >= 8) ||
+            (googlePhone.includes(dbPhone) && dbPhone.length >= 8)
+          );
+        })
+      );
+    }
+
+    // Check name matches if no phone match found
+    if (
+      !hasMatchingContact &&
+      allDbNames.length > 0 &&
+      googleNames.length > 0
+    ) {
+      hasMatchingContact = allDbNames.some((dbName: string) =>
+        googleNames.some((googleName: string) => {
+          // More flexible name matching
+          const cleanDbName = dbName.replace(/[^a-z\s]/g, "").trim();
+          const cleanGoogleName = googleName.replace(/[^a-z\s]/g, "").trim();
+
+          return (
+            cleanDbName.includes(cleanGoogleName) ||
+            cleanGoogleName.includes(cleanDbName) ||
+            cleanDbName === cleanGoogleName
+          );
+        })
+      );
+    }
+
+    const isDuplicate = timeOverlap && hasMatchingContact;
+
+    if (isDuplicate) {
+      console.log("🟡 DUPLICATE DETECTED:", {
+        dbTitle: dbAppointment.title,
+        googleTitle: googleEvent.title || googleEvent.summary,
+        timeOverlap,
+        hasMatchingContact,
+        dbPhones: allDbPhones,
+        googlePhones,
+        dbNames: allDbNames,
+        googleNames,
+      });
+    }
+
+    return isDuplicate;
+  };
+
+  // Function to filter out duplicate Google Calendar events
+  const filterDuplicateGoogleEvents = (
+    googleEvents: any[],
+    dbAppointments: any[]
+  ): any[] => {
+    return googleEvents.filter((googleEvent) => {
+      // Check if this Google event is a duplicate of any database appointment
+      const isDuplicate = dbAppointments.some((dbAppointment) =>
+        areAppointmentsDuplicate(dbAppointment, googleEvent)
+      );
+
+      if (isDuplicate) {
+        console.log(
+          "Filtered out duplicate Google Calendar event:",
+          googleEvent.title
+        );
+      }
+
+      return !isDuplicate;
+    });
+  };
+
   const fetchAppointments = async (userEmail: string) => {
     setLoading(true);
     try {
@@ -627,39 +932,51 @@ function Main() {
       }
 
       const data = await response.json();
-      console.log('Fetched appointments:', data);
-      
+      console.log("Fetched appointments:", data);
+
       // Process appointments to ensure all fields have proper defaults
-      const processedAppointments = (data.appointments || data || []).map((appointment: any) => ({
-        ...appointment,
-        // Ensure required fields have defaults
-        contacts: appointment.contacts || [],
-        tags: appointment.tags || [],
-        staff: appointment.staff || [],
-        color: appointment.color || '#51484f',
-        address: appointment.address || '',
-        details: appointment.details || '',
-        meetLink: appointment.meetLink || '',
-        appointmentStatus: appointment.appointmentStatus || 'scheduled',
-        appointmentType: appointment.appointmentType || 'general',
-        // Handle potential null/undefined values
-        title: appointment.title || 'Untitled Appointment',
-        startTime: appointment.startTime,
-        endTime: appointment.endTime,
-        dateAdded: appointment.dateAdded || appointment.created_at
-      }));
+      const processedAppointments = (data.appointments || data || []).map(
+        (appointment: any) => ({
+          ...appointment,
+          // Ensure required fields have defaults
+          contacts: appointment.contacts || [],
+          tags: appointment.tags || [],
+          staff: appointment.staff || [],
+          color: appointment.color || "#51484f",
+          address: appointment.address || "",
+          details: appointment.details || "",
+          meetLink: appointment.meetLink || "",
+          appointmentStatus: appointment.appointmentStatus || "scheduled",
+          appointmentType: appointment.appointmentType || "general",
+          // Handle potential null/undefined values
+          title: appointment.title || "Untitled Appointment",
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          dateAdded: appointment.dateAdded || appointment.created_at,
+          // Mark as database appointment for duplicate detection
+          source: "database",
+        })
+      );
 
       // Sort appointments by date
       setAppointments(
         processedAppointments.sort(
           (a: any, b: any) =>
-            new Date(b.dateAdded || b.created_at).getTime() - 
+            new Date(b.dateAdded || b.created_at).getTime() -
             new Date(a.dateAdded || a.created_at).getTime()
         )
       );
+
+      // Store database appointments for duplicate detection
+      console.log(
+        "📊 Setting database appointments for duplicate detection, count:",
+        processedAppointments.length
+      );
+      setDatabaseAppointments(processedAppointments);
     } catch (error) {
       console.error("Error fetching appointments:", error);
       setAppointments([]); // Set empty array on error
+      setDatabaseAppointments([]);
     } finally {
       setLoading(false);
     }
@@ -682,7 +999,7 @@ function Main() {
         `${baseUrl}/api/user-context?email=${encodeURIComponent(userEmail)}`
       );
       const userData = await userResponse.json();
-      
+
       if (!userData.companyId) {
         console.error("No company ID found for user");
         return;
@@ -692,12 +1009,12 @@ function Main() {
       const response = await axios.get(
         `${baseUrl}/api/companies/${userData.companyId}/contacts`,
         {
-          params: { email: userEmail }
+          params: { email: userEmail },
         }
       );
-      console.log('Fetched contacts response:', response.data);
+      console.log("Fetched contacts response:", response.data);
       const contactsData = response.data.contacts || [];
-      console.log('Fetched contacts:', contactsData);
+      console.log("Fetched contacts:", contactsData);
 
       // Sort alphabetically
       const sortedContacts = contactsData.sort((a: Contact, b: Contact) =>
@@ -717,8 +1034,8 @@ function Main() {
 
   const handleContactChange = (selectedOption: any) => {
     if (selectedOption) {
-      const selectedContactData = contacts.find((contact) =>
-        contact.id === selectedOption.value
+      const selectedContactData = contacts.find(
+        (contact) => contact.id === selectedOption.value
       );
       setSelectedContact(selectedContactData || null);
     } else {
@@ -727,6 +1044,23 @@ function Main() {
   };
 
   const handleEventClick = async (info: any) => {
+    // Check if this is a Google Calendar event
+    const isGoogleCalendarEvent = info.event.source?.googleCalendarId;
+    const eventSource = info.event.extendedProps?.source;
+
+    if (isGoogleCalendarEvent || eventSource === "google-calendar") {
+      // For Google Calendar events, show a read-only modal or redirect to Google Calendar
+      toast.info(
+        "This is a Google Calendar event. It cannot be edited here. Please edit it in Google Calendar."
+      );
+
+      // Optionally, you could open Google Calendar in a new tab
+      // const calendarUrl = `https://calendar.google.com/calendar/u/0/r/week`;
+      // window.open(calendarUrl, '_blank');
+      return;
+    }
+
+    // Handle database appointments (original logic)
     const appointment = appointments.find((app) => app.id === info.event.id);
 
     if (!appointment) {
@@ -748,62 +1082,65 @@ function Main() {
     if (eventContacts.length > 0) {
       // Take only the first contact from the appointment
       const eventContact = eventContacts[0];
-      
+
       // Try to find the contact in the contacts array
-      const fullContact = contacts.find(contact => 
-        contact.id === eventContact.id || 
-        contact.id === eventContact.contact_id ||
-        contact.name === eventContact.name ||
-        contact.phone === eventContact.phone
+      const fullContact = contacts.find(
+        (contact) =>
+          contact.id === eventContact.id ||
+          contact.id === eventContact.contact_id ||
+          contact.name === eventContact.name ||
+          contact.phone === eventContact.phone
       );
 
-      console.log('Full contact found:', fullContact);
-      
+      console.log("Full contact found:", fullContact);
+
       // If found, set the full contact, otherwise create a minimal contact object
-      setSelectedContact(fullContact || {
-        id: eventContact.id,
-        contact_id: eventContact.contact_id,
-        name: eventContact.name || 'Unknown Contact',
-        firstName: eventContact.name?.split(' ')[0] || '',
-        lastName: eventContact.name?.split(' ').slice(1).join(' ') || '',
-        phone: eventContact.phone || '',
-        email: eventContact.email || '',
-        // Add other required Contact interface fields with defaults
-        additionalEmails: [],
-        address1: null,
-        assignedTo: null,
-        businessId: null,
-        city: null,
-        companyName: null,
-        country: '',
-        customFields: [],
-        dateAdded: new Date().toISOString(),
-        dateOfBirth: null,
-        dateUpdated: new Date().toISOString(),
-        dnd: false,
-        dndSettings: {},
-        followers: [],
-        locationId: '',
-        postalCode: null,
-        source: null,
-        state: null,
-        tags: [],
-        website: null,
-      });
+      setSelectedContact(
+        fullContact || {
+          id: eventContact.id,
+          contact_id: eventContact.contact_id,
+          name: eventContact.name || "Unknown Contact",
+          firstName: eventContact.name?.split(" ")[0] || "",
+          lastName: eventContact.name?.split(" ").slice(1).join(" ") || "",
+          phone: eventContact.phone || "",
+          email: eventContact.email || "",
+          // Add other required Contact interface fields with defaults
+          additionalEmails: [],
+          address1: null,
+          assignedTo: null,
+          businessId: null,
+          city: null,
+          companyName: null,
+          country: "",
+          customFields: [],
+          dateAdded: new Date().toISOString(),
+          dateOfBirth: null,
+          dateUpdated: new Date().toISOString(),
+          dnd: false,
+          dndSettings: {},
+          followers: [],
+          locationId: "",
+          postalCode: null,
+          source: null,
+          state: null,
+          tags: [],
+          website: null,
+        }
+      );
     } else {
       setSelectedContact(null);
     }
 
     setCurrentEvent({
       id: appointment.id,
-      title: appointment.title || '',
+      title: appointment.title || "",
       dateStr: dateStr,
       startTimeStr: startStr,
       endTimeStr: endStr,
       extendedProps: {
-        address: appointment.address || '',
-        appointmentStatus: appointment.appointmentStatus || 'scheduled',
-        appointmentType: appointment.appointmentType || 'general',
+        address: appointment.address || "",
+        appointmentStatus: appointment.appointmentStatus || "scheduled",
+        appointmentType: appointment.appointmentType || "general",
         staff: appointment.staff || [],
         dateAdded: appointment.dateAdded || appointment.created_at,
         contacts: eventContacts,
@@ -819,8 +1156,8 @@ function Main() {
       details: eventDetails,
       meetLink: eventMeetLink,
     });
-    
-    setInitialAppointmentStatus(appointment.appointmentStatus || 'scheduled');
+
+    setInitialAppointmentStatus(appointment.appointmentStatus || "scheduled");
     setEditModalOpen(true);
   };
 
@@ -851,7 +1188,9 @@ function Main() {
 
       // Get company data from API
       const companyResponse = await axios.get(
-        `${baseUrl}/api/company-data-user?email=${encodeURIComponent(userEmail)}`
+        `${baseUrl}/api/company-data-user?email=${encodeURIComponent(
+          userEmail
+        )}`
       );
       const companyData = companyResponse.data;
 
@@ -865,12 +1204,22 @@ function Main() {
           appointmentDetails,
           startTime
         );
-        
+
         // Customize message for different recipient types
         if (reminderConfig.recipientType === "employees") {
-          message = `👨‍💼 EMPLOYEE REMINDER:\n\n${baseMessage}\n\n📍 Location: ${appointmentDetails.address || 'TBD'}\n👥 Staff: ${appointmentDetails.staff?.length || 0} assigned\n\nPlease ensure you're prepared for this appointment.`;
+          message = `👨‍💼 EMPLOYEE REMINDER:\n\n${baseMessage}\n\n📍 Location: ${
+            appointmentDetails.address || "TBD"
+          }\n👥 Staff: ${
+            appointmentDetails.staff?.length || 0
+          } assigned\n\nPlease ensure you're prepared for this appointment.`;
         } else if (reminderConfig.recipientType === "contacts") {
-          message = `📱 CLIENT REMINDER:\n\n${baseMessage}\n\n📍 Location: ${appointmentDetails.address || 'TBD'}\n⏰ Duration: ${Math.round((new Date(appointmentDetails.endTime).getTime() - new Date(appointmentDetails.startTime).getTime()) / (1000 * 60))} minutes\n\nWe look forward to serving you!`;
+          message = `📱 CLIENT REMINDER:\n\n${baseMessage}\n\n📍 Location: ${
+            appointmentDetails.address || "TBD"
+          }\n⏰ Duration: ${Math.round(
+            (new Date(appointmentDetails.endTime).getTime() -
+              new Date(appointmentDetails.startTime).getTime()) /
+              (1000 * 60)
+          )} minutes\n\nWe look forward to serving you!`;
         } else {
           message = baseMessage;
         }
@@ -909,7 +1258,10 @@ ${
         recipients = employeesResponse.data
           .filter((emp: any) => emp.phoneNumber)
           .map((emp: any) => ({ id: emp.id, phone: emp.phoneNumber }));
-      } else if (reminderConfig && reminderConfig.recipientType === "contacts") {
+      } else if (
+        reminderConfig &&
+        reminderConfig.recipientType === "contacts"
+      ) {
         // Use appointment contacts
         recipients = contacts;
       } else {
@@ -981,10 +1333,10 @@ ${
 
       // Combine title with type and units if they exist
       const combinedTitle = extendedProps?.units
-        ? `${title || ''} | ${extendedProps.type || ""} | ${
+        ? `${title || ""} | ${extendedProps.type || ""} | ${
             extendedProps.units
           } Units`
-        : title || '';
+        : title || "";
 
       const firstEmployeeId = extendedProps?.staff?.[0];
       const secondEmployeeId = extendedProps?.staff?.[1];
@@ -1008,7 +1360,9 @@ ${
         title: combinedTitle,
         startTime,
         endTime,
-        appointmentStatus: (extendedProps?.appointmentStatus || "scheduled").toLowerCase(),
+        appointmentStatus: (
+          extendedProps?.appointmentStatus || "scheduled"
+        ).toLowerCase(),
         appointmentType: extendedProps?.appointmentType || "general",
         details: extendedProps?.details || "",
         address: extendedProps?.address || "",
@@ -1024,32 +1378,42 @@ ${
         units: extendedProps?.units,
         type: extendedProps?.type,
       };
-      console.log('Appointment data to save:', appointmentData);
-      console.log('Selected contact:', selectedContact);
+      console.log("Appointment data to save:", appointmentData);
+      console.log("Selected contact:", selectedContact);
 
       let response;
-      
-      if (id && id !== 'temp') {
+
+      if (id && id !== "temp") {
         // Update existing appointment
-        console.log('Updating appointment:', appointmentData);
-        response = await axios.put(`${baseUrl}/api/appointments/${id}`, appointmentData);
+        console.log("Updating appointment:", appointmentData);
+        response = await axios.put(
+          `${baseUrl}/api/appointments/${id}`,
+          appointmentData
+        );
       } else {
         // Create new appointment
-        console.log('Creating appointment:', appointmentData);
-        response = await axios.post(`${baseUrl}/api/appointments`, appointmentData);
+        console.log("Creating appointment:", appointmentData);
+        response = await axios.post(
+          `${baseUrl}/api/appointments`,
+          appointmentData
+        );
       }
 
       const savedAppointment = response.data;
-      console.log('Saved appointment response:', savedAppointment);
+      console.log("Saved appointment response:", savedAppointment);
 
       // Create expenses if they exist
       if (extendedProps?.minyak || extendedProps?.toll) {
         const expenseData = {
           email: userEmail,
           appointment_id: savedAppointment.id,
-          amount: (Number(extendedProps?.minyak) || 0) + (Number(extendedProps?.toll) || 0),
-          description: `Appointment expenses - Fuel: ${extendedProps?.minyak || 0}, Toll: ${extendedProps?.toll || 0}`,
-          category: 'appointment',
+          amount:
+            (Number(extendedProps?.minyak) || 0) +
+            (Number(extendedProps?.toll) || 0),
+          description: `Appointment expenses - Fuel: ${
+            extendedProps?.minyak || 0
+          }, Toll: ${extendedProps?.toll || 0}`,
+          category: "appointment",
           date: format(new Date(startTime), "yyyy-MM-dd"),
         };
 
@@ -1063,22 +1427,34 @@ ${
         selectedContact
       ) {
         try {
-          const notificationResponse = await axios.post(`${baseUrl}/api/send-whatsapp-notification`, {
-            email: userEmail,
-            contacts: [selectedContact],
-            message: `Your appointment "${combinedTitle}" is scheduled for ${format(new Date(startTime), 'PPp')}. Meeting link: ${appointmentData.meetLink}`,
-            appointmentDetails: savedAppointment
-          });
-          
+          const notificationResponse = await axios.post(
+            `${baseUrl}/api/send-whatsapp-notification`,
+            {
+              email: userEmail,
+              contacts: [selectedContact],
+              message: `Your appointment "${combinedTitle}" is scheduled for ${format(
+                new Date(startTime),
+                "PPp"
+              )}. Meeting link: ${appointmentData.meetLink}`,
+              appointmentDetails: savedAppointment,
+            }
+          );
+
           if (notificationResponse.data.success) {
             // Update the appointment to mark notification as sent
-            await axios.put(`${baseUrl}/api/appointments/${savedAppointment.id}`, {
-              ...appointmentData,
-              notificationSent: true
-            });
+            await axios.put(
+              `${baseUrl}/api/appointments/${savedAppointment.id}`,
+              {
+                ...appointmentData,
+                notificationSent: true,
+              }
+            );
           }
         } catch (notificationError) {
-          console.error("Error sending WhatsApp notification:", notificationError);
+          console.error(
+            "Error sending WhatsApp notification:",
+            notificationError
+          );
           // Continue execution even if notification fails
         }
       }
@@ -1088,7 +1464,7 @@ ${
 
       // Update the appointments state
       setAppointments((prevAppointments) => {
-        if (id && id !== 'temp') {
+        if (id && id !== "temp") {
           // Update existing appointment
           return prevAppointments.map((appointment) =>
             appointment.id === id ? savedAppointment : appointment
@@ -1214,8 +1590,10 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
 
       // Combine title and address
       const combinedTitle = currentEvent?.extendedProps?.units
-        ? `${currentEvent.title || ''} | ${currentEvent.extendedProps.type || ''} | ${currentEvent.extendedProps.units} Units`
-        : currentEvent?.title || '';
+        ? `${currentEvent.title || ""} | ${
+            currentEvent.extendedProps.type || ""
+          } | ${currentEvent.extendedProps.units} Units`
+        : currentEvent?.title || "";
 
       const newEvent = {
         title: combinedTitle,
@@ -1225,9 +1603,11 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
         endTime: new Date(
           `${currentEvent.dateStr}T${currentEvent.endTimeStr}`
         ).toISOString(),
-        address: currentEvent?.extendedProps?.address || '',
-        appointmentStatus: currentEvent?.extendedProps?.appointmentStatus || 'scheduled',
-        appointmentType: currentEvent?.extendedProps?.appointmentType || 'general',
+        address: currentEvent?.extendedProps?.address || "",
+        appointmentStatus:
+          currentEvent?.extendedProps?.appointmentStatus || "scheduled",
+        appointmentType:
+          currentEvent?.extendedProps?.appointmentType || "general",
         staff: selectedEmployeeIds || [],
         tags: currentEvent?.extendedProps?.tags || [],
         color: color,
@@ -1248,7 +1628,7 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
         phoneNumber = "6" + phoneNumber;
       }
 
-      console.log('Creating new appointment:', newEvent);
+      console.log("Creating new appointment:", newEvent);
 
       // Use the new local API
       const newAppointment = await createAppointment(newEvent);
@@ -1277,7 +1657,7 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
             title: newAppointment.title,
             start: new Date(newAppointment.startTime),
             end: new Date(newAppointment.endTime),
-            backgroundColor: newAppointment.color || '#51484f',
+            backgroundColor: newAppointment.color || "#51484f",
             borderColor: "transparent",
             extendedProps: {
               appointmentStatus: newAppointment.appointmentStatus,
@@ -1318,38 +1698,36 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
         // Map common fields that might be named differently
         startTime: newEvent.startTime || newEvent.start,
         endTime: newEvent.endTime || newEvent.end,
-        appointmentStatus: newEvent.appointmentStatus || 'scheduled',
-        appointmentType: newEvent.appointmentType || newEvent.status || 'general',
-        details: newEvent.details || newEvent.description || '',
+        appointmentStatus: newEvent.appointmentStatus || "scheduled",
+        appointmentType:
+          newEvent.appointmentType || newEvent.status || "general",
+        details: newEvent.details || newEvent.description || "",
         staff: newEvent.staff || [],
         metadata: {
           // Any extra fields that don't map to schema go here
-          address: newEvent.address || '',
-          color: newEvent.color || '#51484f',
+          address: newEvent.address || "",
+          color: newEvent.color || "#51484f",
           tags: newEvent.tags || [],
-          meetLink: newEvent.meetLink || '',
+          meetLink: newEvent.meetLink || "",
           notificationSent: newEvent.notificationSent || false,
           minyak: newEvent.minyak || 0,
           toll: newEvent.toll || 0,
-          ...newEvent.extendedProps // Include any extended properties
-        }
+          ...newEvent.extendedProps, // Include any extended properties
+        },
       };
 
-      console.log('Sending appointment data:', appointmentData);
+      console.log("Sending appointment data:", appointmentData);
 
       // Call your local API to create the appointment
-      const response = await fetch(
-        `${baseUrl}/api/appointments`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify(appointmentData),
-        }
-      );
+      const response = await fetch(`${baseUrl}/api/appointments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(appointmentData),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -1358,7 +1736,7 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
       }
 
       const newAppointment = await response.json();
-      console.log('Received appointment response:', newAppointment);
+      console.log("Received appointment response:", newAppointment);
 
       // Ensure the appointment has all required fields with proper defaults
       const processedAppointment = {
@@ -1366,12 +1744,12 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
         contacts: newAppointment.contacts || [],
         tags: newAppointment.tags || [],
         staff: newAppointment.staff || [],
-        color: newAppointment.color || '#51484f',
-        address: newAppointment.address || '',
-        details: newAppointment.details || '',
-        meetLink: newAppointment.meetLink || '',
-        appointmentStatus: newAppointment.appointmentStatus || 'scheduled',
-        appointmentType: newAppointment.appointmentType || 'general'
+        color: newAppointment.color || "#51484f",
+        address: newAppointment.address || "",
+        details: newAppointment.details || "",
+        meetLink: newAppointment.meetLink || "",
+        appointmentStatus: newAppointment.appointmentStatus || "scheduled",
+        appointmentType: newAppointment.appointmentType || "general",
       };
 
       setAppointments((prevAppointments) => [
@@ -1462,17 +1840,25 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
     // Case-insensitive status matching - handle null/undefined values
     const statusMatch =
       !filterStatus ||
-      (appointment.appointmentStatus && 
-       appointment.appointmentStatus.toLowerCase() === filterStatus.toLowerCase());
+      (appointment.appointmentStatus &&
+        appointment.appointmentStatus.toLowerCase() ===
+          filterStatus.toLowerCase());
 
     // Date matching - handle invalid dates gracefully
     let dateMatch = true;
     if (filterDate) {
       try {
-        const appointmentDate = format(new Date(appointment.startTime), "yyyy-MM-dd");
+        const appointmentDate = format(
+          new Date(appointment.startTime),
+          "yyyy-MM-dd"
+        );
         dateMatch = appointmentDate === filterDate;
       } catch (error) {
-        console.warn("Invalid date in appointment:", appointment.id, appointment.startTime);
+        console.warn(
+          "Invalid date in appointment:",
+          appointment.id,
+          appointment.startTime
+        );
         dateMatch = false;
       }
     }
@@ -1483,7 +1869,7 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
       if (Array.isArray(appointment.staff)) {
         // If staff is an array of IDs
         employeeMatch = appointment.staff.includes(selectedEmployeeId);
-      } else if (typeof appointment.staff === 'string') {
+      } else if (typeof appointment.staff === "string") {
         // If staff is a single ID string
         employeeMatch = appointment.staff === selectedEmployeeId;
       } else {
@@ -1491,6 +1877,21 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
         employeeMatch = false;
       }
     }
+
+    // Text search across title, details, tags, contact names
+    const q = (searchQuery || "").trim().toLowerCase();
+    const searchMatch = !q
+      ? true
+      : [
+          appointment.title,
+          appointment.details,
+          ...(appointment.tags || []).map((t: any) => t?.name),
+          ...(appointment.contacts || []).map(
+            (c: any) => c?.name || `${c?.firstName || ""} ${c?.lastName || ""}`.trim()
+          ),
+        ]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q));
 
     console.log("Filtering Appointment:", {
       id: appointment.id,
@@ -1504,10 +1905,12 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
       staff: appointment.staff,
       selectedEmployeeId,
       employeeMatch,
-      finalResult: statusMatch && dateMatch && employeeMatch
+      searchQuery: q,
+      searchMatch,
+      finalResult: statusMatch && dateMatch && employeeMatch && searchMatch,
     });
 
-    return statusMatch && dateMatch && employeeMatch;
+    return statusMatch && dateMatch && employeeMatch && searchMatch;
   });
 
   // Debug log to see filter results
@@ -1517,8 +1920,8 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
     filterStatus,
     filterDate,
     selectedEmployeeId,
-    appointmentStatuses: appointments.map(a => a.appointmentStatus),
-    staffData: appointments.map(a => ({ id: a.id, staff: a.staff }))
+    appointmentStatuses: appointments.map((a) => a.appointmentStatus),
+    staffData: appointments.map((a) => ({ id: a.id, staff: a.staff })),
   });
 
   const handleAppointmentClick = async (appointment: Appointment) => {
@@ -1528,18 +1931,19 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
         ? {
             id: appointment.contacts[0].id,
             contact_id: appointment.contacts[0].contact_id,
-            name: appointment.contacts[0].name || 'Unknown Contact',
-            firstName: appointment.contacts[0].name?.split(' ')[0] || '',
-            lastName: appointment.contacts[0].name?.split(' ').slice(1).join(' ') || '',
-            phone: appointment.contacts[0].phone || '',
-            email: appointment.contacts[0].email || '',
+            name: appointment.contacts[0].name || "Unknown Contact",
+            firstName: appointment.contacts[0].name?.split(" ")[0] || "",
+            lastName:
+              appointment.contacts[0].name?.split(" ").slice(1).join(" ") || "",
+            phone: appointment.contacts[0].phone || "",
+            email: appointment.contacts[0].email || "",
             additionalEmails: [],
             address1: null,
             assignedTo: null,
             businessId: null,
             city: null,
             companyName: null,
-            country: '',
+            country: "",
             customFields: [],
             dateAdded: new Date().toISOString(),
             dateOfBirth: null,
@@ -1547,7 +1951,7 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
             dnd: false,
             dndSettings: {},
             followers: [],
-            locationId: '',
+            locationId: "",
             postalCode: null,
             source: null,
             state: null,
@@ -1646,115 +2050,244 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
     const contacts = extendedProps.contacts || [];
     const isMobile = window.innerWidth < 768;
 
-    // Define status-based colors with type
-    const statusColors: Record<string, { bg: string; text: string }> = {
-      new: { bg: "#F3F4F6", text: "#6B7280" },
-      confirmed: { bg: "#e8f5e9", text: "#2e7d32" },
-      cancelled: { bg: "#ffebee", text: "#c62828" },
-      showed: { bg: "#f3e5f5", text: "#6a1b9a" },
-      noshow: { bg: "#fff3e0", text: "#ef6c00" },
-      rescheduled: { bg: "#e0f2f1", text: "#00695c" },
-      lost: { bg: "#fafafa", text: "#424242" },
-      closed: { bg: "#DBE9FE", text: "#1C4ED8" },
+    // Modern status-based colors with enhanced gradients and modern palette
+    const statusColors: Record<string, { bg: string; text: string; gradient: string; accent: string }> = {
+      new: { 
+        bg: "#F8FAFC", 
+        text: "#475569", 
+        gradient: "linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%)",
+        accent: "#64748B"
+      },
+      confirmed: { 
+        bg: "#ECFDF5", 
+        text: "#065F46", 
+        gradient: "linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)",
+        accent: "#10B981"
+      },
+      cancelled: { 
+        bg: "#FEF2F2", 
+        text: "#991B1B", 
+        gradient: "linear-gradient(135deg, #FEF2F2 0%, #FECACA 100%)",
+        accent: "#EF4444"
+      },
+      showed: { 
+        bg: "#F3E8FF", 
+        text: "#581C87", 
+        gradient: "linear-gradient(135deg, #F3E8FF 0%, #DDD6FE 100%)",
+        accent: "#8B5CF6"
+      },
+      noshow: { 
+        bg: "#FFF7ED", 
+        text: "#C2410C", 
+        gradient: "linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%)",
+        accent: "#F97316"
+      },
+      rescheduled: { 
+        bg: "#F0F9FF", 
+        text: "#075985", 
+        gradient: "linear-gradient(135deg, #F0F9FF 0%, #BAE6FD 100%)",
+        accent: "#0EA5E9"
+      },
+      lost: { 
+        bg: "#FAFAFA", 
+        text: "#525252", 
+        gradient: "linear-gradient(135deg, #FAFAFA 0%, #E5E5E5 100%)",
+        accent: "#737373"
+      },
+      closed: { 
+        bg: "#EFF6FF", 
+        text: "#1E40AF", 
+        gradient: "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)",
+        accent: "#3B82F6"
+      },
     };
 
     const statusColor = statusColors[status.toLowerCase()] || {
-      bg: "#f5f5f5",
-      text: "#333333",
+      bg: "#F9FAFB",
+      text: "#374151",
+      gradient: "linear-gradient(135deg, #F9FAFB 0%, #E5E7EB 100%)",
+      accent: "#6B7280"
     };
 
     return (
       <div
         className={`event-content ${status.toLowerCase()}`}
         style={{
-          backgroundColor: statusColor.bg,
-          padding: "6px 8px",
-          borderRadius: "8px",
+          background: statusColor.gradient,
+          padding: isMobile ? "8px 10px" : "10px 12px",
+          borderRadius: "12px",
           height: "100%",
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
-          gap: "4px",
+          gap: "6px",
           fontSize: isMobile ? "11px" : "12px",
-          border: `1px solid ${statusColor.text}20`,
-          boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-          transition: "all 0.2s ease",
+          border: `1px solid ${statusColor.accent}25`,
+          boxShadow: `0 4px 12px ${statusColor.accent}15, 0 2px 4px ${statusColor.accent}10`,
+          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           cursor: "pointer",
+          position: "relative",
+          backdropFilter: "blur(8px)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-2px)";
+          e.currentTarget.style.boxShadow = `0 8px 25px ${statusColor.accent}20, 0 4px 12px ${statusColor.accent}15`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = `0 4px 12px ${statusColor.accent}15, 0 2px 4px ${statusColor.accent}10`;
         }}
       >
+        {/* Status indicator bar */}
         <div
           style={{
-            fontWeight: 600,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            color: statusColor.text,
+            position: "absolute",
+            top: "0",
+            left: "0",
+            right: "0",
+            height: "3px",
+            background: `linear-gradient(90deg, ${statusColor.accent} 0%, ${statusColor.accent}80 100%)`,
+            borderRadius: "12px 12px 0 0",
+          }}
+        />
+
+        {/* Header with title and status */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "8px",
+            marginTop: "2px",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              color: statusColor.text,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: isMobile ? "12px" : "13px",
+              flex: 1,
+            }}
+          >
+            <span
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                backgroundColor: statusColor.accent,
+                display: "inline-block",
+                boxShadow: `0 0 8px ${statusColor.accent}40`,
+              }}
+            />
+            {event.title}
+          </div>
+          {extendedProps.meetLink && (
+            <div
+              style={{
+                width: "20px",
+                height: "20px",
+                borderRadius: "6px",
+                background: "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 8px rgba(59, 130, 246, 0.3)",
+              }}
+            >
+              <span style={{ color: "white", fontSize: "10px", fontWeight: "bold" }}>📹</span>
+            </div>
+          )}
+        </div>
+
+        {/* Time section */}
+        <div
+          style={{
             display: "flex",
             alignItems: "center",
             gap: "4px",
+            color: statusColor.text,
+            fontWeight: 600,
+            fontSize: isMobile ? "10px" : "11px",
           }}
         >
-          <span
+          <span style={{ opacity: 0.7 }}>🕐</span>
+          <span>{startTime} - {endTime}</span>
+        </div>
+
+        {/* Contacts section */}
+        {contacts.length > 0 && (
+          <div
             style={{
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              backgroundColor: statusColor.text,
-              display: "inline-block",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              color: statusColor.text,
+              fontWeight: 500,
+              fontSize: "10px",
+              opacity: 0.8,
             }}
-          ></span>
-          {event.title}
-        </div>
-        <div
-          style={{
-            fontWeight: 500,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            color: statusColor.text,
-          }}
-        >
-          {startTime} - {endTime}
-        </div>
-        <div
-          style={{
-            fontWeight: 500,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            color: statusColor.text,
-            fontSize: "11px",
-          }}
-        >
-          {contacts.map((c: any) => c.name).join(", ")}
-        </div>
+          >
+            <span>👤</span>
+            <span
+              style={{
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {contacts.map((c: any) => c.name).join(", ")}
+            </span>
+          </div>
+        )}
+
+        {/* Details section (desktop only) */}
         {!isMobile && extendedProps.details && (
           <div
             style={{
-              fontSize: "11px",
-              color: `${statusColor.text}99`,
+              fontSize: "10px",
+              color: statusColor.text,
+              opacity: 0.7,
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
               fontStyle: "italic",
+              borderTop: `1px solid ${statusColor.accent}20`,
+              paddingTop: "4px",
+              marginTop: "2px",
             }}
           >
             {extendedProps.details}
           </div>
         )}
-        {extendedProps.meetLink && (
+
+        {/* Status badge */}
+        {/* {status && (
           <div
             style={{
               position: "absolute",
-              top: "6px",
-              right: "6px",
-              width: "6px",
-              height: "6px",
-              borderRadius: "50%",
-              backgroundColor: "#2196f3",
+              top: "8px",
+              right: "8px",
+              backgroundColor: statusColor.accent,
+              color: "white",
+              fontSize: "8px",
+              fontWeight: "bold",
+              padding: "2px 6px",
+              borderRadius: "6px",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              boxShadow: `0 2px 4px ${statusColor.accent}30`,
+              zIndex: 1,
             }}
-          ></div>
-        )}
+          >
+            {status}
+          </div>
+        )} */}
       </div>
     );
   };
@@ -1884,7 +2417,7 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
       // The API now returns { company_id, reminders: [...] }
       const apiResponse = settingsResponse.data;
       const settings: ReminderSettings = {
-        reminders: apiResponse.reminders || []
+        reminders: apiResponse.reminders || [],
       };
 
       // Process each enabled reminder
@@ -1957,13 +2490,11 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
               companyId,
               { ...reminder, recipientType: "contacts" }
             );
-            
-            await sendWhatsAppNotification(
-              [],
-              appointment,
-              companyId,
-              { ...reminder, recipientType: "employees" }
-            );
+
+            await sendWhatsAppNotification([], appointment, companyId, {
+              ...reminder,
+              recipientType: "employees",
+            });
           } else {
             // Send to single recipient type
             await sendWhatsAppNotification(
@@ -1987,7 +2518,6 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
     }
   };
 
-  // Add this JSX somewhere in your return statement, perhaps in the settings section or as a new modal
   const renderCalendarConfigModal = () => (
     <Dialog
       open={isCalendarConfigOpen}
@@ -2208,8 +2738,9 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
               💡 Pro Tip
             </h3>
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              Set up reminders for both employees and clients to ensure everyone is prepared for appointments. 
-              You can create separate reminders for each group or use the "Both Parties" option for convenience.
+              Set up reminders for both employees and clients to ensure everyone
+              is prepared for appointments. You can create separate reminders
+              for each group or use the "Both Parties" option for convenience.
             </p>
           </div>
 
@@ -2357,7 +2888,8 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                       </div>
 
                       {/* Employee Selection (only shown when recipientType is 'employees' or 'both') */}
-                      {(reminder.recipientType === "employees" || reminder.recipientType === "both") && (
+                      {(reminder.recipientType === "employees" ||
+                        reminder.recipientType === "both") && (
                         <div>
                           <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
                             Select Employees
@@ -2620,7 +3152,12 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                 <input
                   type="text"
                   value={bookingLinkForm.title}
-                  onChange={(e) => setBookingLinkForm({...bookingLinkForm, title: e.target.value})}
+                  onChange={(e) =>
+                    setBookingLinkForm({
+                      ...bookingLinkForm,
+                      title: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   placeholder="e.g., Consultation Appointment"
                 />
@@ -2632,7 +3169,12 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                 <input
                   type="number"
                   value={bookingLinkForm.duration}
-                  onChange={(e) => setBookingLinkForm({...bookingLinkForm, duration: parseInt(e.target.value) || 60})}
+                  onChange={(e) =>
+                    setBookingLinkForm({
+                      ...bookingLinkForm,
+                      duration: parseInt(e.target.value) || 60,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   placeholder="60"
                   min="15"
@@ -2648,7 +3190,12 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
               <input
                 type="text"
                 value={bookingLinkForm.location}
-                onChange={(e) => setBookingLinkForm({...bookingLinkForm, location: e.target.value})}
+                onChange={(e) =>
+                  setBookingLinkForm({
+                    ...bookingLinkForm,
+                    location: e.target.value,
+                  })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 placeholder="e.g., Office Location"
               />
@@ -2660,7 +3207,12 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
               </label>
               <textarea
                 value={bookingLinkForm.description}
-                onChange={(e) => setBookingLinkForm({...bookingLinkForm, description: e.target.value})}
+                onChange={(e) =>
+                  setBookingLinkForm({
+                    ...bookingLinkForm,
+                    description: e.target.value,
+                  })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 rows={3}
                 placeholder="Brief description of the appointment..."
@@ -2674,20 +3226,32 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                 </label>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
                   {employees.map((employee) => (
-                    <label key={employee.id} className="flex items-center space-x-2">
+                    <label
+                      key={employee.id}
+                      className="flex items-center space-x-2"
+                    >
                       <input
                         type="checkbox"
-                        checked={bookingLinkForm.selectedStaff.includes(employee.name)}
+                        checked={bookingLinkForm.selectedStaff.includes(
+                          employee.name
+                        )}
                         onChange={(e) => {
                           const isChecked = e.target.checked;
                           const updatedStaff = isChecked
                             ? [...bookingLinkForm.selectedStaff, employee.name]
-                            : bookingLinkForm.selectedStaff.filter(name => name !== employee.name);
-                          setBookingLinkForm({...bookingLinkForm, selectedStaff: updatedStaff});
+                            : bookingLinkForm.selectedStaff.filter(
+                                (name) => name !== employee.name
+                              );
+                          setBookingLinkForm({
+                            ...bookingLinkForm,
+                            selectedStaff: updatedStaff,
+                          });
                         }}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{employee.name}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        {employee.name}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -2701,12 +3265,18 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
               <input
                 type="tel"
                 value={bookingLinkForm.phone}
-                onChange={(e) => setBookingLinkForm({...bookingLinkForm, phone: e.target.value})}
+                onChange={(e) =>
+                  setBookingLinkForm({
+                    ...bookingLinkForm,
+                    phone: e.target.value,
+                  })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 placeholder="+60123456789 (leave blank to show PHONE placeholder)"
               />
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Users will select their preferred date and time on the booking page
+                Users will select their preferred date and time on the booking
+                page
               </p>
             </div>
 
@@ -2730,7 +3300,8 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  Each staff member gets their own unique booking link. Share the appropriate link with clients.
+                  Each staff member gets their own unique booking link. Share
+                  the appropriate link with clients.
                 </p>
               </div>
             )}
@@ -2893,16 +3464,35 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
     ],
     initialView: view,
     headerToolbar: {
-      left: "title",
-      center: "",
-      right: "today prev,next",
+      left: "prev,next today",
+      center: "title",
+      right: isMobile ? "timeGridDay,timeGridWeek" : "dayGridMonth,timeGridWeek,timeGridDay",
     },
     editable: true, // Enable event editing
     eventClick: handleEventClick, // Add this to handle event clicks
     eventDrop: handleEventDrop,
     select: handleDateSelect,
     selectable: true,
+    stickyHeaderDates: true,
+    navLinks: true,
+    nowIndicator: true,
+    slotMinTime: "07:00:00",
+    slotMaxTime: "20:00:00",
+    slotDuration: isMobile ? "00:30:00" : "01:00:00",
+    expandRows: true,
+    dayMaxEventRows: isMobile ? 2 : 3,
+    aspectRatio: isMobile ? 0.85 : 1.5,
     googleCalendarApiKey: import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY,
+    // Enhanced styling options
+    height: 'auto',
+    eventDisplay: 'block',
+    displayEventTime: true,
+    displayEventEnd: false,
+    eventTimeFormat: {
+      hour: "numeric" as const,
+      minute: "2-digit" as const,
+      hour12: true
+    },
     eventSources: [
       {
         events: filteredAppointments.map((appointment) => ({
@@ -2921,9 +3511,11 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
             tags: appointment.tags || [],
             details: appointment.details || "",
             meetLink: appointment.meetLink || "",
+            source: "database", // Mark as database source
           },
         })),
       },
+      // Google Calendar sources with duplicate filtering
       ...(config.calendarId &&
       config.calendarId.trim() !== "" &&
       validateCalendarId(config.calendarId)
@@ -2933,6 +3525,78 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
               className: "gcal-event",
               color: "#a8d7e0",
               editable: false,
+              // Add event processor to filter duplicates
+              eventDataTransform: (eventData: any) => {
+                console.log("🟢 Processing Google Calendar event:", {
+                  title: eventData.title,
+                  summary: eventData.summary,
+                  description: eventData.description,
+                  start: eventData.start,
+                  end: eventData.end,
+                  fullEventData: eventData,
+                });
+
+                // Convert Google Calendar event to our format for duplicate checking
+                // Google Calendar events might use 'summary' instead of 'title'
+                const googleEvent = {
+                  title: eventData.title || eventData.summary || "",
+                  summary: eventData.summary || eventData.title || "",
+                  description: eventData.description || "",
+                  start: eventData.start,
+                  end: eventData.end,
+                };
+
+                // Only check for duplicates if we have database appointments loaded
+                if (databaseAppointments.length === 0) {
+                  console.log(
+                    "🟠 No database appointments loaded yet, showing Google Calendar event"
+                  );
+                  return {
+                    ...eventData,
+                    extendedProps: {
+                      ...eventData.extendedProps,
+                      source: "google-calendar",
+                    },
+                  };
+                }
+
+                // Check if this Google event is a duplicate of any database appointment
+                const isDuplicate = databaseAppointments.some((dbAppointment) =>
+                  areAppointmentsDuplicate(dbAppointment, googleEvent)
+                );
+
+                if (isDuplicate) {
+                  console.log(
+                    "🔴 Filtered out duplicate Google Calendar event:",
+                    eventData.title || eventData.summary
+                  );
+                  // Instead of returning null/false, make the event invisible
+                  return {
+                    ...eventData,
+                    display: "none",
+                    rendering: "background",
+                    className: "hidden-duplicate-event",
+                    extendedProps: {
+                      ...eventData.extendedProps,
+                      source: "google-calendar-duplicate-hidden",
+                    },
+                  };
+                }
+
+                console.log(
+                  "🟢 Showing Google Calendar event (no duplicate found):",
+                  eventData.title || eventData.summary
+                );
+
+                // Mark as Google Calendar source and return the event
+                return {
+                  ...eventData,
+                  extendedProps: {
+                    ...eventData.extendedProps,
+                    source: "google-calendar",
+                  },
+                };
+              },
             },
           ]
         : []),
@@ -2943,26 +3607,178 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
           className: "gcal-event",
           color: "#a8d7e0", // You might want to assign different colors for different calendars
           editable: false,
+          // Add event processor to filter duplicates for additional calendars too
+          eventDataTransform: (eventData: any) => {
+            console.log("🟢 Processing additional Google Calendar event:", {
+              title: eventData.title,
+              summary: eventData.summary,
+              description: eventData.description,
+              start: eventData.start,
+              end: eventData.end,
+            });
+
+            // Convert Google Calendar event to our format for duplicate checking
+            const googleEvent = {
+              title: eventData.title || eventData.summary || "",
+              summary: eventData.summary || eventData.title || "",
+              description: eventData.description || "",
+              start: eventData.start,
+              end: eventData.end,
+            };
+
+            // Only check for duplicates if we have database appointments loaded
+            if (databaseAppointments.length === 0) {
+              console.log(
+                "🟠 No database appointments loaded yet, showing additional Google Calendar event"
+              );
+              return {
+                ...eventData,
+                extendedProps: {
+                  ...eventData.extendedProps,
+                  source: "google-calendar",
+                },
+              };
+            }
+
+            // Check if this Google event is a duplicate of any database appointment
+            const isDuplicate = databaseAppointments.some((dbAppointment) =>
+              areAppointmentsDuplicate(dbAppointment, googleEvent)
+            );
+
+            if (isDuplicate) {
+              console.log(
+                "🔴 Filtered out duplicate Google Calendar event from additional calendar:",
+                eventData.title || eventData.summary
+              );
+              // Instead of returning null/false, make the event invisible
+              return {
+                ...eventData,
+                display: "none",
+                rendering: "background",
+                className: "hidden-duplicate-event",
+                extendedProps: {
+                  ...eventData.extendedProps,
+                  source: "google-calendar-duplicate-hidden",
+                },
+              };
+            }
+
+            console.log(
+              "🟢 Showing additional Google Calendar event (no duplicate found):",
+              eventData.title || eventData.summary
+            );
+
+            // Mark as Google Calendar source and return the event
+            return {
+              ...eventData,
+              extendedProps: {
+                ...eventData.extendedProps,
+                source: "google-calendar",
+              },
+            };
+          },
         })),
     ],
-    eventContent: renderEventContent, // Add this to use your custom event rendering
+    // Use custom event content renderer
+    eventContent: renderEventContent,
     eventDidMount: (info: any) => {
-      // Apply the color directly to the event element
-      if (info.event.source?.googleCalendarId) return; // Skip for Google Calendar events
+      // Check if this is a Google Calendar event
+      const isGoogleCalendarEvent = info.event.source?.googleCalendarId;
+      const eventSource = info.event.extendedProps?.source;
+      const status = info.event.extendedProps?.appointmentStatus?.toLowerCase() || 'new';
 
-      const staffIds = info.event.extendedProps?.staff || [];
-      const staffColors = employees
-        .filter((employee) => staffIds.includes(employee.id))
-        .map((employee) => employee.color);
+      // Modern color schemes for different event types
+      const statusGradients: Record<string, string> = {
+        new: "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)",
+        confirmed: "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
+        cancelled: "linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)",
+        showed: "linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%)",
+        noshow: "linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%)",
+        rescheduled: "linear-gradient(135deg, #f0f9ff 0%, #bae6fd 100%)",
+        lost: "linear-gradient(135deg, #fafafa 0%, #e5e5e5 100%)",
+        closed: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+      };
 
-      if (staffColors.length === 1) {
-        info.el.style.backgroundColor = staffColors[0];
-      } else if (staffColors.length === 2) {
-        info.el.style.background = `linear-gradient(to right, ${staffColors[0]} 50%, ${staffColors[1]} 50%)`;
+      // Apply modern styling
+      info.el.style.border = "none";
+      info.el.style.borderRadius = "12px";
+      info.el.style.overflow = "hidden";
+      info.el.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
+      info.el.style.transition = "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+      info.el.style.cursor = "pointer";
+      info.el.style.backdropFilter = "blur(8px)";
+
+      if (isGoogleCalendarEvent || eventSource === "google-calendar") {
+        // Modern Google Calendar event styling
+        info.el.style.background = "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)";
+        info.el.style.borderLeft = "4px solid #0ea5e9";
+        info.el.style.color = "#0c4a6e";
+        
+        // Add calendar icon for Google events
+        const existingTitle = info.el.querySelector('.fc-event-title');
+        if (existingTitle && !existingTitle.querySelector('.google-cal-icon')) {
+          const icon = document.createElement("span");
+          icon.className = "google-cal-icon";
+          icon.textContent = "📅";
+          icon.style.fontSize = "12px";
+          icon.style.marginRight = "6px";
+          icon.style.opacity = "0.8";
+          existingTitle.prepend(icon);
+        }
+      } else {
+        // Modern database event styling based on status
+        const gradient = statusGradients[status] || statusGradients.new;
+        info.el.style.background = gradient;
+        
+        // Handle staff colors for multi-staff events
+        const staffIds = info.event.extendedProps?.staff || [];
+        const staffColors = employees
+          .filter((employee) => staffIds.includes(employee.id))
+          .map((employee) => employee.color);
+
+        if (staffColors.length === 1) {
+          // Single staff member - use their color with enhanced gradient
+          const staffColor = staffColors[0];
+          info.el.style.background = `linear-gradient(135deg, ${staffColor}15 0%, ${staffColor}30 100%)`;
+          info.el.style.borderLeft = `4px solid ${staffColor}`;
+        } else if (staffColors.length >= 2) {
+          // Multiple staff - create a multi-color gradient
+          const colorStops = staffColors.map((color, index) => {
+            const percentage = (index / (staffColors.length - 1)) * 100;
+            return `${color}40 ${percentage}%`;
+          }).join(', ');
+          info.el.style.background = `linear-gradient(135deg, ${colorStops})`;
+          info.el.style.borderLeft = `4px solid ${staffColors[0]}`;
+        }
       }
 
-      // Make sure the event is clickable
-      info.el.style.cursor = "pointer";
+      // Enhanced hover effects
+      const originalTransform = info.el.style.transform;
+      const originalBoxShadow = info.el.style.boxShadow;
+
+      info.el.addEventListener('mouseenter', () => {
+        info.el.style.transform = "translateY(-2px) scale(1.02)";
+        info.el.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.15)";
+        info.el.style.zIndex = "10";
+      });
+
+      info.el.addEventListener('mouseleave', () => {
+        info.el.style.transform = originalTransform;
+        info.el.style.boxShadow = originalBoxShadow;
+        info.el.style.zIndex = "auto";
+      });
+
+      // Add tooltip with event details
+      const contacts = info.event.extendedProps?.contacts || [];
+      const contactNames = contacts.map((c: any) => c.name).join(", ");
+      const tooltipText = [
+        info.event.title,
+        info.event.extendedProps?.details && `Details: ${info.event.extendedProps.details}`,
+        contactNames && `Contacts: ${contactNames}`,
+        eventSource === "google-calendar" ? "📅 Google Calendar" : "💾 Database Event"
+      ].filter(Boolean).join("\n");
+      
+      info.el.title = tooltipText;
     },
   };
 
@@ -3461,156 +4277,169 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
   // Modify the return statement to include the view toggle button and conditional rendering
   return (
     <>
-      <div className="flex flex-col items-start mt-8 intro-y sm:flex-row sm:flex-wrap lg:flex-nowrap">
-        {/* Add view toggle button */}
-        <div className="w-full mb-4 sm:w-auto sm:mr-2 lg:mb-0 lg:mr-4">
-          <button
-            className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
-            onClick={() =>
-              setViewType(viewType === "calendar" ? "grid" : "calendar")
-            }
-          >
-            <Lucide
-              icon={viewType === "calendar" ? "Calendar" : "TableProperties"}
-              className="w-4 h-4 mb-0.5 mr-2 inline-block"
-            />
-            {viewType === "calendar" ? "Calendar" : "Slots"}
-          </button>
-        </div>
-        {/* Add new Appointment Requests button */}
-        {companyId === "0153" && (
-          <div className="w-full mb-4 sm:w-auto sm:mr-2 lg:mb-0 lg:mr-4">
-            <button
-              className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
-              onClick={() => navigate("/appointment-requests")}
-            >
-              <Lucide
-                icon="ClipboardList"
-                className="w-4 h-4 mr-2 inline-block"
-              />
-              Appointment Requests
-            </button>
+      {/* Modern toolbar */}
+      <div className="mt-6 intro-y">
+        <div className="w-full bg-white/60 dark:bg-gray-800/60 backdrop-blur rounded-xl border border-gray-200 dark:border-gray-700 px-3 sm:px-5 py-3 sm:py-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Left: primary actions */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* View toggle (calendar vs slots grid) */}
+              <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <button
+                  onClick={() => setViewType("calendar")}
+                  className={`px-3 py-2 text-sm font-medium flex items-center gap-2 ${
+                    viewType === "calendar"
+                      ? "bg-primary text-white"
+                      : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  <Lucide icon="Calendar" className="w-4 h-4" />
+                  <span className="hidden sm:inline">Calendar</span>
+                </button>
+                <button
+                  onClick={() => setViewType("grid")}
+                  className={`px-3 py-2 text-sm font-medium flex items-center gap-2 ${
+                    viewType === "grid"
+                      ? "bg-primary text-white"
+                      : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  <Lucide icon="TableProperties" className="w-4 h-4" />
+                  <span className="hidden sm:inline">Slots</span>
+                </button>
+              </div>
+
+              {companyId === "0153" && (
+                <button
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:opacity-90"
+                  onClick={() => navigate("/appointment-requests")}
+                >
+                  <Lucide icon="ClipboardList" className="w-4 h-4" />
+                  <span className="hidden sm:inline">Requests</span>
+                </button>
+              )}
+
+              <button
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
+                onClick={() => setIsBookingLinkModalOpen(true)}
+              >
+                <Lucide icon="Link" className="w-4 h-4" />
+                <span className="hidden sm:inline">Booking Link</span>
+              </button>
+
+              {/* Add appointment */}
+              <button
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                onClick={() => {
+                  setSelectedContact(null);
+                  setCurrentEvent({
+                    title: "",
+                    dateStr: "",
+                    startTimeStr: "",
+                    endTimeStr: "",
+                    extendedProps: {
+                      address: "",
+                      appointmentStatus: "",
+                      staff: "",
+                      dateAdded: new Date().toISOString(),
+                      tags: [],
+                      details: "",
+                      meetLink: "",
+                    },
+                  });
+                  setAddModalOpen(true);
+                }}
+              >
+                <Lucide icon="FilePenLine" className="w-4 h-4" />
+                <span className="hidden sm:inline">Add</span>
+              </button>
+            </div>
+
+            {/* Right: filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Quick search */}
+              <div className="relative">
+                <Lucide icon="Search" className="w-4 h-4 absolute left-2 top-2.5 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search appointments..."
+                  className="pl-7 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+
+              {/* Employee select */}
+              {employees.length > 0 && (
+                <div className="relative">
+                  <select
+                    value={selectedEmployeeId}
+                    onChange={handleEmployeeChange}
+                    className="px-2 py-2 pr-8 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 appearance-none"
+                  >
+                    <option value="">All Staff</option>
+                    {employees.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Status */}
+              <select
+                value={filterStatus}
+                onChange={handleStatusFilterChange}
+                className="px-2 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+              >
+                <option value="">All</option>
+                <option value="new">New</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="showed">Showed</option>
+                <option value="noshow">No Show</option>
+                <option value="rescheduled">Rescheduled</option>
+                <option value="lost">Lost</option>
+                <option value="closed">Closed</option>
+              </select>
+
+              {/* Date */}
+              <div className="relative">
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={handleDateFilterChange}
+                  className="px-2 py-2 pr-8 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                />
+                {filterDate && (
+                  <button
+                    onClick={() => setFilterDate("")}
+                    className="absolute right-1.5 top-1.5 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                    aria-label="Clear date filter"
+                  >
+                    <Lucide icon="X" className="w-4 h-4 text-gray-400" />
+                  </button>
+                )}
+              </div>
+
+              {/* Settings */}
+              <button
+                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                onClick={() => setIsCalendarConfigOpen(true)}
+                title="Calendar settings"
+              >
+                <Lucide icon="Settings" className="w-4 h-4" />
+              </button>
+              <button
+                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                onClick={() => setIsReminderSettingsOpen(true)}
+                title="Reminder settings"
+              >
+                <Lucide icon="Bell" className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        )}
-        {/* Add Generate Booking Link button */}
-        <div className="w-full mb-4 sm:w-auto sm:mr-2 lg:mb-0 lg:mr-4">
-          <button
-            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-            onClick={() => setIsBookingLinkModalOpen(true)}
-          >
-            <Lucide
-              icon="Link"
-              className="w-4 h-4 mr-2 inline-block"
-            />
-            Generate Booking Link
-          </button>
-        </div>
-        {/* Employee selection dropdown */}
-        <div className="w-full mb-4 sm:w-1/4 sm:mr-2 lg:w-auto lg:mb-0 lg:mr-4">
-          {employees.length > 0 && (
-            <select
-              value={selectedEmployeeId}
-              onChange={handleEmployeeChange}
-              className="w-full text-white bg-primary hover:bg-white hover:text-primary focus:ring-2 focus:ring-blue-300 font-medium rounded-lg text-sm text-start inline-flex items-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-            >
-              <option value="">Select an employee</option>
-              {employees.map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        {/* Status and date filters */}
-        <div className="w-full mb-2 sm:w-1/4 sm:mr-2 lg:w-auto lg:mb-0 lg:mr-4">
-          <select
-            value={filterStatus}
-            onChange={handleStatusFilterChange}
-            className="w-full mb-2 sm:mb-0 text-primary border-primary bg-white hover focus:ring-2 focus:ring-blue-300 font-small rounded-lg text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600"
-          >
-            <option value="">All Statuses</option>
-            <option value="new">New</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="showed">Showed</option>
-            <option value="noshow">No Show</option>
-            <option value="rescheduled">Rescheduled</option>
-            <option value="lost">Lost</option>
-            <option value="closed">Closed</option>
-          </select>
-        </div>
-
-        <div className="w-full mb-2 sm:w-1/4 sm:mr-2 lg:w-auto lg:mb-0 lg:mr-4 relative">
-          <div className="relative">
-            <input
-              type="date"
-              value={filterDate}
-              onChange={handleDateFilterChange}
-              className="block w-full p-2 text-primary bg-white border border-primary rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            />
-          </div>
-          {filterDate && (
-            <button
-              onClick={() => setFilterDate("")}
-              className="absolute inset-y-0 right-0 flex items-center pr-3"
-            >
-              <Lucide
-                icon="X"
-                className="w-6 h-6 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              />
-            </button>
-          )}
-        </div>
-
-        {/* Add Calendar Settings buttons */}
-        <div className="w-full mb-4 sm:w-1/4 sm:mr-2 lg:w-auto lg:mb-0 lg:mr-4 flex gap-2">
-          <button
-            className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
-            onClick={() => setIsCalendarConfigOpen(true)}
-          >
-            <Lucide icon="Settings" className="w-4 h-4 mr-2 inline-block" />
-            Calendar Settings
-          </button>
-          <button
-            className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
-            onClick={() => setIsReminderSettingsOpen(true)}
-          >
-            <Lucide icon="Bell" className="w-4 h-4 mr-2 inline-block" />
-            Reminder Settings
-          </button>
-        </div>
-        {/* Remove the separate reminder settings button div */}
-        {/* Add New Appointment button */}
-        <div className="w-full sm:w-1/4 sm:mr-2 lg:w-auto lg:mr-4">
-          <Button
-            variant="primary"
-            type="button"
-            className="w-full"
-            onClick={() => {
-              setSelectedContact(null);
-              setCurrentEvent({
-                title: "",
-                dateStr: "",
-                startTimeStr: "",
-                endTimeStr: "",
-                extendedProps: {
-                  address: "",
-                  appointmentStatus: "",
-                  staff: "",
-                  dateAdded: new Date().toISOString(),
-                  tags: [],
-                  details: "",
-                  meetLink: "",
-                },
-              });
-              setAddModalOpen(true);
-            }}
-          >
-            <Lucide icon="FilePenLine" className="w-4 h-4 mr-2" /> Add
-            Appointment
-          </Button>
         </div>
       </div>
 
@@ -3619,136 +4448,299 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
         {/* Appointments list */}
         <div
           className={`${
-            isMobile ? "order-1" : ""
+            isMobile ? (mobileTab === "list" ? "block" : "hidden") : ""
           } md:col-span-4 xl:col-span-4 2xl:col-span-3`}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm h-full">
-            <div className="p-5">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
-                  Appointments
-                </h2>
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                    <span className="w-2 h-2 bg-gray-500 rounded-full mr-1.5"></span>
-                    New
-                  </span>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-1.5"></span>
-                    Showed
-                  </span>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
-                    <span className="w-2 h-2 bg-red-500 rounded-full mr-1.5"></span>
-                    Canceled
-                  </span>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                    <span className="w-2 h-2 bg-blue-700 rounded-full mr-1.5"></span>
-                    Closed
-                  </span>
+          <div className="relative h-full">
+            {/* Modern glassmorphism container */}
+            <div 
+              className="h-full rounded-2xl border border-white/20 dark:border-gray-700/30 shadow-xl overflow-hidden appointments-container"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.8) 100%)',
+                backdropFilter: 'blur(20px)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+              }}
+            >
+              <div className="p-6">
+                {/* Enhanced header */}
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                      Appointments
+                    </h2>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+                      {filteredAppointments.length} {filteredAppointments.length === 1 ? 'appointment' : 'appointments'}
+                    </p>
+                    </div>
+                  
+                  {/* Modern status legend */}
+                  <div className="flex flex-wrap gap-1">
+                    <div className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                      <div className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-400 rounded-full mr-1"></div>
+                      New
+                    </div>
+                    <div className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-300">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 dark:bg-emerald-400 rounded-full mr-1"></div>
+                      Confirmed
+                    </div>
+                    <div className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-300">
+                      <div className="w-1.5 h-1.5 bg-red-500 dark:bg-red-400 rounded-full mr-1"></div>
+                      Cancelled
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-3 max-h-[calc(100vh-12rem)] overflow-y-auto pr-2">
-                {filteredAppointments.length > 0 ? (
-                  filteredAppointments.map((appointment, index) => (
-                    <div
-                      key={index}
-                      onClick={() => handleAppointmentClick(appointment)}
-                      className="group relative bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-200 cursor-pointer"
-                    >
-                      <div className="flex p-4">
+                {/* Enhanced appointments list */}
+                <div className="space-y-3 max-h-[calc(100vh-20rem)] sm:max-h-[calc(100vh-16rem)] overflow-y-auto pr-2 scrollbar-custom pb-4">
+                  {filteredAppointments.length > 0 ? (
+                    filteredAppointments.map((appointment, index) => {
+                      const statusColors: Record<string, { bg: string; border: string; accent: string; text: string; darkBg: string; darkBorder: string; darkText: string }> = {
+                        new: { 
+                          bg: 'from-gray-50 to-gray-100', 
+                          border: 'border-gray-200', 
+                          accent: 'bg-gray-500', 
+                          text: 'text-gray-700',
+                          darkBg: 'dark:from-gray-700 dark:to-gray-800',
+                          darkBorder: 'dark:border-gray-600',
+                          darkText: 'dark:text-gray-200'
+                        },
+                        showed: { 
+                          bg: 'from-blue-50 to-indigo-100', 
+                          border: 'border-blue-200', 
+                          accent: 'bg-blue-500', 
+                          text: 'text-blue-700',
+                          darkBg: 'dark:from-blue-900 dark:to-indigo-900',
+                          darkBorder: 'dark:border-blue-600',
+                          darkText: 'dark:text-blue-200'
+                        },
+                        cancelled: { 
+                          bg: 'from-red-50 to-rose-100', 
+                          border: 'border-red-200', 
+                          accent: 'bg-red-500', 
+                          text: 'text-red-700',
+                          darkBg: 'dark:from-red-900 dark:to-rose-900',
+                          darkBorder: 'dark:border-red-600',
+                          darkText: 'dark:text-red-200'
+                        },
+                        confirmed: { 
+                          bg: 'from-emerald-50 to-green-100', 
+                          border: 'border-emerald-200', 
+                          accent: 'bg-emerald-500', 
+                          text: 'text-emerald-700',
+                          darkBg: 'dark:from-emerald-900 dark:to-green-900',
+                          darkBorder: 'dark:border-emerald-600',
+                          darkText: 'dark:text-emerald-200'
+                        },
+                        noshow: { 
+                          bg: 'from-orange-50 to-amber-100', 
+                          border: 'border-orange-200', 
+                          accent: 'bg-orange-500', 
+                          text: 'text-orange-700',
+                          darkBg: 'dark:from-orange-900 dark:to-amber-900',
+                          darkBorder: 'dark:border-orange-600',
+                          darkText: 'dark:text-orange-200'
+                        },
+                        rescheduled: { 
+                          bg: 'from-cyan-50 to-sky-100', 
+                          border: 'border-cyan-200', 
+                          accent: 'bg-cyan-500', 
+                          text: 'text-cyan-700',
+                          darkBg: 'dark:from-cyan-900 dark:to-sky-900',
+                          darkBorder: 'dark:border-cyan-600',
+                          darkText: 'dark:text-cyan-200'
+                        },
+                        lost: { 
+                          bg: 'from-gray-50 to-slate-100', 
+                          border: 'border-gray-300', 
+                          accent: 'bg-gray-600', 
+                          text: 'text-gray-600',
+                          darkBg: 'dark:from-gray-800 dark:to-slate-800',
+                          darkBorder: 'dark:border-gray-500',
+                          darkText: 'dark:text-gray-300'
+                        },
+                        closed: { 
+                          bg: 'from-purple-50 to-violet-100', 
+                          border: 'border-purple-200', 
+                          accent: 'bg-purple-500', 
+                          text: 'text-purple-700',
+                          darkBg: 'dark:from-purple-900 dark:to-violet-900',
+                          darkBorder: 'dark:border-purple-600',
+                          darkText: 'dark:text-purple-200'
+                        },
+                      };
+                      
+                      const statusStyle = statusColors[appointment.appointmentStatus?.toLowerCase() || 'new'] || statusColors.new;
+                      
+                      return (
                         <div
-                          className={`w-1 rounded-full ${getStatusColor(
-                            appointment.appointmentStatus
-                          )} mr-4`}
-                        ></div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate pr-4">
-                              {appointment.title}
-                            </h3>
-                            <div className="text-right text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                              {new Date(appointment.startTime).toLocaleString(
-                                "en-US",
-                                {
-                                  weekday: "short",
-                                  month: "short",
-                                  day: "numeric",
-                                }
-                              )}
-                              <div>
-                                {new Date(appointment.startTime).toLocaleString(
-                                  "en-US",
-                                  {
-                                    hour: "numeric",
-                                    minute: "numeric",
-                                    hour12: true,
-                                  }
-                                )}{" "}
-                                -{" "}
-                                {new Date(appointment.endTime).toLocaleString(
-                                  "en-US",
-                                  {
-                                    hour: "numeric",
-                                    minute: "numeric",
-                                    hour12: true,
-                                  }
+                          key={index}
+                          onClick={() => handleAppointmentClick(appointment)}
+                          className={`group relative rounded-xl border ${statusStyle.border} ${statusStyle.darkBorder} bg-gradient-to-br ${statusStyle.bg} ${statusStyle.darkBg} transition-all duration-300 cursor-pointer hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1 overflow-hidden`}
+                        >
+                          {/* Status accent bar */}
+                          <div className={`absolute top-0 left-0 right-0 h-1 ${statusStyle.accent} opacity-80`}></div>
+                          
+                          <div className="p-4">
+                            <div className="flex items-start gap-3">
+                              {/* Status indicator */}
+                              <div className={`w-3 h-3 rounded-full ${statusStyle.accent} mt-1.5 shadow-sm flex-shrink-0`}></div>
+                              
+                              <div className="flex-1 min-w-0">
+                                {/* Header */}
+                                <div className="flex justify-between items-start mb-3">
+                                  <h3 className={`text-lg font-semibold ${statusStyle.text} ${statusStyle.darkText} truncate pr-4 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors`}>
+                                    {appointment.title}
+                                  </h3>
+                                  <div className="text-right text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                    <div className="font-medium">
+                                      {new Date(appointment.startTime).toLocaleString("en-US", {
+                                        weekday: "short",
+                                        month: "short",
+                                        day: "numeric",
+                                      })}
+                                    </div>
+                                    <div className="text-xs text-gray-400 dark:text-gray-500">
+                                      {new Date(appointment.startTime).toLocaleString("en-US", {
+                                        hour: "numeric",
+                                        minute: "numeric",
+                                        hour12: true,
+                                      })}{" "}
+                                      -{" "}
+                                      {new Date(appointment.endTime).toLocaleString("en-US", {
+                                        hour: "numeric",
+                                        minute: "numeric",
+                                        hour12: true,
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Contacts */}
+                                {appointment.contacts && appointment.contacts.length > 0 && (
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className="text-gray-400 dark:text-gray-500">👤</div>
+                                    <span className="text-sm text-gray-600 dark:text-gray-300 font-medium truncate">
+                                      {appointment.contacts.map((c) => c.name).join(", ")}
+                                    </span>
+                                  </div>
                                 )}
+
+                                {/* Tags */}
+                                {appointment.tags && appointment.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5 mb-2">
+                                    {appointment.tags.slice(0, 2).map((tag) => (
+                                      <span
+                                        key={tag.id}
+                                        className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-white/60 dark:bg-gray-700/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-600"
+                                      >
+                                        {tag.name}
+                                      </span>
+                                    ))}
+                                    {appointment.tags.length > 2 && (
+                                      <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300">
+                                        +{appointment.tags.length - 2}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Details preview */}
+                                {appointment.details && (
+                                  <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 line-clamp-2 italic">
+                                    {appointment.details}
+                                  </div>
+                                )}
+
+                                {/* Action icons */}
+                                <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-200/50 dark:border-gray-600/50">
+                                  <div className="flex items-center gap-2">
+                                    {appointment.meetLink && (
+                                      <div className="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-800 flex items-center justify-center">
+                                        <span className="text-xs">📹</span>
+                                      </div>
+                                    )}
+                                    {appointment.address && (
+                                      <div className="w-6 h-6 rounded-md bg-green-100 dark:bg-green-800 flex items-center justify-center">
+                                        <span className="text-xs">📍</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className={`text-xs font-semibold px-2 py-1 rounded-full ${statusStyle.bg} ${statusStyle.darkBg} ${statusStyle.text} ${statusStyle.darkText} capitalize`}>
+                                    {appointment.appointmentStatus || 'new'}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
-
-                          {appointment.tags && appointment.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mb-2">
-                              {appointment.tags.slice(0, 2).map((tag) => (
-                                <span
-                                  key={tag.id}
-                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                                >
-                                  {tag.name}
-                                </span>
-                              ))}
-                              {appointment.tags.length > 2 && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                                  +{appointment.tags.length - 2}
-                                </span>
-                              )}
-                            </div>
-                          )}
-
-                          {appointment.details && (
-                            <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
-                              {appointment.details}
-                            </div>
-                          )}
                         </div>
-                      </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="text-gray-400 text-lg mb-2">📅</div>
+                      <div className="text-gray-500 font-medium">No appointments yet</div>
+                      <div className="text-gray-400 text-sm">Your upcoming appointments will appear here</div>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="text-gray-400 dark:text-gray-500 text-lg">
-                      No appointments yet
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
+            
+            {/* CSS styles */}
+            <style>
+              {`
+              .dark .appointments-container {
+                background: linear-gradient(135deg, rgba(30,41,59,0.9) 0%, rgba(15,23,42,0.95) 100%) !important;
+                border: 1px solid rgba(255,255,255,0.1) !important;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+              }
+              
+              .scrollbar-custom::-webkit-scrollbar {
+                width: 6px;
+              }
+              
+              .scrollbar-custom::-webkit-scrollbar-track {
+                background: rgba(0,0,0,0.05);
+                border-radius: 3px;
+              }
+              
+              .dark .scrollbar-custom::-webkit-scrollbar-track {
+                background: rgba(255,255,255,0.05);
+              }
+              
+              .scrollbar-custom::-webkit-scrollbar-thumb {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 3px;
+              }
+              
+              .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+                background: linear-gradient(135deg, #5a67d8 0%, #667eea 100%);
+              }
+              
+              .dark .scrollbar-custom::-webkit-scrollbar-thumb {
+                background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+              }
+              
+              .dark .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+                background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+              }
+            `}
+            </style>
           </div>
         </div>
 
         {/* Calendar/Grid View */}
         <div
           className={`${
-            isMobile ? "hidden" : ""
+            isMobile ? (mobileTab === "calendar" ? "block" : "hidden") : ""
           } md:col-span-8 xl:col-span-8 2xl:col-span-9`}
         >
-          <div className="p-5 box intro-y">
+          <div className="p-0 sm:p-5 box intro-y">
             {viewType === "calendar" ? (
               <CalendarErrorBoundary>
                 <div
                   className="calendar-container"
-                  style={{ height: "calc(100vh - 200px)", overflowY: "auto" }}
+                  style={{ height: isMobile ? "calc(100vh - 290px)" : "calc(100vh - 220px)", overflowY: "auto" }}
                 >
                   <FullCalendar {...calendarOptions} ref={calendarRef} />
                 </div>
@@ -3758,6 +4750,35 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
             )}
           </div>
         </div>
+      </div>
+
+      {/* Mobile floating action button */}
+      <div className="sm:hidden">
+        <button
+          onClick={() => {
+            setSelectedContact(null);
+            setCurrentEvent({
+              title: "",
+              dateStr: "",
+              startTimeStr: "",
+              endTimeStr: "",
+              extendedProps: {
+                address: "",
+                appointmentStatus: "",
+                staff: "",
+                dateAdded: new Date().toISOString(),
+                tags: [],
+                details: "",
+                meetLink: "",
+              },
+            });
+            setAddModalOpen(true);
+          }}
+          className="fixed bottom-20 right-5 z-40 w-14 h-14 rounded-full bg-primary text-white shadow-lg flex items-center justify-center hover:opacity-90"
+          aria-label="Add appointment"
+        >
+          <Lucide icon="Plus" className="w-6 h-6" />
+        </button>
       </div>
 
       {/* Edit Modal */}
@@ -3936,7 +4957,9 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                   </label>
                   <select
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.appointmentType || "general"}
+                    value={
+                      currentEvent?.extendedProps?.appointmentType || "general"
+                    }
                     onChange={(e) =>
                       setCurrentEvent({
                         ...currentEvent,
@@ -4134,27 +5157,46 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                       // Remove duplicates and sort alphabetically, filter out invalid contacts
                       .filter(
                         (contact, index, self) =>
-                          contact?.id && 
-                          index === self.findIndex((c) => c.id === contact.id) &&
-                          (contact?.name || contact?.firstName || contact?.lastName)
+                          contact?.id &&
+                          index ===
+                            self.findIndex((c) => c.id === contact.id) &&
+                          (contact?.name ||
+                            contact?.firstName ||
+                            contact?.lastName)
                       )
                       .sort((a, b) => {
-                        const nameA = a.name || `${a.firstName || ''} ${a.lastName || ''}`.trim() || 'Unnamed Contact';
-                        const nameB = b.name || `${b.firstName || ''} ${b.lastName || ''}`.trim() || 'Unnamed Contact';
+                        const nameA =
+                          a.name ||
+                          `${a.firstName || ""} ${a.lastName || ""}`.trim() ||
+                          "Unnamed Contact";
+                        const nameB =
+                          b.name ||
+                          `${b.firstName || ""} ${b.lastName || ""}`.trim() ||
+                          "Unnamed Contact";
                         return nameA.localeCompare(nameB);
                       })
                       .map((contact) => ({
                         value: contact.id,
-                        label: contact.name || 
-                               `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 
-                               'Unnamed Contact',
+                        label:
+                          contact.name ||
+                          `${contact.firstName || ""} ${
+                            contact.lastName || ""
+                          }`.trim() ||
+                          "Unnamed Contact",
                       }))}
-                    value={selectedContact ? {
-                      value: selectedContact.id,
-                      label: selectedContact.name || 
-                             `${selectedContact.firstName || ''} ${selectedContact.lastName || ''}`.trim() || 
-                             'Unnamed Contact',
-                    } : null}
+                    value={
+                      selectedContact
+                        ? {
+                            value: selectedContact.id,
+                            label:
+                              selectedContact.name ||
+                              `${selectedContact.firstName || ""} ${
+                                selectedContact.lastName || ""
+                              }`.trim() ||
+                              "Unnamed Contact",
+                          }
+                        : null
+                    }
                     onChange={handleContactChange}
                     className="react-select-container"
                     classNamePrefix="react-select"
@@ -4547,7 +5589,9 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                   </label>
                   <select
                     className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.appointmentType || "general"}
+                    value={
+                      currentEvent?.extendedProps?.appointmentType || "general"
+                    }
                     onChange={(e) =>
                       setCurrentEvent({
                         ...currentEvent,
@@ -4597,10 +5641,14 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                       value: contact.id,
                       label: contact.name,
                     }))}
-                    value={selectedContact ? {
-                      value: selectedContact.id,
-                      label: selectedContact.name,
-                    } : null}
+                    value={
+                      selectedContact
+                        ? {
+                            value: selectedContact.id,
+                            label: selectedContact.name,
+                          }
+                        : null
+                    }
                     onChange={handleContactChange}
                     className="capitalize dark:bg-gray-700 dark:text-white"
                     placeholder="Select contact..."
