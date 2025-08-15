@@ -21,7 +21,7 @@ function Main() {
     Array<FormattedMenu | "divider">
   >([]);
   const themeStore = useAppSelector(selectTheme);
-  const menuStore = useAppSelector(selectMenu(themeStore.layout));
+  const menuStore = useAppSelector(selectMenu(themeStore.layout as "simple-menu" | "top-menu" | "side-menu"));
   const menu = () => nestedMenu(toRaw(menuStore), location);
   const [activeMobileMenu, setActiveMobileMenu] = useState(false);
   const scrollableRef = createRef<HTMLDivElement>();

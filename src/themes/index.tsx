@@ -12,7 +12,7 @@ import { useEffect } from "react";
 function Main() {
   const dispatch = useAppDispatch();
   const theme = useAppSelector(selectTheme);
-  const Component = getTheme(theme).component;
+  const Component = getTheme(theme as Themes).component;
 
   const switchTheme = (theme: Themes["name"]) => {
     dispatch(setTheme(theme));
