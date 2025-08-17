@@ -18,11 +18,23 @@ function normalizeDateToEventKey(dateStr?: string): string | undefined {
   return `${day} ${monthNames[month]} ${year}`;
 }
 
+// Helper function to sanitize text for PDF encoding
+function sanitizeText(text: string): string {
+  // Remove invisible Unicode characters and other problematic characters
+  return text
+    .replace(/[\u200B-\u200D\uFEFF\u2060]/g, '') // Remove zero-width spaces, word joiners, etc.
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+    .trim();
+}
+
 export async function generateCertificate(
   participantName: string,
   programDate?: string, // new argument
   options?: { returnBlob?: boolean }
 ): Promise<void | Blob> {
+  // Sanitize the participant name
+  const sanitizedName = sanitizeText(participantName);
+  
   // Load template
   // console.log(programDate);
   const response = await fetch('/certificates/cert.pdf');
@@ -38,11 +50,11 @@ export async function generateCertificate(
   const pageSize = page.getSize();
   const nameFont = helveticaBold;
   const nameFontSize = 18;
-  const nameWidth = nameFont.widthOfTextAtSize(participantName, nameFontSize);
+  const nameWidth = nameFont.widthOfTextAtSize(sanitizedName, nameFontSize);
   const contentX = 315; // left edge of content area
   const contentWidth = 500; // width of content area
   const nameX = contentX + (contentWidth - nameWidth) / 2;
-  page.drawText(participantName, {
+  page.drawText(sanitizedName, {
     x: nameX,
     y: 275,
     size: nameFontSize,
@@ -85,7 +97,8 @@ export async function generateCertificate(
     const subtitleMaxWidth = 500; // Increased width for your layout
 
     const subtitleLineHeight = 18; // Adjust for spacing between lines
-    let subtitleLines = splitTextToLines('Business Automation & AI Chatbot Experience', subtitleFont, subtitleFontSize, subtitleMaxWidth);
+    const subtitleText = sanitizeText('Digitalpreneur Create an Online Course with AI');
+    let subtitleLines = splitTextToLines(subtitleText, subtitleFont, subtitleFontSize, subtitleMaxWidth);
     if (subtitleLines.length > 3) {
       // Truncate to 3 lines and add ellipsis to the last line
       const firstTwo = subtitleLines.slice(0, 2);
@@ -124,7 +137,7 @@ export async function generateCertificate(
 
   // Date (medium font)
 
-    page.drawText('7 August 2025', {
+    page.drawText(sanitizeText('14 August 2025'), {
       x: 520,
       y: subtitleY,
       size: 14,
@@ -134,7 +147,7 @@ export async function generateCertificate(
 
 
   // Venue (small font)
-  page.drawText('Co9P Event Hall, Idea Tower 1, UPM-MTDC Technology Centre', {
+  page.drawText(sanitizeText('Co9P Event Hall, Idea Tower 1, UPM-MTDC Technology Centre'), {
     x: 395,
     y: 172,
     size: 12,
@@ -143,7 +156,7 @@ export async function generateCertificate(
   });
 
   // Location (small font)
-  page.drawText('Serdang Selangor', {
+  page.drawText(sanitizeText('Serdang Selangor'), {
     x: 520,
     y: 162,
     size: 12,

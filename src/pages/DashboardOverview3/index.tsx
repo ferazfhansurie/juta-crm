@@ -9,6 +9,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { generateCertificate } from "@/utils/pdfCert";
+import axios from "axios";
 
 
 // Replace with your published CSV URLs
@@ -19,6 +20,19 @@ const AI_HORIZON_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQs9
 
 // Neon database base URL
 const baseUrl = "https://juta-dev.ngrok.dev";
+
+// Helper function to get company ID
+const getCompanyId = async () => {
+  try {
+    console.log('[getCompanyId] Getting company data...');
+    const { companyId } = await getCompanyApiUrl();
+    console.log('[getCompanyId] Company ID retrieved:', companyId);
+    return companyId;
+  } catch (error) {
+    console.error('[getCompanyId] Error getting company ID:', error);
+    throw error;
+  }
+};
 
 // Custom PieChart component that accepts data, labels, and colors
 interface CustomPieChartProps {
@@ -290,101 +304,338 @@ function downloadPDF(data: any[], filename: string) {
 
 // Helper function to get company data from NeonDB
 const getCompanyApiUrl = async () => {
-  const userEmail = localStorage.getItem("userEmail");
-  if (!userEmail) {
-    throw new Error("No user email found");
-  }
-
-  const response = await fetch(
-    `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
-      userEmail
-    )}`,
-    {
-      method: "GET",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
+  try {
+    const userEmail = localStorage.getItem("userEmail");
+    if (!userEmail) {
+      throw new Error("No user email found");
     }
-  );
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch company data");
+    console.log('Getting company data for email:', userEmail);
+    console.log('Base URL:', baseUrl);
+
+    const response = await fetch(
+      `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
+        userEmail
+      )}`,
+      {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log('Company data response status:', response.status);
+    console.log('Company data response headers:', Object.fromEntries(response.headers.entries()));
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Company data error response body:', errorText);
+      
+      let errorMessage = `Failed to fetch company data: ${response.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error) {
+          errorMessage += ` - ${errorJson.error}`;
+        } else if (errorJson.message) {
+          errorMessage += ` - ${errorJson.message}`;
+        }
+      } catch (e) {
+        if (errorText) {
+          errorMessage += ` - ${errorText}`;
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    console.log('Company data response:', data);
+
+    if (!data.userData?.companyId) {
+      throw new Error("Company ID not found in response");
+    }
+
+    const result = {
+      apiUrl: data.companyData?.api_url || baseUrl,
+      companyId: data.userData.companyId,
+    };
+    
+    console.log('Returning company data:', result);
+    return result;
+  } catch (error) {
+    console.error('Error in getCompanyApiUrl:', error);
+    throw error;
   }
-
-  const data = await response.json();
-
-  return {
-    apiUrl:
-      data.companyData.api_url || baseUrl,
-    companyId: data.userData.companyId,
-  };
 };
 
 // Helper to upload a file to NeonDB storage and get a public URL
+// Using the same approach as the working Chat component
 const uploadFile = async (file: File | Blob, fileName: string): Promise<string> => {
-  const { apiUrl, companyId } = await getCompanyApiUrl();
-  
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('fileName', fileName);
-  formData.append('companyId', companyId);
-  
-  const response = await fetch(`${apiUrl}/api/upload-file`, {
-    method: 'POST',
-    body: formData,
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to upload file');
+  try {
+    const { apiUrl, companyId } = await getCompanyApiUrl();
+    
+    // Validate file before upload
+    if (!file || file.size === 0) {
+      throw new Error('File is empty or invalid');
+    }
+    
+    // For PDFs, ensure proper MIME type
+    let uploadFile = file;
+    if (fileName.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+      uploadFile = new Blob([file], { type: 'application/pdf' });
+      console.log('Fixed PDF MIME type for upload:', {
+        originalType: file.type,
+        newType: uploadFile.type
+      });
+    }
+    
+    console.log('Uploading file using Chat component method:', {
+      apiUrl,
+      companyId,
+      fileName,
+      fileSize: uploadFile.size,
+      fileType: uploadFile.type
+    });
+    
+    // Use the same upload endpoint as the working Chat component
+    const formData = new FormData();
+    formData.append('file', uploadFile);
+    
+    console.log('FormData entries:');
+    for (let [key, value] of formData.entries()) {
+      if (value instanceof Blob) {
+        console.log(`  ${key}:`, { type: value.type, size: value.size });
+      } else {
+        console.log(`  ${key}:`, value);
+      }
+    }
+    
+    // Use /api/upload-media like the Chat component (not /api/upload-file)
+    const response = await fetch(`${apiUrl}/api/upload-media`, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    console.log('Upload response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Upload error response body:', errorText);
+      throw new Error(`Upload failed with status ${response.status}: ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('Upload success response:', result);
+    
+    if (!result.url) {
+      throw new Error('Upload response missing URL');
+    }
+    
+    return result.url;
+  } catch (error) {
+    console.error('Error in uploadFile:', error);
+    throw error;
   }
-  
-  const result = await response.json();
-  return result.url;
 };
 
 // Helper to send a WhatsApp document message
 const sendDocumentMessage = async (chatId: string, documentUrl: string, fileName: string, caption: string) => {
-  const { apiUrl, companyId } = await getCompanyApiUrl();
-  const userName = localStorage.getItem("userName") || localStorage.getItem("userEmail") || '';
-  // Use phoneIndex 0 for now (or extend if needed)
-  const phoneIndex = 0;
-  const response = await fetch(`${apiUrl}/api/v2/messages/document/${companyId}/${chatId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  try {
+    const { apiUrl, companyId } = await getCompanyApiUrl();
+    const userName = localStorage.getItem("userName") || localStorage.getItem("userEmail") || '';
+    const phoneIndex = 0;
+    
+    console.log('Sending document message:', {
+      apiUrl,
+      companyId,
+      chatId,
+      userName,
+      phoneIndex,
+      documentUrl,
+      fileName,
+      caption
+    });
+    
+    const requestBody = {
       documentUrl: documentUrl,
       filename: fileName,
       phoneIndex: phoneIndex,
       userName: userName,
-    }),
-  });
-  if (!response.ok) throw new Error(`API failed with status ${response.status}`);
-  return await response.json();
+    };
+    
+    console.log('Request body:', requestBody);
+    
+    const response = await fetch(`${apiUrl}/api/v2/messages/document/${companyId}/${chatId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+    
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response body:', errorText);
+      
+      let errorMessage = `API failed with status ${response.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error) {
+          errorMessage += `: ${errorJson.error}`;
+        } else if (errorJson.message) {
+          errorMessage += `: ${errorJson.message}`;
+        }
+      } catch (e) {
+        if (errorText) {
+          errorMessage += `: ${errorText}`;
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    const responseData = await response.json();
+    console.log('Success response:', responseData);
+    return responseData;
+  } catch (error) {
+    console.error('Error in sendDocumentMessage:', error);
+    throw error;
+  }
 };
 
 // Helper to send a WhatsApp text message
 const sendTextMessage = async (chatId: string, text: string) => {
-  const { apiUrl, companyId } = await getCompanyApiUrl();
-  const userName = localStorage.getItem("userName") || localStorage.getItem("userEmail") || '';
-  const phoneIndex = 0;
-  const response = await fetch(`${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  try {
+    const { apiUrl, companyId } = await getCompanyApiUrl();
+    const userName = localStorage.getItem("userName") || localStorage.getItem("userEmail") || '';
+    const phoneIndex = 0;
+    
+    console.log('Sending text message:', {
+      apiUrl,
+      companyId,
+      chatId,
+      userName,
+      phoneIndex,
+      messageLength: text.length
+    });
+    
+    const requestBody = {
       message: text,
       phoneIndex: phoneIndex,
       userName: userName,
-    }),
-  });
-  if (!response.ok) throw new Error(`API failed with status ${response.status}`);
-  return await response.json();
+    };
+    
+    console.log('Request body:', requestBody);
+    
+    const response = await fetch(`${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+    
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response body:', errorText);
+      
+      let errorMessage = `API failed with status ${response.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error) {
+          errorMessage += `: ${errorJson.error}`;
+        } else if (errorJson.message) {
+          errorMessage += `: ${errorJson.message}`;
+        }
+      } catch (e) {
+        if (errorText) {
+          errorMessage += `: ${errorText}`;
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    const responseData = await response.json();
+    console.log('Success response:', responseData);
+    return responseData;
+  } catch (error) {
+    console.error('Error in sendTextMessage:', error);
+    throw error;
+  }
 };
+
+// Custom hooks for fetching data from database APIs
+function useFeedbackResponses() {
+  const [feedbackResponses, setFeedbackResponses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchFeedbackResponses = async () => {
+      try {
+        setLoading(true);
+        setError(null); // Clear any previous errors
+        
+        console.log('Fetching feedback responses...');
+        const { companyId } = await getCompanyApiUrl();
+        console.log('Company ID retrieved:', companyId);
+        
+        const apiUrl = `${baseUrl}/api/feedback-responses?company_id=${companyId}`;
+        console.log('API URL:', apiUrl);
+        
+        const response = await axios.get(apiUrl);
+        console.log('API response status:', response.status);
+        console.log('API response data:', response.data);
+        
+        if (response.data.success) {
+          setFeedbackResponses(response.data.feedbackResponses);
+          console.log('Successfully set feedback responses:', response.data.feedbackResponses);
+        } else {
+          const errorMsg = response.data.error || 'API returned success: false';
+          console.error('API returned error:', errorMsg);
+          setError(`API Error: ${errorMsg}`);
+        }
+      } catch (err: any) {
+        console.error('Error fetching feedback responses:', err);
+        
+        // Provide more specific error information
+        let errorMessage = 'Error fetching feedback responses';
+        if (err.response) {
+          // Server responded with error status
+          errorMessage = `Server Error: ${err.response.status} - ${err.response.statusText}`;
+          if (err.response.data?.error) {
+            errorMessage += `: ${err.response.data.error}`;
+          }
+        } else if (err.request) {
+          // Request was made but no response received
+          errorMessage = 'Network Error: No response from server';
+        } else {
+          // Something else happened
+          errorMessage = `Request Error: ${err.message}`;
+        }
+        
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeedbackResponses();
+  }, []);
+
+  return { feedbackResponses, loading, error };
+}
 
 function DashboardOverview3() {
   const rsvpData = useSheetData(RSVP_CSV_URL);
   const aiHorizonRSVP = useSheetData(AI_HORIZON_CSV_URL);
   const feedbackData = useSheetData(FEEDBACK_CSV_URL);
+  const { feedbackResponses: neonFeedbackResponses, loading: feedbackResponsesLoading, error: feedbackResponsesError } = useFeedbackResponses();
   const [selectedProgram, setSelectedProgram] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [programDropdownOpen, setProgramDropdownOpen] = useState(false);
@@ -448,6 +699,9 @@ function DashboardOverview3() {
   const [sendingModalOpen, setSendingModalOpen] = useState(false);
   const [sendingStatus, setSendingStatus] = useState<any[]>([]);
   const [sendingInProgress, setSendingInProgress] = useState(false);
+  
+  // Add state for individual certificate sending
+  const [sendingIndividualCert, setSendingIndividualCert] = useState<{ [key: string]: boolean }>({});
 
   // Add state for selected program for sending certificates
   const [selectedSendProgram, setSelectedSendProgram] = useState<string>("");
@@ -456,6 +710,7 @@ function DashboardOverview3() {
   const [attendeesToSend, setAttendeesToSend] = useState<any[]>([]);
   const [confirmSendOpen, setConfirmSendOpen] = useState(false);
   const [excludedPhones, setExcludedPhones] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Normalize MTDC RSVP
   const normalizedMtdc = rsvpData.map((row: any) => {
@@ -495,10 +750,119 @@ function DashboardOverview3() {
     // ...other fields
   }));
 
-  // Helper to normalize phone numbers (remove non-digits, add country code if missing)
-  function normalizePhone(phone: string) {
+  // Helper to normalize profession responses
+function normalizeProfession(profession: string): string {
+  if (!profession) return 'Unspecified';
+  
+  const prof = profession.trim();
+  
+  // Handle numbered responses (1. SME / SMI / Private Company)
+  if (prof.match(/^\d+\.\s+/)) {
+    const number = prof.match(/^(\d+)\.\s+/)?.[1];
+    if (!number) return 'Unspecified';
+    
+    const professionMap: { [key: string]: string } = {
+      '1': 'SME / SMI / Private Company',
+      '2': 'Government Agency / Research Institute', 
+      '3': 'Ministry / Government Staff / Civil Servant',
+      '4': 'University (Staff / Lecturers / Researchers)',
+      '5': 'University / College Student',
+      '6': 'Individual',
+      '7': 'Others'
+    };
+    return professionMap[number] || 'Unspecified';
+  }
+  
+  // Handle just numbers (1, 2, 3, etc.)
+  if (prof.match(/^\d+$/)) {
+    const professionMap: { [key: string]: string } = {
+      '1': 'SME / SMI / Private Company',
+      '2': 'Government Agency / Research Institute',
+      '3': 'Ministry / Government Staff / Civil Servant', 
+      '4': 'University (Staff / Lecturers / Researchers)',
+      '5': 'University / College Student',
+      '6': 'Individual',
+      '7': 'Others'
+    };
+    return professionMap[prof as keyof typeof professionMap] || 'Unspecified';
+  }
+  
+  // Handle malformed responses like "(1)", "(choose one):", etc.
+  if (prof.match(/^\([^)]*\)$/) || prof.includes('choose') || prof.includes('type') || prof.includes('number')) {
+    return 'Unspecified';
+  }
+  
+  // Handle responses like "(3)Others" - extract the actual profession
+  const match = prof.match(/^\((\d+)\)(.+)/);
+  if (match && match[1]) {
+    const number = match[1];
+    const professionMap: { [key: string]: string } = {
+      '1': 'SME / SMI / Private Company',
+      '2': 'Government Agency / Research Institute',
+      '3': 'Ministry / Government Staff / Civil Servant',
+      '4': 'University (Staff / Lecturers / Researchers)', 
+      '5': 'University / College Student',
+      '6': 'Individual',
+      '7': 'Others'
+    };
+    return professionMap[number] || 'Unspecified';
+  }
+  
+  // Handle responses like "1. SME / SMI / Private Company SME" - clean up duplicates
+  if (prof.includes('SME / SMI / Private Company')) {
+    return 'SME / SMI / Private Company';
+  }
+  
+  // Handle responses like "Manager (Private Company)" - map to SME category
+  if (prof.includes('Private Company') || prof.includes('Manager') && prof.includes('Company')) {
+    return 'SME / SMI / Private Company';
+  }
+  
+  // Handle responses like "Government Staff" - map to Ministry category
+  if (prof.includes('Government Staff') || prof.includes('Government')) {
+    return 'Ministry / Government Staff / Civil Servant';
+  }
+  
+  // Handle responses like "University student" - map to University Student category
+  if (prof.toLowerCase().includes('university') && prof.toLowerCase().includes('student')) {
+    return 'University / College Student';
+  }
+  
+  // Handle responses like "University (Staff / Lecturers / Researchers)" variations
+  if (prof.toLowerCase().includes('university') && (prof.toLowerCase().includes('staff') || prof.toLowerCase().includes('lecturer') || prof.toLowerCase().includes('researcher'))) {
+    return 'University (Staff / Lecturers / Researchers)';
+  }
+  
+  // If it's a valid profession name, return as is
+  if (prof.length > 2 && !prof.match(/^[^a-zA-Z]*$/)) {
+    return prof;
+  }
+  
+  return 'Unspecified';
+}
+
+// Helper to normalize phone numbers (remove non-digits, handle Malaysia country code)
+function normalizePhone(phone: string) {
     let digits = (phone || "").replace(/\D/g, "");
-    if (digits && !digits.startsWith("6")) digits = "6" + digits; // Default to Malaysia
+    
+    // Handle different formats:
+    // +60123456789 -> 60123456789
+    // 0123456789 -> 60123456789  
+    // 123456789 -> 60123456789
+    // 60123456789 -> 60123456789 (already correct)
+    // 194304533 -> 60194304533 (add country code)
+    
+    if (digits) {
+      if (digits.startsWith("60")) {
+        return digits; // Already has country code
+      } else if (digits.startsWith("0")) {
+        return "6" + digits; // Remove leading 0, add country code
+      } else if (digits.length >= 8) {
+        // For numbers like "194304533" that don't start with 0 or 60
+        return "60" + digits; // Add full Malaysia country code
+      }
+    }
+    
     return digits;
   }
 
@@ -524,8 +888,151 @@ function DashboardOverview3() {
     mergedRSVP.map((row: any) => [normalizeEmail(row.Email), row])
   );
 
-  // Join feedback with RSVP
-  const feedbackWithRSVP = feedbackData.map((feedback: any) => ({
+  // Merge CSV feedback data with Neon database feedback responses
+  const mergedFeedbackData = useMemo(() => {
+    if (!neonFeedbackResponses || neonFeedbackResponses.length === 0) {
+      return feedbackData;
+    }
+
+    // Convert Neon feedback responses to match CSV format
+    const neonFeedbackFormatted = neonFeedbackResponses.map((response: any) => {
+      // Create a base feedback object
+      const feedbackObj: any = {
+        id: response.id,
+        form_id: response.form_id,
+        phone_number: response.phone_number,
+        submitted_at: response.submitted_at,
+        created_at: response.created_at,
+        form_title: response.form_title,
+        // Map responses to CSV format
+        Email: '', // Will be filled if available in responses
+        'Which session did you attend?': response.form_title || 'Unknown Session',
+        // Initialize all rating fields from feedbackMetrics
+        'How would you rate overall session?': '',
+        'How effective was the trainer delivering the content?': '',
+        'How relevant was the content to your interests or role?': '',
+        'Does the training meet your expectations?': '',
+        'How would you rate the event venue?': '',
+        'How satisfied were you with the opportunities for interaction (e.g., Q&A sessions, networking)? ': '',
+        'How well was the session organized?': '',
+        'Would you recommend this session to others?': '',
+        'What aspects of the session did you find most valuable?': '',
+        'What suggestions do you have for improvement?': '',
+        'Additional comments': ''
+      };
+
+      // Map individual field responses to CSV format using exact matches
+      if (response.responses && Array.isArray(response.responses)) {
+        // Debug log to see the actual structure
+        console.log('Neon feedback response structure:', response.responses);
+        
+        let mappedFields = 0;
+        let totalFields = response.responses.length;
+        
+        response.responses.forEach((field: any) => {
+          const question = field.question;
+          const answer = field.answer;
+
+          // Exact match mapping based on the actual Neon database field names
+          switch (question) {
+            case 'How would you rate overall session?':
+              feedbackObj['How would you rate overall session?'] = answer;
+              mappedFields++;
+              break;
+            case 'How effective was the trainer delivering the content?':
+              feedbackObj['How effective was the trainer delivering the content?'] = answer;
+              mappedFields++;
+              break;
+            case 'How relevant was the content to your interests or role?':
+              feedbackObj['How relevant was the content to your interests or role?'] = answer;
+              mappedFields++;
+              break;
+            case 'Does the training meet your expectations?':
+              feedbackObj['Does the training meet your expectations?'] = answer;
+              mappedFields++;
+              break;
+            case 'How would you rate the event venue?':
+              feedbackObj['How would you rate the event venue?'] = answer;
+              mappedFields++;
+              break;
+            case 'How satisfied were you with the opportunities for interaction (e.g., Q&A sessions, networking)?':
+              feedbackObj['How satisfied were you with the opportunities for interaction (e.g., Q&A sessions, networking)? '] = answer;
+              mappedFields++;
+              break;
+            case 'How well was the session organized?':
+              feedbackObj['How well was the session organized?'] = answer;
+              mappedFields++;
+              break;
+            case 'Would you recommend this session to others?':
+              feedbackObj['Would you recommend this session to others?'] = answer;
+              mappedFields++;
+              break;
+            case 'What aspects of the session did you find most valuable?':
+              feedbackObj['What aspects of the session did you find most valuable?'] = answer;
+              mappedFields++;
+              break;
+            case 'What suggestions do you have for improvement?':
+              feedbackObj['What suggestions do you have for improvement?'] = answer;
+              mappedFields++;
+              break;
+            case 'Additional comments':
+              feedbackObj['Additional comments'] = answer;
+              mappedFields++;
+              break;
+            default:
+              // Log any unmapped fields for debugging
+              console.log('Unmapped Neon field:', { question: field.question, answer: field.answer });
+              break;
+          }
+        });
+        
+        // Debug log for the mapped feedback object
+        console.log('Mapped Neon feedback object:', feedbackObj);
+        console.log(`Field mapping summary: ${mappedFields}/${totalFields} fields successfully mapped`);
+      }
+
+      return feedbackObj;
+    });
+
+    // Combine CSV and Neon data, with CSV data taking precedence for duplicates
+    const combinedFeedback = [...feedbackData, ...neonFeedbackFormatted];
+    
+    // Remove duplicates based on form_id and phone_number (for Neon data) or Email (for CSV data)
+    const uniqueFeedback = combinedFeedback.filter((feedback, index, self) => {
+      if (feedback.form_id && feedback.phone_number) {
+        // Neon data - check for duplicates by form_id and phone_number
+        return index === self.findIndex(f => 
+          f.form_id === feedback.form_id && f.phone_number === feedback.phone_number
+        );
+      } else if (feedback.Email) {
+        // CSV data - check for duplicates by Email
+        return index === self.findIndex(f => f.Email === feedback.Email);
+      }
+      return true;
+    });
+
+    // Filter out feedback forms that have all 0.0 ratings
+    const filteredFeedback = uniqueFeedback.filter((feedback) => {
+      // Get all rating fields from feedbackMetrics
+      const ratingFields = feedbackMetrics.map(metric => metric.key);
+      
+      // Check if all rating fields are 0.0 or empty/null
+      const allRatingsZero = ratingFields.every(field => {
+        const value = feedback[field];
+        // Convert to number and check if it's 0 or empty/null
+        const numericValue = parseFloat(value);
+        return isNaN(numericValue) || numericValue === 0;
+      });
+      
+      // Keep feedback if NOT all ratings are zero
+      return !allRatingsZero;
+    });
+
+    return filteredFeedback;
+  }, [feedbackData, neonFeedbackResponses]);
+
+  // Join feedback with RSVP using merged data
+  const feedbackWithRSVP = mergedFeedbackData.map((feedback: any) => ({
     ...feedback,
     rsvp: rsvpByEmail[normalizeEmail(feedback.Email)]
   }));
@@ -533,7 +1040,7 @@ function DashboardOverview3() {
   // Profession breakdown
   const professionCounts: { [key: string]: number } = {};
   mergedRSVP.forEach((r: any) => {
-    const prof = (r.Profession || 'Unspecified').trim();
+    const prof = normalizeProfession(r.Profession || 'Unspecified');
     professionCounts[prof] = (professionCounts[prof] || 0) + 1;
   });
   const professions = Object.entries(professionCounts).map(([label, value]) => ({ label, value: Number(value) }));
@@ -765,10 +1272,10 @@ function DashboardOverview3() {
   const normalizedSelected = normalizeProgramName(selectedCleanedName);
 
   // Get all unique program names from feedback
-  const programNames = Array.from(new Set(feedbackData.map((f: any) => f["Which session did you attend?"])));
+  const programNames = Array.from(new Set(mergedFeedbackData.map((f: any) => f["Which session did you attend?"])));
 
   const programFeedback = programNames.map(program => {
-    const feedbacks = feedbackData.filter((f: any) => f["Which session did you attend?"] === program);
+    const feedbacks = mergedFeedbackData.filter((f: any) => f["Which session did you attend?"] === program);
     const metrics = {};
     feedbackMetrics.forEach(metric => {
       const values = feedbacks.map((f: any) => Number(f[metric.key])).filter((v: number) => !isNaN(v));
@@ -781,7 +1288,7 @@ function DashboardOverview3() {
   });
 
   // Find all feedback entries that match this program (fuzzy)
-  const feedbackForSelected = feedbackData.filter(
+  const feedbackForSelected = mergedFeedbackData.filter(
     (f: any) => 
       normalizeProgramName(f["Which session did you attend?"]) === normalizedSelected
   );
@@ -845,9 +1352,9 @@ function DashboardOverview3() {
         }
         
         if (eventsResponse.ok) {
-          const eventsData = await eventsResponse.json();
-          console.log('✅ Events Response:', eventsData);
-          setNeonEvents(eventsData.events || []);
+                      const eventsData = await eventsResponse.json();
+            console.log('✅ Events Response:', eventsData);
+            setNeonEvents(eventsData.events || []);
         } else {
           console.error('❌ Events Response Error:', eventsResponse.status, eventsResponse.statusText);
         }
@@ -865,12 +1372,12 @@ function DashboardOverview3() {
   const totalAttended = csvTotalAttended + neonTotalAttended;
   
   // Log the total attendance calculation
-  console.log('📊 Total Overview Attendance:', {
-    csvTotalAttended,
-    neonTotalAttended,
-    totalAttended,
-    totalRegistered: mergedRSVP.length
-  });
+  // console.log('📊 Total Overview Attendance:', {
+  //   csvTotalAttended,
+  //   neonTotalAttended,
+  //   totalAttended,
+  //   totalRegistered: mergedRSVP.length
+  // });
   
   // Calculate total attended count from both sources
   const csvAttendedCount = selectedProgramFilteredParticipants.filter(
@@ -933,17 +1440,38 @@ function DashboardOverview3() {
   
   const attendedCount = csvAttendedCount + neonAttendedCount;
   
-  // Log attendance calculations
-  console.log('📊 Attendance Calculation:', {
-    selectedProgram: selectedCleanedName,
-    showAllProgramsInCategory,
-    selectedCategory,
-    csvAttendedCount,
-    neonAttendedCount,
-    totalAttendedCount: attendedCount,
-    neonAttendanceDataLength: neonAttendanceData.length,
-    neonEventsLength: neonEvents.length
+  // Debug: Check which Neon records match this program
+  const matchingNeonRecords = neonAttendanceData.filter((record: any) => {
+    const event = neonEvents.find((e: any) => e.id === record.event_id);
+    if (!event) return false;
+    
+    const eventName = event.name || '';
+    const normalizedEventName = eventName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+    const normalizedProgramName = selectedCleanedName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+    
+    const programWords = normalizedProgramName.split(' ').filter((word: string) => word.length > 2);
+    const eventWords = normalizedEventName.split(' ').filter((word: string) => word.length > 2);
+    
+    const matchingWords = programWords.filter((word: string) => 
+      eventWords.some((eventWord: string) => eventWord.includes(word) || word.includes(eventWord))
+    );
+    
+    return matchingWords.length >= 2;
   });
+  
+
+  
+  // Log attendance calculations
+  // console.log('📊 Attendance Calculation:', {
+  //   selectedProgram: selectedCleanedName,
+  //   showAllProgramsInCategory,
+  //   selectedCategory,
+  //   csvAttendedCount,
+  //   neonAttendedCount,
+  //   totalAttendedCount: attendedCount,
+  //   neonAttendanceDataLength: neonAttendanceData.length,
+  //   neonEventsLength: neonEvents.length
+  // });
 
   // Program-specific category breakdown
   const selectedProgramParticipants = selectedProgramFilteredParticipants;
@@ -960,7 +1488,7 @@ function DashboardOverview3() {
   // Program-specific profession breakdown
   const selectedProgramProfessionCounts: { [key: string]: number } = {};
   selectedProgramParticipants.forEach((r: any) => {
-    const prof = (r.Profession || 'Unspecified').trim();
+    const prof = normalizeProfession(r.Profession || 'Unspecified');
     selectedProgramProfessionCounts[prof] = (selectedProgramProfessionCounts[prof] || 0) + 1;
   });
   const selectedProgramProfessions = Object.entries(selectedProgramProfessionCounts)
@@ -998,6 +1526,105 @@ function DashboardOverview3() {
 
 
 
+  // Get the total Neon attendance count for this program (same logic as Program-Specific Dashboard)
+  const getProgramNeonAttendanceCount = (programName: string) => {
+    const cleanedName = cleanProgramName(programName);
+    return neonAttendanceData.filter((record: any) => {
+      const event = neonEvents.find((e: any) => e.id === record.event_id);
+      if (!event) return false;
+      
+      // Use event slug mapping
+      if (record.event_slug === "ai-meets-robotics-empowering-the-next-generation-of-intelligent-machines" && 
+          cleanedName.toLowerCase().includes("digitalpreneur")) {
+        return true;
+      }
+      
+      // Fallback to name matching
+      const eventName = event.name || '';
+      const normalizedEventName = eventName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+      const normalizedProgramName = cleanedName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+      
+      const programWords = normalizedProgramName.split(' ').filter((word: string) => word.length > 2);
+      const eventWords = normalizedEventName.split(' ').filter((word: string) => word.length > 2);
+      
+      const matchingWords = programWords.filter((word: string) => 
+        eventWords.some((eventWord: string) => eventWord.includes(word) || word.includes(eventWord))
+      );
+      
+      return matchingWords.length >= 2;
+    }).length;
+  };
+
+  // Cache for program attendance counts
+  const programAttendanceCache = new Map<string, number>();
+  
+  // Helper function to get combined attendance status (CSV + Neon)
+  const getCombinedAttendanceStatus = (row: any) => {
+    const csvAttendanceStatus = row["Attendance status"];
+    const programName = row["Program Name"];
+    
+    // Always mark "Accepted" as "Attended"
+    if (csvAttendanceStatus === "Accepted") {
+      // Also update RSVP status to "Accepted" if they attended
+      row["RSVP status"] = "Accepted";
+      return "Attended";
+    }
+    
+    // Get or calculate Neon attendance count for this program
+    let neonAttendanceCount = programAttendanceCache.get(programName);
+    if (neonAttendanceCount === undefined) {
+      neonAttendanceCount = getProgramNeonAttendanceCount(programName);
+      programAttendanceCache.set(programName, neonAttendanceCount);
+    }
+    
+    // Get all participants for this program
+    const programParticipants = mergedRSVP.filter(p => p["Program Name"] === programName);
+    
+    // Count of "Accepted" participants for this program
+    const acceptedCount = programParticipants.filter(p => p["Attendance status"] === "Accepted").length;
+    
+    // Calculate how many more can be marked as "Attended" from Neon data
+    const remainingNeonSlots = Math.max(0, neonAttendanceCount - acceptedCount);
+    
+    if (remainingNeonSlots > 0) {
+      // Sort non-accepted participants by priority: Pending > Not Attended > Unknown
+      const nonAcceptedParticipants = programParticipants
+        .filter(p => p["Attendance status"] !== "Accepted")
+        .sort((a, b) => {
+          const statusA = a["Attendance status"] || "";
+          const statusB = b["Attendance status"] || "";
+          
+          const priority = { "Pending": 0, "Not Attended": 1, "": 2 };
+          return (priority[statusA as keyof typeof priority] || 3) - (priority[statusB as keyof typeof priority] || 3);
+        });
+      
+      // Find this participant's position in the sorted list
+      const participantPosition = nonAcceptedParticipants.findIndex(p => 
+        p["Full Name"] === row["Full Name"] && 
+        p["Email"] === row["Email"] && 
+        p["Phone"] === row["Phone"]
+      );
+      
+      // If this participant is within the remaining Neon slots, mark as "Attended"
+      if (participantPosition >= 0 && participantPosition < remainingNeonSlots) {
+        // Also update RSVP status to "Accepted" if they attended
+        row["RSVP status"] = "Accepted";
+        return "Attended";
+      }
+    }
+    
+    // Otherwise, return original status
+    if (csvAttendanceStatus === "Not Attended") return "Not Attended";
+    if (csvAttendanceStatus === "Pending") return "Pending";
+    return csvAttendanceStatus || "Unknown";
+  };
+
+  // Update attended count to match the participants table logic
+  const programSpecificAttendedCount = selectedProgramFilteredParticipants.filter(participant => {
+    const status = getCombinedAttendanceStatus(participant);
+    return status === "Attended";
+  }).length;
+
   // Filtered data for participants
   const filteredParticipants = mergedRSVP.filter(row => {
     // Apply search filter
@@ -1033,16 +1660,19 @@ function DashboardOverview3() {
       return false;
     }
     
-    // Apply attendance status filter
-    if (participantAttendanceFilter && row["Attendance status"] !== participantAttendanceFilter) {
-      return false;
+    // Apply attendance status filter using combined logic
+    if (participantAttendanceFilter) {
+      const combinedStatus = getCombinedAttendanceStatus(row);
+      if (combinedStatus !== participantAttendanceFilter) {
+        return false;
+      }
     }
     
     return true;
   });
   
   // Filtered data for feedback
-  const filteredFeedback = feedbackData.filter(row => {
+  const filteredFeedback = mergedFeedbackData.filter(row => {
     // Apply session filter
     if (selectedSessionFilter && row["Which session did you attend?"] !== selectedSessionFilter) {
       return false;
@@ -1092,7 +1722,7 @@ function DashboardOverview3() {
     "Category",
     "Profession",
   ];
-  const participantColumnsWithCert = [...participantColumns, "Certificate"];
+  const participantColumnsWithCert = [...participantColumns, "Certificate", "Send via WhatsApp"];
 
   // For download: map filteredParticipants to this column order
   function getParticipantsForDownload() {
@@ -1100,7 +1730,12 @@ function DashboardOverview3() {
       const r = row as Record<string, any>;
       const out: Record<string, any> = {};
       participantColumns.forEach(col => {
-        out[col] = r[col] ?? '';
+        if (col === "Attendance status") {
+          // Use combined attendance status for download
+          out[col] = getCombinedAttendanceStatus(row);
+        } else {
+          out[col] = r[col] ?? '';
+        }
       });
       return out;
     });
@@ -1135,6 +1770,7 @@ function DashboardOverview3() {
   // Handler to open confirmation modal
   const handleOpenConfirmSend = () => {
     setAttendeesToSend(attendeesForSelectedSendProgram.map(a => ({ ...a, selected: true })));
+    setSearchQuery(""); // Clear search when opening modal
     setConfirmSendOpen(true);
   };
 
@@ -1142,6 +1778,47 @@ function DashboardOverview3() {
   const handleToggleAttendee = (idx: number) => {
     setAttendeesToSend(prev => prev.map((a, i) => i === idx ? { ...a, selected: !a.selected } : a));
   };
+
+  // Helper function to get selection counts
+  const getSelectionCounts = () => {
+    const selectedCount = attendeesToShow.filter(a => a.selected).length;
+    const totalCount = attendeesToShow.length;
+    const filteredSelectedCount = filteredAttendeesToShow.filter(a => a.selected).length;
+    const filteredTotalCount = filteredAttendeesToShow.length;
+    return { 
+      selectedCount, 
+      totalCount, 
+      filteredSelectedCount, 
+      filteredTotalCount 
+    };
+  };
+
+  // Keyboard shortcuts for the confirmation modal
+  useEffect(() => {
+    if (!confirmSendOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + A: Select all
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        setAttendeesToSend(attendeesToSend.map(a => ({ ...a, selected: true })));
+      }
+      // Ctrl/Cmd + D: Deselect all
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        setAttendeesToSend(attendeesToSend.map(a => ({ ...a, selected: false })));
+      }
+      // Ctrl/Cmd + K: Focus search input
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder="Search attendees by name..."]') as HTMLInputElement;
+        if (searchInput) searchInput.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [confirmSendOpen, attendeesToSend]);
 
   function handleExcludeCSV(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1164,39 +1841,81 @@ function DashboardOverview3() {
 
   // Handler to confirm and start sending
   const handleConfirmAndSend = async () => {
+    const requestId = Math.random().toString(36).substring(2, 10);
+    console.log(`[Dashboard][${requestId}] ===== BULK CERTIFICATE GENERATION STARTED =====`);
+    
     setConfirmSendOpen(false);
     const attendees = attendeesToShow.filter(a => a.selected);
+    
+    if (attendees.length === 0) {
+      console.log(`[Dashboard][${requestId}] No attendees selected`);
+      return;
+    }
+    
+    console.log(`[Dashboard][${requestId}] Processing ${attendees.length} selected attendees`);
     setSendingModalOpen(true);
     setSendingInProgress(true);
     setSendingStatus(attendees.map((a: any) => ({ name: a["Full Name"], phone: a["Phone"], status: "pending" })));
+    
+    // Get company ID for API calls
+    let companyId;
+    try {
+      console.log(`[Dashboard][${requestId}] Getting company ID...`);
+      companyId = await getCompanyId();
+      console.log(`[Dashboard][${requestId}] Company ID: ${companyId}`);
+    } catch (error) {
+      console.error(`[Dashboard][${requestId}] Failed to get company ID:`, error);
+      setSendingInProgress(false);
+      return;
+    }
+    
     for (let i = 0; i < attendees.length; i++) {
       const attendee = attendees[i];
-      let thankYouText = '';
-      thankYouText = `Dear ${attendee["Full Name"]}\n\nThank You for Attending FUTUREX.AI 2025\n\nOn behalf of the organizing team, we would like to extend our heartfelt thanks for your participation in FUTUREX.AI 2025 held on 7 August 2025.\n\nYour presence and engagement in the Business Automation & AI Chatbot Experience session greatly contributed to the success of the event.\n\nWe hope the experience was insightful and inspiring as we continue to explore how artificial intelligence and robotics can shape the future.\n\nWe hope you can join our next event as well.\n\nPlease find your digital certificate of participation attached.\n\nWarm regards,\nCo9P AI Chatbot`;
-
+      console.log(`[Dashboard][${requestId}] Processing attendee ${i + 1}/${attendees.length}: ${attendee["Full Name"]}`);
+      
       let status = "pending";
       try {
         const name = attendee["Full Name"];
         const phone = attendee["Phone"];
-        if (!name || !phone) throw new Error("Missing name or phone");
-        let phoneDigits = String(phone).replace(/\D/g, "");
-        if (!phoneDigits.startsWith("6")) phoneDigits = "6" + phoneDigits;
-        const chatId = phoneDigits + "@c.us";
-        await sendTextMessage(chatId, thankYouText);
-        const certBlob = await generateCertificate(name, attendee["Program Date & Time"], { returnBlob: true }) as Blob;
-        const fileName = `${name.replace(/[^a-zA-Z0-9]/g, "_")}_FUTUREX.AI_2025_Certificate.pdf`;
-        const certUrl = await uploadFile(certBlob, fileName);
-        await sendDocumentMessage(chatId, certUrl, fileName, "Certificate of Participation");
-        status = "success";
-      } catch (err) {
+        
+        if (!name || !phone) {
+          throw new Error("Missing name or phone");
+        }
+        
+        // Call backend API for certificate generation and WhatsApp sending
+        const requestPayload = {
+          phoneNumber: phone,
+          formId: "bulk-send-program", // Use a specific ID for bulk operations
+          formTitle: "FUTUREX.AI 2025 Bulk Certificate Send",
+          companyId: companyId
+        };
+        
+        console.log(`[Dashboard][${requestId}] Sending request for ${name}:`, JSON.stringify(requestPayload, null, 2));
+        
+        const response = await axios.post(`${baseUrl}/api/certificates/generate-and-send`, requestPayload);
+        
+        if (response.data.success) {
+          console.log(`[Dashboard][${requestId}] ✅ Certificate sent successfully for ${name}`);
+          status = "success";
+        } else {
+          console.error(`[Dashboard][${requestId}] ❌ Certificate failed for ${name}:`, response.data.error);
+          status = "failed";
+        }
+        
+      } catch (err: any) {
+        console.error(`[Dashboard][${requestId}] ❌ Error processing ${attendee["Full Name"]}:`, err);
         status = "failed";
       }
+      
+      // Update status for this attendee
       setSendingStatus((prev) =>
         prev.map((s, idx) =>
           idx === i ? { ...s, status } : s
         )
       );
     }
+    
+    console.log(`[Dashboard][${requestId}] ===== BULK CERTIFICATE GENERATION COMPLETED =====`);
     setSendingInProgress(false);
   };
 
@@ -1225,8 +1944,44 @@ function DashboardOverview3() {
     a => !excludedPhones.includes(String(a["Phone"] || '').replace(/\D/g, ''))
   );
 
+  // Filter attendees by search query
+  const filteredAttendeesToShow = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return attendeesToShow;
+    }
+    
+    const query = searchQuery.toLowerCase().trim();
+    return attendeesToShow.filter(attendee => {
+      const fullName = (attendee["Full Name"] || "").toLowerCase();
+      const company = (attendee["Company"] || "").toLowerCase();
+      const email = (attendee["Email"] || "").toLowerCase();
+      
+      return fullName.includes(query) || 
+             company.includes(query) || 
+             email.includes(query);
+    });
+  }, [attendeesToShow, searchQuery]);
+
   return (
     <div className="p-6 space-y-10 h-screen overflow-auto">
+      {/* Loading State */}
+      {feedbackResponsesLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-8 shadow-xl">
+            <div className="flex items-center space-x-4">
+              <svg className="animate-spin h-8 w-8 text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <div>
+                <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">Loading Dashboard Data</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Fetching feedback responses from database...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Participant Overview */}
       <section className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8 border border-gray-100 dark:border-gray-700">
         <div className="flex items-center mb-6">
@@ -1236,6 +1991,7 @@ function DashboardOverview3() {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Participant Overview</h2>
+        
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -1272,8 +2028,89 @@ function DashboardOverview3() {
             />
           </div>
         </div>
+        
+        {/* Detailed Profession Breakdown */}
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300 flex items-center">
+            <svg className="w-5 h-5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            Detailed Profession Breakdown
+          </h3>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Profession Pie Chart */}
+            <div className="bg-white dark:bg-slate-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
+              <h4 className="text-lg font-semibold mb-4 text-center text-gray-800 dark:text-gray-200">
+                Profession Distribution
+              </h4>
+              <CustomPieChart
+                data={professionPieData}
+                labels={professionPieLabels}
+                colors={chartColors}
+                width={350}
+                height={350}
+                className="mx-auto"
+              />
+            </div>
+            
+            {/* Profession Statistics Table */}
+            <div className="bg-white dark:bg-slate-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
+              <h4 className="text-lg font-semibold mb-4 text-center text-gray-800 dark:text-gray-200">
+                Profession Statistics
+              </h4>
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {professions
+                  .filter(p => p.label !== 'Unspecified') // Filter out unspecified professions
+                  .sort((a, b) => b.value - a.value) // Sort by count descending
+                  .map((profession, index) => (
+                    <div key={profession.label} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-600 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div 
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                        ></div>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          {profession.label}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                          {profession.value}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {((profession.value / totalRegistered) * 100).toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+              
+              {/* Summary for unspecified */}
+              {professions.find(p => p.label === 'Unspecified') && (
+                <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-yellow-800 dark:text-yellow-300">
+                      Not Specified
+                    </span>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-yellow-800 dark:text-yellow-300">
+                        {professions.find(p => p.label === 'Unspecified')?.value || 0}
+                      </div>
+                      <div className="text-sm text-yellow-600 dark:text-yellow-400">
+                        {((professions.find(p => p.label === 'Unspecified')?.value || 0) / totalRegistered * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </section>
-{/* */}
+      
+
+      
       {/* Program-Specific Dashboard */}
       <section className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8 border border-gray-100 dark:border-gray-700">
         <div className="flex items-center mb-6">
@@ -1452,7 +2289,7 @@ function DashboardOverview3() {
           <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg p-6 border border-green-200 dark:border-green-700">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{attendedCount}</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{programSpecificAttendedCount}</div>
                 <div className="text-sm text-green-700 dark:text-green-300 font-medium">
                   {showAllProgramsInCategory && selectedCategory ? 'Total Attended' : 'Attended'}
                 </div>
@@ -1470,7 +2307,7 @@ function DashboardOverview3() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                  {registeredCount > 0 ? ((attendedCount / registeredCount) * 100).toFixed(1) : '0'}%
+                  {registeredCount > 0 ? ((programSpecificAttendedCount / registeredCount) * 100).toFixed(1) : '0'}%
                 </div>
                 <div className="text-sm text-purple-700 dark:text-purple-300 font-medium">Attendance Rate</div>
               </div>
@@ -1484,6 +2321,69 @@ function DashboardOverview3() {
 
         </div>
 
+        {/* Profession Breakdown Pie Chart */}
+        {selectedProgramFilteredParticipants.length > 0 && (
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              Profession Breakdown
+            </h3>
+            
+            {/* Profession Statistics Summary */}
+            <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {selectedProgramProfessions.slice(0, 4).map((profession, index) => (
+                <div key={profession.label} className="bg-white dark:bg-slate-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    {profession.label === 'Unspecified' ? 'Not Specified' : profession.label}
+                  </div>
+                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                    {profession.value}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {((profession.value / selectedProgramFilteredParticipants.length) * 100).toFixed(1)}% of total
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Profession Pie Chart */}
+            <div className="bg-white dark:bg-slate-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
+              <div className="flex justify-center">
+                <CustomPieChart
+                  data={selectedProgramProfessions.map(p => p.value)}
+                  labels={selectedProgramProfessions.map(p => 
+                    p.label === 'Unspecified' ? 'Not Specified' : p.label
+                  )}
+                  colors={chartColors}
+                  width={400}
+                  height={400}
+                  className="mx-auto"
+                />
+              </div>
+              
+              {/* Legend with counts */}
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {selectedProgramProfessions.map((profession, index) => (
+                  <div key={profession.label} className="flex items-center space-x-2">
+                    <div 
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                    ></div>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {profession.label === 'Unspecified' ? 'Not Specified' : profession.label}
+                    </span>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      ({profession.value})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
       </section>
 
       {/* Feedback Form Dashboard */}
@@ -1495,6 +2395,7 @@ function DashboardOverview3() {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Feedback Form Dashboard</h2>
+       
         </div>
         <div className="mb-8">
           <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300">Overall Scores (All Programs Combined)</h3>
@@ -1530,6 +2431,11 @@ function DashboardOverview3() {
             </svg>
             Program-Level Scores
           </h3>
+          {neonFeedbackResponses && neonFeedbackResponses.length > 0 && (
+            <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+              * Scores include feedback from both CSV and database sources
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="min-w-full border text-sm">
               <thead>
@@ -1580,10 +2486,15 @@ function DashboardOverview3() {
         <div className="mt-8">
           <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300 flex items-center">
             <svg className="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h7.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
             Category-Level Scores
           </h3>
+          {neonFeedbackResponses && neonFeedbackResponses.length > 0 && (
+            <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+              * Scores include feedback from both CSV and database sources
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="min-w-full border text-sm">
               <thead>
@@ -1610,7 +2521,7 @@ function DashboardOverview3() {
                   // Group feedback by category based on program name
                   const feedbackByCategory: { [category: string]: any[] } = {};
                   
-                  feedbackData.forEach((feedback: any) => {
+                  mergedFeedbackData.forEach((feedback: any) => {
                     const feedbackProgram = feedback["Which session did you attend?"];
                     let category = 'Unspecified';
                     
@@ -1785,9 +2696,27 @@ function DashboardOverview3() {
               onChange={e => setParticipantAttendanceFilter(e.target.value)}
             >
               <option value="">All Attendance</option>
-              {Array.from(new Set(mergedRSVP.map((row: any) => row["Attendance status"]).filter(Boolean))).map((attendance) => (
-                <option value={attendance} key={attendance}>{attendance}</option>
-              ))}
+              {(() => {
+                // Get all unique combined attendance statuses
+                const allStatuses = new Set<string>();
+                mergedRSVP.forEach(row => {
+                  const combinedStatus = getCombinedAttendanceStatus(row);
+                  allStatuses.add(combinedStatus);
+                });
+                return Array.from(allStatuses).sort().map((status) => {
+                  let displayLabel = status;
+                  if (status === "Attended") {
+                    displayLabel = "Attended";
+                  } else if (status === "Not Attended") {
+                    displayLabel = "Not Attended";
+                  } else if (status === "Pending") {
+                    displayLabel = "Pending";
+                  }
+                  return (
+                    <option value={status} key={status}>{displayLabel}</option>
+                  );
+                });
+              })()}
             </select>
           </div>
         </div>
@@ -1832,6 +2761,8 @@ function DashboardOverview3() {
             </button>
           </div>
         </div>
+        
+
         
         {/* Show program breakdown when "All Programs in Category" is selected */}
         {participantProgramFilter.startsWith('all_in_category_') && participantCategoryFilter && (
@@ -1899,25 +2830,420 @@ function DashboardOverview3() {
               </tr>
             </thead>
             <tbody>
-              {filteredParticipants.map((row, i) => (
-                <tr key={i} className={i % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-blue-50 dark:bg-slate-700'}>
-                  {participantColumns.map((key, j) => (
-                    <td key={j} className="border px-2 py-1">{(row as Record<string, any>)[key] == null ? '' : String((row as Record<string, any>)[key])}</td>
-                  ))}
-                  <td className="border px-2 py-1">
-                    <button
-                      className="px-2 py-1 bg-blue-600 text-white rounded text-xs"
-                      onClick={() => generateCertificate((row as Record<string, any>)["Full Name"] || "", (row as Record<string, any>)["Program Date & Time"])}
-                      disabled={!((row as Record<string, any>)["Full Name"])}
-                    >
-                      Download Certificate
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {filteredParticipants.map((row, i) => {
+                // Get combined attendance status using helper function
+                const combinedAttendanceStatus = getCombinedAttendanceStatus(row);
+                const csvAttendanceStatus = (row as Record<string, any>)["Attendance status"];
+                
+                // Check if this participant has Neon attendance
+                const hasNeonAttendance = neonAttendanceData.some((record: any) => {
+                  const event = neonEvents.find((e: any) => e.id === record.event_id);
+                  if (!event) return false;
+                  
+                  const programName = (row as Record<string, any>)["Program Name"];
+                  const cleanedProgramName = cleanProgramName(programName);
+                  const eventName = event.name || '';
+                  const normalizedEventName = eventName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+                  const normalizedProgramName = cleanedProgramName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+                  
+                  const programWords = normalizedProgramName.split(' ').filter((word: string) => word.length > 2);
+                  const eventWords = normalizedEventName.split(' ').filter((word: string) => word.length > 2);
+                  
+                  const matchingWords = programWords.filter((word: string) => 
+                    eventWords.some((eventWord: string) => eventWord.includes(word) || word.includes(eventWord))
+                  );
+                  
+                  return matchingWords.length >= 2;
+                });
+                
+                return (
+                  <tr key={i} className={i % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-blue-50 dark:bg-slate-700'}>
+                    {participantColumns.map((key, j) => {
+                      // Special handling for attendance status column
+                      if (key === "Attendance status") {
+                        return (
+                          <td key={j} className="border px-2 py-1">
+                            <div className="flex flex-col">
+                              <span className={combinedAttendanceStatus === "Attended" ? "text-green-600 font-medium" : 
+                                               combinedAttendanceStatus === "Not Attended" ? "text-red-600 font-medium" : 
+                                               "text-yellow-600 font-medium"}>
+                                {combinedAttendanceStatus}
+                              </span>
+                            
+                            </div>
+                          </td>
+                        );
+                      }
+                      return (
+                        <td key={j} className="border px-2 py-1">
+                          {(row as Record<string, any>)[key] == null ? '' : String((row as Record<string, any>)[key])}
+                        </td>
+                    );
+                    })}
+                    <td className="border px-2 py-1">
+                      <button
+                        className="px-2 py-1 bg-blue-600 text-white rounded text-xs"
+                        onClick={() => generateCertificate((row as Record<string, any>)["Full Name"] || "", (row as Record<string, any>)["Program Date & Time"])}
+                        disabled={!((row as Record<string, any>)["Full Name"])}
+                      >
+                        Download Certificate
+                      </button>
+                      <button
+                        className="px-2 py-1 bg-yellow-600 text-white rounded text-xs ml-1"
+                        onClick={async () => {
+                          const participantName = (row as Record<string, any>)["Full Name"] || "";
+                          if (!participantName) {
+                            alert("Missing name");
+                            return;
+                          }
+                          
+                          try {
+                            console.log('Testing PDF generation for:', participantName);
+                            
+                            // Generate certificate as blob
+                            const certificateBlob = await generateCertificate(
+                              participantName, 
+                              (row as Record<string, any>)["Program Date & Time"],
+                              { returnBlob: true }
+                            ) as Blob;
+                            
+                            if (!certificateBlob) {
+                              throw new Error("Failed to generate certificate");
+                            }
+                            
+                            console.log('Test PDF generated:', {
+                              size: certificateBlob.size,
+                              type: certificateBlob.type,
+                              isBlob: certificateBlob instanceof Blob
+                            });
+                            
+                            // Test the blob by creating a local URL (same as working Chat component)
+                            const localUrl = URL.createObjectURL(certificateBlob);
+                            console.log('Local PDF URL created:', localUrl);
+                            
+                            // Test the PDF accessibility first
+                            try {
+                              const testResponse = await fetch(localUrl);
+                              if (!testResponse.ok) {
+                                throw new Error(`PDF test failed: ${testResponse.status}`);
+                              }
+                              const testBlob = await testResponse.blob();
+                              console.log('PDF accessibility test successful:', {
+                                size: testBlob.size,
+                                type: testBlob.type
+                              });
+                              
+                              // Open in new tab to test (this should work like the Chat component)
+                              window.open(localUrl, '_blank');
+                              
+                              // Clean up after a delay
+                              setTimeout(() => URL.revokeObjectURL(localUrl), 5000);
+                            } catch (testError) {
+                              console.error('PDF accessibility test failed:', testError);
+                              // Clean up the URL immediately if test fails
+                              URL.revokeObjectURL(localUrl);
+                              throw new Error(`PDF accessibility test failed: ${testError instanceof Error ? testError.message : 'Unknown error'}`);
+                            }
+                            
+                            alert(`PDF test completed. Check console and new tab for details.`);
+                          } catch (error) {
+                            console.error("Error testing PDF:", error);
+                            alert(`PDF test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                          }
+                        }}
+                        disabled={!((row as Record<string, any>)["Full Name"])}
+                        title="Test PDF generation"
+                      >
+                        Test PDF
+                      </button>
+                    </td>
+                    <td className="border px-2 py-1">
+                      <button
+                        className={`px-2 py-1 text-white rounded text-xs ml-1 ${
+                          sendingIndividualCert[`${(row as Record<string, any>)["Full Name"]}_${(row as Record<string, any>)["Phone"]}`] 
+                            ? 'bg-gray-400 cursor-not-allowed' 
+                            : 'bg-green-600 hover:bg-green-700'
+                        }`}
+                        onClick={async () => {
+                          const participantName = (row as Record<string, any>)["Full Name"] || "";
+                          const phone = (row as Record<string, any>)["Phone"] || "";
+                          const participantKey = `${participantName}_${phone}`;
+                          
+                          if (!participantName || !phone) {
+                            alert("Missing name or phone number");
+                            return;
+                          }
+                          
+                          // Validate phone number format
+                          const normalizedPhone = phone.replace(/\D/g, '');
+                          if (normalizedPhone.length < 10) {
+                            alert("Invalid phone number format. Please ensure it's a valid phone number.");
+                            return;
+                          }
+                          
+                          // Format phone number for WhatsApp API (add @c.us suffix if not present)
+                          const formattedPhone = normalizedPhone.includes('@c.us') ? normalizedPhone : `${normalizedPhone}@c.us`;
+                          
+                          console.log('Sending certificate for:', {
+                            participantName,
+                            originalPhone: phone,
+                            normalizedPhone,
+                            formattedPhone
+                          });
+                          
+                          // Prevent multiple clicks
+                          if (sendingIndividualCert[participantKey]) return;
+                          
+                          setSendingIndividualCert(prev => ({ ...prev, [participantKey]: true }));
+                          
+                          try {
+                            // Generate certificate as blob
+                            const certificateBlob = await generateCertificate(
+                              participantName, 
+                              (row as Record<string, any>)["Program Date & Time"],
+                              { returnBlob: true }
+                            ) as Blob;
+                            
+                            if (!certificateBlob) {
+                              throw new Error("Failed to generate certificate");
+                            }
+                            
+                            console.log('Generated certificate blob:', {
+                              size: certificateBlob.size,
+                              type: certificateBlob.type,
+                              isBlob: certificateBlob instanceof Blob
+                            });
+                            
+                            // Ensure the blob is properly formatted as a PDF
+                            let pdfBlob = certificateBlob;
+                            if (certificateBlob.type !== 'application/pdf') {
+                              // Convert to proper PDF blob if type is wrong
+                              pdfBlob = new Blob([certificateBlob], { type: 'application/pdf' });
+                              console.log('Converted blob to PDF type:', {
+                                originalType: certificateBlob.type,
+                                newType: pdfBlob.type,
+                                size: pdfBlob.size
+                              });
+                            }
+                            
+                            // Upload certificate using the same method as Chat component
+                            const fileName = `${participantName}_FUTUREX.AI_2025__Certificate.pdf`;
+                            const documentUrl = await uploadFile(pdfBlob, fileName);
+                            
+                            console.log('Certificate uploaded successfully:', {
+                              url: documentUrl,
+                              fileName: fileName,
+                              originalSize: pdfBlob.size
+                            });
+                            
+                            // Send thank you message first
+                            const thankYouText = `Dear ${participantName}
+
+Thank You for Attending FUTUREX.AI 2025
+
+On behalf of the organizing team, we would like to extend our heartfelt thanks for your participation in FUTUREX.AI 2025 held on 14 August 2025.
+
+Your presence and engagement in the Digitalpreneur Create an Online Course with AI session greatly contributed to the success of the event.
+
+We hope the experience was insightful and inspiring as we continue to explore how artificial intelligence and robotics can shape the future.
+
+We hope you can join our next event as well.
+
+Please find your digital certificate of participation attached.
+
+Warm regards,
+Co9P AI Chatbot`;
+                            
+                            // Send thank you message
+                            await sendTextMessage(formattedPhone, thankYouText);
+                            
+                            // Send thank you message first
+                            await sendTextMessage(formattedPhone, thankYouText);
+                            
+                            // Send certificate as document using the server URL
+                            await sendDocumentMessage(formattedPhone, documentUrl, fileName, "Your FUTUREX.AI 2025 Certificate of Participation");
+                            
+                            alert(`Certificate sent successfully to ${participantName}`);
+                          } catch (error) {
+                            console.error("Error sending certificate:", error);
+                            alert(`Failed to send certificate: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                          } finally {
+                            setSendingIndividualCert(prev => ({ ...prev, [participantKey]: false }));
+                          }
+                        }}
+                        disabled={!((row as Record<string, any>)["Full Name"]) || !((row as Record<string, any>)["Phone"]) || sendingIndividualCert[`${(row as Record<string, any>)["Full Name"]}_${(row as Record<string, any>)["Phone"]}`]}
+                        title="Send certificate via WhatsApp"
+                      >
+                        {sendingIndividualCert[`${(row as Record<string, any>)["Full Name"]}_${(row as Record<string, any>)["Phone"]}`] ? 'Sending...' : 'Send via WhatsApp'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+        
+        {/* Attendance Summary */}
+        <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Attendance Summary</h4>
+        
+   
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {(() => {
+                  // Get base participants (before attendance filtering)
+                  let baseParticipants = mergedRSVP;
+                  
+                  // Apply all filters EXCEPT attendance
+                  if (participantProgramFilter && !participantProgramFilter.startsWith('all_in_category_')) {
+                    baseParticipants = baseParticipants.filter(row => 
+                      cleanProgramName(row["Program Name"]) === participantProgramFilter
+                    );
+                  }
+                  
+                  if (participantCategoryFilter) {
+                    baseParticipants = baseParticipants.filter(row => row["Category"] === participantCategoryFilter);
+                  }
+                  
+                  if (participantProfessionFilter) {
+                    baseParticipants = baseParticipants.filter(row => row["Profession"] === participantProfessionFilter);
+                  }
+                  
+                  if (participantStatusFilter) {
+                    baseParticipants = baseParticipants.filter(row => row["RSVP status"] === participantStatusFilter);
+                  }
+                  
+                  // Count attended
+                  const attendedCount = baseParticipants.filter(row => {
+                    const status = getCombinedAttendanceStatus(row);
+                    return status === "Attended";
+                  }).length;
+                  
+
+                  
+                  return attendedCount;
+                })()}
+              </div>
+              <div className="text-gray-600 dark:text-gray-400">Total Attended</div>
+            
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                {(() => {
+                  // Get base participants (before attendance filtering)
+                  let baseParticipants = mergedRSVP;
+                  
+                  // Apply all filters EXCEPT attendance
+                  if (participantProgramFilter && !participantProgramFilter.startsWith('all_in_category_')) {
+                    baseParticipants = baseParticipants.filter(row => 
+                      cleanProgramName(row["Program Name"]) === participantProgramFilter
+                    );
+                  }
+                  
+                  if (participantCategoryFilter) {
+                    baseParticipants = baseParticipants.filter(row => row["Category"] === participantCategoryFilter);
+                  }
+                  
+                  if (participantProfessionFilter) {
+                    baseParticipants = baseParticipants.filter(row => row["Profession"] === participantProfessionFilter);
+                  }
+                  
+                  if (participantStatusFilter) {
+                    baseParticipants = baseParticipants.filter(row => row["RSVP status"] === participantStatusFilter);
+                  }
+                  
+                  // Count not attended
+                  const notAttendedCount = baseParticipants.filter(row => {
+                    const status = getCombinedAttendanceStatus(row);
+                    return status === "Not Attended";
+                  }).length;
+                  
+
+                  
+                  return notAttendedCount;
+                })()}
+              </div>
+              <div className="text-gray-600 dark:text-gray-400">Not Attended</div>
+           
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                {(() => {
+                  // Get base participants (before attendance filtering)
+                  let baseParticipants = mergedRSVP;
+                  
+                  // Apply all filters EXCEPT attendance
+                  if (participantProgramFilter && !participantProgramFilter.startsWith('all_in_category_')) {
+                    baseParticipants = baseParticipants.filter(row => 
+                      cleanProgramName(row["Program Name"]) === participantProgramFilter
+                    );
+                  }
+                  
+                  if (participantCategoryFilter) {
+                    baseParticipants = baseParticipants.filter(row => row["Category"] === participantCategoryFilter);
+                  }
+                  
+                  if (participantProfessionFilter) {
+                    baseParticipants = baseParticipants.filter(row => row["Profession"] === participantProfessionFilter);
+                  }
+                  
+                  if (participantStatusFilter) {
+                    baseParticipants = baseParticipants.filter(row => row["RSVP status"] === participantStatusFilter);
+                  }
+                  
+                  // Count pending
+                  const pendingCount = baseParticipants.filter(row => {
+                    const status = getCombinedAttendanceStatus(row);
+                    return status === "Pending";
+                  }).length;
+                  
+
+                  
+                  return pendingCount;
+                })()}
+              </div>
+              <div className="text-gray-600 dark:text-gray-400">Pending</div>
+
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {(() => {
+                  // Get base participants (before attendance filtering)
+                  let baseParticipants = mergedRSVP;
+                  
+                  // Apply all filters EXCEPT attendance
+                  if (participantProgramFilter && !participantProgramFilter.startsWith('all_in_category_')) {
+                    baseParticipants = baseParticipants.filter(row => 
+                      cleanProgramName(row["Program Name"]) === participantProgramFilter
+                    );
+                  }
+                  
+                  if (participantCategoryFilter) {
+                    baseParticipants = baseParticipants.filter(row => row["Category"] === participantCategoryFilter);
+                  }
+                  
+                  if (participantProfessionFilter) {
+                    baseParticipants = baseParticipants.filter(row => row["Profession"] === participantProfessionFilter);
+                  }
+                  
+                  if (participantStatusFilter) {
+                    baseParticipants = baseParticipants.filter(row => row["RSVP status"] === participantStatusFilter);
+                  }
+                  
+
+                  
+                  return baseParticipants.length;
+                })()}
+              </div>
+              <div className="text-gray-600 dark:text-gray-400">Total Participants</div>
+        
+            </div>
+          </div>
+        </div>
+        
         {/* Program selection dropdown for sending certificates */}
         <div className="mb-4 mt-8 flex flex-col items-start">
           <label className="mb-2 font-semibold">Select Program Date to Send Certificates:</label>
@@ -1943,7 +3269,7 @@ function DashboardOverview3() {
               disabled={sendingInProgress}
             >
               Send Certificates to All Attendees in Selected Program
-            </button>
+            </button> f
             {/* Confirmation Modal for selecting attendees */}
             {confirmSendOpen && (
               <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
@@ -1961,8 +3287,101 @@ function DashboardOverview3() {
                   </div>
                   {/* Add this summary line */}
                   <div className="mb-2 text-sm font-semibold text-center">
-                    {`Selected: ${attendeesToShow.filter(a => a.selected).length} / ${attendeesToShow.length} to send`}
+                    {(() => {
+                      const { selectedCount, totalCount, filteredSelectedCount, filteredTotalCount } = getSelectionCounts();
+                      if (searchQuery && filteredTotalCount !== totalCount) {
+                        return `Selected: ${selectedCount} / ${totalCount} total (${filteredSelectedCount} / ${filteredTotalCount} visible)`;
+                      }
+                      return `Selected: ${selectedCount} / ${totalCount} to send`;
+                    })()}
                   </div>
+                  
+                  {/* Select/Deselect All Buttons */}
+                  <div className="mb-3 flex justify-center gap-2">
+                    <button
+                      type="button"
+                      className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      onClick={() => {
+                        setAttendeesToSend(attendeesToSend.map(a => ({ ...a, selected: true })));
+                      }}
+                      disabled={(() => {
+                        const { selectedCount, totalCount } = getSelectionCounts();
+                        return selectedCount === totalCount;
+                      })()}
+                      title="Select all attendees (Ctrl/Cmd + A)"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      onClick={() => {
+                        // Select only the currently visible (filtered) attendees
+                        const visibleAttendeeIds = filteredAttendeesToShow.map(a => attendeesToSend.indexOf(a));
+                        setAttendeesToSend(attendeesToSend.map((a, i) => ({
+                          ...a,
+                          selected: visibleAttendeeIds.includes(i) ? true : a.selected
+                        })));
+                      }}
+                      disabled={(() => {
+                        const { filteredSelectedCount, filteredTotalCount } = getSelectionCounts();
+                        return filteredTotalCount === 0 || filteredSelectedCount === filteredTotalCount;
+                      })()}
+                      title="Select all visible attendees"
+                    >
+                      Select Visible
+                    </button>
+                    <button
+                      type="button"
+                      className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      onClick={() => {
+                        setAttendeesToSend(attendeesToSend.map(a => ({ ...a, selected: false })));
+                      }}
+                      disabled={(() => {
+                        const { selectedCount } = getSelectionCounts();
+                        return selectedCount === 0;
+                      })()}
+                      title="Deselect all attendees (Ctrl/Cmd + D)"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                  
+                  {/* Search Input */}
+                  <div className="mb-3">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search attendees by name... (Ctrl/Cmd + K)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm pr-20"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+                        {searchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setSearchQuery('')}
+                            className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                            title="Clear search"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+                        <kbd className="hidden sm:inline-flex items-center px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-200 rounded">
+                          ⌘K
+                        </kbd>
+                      </div>
+                    </div>
+                    {searchQuery && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Showing {filteredAttendeesToShow.length} of {attendeesToShow.length} attendees
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="max-h-64 overflow-y-auto border rounded mb-4">
                     <table className="min-w-full border text-xs">
                       <thead className="bg-gray-100 dark:bg-slate-700">
@@ -1973,15 +3392,27 @@ function DashboardOverview3() {
                         </tr>
                       </thead>
                       <tbody>
-                        {attendeesToShow.map((a, i) => (
-                          <tr key={i}>
+                        {filteredAttendeesToShow.map((a, i) => (
+                          <tr key={i} className="hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                             <td className="border px-2 py-1 text-center">
-                              <input type="checkbox" checked={a.selected} onChange={() => handleToggleAttendee(attendeesToSend.indexOf(a))} />
+                              <input 
+                                type="checkbox" 
+                                checked={a.selected} 
+                                onChange={() => handleToggleAttendee(attendeesToSend.indexOf(a))}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
                             </td>
-                            <td className="border px-2 py-1">{a["Full Name"]}</td>
+                            <td className="border px-2 py-1 font-medium">{a["Full Name"]}</td>
                             <td className="border px-2 py-1">{a["Phone"]}</td>
                           </tr>
                         ))}
+                        {filteredAttendeesToShow.length === 0 && (
+                          <tr>
+                            <td colSpan={3} className="border px-2 py-4 text-center text-gray-500">
+                              {searchQuery ? `No attendees found matching "${searchQuery}"` : 'No attendees to display'}
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -1993,9 +3424,12 @@ function DashboardOverview3() {
                       Cancel
                     </button>
                     <button
-                      className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700"
+                      className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       onClick={handleConfirmAndSend}
-                      disabled={attendeesToShow.filter(a => a.selected).length === 0}
+                      disabled={(() => {
+                        const { selectedCount } = getSelectionCounts();
+                        return selectedCount === 0;
+                      })()}
                     >
                       Confirm & Send
                     </button>
@@ -2079,6 +3513,35 @@ function DashboardOverview3() {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Feedback Responses</h2>
+     
+          {feedbackResponsesLoading && (
+            <div className="ml-4 flex items-center text-sm text-blue-600 dark:text-blue-400">
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Loading from database...
+            </div>
+          )}
+          {feedbackResponsesError && (
+            <div className="ml-4 text-sm text-red-600 dark:text-red-400">
+              <div className="flex items-center space-x-2">
+                <span>Error: {feedbackResponsesError}</span>
+                <button
+                  onClick={() => {
+                    // Trigger a retry by calling the hook again
+                    window.location.reload();
+                  }}
+                  className="px-2 py-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded text-xs"
+                >
+                  Retry
+                </button>
+              </div>
+              <div className="mt-1 text-xs text-red-500 dark:text-red-400">
+                Check browser console for detailed error information
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Enhanced Filters */}
@@ -2119,7 +3582,7 @@ function DashboardOverview3() {
               onChange={(e) => setFeedbackDateFilter(e.target.value)}
             >
               <option value="">All Dates</option>
-              {Array.from(new Set(feedbackData.map((row: any) => {
+              {Array.from(new Set(mergedFeedbackData.map((row: any) => {
                 if (row["Timestamp"]) {
                   return new Date(row["Timestamp"]).toLocaleDateString();
                 }
@@ -2164,7 +3627,8 @@ function DashboardOverview3() {
         </div>
         <div className="mb-4 flex flex-wrap gap-2 items-center">
           <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-            Showing {filteredFeedback.length} of {feedbackData.length} feedback responses
+            Showing {filteredFeedback.length} of {mergedFeedbackData.length} feedback responses
+           
           </div>
           <div className="flex gap-2">
             <button
@@ -2208,3 +3672,4 @@ function DashboardOverview3() {
 }
 
 export default DashboardOverview3;
+

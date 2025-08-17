@@ -265,7 +265,8 @@ function PublicFeedbackForm() {
     const data = await response.json();
 
     return {
-      apiUrl:'http://localhost:5173',
+      apiUrl:
+        data.companyData.api_url || baseUrl,
       companyId: data.userData.companyId,
     };
   };
