@@ -248,7 +248,7 @@ const clearAllNotifications = async () => {
     <div className="tinker h-screen flex flex-col overflow-hidden">
       <div className="flex flex-1 overflow-hidden">
         {/* BEGIN: Simple Menu */}
-        <nav className={`pt-5 pl-1 pr-2 side-nav side-nav--simple ${isMobile ? (showSideMenu ? 'block' : 'hidden') : 'flex md:flex'} flex-col justify-between sm:w-[50px] md:w-[50px] xl:w-[50px] z-100 bg-slate-300 dark:bg-gray-800`}>
+        <nav className={`pt-5 pl-1 pr-2 side-nav side-nav--simple ${isMobile ? (showSideMenu ? 'block' : 'hidden') : 'flex md:flex'} flex-col justify-between sm:w-[70px] md:w-[70px] xl:w-[70px] z-100 bg-slate-300 dark:bg-gray-800`}>
           <ul className="space-y-2 flex-grow">
             {/* BEGIN: First Child */}
             {formattedMenu.map((menu, menuKey) =>
@@ -268,12 +268,12 @@ const clearAllNotifications = async () => {
                       handleMenuItemClick(menu);
                     }}
                     className={clsx([
-                      "flex items-center p-2 rounded hover:bg-slate-400 dark:hover:bg-gray-700",
-                      menu.active ? "bg-slate-400 dark:bg-gray-700 text-slate-200 dark:text-gray-200 font-medium" : "",
+                      "flex items-center p-3 rounded-full hover:bg-slate-400 dark:hover:bg-gray-700 transition-all duration-200",
+                      menu.active ? "bg-slate-400 dark:bg-gray-700 text-slate-200 dark:text-gray-200 font-medium shadow-md ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-300 dark:ring-offset-gray-800" : "",
                     ])}
                   >
-                    <div className="text-left w-10 h-6 m-0 flex items-center justify-between">
-                      <Lucide icon={menu.icon} className="text-slate-900 dark:text-gray-200 hover:text-slate-900 dark:hover:text-gray-200" />
+                    <div className="text-left w-14 h-12 m-0 flex items-center justify-center">
+                      <Lucide icon={menu.icon} className="text-slate-900 dark:text-gray-200 hover:text-slate-900 dark:hover:text-gray-200 w-7 h-7" />
                     </div>
                   </Tippy>
                   {/* BEGIN: Second Child */}
@@ -307,12 +307,12 @@ const clearAllNotifications = async () => {
                                 setFormattedMenu([...formattedMenu]);
                               }}
                               className={clsx([
-                                "flex items-center p-1 my-1 rounded hover:bg-slate-400 dark:hover:bg-gray-700",
-                                subMenu.active ? "bg-slate-400 dark:bg-gray-700" : "",
+                                "flex items-center p-2 my-1 rounded-full hover:bg-slate-400 dark:hover:bg-gray-700 transition-all duration-200",
+                                subMenu.active ? "bg-slate-400 dark:bg-gray-700 ring-2 ring-blue-400 ring-offset-2 ring-offset-slate-300 dark:ring-offset-gray-800" : "",
                               ])}
                             >
-                              <div className="w-4 h-4 flex items-center justify-center">
-                                <Lucide icon={subMenu.icon} className="text-slate-900 dark:text-gray-200" />
+                              <div className="w-12 h-10 flex items-center justify-center">
+                                <Lucide icon={subMenu.icon} className="text-slate-900 dark:text-gray-200 w-6 h-6" />
                               </div>
                             </Tippy>
                             {/* BEGIN: Third Child */}
@@ -350,12 +350,12 @@ const clearAllNotifications = async () => {
                                           ]);
                                         }}
                                         className={clsx([
-                                          "flex items-center p-1 my-1 rounded hover:bg-slate-400 dark:hover:bg-gray-700",
-                                          lastSubMenu.active ? "bg-slate-400 dark:bg-gray-700" : "",
+                                          "flex items-center p-2 my-1 rounded-full hover:bg-slate-400 dark:hover:bg-gray-700 transition-all duration-200",
+                                          lastSubMenu.active ? "bg-slate-400 dark:bg-gray-700 ring-2 ring-blue-400 ring-offset-2 ring-offset-slate-300 dark:ring-offset-gray-800" : "",
                                         ])}
                                       >
-                                        <div className="w-10 h-10 flex items-center justify-center">
-                                          <Lucide icon={lastSubMenu.icon} className="text-slate-900 dark:text-gray-200" />
+                                        <div className="w-12 h-10 flex items-center justify-center">
+                                          <Lucide icon={lastSubMenu.icon} className="text-slate-900 dark:text-gray-200 w-6 h-6" />
                                         </div>
                                       </Tippy>
                                     </li>
@@ -377,19 +377,19 @@ const clearAllNotifications = async () => {
       </ul>
           <div className="mt-4 ml-1 mb-4">
           <Menu>
-          <Menu.Button className="block w-8 h-8 overflow-hidden rounded-md bg-blue-600 flex items-center justify-center text-white mb-2">
+          <Menu.Button className="block w-14 h-12 overflow-hidden rounded-full bg-blue-600 flex items-center justify-center text-white mb-2 hover:bg-blue-700 transition-all duration-200 shadow-md">
                 <Link to="/client-ticket">
-                  <Lucide icon="Ticket" className="text-center justify-center w-4 h-4" />
+                  <Lucide icon="Ticket" className="text-center justify-center w-7 h-7" />
                 </Link>
               </Menu.Button>
           <Menu.Button 
-            className="block w-8 h-8 overflow-hidden rounded-md bg-red-700 flex items-center justify-center text-white"
+            className="block w-14 h-12 overflow-hidden rounded-full bg-red-700 flex items-center justify-center text-white hover:bg-red-800 transition-all duration-200 shadow-md"
             onClick={() => {
               handleSignOut();
               navigate('/login');
             }}
           >
-            <Lucide icon="LogOut" className="text-center justify-center w-4 h-4" />
+            <Lucide icon="LogOut" className="text-center justify-center w-7 h-7" />
           </Menu.Button>
           </Menu>
         </div>

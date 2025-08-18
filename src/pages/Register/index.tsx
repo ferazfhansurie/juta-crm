@@ -228,134 +228,181 @@ function Main() {
 
   return (
     <>
-      <div
-        className={clsx([
-          "p-3 sm:px-8 relative h-screen overflow-hidden bg-primary xl:bg-white dark:bg-darkmode-800 xl:dark:bg-darkmode-600", // Changed lg:overflow-y-auto to overflow-hidden
-          "before:hidden before:xl:block before:content-[''] before:w-[57%] before:-mt-[28%] before:-mb-[16%] before:-ml-[13%] before:absolute before:inset-y-0 before:left-0 before:transform before:rotate-[-4.5deg] before:bg-primary/20 before:rounded-[100%] before:dark:bg-darkmode-400",
-          "after:hidden after:xl:block after:content-[''] after:w-[57%] after:-mt-[20%] after:-mb-[13%] after:-ml-[13%] after:absolute after:inset-y-0 after:left-0 after:transform after:rotate-[-4.5deg] after:bg-primary after:rounded-[100%] after:dark:bg-darkmode-700",
-        ])}
-      >
-        <ThemeSwitcher />
-        <div className="container relative z-10 sm:px-10">
-          <div className="block grid-cols-2 gap-4 xl:grid">
-            {/* BEGIN: Register Info */}
-            <div className="flex-col hidden min-h-screen xl:flex">
-            <div className="my-auto flex flex-col items-center w-full">
-                  <img
-                    alt="Juta Software Logo"
-                    className="w-[80%] -mt-16 -ml-64"
-                    src={logoUrl}
-                  />
-                </div>
-              </div>
-            {/* END: Register Info */}
-            {/* BEGIN: Register Form */}
-            <div className="flex h-screen py-5 my-10 xl:h-auto xl:py-0 xl:my-0">
-              <div className="w-full px-5 py-8 mx-auto my-auto bg-white rounded-md shadow-md xl:ml-20 dark:bg-darkmode-600 xl:bg-transparent sm:px-8 xl:p-0 xl:shadow-none sm:w-3/4 lg:w-2/4 xl:w-auto">
-                <h2 className="text-2xl font-bold text-center intro-x xl:text-3xl xl:text-left">
-                  Sign Up
-                </h2>
-                <div className="mt-2 text-center intro-x text-slate-400 dark:text-slate-400 xl:hidden">
-                  Register Your Account Now!
-                </div>
-                <div className="mt-8 intro-x">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-8">
+        <div className="flex flex-col items-center w-full max-w-5xl text-center px-6 py-8">
+          
+          {/* Main Title and Logo */}
+          <div className="mb-8">
+            <div className="mb-6 flex justify-center">
+              <img
+                alt="Juta Software Logo"
+                className="w-40 h-auto object-contain"
+                src={logoUrl}
+              />
+            </div>
+            <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-3">
+              Join Juta Web
+            </h1>
+            <p className="text-lg text-gray-600 dark:text-gray-400">
+              Create your account to start managing your business
+            </p>
+          </div>
+
+          {/* Main Content Card */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 w-full max-w-2xl">
+            
+            {/* Sign Up Form */}
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                    Full Name
+                  </label>
                   <FormInput
                     type="text"
-                    className="block px-4 py-3 intro-x min-w-full xl:min-w-[350px]"
-                    placeholder="Name"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                    placeholder="Enter your full name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     onKeyDown={handleKeyDown}
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                    Company Name
+                  </label>
                   <FormInput
                     type="text"
-                    className="block px-4 py-3 mt-4 intro-x min-w-full xl:min-w-[350px]"
-                    placeholder="Company Name"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                    placeholder="Enter company name"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     onKeyDown={handleKeyDown}
                   />
-                  <div className="flex gap-2">
-                  
-                    <FormInput
-                      type="tel"
-                      className="block px-4 py-3 mt-4 intro-x min-w-full xl:min-w-[350px]"
-                      placeholder={`Phone Number (e.g., ${getCountryCallingCode(selectedCountry)}123456789)`}
-                      value={phoneNumber}
-                      onChange={handlePhoneChange}
-                      onKeyDown={handleKeyDown}
-                    />
-                  </div>
-                
-                  <FormInput
-                    type="text"
-                    className="block px-4 py-3 mt-4 intro-x min-w-full xl:min-w-[350px]"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                  />
-                
-                  <FormInput
-                    type="password"
-                    className="block px-4 py-3 mt-4 intro-x min-w-full xl:min-w-[350px]"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                  />
-                
-                  {/* New Plan Selection Section */}
-                  <div className="grid grid-cols-1 gap-2 mt-4 md:grid-cols-2">
-                    {[
-                      ['blaster', 'Team Inbox', '50'],
-                      ['enterprise', 'Standard AI', '168'],
-                    ].map(([id, name, price]) => (
-                      <div 
-                        key={id}
-                        className={clsx(
-                          "p-2 border rounded cursor-pointer",
-                          selectedPlan === id ? 'border-primary bg-primary/10' : 'border-gray-200'
-                        )}
-                        onClick={() => setSelectedPlan(id as 'blaster' | 'enterprise')}
-                      >
-                        <div className="text-sm font-bold">{name}</div>
-                
-                      </div>
-                    ))}
-                  </div>
                 </div>
-                <div className="mt-5 text-center intro-x xl:mt-8 xl:text-left">
-                  <Button
-                    variant="primary"
-                    className="w-full px-4 py-3 align-top xl:w-32 xl:mr-3"
-                    onClick={handleRegister}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <div className="flex items-center justify-center">
-                        <div className="w-5 h-5 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Loading...
-                      </div>
-                    ) : (
-                      "Register"
-                    )}
-                  </Button>
-                  <Link to="/login">
-                    <Button
-                      variant="outline-secondary"
-                      className="w-full px-4 py-3 mt-3 align-top xl:w-32 xl:mt-0"
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                  Phone Number
+                </label>
+                <FormInput
+                  type="tel"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                  placeholder={`Phone Number (e.g., ${getCountryCallingCode(selectedCountry)}123456789)`}
+                  value={phoneNumber}
+                  onChange={handlePhoneChange}
+                  onKeyDown={handleKeyDown}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                  Email Address
+                </label>
+                <FormInput
+                  type="email"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                  Password
+                </label>
+                <FormInput
+                  type="password"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                  placeholder="Create a password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                />
+              </div>
+
+              {/* Plan Selection Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 text-left">
+                  Choose Your Plan
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    ['blaster', 'Team Inbox', 'Perfect for small teams'],
+                    ['enterprise', 'Standard AI', 'Advanced features for growing businesses'],
+                  ].map(([id, name, description]) => (
+                    <div 
+                      key={id}
+                      className={clsx(
+                        "p-4 border-2 rounded-lg cursor-pointer transition-all duration-200",
+                        selectedPlan === id 
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                      )}
+                      onClick={() => setSelectedPlan(id as 'blaster' | 'enterprise')}
                     >
-                      Back to Login
-                    </Button>
-                  </Link>
+                      <div className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-1">{name}</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">{description}</div>
+                    </div>
+                  ))}
                 </div>
-                {registerResult && (
-                  <div className="mt-5 text-center text-red-500">{registerResult}</div>
+              </div>
+
+              {/* Register Button */}
+              <Button
+                variant="primary"
+                className="w-full px-6 py-3 text-base font-semibold rounded-lg hover:shadow-md transition-all duration-200 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
+                onClick={handleRegister}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-5 h-5 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Creating Account...
+                  </div>
+                ) : (
+                  "Create Account"
                 )}
+              </Button>
+
+              {/* Error Message */}
+              {registerResult && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-700 text-sm">{registerResult}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">Already have an account?</span>
               </div>
             </div>
-            {/* END: Register Form */}
+
+            {/* Back to Login Button */}
+            <Link to="/login">
+              <Button
+                variant="outline-secondary"
+                className="w-full px-6 py-3 text-base font-semibold rounded-lg border-2 border-gray-300 hover:border-gray-400 transition-all duration-200 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600"
+              >
+                Back to Login
+              </Button>
+            </Link>
+          </div>
+
+          {/* Additional Info */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Start your journey with Juta CRM today
+            </p>
           </div>
         </div>
       </div>

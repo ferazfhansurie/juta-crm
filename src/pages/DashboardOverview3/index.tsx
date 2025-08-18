@@ -2038,21 +2038,8 @@ function normalizePhone(phone: string) {
             Detailed Profession Breakdown
           </h3>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Profession Pie Chart */}
-            <div className="bg-white dark:bg-slate-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
-              <h4 className="text-lg font-semibold mb-4 text-center text-gray-800 dark:text-gray-200">
-                Profession Distribution
-              </h4>
-              <CustomPieChart
-                data={professionPieData}
-                labels={professionPieLabels}
-                colors={chartColors}
-                width={350}
-                height={350}
-                className="mx-auto"
-              />
-            </div>
+          <div className="grid grid-cols-1  gap-8">
+      
             
             {/* Profession Statistics Table */}
             <div className="bg-white dark:bg-slate-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">

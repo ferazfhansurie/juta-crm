@@ -4,213 +4,256 @@ import illustrationUrl from "@/assets/images/illustration.svg";
 import { FormInput, FormCheck } from "@/components/Base/Form";
 import Button from "@/components/Base/Button";
 import clsx from "clsx";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"; // Import Firebase authentication methods
+import { Link, useNavigate } from "react-router-dom";
+import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { initializeApp } from 'firebase/app';
 import { useState } from "react";
 import { co } from "@fullcalendar/core/internal-common";
+
 const firebaseConfig = {
-    apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
-    authDomain: "onboarding-a5fcb.firebaseapp.com",
-    databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "onboarding-a5fcb",
-    storageBucket: "onboarding-a5fcb.appspot.com",
-    messagingSenderId: "334607574757",
-    appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
-    measurementId: "G-2C9J1RY67L"
+  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
+  authDomain: "onboarding-a5fcb.firebaseapp.com",
+  databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "onboarding-a5fcb",
+  storageBucket: "onboarding-a5fcb.appspot.com",
+  messagingSenderId: "334607574757",
+  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
+  measurementId: "G-2C9J1RY67L"
+};
+
+const app = initializeApp(firebaseConfig);
+
+function Main() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [signedIn, setSignedIn] = useState(false);
+  const navigate = useNavigate();
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [showResetModal, setShowResetModal] = useState(false);
+
+  const handleSignIn = async () => {
+    setError("");
+    try {
+      console.log('Sending login request with:', { email });
+      const response = await fetch('https://juta-dev.ngrok.dev/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json();
+      console.log('Login response:', data);
+      if (response.ok) {
+        localStorage.setItem('userEmail', email);
+        localStorage.setItem('userData', JSON.stringify(data.user));
+        navigate('/loading');
+      } else {
+        setError(data.error || "An error occurred during sign-in. Please try again later.");
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError("An error occurred during sign-in. Please try again later.");
+    }
   };
 
+  const handleKeyDown = (event: { key: string; }) => {
+    if (event.key === "Enter") {
+      handleSignIn();
+    }
+  };
 
-  const app = initializeApp(firebaseConfig);
+  const handleStartFreeTrial = () => {
+    navigate('/register');
+  };
 
-  function Main() {
-    const [email, setEmail] = useState(""); // State for email input
-    const [password, setPassword] = useState(""); // State for password input
-    const [error, setError] = useState("");
-    const [signedIn, setSignedIn] = useState(false);
-    const navigate = useNavigate(); // Initialize useNavigate
-    const location = useLocation(); // Get location for return URL
-    const [resetEmail, setResetEmail] = useState("");
-    const [resetMessage, setResetMessage] = useState("");
-    const [showResetModal, setShowResetModal] = useState(false);
-    const handleSignIn = async () => {
-      setError(""); // Clear previous errors
-      try {
-        console.log('Sending login request with:', { email }); // Don't log passwords!
-        const response = await fetch('https://juta-dev.ngrok.dev/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-        const data = await response.json();
-        console.log('Login response:', data);
-        if (response.ok) {
-          // Store email in localStorage
-          localStorage.setItem('userEmail', email);
-          // Store user data if needed
-          localStorage.setItem('userData', JSON.stringify(data.user));
+  const handleForgotPassword = async () => {
+    const auth = getAuth(app);
+    setError("");
+    setResetMessage("");
+    
+    if (!resetEmail) {
+      setResetMessage("Please enter your email address.");
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      setResetMessage("Password reset email sent! Please check your inbox.");
+      setResetEmail("");
+      setTimeout(() => {
+        setShowResetModal(false);
+        setResetMessage("");
+      }, 3000);
+    } catch (error: any) {
+      switch (error.code) {
+        case "auth/invalid-email":
+          setResetMessage("Please enter a valid email address.");
+          break;
+        case "auth/user-not-found":
+          setResetMessage("No account found with this email.");
+          break;
+        default:
+          setResetMessage("An error occurred. Please try again later.");
+      }
+    }
+  };
+
+  return (
+    <>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-8">
+        <div className="flex flex-col items-center w-full max-w-5xl text-center px-6 py-8">
           
-          // Check if there's a return URL from location state
-          const returnUrl = location.state?.returnUrl;
-          if (returnUrl) {
-            navigate(returnUrl);
-          } else {
-          navigate('/loading');
-          }
-        } else {
-          setError(data.error || "An error occurred during sign-in. Please try again later.");
-        }
-      } catch (err) {
-        console.error('Login error:', err);
-        setError("An error occurred during sign-in. Please try again later.");
-      }
-    };
+          {/* Main Title and Logo */}
+          <div className="mb-8">
+            <div className="mb-6 flex justify-center">
+              <img
+                alt="Juta Software Logo"
+                className="w-40 h-auto object-contain"
+                src={logoUrl}
+                onError={(e) => {
+                  console.error('Logo failed to load:', logoUrl);
+                  // Fallback to logo2 if logo fails
+                  e.currentTarget.src = logoUrl2;
+                }}
+              />
+            </div>
+            <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-3">
+              Welcome Back
+            </h1>
+            <p className="text-lg text-gray-600 dark:text-gray-400">
+              Sign in to your Juta Web account to continue
+            </p>
+          </div>
 
-    const handleKeyDown = (event: { key: string; }) => {
-      if (event.key === "Enter") {
-        handleSignIn();
-      }
-    };
-  
-    const handleStartFreeTrial = () => {
-      navigate('/register');
-    };
-
-    const handleForgotPassword = async () => {
-      const auth = getAuth(app);
-      setError("");
-      setResetMessage("");
-      
-      if (!resetEmail) {
-        setResetMessage("Please enter your email address.");
-        return;
-      }
-
-      try {
-        await sendPasswordResetEmail(auth, resetEmail);
-        setResetMessage("Password reset email sent! Please check your inbox.");
-        setResetEmail("");
-        // Close modal after 3 seconds
-        setTimeout(() => {
-          setShowResetModal(false);
-          setResetMessage("");
-        }, 3000);
-      } catch (error: any) {
-        switch (error.code) {
-          case "auth/invalid-email":
-            setResetMessage("Please enter a valid email address.");
-            break;
-          case "auth/user-not-found":
-            setResetMessage("No account found with this email.");
-            break;
-          default:
-            setResetMessage("An error occurred. Please try again later.");
-        }
-      }
-    };
-
-    return (
-      <>
-        <div
-          className={clsx([
-            "p-3 sm:px-8 relative h-screen lg:overflow-hidden bg-primary xl:bg-white dark:bg-darkmode-800 xl:dark:bg-darkmode-600",
-            "before:hidden before:xl:block before:content-[''] before:w-[57%] before:-mt-[28%] before:-mb-[16%] before:-ml-[13%] before:absolute before:inset-y-0 before:left-0 before:transform before:rotate-[-4.5deg] before:bg-primary/20 before:rounded-[100%] before:dark:bg-darkmode-400",
-            "after:hidden after:xl:block after:content-[''] after:w-[57%] after:-mt-[20%] after:-mb-[13%] after:-ml-[13%] after:absolute after:inset-y-0 after:left-0 after:transform after:rotate-[-4.5deg] after:bg-primary after:rounded-[100%] after:dark:bg-darkmode-700",
-          ])}
-        >
-          <div className="container relative z-10 sm:px-10">
-            <div className="block grid-cols-2 gap-4 xl:grid">
-              <div className="flex-col hidden min-h-screen xl:flex">
-              <div className="my-auto flex flex-col items-center w-full">
-                  <img
-                    alt="Juta Software Logo"
-                    className="w-[80%] -mt-16 -ml-64"
-                    src={logoUrl2}
-                  />
-                </div>
+          {/* Main Content Card */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 w-full max-w-md">
+            
+            {/* Sign In Form */}
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                  Email Address
+                </label>
+                <FormInput
+                  type="email"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                />
               </div>
-              <div className="flex h-screen py-5 my-10 xl:h-auto xl:py-0 xl:my-0">
-                <div className="w-full px-5 py-8 mx-auto my-auto bg-white rounded-md shadow-md xl:ml-20 dark:bg-darkmode-600 xl:bg-transparent sm:px-8 xl:p-0 xl:shadow-none sm:w-3/4 lg:w-2/4 xl:w-auto">
-                  <h2 className="text-2xl font-bold text-center intro-x xl:text-3xl xl:text-left">
-                    Sign In
-                  </h2>
-                 
-                  <div className="mt-8 intro-x">
-                    <FormInput
-                      type="text"
-                      className="block px-4 py-3 intro-x min-w-full xl:min-w-[350px]"
-                      placeholder="Email"
-                      value={email} // Bind value to email state
-                      onChange={(e) => setEmail(e.target.value)} // Update email state on change
 
-                      onKeyDown={handleKeyDown} // Add keydown event listener
-                    />
-                    <FormInput
-                      type="password"
-                      className="block px-4 py-3 mt-4 intro-x min-w-full xl:min-w-[350px]"
-                      placeholder="Password"
-                      value={password} // Bind value to password state
-                      onChange={(e) => setPassword(e.target.value)} // Update password state on change
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                  Password
+                </label>
+                <FormInput
+                  type="password"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                />
+              </div>
 
-                      onKeyDown={handleKeyDown} // Add keydown event listener
-                    />
-                  </div>
-                  <div className="mt-5 text-center intro-x xl:mt-8 xl:text-left">
-                    <Button
-                      variant="primary"
-                      className="w-full px-4 py-3 align-top xl:mr-3"
-                      onClick={handleSignIn}
-                    >
-                      Login
-                    </Button>
-                  </div>
-                  <div className="mt-5 text-center intro-x xl:mt-8 xl:text-left">
-                  <Button
-                      variant="secondary"
-                      className="w-full px-4 py-3 align-top xl:mr-3"
-                      onClick={handleStartFreeTrial}
-                    >
-                      Start Free Trial
-                    </Button>
-                    
-                  </div>
-                  <div className="mt-4 text-center intro-x">
-                    <button 
-                      onClick={() => setShowResetModal(true)} 
-                      className="text-primary hover:underline"
-                    >
-                      Forgot Password?
-                    </button>
-                  </div>
-                  {location.state?.message && (
-                    <div className="mt-5 text-center text-blue-600 bg-blue-50 p-3 rounded-lg">
-                      {location.state.message}
-                    </div>
-                  )}
-                  {error && (
-                    <div className="mt-5 text-center text-red-500">{error}</div>
-                  )}
+              {/* Forgot Password Link */}
+              <div className="text-right">
+                <button 
+                  onClick={() => setShowResetModal(true)} 
+                  className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline transition-colors duration-200"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+
+              {/* Sign In Button */}
+              <Button
+                variant="primary"
+                className="w-full px-6 py-3 text-base font-semibold rounded-lg hover:shadow-md transition-all duration-200 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
+                onClick={handleSignIn}
+              >
+                Sign In
+              </Button>
+
+              {/* Error Message */}
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-700 text-sm">{error}</p>
                 </div>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">New to Juta?</span>
               </div>
             </div>
+
+            {/* Register Button */}
+            <Button
+              variant="outline-secondary"
+              className="w-full px-6 py-3 text-base font-semibold rounded-lg border-2 border-gray-300 hover:border-gray-400 transition-all duration-200 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600"
+              onClick={handleStartFreeTrial}
+            >
+              Create New Account
+            </Button>
+          </div>
+
+          {/* Additional Info */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Secure access to your business dashboard
+            </p>
           </div>
         </div>
+      </div>
 
-        {/* Password Reset Modal */}
-        {showResetModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="p-8 bg-white rounded-lg shadow-lg dark:bg-darkmode-600 w-96">
-              <h3 className="mb-4 text-xl font-bold">Reset Password</h3>
-              <FormInput
-                type="email"
-                className="block w-full px-4 py-3 mb-4"
-                placeholder="Enter your email"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-              />
-              <div className="flex justify-end space-x-2">
+      {/* Password Reset Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 w-full max-w-md mx-4">
+            <div className="text-center mb-6">
+              <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Reset Password</h3>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                Enter your email to receive a password reset link
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                  Email Address
+                </label>
+                <FormInput
+                  type="email"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter your email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                />
+              </div>
+
+              {resetMessage && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  resetMessage.includes("sent") 
+                    ? "bg-green-50 border border-green-200 text-green-700" 
+                    : "bg-red-50 border border-red-200 text-red-700"
+                }`}>
+                  {resetMessage}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
                 <Button
-                  variant="secondary"
+                  variant="outline-secondary"
+                  className="flex-1 px-4 py-3 rounded-lg border-2 border-gray-300 hover:border-gray-400 transition-all duration-200"
                   onClick={() => {
                     setShowResetModal(false);
                     setResetMessage("");
@@ -221,23 +264,18 @@ const firebaseConfig = {
                 </Button>
                 <Button
                   variant="primary"
+                  className="flex-1 px-4 py-3 rounded-lg hover:shadow-md transition-all duration-200"
                   onClick={handleForgotPassword}
                 >
                   Send Reset Link
                 </Button>
               </div>
-              {resetMessage && (
-                <div className={`mt-4 text-center ${
-                  resetMessage.includes("sent") ? "text-green-500" : "text-red-500"
-                }`}>
-                  {resetMessage}
-                </div>
-              )}
             </div>
           </div>
-        )}
-      </>
-    );
-  }
-  
-  export default Main;
+        </div>
+      )}
+    </>
+  );
+}
+
+export default Main;
