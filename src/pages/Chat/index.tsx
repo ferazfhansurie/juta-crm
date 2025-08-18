@@ -665,6 +665,69 @@ function Main() {
   const [whapiToken, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [allMessages, setAllMessages] = useState<Message[]>([]); // Store all messages for filtering
+  
+  // Function to group consecutive AI messages by timestamp
+  const groupConsecutiveAIMessages = (messages: Message[]): Message[] => {
+    console.log('🔄 Processing messages for grouping:', messages.length, 'messages');
+    console.log('📝 Sample messages:', messages.slice(0, 3).map(m => ({ 
+      body: m.text?.body?.substring(0, 50), 
+      timestamp: m.timestamp,
+      from_me: m.from_me,
+      author: m.author 
+    })));
+    
+    const groupedMessages: Message[] = [];
+    let i = 0;
+    
+    while (i < messages.length) {
+      const currentMessage = messages[i];
+      
+      if (!currentMessage.from_me) {
+        // This is an AI message, check for consecutive ones
+        const consecutiveAIMessages: Message[] = [currentMessage];
+        let j = i + 1;
+        
+        // Look for consecutive AI messages within 5000ms (5 seconds) - more aggressive grouping
+        while (j < messages.length && 
+               !messages[j].from_me && 
+               Math.abs((messages[j].timestamp || 0) - (currentMessage.timestamp || 0)) < 5000) {
+          consecutiveAIMessages.push(messages[j]);
+          j++;
+        }
+        
+        if (consecutiveAIMessages.length > 1) {
+          // Combine consecutive AI messages into one
+          console.log('🔗 Grouping AI messages:', consecutiveAIMessages.map(m => ({ 
+            body: m.text?.body, 
+            timestamp: m.timestamp,
+            from_me: m.from_me 
+          })));
+          
+          const combinedMessage: Message = {
+            ...consecutiveAIMessages[0],
+            text: {
+              body: consecutiveAIMessages
+                .map(msg => msg.text?.body || '')
+                .filter(body => body.trim())
+                .join('||')
+            }
+          };
+          console.log('✅ Combined into:', combinedMessage.text?.body);
+          groupedMessages.push(combinedMessage);
+          i = j; // Skip the messages we just combined
+        } else {
+          groupedMessages.push(currentMessage);
+          i++;
+        }
+      } else {
+        // User message, add as is
+        groupedMessages.push(currentMessage);
+        i++;
+      }
+    }
+    
+    return groupedMessages;
+  };
   const [newMessage, setNewMessage] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading2, setLoading] = useState<boolean>(false);
@@ -4667,10 +4730,10 @@ function Main() {
       console.log(
         `Filtered ${filteredMessages.length} messages from ${allMessages.length} total for phone index ${userPhone}`
       );
-      setMessages(filteredMessages);
+      setMessages(groupConsecutiveAIMessages(filteredMessages));
     } else {
       // Show all messages if no phone filtering is needed
-      setMessages(allMessages);
+      setMessages(groupConsecutiveAIMessages(allMessages));
     }
   }, [allMessages, userPhone, phoneNames]);
   async function fetchMessages(selectedChatId: string, whapiToken: string) {
@@ -5595,20 +5658,24 @@ function Main() {
     };
 
     // Update UI immediately for instant feedback
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      {
-        ...tempMessage,
-      } as unknown as Message,
-    ]);
+    setMessages((prevMessages) => 
+      groupConsecutiveAIMessages([
+        ...prevMessages,
+        {
+          ...tempMessage,
+        } as unknown as Message,
+      ])
+    );
 
     // Also update allMessages to ensure consistency
-    setAllMessages((prevAllMessages) => [
-      ...prevAllMessages,
-      {
-        ...tempMessage,
+    setAllMessages((prevAllMessages) => 
+      groupConsecutiveAIMessages([
+        ...prevAllMessages,
+        {
+          ...tempMessage,
       } as unknown as Message,
-    ]);
+      ])
+    );
 
     // Update localStorage immediately
     const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
@@ -8762,6 +8829,11 @@ function Main() {
   function getAuthorColor(author?: string | null) {
     // Handle undefined/null/empty cases by providing a default string
     const authorString = author || "anonymous";
+    
+    // Additional safety check to ensure authorString is actually a string
+    if (typeof authorString !== 'string') {
+      return authorColors[0]; // Return first color as fallback
+    }
 
     const index =
       authorString
@@ -10156,8 +10228,21 @@ function Main() {
                   ]
                 : []),
             ].map((tag) => {
-              const tagName =
-                typeof tag === "string" ? tag : tag.name || String(tag);
+              // Safely extract tag name, handling both string and object tags
+              let tagName = "";
+              if (typeof tag === "string") {
+                tagName = tag.trim();
+              } else if (tag && typeof tag === "object" && (tag as any).name) {
+                tagName = (tag as any).name.trim();
+              } else {
+                tagName = String(tag || "");
+              }
+              
+              // Skip tags with empty names
+              if (!tagName) {
+                return null;
+              }
+              
               const tagLower = tagName.toLowerCase();
               let newfilter = contacts;
               if (userData?.phone !== undefined && userData.phone !== -1) {
@@ -10167,49 +10252,73 @@ function Main() {
                 );
               }
               const unreadCount = newfilter.filter((contact) => {
-                const contactTags =
-                  contact.tags?.map((t) =>
-                    typeof t === "string" ? t.toLowerCase() : ""
-                  ) || [];
+                // Safely process contact tags, filtering out empty/undefined values
+                const contactTags = contact.tags
+                  ?.map((t) => {
+                    if (typeof t === "string") {
+                      return t.trim().toLowerCase();
+                    } else if (t && typeof t === "object" && (t as any).name) {
+                      return (t as any).name.trim().toLowerCase();
+                    }
+                    return null;
+                  })
+                  .filter(Boolean) || [];
+
                 const isGroup = contact.chat_id?.endsWith("@g.us");
                 const phoneIndex = Object.entries(phoneNames).findIndex(
                   ([_, name]) => name.toLowerCase() === tagLower
                 );
 
-                return (
-                  (tagLower === "all"
-                    ? !isGroup
-                    : tagLower === "unread"
-                    ? contact.unreadCount && contact.unreadCount > 0
-                    : tagLower === "mine"
-                    ? contactTags.includes(currentUserName.toLowerCase())
-                    : tagLower === "unassigned"
-                    ? contact.tags?.some((t) =>
-                        employeeList.some(
-                          (e) =>
-                            (typeof e.name === "string"
-                              ? e.name.toLowerCase()
-                              : "") ===
-                            (typeof t === "string" ? t.toLowerCase() : String(t).toLowerCase())
-                        )
-                      )
-                    : tagLower === "snooze"
-                    ? contactTags.includes("snooze")
-                    : tagLower === "resolved"
-                    ? contactTags.includes("resolved")
-                    : tagLower === "group"
-                    ? isGroup
-                    : tagLower === "stop bot"
-                    ? contactTags.includes("stop bot")
-                    : tagLower === "active bot"
-                    ? !contactTags.includes("stop bot") // Added Active Bot condition
-                    : phoneIndex !== -1
-                    ? contact.phoneIndex === phoneIndex
-                    : contactTags.includes(tagLower)) &&
-                  (tagLower !== "all" && tagLower !== "unassigned"
-                    ? contact.unreadCount && contact.unreadCount > 0
-                    : true)
-                );
+                // Simplified tag filtering logic
+                let matchesTag = false;
+                
+                switch (tagLower) {
+                  case "all":
+                    matchesTag = !isGroup;
+                    break;
+                  case "unread":
+                    matchesTag = Boolean(contact.unreadCount && contact.unreadCount > 0);
+                    break;
+                  case "mine":
+                    matchesTag = contactTags.includes(currentUserName?.toLowerCase() || "");
+                    break;
+                  case "unassigned":
+                    matchesTag = contact.tags?.some((t) => {
+                      const tagValue = typeof t === "string" ? t : (t as any)?.name;
+                      return employeeList.some((e) => 
+                        (e.name?.toLowerCase() || "") === (tagValue?.toLowerCase() || "")
+                      );
+                    }) || false;
+                    break;
+                  case "snooze":
+                    matchesTag = contactTags.includes("snooze");
+                    break;
+                  case "resolved":
+                    matchesTag = contactTags.includes("resolved");
+                    break;
+                  case "group":
+                    matchesTag = Boolean(isGroup);
+                    break;
+                  case "stop bot":
+                    matchesTag = contactTags.includes("stop bot");
+                    break;
+                  case "active bot":
+                    matchesTag = !contactTags.includes("stop bot");
+                    break;
+                  default:
+                    if (phoneIndex !== -1) {
+                      matchesTag = contact.phoneIndex === phoneIndex;
+                    } else {
+                      matchesTag = contactTags.includes(tagLower);
+                    }
+                    break;
+                }
+
+                // Apply unread count filter for specific tags
+                const shouldCheckUnread = tagLower !== "all" && tagLower !== "unassigned";
+                const unreadFilter = shouldCheckUnread ? (contact.unreadCount && contact.unreadCount > 0) : true;
+
+                return Boolean(matchesTag && unreadFilter);
               }).length;
 
               return (
@@ -10525,9 +10634,10 @@ function Main() {
                                           (typeof tag === "string" ? tag : String(tag)).toLowerCase() !== "stop bot"
                                       )
                                       .map(
-                                        (tag) =>
-                                          tag.charAt(0).toUpperCase() +
-                                          tag.slice(1)
+                                        (tag) => {
+                                          const tagString = typeof tag === "string" ? tag : String(tag || "");
+                                          return tagString.charAt(0).toUpperCase() + tagString.slice(1);
+                                        }
                                       )
                                       .join(", ")}
                                     options={{
@@ -10582,7 +10692,7 @@ function Main() {
                                                 (typeof employeeTags[0] === "string" ? employeeTags[0] : String(employeeTags[0])).toLowerCase()
                                             )?.employeeId ||
                                             (employeeTags[0]?.length > 8
-                                              ? employeeTags[0].slice(0, 6)
+                                              ? (typeof employeeTags[0] === 'string' ? employeeTags[0].slice(0, 6) : String(employeeTags[0] || '').slice(0, 6))
                                               : employeeTags[0])
                                           : employeeTags.length}
                                       </span>
@@ -10836,7 +10946,7 @@ function Main() {
                   ) : (
                     <span className="text-2xl font-bold">
                       {selectedContact?.contactName
-                        ? selectedContact.contactName.charAt(0).toUpperCase()
+                        ? (typeof selectedContact.contactName === 'string' ? selectedContact.contactName.charAt(0).toUpperCase() : String(selectedContact.contactName || '').charAt(0).toUpperCase())
                         : "?"}
                     </span>
                   )}
@@ -11317,7 +11427,7 @@ function Main() {
                                     : message.text?.body
                                     ? Math.min(
                                         Math.max(
-                                          message.text.body.length,
+                                          message.text?.body?.length || 0,
                                           message.text?.context?.quoted_content
                                             ?.body?.length || 0
                                         ) * 30,
@@ -11364,7 +11474,7 @@ function Main() {
                                       (message.chat_id.includes("@g.us") ||
                                         (userData?.companyId === "0123" &&
                                           message.chat_id.includes("@c.us"))) &&
-                                      message.author 
+                                      message.author && typeof message.author === 'string'
                                         ? message.author.split("@")[0].toLowerCase()
                                         : selectedContact?.contactName || selectedContact?.firstName || "Customer"}
                                   </span>
@@ -11433,20 +11543,20 @@ function Main() {
                                       className="text-sm font-medium"
                                       style={{
                                         color: getAuthorColor(
-                                          message.text.context.from
+                                          message.text?.context?.from || "anonymous"
                                         ),
                                       }}
                                     >
-                                      {message.text.context.from === "Me"
+                                      {message.text?.context?.from === "Me"
                                         ? "Me"
                                         : selectedContact?.contactName ||
                                           selectedContact?.firstName ||
                                           selectedContact?.phone ||
-                                          message.text.context.from ||
+                                          message.text?.context?.from ||
                                           ""}
                                     </div>
                                     <div className="text-sm text-gray-700 dark:text-gray-300">
-                                      {message.text.context.body || ""}
+                                      {message.text?.context?.body || ""}
                                     </div>
                                   </div>
                                 )}
@@ -11502,7 +11612,14 @@ function Main() {
                                         letterSpacing: "0.01em",
                                       }}
                                     >
-                                      {formatText(message.text.body)}
+                                      {message.text?.body?.split('||').map((part, index) => (
+                                        <div key={index} className="whitespace-pre-wrap">
+                                          {formatText(typeof part === 'string' ? part.trim() : String(part || ''))}
+                                          {index < (message.text?.body?.split('||').length || 0) - 1 && (
+                                            <div className="h-2"></div>
+                                          )}
+                                        </div>
+                                      ))}
                                     </div>
                                     {message.edited && (
                                       <div className="text-xs text-gray-500 mt-1 italic">
@@ -11603,7 +11720,7 @@ function Main() {
                                           letterSpacing: "0.01em",
                                         }}
                                       >
-                                        {formatText(message.image.caption)}
+                                        {formatText(typeof message.image.caption === 'string' ? message.image.caption : String(message.image.caption || ''))}
                                       </div>
                                     </div>
                                   )}
@@ -11699,7 +11816,7 @@ function Main() {
                                           letterSpacing: "0.01em",
                                         }}
                                       >
-                                        {formatText(message.gif.caption)}
+                                        {formatText(typeof message.gif.caption === 'string' ? message.gif.caption : String(message.gif.caption || ''))}
                                       </div>
                                     </div>
                                   )}
@@ -11775,9 +11892,9 @@ function Main() {
                                           }}
                                         >
                                           {formatText(
-                                            message.audio?.caption ||
-                                              message.ptt?.caption ||
-                                              ""
+                                            typeof (message.audio?.caption || message.ptt?.caption) === 'string' 
+                                              ? (message.audio?.caption || message.ptt?.caption || "")
+                                              : String(message.audio?.caption || message.ptt?.caption || "")
                                           )}
                                         </div>
                                       </div>
@@ -11900,7 +12017,7 @@ function Main() {
                                             letterSpacing: "0.01em",
                                           }}
                                         >
-                                          {formatText(message.document.caption)}
+                                          {formatText(typeof message.document.caption === 'string' ? message.document.caption : String(message.document.caption || ''))}
                                         </div>
                                       </div>
                                     )}
@@ -13205,7 +13322,7 @@ function Main() {
                   ) : (
                     <span className="text-2xl font-bold">
                       {selectedContact.contactName
-                        ? selectedContact.contactName.charAt(0).toUpperCase()
+                        ? (typeof selectedContact.contactName === 'string' ? selectedContact.contactName.charAt(0).toUpperCase() : String(selectedContact.contactName || '').charAt(0).toUpperCase())
                         : "?"}
                     </span>
                   )}
@@ -13805,8 +13922,7 @@ function Main() {
                                   }`}
                                 >
                                   {message.status
-                                    ? message.status.charAt(0).toUpperCase() +
-                                      message.status.slice(1)
+                                    ? (typeof message.status === 'string' ? message.status.charAt(0).toUpperCase() + message.status.slice(1) : String(message.status || '').charAt(0).toUpperCase() + String(message.status || '').slice(1))
                                     : "Scheduled"}
                                 </span>
                               </div>
