@@ -687,7 +687,7 @@ function Main() {
   const baseMessageClass =
     "flex flex-col max-w-[auto] min-w-[auto] p-1";
   const myMessageClass = `${baseMessageClass} bg-[#dcf8c6] dark:bg-green-700 self-end ml-auto text-left mb-1 mr-6 group text-black dark:text-white`;
-  const otherMessageClass = `${baseMessageClass} bg-gray-700 dark:bg-gray-600 self-start text-left mt-1 ml-2 group text-white`;
+  const otherMessageClass = `${baseMessageClass} bg-white dark:bg-white self-start text-left mt-1 ml-2 group text-black dark:text-black border border-gray-200 dark:border-gray-300`;
   const myFirstMessageClass = `${myMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mt-4`;
   const myMiddleMessageClass = `${myMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl`;
   const myLastMessageClass = `${myMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mb-4`;
@@ -697,7 +697,7 @@ function Main() {
   const privateNoteClass = `${baseMessageClass} bg-yellow-500 dark:bg-yellow-900 self-start text-left mt-1 ml-2 group rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl`;
   const [messageMode, setMessageMode] = useState("reply");
   const myMessageTextClass = "text-black dark:text-white";
-  const otherMessageTextClass = "text-white";
+  const otherMessageTextClass = "text-black dark:text-black";
   const [activeTags, setActiveTags] = useState<string[]>(["all"]);
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -11352,22 +11352,24 @@ function Main() {
                                   </span>
                                 </div>
                               )}
-                              {message.chat_id &&
-                                (message.chat_id.includes("@g.us") ||
-                                  (userData?.companyId === "0123" &&
-                                    message.chat_id.includes("@c.us"))) &&
-                                message.author && (
-                                  <div
-                                    className="pb-0.5 text-sm font-medium capitalize"
-                                    style={{
-                                      color: getAuthorColor(
-                                        message.author.split("@")[0]
-                                      ),
-                                    }}
-                                  >
-                                    {message.author.split("@")[0].toLowerCase()}
-                                  </div>
+                              {/* Sender name display */}
+                              <div className="pb-0.5 text-xs font-medium">
+                                {message.from_me ? (
+                                  <span className="text-gray-600 dark:text-gray-400">
+                                    {userData?.firstName || userData?.name || "You"}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-600 dark:text-gray-600">
+                                    {message.chat_id &&
+                                      (message.chat_id.includes("@g.us") ||
+                                        (userData?.companyId === "0123" &&
+                                          message.chat_id.includes("@c.us"))) &&
+                                      message.author 
+                                        ? message.author.split("@")[0].toLowerCase()
+                                        : selectedContact?.contactName || selectedContact?.firstName || "Customer"}
+                                  </span>
                                 )}
+                              </div>
                               {message.type === "text" &&
                                 message.text?.context && (
                                   <div
@@ -12152,8 +12154,8 @@ function Main() {
                                       <div
                                         className={`text-xs px-2 py-1 ${
                                           message.from_me
-                                            ? "text-white"
-                                            : "text-white-500 dark:text-gray-400"
+                                            ? "text-black dark:text-black"
+                                            : "text-black dark:text-black"
                                         }`}
                                       >
                                         {phoneNames[message.phoneIndex] ||
@@ -12164,7 +12166,7 @@ function Main() {
                                       className={`text-xs ${
                                         message.from_me
                                           ? "text-black dark:text-white"
-                                          : "text-white"
+                                          : "text-black dark:text-black"
                                       }`}
                                     >
                                       {formatTimestamp(
