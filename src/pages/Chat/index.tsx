@@ -9861,11 +9861,17 @@ function Main() {
                           ))}
                       </div>
                     
-                      {/* Unread badge - Only show when count > 0 */}
-                      {contact.unreadCount && contact.unreadCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 bg-green-500 text-white text-xs rounded-full px-1 py-0.5 min-w-[16px] h-[16px] flex items-center justify-center font-bold">
-                          {contact.unreadCount > 99 ? "99+" : contact.unreadCount}
-                        </span>
+                      {/* Unread badge - Show prominently when count > 0, show plain text when count = 0 */}
+                      {contact.unreadCount !== undefined && (
+                        <>
+                          {/* Prominent badge for unread messages */}
+                          {(contact.unreadCount ?? 0) > 0 && (
+                            <span className="absolute -top-0.5 -right-0.5 bg-green-500 text-white text-xs rounded-full px-1 py-0.5 min-w-[16px] h-[16px] flex items-center justify-center font-bold">
+                              {(contact.unreadCount ?? 0) > 99 ? "99+" : (contact.unreadCount ?? 0)}
+                            </span>
+                          )}
+                        
+                        </>
                       )}
                     </div>
                     
@@ -12427,59 +12433,59 @@ function Main() {
           </>
         ) : (
           <div className="hidden md:flex flex-col w-full h-full bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 items-center justify-center">
-          <div className="flex flex-col items-center justify-center p-12 rounded-2xl shadow-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-            <div className="w-24 h-24 mb-6 overflow-hidden rounded-2xl shadow-lg">
-              <img
-                src={logoImage}
-                alt="Logo"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-200 text-center mb-4">
-              Welcome to Chat
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 text-xl text-center mb-8 max-w-md leading-relaxed">
-              Select a contact from the list to start messaging, or create a new conversation to get started.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <button
-                onClick={openNewChatModal}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                <div className="flex items-center space-x-2">
-                  <Lucide icon="Plus" className="w-5 h-5" />
-                  <span>Start New Chat</span>
-                </div>
-              </button>
-              <button
-                onClick={() => setIsSearchModalOpen(true)}
-                className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold py-4 px-8 rounded-xl transition-all duration-200 border border-gray-300 dark:border-gray-600"
-              >
-                <div className="flex items-center space-x-2">
-                  <Lucide icon="Search" className="w-5 h-5" />
-                  <span>Search Contacts</span>
-                </div>
-              </button>
-            </div>
-            <div className="mt-8 text-center">
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                Quick Tips:
+                        <div className="flex flex-col items-center justify-center p-9 rounded-xl shadow-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+              <div className="w-16 h-16 mb-4 overflow-hidden rounded-xl shadow-lg">
+                <img
+                  src={logoImage}
+                  alt="Logo"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 text-center mb-3">
+                Welcome to Chat
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 text-lg text-center mb-6 max-w-sm leading-relaxed">
+                Select a contact from the list to start messaging, or create a new conversation to get started.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 text-xs text-gray-500 dark:text-gray-400">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span>Click on any contact to start chatting</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>Use search to find specific contacts</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  <span>Create new conversations anytime</span>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={openNewChatModal}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  <div className="flex items-center space-x-2">
+                    <Lucide icon="Plus" className="w-4 h-4" />
+                    <span>Start New Chat</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setIsSearchModalOpen(true)}
+                  className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold py-3 px-6 rounded-lg transition-all duration-200 border border-gray-300 dark:border-gray-600"
+                >
+                  <div className="flex items-center space-x-2">
+                    <Lucide icon="Search" className="w-4 h-4" />
+                    <span>Search Contacts</span>
+                  </div>
+                </button>
+              </div>
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                  Quick Tips:
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span>Click on any contact to start chatting</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span>Use search to find specific contacts</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <span>Create new conversations anytime</span>
+                  </div>
                 </div>
               </div>
-            </div>
             </div>
           </div>
         )}
