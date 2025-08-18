@@ -50,8 +50,8 @@ interface MessageListProps {
 const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assistantName, deleteThread, threadId, isApplyingChanges, applyProgress, onApplyChanges }) => {
   const [newMessage, setNewMessage] = useState('');
 
-  const myMessageClass = "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white !text-white rounded-tr-lg rounded-tl-lg rounded-br-sm rounded-bl-lg shadow-md border border-blue-400 dark:border-blue-500";
-  const otherMessageClass = "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-tr-lg rounded-tl-lg rounded-br-lg rounded-bl-sm shadow-md text-gray-800 dark:text-gray-200";
+  const myMessageClass = "bg-gray-700 text-white dark:bg-gray-600 rounded-tr-lg rounded-tl-lg rounded-br-sm rounded-bl-lg shadow-md";
+  const otherMessageClass = "bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-lg rounded-tl-lg rounded-br-lg rounded-bl-sm shadow-md";
 
   const handleSendMessage = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -92,8 +92,8 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
       <div className="flex-1 overflow-y-auto p-4 dark:bg-gray-900">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-16 h-16 bg-[#dcf8c6]/30 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+          <svg className="w-8 h-8 text-[#2d5a2d] dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
@@ -101,8 +101,8 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
             <p className="text-gray-600 dark:text-gray-400 max-w-md">
               I'll help you brainstorm improvements to your prompt instructions. Ask me questions and I'll provide suggestions to make your assistant more effective.
             </p>
-            <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <div className="mt-4 p-3 bg-gradient-to-r from-[#dcf8c6]/20 to-green-50 dark:from-green-900/20 dark:to-green-900/20 rounded-lg border border-[#dcf8c6] dark:border-green-800">
+          <p className="text-sm text-[#2d5a2d] dark:text-green-200">
                 💡 <strong>Workflow:</strong> 
                 <br />1. Ask me to improve your prompt
                 <br />2. Review my suggestions
@@ -152,34 +152,34 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
                           // Handle different line types for better formatting
                           if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
                             // Bold headers
-                            return (
-                              <h4 key={index} className="font-bold text-blue-700 dark:text-blue-300 mt-4 mb-3 text-lg border-b border-blue-200 dark:border-blue-700 pb-1">
-                                {line.replace(/\*\*/g, '')}
-                              </h4>
-                            );
+                                                          return (
+                                <h4 key={index} className={`font-bold mt-4 mb-3 text-lg border-b pb-1 ${message.from_me ? 'text-white border-white/30' : 'text-[#2d5a2d] dark:text-green-300 border-[#dcf8c6] dark:border-green-700'}`}>
+                                  {line.replace(/\*\*/g, '')}
+                                </h4>
+                              );
                           } else if (line.trim().match(/^\d+\./)) {
                             // Numbered lists
-                            return (
-                              <div key={index} className="ml-6 mb-3 flex items-start">
-                                <span className="text-blue-600 dark:text-blue-400 font-semibold mr-2 min-w-[20px]">{line.match(/^\d+\./)?.[0]}</span>
-                                <span className="text-gray-800 dark:text-white leading-relaxed">{line.replace(/^\d+\.\s*/, '')}</span>
-                              </div>
-                            );
+                                                          return (
+                                <div key={index} className="ml-6 mb-3 flex items-start">
+                                  <span className={`${message.from_me ? 'text-white' : 'text-[#2d5a2d] dark:text-green-400'} font-semibold mr-2 min-w-[20px]`}>{line.match(/^\d+\./)?.[0]}</span>
+                                  <span className={`${message.from_me ? 'text-white' : 'text-gray-800 dark:text-white'} leading-relaxed`}>{line.replace(/^\d+\.\s*/, '')}</span>
+                                </div>
+                              );
                           } else if (line.trim().startsWith('- ')) {
                             // Bullet points
-                            return (
-                              <div key={index} className="ml-6 mb-3 flex items-start">
-                                <span className="text-blue-500 dark:text-blue-400 mr-3 mt-1">•</span>
-                                <span className="text-gray-800 dark:text-white leading-relaxed">{line.substring(2)}</span>
-                              </div>
-                            );
+                                                          return (
+                                <div key={index} className="ml-6 mb-3 flex items-start">
+                                  <span className={`${message.from_me ? 'text-white' : 'text-[#2d5a2d] dark:text-green-400'} mr-3 mt-1`}>•</span>
+                                  <span className={`${message.from_me ? 'text-white' : 'text-gray-800 dark:text-white'} leading-relaxed`}>{line.substring(2)}</span>
+                                </div>
+                              );
                           } else if (line.trim()) {
                             // Regular text
-                            return (
-                              <p key={index} className="mb-3 text-gray-800 dark:text-white leading-relaxed">
-                                {line}
-                              </p>
-                            );
+                                                          return (
+                                <p key={index} className={`mb-3 leading-relaxed ${message.from_me ? 'text-white' : 'text-gray-800 dark:text-white'}`}>
+                                  {line}
+                                </p>
+                              );
                           } else {
                             // Empty lines for spacing
                             return <div key={index} className="h-3"></div>;
@@ -250,7 +250,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
         <div className="flex items-end space-x-3">
           <div className="flex-1">
             <textarea
-              className="w-full min-h-[40px] max-h-32 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 resize-none transition-all duration-200"
+              className="w-full min-h-[40px] max-h-32 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-[#2d5a2d] dark:focus:border-green-400 focus:ring-2 focus:ring-[#dcf8c6] dark:focus:ring-green-800 resize-none transition-all duration-200"
               placeholder="Ask me to brainstorm improvements for your prompt..."
               value={newMessage}
               onChange={(e) => {
@@ -277,7 +277,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
               }
             }}
             disabled={!newMessage.trim()}
-            className="px-6 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
+            className="px-6 py-2 bg-[#dcf8c6] dark:bg-green-600 text-[#2d5a2d] dark:text-white rounded-lg hover:bg-green-500 dark:hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-[#dcf8c6] dark:focus:ring-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -953,7 +953,7 @@ return (
                
                   <div className="flex-1 flex flex-col">
                     <label className="mb-2 text-lg font-medium dark:text-gray-200 flex items-center space-x-2" htmlFor="instructions">
-                      <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-[#2d5a2d] dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       <span>Assistant Instructions</span>
@@ -962,7 +962,7 @@ return (
                       <textarea
                         id="instructions"
                         name="instructions"
-                        className="w-full h-full p-4 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-none"
+                        className="w-full h-full p-4 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#dcf8c6] focus:border-[#2d5a2d] transition-all duration-200 resize-none"
                         placeholder="Tell your assistant what to do. Be specific about its role, tone, and capabilities..."
                         value={assistantInfo.instructions}
                         onChange={(e) => {
@@ -1031,7 +1031,7 @@ return (
                         ref={updateButtonRef}
                         onClick={updateAssistantInfo} 
                         disabled={userRole === "3" || isUpdating}
-                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center space-x-2 text-sm"
+                        className="px-4 py-2 bg-[#dcf8c6] hover:bg-green-500 dark:bg-green-600 dark:hover:bg-green-700 text-[#2d5a2d] dark:text-white rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#dcf8c6] dark:focus:ring-green-800 shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center space-x-2 text-sm"
                         onFocus={handleFocus}
                       >
                         {isUpdating ? (
@@ -1062,7 +1062,7 @@ return (
                 className={({ selected }) =>
                   `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
                     selected
-                      ? 'bg-white text-blue-600 dark:bg-gray-800 dark:text-blue-400'
+                      ? 'bg-white text-[#2d5a2d] dark:bg-gray-800 dark:text-green-400'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                   } transition-colors duration-200`
                 }
@@ -1073,7 +1073,7 @@ return (
                 className={({ selected }) =>
                   `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
                     selected
-                      ? 'bg-white text-blue-600 dark:bg-gray-800 dark:text-blue-400'
+                      ? 'bg-white text-[#2d5a2d] dark:bg-gray-800 dark:text-green-400'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                   } transition-colors duration-200`
                 }
@@ -1101,7 +1101,7 @@ return (
                         id="name"
                         name="name"
                         type="text"
-                        className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                        className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#dcf8c6] pr-10"
                         placeholder="Name your assistant"
                         value={assistantInfo.name}
                         onChange={handleInputChange}
@@ -1116,7 +1116,7 @@ return (
                       <textarea
                         id="description"
                         name="description"
-                        className="w-full p-3 border border-gray-300 rounded-lg h-24 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-3 border border-gray-300 rounded-lg h-24 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#dcf8c6]"
                         placeholder="Add a short description of what this assistant does"
                         value={assistantInfo.description}
                         onChange={handleInputChange}
@@ -1132,7 +1132,7 @@ return (
                         <textarea
                           id="instructions"
                           name="instructions"
-                          className="w-full h-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-none"
+                          className="w-full h-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#dcf8c6] focus:border-[#2d5a2d] transition-all duration-200 resize-none"
                           placeholder="Tell your assistant what to do. Be specific about its role, tone, and capabilities..."
                           value={assistantInfo.instructions}
                           onChange={(e) => {
@@ -1196,7 +1196,7 @@ return (
                           ref={updateButtonRef}
                           onClick={updateAssistantInfo} 
                           disabled={userRole === "3" || isUpdating}
-                          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center space-x-2 text-sm"
+                          className="px-4 py-2 bg-[#dcf8c6] hover:bg-green-500 dark:bg-green-600 dark:hover:bg-green-700 text-[#2d5a2d] dark:text-white rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#dcf8c6] dark:focus:ring-green-800 shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center space-x-2 text-sm"
                           onFocus={handleFocus}
                         >
                           {isUpdating ? (

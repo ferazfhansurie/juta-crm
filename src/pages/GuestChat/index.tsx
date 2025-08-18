@@ -29,6 +29,9 @@ interface ChatMessage {
   type: string;
   text: string;
   createdAt: string;
+  imageUrls?: string[];
+  documentUrls?: string[];
+  caption?: string;
 }
 
 interface MessageListProps {
@@ -39,11 +42,110 @@ interface MessageListProps {
   isLoading?: boolean;
 }
 
+// PDF Modal Component
+interface PDFModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  documentUrl: string;
+  documentName?: string;
+}
+
+const PDFModal: React.FC<PDFModalProps> = ({ isOpen, onClose, documentUrl, documentName }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      onClick={onClose}
+    >
+      <div
+        className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full md:w-[800px] h-auto md:h-[600px] p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">
+            Document Preview
+          </h2>
+          <button
+            className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+            onClick={onClose}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div
+          className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4 flex justify-center items-center"
+          style={{ height: "90%" }}
+        >
+          {documentUrl.toLowerCase().includes('.pdf') ? (
+            <iframe
+              src={documentUrl}
+              width="100%"
+              height="100%"
+              title="PDF Document"
+              className="border rounded"
+            />
+          ) : (
+            <div className="text-center">
+              <svg className="w-20 h-20 mb-2 mx-auto text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+              </svg>
+              <p className="text-gray-800 dark:text-gray-200 font-semibold">
+                {documentName || "Document"}
+              </p>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                Click Download to view this document
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-center">
+          <button
+            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+            onClick={() => window.open(documentUrl, '_blank')}
+          >
+            Download Document
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assistantName, onDeleteThread, isLoading }) => {
   const [newMessage, setNewMessage] = useState('');
+  
+  // PDF Modal state
+  const [pdfModal, setPdfModal] = useState<{
+    isOpen: boolean;
+    documentUrl: string;
+    documentName?: string;
+  }>({
+    isOpen: false,
+    documentUrl: "",
+    documentName: "",
+  });
 
-  const myMessageClass = "bg-[#4285f4] text-white rounded-2xl p-3 self-end text-left relative";
-  const otherMessageClass = "bg-[#f1f1f1] text-gray-800 rounded-2xl p-3 self-start text-left relative";
+  const openPDFModal = (documentUrl: string, documentName?: string) => {
+    setPdfModal({
+      isOpen: true,
+      documentUrl,
+      documentName,
+    });
+  };
+
+  const closePDFModal = () => {
+    setPdfModal({
+      isOpen: false,
+      documentUrl: "",
+      documentName: "",
+    });
+  };
+
+  const myMessageClass = "bg-gray-700 text-white dark:bg-gray-600 rounded-2xl p-3 self-end text-left relative";
+  const otherMessageClass = "bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-2xl p-3 self-start text-left relative";
 
   const LoadingDots = () => (
     <div className="flex space-x-1.5 items-center p-3">
@@ -102,6 +204,94 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
                     className={`${message.from_me ? myMessageClass : otherMessageClass} max-w-[70%]`}
                   >
                     <div className="whitespace-pre-wrap">{splitText.trim()}</div>
+                    
+                    {/* AI Response Content */}
+                    {message.type === "image" && message.imageUrls && (
+                      <div className="space-y-2 mt-2">
+                        {message.imageUrls.map((imageUrl, imgIndex) => (
+                          <div key={imgIndex} className="relative">
+                            <img
+                              src={imageUrl}
+                              alt={`AI Response Image ${imgIndex + 1}`}
+                              className="max-w-full h-auto rounded-lg cursor-pointer"
+                              style={{ maxHeight: "300px" }}
+                              onClick={() => {
+                                window.open(imageUrl, '_blank');
+                              }}
+                            />
+                            {message.caption && (
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                {message.caption}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {message.type === "document" && message.documentUrls && (
+                      <div className="space-y-2 mt-2">
+                        {message.documentUrls.map((documentUrl, docIndex) => (
+                          <div key={docIndex} className="relative">
+                            {/* Document Header */}
+                            <div className="flex items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 mb-2">
+                              <svg className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                              </svg>
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                  {documentUrl.split('/').pop()?.split('?')[0] || `Document ${docIndex + 1}`}
+                                </p>
+                                {message.caption && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {message.caption}
+                                  </p>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => openPDFModal(documentUrl, documentUrl.split('/').pop()?.split('?')[0] || `Document ${docIndex + 1}`)}
+                                className="px-3 py-1 text-xs bg-green-500 dark:bg-green-600 text-white rounded hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
+                              >
+                                View
+                              </button>
+                            </div>
+                            
+                            {/* Document Content Preview */}
+                            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                              {documentUrl.toLowerCase().includes('.pdf') ? (
+                                <iframe
+                                  src={documentUrl}
+                                  width="100%"
+                                  height="400"
+                                  title={`Document ${docIndex + 1}`}
+                                  className="border-0"
+                                  style={{ minHeight: '400px' }}
+                                />
+                              ) : documentUrl.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                <img
+                                  src={documentUrl}
+                                  alt={`Document ${docIndex + 1}`}
+                                  className="w-full h-auto max-h-96 object-contain"
+                                />
+                              ) : (
+                                <div className="p-4 text-center">
+                                  <svg className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                  </svg>
+                                  <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                    Document preview not available
+                                  </p>
+                                  <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">
+                                    Click Download to view this document
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
                     {splitIndex === message.text.split('||').length - 1 && (
                       <div className={`text-xs mt-1 ${message.from_me ? 'text-white/80' : 'text-gray-500'}`}>
                         {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -131,7 +321,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={handleSendMessage}
             placeholder="Type your message here..."
-            className="w-full px-4 py-2 border rounded-full focus:outline-none focus:border-blue-400"
+            className="w-full px-4 py-2 border rounded-full focus:outline-none focus:border-green-400"
           />
           <button
             onClick={() => {
@@ -140,7 +330,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
                 setNewMessage('');
               }
             }}
-            className="p-2 rounded-full bg-[#4285f4] text-white hover:bg-blue-600"
+            className="p-2 rounded-full bg-green-500 text-white hover:bg-green-600"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -148,6 +338,14 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
           </button>
         </div>
       </div>
+      
+      {/* PDF Modal */}
+      <PDFModal
+        isOpen={pdfModal.isOpen}
+        onClose={closePDFModal}
+        documentUrl={pdfModal.documentUrl}
+        documentName={pdfModal.documentName}
+      />
     </div>
   );
 };
@@ -295,6 +493,164 @@ const GuestChat: React.FC = () => {
       setLoading(false);
     }
   };
+  // AI Response checking function
+  const checkAIResponses = async (messageText: string, isUserMessage: boolean = true): Promise<ChatMessage[]> => {
+    try {
+      if (!companyId) return [];
+
+      // Get company API URL
+      const baseUrl = 'https://mighty-dane-newly.ngrok-free.app';
+      const companyResponse = await fetch(
+        `${baseUrl}/api/user-company-data?email=guest&companyId=${companyId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!companyResponse.ok) return [];
+
+      const companyData = await companyResponse.json();
+      const apiUrl = companyData.companyData?.api_url || baseUrl;
+
+      // Fetch all AI responses by type since the API requires a type parameter
+      console.log("Fetching AI responses for company:", companyId, "from:", apiUrl);
+      
+      const responseTypes = ['image', 'tag', 'voice', 'document', 'assign', 'video'];
+      const allResponses = [];
+      
+      // Fetch responses for each type
+      for (const responseType of responseTypes) {
+        try {
+          const endpoint = `${apiUrl}/api/ai-responses?companyId=${companyId}&type=${responseType}`;
+          console.log(`Fetching ${responseType} responses from:`, endpoint);
+          
+          const response = await fetch(endpoint, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.data) {
+              // Add type to each response for easier processing
+              const typedResponses = data.data.map((item: any) => ({ ...item, type: responseType }));
+              allResponses.push(...typedResponses);
+              console.log(`Found ${typedResponses.length} ${responseType} responses`);
+            }
+          } else {
+            console.log(`${responseType} responses failed:`, response.status);
+          }
+        } catch (error) {
+          console.log(`Error fetching ${responseType} responses:`, error);
+        }
+      }
+      
+      console.log("Total AI responses found:", allResponses.length);
+      console.log("All responses data:", allResponses);
+      
+      const triggeredResponses: ChatMessage[] = [];
+
+      // Check each AI response for keyword matches
+      for (const response of allResponses) {
+        console.log("Processing response:", response);
+        console.log("Response status:", response.status);
+        console.log("Response keywords:", response.keywords);
+        
+        if (response.status !== 'active') {
+          console.log("Skipping inactive response:", response.status);
+          continue;
+        }
+
+        const keywords = Array.isArray(response.keywords) ? response.keywords : [response.keywords];
+        const messageLower = messageText.toLowerCase();
+        console.log("Checking keywords:", keywords, "against message:", messageLower);
+
+        // Check if any keyword matches the message
+        let hasMatch = false;
+        
+        if (isUserMessage) {
+          // Check if user message contains keywords (for user-triggered responses)
+          hasMatch = keywords.some((keyword: string) => 
+            keyword && messageLower.includes(keyword.toLowerCase())
+          );
+        } else {
+          // Check if bot message contains keywords (for bot-triggered responses)
+          hasMatch = keywords.some((keyword: string) => 
+            keyword && messageLower.includes(keyword.toLowerCase())
+          );
+        }
+
+        if (hasMatch) {
+          console.log("Keyword match found:", keywords, "for response:", response);
+          // Create appropriate response based on type
+          switch (response.type) {
+            case 'image':
+              console.log("Processing image response:", response);
+              if (response.image_urls && response.image_urls.length > 0) {
+                console.log("Image URLs found:", response.image_urls);
+                triggeredResponses.push({
+                  from_me: false,
+                  type: "image",
+                  text: response.description || "AI Image Response",
+                  imageUrls: response.image_urls,
+                  caption: response.description,
+                  createdAt: new Date().toISOString(),
+                });
+                console.log("Added image response to triggeredResponses");
+              } else {
+                console.log("No image URLs found in response:", response);
+              }
+              break;
+            case 'document':
+              console.log("Processing document response:", response);
+              if (response.document_urls && response.document_urls.length > 0) {
+                console.log("Document URLs found:", response.document_urls);
+                triggeredResponses.push({
+                  from_me: false,
+                  type: "document",
+                  text: response.description || "AI Document Response",
+                  documentUrls: response.document_urls,
+                  caption: response.description,
+                  createdAt: new Date().toISOString(),
+                });
+                console.log("Added document response to triggeredResponses");
+              } else {
+                console.log("No document URLs found in response:", response);
+              }
+              break;
+            case 'tag':
+              // Handle tag responses if needed
+              break;
+            case 'voice':
+              // Handle voice responses if needed
+              break;
+            case 'assign':
+              // Handle assignment responses if needed
+              break;
+            case 'video':
+              // Handle video responses if needed
+              break;
+          }
+        } else {
+          console.log("No keyword match for:", keywords);
+        }
+      }
+      
+      console.log("Final triggeredResponses:", triggeredResponses);
+
+      return triggeredResponses;
+    } catch (error) {
+      console.error("Error checking AI responses:", error);
+      return [];
+    }
+  };
+
   const sendMessageToAssistant = async (messageText: string) => {
     const newMessage: ChatMessage = {
       from_me: true,
@@ -331,14 +687,45 @@ const GuestChat: React.FC = () => {
       
       const responseData = res.data;
       
-      const assistantResponse: ChatMessage = {
-        from_me: false,
-        type: 'text',
-        text: responseData.answer,
-        createdAt: new Date().toISOString(),
-      };
-  
-      setMessages(prevMessages => [assistantResponse, ...prevMessages]);
+      // Split the bot's response into individual messages using || separator
+      const botMessages = responseData.answer.split('||').filter((line: string) => line.trim() !== '');
+      console.log("Bot response split into messages:", botMessages);
+      
+      // Check for AI responses based on the BOT's message, not the user's
+      const aiResponses = await checkAIResponses(responseData.answer, false);
+      console.log("AI Responses found for bot message:", aiResponses);
+      
+      // Create messages array - each || separated part becomes a separate message
+      const newMessages: ChatMessage[] = [];
+      
+      // Process each bot message part and insert AI responses after the triggering part
+      for (let i = 0; i < botMessages.length; i++) {
+        const botMessage = botMessages[i];
+        console.log(`Processing bot message part ${i}:`, botMessage);
+        
+        // Add the bot message part
+        newMessages.push({
+          from_me: false,
+          type: "text",
+          text: botMessage,
+          createdAt: new Date().toISOString(),
+        });
+        
+        // If this message part contains the keyword, add AI responses immediately after
+        if (aiResponses.length > 0 && botMessage.toLowerCase().includes('your cnb carpets virtual admin assistant')) {
+          console.log("Adding AI responses after message part:", botMessage);
+          newMessages.push(...aiResponses);
+        }
+      }
+      
+      console.log("Final newMessages array:", newMessages);
+      
+      // Reverse the messages so newest appears first in the chat display
+      const reversedNewMessages = [...newMessages].reverse();
+      console.log("Reversed for chat display:", reversedNewMessages);
+      
+      // Add all messages to the chat (newest first)
+      setMessages(prevMessages => [...reversedNewMessages, ...prevMessages]);
   
     } catch (error) {
       console.error('Error sending message:', error);

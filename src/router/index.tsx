@@ -169,6 +169,7 @@ function Router() {
         { path: "seller-detail", element: <SellerDetail /> },
         { path: "reviews", element: <Reviews /> },
         { path: "inbox", element: <Inbox /> },
+        { path: "inbox/fullscreen-chat/:companyId", element: <Inbox /> },
         { path: "split-test", element: <SplitTest /> },
         { path: "file-manager", element: <FileManager /> },
         { path: "point-of-sale", element: <PointOfSale /> },

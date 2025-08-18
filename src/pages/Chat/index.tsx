@@ -685,9 +685,9 @@ function Main() {
   >([]);
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const baseMessageClass =
-    "flex flex-col max-w-[auto] min-w-[auto] p-1 text-white";
-  const myMessageClass = `${baseMessageClass} bg-primary self-end ml-auto text-left mb-1 mr-6 group`;
-  const otherMessageClass = `${baseMessageClass} bg-white dark:bg-gray-800 self-start text-left mt-1 ml-2 group`;
+    "flex flex-col max-w-[auto] min-w-[auto] p-1";
+  const myMessageClass = `${baseMessageClass} bg-[#dcf8c6] dark:bg-green-700 self-end ml-auto text-left mb-1 mr-6 group text-black dark:text-white`;
+  const otherMessageClass = `${baseMessageClass} bg-gray-700 dark:bg-gray-600 self-start text-left mt-1 ml-2 group text-white`;
   const myFirstMessageClass = `${myMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mt-4`;
   const myMiddleMessageClass = `${myMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl`;
   const myLastMessageClass = `${myMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mb-4`;
@@ -696,8 +696,8 @@ function Main() {
   const otherLastMessageClass = `${otherMessageClass} rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl mb-4`;
   const privateNoteClass = `${baseMessageClass} bg-yellow-500 dark:bg-yellow-900 self-start text-left mt-1 ml-2 group rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-xl`;
   const [messageMode, setMessageMode] = useState("reply");
-  const myMessageTextClass = "text-white";
-  const otherMessageTextClass = "text-black dark:text-white";
+  const myMessageTextClass = "text-black dark:text-white";
+  const otherMessageTextClass = "text-white";
   const [activeTags, setActiveTags] = useState<string[]>(["all"]);
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -11593,8 +11593,8 @@ function Main() {
                                       <div
                                         className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
                                           message.from_me
-                                            ? "text-white dark:text-white"
-                                            : "text-black dark:text-white"
+                                            ? "text-black dark:text-white"
+                                            : "text-white"
                                         }`}
                                         style={{
                                           lineHeight: "1.5",
@@ -11689,8 +11689,8 @@ function Main() {
                                       <div
                                         className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
                                           message.from_me
-                                            ? "text-white dark:text-white"
-                                            : "text-black dark:text-white"
+                                            ? "text-black dark:text-white"
+                                            : "text-white"
                                         }`}
                                         style={{
                                           lineHeight: "1.5",
@@ -11764,8 +11764,8 @@ function Main() {
                                         <div
                                           className={`whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal ${
                                             message.from_me
-                                              ? "text-white dark:text-white"
-                                              : "text-black dark:text-white"
+                                              ? "text-black dark:text-white"
+                                              : "text-white"
                                           }`}
                                           style={{
                                             lineHeight: "1.5",
@@ -12160,11 +12160,19 @@ function Main() {
                                           `Phone ${message.phoneIndex + 1}`}
                                       </div>
                                     )}
-                                    {formatTimestamp(
-                                      message.createdAt ||
-                                        message.dateAdded ||
-                                        message.timestamp
-                                    )}
+                                    <span
+                                      className={`text-xs ${
+                                        message.from_me
+                                          ? "text-black dark:text-white"
+                                          : "text-white"
+                                      }`}
+                                    >
+                                      {formatTimestamp(
+                                        message.createdAt ||
+                                          message.dateAdded ||
+                                          message.timestamp
+                                      )}
+                                    </span>
 
                                     {/* Message status indicator for sent messages */}
                                     {message.from_me && (

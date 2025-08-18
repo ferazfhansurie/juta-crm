@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
 import Button from "@/components/Base/Button";
-import { getAuth } from "firebase/auth";
+
 import { initializeApp } from "firebase/app";
 import {
   updateDoc,
@@ -17,7 +17,7 @@ import logoUrl from "@/assets/images/logo.png";
 import LoadingIcon from "@/components/Base/LoadingIcon";
 import { Tab } from "@headlessui/react";
 
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
 
@@ -33,7 +33,7 @@ const firebaseConfig = {
   measurementId: "G-2C9J1RY67L",
 };
 
-let companyId = "001"; // Adjust the companyId as needed
+
 
 const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
@@ -43,6 +43,9 @@ interface ChatMessage {
   type: string;
   text: string;
   createdAt: string;
+  imageUrls?: string[];
+  documentUrls?: string[];
+  caption?: string;
 }
 
 interface AssistantInfo {
@@ -66,6 +69,8 @@ interface MessageListProps {
   assistantName: string;
   deleteThread: () => void;
   threadId: string; // Add this line
+  enterFullscreenMode: () => void; // Add this line
+  openPDFModal: (documentUrl: string, documentName?: string) => void; // Add this line
 }
 interface AssistantConfig {
   id: string;
@@ -78,19 +83,93 @@ interface InstructionTemplate {
   instructions: string;
 }
 
+// PDF Modal Component
+interface PDFModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  documentUrl: string;
+  documentName?: string;
+}
+
+const PDFModal: React.FC<PDFModalProps> = ({ isOpen, onClose, documentUrl, documentName }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      onClick={onClose}
+    >
+      <div
+        className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full md:w-[800px] h-auto md:h-[600px] p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">
+            Document Preview
+          </h2>
+          <button
+            className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+            onClick={onClose}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div
+          className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4 flex justify-center items-center"
+          style={{ height: "90%" }}
+        >
+          {documentUrl.toLowerCase().includes('.pdf') ? (
+            <iframe
+              src={documentUrl}
+              width="100%"
+              height="100%"
+              title="PDF Document"
+              className="border rounded"
+            />
+          ) : (
+            <div className="text-center">
+              <svg className="w-20 h-20 mb-2 mx-auto text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+              </svg>
+              <p className="text-gray-800 dark:text-gray-200 font-semibold">
+                {documentName || "Document"}
+              </p>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                Click Download to view this document
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-center">
+          <button
+            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+            onClick={() => window.open(documentUrl, '_blank')}
+          >
+            Download Document
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MessageList: React.FC<MessageListProps> = ({
   messages,
   onSendMessage,
   assistantName,
   deleteThread,
   threadId,
+  enterFullscreenMode,
+  openPDFModal,
 }) => {
   const [newMessage, setNewMessage] = useState("");
 
   const myMessageClass =
-    "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
+    "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-gray-700 text-white dark:bg-gray-600 rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
   const otherMessageClass =
-    "bg-gray-700 text-white dark:bg-gray-600 rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
+    "bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
 
   const handleSendMessage = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -117,7 +196,22 @@ const MessageList: React.FC<MessageListProps> = ({
             </div>
           </div>
         </div>
-        <div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={enterFullscreenMode}
+            className="px-4 py-2 bg-green-500 dark:bg-green-600 text-white rounded flex items-center gap-2 hover:bg-green-600 dark:hover:bg-green-700 active:scale-95 transition-colors"
+            title="Open in fullscreen"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" />
+            </svg>
+            Fullscreen
+          </button>
           <button
             onClick={deleteThread}
             className={`px-4 py-2 text-white rounded flex items-center ${
@@ -138,7 +232,9 @@ const MessageList: React.FC<MessageListProps> = ({
           .reverse()
           .map((message, index) => (
             <div key={index}>
-              {message.text.split("||").map((splitText, splitIndex) => (
+              {message.text.split("||")
+                .filter(splitText => splitText.trim() !== "")
+                .map((splitText, splitIndex) => (
                 <div
                   key={`${index}-${splitIndex}`}
                   className={`p-2 mb-2 rounded ${
@@ -159,7 +255,92 @@ const MessageList: React.FC<MessageListProps> = ({
                       {splitText.trim()}
                     </div>
                   )}
-                  {splitIndex === message.text.split("||").length - 1 && (
+                  {message.type === "image" && message.imageUrls && (
+                    <div className="space-y-2">
+                      {message.imageUrls.map((imageUrl, imgIndex) => (
+                        <div key={imgIndex} className="relative">
+                          <img
+                            src={imageUrl}
+                            alt={`AI Response Image ${imgIndex + 1}`}
+                            className="max-w-full h-auto rounded-lg cursor-pointer"
+                            style={{ maxHeight: "300px" }}
+                            onClick={() => {
+                              // Open image in new tab or modal if needed
+                              window.open(imageUrl, '_blank');
+                            }}
+                          />
+                          {message.caption && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              {message.caption}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {message.type === "document" && message.documentUrls && (
+                    <div className="space-y-2">
+                      {message.documentUrls.map((documentUrl, docIndex) => (
+                        <div key={docIndex} className="relative">
+                          {/* Document Header */}
+                          <div className="flex items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 mb-2">
+                            <svg className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                            </svg>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {documentUrl.split('/').pop()?.split('?')[0] || `Document ${docIndex + 1}`}
+                              </p>
+                              {message.caption && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {message.caption}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => openPDFModal(documentUrl, documentUrl.split('/').pop()?.split('?')[0] || `Document ${docIndex + 1}`)}
+                              className="px-3 py-1 text-xs bg-green-500 dark:bg-green-600 text-white rounded hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
+                            >
+                              View
+                            </button>
+                          </div>
+                          
+                          {/* Document Content Preview */}
+                          <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                            {documentUrl.toLowerCase().includes('.pdf') ? (
+                              <iframe
+                                src={documentUrl}
+                                width="100%"
+                                height="400"
+                                title={`Document ${docIndex + 1}`}
+                                className="border-0"
+                                style={{ minHeight: '400px' }}
+                              />
+                            ) : documentUrl.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                              <img
+                                src={documentUrl}
+                                alt={`Document ${docIndex + 1}`}
+                                className="w-full h-auto max-h-96 object-contain"
+                              />
+                            ) : (
+                              <div className="p-4 text-center">
+                                <svg className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M4 4a2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                </svg>
+                                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                  Document preview not available
+                                </p>
+                                <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">
+                                  Click Download to view this document
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {splitIndex === message.text.split("||").filter(splitText => splitText.trim() !== "").length - 1 && (
                     <div className="message-timestamp text-xs text-gray-500 dark:text-gray-300 mt-1">
                       {new Date(message.createdAt).toLocaleTimeString([], {
                         hour: "2-digit",
@@ -176,7 +357,7 @@ const MessageList: React.FC<MessageListProps> = ({
       <div className="p-4 border-t border-gray-300 dark:border-gray-700">
         <div className="flex items-center">
           <textarea
-            className="w-full h-10 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 resize-none"
+            className="w-full h-10 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-green-500 dark:focus:border-green-400 resize-none"
             placeholder="Type a message"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
@@ -184,7 +365,7 @@ const MessageList: React.FC<MessageListProps> = ({
           />
           <button
             onClick={() => onSendMessage(newMessage)}
-            className="px-4 py-2 ml-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none"
+            className="px-4 py-2 ml-2 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 focus:outline-none"
           >
             Send
           </button>
@@ -233,6 +414,65 @@ const Main: React.FC = () => {
   const [isToolsCollapsed, setIsToolsCollapsed] = useState(false);
   const [aiAutoResponse, setAiAutoResponse] = useState<boolean>(false);
   const [aiDelay, setAiDelay] = useState<number>(0);
+  
+  // Fullscreen mode state
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isFullscreenMode = location.pathname.includes('/fullscreen-chat/');
+  const fullscreenCompanyId = location.pathname.match(/\/fullscreen-chat\/([^\/]+)/)?.[1];
+
+  // Message classes for fullscreen mode
+  const myMessageClass =
+    "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-gray-700 text-white dark:bg-gray-600 rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
+  const otherMessageClass =
+    "bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
+
+  // Fullscreen message handling
+  const [fullscreenNewMessage, setFullscreenNewMessage] = useState("");
+  
+  // PDF Modal state
+  const [pdfModal, setPdfModal] = useState<{
+    isOpen: boolean;
+    documentUrl: string;
+    documentName?: string;
+  }>({
+    isOpen: false,
+    documentUrl: "",
+    documentName: "",
+  });
+
+  const openPDFModal = (documentUrl: string, documentName?: string) => {
+    setPdfModal({
+      isOpen: true,
+      documentUrl,
+      documentName,
+    });
+  };
+
+  const closePDFModal = () => {
+    setPdfModal({
+      isOpen: false,
+      documentUrl: "",
+      documentName: "",
+    });
+  };
+  
+  const handleFullscreenSendMessage = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (fullscreenNewMessage.trim()) {
+        sendMessageToAssistant(fullscreenNewMessage);
+        setFullscreenNewMessage("");
+      }
+    }
+  };
+
+  const handleFullscreenSendClick = () => {
+    if (fullscreenNewMessage.trim()) {
+      sendMessageToAssistant(fullscreenNewMessage);
+      setFullscreenNewMessage("");
+    }
+  };
 
   useEffect(() => {
     fetchCompanyId();
@@ -462,6 +702,167 @@ const Main: React.FC = () => {
     }
   };
 
+  const checkAIResponses = async (messageText: string, isUserMessage: boolean = true): Promise<ChatMessage[]> => {
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail || !companyId) return [];
+
+      // Get company API URL
+      const baseUrl = "https://juta-dev.ngrok.dev";
+      const companyResponse = await fetch(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!companyResponse.ok) return [];
+
+      const companyData = await companyResponse.json();
+      const apiUrl = companyData.companyData.api_url || baseUrl;
+
+      // Fetch all AI responses by type since the API requires a type parameter
+      console.log("Fetching AI responses for company:", companyId, "from:", apiUrl);
+      
+      const responseTypes = ['image', 'tag', 'voice', 'document', 'assign', 'video'];
+      const allResponses = [];
+      
+      // Fetch responses for each type
+      for (const responseType of responseTypes) {
+        try {
+          const endpoint = `${apiUrl}/api/ai-responses?companyId=${companyId}&type=${responseType}`;
+          console.log(`Fetching ${responseType} responses from:`, endpoint);
+          
+          const response = await fetch(endpoint, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+                         if (data.success && data.data) {
+               // Add type to each response for easier processing
+               const typedResponses = data.data.map((item: any) => ({ ...item, type: responseType }));
+               allResponses.push(...typedResponses);
+               console.log(`Found ${typedResponses.length} ${responseType} responses`);
+             }
+          } else {
+            console.log(`${responseType} responses failed:`, response.status);
+          }
+        } catch (error) {
+          console.log(`Error fetching ${responseType} responses:`, error);
+        }
+      }
+      
+            console.log("Total AI responses found:", allResponses.length);
+      console.log("All responses data:", allResponses);
+      
+      const triggeredResponses: ChatMessage[] = [];
+
+      // Check each AI response for keyword matches
+      for (const response of allResponses) {
+        console.log("Processing response:", response);
+        console.log("Response status:", response.status);
+        console.log("Response keywords:", response.keywords);
+        
+        if (response.status !== 'active') {
+          console.log("Skipping inactive response:", response.status);
+          continue;
+        }
+
+        const keywords = Array.isArray(response.keywords) ? response.keywords : [response.keywords];
+        const messageLower = messageText.toLowerCase();
+        console.log("Checking keywords:", keywords, "against message:", messageLower);
+
+        // Check if any keyword matches the message
+        // For user messages, check if user input triggers AI responses
+        // For bot messages, check if bot output triggers AI responses
+        let hasMatch = false;
+        
+        if (isUserMessage) {
+          // Check if user message contains keywords (for user-triggered responses)
+          hasMatch = keywords.some((keyword: string) => 
+            keyword && messageLower.includes(keyword.toLowerCase())
+          );
+        } else {
+          // Check if bot message contains keywords (for bot-triggered responses)
+          hasMatch = keywords.some((keyword: string) => 
+            keyword && messageLower.includes(keyword.toLowerCase())
+          );
+        }
+
+        if (hasMatch) {
+          console.log("Keyword match found:", keywords, "for response:", response);
+          // Create appropriate response based on type
+          switch (response.type) {
+            case 'image':
+              console.log("Processing image response:", response);
+              if (response.image_urls && response.image_urls.length > 0) {
+                console.log("Image URLs found:", response.image_urls);
+                triggeredResponses.push({
+                  from_me: false,
+                  type: "image",
+                  text: response.description || "AI Image Response",
+                  imageUrls: response.image_urls,
+                  caption: response.description,
+                  createdAt: new Date().toISOString(),
+                });
+                console.log("Added image response to triggeredResponses");
+              } else {
+                console.log("No image URLs found in response:", response);
+              }
+              break;
+            case 'tag':
+              // Handle tag responses if needed
+              break;
+            case 'voice':
+              // Handle voice responses if needed
+              break;
+            case 'document':
+              console.log("Processing document response:", response);
+              if (response.document_urls && response.document_urls.length > 0) {
+                console.log("Document URLs found:", response.document_urls);
+                triggeredResponses.push({
+                  from_me: false,
+                  type: "document",
+                  text: response.description || "AI Document Response",
+                  documentUrls: response.document_urls,
+                  caption: response.description,
+                  createdAt: new Date().toISOString(),
+                });
+                console.log("Added document response to triggeredResponses");
+              } else {
+                console.log("No document URLs found in response:", response);
+              }
+              break;
+            case 'assign':
+              // Handle assignment responses if needed
+              break;
+            case 'video':
+              // Handle video responses if needed
+              break;
+          }
+        } else {
+          console.log("No keyword match for:", keywords);
+        }
+      }
+      
+      console.log("Final triggeredResponses:", triggeredResponses);
+
+      return triggeredResponses;
+    } catch (error) {
+      console.error("Error checking AI responses:", error);
+      return [];
+    }
+  };
+
   const sendMessageToAssistant = async (messageText: string) => {
     const newMessage: ChatMessage = {
       from_me: true,
@@ -490,6 +891,7 @@ const Main: React.FC = () => {
     try {
       const userEmail = localStorage.getItem("userEmail");
 
+      // Get the assistant response first
       const res = await axios.get(
         `https://juta-dev.ngrok.dev/api/assistant-test/`,
         {
@@ -502,14 +904,46 @@ const Main: React.FC = () => {
       );
       const data = res.data;
 
-      const assistantResponse: ChatMessage = {
-        from_me: false,
-        type: "text",
-        text: data.answer,
-        createdAt: new Date().toISOString(),
-      };
-
-      setMessages((prevMessages) => [assistantResponse, ...prevMessages]);
+      // Split the bot's response into individual messages using || separator
+      const botMessages = data.answer.split('||').filter((line: string) => line.trim() !== '');
+      console.log("Bot response split into messages:", botMessages);
+      
+      // Check for AI responses based on the BOT's message, not the user's
+      const aiResponses = await checkAIResponses(data.answer, false);
+      console.log("AI Responses found for bot message:", aiResponses);
+      
+      // Create messages array - each || separated part becomes a separate message
+      const newMessages: ChatMessage[] = [];
+      
+      // Process each bot message part and insert AI responses after the triggering part
+      for (let i = 0; i < botMessages.length; i++) {
+        const botMessage = botMessages[i];
+        console.log(`Processing bot message part ${i}:`, botMessage);
+        
+        // Add the bot message part
+        newMessages.push({
+          from_me: false,
+          type: "text",
+          text: botMessage,
+          createdAt: new Date().toISOString(),
+        });
+        
+        // If this message part contains the keyword, add AI responses immediately after
+        if (aiResponses.length > 0 && botMessage.toLowerCase().includes('your cnb carpets virtual admin assistant')) {
+          console.log("Adding AI responses after message part:", botMessage);
+          newMessages.push(...aiResponses);
+        }
+      }
+      
+      console.log("Final newMessages array:", newMessages);
+      
+      // Reverse the messages so newest appears first in the chat display
+      const reversedNewMessages = [...newMessages].reverse();
+      console.log("Reversed for chat display:", reversedNewMessages);
+      
+      // Add all messages to the chat (newest first)
+      // The image should appear after the greeting message that triggered it
+      setMessages((prevMessages) => [...reversedNewMessages, ...prevMessages]);
       if (userEmail) {
         setThreadId(userEmail); // Update the threadId to user email as a placeholder
       }
@@ -526,30 +960,27 @@ const Main: React.FC = () => {
   }, [assistantId, apiKey]);
 
   const deleteThread = async () => {
-    const user = getAuth().currentUser;
-    if (!user) {
+    const userEmail = localStorage.getItem("userEmail");
+    if (!userEmail) {
       console.error("No user is logged in");
       setError("No user is logged in");
       return;
     }
 
     try {
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("User document does not exist");
-        setError("User document does not exist");
-        return;
-      }
-
-      await updateDoc(docUserRef, { threadid: "" });
-      setThreadId(""); // Clear threadId in state
-
+      // Clear the threadId in state
+      setThreadId("");
+      
       // Clear the messages state
       setMessages([]);
+      
+      // Optionally, you can also clear from localStorage if needed
+      localStorage.removeItem("threadId");
+      
+      console.log("Thread deleted successfully");
     } catch (error) {
-      console.error("Error updating thread ID:", error);
-      setError("Failed to update thread ID");
+      console.error("Error deleting thread:", error);
+      setError("Failed to delete thread");
     }
   };
 
@@ -1095,7 +1526,7 @@ const Main: React.FC = () => {
           </button>
           <button
             onClick={() => setIsTemplateModalOpen(true)}
-            className="px-4 py-2 bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+            className="px-4 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -1170,7 +1601,7 @@ const Main: React.FC = () => {
                                   loadTemplate(template);
                                   setIsTemplateModalOpen(false);
                                 }}
-                                className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 text-sm flex items-center gap-1"
+                                className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm flex items-center gap-1"
                               >
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
@@ -1213,7 +1644,7 @@ const Main: React.FC = () => {
                   <div className="mt-4">
                     <button
                       type="button"
-                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-100 dark:bg-gray-600 px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-100 dark:bg-gray-600 px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
                       onClick={() => setIsTemplateModalOpen(false)}
                     >
                       Close
@@ -1272,6 +1703,217 @@ const Main: React.FC = () => {
     }
   };
 
+  const enterFullscreenMode = () => {
+    if (companyId) {
+      navigate(`/inbox/fullscreen-chat/${companyId}`);
+    }
+  };
+
+  const exitFullscreenMode = () => {
+    navigate('/inbox');
+  };
+
+  // If in fullscreen mode, show only the chat interface
+  if (isFullscreenMode) {
+    return (
+      <div className="flex flex-col w-full h-screen bg-white dark:bg-gray-900">
+        {/* Fullscreen Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
+          <div className="flex items-center">
+            <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 dark:bg-gray-600 flex items-center justify-center text-white mr-3">
+              <span className="text-xl capitalize">
+                {assistantInfo.name.charAt(0)}
+              </span>
+            </div>
+            <div>
+              <div className="font-semibold text-xl text-gray-800 dark:text-gray-200 capitalize">
+                {assistantInfo.name}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Fullscreen Chat
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={exitFullscreenMode}
+              className="px-4 py-2 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              Exit Fullscreen
+            </button>
+          </div>
+        </div>
+
+        {/* Fullscreen Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-4 dark:bg-gray-900">
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-gray-500 dark:text-gray-400">
+                <div className="text-2xl mb-2">👋</div>
+                <div className="text-lg mb-2">Welcome to {assistantInfo.name}</div>
+                <div className="text-sm">Start a conversation by typing a message below</div>
+              </div>
+            </div>
+          ) : (
+            messages
+              .slice()
+              .reverse()
+              .map((message, index) => (
+                <div key={index}>
+                  {message.text.split("||")
+                    .filter(splitText => splitText.trim() !== "")
+                    .map((splitText, splitIndex) => (
+                    <div
+                      key={`${index}-${splitIndex}`}
+                      className={`p-3 mb-3 rounded-lg ${
+                        message.from_me ? myMessageClass : otherMessageClass
+                      }`}
+                      style={{
+                        maxWidth: "70%",
+                        width: `${
+                          message.type === "image" || message.type === "document"
+                            ? "350"
+                            : Math.min((splitText.trim().length || 0) * 10, 350)
+                        }px`,
+                        minWidth: "75px",
+                      }}
+                    >
+                      {message.type === "text" && (
+                        <div className="whitespace-pre-wrap break-words">
+                          {splitText.trim()}
+                        </div>
+                      )}
+                      {message.type === "image" && message.imageUrls && (
+                        <div className="space-y-2">
+                          {message.imageUrls.map((imageUrl, imgIndex) => (
+                            <div key={imgIndex} className="relative">
+                              <img
+                                src={imageUrl}
+                                alt={`AI Response Image ${imgIndex + 1}`}
+                                className="max-w-full h-auto rounded-lg cursor-pointer"
+                                style={{ maxHeight: "300px" }}
+                                onClick={() => {
+                                  // Open image in new tab or modal if needed
+                                  window.open(imageUrl, '_blank');
+                                }}
+                              />
+                              {message.caption && (
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                  {message.caption}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {message.type === "document" && message.documentUrls && (
+                        <div className="space-y-2">
+                          {message.documentUrls.map((documentUrl, docIndex) => (
+                            <div key={docIndex} className="relative">
+                              <div className="flex items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
+                                <svg className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M4 4a2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                </svg>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {documentUrl.split('/').pop()?.split('?')[0] || `Document ${docIndex + 1}`}
+                                  </p>
+                                  {message.caption && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      {message.caption}
+                                    </p>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => openPDFModal(documentUrl, documentUrl.split('/').pop()?.split('?')[0] || `Document ${docIndex + 1}`)}
+                                  className="px-3 py-1 text-xs bg-green-500 dark:bg-green-600 text-white rounded hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
+                                >
+                                  View
+                                </button>
+                              </div>
+                              
+                              {/* Document Content Preview */}
+                              <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                                {documentUrl.toLowerCase().includes('.pdf') ? (
+                                  <iframe
+                                    src={documentUrl}
+                                    width="100%"
+                                    height="400"
+                                    title={`Document ${docIndex + 1}`}
+                                    className="border-0"
+                                    style={{ minHeight: '400px' }}
+                                  />
+                                ) : documentUrl.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                  <img
+                                    src={documentUrl}
+                                    alt={`Document ${docIndex + 1}`}
+                                    className="w-full h-auto max-h-96 object-contain"
+                                  />
+                                ) : (
+                                  <div className="p-4 text-center">
+                                    <svg className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M4 4a2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                    </svg>
+                                    <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                      Document preview not available
+                                    </p>
+                                    <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">
+                                      Click Download to view this document
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                    </div>
+                  ))}
+                </div>
+              ))
+          )}
+        </div>
+
+        {/* Fullscreen Message Input */}
+        <div className="p-4 border-t border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex items-center gap-3">
+            <textarea
+              className="flex-1 h-12 px-4 py-3 text-base text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+              placeholder="Type a message..."
+              value={fullscreenNewMessage}
+              onChange={(e) => setFullscreenNewMessage(e.target.value)}
+              onKeyDown={handleFullscreenSendMessage}
+              rows={1}
+            />
+            <button
+              onClick={handleFullscreenSendClick}
+              className="px-6 py-3 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg">
+            {error}
+          </div>
+        )}
+
+        <ToastContainer />
+        
+        {/* PDF Modal */}
+        <PDFModal
+          isOpen={pdfModal.isOpen}
+          onClose={closePDFModal}
+          documentUrl={pdfModal.documentUrl}
+          documentName={pdfModal.documentName}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex justify-center h-screen bg-gray-100 dark:bg-gray-900">
       <div className={`w-full ${isWideScreen ? "max-w-6xl flex" : "max-w-lg"}`}>
@@ -1295,7 +1937,7 @@ const Main: React.FC = () => {
                       <select
                         value={selectedAssistant}
                         onChange={(e) => handleAssistantChange(e.target.value)}
-                        className="w-full p-2 text-2xl font-bold border border-gray-300 rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-2 text-2xl font-bold border border-gray-300 rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
                       >
                         {assistants.map((assistant) => (
                           <option key={assistant.id} value={assistant.id}>
@@ -1309,25 +1951,25 @@ const Main: React.FC = () => {
                       </h1>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label
-                      className="mb-2 text-lg font-medium capitalize dark:text-gray-200"
-                      htmlFor="name"
-                    >
-                      Name
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="name"
-                        name="name"
-                        type="text"
-                        className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
-                        placeholder="Name your assistant"
-                        value={assistantInfo.name}
-                        onChange={handleInputChange}
-                        onFocus={handleFocus}
-                        disabled={userRole === "3"}
-                      />
+                                      <div className="mb-4">
+                      <label
+                        className="mb-2 text-lg font-medium capitalize dark:text-gray-200"
+                        htmlFor="name"
+                      >
+                        Name
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="name"
+                          name="name"
+                          type="text"
+                          className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 pr-10"
+                          placeholder="Name your assistant"
+                          value={assistantInfo.name}
+                          onChange={handleInputChange}
+                          onFocus={handleFocus}
+                          disabled={userRole === "3"}
+                        />
                     </div>
                   </div>
 
@@ -1343,7 +1985,7 @@ const Main: React.FC = () => {
                       <textarea
                         id="instructions"
                         name="instructions"
-                        className="w-full p-3 border border-gray-300 rounded-lg h-[600px] text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-3 border border-gray-300 rounded-lg h-[600px] text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
                         placeholder="Tell your assistant what to do"
                         value={assistantInfo.instructions}
                         onChange={handleInputChange}
@@ -1396,7 +2038,7 @@ const Main: React.FC = () => {
                       {(files || []).map((file) => (
                         <li
                           key={file.id}
-                          className="text-sm text-blue-500 flex items-center justify-between"
+                          className="text-sm text-green-500 flex items-center justify-between"
                         >
                           <a
                             href={file.url}
@@ -1415,6 +2057,8 @@ const Main: React.FC = () => {
                       ))}
                     </ul>
                   </div>
+
+
 
                   <div className="mt-2 mb-4">
                     <div className="flex flex-wrap items-center gap-4">
@@ -1520,18 +2164,18 @@ const Main: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="mb-5 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800 shadow-sm">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="text-md font-medium text-blue-700 dark:text-blue-300">
-                        AI & Follow-up Tools
-                      </h3>
-                      <button
-                        onClick={() => setIsToolsCollapsed(!isToolsCollapsed)}
-                        className="text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100 focus:outline-none"
-                        aria-label={
-                          isToolsCollapsed ? "Expand tools" : "Collapse tools"
-                        }
-                      >
+                                      <div className="mb-5 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-100 dark:border-green-800 shadow-sm">
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-md font-medium text-green-700 dark:text-green-300">
+                          AI & Follow-up Tools
+                        </h3>
+                        <button
+                          onClick={() => setIsToolsCollapsed(!isToolsCollapsed)}
+                          className="text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-100 focus:outline-none"
+                          aria-label={
+                            isToolsCollapsed ? "Expand tools" : "Collapse tools"
+                          }
+                        >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           className={`h-5 w-5 transform transition-transform duration-200 ${
@@ -1577,7 +2221,7 @@ const Main: React.FC = () => {
                           <Link to="/follow-ups">
                             <Button
                               variant="secondary"
-                              className="shadow-sm bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/50 px-4 py-2"
+                              className="shadow-sm bg-white dark:bg-gray-700 border-green-200 dark:border-green-700 text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/50 px-4 py-2"
                             >
                               <span className="flex items-center">
                                 <svg
@@ -1586,7 +2230,7 @@ const Main: React.FC = () => {
                                   viewBox="0 0 20 20"
                                   fill="currentColor"
                                 >
-                                  <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+                                  <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
                                 </svg>
                                 Follow Ups
                               </span>
@@ -1596,7 +2240,7 @@ const Main: React.FC = () => {
                             <Link to="/storage-pricing">
                               <Button
                                 variant="secondary"
-                                className="shadow-sm bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/50 px-4 py-2"
+                                className="shadow-sm bg-white dark:bg-gray-700 border-green-200 dark:border-green-700 text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/50 px-4 py-2"
                               >
                                 <span className="flex items-center">
                                   <svg
@@ -1637,7 +2281,7 @@ const Main: React.FC = () => {
                               onChange={(e) =>
                                 setAiDelay(Number(e.target.value))
                               }
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
                               disabled={userRole === "3"}
                             />
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -1649,7 +2293,7 @@ const Main: React.FC = () => {
                           <div>
                             <button
                               onClick={handleSaveAiSettings}
-                              className="px-4 py-2 bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+                              className="px-4 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
                               disabled={userRole === "3"}
                             >
                               <svg
@@ -1683,6 +2327,8 @@ const Main: React.FC = () => {
                 assistantName={assistantInfo?.name}
                 deleteThread={deleteThread}
                 threadId={threadId}
+                enterFullscreenMode={enterFullscreenMode}
+                openPDFModal={openPDFModal}
               />
             </div>
           </>
@@ -1693,7 +2339,7 @@ const Main: React.FC = () => {
                 className={({ selected }) =>
                   `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
                     selected
-                      ? "bg-white text-blue-600 dark:bg-gray-800 dark:text-blue-400"
+                      ? "bg-white text-green-600 dark:bg-gray-800 dark:text-green-400"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                   } transition-colors duration-200`
                 }
@@ -1704,7 +2350,7 @@ const Main: React.FC = () => {
                 className={({ selected }) =>
                   `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
                     selected
-                      ? "bg-white text-blue-600 dark:bg-gray-800 dark:text-blue-400"
+                      ? "bg-white text-green-600 dark:bg-gray-800 dark:text-green-400"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                   } transition-colors duration-200`
                 }
@@ -1740,17 +2386,17 @@ const Main: React.FC = () => {
                       >
                         Name
                       </label>
-                      <input
-                        id="name"
-                        name="name"
-                        type="text"
-                        className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
-                        placeholder="Name your assistant"
-                        value={assistantInfo.name}
-                        onChange={handleInputChange}
-                        onFocus={handleFocus}
-                        disabled={userRole === "3"}
-                      />
+                                              <input
+                          id="name"
+                          name="name"
+                          type="text"
+                          className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 pr-10"
+                          placeholder="Name your assistant"
+                          value={assistantInfo.name}
+                          onChange={handleInputChange}
+                          onFocus={handleFocus}
+                          disabled={userRole === "3"}
+                        />
                     </div>
                     <div className="mb-4">
                       <label
@@ -1762,7 +2408,7 @@ const Main: React.FC = () => {
                       <textarea
                         id="description"
                         name="description"
-                        className="w-full p-3 border border-gray-300 rounded-lg h-24 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    className="w-full p-3 border border-gray-300 rounded-lg h-24 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
                         placeholder="Add a short description of what this assistant does"
                         value={assistantInfo.description}
                         onChange={handleInputChange}
@@ -1782,7 +2428,7 @@ const Main: React.FC = () => {
                         <textarea
                           id="instructions"
                           name="instructions"
-                          className="w-full p-3 border border-gray-300 rounded-lg h-[600px] text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-3 border border-gray-300 rounded-lg h-[600px] text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
                           placeholder="Tell your assistant what to do"
                           value={assistantInfo.instructions}
                           onChange={handleInputChange}
@@ -1834,7 +2480,7 @@ const Main: React.FC = () => {
                         {files.map((file) => (
                           <li
                             key={file.id}
-                            className="text-sm text-blue-500 flex items-center justify-between"
+                            className="text-sm text-green-500 flex items-center justify-between"
                           >
                             <a
                               href={file.url}
@@ -1853,6 +2499,8 @@ const Main: React.FC = () => {
                         ))}
                       </ul>
                     </div>
+
+
 
                     <div className="mt-8 mb-4">
                       <h3 className="text-md font-medium mb-3 text-gray-700 dark:text-gray-300">
@@ -1937,14 +2585,14 @@ const Main: React.FC = () => {
                     </div>
 
                     {/* Featured navigation buttons for mobile view */}
-                    <div className="mb-5 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800 shadow-sm">
+                    <div className="mb-5 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-100 dark:border-green-800 shadow-sm">
                       <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-md font-medium text-blue-700 dark:text-blue-300">
+                        <h3 className="text-md font-medium text-green-700 dark:text-green-300">
                           AI & Follow-up Tools
                         </h3>
                         <button
                           onClick={() => setIsToolsCollapsed(!isToolsCollapsed)}
-                          className="text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100 focus:outline-none"
+                          className="text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-100 focus:outline-none"
                           aria-label={
                             isToolsCollapsed ? "Expand tools" : "Collapse tools"
                           }
@@ -1992,7 +2640,7 @@ const Main: React.FC = () => {
                           <Link to="/a-i-generative-responses">
                             <Button
                               variant="secondary"
-                              className="shadow-sm bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/50 px-4 py-2"
+                              className="shadow-sm bg-white dark:bg-gray-700 border-green-200 dark:border-green-700 text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/50 px-4 py-2"
                             >
                               <span className="flex items-center">
                                 <svg
@@ -2015,7 +2663,7 @@ const Main: React.FC = () => {
                           <Link to="/follow-ups-select">
                             <Button
                               variant="secondary"
-                              className="shadow-sm bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/50 px-4 py-2"
+                              className="shadow-sm bg-white dark:bg-gray-700 border-green-200 dark:border-green-700 text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/50 px-4 py-2"
                             >
                               <span className="flex items-center">
                                 <svg
@@ -2076,7 +2724,7 @@ const Main: React.FC = () => {
                             max="300"
                             value={aiDelay}
                             onChange={(e) => setAiDelay(Number(e.target.value))}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
                             disabled={userRole === "3"}
                           />
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -2088,7 +2736,7 @@ const Main: React.FC = () => {
                         <div>
                           <button
                             onClick={handleSaveAiSettings}
-                            className="px-4 py-2 bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+                            className="px-4 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
                             disabled={userRole === "3"}
                           >
                             <svg
@@ -2120,12 +2768,22 @@ const Main: React.FC = () => {
                   assistantName={assistantInfo?.name || "Juta Assistant"}
                   deleteThread={deleteThread}
                   threadId={threadId}
+                  enterFullscreenMode={enterFullscreenMode}
+                  openPDFModal={openPDFModal}
                 />
               </Tab.Panel>
             </Tab.Panels>
           </Tab.Group>
         )}
         <ToastContainer />
+        
+        {/* PDF Modal */}
+        <PDFModal
+          isOpen={pdfModal.isOpen}
+          onClose={closePDFModal}
+          documentUrl={pdfModal.documentUrl}
+          documentName={pdfModal.documentName}
+        />
       </div>
 
       {/* Fullscreen Modal */}
@@ -2187,7 +2845,7 @@ const Main: React.FC = () => {
                     </button>
                   </div>
                   <textarea
-                    className="w-full h-[calc(100vh-120px)] p-4 text-base bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full h-[calc(100vh-120px)] p-4 text-base bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
                     value={assistantInfo.instructions}
                     onChange={handleInputChange}
                     name="instructions"

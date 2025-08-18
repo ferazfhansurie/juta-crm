@@ -4,7 +4,7 @@ import illustrationUrl from "@/assets/images/illustration.svg";
 import { FormInput, FormCheck } from "@/components/Base/Form";
 import Button from "@/components/Base/Button";
 import clsx from "clsx";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"; // Import Firebase authentication methods
 import { initializeApp } from 'firebase/app';
 import { useState } from "react";
@@ -29,6 +29,7 @@ const firebaseConfig = {
     const [error, setError] = useState("");
     const [signedIn, setSignedIn] = useState(false);
     const navigate = useNavigate(); // Initialize useNavigate
+    const location = useLocation(); // Get location for return URL
     const [resetEmail, setResetEmail] = useState("");
     const [resetMessage, setResetMessage] = useState("");
     const [showResetModal, setShowResetModal] = useState(false);
@@ -48,7 +49,14 @@ const firebaseConfig = {
           localStorage.setItem('userEmail', email);
           // Store user data if needed
           localStorage.setItem('userData', JSON.stringify(data.user));
+          
+          // Check if there's a return URL from location state
+          const returnUrl = location.state?.returnUrl;
+          if (returnUrl) {
+            navigate(returnUrl);
+          } else {
           navigate('/loading');
+          }
         } else {
           setError(data.error || "An error occurred during sign-in. Please try again later.");
         }
@@ -174,6 +182,11 @@ const firebaseConfig = {
                       Forgot Password?
                     </button>
                   </div>
+                  {location.state?.message && (
+                    <div className="mt-5 text-center text-blue-600 bg-blue-50 p-3 rounded-lg">
+                      {location.state.message}
+                    </div>
+                  )}
                   {error && (
                     <div className="mt-5 text-center text-red-500">{error}</div>
                   )}
