@@ -32,11 +32,7 @@ const menu: Array<Menu | "divider"> = [
       title: "Calendar",
     },
  
-    {
-      icon: "Ticket",
-      pathname: "/ticket",
-      title: "Ticket",
-    },
+
 
     "divider",
     {

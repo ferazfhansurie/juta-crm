@@ -1373,127 +1373,127 @@ function LoadingPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-900 py-8">
+    <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-900 py-4">
       {!isAuthReady ? (
         <div className="text-center">
-          <LoadingIcon icon="spinning-circles" className="w-8 h-8 mx-auto" />
-          <p className="mt-2">Initializing...</p>
+          <LoadingIcon icon="spinning-circles" className="w-4 h-4 mx-auto" />
+          <p className="mt-1 text-sm">Initializing...</p>
         </div>
       ) : trialExpired ? (
-        <div className="text-center p-8">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">
+        <div className="text-center p-4">
+          <h2 className="text-xl font-bold text-red-600 mb-2">
             Trial Period Expired
           </h2>
-          <p className="text-gray-600 mb-4">
+          <p className="text-sm text-gray-600 mb-2">
             Your trial period has ended. Please subscribe to continue using the
             service.
           </p>
           <button
             onClick={handlePayment}
-            className="mt-4 px-6 py-3 bg-green-500 text-white text-lg font-semibold rounded hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 w-full"
+            className="mt-2 px-3 py-1.5 bg-green-500 text-white text-sm font-semibold rounded hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 w-full"
           >
             Pay Now
           </button>
           <button
             onClick={handleLogout}
-            className="mt-6 px-6 py-3 bg-primary text-white text-lg font-semibold rounded hover:bg-blue-600 transition-colors"
+            className="mt-3 px-3 py-1.5 bg-primary text-white text-sm font-semibold rounded hover:bg-blue-600 transition-colors"
           >
             Back to Login
           </button>
         </div>
       ) : (
-        <div className="flex flex-col items-center w-full max-w-5xl text-center px-6 py-8">
+        <div className="flex flex-col items-center w-full max-w-2xl text-center px-3 py-4">
           {
             <>
               {botStatus === "qr" ? (
                 <>
                   {/* Main Title */}
-                  <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-3">
+                  <div className="mb-4">
+                    <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-1.5">
                       Juta Web
                     </h1>
-                    <p className="text-lg text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       Connect your WhatsApp Business account to start managing customer conversations
                     </p>
                   </div>
 
                   {/* Main Content Card */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 w-full max-w-4xl">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 w-full max-w-2xl">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
                       
                       {/* Left Side - Steps */}
                       <div className="text-left">
-                        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-6">Steps to connect:</h2>
+                        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">Steps to connect:</h2>
                         
-                        <div className="space-y-4">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-sm">
+                        <div className="space-y-2">
+                          <div className="flex items-start space-x-2">
+                            <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
                               1
                             </div>
                             <div>
-                              <p className="text-gray-800 dark:text-gray-200 font-medium">Open WhatsApp on your phone</p>
-                              <p className="text-gray-600 dark:text-gray-400 text-sm">Make sure you have WhatsApp installed and open</p>
+                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">Open WhatsApp on your phone</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">Make sure you have WhatsApp installed and open</p>
                             </div>
                           </div>
                           
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-sm">
+                          <div className="flex items-start space-x-2">
+                            <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
                               2
                             </div>
                             <div>
-                              <p className="text-gray-800 dark:text-gray-200 font-medium">Go to Settings</p>
-                              <p className="text-gray-600 dark:text-gray-400 text-sm">Tap the three dots menu (Android) or Settings (iPhone)</p>
+                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">Go to Settings</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">Tap the three dots menu (Android) or Settings (iPhone)</p>
                             </div>
                           </div>
                           
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-sm">
+                          <div className="flex items-start space-x-2">
+                            <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
                               3
                             </div>
                             <div>
-                              <p className="text-gray-800 dark:text-gray-200 font-medium">Tap "Linked Devices"</p>
-                              <p className="text-gray-600 dark:text-gray-400 text-sm">Then tap "Link a Device"</p>
+                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">Tap "Linked Devices"</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">Then tap "Link a Device"</p>
                             </div>
                           </div>
                           
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-sm">
+                          <div className="flex items-start space-x-2">
+                            <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
                               4
                             </div>
                             <div>
-                              <p className="text-gray-800 dark:text-gray-200 font-medium">Scan the QR code</p>
-                              <p className="text-gray-600 dark:text-gray-400 text-sm">Point your phone camera at the QR code on the right</p>
+                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">Scan the QR code</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">Point your phone camera at the QR code on the right</p>
                             </div>
                           </div>
                         </div>
 
                         {/* Alternative Method */}
-                        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
                           <button
                             onClick={() => setShowPairingCode(!showPairingCode)}
-                            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline text-sm font-medium"
+                            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline text-xs font-medium"
                           >
                             {showPairingCode ? 'Hide phone number option' : 'Use phone number instead >'}
                           </button>
                           
                           {showPairingCode && (
-                            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                              <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">Enter your phone number to get a pairing code:</p>
+                            <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+                              <p className="text-xs text-gray-600 dark:text-gray-300 mb-1.5">Enter your phone number to get a pairing code:</p>
                               <input
                                 type="tel"
                                 value={phoneNumber || (phones && phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo) || ""}
                                 onChange={(e) => setPhoneNumber(e.target.value)}
                                 placeholder="Enter phone number (e.g., 60123456789)"
-                                className="w-full px-4 py-3 border rounded-lg text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 focus:outline-none focus:border-blue-500 text-sm mb-3"
+                                className="w-full px-2 py-1.5 border rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 focus:outline-none focus:border-blue-500 text-xs mb-1.5"
                               />
                               <button
                                 onClick={requestPairingCode}
                                 disabled={isPairingCodeLoading || !phoneNumber}
-                                className="w-full px-4 py-3 bg-blue-500 text-white text-sm font-semibold rounded-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:bg-gray-400"
+                                className="w-full px-2 py-1.5 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:bg-gray-400"
                               >
                                 {isPairingCodeLoading ? (
                                   <span className="flex items-center justify-center">
-                                    <LoadingIcon icon="three-dots" className="w-4 h-4 mr-2" />
+                                    <LoadingIcon icon="three-dots" className="w-3 h-3 mr-1" />
                                     Generating pairing code...
                                   </span>
                                 ) : (
@@ -1504,9 +1504,9 @@ function LoadingPage() {
                           )}
 
                           {pairingCode && (
-                            <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
-                              <p className="text-green-700 dark:text-green-300 font-medium mb-2">Your pairing code: <strong className="text-2xl">{pairingCode}</strong></p>
-                              <p className="text-sm text-green-600 dark:text-green-400">Enter this code in your WhatsApp app to authenticate.</p>
+                            <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md">
+                              <p className="text-green-700 dark:text-green-300 font-medium mb-1 text-sm">Your pairing code: <strong className="text-xl">{pairingCode}</strong></p>
+                              <p className="text-xs text-green-600 dark:text-green-400">Enter this code in your WhatsApp app to authenticate.</p>
                             </div>
                           )}
                         </div>
@@ -1515,11 +1515,11 @@ function LoadingPage() {
                       {/* Right Side - QR Code */}
                       <div className="flex flex-col items-center">
                         {/* Connection Status */}
-                        <div className="mb-4 flex items-center space-x-3">
-                          <div className={`w-3 h-3 rounded-full ${
+                        <div className="mb-2 flex items-center space-x-1.5">
+                          <div className={`w-2 h-2 rounded-full ${
                             qrCodeImage ? 'bg-green-500' : wsConnected ? 'bg-green-500' : 'bg-red-500'
                           }`}></div>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
                             {qrCodeImage ? 'QR Code Ready' : 
                               wsConnected ? 'Connected to server' : 
                               error ? 'Connection failed' : 
@@ -1529,14 +1529,14 @@ function LoadingPage() {
 
                         {/* Phone Selection for Multiple Phones */}
                         {phones && phones.length > 1 && (
-                          <div className="w-full max-w-sm mb-4">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-center">
+                          <div className="w-full max-w-sm mb-2">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-center">
                               Select Phone Number:
                             </label>
                             <select
                               value={selectedPhoneIndex}
                               onChange={(e) => handlePhoneSelection(Number(e.target.value))}
-                              className="w-full px-4 py-3 border rounded-lg text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 focus:outline-none focus:border-blue-500 text-sm"
+                              className="w-full px-2 py-1.5 border rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 focus:outline-none focus:border-blue-500 text-xs"
                             >
                               {phones.map((phone, index) => (
                                 <option key={phone.phoneIndex} value={phone.phoneIndex}>
@@ -1552,36 +1552,36 @@ function LoadingPage() {
                           <div className="text-center">
                             <img
                               alt="Loading"
-                              className="w-24 h-24 animate-spin mx-auto mb-3"
+                              className="w-12 h-12 animate-spin mx-auto mb-1.5"
                               src={logoUrl}
                               style={{ animation: "spin 10s linear infinite" }}
                             />
-                            <p className="text-gray-600 dark:text-gray-400 text-base">Loading QR Code...</p>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">Loading QR Code...</p>
                           </div>
                         ) : qrCodeImage ? (
-                          <div className="bg-white dark:bg-gray-700 p-6 rounded-xl shadow-lg border-2 border-gray-100 dark:border-gray-600">
+                          <div className="bg-white dark:bg-gray-700 p-3 rounded-lg shadow-md border-2 border-gray-100 dark:border-gray-600">
                             <img
                               src={qrCodeImage}
                               alt="QR Code"
-                              className="w-64 h-64 mx-auto"
+                              className="w-32 h-32 mx-auto"
                             />
                             {phones && phones.length > 1 && (
-                              <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 text-center">
+                              <p className="mt-1.5 text-xs text-gray-600 dark:text-gray-400 text-center">
                                 For: {phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo || ""}
                               </p>
                             )}
                           </div>
                         ) : (
-                          <div className="text-center p-8">
-                            <p className="text-gray-600 dark:text-gray-400 text-base">No QR Code available</p>
-                            <p className="text-gray-500 dark:text-gray-500 text-sm">Please try refreshing the page</p>
+                          <div className="text-center p-4">
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">No QR Code available</p>
+                            <p className="text-gray-500 dark:text-gray-500 text-xs">Please try refreshing the page</p>
                           </div>
                         )}
 
                         {/* Success Message */}
                         {qrCodeImage && (
-                          <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg w-full">
-                            <p className="text-green-700 dark:text-green-300 font-medium text-sm text-center">
+                          <div className="mt-2 p-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md w-full">
+                            <p className="text-green-700 dark:text-green-300 font-medium text-xs text-center">
                               ✅ QR Code Ready - Scan to Connect
                             </p>
                           </div>
@@ -1592,14 +1592,14 @@ function LoadingPage() {
 
                   {/* Error Display */}
                   {error && !qrCodeImage && (
-                    <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg w-full max-w-2xl mx-auto">
-                      <div className="text-red-700 font-medium mb-3 text-base">
+                    <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-md w-full max-w-xl mx-auto">
+                      <div className="text-red-700 font-medium mb-1.5 text-sm">
                         Connection Error: {error}
                       </div>
                       {error.includes("WebSocket") && (
-                        <div className="text-sm text-red-600">
-                          <p className="mb-2 font-medium">Troubleshooting tips:</p>
-                          <ul className="list-disc list-inside space-y-1 text-sm mb-3">
+                        <div className="text-xs text-red-600">
+                          <p className="mb-1 font-medium">Troubleshooting tips:</p>
+                          <ul className="list-disc list-inside space-y-0.5 text-xs mb-1.5">
                             <li>Check your internet connection</li>
                             <li>Try refreshing the page</li>
                             <li>Contact support if the issue persists</li>
@@ -1615,7 +1615,7 @@ function LoadingPage() {
                                 }
                               }
                             }}
-                            className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                            className="px-2 py-1 bg-blue-500 text-white text-xs rounded-md hover:bg-blue-600 transition-colors font-medium"
                           >
                             Retry Connection
                           </button>
@@ -1626,10 +1626,10 @@ function LoadingPage() {
                 </>
               ) : (
                 <>
-                  <div className="mt-1 text-xs text-gray-800 dark:text-gray-200">
+                  <div className="mt-0.5 text-xs text-gray-800 dark:text-gray-200">
                     {phones && phones.length > 0 ? (
                       <div>
-                        <div className="mb-1">
+                        <div className="mb-0.5">
                           {phones.every(phone => phone.status === "ready" || phone.status === "authenticated")
                             ? "All phones authenticated. Loading contacts..."
                             : "Phone Status:"}
@@ -1682,7 +1682,7 @@ function LoadingPage() {
                     <div className="mt-0.5 flex flex-col items-center">
                       <img
                         alt="Logo"
-                        className="w-16 h-16 animate-spin mx-auto"
+                        className="w-8 h-8 animate-spin mx-auto"
                         src={logoUrl}
                         style={{ animation: "spin 3s linear infinite" }}
                       />
@@ -1696,97 +1696,97 @@ function LoadingPage() {
                 </>
               )}
 
-              <hr className="w-full mb-6 border-t border-gray-300 dark:border-gray-700" />
+              <hr className="w-full mb-3 border-t border-gray-300 dark:border-gray-700" />
 
-                  {/* Action Buttons Section */}
-                  <div className="mt-8 space-y-4 w-full max-w-2xl mx-auto">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Additional Options</h3>
-                    
-                    {/* Primary Actions Row */}
-                    <div className="flex gap-4">
-                      <button
-                        onClick={handleRefresh}
-                        disabled={isRefreshing}
-                        className="flex-1 px-6 py-4 bg-blue-500 text-white text-sm font-semibold rounded-lg hover:bg-blue-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 shadow-sm hover:shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
-                      >
-                        <div className="flex items-center justify-center space-x-3">
-                          {isRefreshing ? (
-                            <img
-                              alt="Loading"
-                              className="w-5 h-5 animate-spin"
-                              src={logoUrl}
-                            />
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                          )}
-                          <span className="text-base">{isRefreshing ? 'Refreshing...' : 'Refresh Connection'}</span>
-                        </div>
-                      </button>
-                      
-                      {/* Reinitialize Bot Button */}
-                      <button
-                        onClick={() => reinitializeBot()}
-                        disabled={isReinitializing || reinitializeCooldown > 0 || !phones || phones.length === 0}
-                        className={`flex-1 px-6 py-4 text-sm font-semibold rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-opacity-50 shadow-sm hover:shadow-md ${
-                          isReinitializing || reinitializeCooldown > 0
-                            ? 'bg-orange-500 text-white cursor-not-allowed' 
-                            : 'bg-orange-500 text-white hover:bg-orange-600 focus:ring-orange-500'
-                        }`}
-                      >
-                        <div className="flex items-center justify-center space-x-3">
-                          {isReinitializing ? (
-                            <div className="relative">
-                              <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                            </div>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2M9 14l3-3m0 0l3 3m-3-3V4" />
-                            </svg>
-                          )}
-                          <span className="font-medium text-base">
-                            {isReinitializing 
-                              ? 'Restarting...' 
-                              : reinitializeCooldown > 0 
-                                ? `Wait (${reinitializeCooldown}s)` 
-                                : 'Restart Bot'
-                            }
-                          </span>
-                        </div>
-                      </button>
-                      
-                      <a
-                        href="https://wa.link/pcgo1k"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 px-6 py-4 bg-green-500 text-white text-sm font-semibold rounded-lg hover:bg-green-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 shadow-sm hover:shadow-md"
-                      >
-                        <div className="flex items-center justify-center space-x-3">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="text-base">Get Help</span>
-                        </div>
-                      </a>
-                    </div>
-                    
-                    {/* Logout Button - Full Width */}
-                    <button
-                      onClick={handleLogout}
-                      className="w-full px-6 py-4 bg-gray-500 text-white text-sm font-semibold rounded-lg hover:bg-gray-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 shadow-sm hover:shadow-md"
-                    >
-                      <div className="flex items-center justify-center space-x-3">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              {/* Action Buttons Section */}
+              <div className="mt-4 space-y-2 w-full max-w-xl mx-auto">
+                <h3 className="text-sm font-semibold text-gray-800 mb-2">Additional Options</h3>
+                
+                {/* Primary Actions Row */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="flex-1 px-3 py-2 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 shadow-sm hover:shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center justify-center space-x-1.5">
+                      {isRefreshing ? (
+                        <img
+                          alt="Loading"
+                          className="w-3 h-3 animate-spin"
+                          src={logoUrl}
+                        />
+                      ) : (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
-                        <span className="text-base">Sign Out</span>
-                      </div>
-                    </button>
+                      )}
+                      <span className="text-sm">{isRefreshing ? 'Refreshing...' : 'Refresh Connection'}</span>
+                    </div>
+                  </button>
+                  
+                  {/* Reinitialize Bot Button */}
+                  <button
+                    onClick={() => reinitializeBot()}
+                    disabled={isReinitializing || reinitializeCooldown > 0 || !phones || phones.length === 0}
+                    className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-opacity-50 shadow-sm hover:shadow-md ${
+                      isReinitializing || reinitializeCooldown > 0
+                        ? 'bg-orange-500 text-white cursor-not-allowed' 
+                        : 'bg-orange-500 text-white hover:bg-orange-600 focus:ring-orange-500'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center space-x-1.5">
+                      {isReinitializing ? (
+                        <div className="relative">
+                          <svg className="w-3 h-3 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        </div>
+                      ) : (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2M9 14l3-3m0 0l3 3m-3-3V4" />
+                        </svg>
+                      )}
+                      <span className="font-medium text-sm">
+                        {isReinitializing 
+                          ? 'Restarting...' 
+                          : reinitializeCooldown > 0 
+                            ? `Wait (${reinitializeCooldown}s)` 
+                            : 'Restart Bot'
+                        }
+                      </span>
+                    </div>
+                  </button>
+                  
+                  <a
+                    href="https://wa.link/pcgo1k"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 px-3 py-2 bg-green-500 text-white text-xs font-semibold rounded-md hover:bg-green-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 shadow-sm hover:shadow-md"
+                  >
+                    <div className="flex items-center justify-center space-x-1.5">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-sm">Get Help</span>
+                    </div>
+                  </a>
+                </div>
+                
+                {/* Logout Button - Full Width */}
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-3 py-2 bg-gray-500 text-white text-xs font-semibold rounded-md hover:bg-gray-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 shadow-sm hover:shadow-md"
+                >
+                  <div className="flex items-center justify-center space-x-1.5">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span className="text-sm">Sign Out</span>
                   </div>
+                </button>
+              </div>
 
 
             </>
@@ -1801,23 +1801,23 @@ function LoadingPage() {
       />
       
       {/* Enhanced Floating Help Button with Persistent Indicator */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-center">
+      <div className="fixed bottom-3 right-3 z-40 flex flex-col items-center">
         {/* Persistent Guidance Indicator - Directly above button */}
-        <div className="bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg animate-pulse mb-2 text-center">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+        <div className="bg-blue-600 text-white px-1.5 py-1 rounded-full shadow-lg animate-pulse mb-1 text-center">
+          <div className="flex items-center justify-center space-x-1">
+            <div className="w-1 h-1 bg-white rounded-full animate-pulse"></div>
             <span className="text-xs font-medium whitespace-nowrap">Click for help!</span>
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            <div className="w-1 h-1 bg-white rounded-full animate-pulse"></div>
           </div>
         </div>
         
         {/* Enhanced Floating Help Button */}
         <button
           onClick={() => setShowOnboarding(true)}
-          className="w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-600 border-3 border-white text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 hover:from-blue-600 hover:to-blue-700 flex items-center justify-center relative group"
+          className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 border-3 border-white text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 hover:from-blue-600 hover:to-blue-700 flex items-center justify-center relative group"
           title="Learn about Juta CRM features"
         >
-          <BookOpen className="w-8 h-8" />
+          <BookOpen className="w-4 h-4" />
           
           {/* Pulsing ring effect */}
           <div className="absolute inset-0 rounded-full border-3 border-blue-400 animate-ping opacity-75"></div>
@@ -1829,23 +1829,23 @@ function LoadingPage() {
       
       {/* Onboarding Hint - Only show for new users */}
       {showOnboardingHint && (
-        <div className="fixed bottom-32 right-6 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg z-50 max-w-xs animate-fade-in">
-          <div className="flex items-start space-x-3">
+        <div className="fixed bottom-16 right-3 bg-blue-600 text-white px-2 py-1.5 rounded-md shadow-lg z-50 max-w-xs animate-fade-in">
+          <div className="flex items-start space-x-1.5">
             <div className="flex-shrink-0 mt-0.5">
-              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              <div className="w-1 h-1 bg-white rounded-full animate-pulse"></div>
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium mb-1">Welcome to Juta CRM!</p>
-              <p className="text-xs text-blue-100 mb-2">Click the blue button below for a step-by-step guide to get started.</p>
+              <p className="text-xs font-medium mb-0.5">Welcome to Juta CRM!</p>
+              <p className="text-xs text-blue-100 mb-1">Click the blue button below for a step-by-step guide to get started.</p>
               <div className="flex items-center justify-center">
-                <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                  <BookOpen className="w-3 h-3 text-white" />
+                <div className="w-3 h-3 bg-white/20 rounded-full flex items-center justify-center">
+                  <BookOpen className="w-1.5 h-1.5 text-white" />
                 </div>
-                <div className="w-1 h-1 bg-white/60 rounded-full mx-2 animate-pulse"></div>
-                <div className="w-2 h-2 bg-white/40 rounded-full animate-pulse"></div>
-                <div className="w-1 h-1 bg-white/60 rounded-full mx-2 animate-pulse"></div>
-                <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-0.5 h-0.5 bg-white/60 rounded-full mx-1 animate-pulse"></div>
+                <div className="w-1 h-1 bg-white/40 rounded-full animate-pulse"></div>
+                <div className="w-0.5 h-0.5 bg-white/60 rounded-full mx-1 animate-pulse"></div>
+                <div className="w-3 h-3 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg className="w-1.5 h-1.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
@@ -1855,7 +1855,7 @@ function LoadingPage() {
               onClick={() => setShowOnboardingHint(false)}
               className="flex-shrink-0 text-white/60 hover:text-white transition-colors"
             >
-              <X className="w-4 h-4" />
+              <X className="w-2 h-2" />
             </button>
           </div>
         </div>

@@ -101,15 +101,15 @@ function Main() {
 
   return (
     <>
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-8">
-        <div className="flex flex-col items-center w-full max-w-5xl text-center px-6 py-8">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-4">
+        <div className="flex flex-col items-center w-full max-w-2xl text-center px-3 py-4">
           
           {/* Main Title and Logo */}
-          <div className="mb-8">
-            <div className="mb-6 flex justify-center">
+          <div className="mb-4">
+            <div className="mb-3 flex justify-center">
               <img
                 alt="Juta Software Logo"
-                className="w-40 h-auto object-contain"
+                className="w-20 h-auto object-contain"
                 src={logoUrl}
                 onError={(e) => {
                   console.error('Logo failed to load:', logoUrl);
@@ -118,26 +118,26 @@ function Main() {
                 }}
               />
             </div>
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-3">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-1.5">
               Welcome Back
             </h1>
-            <p className="text-lg text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Sign in to your Juta Web account to continue
             </p>
           </div>
 
           {/* Main Content Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 w-full max-w-md">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 w-full max-w-sm">
             
             {/* Sign In Form */}
-            <div className="space-y-6">
+            <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
                   Email Address
                 </label>
                 <FormInput
                   type="email"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200 text-sm"
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -146,12 +146,12 @@ function Main() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
                   Password
                 </label>
                 <FormInput
                   type="password"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200 text-sm"
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -163,7 +163,7 @@ function Main() {
               <div className="text-right">
                 <button 
                   onClick={() => setShowResetModal(true)} 
-                  className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline transition-colors duration-200"
+                  className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline transition-colors duration-200"
                 >
                   Forgot Password?
                 </button>
@@ -172,7 +172,7 @@ function Main() {
               {/* Sign In Button */}
               <Button
                 variant="primary"
-                className="w-full px-6 py-3 text-base font-semibold rounded-lg hover:shadow-md transition-all duration-200 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
+                className="w-full px-3 py-1.5 text-sm font-semibold rounded-md hover:shadow-md transition-all duration-200 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
                 onClick={handleSignIn}
               >
                 Sign In
@@ -180,26 +180,26 @@ function Main() {
 
               {/* Error Message */}
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-red-700 text-sm">{error}</p>
+                <div className="p-1.5 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-red-700 text-xs">{error}</p>
                 </div>
               )}
             </div>
 
             {/* Divider */}
-            <div className="relative my-6">
+            <div className="relative my-3">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">New to Juta?</span>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-1 bg-white dark:bg-gray-800 text-gray-500">New to Juta?</span>
               </div>
             </div>
 
             {/* Register Button */}
             <Button
               variant="outline-secondary"
-              className="w-full px-6 py-3 text-base font-semibold rounded-lg border-2 border-gray-300 hover:border-gray-400 transition-all duration-200 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600"
+              className="w-full px-3 py-1.5 text-sm font-semibold rounded-md border-2 border-gray-300 hover:border-gray-400 transition-all duration-200 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600"
               onClick={handleStartFreeTrial}
             >
               Create New Account
@@ -207,8 +207,8 @@ function Main() {
           </div>
 
           {/* Additional Info */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="mt-3 text-center">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               Secure access to your business dashboard
             </p>
           </div>
@@ -218,22 +218,22 @@ function Main() {
       {/* Password Reset Modal */}
       {showResetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 w-full max-w-md mx-4">
-            <div className="text-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Reset Password</h3>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 w-full max-w-sm mx-2">
+            <div className="text-center mb-3">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">Reset Password</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 Enter your email to receive a password reset link
               </p>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
                   Email Address
                 </label>
                 <FormInput
                   type="email"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
                   placeholder="Enter your email"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
@@ -241,7 +241,7 @@ function Main() {
               </div>
 
               {resetMessage && (
-                <div className={`p-3 rounded-lg text-sm ${
+                <div className={`p-1.5 rounded-md text-xs ${
                   resetMessage.includes("sent") 
                     ? "bg-green-50 border border-green-200 text-green-700" 
                     : "bg-red-50 border border-red-200 text-red-700"
@@ -250,10 +250,10 @@ function Main() {
                 </div>
               )}
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-1.5 pt-1">
                 <Button
                   variant="outline-secondary"
-                  className="flex-1 px-4 py-3 rounded-lg border-2 border-gray-300 hover:border-gray-400 transition-all duration-200"
+                  className="flex-1 px-2 py-1.5 rounded-md border-2 border-gray-300 hover:border-gray-400 transition-all duration-200 text-sm"
                   onClick={() => {
                     setShowResetModal(false);
                     setResetMessage("");
@@ -264,7 +264,7 @@ function Main() {
                 </Button>
                 <Button
                   variant="primary"
-                  className="flex-1 px-4 py-3 rounded-lg hover:shadow-md transition-all duration-200"
+                  className="flex-1 px-2 py-1.5 rounded-md text-sm"
                   onClick={handleForgotPassword}
                 >
                   Send Reset Link

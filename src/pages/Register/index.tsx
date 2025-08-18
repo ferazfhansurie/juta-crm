@@ -228,39 +228,39 @@ function Main() {
 
   return (
     <>
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-8">
-        <div className="flex flex-col items-center w-full max-w-5xl text-center px-6 py-8">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-4">
+        <div className="flex flex-col items-center w-full max-w-2xl text-center px-3 py-4">
           
           {/* Main Title and Logo */}
-          <div className="mb-8">
-            <div className="mb-6 flex justify-center">
+          <div className="mb-4">
+            <div className="mb-3 flex justify-center">
               <img
                 alt="Juta Software Logo"
-                className="w-40 h-auto object-contain"
+                className="w-20 h-auto object-contain"
                 src={logoUrl}
               />
             </div>
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-3">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-1.5">
               Join Juta Web
             </h1>
-            <p className="text-lg text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Create your account to start managing your business
             </p>
           </div>
 
           {/* Main Content Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 w-full max-w-2xl">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 w-full max-w-lg">
             
             {/* Sign Up Form */}
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
                     Full Name
                   </label>
                   <FormInput
                     type="text"
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                    className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200 text-sm"
                     placeholder="Enter your full name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -269,12 +269,12 @@ function Main() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
                     Company Name
                   </label>
                   <FormInput
                     type="text"
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                    className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200 text-sm"
                     placeholder="Enter company name"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
@@ -284,12 +284,12 @@ function Main() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
                   Phone Number
                 </label>
                 <FormInput
                   type="tel"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200 text-sm"
                   placeholder={`Phone Number (e.g., ${getCountryCallingCode(selectedCountry)}123456789)`}
                   value={phoneNumber}
                   onChange={handlePhoneChange}
@@ -298,12 +298,12 @@ function Main() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
                   Email Address
                 </label>
                 <FormInput
                   type="email"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200 text-sm"
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -312,12 +312,12 @@ function Main() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
                   Password
                 </label>
                 <FormInput
                   type="password"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200 text-sm"
                   placeholder="Create a password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -327,10 +327,10 @@ function Main() {
 
               {/* Plan Selection Section */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 text-left">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5 text-left">
                   Choose Your Plan
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
                   {[
                     ['blaster', 'Team Inbox', 'Perfect for small teams'],
                     ['enterprise', 'Standard AI', 'Advanced features for growing businesses'],
@@ -338,14 +338,14 @@ function Main() {
                     <div 
                       key={id}
                       className={clsx(
-                        "p-4 border-2 rounded-lg cursor-pointer transition-all duration-200",
+                        "p-2 border-2 rounded-md cursor-pointer transition-all duration-200",
                         selectedPlan === id 
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                           : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                       )}
                       onClick={() => setSelectedPlan(id as 'blaster' | 'enterprise')}
                     >
-                      <div className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-1">{name}</div>
+                      <div className="text-xs font-bold text-gray-800 dark:text-gray-200 mb-0.5">{name}</div>
                       <div className="text-xs text-gray-600 dark:text-gray-400">{description}</div>
                     </div>
                   ))}
@@ -355,13 +355,13 @@ function Main() {
               {/* Register Button */}
               <Button
                 variant="primary"
-                className="w-full px-6 py-3 text-base font-semibold rounded-lg hover:shadow-md transition-all duration-200 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
+                className="w-full px-3 py-1.5 text-sm font-semibold rounded-md hover:shadow-md transition-all duration-200 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
                 onClick={handleRegister}
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center">
-                    <div className="w-5 h-5 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 mr-1 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     Creating Account...
                   </div>
                 ) : (
@@ -371,19 +371,19 @@ function Main() {
 
               {/* Error Message */}
               {registerResult && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-red-700 text-sm">{registerResult}</p>
+                <div className="p-1.5 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-red-700 text-xs">{registerResult}</p>
                 </div>
               )}
             </div>
 
             {/* Divider */}
-            <div className="relative my-6">
+            <div className="relative my-3">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">Already have an account?</span>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-1 bg-white dark:bg-gray-800 text-gray-500">Already have an account?</span>
               </div>
             </div>
 
@@ -391,7 +391,7 @@ function Main() {
             <Link to="/login">
               <Button
                 variant="outline-secondary"
-                className="w-full px-6 py-3 text-base font-semibold rounded-lg border-2 border-gray-300 hover:border-gray-400 transition-all duration-200 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600"
+                className="w-full px-3 py-1.5 text-sm font-semibold rounded-md border-2 border-gray-300 hover:border-gray-400 transition-all duration-200 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600"
               >
                 Back to Login
               </Button>
@@ -399,8 +399,8 @@ function Main() {
           </div>
 
           {/* Additional Info */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="mt-3 text-center">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               Start your journey with Juta CRM today
             </p>
           </div>
