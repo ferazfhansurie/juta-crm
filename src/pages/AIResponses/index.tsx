@@ -1400,10 +1400,15 @@ function AIResponses() {
                                                                     Description: {response.description}
                                                                 </div>
                                                             )}
-                                                            <div className="text-slate-500">
+                                                            {response.type === 'tag' && (
+                                                              <div className="text-slate-500">
                                                                 Action: {(response as AITagResponse).tagActionMode === 'delete' ? 'Remove Tags' : 'Add Tags'}
-                                                                {(response as AITagResponse).removeTags && (response as AITagResponse).removeTags!.length > 0 && 
-                                                                    ` (with ${(response as AITagResponse).removeTags!.length} tags to remove)`}
+                                                                {(response as AITagResponse).removeTags && (response as AITagResponse).removeTags!.length > 0 &&
+                                                                  ` (with ${(response as AITagResponse).removeTags!.length} tags to remove)`}
+                                                              </div>
+                                                            )}
+                                                            <div className="text-slate-500">
+                                                              Keyword Source: {(response as AIResponse).keywordSource?.charAt(0).toUpperCase() + (response as AIResponse).keywordSource?.slice(1)}
                                                             </div>
                                                         </div>
                                                         <div className="flex space-x-2">
