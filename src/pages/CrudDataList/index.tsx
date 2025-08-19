@@ -2692,26 +2692,49 @@ interface BotStatusResponse {
         // Get the contact_id
         const contact_id = currentContact.contact_id;
 
-        // 1. Delete associated scheduled messages for this contact
-        // (Optional: Only if your backend supports this endpoint)
+        toast.info("Preparing to delete contact...");
+
+        // Step 1: Remove assignments first using the dedicated endpoint
         try {
-          await axios.delete(
-            `${baseUrl}/api/schedule-message/${companyId}/contact/${contact_id}`
+          const assignmentsResponse = await fetch(
+            `${baseUrl}/api/assignments/contact/${contact_id}?companyId=${companyId}`,
+            {
+              method: "DELETE",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "include",
+            }
           );
+
+          if (assignmentsResponse.ok) {
+            console.log("Assignments removed successfully");
+          } else if (assignmentsResponse.status === 404) {
+            console.log("No assignments found for this contact");
+          } else {
+            console.warn("Failed to remove assignments:", assignmentsResponse.status);
+          }
         } catch (error) {
-          console.error(
-            "Error deleting scheduled messages for contact:",
-            error
-          );
-          // Not fatal, continue to delete contact
+          console.warn("Error removing assignments:", error);
         }
 
-        // 2. Delete the contact from your SQL backend
-        const response = await axios.delete(
-          `${baseUrl}/api/contacts/${contact_id}?companyId=${companyId}`
+        // Step 2: Delete the contact
+        toast.info("Deleting contact...");
+        
+        const response = await fetch(
+          `${baseUrl}/api/contacts/${contact_id}?companyId=${companyId}`,
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+          }
         );
 
-        if (response.data.success) {
+        if (response.ok) {
+          toast.success("Contact deleted successfully!");
+          
           // Update local state
           setContacts((prevContacts) =>
             prevContacts.filter((contact) => contact.contact_id !== contact_id)
@@ -2722,13 +2745,67 @@ interface BotStatusResponse {
           setDeleteConfirmationModal(false);
           setCurrentContact(null);
 
-          toast.success(
-            "Contact and associated scheduled messages deleted successfully!"
-          );
           await fetchContacts();
           await fetchScheduledMessages();
         } else {
-          toast.error(response.data.message || "Failed to delete contact.");
+          const errorData = await response.json().catch(() => ({}));
+          console.error("Delete failed:", errorData);
+          
+          // Check if this is a constraint error that can be resolved with force delete
+          const canForceDelete = errorData.message && (
+            errorData.message.includes("active assignments") ||
+            errorData.message.includes("associated messages") ||
+            errorData.message.includes("Use /api/contacts/{contactId}/force")
+          );
+          
+          if (canForceDelete) {
+            // Offer to force delete with cascade
+            if (window.confirm(
+              "This contact has database dependencies. Would you like to force delete it and remove all related data? This is irreversible."
+            )) {
+              try {
+                const forceDeleteResponse = await fetch(
+                  `${baseUrl}/api/contacts/${contact_id}/force?companyId=${companyId}`,
+                  {
+                    method: "DELETE",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    credentials: "include",
+                  }
+                );
+
+                if (forceDeleteResponse.ok) {
+                  toast.success("Contact force deleted successfully!");
+                  
+                  // Update local state
+                  setContacts((prevContacts) =>
+                    prevContacts.filter((contact) => contact.contact_id !== contact_id)
+                  );
+                  setScheduledMessages((prev) =>
+                    prev.filter((msg) => !msg.chatIds.includes(contact_id))
+                  );
+                  setDeleteConfirmationModal(false);
+                  setCurrentContact(null);
+
+                  await fetchContacts();
+                  await fetchScheduledMessages();
+                  return;
+                } else {
+                  const forceErrorData = await forceDeleteResponse.json();
+                  toast.error(`Force delete failed: ${forceErrorData.message || 'Unknown error'}`);
+                }
+              } catch (forceError) {
+                console.error("Force delete error:", forceError);
+                toast.error("Force delete failed");
+              }
+            }
+          } else if (response.status === 409) {
+            // Handle conflict status - contact has dependencies
+            toast.error("Cannot delete contact: Contact has associated data. Please remove dependencies first.");
+          } else {
+            toast.error("Failed to delete contact");
+          }
         }
       } catch (error) {
         console.error("Error deleting contact:", error);
@@ -2907,7 +2984,78 @@ interface BotStatusResponse {
 
         await Promise.all(messagePromises);
 
-        // Add contact deletion to batch
+        // Step 1: Remove assignments from SQL backend
+        try {
+          const assignmentsResponse = await fetch(
+            `${baseUrl}/api/assignments/contact/${contact.contact_id}?companyId=${companyId}`,
+            {
+              method: "DELETE",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "include",
+            }
+          );
+
+          if (assignmentsResponse.ok) {
+            console.log(`Assignments removed for contact ${contact.contact_id}`);
+          } else if (assignmentsResponse.status === 404) {
+            console.log(`No assignments found for contact ${contact.contact_id}`);
+          } else {
+            console.warn(`Failed to remove assignments for contact ${contact.contact_id}:`, assignmentsResponse.status);
+          }
+        } catch (error) {
+          console.warn(`Error removing assignments for contact ${contact.contact_id}:`, error);
+        }
+
+        // Step 2: Delete contact from SQL backend
+        try {
+          const response = await fetch(
+            `${baseUrl}/api/contacts/${contact.contact_id}?companyId=${companyId}`,
+            {
+              method: "DELETE",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "include",
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.warn(`Failed to delete contact ${contact.contact_id} from SQL backend:`, errorData);
+            
+            // Try force delete if regular delete fails
+            if (response.status === 409) {
+              try {
+                const forceDeleteResponse = await fetch(
+                  `${baseUrl}/api/contacts/${contact.contact_id}/force?companyId=${companyId}`,
+                  {
+                    method: "DELETE",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    credentials: "include",
+                  }
+                );
+
+                if (forceDeleteResponse.ok) {
+                  console.log(`Contact ${contact.contact_id} force deleted from SQL backend`);
+                } else {
+                  console.warn(`Force delete failed for contact ${contact.contact_id}`);
+                }
+              } catch (forceError) {
+                console.warn(`Force delete error for contact ${contact.contact_id}:`, forceError);
+              }
+            }
+          } else {
+            console.log(`Contact ${contact.contact_id} deleted from SQL backend`);
+          }
+        } catch (error) {
+          console.warn(`Error deleting contact ${contact.contact_id} from SQL backend:`, error);
+        }
+
+        // Add contact deletion to Firestore batch
         const contactRef = doc(
           firestore,
           `companies/${companyId}/contacts`,
@@ -2933,7 +3081,7 @@ interface BotStatusResponse {
       await fetchScheduledMessages();
 
       toast.success(
-        `${selectedContacts.length} contacts and their associated messages deleted successfully!`
+        `${selectedContacts.length} contacts deleted successfully from both Firestore and SQL backend!`
       );
       await fetchContacts();
     } catch (error) {

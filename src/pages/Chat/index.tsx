@@ -2028,13 +2028,13 @@ function Main() {
     }
   };
 
-  // Delete contact function
+  // Delete contact function with dependency handling
   const handleDeleteContact = async () => {
     if (deleteLoading) return;
 
     if (
       !window.confirm(
-        "Are you sure you want to delete this contact? This action cannot be undone."
+        "Are you sure you want to delete this contact? This will also remove all assignments and related data. This action cannot be undone."
       )
     ) {
       return;
@@ -2050,11 +2050,35 @@ function Main() {
         return;
       }
 
-      toast.info("Deleting contact...");
-      setIsTabOpen(false);
-      setSelectedContact(null);
-      setSelectedChatId(null);
+      toast.info("Preparing to delete contact...");
 
+      // Step 1: Remove assignments first using the dedicated endpoint
+      try {
+        const assignmentsResponse = await fetch(
+          `${apiUrl}/api/assignments/contact/${selectedContact.contact_id}?companyId=${companyId}`,
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+          }
+        );
+
+        if (assignmentsResponse.ok) {
+          console.log("Assignments removed successfully");
+        } else if (assignmentsResponse.status === 404) {
+          console.log("No assignments found for this contact");
+        } else {
+          console.warn("Failed to remove assignments:", assignmentsResponse.status);
+        }
+      } catch (error) {
+        console.warn("Error removing assignments:", error);
+      }
+
+      // Step 2: Delete the contact
+      toast.info("Deleting contact...");
+      
       const response = await fetch(
         `${apiUrl}/api/contacts/${selectedContact.contact_id}?companyId=${companyId}`,
         {
@@ -2074,20 +2098,111 @@ function Main() {
           contacts.filter((contact) => contact.id !== selectedContact.id)
         );
 
-        // Remove from scheduled messages if needed
+        // Comprehensive cleanup of related data
         const contactChatId =
           selectedContact.phone?.replace(/\D/g, "") + "@s.whatsapp.net";
+        
+        // Remove from scheduled messages
         setScheduledMessages((prev) =>
           prev.filter((msg) => !msg.chatIds.includes(contactChatId))
         );
+
+        // Remove from notifications (if they have contactId property)
+        setNotifications((prev) =>
+          prev.filter((notification: any) => 
+            !notification.contactId || notification.contactId !== selectedContact.id
+          )
+        );
+
+        // Remove from quick replies if they were specific to this contact
+        setQuickReplies((prev) =>
+          prev.filter((reply: any) => 
+            !reply.contactSpecific || reply.contactId !== selectedContact.id
+          )
+        );
+
+        // Clear any cached messages for this contact (if messageCache exists)
+        if ((window as any).messageCache?.has(selectedContact.contact_id!)) {
+          (window as any).messageCache.delete(selectedContact.contact_id!);
+        }
+
+        // Close the contact view
+        setIsTabOpen(false);
+        setSelectedContact(null);
+        setSelectedChatId(null);
       } else {
-        const errorText = await response.text();
-        console.error("Delete failed:", errorText);
-        toast.error("Failed to delete contact");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Delete failed:", errorData);
+        
+        // Check if this is a constraint error that can be resolved with force delete
+        const canForceDelete = errorData.message && (
+          errorData.message.includes("active assignments") ||
+          errorData.message.includes("associated messages") ||
+          errorData.message.includes("Use /api/contacts/{contactId}/force")
+        );
+        
+        if (canForceDelete) {
+          // Offer to force delete with cascade
+          if (window.confirm(
+            "This contact has database dependencies. Would you like to force delete it and remove all related data? This is irreversible."
+          )) {
+            try {
+              const forceDeleteResponse = await fetch(
+                `${apiUrl}/api/contacts/${selectedContact.contact_id}/force?companyId=${companyId}`,
+                {
+                  method: "DELETE",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  credentials: "include",
+                }
+              );
+
+              if (forceDeleteResponse.ok) {
+                toast.success("Contact force deleted successfully!");
+                
+                // Perform the same cleanup as successful deletion
+                setContacts(contacts.filter((contact) => contact.id !== selectedContact.id));
+                const contactChatId = selectedContact.phone?.replace(/\D/g, "") + "@s.whatsapp.net";
+                setScheduledMessages((prev) => prev.filter((msg) => !msg.chatIds.includes(contactChatId)));
+                setNotifications((prev) => prev.filter((notification: any) => !notification.contactId || notification.contactId !== selectedContact.id));
+                setQuickReplies((prev) => prev.filter((reply: any) => !reply.contactSpecific || reply.contactId !== selectedContact.id));
+                // Clear any cached messages for this contact (if messageCache exists)
+                if ((window as any).messageCache?.has(selectedContact.contact_id!)) {
+                  (window as any).messageCache.delete(selectedContact.contact_id!);
+                }
+                setIsTabOpen(false);
+                setSelectedContact(null);
+                setSelectedChatId(null);
+                return;
+              } else {
+                toast.error("Force delete also failed. Please contact support.");
+              }
+            } catch (forceError) {
+              console.error("Force delete error:", forceError);
+              toast.error("Force delete failed. Please contact support.");
+            }
+          }
+        } else if (response.status === 409) {
+          // Handle conflict status - contact has dependencies
+          toast.error("Cannot delete contact: Contact has associated data. Please remove dependencies first.");
+        } else {
+          toast.error("Failed to delete contact");
+        }
+        
+        // Revert the UI state
+        setIsTabOpen(true);
+        setSelectedContact(selectedContact);
+        setSelectedChatId(selectedContact.contact_id);
       }
     } catch (error) {
       console.error("Error deleting contact:", error);
       toast.error("An error occurred while deleting contact");
+      
+      // Revert the UI state
+      setIsTabOpen(true);
+      setSelectedContact(selectedContact);
+      setSelectedChatId(selectedContact.contact_id);
     } finally {
       setDeleteLoading(false);
     }
