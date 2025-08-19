@@ -712,6 +712,10 @@ function DashboardOverview3() {
   const [excludedPhones, setExcludedPhones] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+  // Add state for feedback dashboard filters
+  const [feedbackDashboardProgramFilter, setFeedbackDashboardProgramFilter] = useState<string>("");
+  const [feedbackDashboardCategoryFilter, setFeedbackDashboardCategoryFilter] = useState<string>("");
+
   // Normalize MTDC RSVP
   const normalizedMtdc = rsvpData.map((row: any) => {
     const normalized = {
@@ -1031,6 +1035,28 @@ function normalizePhone(phone: string) {
     return filteredFeedback;
   }, [feedbackData, neonFeedbackResponses]);
 
+  // Helper function to get filtered feedback data based on current filters
+  const getFilteredFeedbackData = () => {
+    let filteredData = mergedFeedbackData;
+    
+    if (feedbackDashboardProgramFilter && feedbackDashboardProgramFilter !== "all") {
+      filteredData = filteredData.filter((f: any) => f["Which session did you attend?"] === feedbackDashboardProgramFilter);
+    }
+    
+    if (feedbackDashboardCategoryFilter && feedbackDashboardCategoryFilter !== "all") {
+      // Get programs in this category
+      const programsInCategory = mergedRSVP
+        .filter((r: any) => r.Category?.trim() === feedbackDashboardCategoryFilter)
+        .map((r: any) => r["Program Name"]);
+      
+      filteredData = filteredData.filter((f: any) => 
+        programsInCategory.includes(f["Which session did you attend?"])
+      );
+    }
+    
+    return filteredData;
+  };
+
   // Join feedback with RSVP using merged data
   const feedbackWithRSVP = mergedFeedbackData.map((feedback: any) => ({
     ...feedback,
@@ -1068,7 +1094,7 @@ function normalizePhone(phone: string) {
   // Feedback metrics
   const overallFeedback: { [key: string]: number } = {};
   feedbackMetrics.forEach(metric => {
-    const values = feedbackWithRSVP
+    const values = getFilteredFeedbackData()
       .map((f: any) => Number(f[metric.key]))
       .filter((v: number) => !isNaN(v));
     overallFeedback[metric.key] = average(values);
@@ -1275,7 +1301,27 @@ function normalizePhone(phone: string) {
   const programNames = Array.from(new Set(mergedFeedbackData.map((f: any) => f["Which session did you attend?"])));
 
   const programFeedback = programNames.map(program => {
-    const feedbacks = mergedFeedbackData.filter((f: any) => f["Which session did you attend?"] === program);
+    // Apply filters to program feedback
+    let feedbacks = mergedFeedbackData.filter((f: any) => f["Which session did you attend?"] === program);
+    
+    // Apply program filter if selected
+    if (feedbackDashboardProgramFilter && feedbackDashboardProgramFilter !== "all") {
+      if (program !== feedbackDashboardProgramFilter) {
+        return null; // Skip this program if it doesn't match the selected program
+      }
+    }
+    
+    // Apply category filter if selected
+    if (feedbackDashboardCategoryFilter && feedbackDashboardCategoryFilter !== "all") {
+      const programsInCategory = mergedRSVP
+        .filter((r: any) => r.Category?.trim() === feedbackDashboardCategoryFilter)
+        .map((r: any) => r["Program Name"]);
+      
+      if (!programsInCategory.includes(program)) {
+        return null; // Skip this program if it's not in the selected category
+      }
+    }
+    
     const metrics = {};
     feedbackMetrics.forEach(metric => {
       const values = feedbacks.map((f: any) => Number(f[metric.key])).filter((v: number) => !isNaN(v));
@@ -1285,7 +1331,7 @@ function normalizePhone(phone: string) {
       program,
       metrics
     };
-  });
+  }).filter((item): item is { program: string; metrics: Record<string, number | undefined> } => item !== null); // Remove null entries with proper typing
 
   // Find all feedback entries that match this program (fuzzy)
   const feedbackForSelected = mergedFeedbackData.filter(
@@ -1313,6 +1359,11 @@ function normalizePhone(phone: string) {
 
   // Registered/attended counts
   const registeredCount = selectedProgramFilteredParticipants.length;
+  
+  // Calculate RSVP count (participants with "Accepted" RSVP status)
+  const rsvpCount = selectedProgramFilteredParticipants.filter(
+    (r: any) => r['RSVP status'] === 'Accepted'
+  ).length;
   
   // Get attendance from both CSV data and Neon attendance_records
   const [neonAttendanceData, setNeonAttendanceData] = useState<any[]>([]);
@@ -1962,6 +2013,30 @@ function normalizePhone(phone: string) {
     });
   }, [attendeesToShow, searchQuery]);
 
+  // Helper function to count feedback responses for a specific program/category
+  const countFeedbackResponses = (programName?: string, categoryName?: string) => {
+    let filteredData = mergedFeedbackData;
+    
+    if (programName && programName !== "all") {
+      filteredData = filteredData.filter((f: any) => f["Which session did you attend?"] === programName);
+    }
+    
+    if (categoryName && categoryName !== "all") {
+      // Get programs in this category
+      const programsInCategory = mergedRSVP
+        .filter((r: any) => r.Category?.trim() === categoryName)
+        .map((r: any) => r["Program Name"]);
+      
+      filteredData = filteredData.filter((f: any) => 
+        programsInCategory.includes(f["Which session did you attend?"])
+      );
+    }
+    
+    return filteredData.length;
+  };
+
+
+
   return (
     <div className="p-6 space-y-10 h-screen overflow-auto">
       {/* Loading State */}
@@ -2038,9 +2113,7 @@ function normalizePhone(phone: string) {
             Detailed Profession Breakdown
           </h3>
           
-          <div className="grid grid-cols-1  gap-8">
-      
-            
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Profession Statistics Table */}
             <div className="bg-white dark:bg-slate-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
               <h4 className="text-lg font-semibold mb-4 text-center text-gray-800 dark:text-gray-200">
@@ -2073,24 +2146,72 @@ function normalizePhone(phone: string) {
                   ))}
               </div>
               
-              {/* Summary for unspecified */}
-              {professions.find(p => p.label === 'Unspecified') && (
-                <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-yellow-800 dark:text-yellow-300">
-                      Not Specified
-                    </span>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-yellow-800 dark:text-yellow-300">
-                        {professions.find(p => p.label === 'Unspecified')?.value || 0}
-                      </div>
-                      <div className="text-sm text-yellow-600 dark:text-yellow-400">
-                        {((professions.find(p => p.label === 'Unspecified')?.value || 0) / totalRegistered * 100).toFixed(1)}%
-                      </div>
+              {/* Total for professions */}
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-blue-800 dark:text-blue-300">
+                    Total
+                  </span>
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-blue-800 dark:text-blue-300">
+                      {totalRegistered}
+                    </div>
+                    <div className="text-sm text-blue-600 dark:text-blue-400">
+                      100%
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
+            </div>
+
+            {/* Program Type Statistics Table */}
+            <div className="bg-white dark:bg-slate-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
+              <h4 className="text-lg font-semibold mb-4 text-center text-gray-800 dark:text-gray-200">
+                Program Type Statistics
+              </h4>
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {programTypes
+                  .filter(p => p.label !== 'Unknown') // Filter out unknown program types
+                  .sort((a, b) => b.value - a.value) // Sort by count descending
+                  .map((programType, index) => (
+                    <div key={programType.label} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-600 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div 
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: chartColors[(index + 5) % chartColors.length] }}
+                        ></div>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          {programType.label}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                          {programType.value}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {((programType.value / totalRegistered) * 100).toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+              
+              {/* Total for program types */}
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-blue-800 dark:text-blue-300">
+                    Total
+                  </span>
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-blue-800 dark:text-blue-300">
+                      {totalRegistered}
+                    </div>
+                    <div className="text-sm text-blue-600 dark:text-blue-400">
+                      100%
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2254,7 +2375,7 @@ function normalizePhone(phone: string) {
           </div>
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Registration Stats */}
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-6 border border-blue-200 dark:border-blue-700">
             <div className="flex items-center justify-between">
@@ -2271,7 +2392,22 @@ function normalizePhone(phone: string) {
               </div>
             </div>
           </div>
-
+   {/* RSVP Stats */}
+   <div className="bg-gradient-to-br from-amber-50 to-yellow-100 dark:from-amber-900/20 dark:to-yellow-800/20 rounded-lg p-6 border border-amber-200 dark:border-amber-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{rsvpCount}</div>
+                <div className="text-sm text-amber-700 dark:text-amber-300 font-medium">
+                  {showAllProgramsInCategory && selectedCategory ? 'Total RSVP' : 'RSVP'}
+                </div>
+              </div>
+              <div className="text-amber-500 dark:text-amber-400">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM12 19h6v-2h-6v2zM4 19h6v-2H4v2zM4 15h6v-2H4v2zM4 11h6V9H4v2zM4 7h6V5H4v2zM4 3h6V1H4v2z" />
+                </svg>
+              </div>
+            </div>
+          </div>
           {/* Attendance Stats */}
           <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg p-6 border border-green-200 dark:border-green-700">
             <div className="flex items-center justify-between">
@@ -2289,16 +2425,18 @@ function normalizePhone(phone: string) {
             </div>
           </div>
 
+    
+
           {/* Attendance Rate */}
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-6 border border-purple-200 dark:border-purple-700">
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg p-6 border border-orange-200 dark:border-orange-700">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                  {registeredCount > 0 ? ((programSpecificAttendedCount / registeredCount) * 100).toFixed(1) : '0'}%
+                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                {registeredCount > 0 ? ((programSpecificAttendedCount / registeredCount) * 100).toFixed(1) : '0'}%
                 </div>
-                <div className="text-sm text-purple-700 dark:text-purple-300 font-medium">Attendance Rate</div>
+                <div className="text-sm text-orange-700 dark:text-orange-300 font-medium">Attendance Rate</div>
               </div>
-              <div className="text-purple-500 dark:text-purple-400">
+              <div className="text-orange-500 dark:text-orange-400">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
@@ -2318,22 +2456,7 @@ function normalizePhone(phone: string) {
               Profession Breakdown
             </h3>
             
-            {/* Profession Statistics Summary */}
-            <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {selectedProgramProfessions.slice(0, 4).map((profession, index) => (
-                <div key={profession.label} className="bg-white dark:bg-slate-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                  <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                    {profession.label === 'Unspecified' ? 'Not Specified' : profession.label}
-                  </div>
-                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                    {profession.value}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {((profession.value / selectedProgramFilteredParticipants.length) * 100).toFixed(1)}% of total
-                  </div>
-                </div>
-              ))}
-            </div>
+        
             
             {/* Profession Pie Chart */}
             <div className="bg-white dark:bg-slate-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
@@ -2371,6 +2494,72 @@ function normalizePhone(phone: string) {
           </div>
         )}
 
+        {/* Detailed Breakdown Lists */}
+        {selectedProgramFilteredParticipants.length > 0 && (
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Detailed Breakdown Lists
+            </h3>
+            
+            <div className="grid grid-cols-1 gap-8">
+              {/* Profession Statistics Table */}
+              <div className="bg-white dark:bg-slate-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
+                <h4 className="text-lg font-semibold mb-4 text-center text-gray-800 dark:text-gray-200">
+                  Profession Statistics
+                </h4>
+                <div className="space-y-3 max-h-80 overflow-y-auto">
+                  {selectedProgramProfessions
+                    .filter(p => p.label !== 'Unspecified') // Filter out unspecified professions
+                    .sort((a, b) => b.value - a.value) // Sort by count descending
+                    .map((profession, index) => (
+                      <div key={profession.label} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-600 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div 
+                            className="w-4 h-4 rounded-full"
+                            style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                          ></div>
+                          <span className="font-medium text-gray-700 dark:text-gray-300">
+                            {profession.label}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                            {profession.value}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {((profession.value / selectedProgramFilteredParticipants.length) * 100).toFixed(1)}%
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+                
+                {/* Total for professions */}
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-blue-800 dark:text-blue-300">
+                      Total
+                    </span>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-blue-800 dark:text-blue-300">
+                        {selectedProgramFilteredParticipants.length}
+                      </div>
+                      <div className="text-sm text-blue-600 dark:text-blue-400">
+                        100%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+
+            </div>
+          </div>
+        )}
+
       </section>
 
       {/* Feedback Form Dashboard */}
@@ -2382,7 +2571,60 @@ function normalizePhone(phone: string) {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Feedback Form Dashboard</h2>
-       
+        </div>
+
+        {/* Feedback Dashboard Filters */}
+        <div className="mb-6 flex flex-wrap gap-4 items-center">
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter by Program</label>
+            <select
+              value={feedbackDashboardProgramFilter}
+              onChange={(e) => setFeedbackDashboardProgramFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All Programs</option>
+              {Array.from(new Set(mergedFeedbackData.map((f: any) => f["Which session did you attend?"]).filter(Boolean))).map((program) => (
+                <option key={program} value={program}>{program}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter by Category</label>
+            <select
+              value={feedbackDashboardCategoryFilter}
+              onChange={(e) => setFeedbackDashboardCategoryFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All Categories</option>
+              {Array.from(new Set(mergedRSVP.map((r: any) => r.Category?.trim()).filter(Boolean))).map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total Responses</label>
+            <div className="px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md text-blue-700 dark:text-blue-300 font-semibold">
+              {countFeedbackResponses(
+                feedbackDashboardProgramFilter || undefined,
+                feedbackDashboardCategoryFilter || undefined
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">&nbsp;</label>
+            <button
+              onClick={() => {
+                setFeedbackDashboardProgramFilter("");
+                setFeedbackDashboardCategoryFilter("");
+              }}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md border border-gray-300 dark:border-gray-600 transition-colors"
+            >
+              Reset Filters
+            </button>
+          </div>
         </div>
         <div className="mb-8">
           <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300">Overall Scores (All Programs Combined)</h3>
@@ -2409,6 +2651,18 @@ function normalizePhone(phone: string) {
               </div>
               <div className="text-xs text-blue-500 dark:text-blue-400 text-center">(Percentage)</div>
             </div>
+            
+            {/* Total Responses Card */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4 border border-green-200 dark:border-green-700 hover:shadow-md transition-shadow">
+              <div className="text-sm font-medium text-center text-green-700 dark:text-green-300 mb-2">Total Responses</div>
+              <div className="text-2xl font-bold text-center text-green-600 dark:text-green-400">
+                {countFeedbackResponses(
+                  feedbackDashboardProgramFilter || undefined,
+                  feedbackDashboardCategoryFilter || undefined
+                )}
+              </div>
+              <div className="text-xs text-green-500 dark:text-green-400 text-center">(Count)</div>
+            </div>
           </div>
         </div>
         <div className="mb-6">
@@ -2432,6 +2686,7 @@ function normalizePhone(phone: string) {
                     <th className="border px-2 py-1" key={metric.key}>{metric.label}</th>
                   ))}
                   <th className="border px-2 py-1 bg-blue-200 dark:bg-blue-800 font-semibold">Score %</th>
+                  <th className="border px-2 py-1 bg-green-200 dark:bg-green-800 font-semibold">Total Responses</th>
                 </tr>
               </thead>
               <tbody>
@@ -2460,6 +2715,24 @@ function normalizePhone(phone: string) {
                       ))}
                       <td className="border px-2 py-1 text-center bg-blue-50 dark:bg-blue-900 font-semibold">
                         {percentage.toFixed(1)}%
+                      </td>
+                      <td className="border px-2 py-1 text-center bg-green-50 dark:bg-green-900 font-semibold">
+                        {(() => {
+                          let programFeedbacks = mergedFeedbackData.filter((f: any) => f["Which session did you attend?"] === program.program);
+                          
+                          // Apply category filter if selected
+                          if (feedbackDashboardCategoryFilter && feedbackDashboardCategoryFilter !== "all") {
+                            const programsInCategory = mergedRSVP
+                              .filter((r: any) => r.Category?.trim() === feedbackDashboardCategoryFilter)
+                              .map((r: any) => r["Program Name"]);
+                            
+                            if (!programsInCategory.includes(program.program)) {
+                              return 0; // Return 0 if program is not in selected category
+                            }
+                          }
+                          
+                          return programFeedbacks.length;
+                        })()}
                       </td>
                     </tr>
                   );
@@ -2491,6 +2764,7 @@ function normalizePhone(phone: string) {
                     <th className="border px-2 py-1" key={metric.key}>{metric.label}</th>
                   ))}
                   <th className="border px-2 py-1 bg-green-200 dark:bg-green-800 font-semibold">Score %</th>
+                  <th className="border px-2 py-1 bg-blue-200 dark:bg-blue-800 font-semibold">Total Responses</th>
                 </tr>
               </thead>
               <tbody>
@@ -2508,7 +2782,10 @@ function normalizePhone(phone: string) {
                   // Group feedback by category based on program name
                   const feedbackByCategory: { [category: string]: any[] } = {};
                   
-                  mergedFeedbackData.forEach((feedback: any) => {
+                  // Get filtered feedback data based on current filters
+                  const filteredFeedbackData = getFilteredFeedbackData();
+                  
+                  filteredFeedbackData.forEach((feedback: any) => {
                     const feedbackProgram = feedback["Which session did you attend?"];
                     let category = 'Unspecified';
                     
@@ -2572,6 +2849,9 @@ function normalizePhone(phone: string) {
                         ))}
                         <td className="border px-2 py-1 text-center bg-green-50 dark:bg-green-900/30 font-semibold">
                           {percentage.toFixed(1)}%
+                        </td>
+                        <td className="border px-2 py-1 text-center bg-blue-50 dark:bg-blue-900/30 font-semibold">
+                          {categoryFeedbacks.length}
                         </td>
                       </tr>
                     );

@@ -61,6 +61,7 @@ import AppointmentRequests from "../pages/AppointmentRequests";
 import GuestChat from "../pages/GuestChat";
 import FeedbackFormBuilder from "../pages/FeedbackFormBuilder";
 import PublicFeedbackForm from "../pages/PublicFeedbackForm";
+import PublicRegisterForm from "../pages/PublicRegisterForm";
 import PublicAttendanceForm from "../pages/PublicAttendanceForm";
 import PublicBookingForm from "../pages/PublicBookingForm";
 import DataImport from "../pages/DataImport";
@@ -170,6 +171,7 @@ function Router() {
     },
     { path: "/guest-chat/:companyId", element: <GuestChat />},
     { path: "/feedback/:formTitle/:phone", element: <PublicFeedbackForm />},
+    { path: "/register/:formTitle/:phone", element: <PublicRegisterForm />},
     { path: "/attendance/:eventTitle/:phone", element: <PublicAttendanceForm />},
     { path: "/booking/:slotTitle/:staffName/:phone", element: <PublicBookingForm />},
     { path: "/booking-test", element: <PublicBookingForm />},
