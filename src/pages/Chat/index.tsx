@@ -866,8 +866,17 @@ function Main() {
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const [globalSearchPage, setGlobalSearchPage] = useState(1);
   const [totalGlobalSearchPages, setTotalGlobalSearchPages] = useState(1);
-  const [messageUsage, setMessageUsage] = useState<number>(0);
+  const [aiMessageUsage, setAiMessageUsage] = useState<number>(0);
+  const [blastedMessageUsage, setBlastedMessageUsage] = useState<number>(0);
+  const [quotaAIMessage, setQuotaAIMessage] = useState<number>(0);
+  const [quotaBlastedMessage, setQuotaBlastedMessage] = useState<number>(0);
   const [companyPlan, setCompanyPlan] = useState<string>("");
+
+  // Usage Dashboard states
+  const [isUsageDashboardOpen, setIsUsageDashboardOpen] =
+    useState<boolean>(false);
+  const [dailyUsageData, setDailyUsageData] = useState<any[]>([]);
+  const [isLoadingUsageData, setIsLoadingUsageData] = useState<boolean>(false);
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [videoCaption, setVideoCaption] = useState("");
@@ -981,6 +990,86 @@ function Main() {
       fetchCategories();
     }
   }, [companyId]);
+
+  // Fetch daily usage data for the dashboard
+  const fetchDailyUsageData = async () => {
+    try {
+      setIsLoadingUsageData(true);
+      const email = getCurrentUserEmail();
+      if (!email || !companyId) return;
+
+      // Fix API endpoint to match backend expectations
+      const response = await fetch(`${baseUrl}/api/daily-usage/${companyId}`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch usage data");
+      }
+
+      const data = await response.json();
+
+      // Process actual API data
+      const processedDailyData = [];
+
+      // Get the last 7 days
+      const today = new Date();
+      const last7Days = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        last7Days.push(date.toISOString().split("T")[0]);
+      }
+
+      // Process each day
+      for (const dateStr of last7Days) {
+        const aiData = data.aiMessages?.find(
+          (item: { date: string | number | Date }) =>
+            new Date(item.date).toISOString().split("T")[0] === dateStr
+        );
+        const blastData = data.blastedMessages?.find(
+          (item: { date: string | number | Date }) =>
+            new Date(item.date).toISOString().split("T")[0] === dateStr
+        );
+
+        processedDailyData.push({
+          date: dateStr,
+          aiMessages: aiData?.usage_count || 0,
+          blastMessages: blastData?.usage_count || 0,
+        });
+      }
+
+      console.log("📊 [USAGE] Daily usage data:", processedDailyData);
+
+      setDailyUsageData(processedDailyData);
+    } catch (error) {
+      console.error("Error fetching daily usage data:", error);
+      toast.error("Failed to load usage data");
+
+      // Fallback to mock data if API fails
+      const mockDailyData = [];
+      const today = new Date();
+
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+
+        mockDailyData.push({
+          date: date.toISOString().split("T")[0],
+          aiMessages: Math.floor(Math.random() * 50) + 10,
+          blastMessages: Math.floor(Math.random() * 100) + 20,
+        });
+      }
+
+      setDailyUsageData(mockDailyData);
+    } finally {
+      setIsLoadingUsageData(false);
+    }
+  };
+
+  // Open usage dashboard and fetch data
+  const openUsageDashboard = () => {
+    setIsUsageDashboardOpen(true);
+    fetchDailyUsageData();
+  };
 
   // Sync userPhone with userData.phone
   useEffect(() => {
@@ -2070,7 +2159,10 @@ function Main() {
         } else if (assignmentsResponse.status === 404) {
           console.log("No assignments found for this contact");
         } else {
-          console.warn("Failed to remove assignments:", assignmentsResponse.status);
+          console.warn(
+            "Failed to remove assignments:",
+            assignmentsResponse.status
+          );
         }
       } catch (error) {
         console.warn("Error removing assignments:", error);
@@ -2078,7 +2170,7 @@ function Main() {
 
       // Step 2: Delete the contact
       toast.info("Deleting contact...");
-      
+
       const response = await fetch(
         `${apiUrl}/api/contacts/${selectedContact.contact_id}?companyId=${companyId}`,
         {
@@ -2101,7 +2193,7 @@ function Main() {
         // Comprehensive cleanup of related data
         const contactChatId =
           selectedContact.phone?.replace(/\D/g, "") + "@s.whatsapp.net";
-        
+
         // Remove from scheduled messages
         setScheduledMessages((prev) =>
           prev.filter((msg) => !msg.chatIds.includes(contactChatId))
@@ -2109,15 +2201,18 @@ function Main() {
 
         // Remove from notifications (if they have contactId property)
         setNotifications((prev) =>
-          prev.filter((notification: any) => 
-            !notification.contactId || notification.contactId !== selectedContact.id
+          prev.filter(
+            (notification: any) =>
+              !notification.contactId ||
+              notification.contactId !== selectedContact.id
           )
         );
 
         // Remove from quick replies if they were specific to this contact
         setQuickReplies((prev) =>
-          prev.filter((reply: any) => 
-            !reply.contactSpecific || reply.contactId !== selectedContact.id
+          prev.filter(
+            (reply: any) =>
+              !reply.contactSpecific || reply.contactId !== selectedContact.id
           )
         );
 
@@ -2133,19 +2228,21 @@ function Main() {
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error("Delete failed:", errorData);
-        
+
         // Check if this is a constraint error that can be resolved with force delete
-        const canForceDelete = errorData.message && (
-          errorData.message.includes("active assignments") ||
-          errorData.message.includes("associated messages") ||
-          errorData.message.includes("Use /api/contacts/{contactId}/force")
-        );
-        
+        const canForceDelete =
+          errorData.message &&
+          (errorData.message.includes("active assignments") ||
+            errorData.message.includes("associated messages") ||
+            errorData.message.includes("Use /api/contacts/{contactId}/force"));
+
         if (canForceDelete) {
           // Offer to force delete with cascade
-          if (window.confirm(
-            "This contact has database dependencies. Would you like to force delete it and remove all related data? This is irreversible."
-          )) {
+          if (
+            window.confirm(
+              "This contact has database dependencies. Would you like to force delete it and remove all related data? This is irreversible."
+            )
+          ) {
             try {
               const forceDeleteResponse = await fetch(
                 `${apiUrl}/api/contacts/${selectedContact.contact_id}/force?companyId=${companyId}`,
@@ -2160,23 +2257,48 @@ function Main() {
 
               if (forceDeleteResponse.ok) {
                 toast.success("Contact force deleted successfully!");
-                
+
                 // Perform the same cleanup as successful deletion
-                setContacts(contacts.filter((contact) => contact.id !== selectedContact.id));
-                const contactChatId = selectedContact.phone?.replace(/\D/g, "") + "@s.whatsapp.net";
-                setScheduledMessages((prev) => prev.filter((msg) => !msg.chatIds.includes(contactChatId)));
-                setNotifications((prev) => prev.filter((notification: any) => !notification.contactId || notification.contactId !== selectedContact.id));
-                setQuickReplies((prev) => prev.filter((reply: any) => !reply.contactSpecific || reply.contactId !== selectedContact.id));
+                setContacts(
+                  contacts.filter(
+                    (contact) => contact.id !== selectedContact.id
+                  )
+                );
+                const contactChatId =
+                  selectedContact.phone?.replace(/\D/g, "") + "@s.whatsapp.net";
+                setScheduledMessages((prev) =>
+                  prev.filter((msg) => !msg.chatIds.includes(contactChatId))
+                );
+                setNotifications((prev) =>
+                  prev.filter(
+                    (notification: any) =>
+                      !notification.contactId ||
+                      notification.contactId !== selectedContact.id
+                  )
+                );
+                setQuickReplies((prev) =>
+                  prev.filter(
+                    (reply: any) =>
+                      !reply.contactSpecific ||
+                      reply.contactId !== selectedContact.id
+                  )
+                );
                 // Clear any cached messages for this contact (if messageCache exists)
-                if ((window as any).messageCache?.has(selectedContact.contact_id!)) {
-                  (window as any).messageCache.delete(selectedContact.contact_id!);
+                if (
+                  (window as any).messageCache?.has(selectedContact.contact_id!)
+                ) {
+                  (window as any).messageCache.delete(
+                    selectedContact.contact_id!
+                  );
                 }
                 setIsTabOpen(false);
                 setSelectedContact(null);
                 setSelectedChatId(null);
                 return;
               } else {
-                toast.error("Force delete also failed. Please contact support.");
+                toast.error(
+                  "Force delete also failed. Please contact support."
+                );
               }
             } catch (forceError) {
               console.error("Force delete error:", forceError);
@@ -2185,11 +2307,13 @@ function Main() {
           }
         } else if (response.status === 409) {
           // Handle conflict status - contact has dependencies
-          toast.error("Cannot delete contact: Contact has associated data. Please remove dependencies first.");
+          toast.error(
+            "Cannot delete contact: Contact has associated data. Please remove dependencies first."
+          );
         } else {
           toast.error("Failed to delete contact");
         }
-        
+
         // Revert the UI state
         setIsTabOpen(true);
         setSelectedContact(selectedContact);
@@ -2198,7 +2322,7 @@ function Main() {
     } catch (error) {
       console.error("Error deleting contact:", error);
       toast.error("An error occurred while deleting contact");
-      
+
       // Revert the UI state
       setIsTabOpen(true);
       setSelectedContact(selectedContact);
@@ -2713,13 +2837,17 @@ function Main() {
         case "user": // User
           return contacts.filter((contact) =>
             contact.tags?.some(
-              (tag) => (typeof tag === "string" ? tag : String(tag)).toLowerCase() === userName.toLowerCase()
+              (tag) =>
+                (typeof tag === "string" ? tag : String(tag)).toLowerCase() ===
+                userName.toLowerCase()
             )
           );
         case "2": // Sales
           return contacts.filter((contact) =>
             contact.tags?.some(
-              (tag) => (typeof tag === "string" ? tag : String(tag)).toLowerCase() === userName.toLowerCase()
+              (tag) =>
+                (typeof tag === "string" ? tag : String(tag)).toLowerCase() ===
+                userName.toLowerCase()
             )
           );
 
@@ -2728,7 +2856,9 @@ function Main() {
           // Sales, Observer, and Manager see only contacts assigned to them
           return contacts.filter((contact) =>
             contact.tags?.some(
-              (tag) => (typeof tag === "string" ? tag : String(tag)).toLowerCase() === userName.toLowerCase()
+              (tag) =>
+                (typeof tag === "string" ? tag : String(tag)).toLowerCase() ===
+                userName.toLowerCase()
             )
           );
         case "5": // Other role
@@ -2862,10 +2992,13 @@ function Main() {
 
     // For tag filtering, always use ALL contacts to ensure we find all tagged contacts
     // For regular browsing, use loaded contacts for performance
-    const contactsToFilter = (activeTags.length > 0 && activeTags[0] !== "all") 
-      ? contacts  // Use all contacts when filtering by tags
-      : (loadedContacts.length > 0 ? loadedContacts : contacts); // Use loaded contacts for regular browsing
-    
+    const contactsToFilter =
+      activeTags.length > 0 && activeTags[0] !== "all"
+        ? contacts // Use all contacts when filtering by tags
+        : loadedContacts.length > 0
+        ? loadedContacts
+        : contacts; // Use loaded contacts for regular browsing
+
     let fil = filterContactsByUserRole(
       contactsToFilter,
       userRole,
@@ -3000,7 +3133,9 @@ function Main() {
             searchQuery.toLowerCase()
           ) ||
           contact.tags?.some((tag) =>
-            (typeof tag === "string" ? tag : String(tag)).toLowerCase().includes(searchQuery.toLowerCase())
+            (typeof tag === "string" ? tag : String(tag))
+              .toLowerCase()
+              .includes(searchQuery.toLowerCase())
           )
       );
     }
@@ -3009,7 +3144,9 @@ function Main() {
     if (selectedEmployee) {
       fil = fil.filter((contact) =>
         contact.tags?.some(
-          (tag) => (typeof tag === "string" ? tag : String(tag)).toLowerCase() === selectedEmployee.toLowerCase()
+          (tag) =>
+            (typeof tag === "string" ? tag : String(tag)).toLowerCase() ===
+            selectedEmployee.toLowerCase()
         )
       );
     }
@@ -3022,9 +3159,19 @@ function Main() {
 
       fil = fil.filter((contact) => {
         const isGroup = contact.chat_id?.endsWith("@g.us");
-        const contactTags = contact.tags?.map((t: string) => (typeof t === "string" ? t : String(t)).toLowerCase()) || [];
-        
-        console.log("🔍 Contact:", contact.contactName || contact.phone, "Tags:", contact.tags, "Lowercase tags:", contactTags);
+        const contactTags =
+          contact.tags?.map((t: string) =>
+            (typeof t === "string" ? t : String(t)).toLowerCase()
+          ) || [];
+
+        console.log(
+          "🔍 Contact:",
+          contact.contactName || contact.phone,
+          "Tags:",
+          contact.tags,
+          "Lowercase tags:",
+          contactTags
+        );
 
         const matchesTag =
           tag === "all"
@@ -3036,7 +3183,9 @@ function Main() {
             : tag === "unassigned"
             ? !contact.tags?.some((t: string) =>
                 employeeList.some(
-                  (e) => (e.name?.toLowerCase() || "") === (typeof t === "string" ? t : String(t)).toLowerCase()
+                  (e) =>
+                    (e.name?.toLowerCase() || "") ===
+                    (typeof t === "string" ? t : String(t)).toLowerCase()
                 )
               )
             : tag === "snooze"
@@ -3052,7 +3201,7 @@ function Main() {
         console.log("🔍 Contact matches tag:", matchesTag);
         return matchesTag;
       });
-      
+
       console.log("🔍 After tag filtering, contacts count:", fil.length);
     }
 
@@ -3086,20 +3235,23 @@ function Main() {
       "📊 RESULT - Filtered contacts:",
       filteredContactsSearch.length
     );
-    
+
     // Debug: Log all available tags from contacts
     const allTags = new Set<string>();
-    contacts.forEach(contact => {
+    contacts.forEach((contact) => {
       if (contact.tags && Array.isArray(contact.tags)) {
-        contact.tags.forEach(tag => {
-          if (typeof tag === 'string') {
+        contact.tags.forEach((tag) => {
+          if (typeof tag === "string") {
             allTags.add(tag.toLowerCase());
           }
         });
       }
     });
-    console.log("🔍 All available tags in contacts:", Array.from(allTags).sort());
-    
+    console.log(
+      "🔍 All available tags in contacts:",
+      Array.from(allTags).sort()
+    );
+
     if (filteredContactsSearch.length > 0) {
       console.log("📊 SORTING - First 10 contacts sorted by timestamp:");
       filteredContactsSearch.slice(0, 10).forEach((contact, index) => {
@@ -3192,7 +3344,8 @@ function Main() {
       const employees = activeTags.filter((tag) =>
         employeeList.some(
           (employee) =>
-            (employee.name?.toLowerCase() || "") === (typeof tag === "string" ? tag : String(tag)).toLowerCase()
+            (employee.name?.toLowerCase() || "") ===
+            (typeof tag === "string" ? tag : String(tag)).toLowerCase()
         )
       );
       const others = activeTags.filter(
@@ -4137,8 +4290,13 @@ function Main() {
 
       // Set message usage for enterprise plan
       if (data.companyData.plan === "enterprise") {
-        setMessageUsage(data.messageUsage);
+        setAiMessageUsage(data.messageUsage.aiMessages || 0);
+        setBlastedMessageUsage(data.messageUsage.blastedMessages || 0);
+        setQuotaAIMessage(data.usageQuota.aiMessages || 0);
       }
+      console.log("AI Message Usage:", data.messageUsage.aiMessages);
+      console.log("Blasted Message Usage:", data.messageUsage.blastedMessages);
+      console.log("Quota AI Message:", data.usageQuota.aiMessages);
 
       // Set employee list
       setEmployeeList(data.employeeList);
@@ -4155,7 +4313,9 @@ function Main() {
             const emailUsername = data.userData.viewEmployee.split("@")[0];
             const employeeByUsername = data.employeeList.find(
               (emp: { id: string }) =>
-                (typeof emp.id === "string" ? emp.id : String(emp.id)).toLowerCase().includes(emailUsername.toLowerCase())
+                (typeof emp.id === "string" ? emp.id : String(emp.id))
+                  .toLowerCase()
+                  .includes(emailUsername.toLowerCase())
             );
             if (employeeByUsername) {
               setSelectedEmployee(employeeByUsername.name);
@@ -4175,7 +4335,9 @@ function Main() {
             const emailUsername = viewEmployeeEmail.split("@")[0];
             const employeeByUsername = data.employeeList.find(
               (emp: { id: string }) =>
-                (typeof emp.id === "string" ? emp.id : String(emp.id)).toLowerCase().includes(emailUsername.toLowerCase())
+                (typeof emp.id === "string" ? emp.id : String(emp.id))
+                  .toLowerCase()
+                  .includes(emailUsername.toLowerCase())
             );
             if (employeeByUsername) {
               setSelectedEmployee(employeeByUsername.name);
@@ -4297,7 +4459,10 @@ function Main() {
             Array.isArray(contactSelect.assignedTo) &&
             contactSelect.assignedTo.some(
               (assignedTo) =>
-                (typeof assignedTo === "string" ? assignedTo : String(assignedTo)).toLowerCase() === userData?.name?.toLowerCase()
+                (typeof assignedTo === "string"
+                  ? assignedTo
+                  : String(assignedTo)
+                ).toLowerCase() === userData?.name?.toLowerCase()
             )
           )
         ) {
@@ -7227,23 +7392,29 @@ function Main() {
   const filterTagContact = (tag: string) => {
     console.log("🔍 filterTagContact called with tag:", tag);
     console.log("🔍 Current employeeList:", employeeList);
-    
+
     // Set loading state for tag filtering
     setIsTagFiltering(true);
-    
+
     if (
       employeeList.some(
-        (employee) => (employee.name?.toLowerCase() || "") === (typeof tag === "string" ? tag : String(tag)).toLowerCase()
+        (employee) =>
+          (employee.name?.toLowerCase() || "") ===
+          (typeof tag === "string" ? tag : String(tag)).toLowerCase()
       )
     ) {
       console.log("🔍 Tag is an employee, setting selectedEmployee:", tag);
       setSelectedEmployee(tag === selectedEmployee ? null : tag);
     } else {
-      console.log("🔍 Tag is not an employee, setting activeTags:", [tag.toLowerCase()]);
-      setActiveTags([(typeof tag === "string" ? tag : String(tag)).toLowerCase()]);
+      console.log("🔍 Tag is not an employee, setting activeTags:", [
+        tag.toLowerCase(),
+      ]);
+      setActiveTags([
+        (typeof tag === "string" ? tag : String(tag)).toLowerCase(),
+      ]);
     }
     setSearchQuery("");
-    
+
     // Reset loading state after a short delay to allow filtering to complete
     setTimeout(() => {
       setIsTagFiltering(false);
@@ -9131,7 +9302,9 @@ function Main() {
         if (contact.tags) {
           contact.tags.forEach((tag: string) => {
             const employee = employeeList.find(
-              (emp: any) => emp.name.toLowerCase() === (typeof tag === "string" ? tag : String(tag)).toLowerCase()
+              (emp: any) =>
+                emp.name.toLowerCase() ===
+                (typeof tag === "string" ? tag : String(tag)).toLowerCase()
             );
             if (employee) {
               employeeAssignments[employee.id] =
@@ -9304,11 +9477,11 @@ function Main() {
         }`}
       >
         <div className="flex items-center justify-between pl-3 pr-3 pt-4 pb-2 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
-            <div className="flex items-center gap-3">
-              <div>
+          <div className="flex items-center gap-3">
+            <div>
               <div className="text-start text-xl font-bold capitalize text-gray-800 dark:text-gray-200 mb-1">
                 {companyName}
-                </div>
+              </div>
               <div className="flex items-center gap-2">
                 <div className="text-start text-sm font-semibold text-gray-600 dark:text-gray-400">
                   Total Contacts: {totalContacts}
@@ -9321,8 +9494,8 @@ function Main() {
                   </div>
                 )}
               </div>
-              </div>
             </div>
+          </div>
 
           <div className="flex flex-col gap-1.5">
             {
@@ -9481,82 +9654,118 @@ function Main() {
           </div>
         </div>
         {companyPlan === "enterprise" && (
-          <div className="px-2 py-1">
-            <div className="flex items-center justify-between mb-0.5">
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                Monthly Message Usage
+          <div
+            className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 shadow-md border border-gray-200 dark:border-gray-700 mb-2 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.01]"
+            onClick={openUsageDashboard}
+            title="Click to view detailed usage analytics"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                <Lucide icon="Sparkles" className="w-3 h-3 text-primary" />
+                AI Messages
               </span>
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                {messageUsage}/500
+              <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                {aiMessageUsage}
+                <span className="opacity-70 font-normal">
+                  /{quotaAIMessage || 500}
+                </span>
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+            <div className="w-full h-2 rounded-full bg-gradient-to-r from-primary/10 to-gray-200 dark:from-primary/20 dark:to-gray-700 mb-2 overflow-hidden">
               <div
-                className={`h-1.5 rounded-full ${
-                  messageUsage > 450
-                    ? "bg-red-600"
-                    : messageUsage > 350
-                    ? "bg-yellow-400"
-                    : "bg-green-600"
+                className={`h-2 rounded-full transition-all duration-500 ease-in-out ${
+                  aiMessageUsage > (quotaAIMessage || 500) * 0.9
+                    ? "bg-gradient-to-r from-red-500 to-red-700"
+                    : aiMessageUsage > (quotaAIMessage || 500) * 0.7
+                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                    : "bg-gradient-to-r from-green-500 to-green-700"
                 }`}
                 style={{
-                  width: `${Math.min((messageUsage / 500) * 100, 100)}%`,
+                  width: `${Math.min(
+                    (aiMessageUsage / (quotaAIMessage || 500)) * 100,
+                    100
+                  )}%`,
                 }}
               ></div>
             </div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                <Lucide icon="Send" className="w-3 h-3 text-blue-500" />
+                Blast Messages
+              </span>
+              <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                {blastedMessageUsage} successful blasts
+              </span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-gradient-to-r from-blue-400/10 to-gray-200 dark:from-blue-400/20 dark:to-gray-700 overflow-hidden">
+              <div
+                className="h-2 rounded-full transition-all duration-500 ease-in-out bg-gradient-to-r from-green-500 to-green-700"
+                style={{
+                  width: "100%",
+                }}
+              ></div>
+            </div>
+
+            {/* Click indicator */}
+            <div className="flex items-center justify-center mt-2 pt-1 border-t border-gray-200 dark:border-gray-600">
+              <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <Lucide icon="BarChart3" className="w-3 h-3" />
+                Click for detailed analytics
+              </span>
+            </div>
           </div>
         )}
-           <div className="sticky top-20 bg-gray-100 dark:bg-gray-900 p-3">
+        <div className="sticky top-20 bg-gray-100 dark:bg-gray-900 p-3">
           <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
             {notifications.length > 0 && (
               <NotificationPopup notifications={notifications} />
             )}
 
             {/* WhatsApp Web-style search bar */}
-                <div className="relative flex-grow">
-                  <button
-                    onClick={() => setIsSearchModalOpen(true)}
+            <div className="relative flex-grow">
+              <button
+                onClick={() => setIsSearchModalOpen(true)}
                 className="flex items-center w-full h-7 py-1.5 pl-6 pr-3 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                  >
+              >
                 <Lucide icon="Search" className="absolute left-2 w-3 h-3" />
                 <span className="ml-1.5 text-sm">Search contacts...</span>
-                  </button>
+              </button>
 
-                  <SearchModal
-                    isOpen={isSearchModalOpen}
-                    onClose={() => setIsSearchModalOpen(false)}
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                    companyId={currentCompanyId || ""}
-                    initial={contacts}
-                    onSelectResult={(type, id, contactId) => {
-                      if (type === "contact") {
-                        const contact = contacts.find((c) => c.id === id);
-                        if (contact) {
-                          selectChat(contact.contact_id!, contact.id!, contact);
-                        }
-                      } else if (type === "message") {
-                        const contact = contacts.find(
-                          (c) => c.contact_id === contactId
-                        );
-                        if (contact) {
-                          selectChat(
-                            contact.contact_id!,
-                            contact.id!,
-                            contact
-                          ).then(() => {
-                            setTimeout(() => {
-                              scrollToMessage(id);
+              <SearchModal
+                isOpen={isSearchModalOpen}
+                onClose={() => setIsSearchModalOpen(false)}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                companyId={currentCompanyId || ""}
+                initial={contacts}
+                onSelectResult={(type, id, contactId) => {
+                  if (type === "contact") {
+                    const contact = contacts.find((c) => c.id === id);
+                    if (contact) {
+                      selectChat(contact.contact_id!, contact.id!, contact);
+                    }
+                  } else if (type === "message") {
+                    const contact = contacts.find(
+                      (c) => c.contact_id === contactId
+                    );
+                    if (contact) {
+                      selectChat(
+                        contact.contact_id!,
+                        contact.id!,
+                        contact
+                      ).then(() => {
+                        setTimeout(() => {
+                          scrollToMessage(id);
                         }, 5000);
-                          });
-                        }
-                      }
-                      setSearchQuery("");
-                      setIsSearchModalOpen(false);
-                    }}
-                    contacts={contacts}
-                  />
-                </div>
+                      });
+                    }
+                  }
+                  setSearchQuery("");
+                  setIsSearchModalOpen(false);
+                }}
+                contacts={contacts}
+              />
+            </div>
 
             {/* Action buttons with WhatsApp Web styling */}
             <div className="flex items-center space-x-1.5">
@@ -9581,11 +9790,11 @@ function Main() {
               {/* Employee assignment button */}
               <Menu as="div" className="relative inline-block text-left">
                 <Menu.Button className="flex items-center justify-center p-1.5 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-all duration-200">
-                      <Lucide
-                        icon="Users"
+                  <Lucide
+                    icon="Users"
                     className="w-3 h-3 text-gray-800 dark:text-gray-200"
-                      />
-                  </Menu.Button>
+                  />
+                </Menu.Button>
                 <Menu.Items className="absolute right-0 mt-1.5 w-36 shadow-lg rounded-md bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 p-1.5 z-10 max-h-40 overflow-y-auto">
                   <div className="p-1.5">
                     <input
@@ -9667,15 +9876,13 @@ function Main() {
                 onClick={toggleTagsExpansion}
                 title={isTagsExpanded ? "Show Less Tags" : "Show More Tags"}
               >
-                  <Lucide
-                    icon={isTagsExpanded ? "ChevronUp" : "ChevronDown"}
+                <Lucide
+                  icon={isTagsExpanded ? "ChevronUp" : "ChevronDown"}
                   className="w-3 h-3 text-gray-800 dark:text-gray-200"
-                  />
+                />
               </button>
             </div>
           </div>
-
-      
         </div>
         <div className="mt-2 mb-1 px-2 max-h-20 overflow-y-auto">
           <div className="flex flex-wrap gap-1">
@@ -9748,7 +9955,9 @@ function Main() {
                             (typeof e.name === "string"
                               ? e.name.toLowerCase()
                               : "") ===
-                            (typeof t === "string" ? t.toLowerCase() : String(t).toLowerCase())
+                            (typeof t === "string"
+                              ? t.toLowerCase()
+                              : String(t).toLowerCase())
                         )
                       )
                     : tagLower === "snooze"
@@ -9781,20 +9990,20 @@ function Main() {
                   }`}
                 >
                   <span className="flex items-center space-x-1">
-                  <span>{tagName}</span>
-                  {userData?.role === "1" && unreadCount > 0 && (
-                    <span
+                    <span>{tagName}</span>
+                    {userData?.role === "1" && unreadCount > 0 && (
+                      <span
                         className={`px-1 py-0.5 rounded-full text-xs font-bold ${
-                        tagName.toLowerCase() === "stop bot"
+                          tagName.toLowerCase() === "stop bot"
                             ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-                          : tagName.toLowerCase() === "active bot"
+                            : tagName.toLowerCase() === "active bot"
                             ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
                             : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                         }`}
-                    >
-                      {unreadCount}
-                    </span>
-                  )}
+                      >
+                        {unreadCount}
+                      </span>
+                    )}
                   </span>
                 </button>
               );
@@ -9811,7 +10020,7 @@ function Main() {
               icon={isTagsExpanded ? "ChevronUp" : "ChevronDown"}
               className="w-2 h-2"
             />
-        </span>
+          </span>
         </span>
         <div
           className="bg-white dark:bg-gray-900 flex-1 overflow-y-scroll h-full relative dark:border-gray-700 p-2"
@@ -9838,7 +10047,7 @@ function Main() {
                       className="h-5 w-5 text-white"
                     />
                   </div>
-                  
+
                   {/* Main heading with better typography */}
                   <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">
                     {isInitialLoading
@@ -9847,7 +10056,7 @@ function Main() {
                       ? "Searching contacts..."
                       : "No contacts found"}
                   </h2>
-                  
+
                   {/* Subtitle with better styling */}
                   <p className="text-gray-600 dark:text-gray-400 mb-3 text-center text-sm">
                     {isInitialLoading
@@ -9856,7 +10065,7 @@ function Main() {
                       ? "Searching through all your contacts..."
                       : "Start by adding your first contact or importing from your phone"}
                   </p>
-                  
+
                   {/* Enhanced loading progress */}
                   {isInitialLoading && (
                     <div className="w-full max-w-sm bg-gray-100 dark:bg-gray-800 rounded-lg p-3 shadow-inner">
@@ -9866,7 +10075,7 @@ function Main() {
                           {realLoadingProgress}%
                         </span>
                       </div>
-                      
+
                       {/* Modern progress bar */}
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                         <div
@@ -9874,37 +10083,37 @@ function Main() {
                           style={{ width: `${realLoadingProgress}%` }}
                         ></div>
                       </div>
-                      
+
                       {/* Loading steps with better visual hierarchy */}
                       <div className="mt-4 space-y-2">
-                      {loadingSteps.userConfig && (
+                        {loadingSteps.userConfig && (
                           <div className="flex items-center text-xs text-green-600 dark:text-green-400">
                             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                             <span>User configuration loaded</span>
-                        </div>
-                      )}
-                      {loadingSteps.contactsFetch && (
+                          </div>
+                        )}
+                        {loadingSteps.contactsFetch && (
                           <div className="flex items-center text-xs text-green-600 dark:text-green-400">
                             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                             <span>Contacts fetched</span>
-                        </div>
-                      )}
-                      {loadingSteps.contactsProcess && (
+                          </div>
+                        )}
+                        {loadingSteps.contactsProcess && (
                           <div className="flex items-center text-xs text-blue-600 dark:text-blue-400">
                             <div className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
                             <span>Processing contacts...</span>
-                        </div>
-                      )}
-                      {loadingSteps.complete && (
+                          </div>
+                        )}
+                        {loadingSteps.complete && (
                           <div className="flex items-center text-xs text-green-600 dark:text-green-400 font-medium">
                             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                             <span>Loading complete!</span>
-                        </div>
-                      )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Enhanced tag filtering state */}
                   {isTagFiltering && (
                     <div className="w-full max-w-sm bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
@@ -9912,7 +10121,8 @@ function Main() {
                         <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
                       </div>
                       <p className="text-sm text-blue-700 dark:text-blue-300 font-medium text-center">
-                        Searching through {contacts.length.toLocaleString()} contacts...
+                        Searching through {contacts.length.toLocaleString()}{" "}
+                        contacts...
                       </p>
                     </div>
                   )}
@@ -9975,290 +10185,334 @@ function Main() {
                             </div>
                           ))}
                       </div>
-                    
+
                       {/* Unread badge - Show prominently when count > 0, show plain text when count = 0 */}
                       {contact.unreadCount !== undefined && (
                         <>
                           {/* Prominent badge for unread messages */}
                           {(contact.unreadCount ?? 0) > 0 && (
                             <span className="absolute -top-0.5 -right-0.5 bg-green-500 text-white text-xs rounded-full px-1 py-0.5 min-w-[16px] h-[16px] flex items-center justify-center font-bold">
-                              {(contact.unreadCount ?? 0) > 99 ? "99+" : (contact.unreadCount ?? 0)}
+                              {(contact.unreadCount ?? 0) > 99
+                                ? "99+"
+                                : contact.unreadCount ?? 0}
                             </span>
                           )}
-                        
                         </>
                       )}
                     </div>
-                    
-                  <div className="flex-1 min-w-0">
+
+                    <div className="flex-1 min-w-0">
                       <div className="flex flex-col space-y-1">
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-0.5">
-                          {(
-                            contact.contactName ??
-                            contact.firstName ??
-                            contact.phone ??
-                            ""
+                              {(
+                                contact.contactName ??
+                                contact.firstName ??
+                                contact.phone ??
+                                ""
                               ).slice(0, 25)}
-                          {(
-                            contact.contactName ??
-                            contact.firstName ??
-                            contact.phone ??
-                            ""
+                              {(
+                                contact.contactName ??
+                                contact.firstName ??
+                                contact.phone ??
+                                ""
                               ).length > 25
-                            ? "..."
-                            : ""}
+                                ? "..."
+                                : ""}
                             </h3>
-                            
+
                             <div className="flex items-center space-x-1 text-xs text-gray-600 dark:text-gray-400">
-                        <div className="flex flex-grow items-center">
-                          {(() => {
-                            const employeeTags =
-                              contact.tags?.filter((tag) =>
-                                employeeList.some(
-                                  (employee) =>
-                                    (employee.name?.toLowerCase() || "") ===
-                                    (typeof tag === "string" ? tag : String(tag)).toLowerCase()
-                                )
-                              ) || [];
+                              <div className="flex flex-grow items-center">
+                                {(() => {
+                                  const employeeTags =
+                                    contact.tags?.filter((tag) =>
+                                      employeeList.some(
+                                        (employee) =>
+                                          (employee.name?.toLowerCase() ||
+                                            "") ===
+                                          (typeof tag === "string"
+                                            ? tag
+                                            : String(tag)
+                                          ).toLowerCase()
+                                      )
+                                    ) || [];
 
-                            const otherTags =
-                              contact.tags?.filter(
-                                (tag) =>
-                                  !employeeList.some(
-                                    (employee) =>
-                                      (employee.name?.toLowerCase() || "") ===
-                                      (typeof tag === "string" ? tag : String(tag)).toLowerCase()
-                                  )
-                              ) || [];
+                                  const otherTags =
+                                    contact.tags?.filter(
+                                      (tag) =>
+                                        !employeeList.some(
+                                          (employee) =>
+                                            (employee.name?.toLowerCase() ||
+                                              "") ===
+                                            (typeof tag === "string"
+                                              ? tag
+                                              : String(tag)
+                                            ).toLowerCase()
+                                        )
+                                    ) || [];
 
-                            const uniqueTags = Array.from(
-                              new Set([...otherTags])
-                            );
+                                  const uniqueTags = Array.from(
+                                    new Set([...otherTags])
+                                  );
 
-                            return (
-                              <>
-                                <button
+                                  return (
+                                    <>
+                                      <button
                                         className={`text-sm ${
-                                    contact.pinned
+                                          contact.pinned
                                             ? "text-blue-600 dark:text-blue-400 font-bold"
                                             : "text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:font-bold mr-1"
-                                  }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    togglePinConversation(contact.chat_id!);
-                                  }}
-                                >
-                                  {contact.pinned ? (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
+                                        }`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          togglePinConversation(
+                                            contact.chat_id!
+                                          );
+                                        }}
+                                      >
+                                        {contact.pinned ? (
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
                                             width="9"
                                             height="9"
-                                      viewBox="0 0 48 48"
+                                            viewBox="0 0 48 48"
                                             className="text-blue-600 dark:text-blue-400 fill-current mr-0.5"
-                                    >
-                                      <mask id="ipSPin0">
-                                        <path
-                                          fill="#fff"
-                                          stroke="#fff"
-                                          strokeLinejoin="round"
-                                          strokeWidth="4"
-                                          d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"
-                                        />
-                                      </mask>
-                                      <path
-                                        fill="currentColor"
-                                        d="M0 0h48v48H0z"
-                                        mask="url(#ipSPin0)"
-                                      />
-                                    </svg>
-                                  ) : (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
+                                          >
+                                            <mask id="ipSPin0">
+                                              <path
+                                                fill="#fff"
+                                                stroke="#fff"
+                                                strokeLinejoin="round"
+                                                strokeWidth="4"
+                                                d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"
+                                              />
+                                            </mask>
+                                            <path
+                                              fill="currentColor"
+                                              d="M0 0h48v48H0z"
+                                              mask="url(#ipSPin0)"
+                                            />
+                                          </svg>
+                                        ) : (
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
                                             width="18"
                                             height="18"
-                                      viewBox="0 0 48 48"
-                                      className="group-hover:block hidden"
-                                    >
-                                      <path
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeLinejoin="round"
-                                        strokeWidth="4"
-                                        d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"
-                                      />
-                                    </svg>
-                                  )}
-                                </button>
-                                {uniqueTags.filter(
-                                  (tag) => (typeof tag === "string" ? tag : String(tag)).toLowerCase() !== "stop bot"
-                                ).length > 0 && (
+                                            viewBox="0 0 48 48"
+                                            className="group-hover:block hidden"
+                                          >
+                                            <path
+                                              fill="none"
+                                              stroke="currentColor"
+                                              strokeLinejoin="round"
+                                              strokeWidth="4"
+                                              d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"
+                                            />
+                                          </svg>
+                                        )}
+                                      </button>
+                                      {uniqueTags.filter(
+                                        (tag) =>
+                                          (typeof tag === "string"
+                                            ? tag
+                                            : String(tag)
+                                          ).toLowerCase() !== "stop bot"
+                                      ).length > 0 && (
                                         <span className="bg-blue-100 dark:bg-blue-600/30 text-blue-700 dark:text-blue-300 text-xs font-medium px-2 py-1 rounded-full mr-2">
-                                      <Lucide
-                                        icon="Tag"
+                                          <Lucide
+                                            icon="Tag"
                                             className="w-4 h-4 inline-block mr-1"
-                                      />
-                                          {uniqueTags.filter(
-                                            (tag) =>
-                                              (typeof tag === "string" ? tag : String(tag)).toLowerCase() !== "stop bot"
-                                          ).length}
-                                      </span>
-                                )}
-                                {employeeTags.length > 0 && (
+                                          />
+                                          {
+                                            uniqueTags.filter(
+                                              (tag) =>
+                                                (typeof tag === "string"
+                                                  ? tag
+                                                  : String(tag)
+                                                ).toLowerCase() !== "stop bot"
+                                            ).length
+                                          }
+                                        </span>
+                                      )}
+                                      {employeeTags.length > 0 && (
                                         <span className="bg-green-100 dark:bg-green-600/30 text-green-700 dark:text-green-300 text-xs font-medium px-2 py-1 rounded-full mr-2">
-                                      <Lucide
-                                        icon="Users"
+                                          <Lucide
+                                            icon="Users"
                                             className="w-4 h-4 inline-block mr-1"
-                                      />
-                                        {employeeTags.length === 1
+                                          />
+                                          {employeeTags.length === 1
                                             ? employeeList.find(
-                                              (e) =>
-                                                  (e.name?.toLowerCase() || "") ===
-                                                (typeof employeeTags[0] === "string" ? employeeTags[0] : String(employeeTags[0])).toLowerCase()
-                                            )?.employeeId ||
-                                            (employeeTags[0]?.length > 8
-                                              ? employeeTags[0].slice(0, 6)
-                                              : employeeTags[0])
-                                          : employeeTags.length}
-                                      </span>
-                                )}
-                              </>
-                            );
-                          })()}
+                                                (e) =>
+                                                  (e.name?.toLowerCase() ||
+                                                    "") ===
+                                                  (typeof employeeTags[0] ===
+                                                  "string"
+                                                    ? employeeTags[0]
+                                                    : String(employeeTags[0])
+                                                  ).toLowerCase()
+                                              )?.employeeId ||
+                                              (employeeTags[0]?.length > 8
+                                                ? employeeTags[0].slice(0, 6)
+                                                : employeeTags[0])
+                                            : employeeTags.length}
+                                        </span>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
-                        </div>
+                          </div>
 
                           <div className="flex flex-col items-end space-y-0.5 ml-1.5">
-                            <span className={`text-xs ${
-                              contact.unreadCount && contact.unreadCount > 0
-                                ? "text-green-600 dark:text-green-400 font-medium"
-                                : "text-gray-600 dark:text-gray-400"
-                            }`}>
-                            {contact.last_message?.createdAt ||
-                            contact.last_message?.timestamp
-                              ? formatDate(
-                                  contact.last_message.createdAt ||
-                                    (contact.last_message.timestamp &&
-                                      contact.last_message.timestamp * 1000)
-                                )
+                            <span
+                              className={`text-xs ${
+                                contact.unreadCount && contact.unreadCount > 0
+                                  ? "text-green-600 dark:text-green-400 font-medium"
+                                  : "text-gray-600 dark:text-gray-400"
+                              }`}
+                            >
+                              {contact.last_message?.createdAt ||
+                              contact.last_message?.timestamp
+                                ? formatDate(
+                                    contact.last_message.createdAt ||
+                                      (contact.last_message.timestamp &&
+                                        contact.last_message.timestamp * 1000)
+                                  )
                                 : "New"}
-                          </span>
+                            </span>
+                          </div>
                         </div>
-                    </div>
-                        
+
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
                             <div className="mt-1">
                               <span className="text-sm text-gray-700 dark:text-gray-400 truncate block">
-                        {contact.last_message ? (
-                          <>
-                            {contact.last_message.from_me && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
+                                {contact.last_message ? (
+                                  <>
+                                    {contact.last_message.from_me && (
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
                                         className="inline-block w-5 h-5 text-blue-600 dark:text-blue-400 mr-2"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            )}
-                            {(() => {
-                              const message = contact.last_message;
-                              if (!message) return "No Messages";
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    )}
+                                    {(() => {
+                                      const message = contact.last_message;
+                                      if (!message) return "No Messages";
 
-                              const getMessageContent = () => {
-                                switch (message.type) {
-                                  case "text":
-                                  case "chat":
-                                    return message.text?.body || "Message";
-                                  case "image":
-                                    return message.text?.body
-                                      ? `📷 ${message.text?.body}`
-                                      : "📷 Photo";
-                                  case "document":
-                                    return `📄 ${
-                                      message.document?.filename ||
-                                      message.text?.body ||
-                                      "Document"
-                                    }`;
-                                  case "audio":
-                                  case "ptt":
-                                    return "🎵 Audio";
-                                  case "video":
-                                    return message.text?.body
-                                      ? `🎥 ${message.text?.body}`
-                                      : "🎥 Video";
-                                  case "voice":
-                                    return "🎤 Voice message";
-                                  case "sticker":
-                                    return "😊 Sticker";
-                                  case "location":
-                                    return "📍 Location";
-                                  case "call_log":
-                                    return `📞 ${
-                                      message.call_log?.status || "Call"
-                                    }`;
-                                  case "order":
-                                    return "🛒 Order";
-                                  case "gif":
-                                    return "🎞️ GIF";
-                                  case "link_preview":
-                                    return "🔗 Link";
-                                  case "privateNote":
-                                    return "📝 Private note";
-                                  default:
-                                    return message.text?.body || "Message";
-                                }
-                              };
+                                      const getMessageContent = () => {
+                                        switch (message.type) {
+                                          case "text":
+                                          case "chat":
+                                            return (
+                                              message.text?.body || "Message"
+                                            );
+                                          case "image":
+                                            return message.text?.body
+                                              ? `📷 ${message.text?.body}`
+                                              : "📷 Photo";
+                                          case "document":
+                                            return `📄 ${
+                                              message.document?.filename ||
+                                              message.text?.body ||
+                                              "Document"
+                                            }`;
+                                          case "audio":
+                                          case "ptt":
+                                            return "🎵 Audio";
+                                          case "video":
+                                            return message.text?.body
+                                              ? `🎥 ${message.text?.body}`
+                                              : "🎥 Video";
+                                          case "voice":
+                                            return "🎤 Voice message";
+                                          case "sticker":
+                                            return "😊 Sticker";
+                                          case "location":
+                                            return "📍 Location";
+                                          case "call_log":
+                                            return `📞 ${
+                                              message.call_log?.status || "Call"
+                                            }`;
+                                          case "order":
+                                            return "🛒 Order";
+                                          case "gif":
+                                            return "🎞️ GIF";
+                                          case "link_preview":
+                                            return "🔗 Link";
+                                          case "privateNote":
+                                            return "📝 Private note";
+                                          default:
+                                            return (
+                                              message.text?.body || "Message"
+                                            );
+                                        }
+                                      };
 
-                              const content = getMessageContent();
-                              return message.from_me ? content : content;
-                            })()}
-                          </>
-                        ) : (
-                          "No Messages"
-                        )}
-                      </span>
+                                      const content = getMessageContent();
+                                      return message.from_me
+                                        ? content
+                                        : content;
+                                    })()}
+                                  </>
+                                ) : (
+                                  "No Messages"
+                                )}
+                              </span>
                             </div>
                           </div>
-                          
-                      {isAssistantAvailable && (
-                        <div
-                          onClick={(e) => toggleStopBotLabel(contact, index, e)}
-                              className="cursor-pointer ml-3"
-                        >
-                          <label className="inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="sr-only peer"
-                              checked={contact.tags?.includes("stop bot")}
-                              readOnly
-                            />
+
+                          {isAssistantAvailable && (
                             <div
-                                  className={`relative w-12 h-6 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer ${
+                              onClick={(e) =>
+                                toggleStopBotLabel(contact, index, e)
+                              }
+                              className="cursor-pointer ml-3"
+                              title={
                                 contact.tags?.includes("stop bot")
-                                  ? "bg-red-500 dark:bg-red-700"
-                                  : "bg-green-500 dark:bg-green-700"
-                                  } peer-checked:after:-translate-x-full rtl:peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:end-[1px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-400`}
-                            ></div>
-                          </label>
+                                  ? "Bot Disabled"
+                                  : "Bot Enabled"
+                              }
+                            >
+                              <label className="inline-flex items-center cursor-pointer group">
+                                <input
+                                  type="checkbox"
+                                  className="sr-only peer"
+                                  checked={contact.tags?.includes("stop bot")}
+                                  readOnly
+                                />
+                                <span
+                                  className={`relative w-12 h-6 flex items-center rounded-full transition-colors duration-300 ${
+                                    contact.tags?.includes("stop bot")
+                                      ? "bg-gradient-to-r from-red-500 to-red-700"
+                                      : "bg-gradient-to-r from-green-500 to-green-700"
+                                  }`}
+                                >
+                                  <span
+                                    className={`absolute left-1 top-1 w-4 h-4 rounded-full bg-white shadow-md transition-transform duration-300 ${
+                                      contact.tags?.includes("stop bot")
+                                        ? "translate-x-6"
+                                        : "translate-x-0"
+                                    }`}
+                                  ></span>
+                                </span>
+                              </label>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
-                    
-                     
-                 
-                  </div>
-                </div>
-              
               </React.Fragment>
             ))
           ) : null}
@@ -10270,30 +10524,28 @@ function Main() {
         >
           {/* Main Pagination */}
           <div className="flex justify-center items-center">
-          <ReactPaginate
-            breakLabel="…"
-            nextLabel="Next"
-            onPageChange={isLoadingMoreContacts ? () => {} : handlePageChange}
+            <ReactPaginate
+              breakLabel="…"
+              nextLabel="Next"
+              onPageChange={isLoadingMoreContacts ? () => {} : handlePageChange}
               pageRangeDisplayed={2}
-            marginPagesDisplayed={2}
-            pageCount={Math.ceil(totalContacts / contactsPerPage)}
-            previousLabel="Previous"
-            renderOnZeroPageCount={null}
-            containerClassName="flex justify-center items-center flex-wrap gap-0.5"
-            pageClassName="mx-0.25"
+              marginPagesDisplayed={2}
+              pageCount={Math.ceil(totalContacts / contactsPerPage)}
+              previousLabel="Previous"
+              renderOnZeroPageCount={null}
+              containerClassName="flex justify-center items-center flex-wrap gap-0.5"
+              pageClassName="mx-0.25"
               pageLinkClassName="px-1.5 py-1 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs min-w-[18px] text-center font-medium transition-all duration-200 border border-gray-200 dark:border-gray-600"
-            previousClassName="mx-0.5"
-            nextClassName="mx-0.5"
+              previousClassName="mx-0.5"
+              nextClassName="mx-0.5"
               previousLinkClassName="px-1.5 py-1 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-medium transition-all duration-200 border border-gray-200 dark:border-gray-600"
               nextLinkClassName="px-1.5 py-1 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-medium transition-all duration-200 border border-gray-200 dark:border-gray-600"
-            disabledClassName="opacity-50 cursor-not-allowed"
-            activeClassName="font-bold"
+              disabledClassName="opacity-50 cursor-not-allowed"
+              activeClassName="font-bold"
               activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700 border-blue-500"
-            forcePage={currentPage}
-          />
+              forcePage={currentPage}
+            />
           </div>
-
-  
         </div>
         {isLoadingMoreContacts && (
           <div className="flex flex-col items-center justify-center mt-2 mb-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
@@ -10355,9 +10607,11 @@ function Main() {
 
               <div className="flex items-center space-x-2">
                 <div className="hidden sm:flex space-x-2">
-      
                   <Menu as="div" className="relative inline-block text-left">
-                    <Menu.Button as={Button} className="p-2 !box m-0 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200">
+                    <Menu.Button
+                      as={Button}
+                      className="p-2 !box m-0 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                    >
                       <span className="flex items-center justify-center w-8 h-8">
                         <Lucide
                           icon="Users"
@@ -10428,7 +10682,9 @@ function Main() {
                                   );
                                 }}
                               >
-                                <span className="font-medium">{employee.name}</span>
+                                <span className="font-medium">
+                                  {employee.name}
+                                </span>
                                 <div className="flex items-center space-x-2 text-sm">
                                   {employee.quotaLeads !== undefined && (
                                     <span className="text-gray-500 dark:text-gray-400">
@@ -10444,7 +10700,10 @@ function Main() {
                     </Menu.Items>
                   </Menu>
                   <Menu as="div" className="relative inline-block text-left">
-                    <Menu.Button as={Button} className="p-2 !box m-0 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200">
+                    <Menu.Button
+                      as={Button}
+                      className="p-2 !box m-0 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                    >
                       <span className="flex items-center justify-center w-8 h-8">
                         <Lucide
                           icon="Tag"
@@ -10485,7 +10744,10 @@ function Main() {
                       ))}
                     </Menu.Items>
                   </Menu>
-                  <button className="p-3 m-0 !box hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200" onClick={handleEyeClick}>
+                  <button
+                    className="p-3 m-0 !box hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                    onClick={handleEyeClick}
+                  >
                     <span className="flex items-center justify-center w-6 h-6">
                       <Lucide
                         icon={isTabOpen ? "X" : "Eye"}
@@ -10509,7 +10771,10 @@ function Main() {
                   as="div"
                   className="sm:hidden relative inline-block text-left"
                 >
-                  <Menu.Button as={Button} className="p-3 !box m-0 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200">
+                  <Menu.Button
+                    as={Button}
+                    className="p-3 !box m-0 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                  >
                     <span className="flex items-center justify-center w-6 h-6">
                       <Lucide
                         icon="MoreVertical"
@@ -10758,17 +11023,28 @@ function Main() {
                               <div className="inline-block bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold py-1 px-3 rounded-lg shadow-md text-sm">
                                 {(() => {
                                   const messageDate = new Date(
-                                    (message.timestamp || message.createdAt || 0) * 1000
+                                    (message.timestamp ||
+                                      message.createdAt ||
+                                      0) * 1000
                                   );
                                   const today = new Date();
-                                  
+
                                   if (isSameDay(messageDate, today)) {
                                     return "Today";
-                                  } else if (isSameDay(messageDate, new Date(today.getTime() - 24 * 60 * 60 * 1000))) {
+                                  } else if (
+                                    isSameDay(
+                                      messageDate,
+                                      new Date(
+                                        today.getTime() - 24 * 60 * 60 * 1000
+                                      )
+                                    )
+                                  ) {
                                     return "Yesterday";
                                   } else {
                                     return formatDateHeader(
-                                  message.timestamp || message.createdAt || ""
+                                      message.timestamp ||
+                                        message.createdAt ||
+                                        ""
                                     );
                                   }
                                 })()}
@@ -10836,7 +11112,7 @@ function Main() {
                               {message.type === "text" &&
                                 message.text?.context && (
                                   <div
-                                      className="p-2 mb-2 rounded-lg bg-gray-200 dark:bg-gray-800 cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors duration-200"
+                                    className="p-2 mb-2 rounded-lg bg-gray-200 dark:bg-gray-800 cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors duration-200"
                                     onClick={() => {
                                       const quotedMessageId =
                                         message.text?.context?.id;
@@ -11542,7 +11818,7 @@ function Main() {
                                         >
                                           <Lucide
                                             icon="MessageCircleReply"
-                                              className="w-4 h-4"
+                                            className="w-4 h-4"
                                           />
                                         </button>
                                         <button
@@ -11555,7 +11831,7 @@ function Main() {
                                         >
                                           <Lucide
                                             icon="Heart"
-                                             className="w-4 h-4"
+                                            className="w-4 h-4"
                                           />
                                         </button>
                                         {showReactionPicker &&
@@ -11792,34 +12068,34 @@ function Main() {
                   ))}
                 </div>
               )}
-                             <div className="flex items-center w-full bg-white dark:bg-gray-800 pl-1 pr-1 rounded-md">
+              <div className="flex items-center w-full bg-white dark:bg-gray-800 pl-1 pr-1 rounded-md">
                 <button
-                    className="p-1 m-0 !box"
+                  className="p-1 m-0 !box"
                   onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}
                 >
-                    <span className="flex items-center justify-center w-5 h-5">
+                  <span className="flex items-center justify-center w-5 h-5">
                     <Lucide
                       icon="Smile"
-                        className="w-5 h-5 text-gray-800 dark:text-gray-200"
+                      className="w-5 h-5 text-gray-800 dark:text-gray-200"
                     />
                   </span>
                 </button>
-                  <Menu as="div" className="relative inline-block text-left p-1">
-                    <div className="flex items-center space-x-1.5">
+                <Menu as="div" className="relative inline-block text-left p-1">
+                  <div className="flex items-center space-x-1.5">
                     <Menu.Button
                       as={Button}
-                        className="p-1 !box m-0"
+                      className="p-1 !box m-0"
                       onClick={handleTagClick}
                     >
-                        <span className="flex items-center justify-center w-5 h-5">
+                      <span className="flex items-center justify-center w-5 h-5">
                         <Lucide
                           icon="Paperclip"
-                            className="w-5 h-5 text-gray-800 dark:text-gray-200"
+                          className="w-5 h-5 text-gray-800 dark:text-gray-200"
                         />
                       </span>
                     </Menu.Button>
                   </div>
-                    <Menu.Items className="absolute left-0 bottom-full mb-1 w-20 bg-white dark:bg-gray-800 shadow-md rounded-md p-1 z-10 max-h-30 overflow-y-auto">
+                  <Menu.Items className="absolute left-0 bottom-full mb-1 w-20 bg-white dark:bg-gray-800 shadow-md rounded-md p-1 z-10 max-h-30 overflow-y-auto">
                     <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
                       <label
                         htmlFor="imageUpload"
@@ -11905,10 +12181,10 @@ function Main() {
                 </button>
 
                 {isRecordingPopupOpen && (
-                    <div className="absolute bottom-full mb-1 left-0 w-32 bg-white dark:bg-gray-800 rounded-md shadow-md p-2">
-                      <div className="flex items-center mb-1">
+                  <div className="absolute bottom-full mb-1 left-0 w-32 bg-white dark:bg-gray-800 rounded-md shadow-md p-2">
+                    <div className="flex items-center mb-1">
                       <button
-                          className={`p-1 rounded-md ${
+                        className={`p-1 rounded-md ${
                           isRecording
                             ? "bg-red-500 text-white"
                             : "bg-primary text-white"
@@ -11917,35 +12193,35 @@ function Main() {
                       >
                         <Lucide
                           icon={isRecording ? "StopCircle" : "Mic"}
-                            className="w-2.5 h-2.5"
+                          className="w-2.5 h-2.5"
                         />
                       </button>
                       <ReactMicComponent
                         record={isRecording}
-                          className="w-22 rounded-md h-5 mr-1 ml-1"
+                        className="w-22 rounded-md h-5 mr-1 ml-1"
                         onStop={onStop}
                         strokeColor="#0000CD"
                         backgroundColor="#FFFFFF"
                         mimeType="audio/webm"
                       />
                     </div>
-                      <div className="flex flex-col space-y-1">
+                    <div className="flex flex-col space-y-1">
                       {audioBlob && (
                         <>
                           <audio
                             src={URL.createObjectURL(audioBlob)}
                             controls
-                              className="w-full h-5 mb-1"
+                            className="w-full h-5 mb-1"
                           />
                           <div className="flex justify-between">
                             <button
-                                className="px-1.5 py-0.5 rounded bg-gray-500 text-white text-xs"
+                              className="px-1.5 py-0.5 rounded bg-gray-500 text-white text-xs"
                               onClick={() => setAudioBlob(null)}
                             >
                               Remove
                             </button>
                             <button
-                                className="px-1.5 py-0.5 rounded bg-green-700 text-white text-xs"
+                              className="px-1.5 py-0.5 rounded bg-green-700 text-white text-xs"
                               onClick={sendVoiceMessage}
                             >
                               Send
@@ -12548,7 +12824,7 @@ function Main() {
           </>
         ) : (
           <div className="hidden md:flex flex-col w-full h-full bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 items-center justify-center">
-                        <div className="flex flex-col items-center justify-center p-9 rounded-xl shadow-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col items-center justify-center p-9 rounded-xl shadow-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
               <div className="w-16 h-16 mb-4 overflow-hidden rounded-xl shadow-lg">
                 <img
                   src={logoImage}
@@ -12560,7 +12836,8 @@ function Main() {
                 Welcome to Chat
               </h2>
               <p className="text-gray-600 dark:text-gray-400 text-lg text-center mb-6 max-w-sm leading-relaxed">
-                Select a contact from the list to start messaging, or create a new conversation to get started.
+                Select a contact from the list to start messaging, or create a
+                new conversation to get started.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
@@ -12678,9 +12955,7 @@ function Main() {
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 shadow-lg">
-              
-                </div>
+                <div className="w-10 h-10 shadow-lg"></div>
 
                 <div className="flex flex-col">
                   {isEditing ? (
@@ -13121,14 +13396,16 @@ function Main() {
                       </div>
                     ))}
                   </div>
-               
 
                   {/* Enhanced Employee Assignment Section */}
                   {selectedContact.tags.some((tag: string) =>
                     employeeList.some(
                       (employee) =>
                         (employee.name?.toLowerCase() || "") ===
-                        (typeof tag === "string" ? tag : String(tag)).toLowerCase()
+                        (typeof tag === "string"
+                          ? tag
+                          : String(tag)
+                        ).toLowerCase()
                     )
                   ) && (
                     <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl p-6 border border-green-200 dark:border-green-700 mb-6">
@@ -13146,7 +13423,10 @@ function Main() {
                             employeeList.some(
                               (employee) =>
                                 (employee.name?.toLowerCase() || "") ===
-                                (typeof tag === "string" ? tag : String(tag)).toLowerCase()
+                                (typeof tag === "string"
+                                  ? tag
+                                  : String(tag)
+                                ).toLowerCase()
                             )
                           )
                           .map((employeeTag: string, index: number) => (
@@ -13193,11 +13473,17 @@ function Main() {
                         {selectedContact.tags
                           .filter(
                             (tag: string) =>
-                              (typeof tag === "string" ? tag : String(tag)).toLowerCase() !== "stop bot" &&
+                              (typeof tag === "string"
+                                ? tag
+                                : String(tag)
+                              ).toLowerCase() !== "stop bot" &&
                               !employeeList.some(
                                 (employee) =>
                                   (employee.name?.toLowerCase() || "") ===
-                                  (typeof tag === "string" ? tag : String(tag)).toLowerCase()
+                                  (typeof tag === "string"
+                                    ? tag
+                                    : String(tag)
+                                  ).toLowerCase()
                               )
                           )
                           .map((tag: string, index: number) => (
@@ -13463,6 +13749,499 @@ function Main() {
         }}
         initialCaption={documentCaption}
       />
+
+      {/* Usage Dashboard Modal */}
+      <Dialog
+        open={isUsageDashboardOpen}
+        onClose={() => setIsUsageDashboardOpen(false)}
+        className="relative z-50"
+      >
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+          aria-hidden="true"
+        />
+        <div className="fixed inset-0 flex items-center justify-center p-3">
+          <Dialog.Panel className="mx-auto max-w-5xl w-full bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+            {/* Header */}
+            <div className="relative bg-gradient-to-r from-slate-600 via-gray-600 to-slate-700 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20">
+                    <Lucide icon="BarChart3" className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <Dialog.Title className="text-xl font-bold text-white">
+                      Usage Analytics
+                    </Dialog.Title>
+                    <p className="text-gray-200 text-sm">
+                      Real-time monitoring and insights
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={fetchDailyUsageData}
+                    disabled={isLoadingUsageData}
+                    className="flex items-center gap-2 px-3 py-2 bg-white/15 hover:bg-white/25 disabled:bg-white/10 text-white rounded-lg transition-all duration-200 text-sm font-medium border border-white/20 backdrop-blur-sm"
+                  >
+                    <Lucide
+                      icon={isLoadingUsageData ? "Loader2" : "RefreshCw"}
+                      className={`w-4 h-4 ${
+                        isLoadingUsageData ? "animate-spin" : ""
+                      }`}
+                    />
+                    Refresh
+                  </button>
+                  <button
+                    onClick={() => setIsUsageDashboardOpen(false)}
+                    className="p-2 hover:bg-white/15 rounded-lg transition-all duration-200 border border-white/20"
+                  >
+                    <Lucide icon="X" className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5">
+              {isLoadingUsageData ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="flex flex-col items-center gap-4">
+                    <LoadingIcon
+                      icon="oval"
+                      className="w-10 h-10 text-blue-500"
+                    />
+                    <p className="text-gray-600 dark:text-gray-400 font-medium">
+                      Loading analytics data...
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {/* Current Usage Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 dark:from-blue-950/50 dark:via-blue-900/30 dark:to-blue-800/20 p-6 rounded-2xl border border-blue-200/50 dark:border-blue-700/50 group hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full -translate-y-12 translate-x-12"></div>
+                      <div className="relative">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                            <Lucide
+                              icon="Sparkles"
+                              className="w-6 h-6 text-white"
+                            />
+                          </div>
+                          <h3 className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                            AI Messages
+                          </h3>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-end justify-between">
+                            <span className="text-4xl font-black text-blue-900 dark:text-blue-100 tracking-tight">
+                              {aiMessageUsage.toLocaleString()}
+                            </span>
+                            <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                              / {(quotaAIMessage || 500).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="relative w-full bg-blue-200/50 dark:bg-blue-800/50 rounded-full h-4 overflow-hidden">
+                            <div
+                              className="absolute inset-0 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500 rounded-full transition-all duration-700 ease-out shadow-sm"
+                              style={{
+                                width: `${Math.min(
+                                  (aiMessageUsage / (quotaAIMessage || 500)) *
+                                    100,
+                                  100
+                                )}%`,
+                              }}
+                            >
+                              <div className="w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                            </div>
+                          </div>
+                          <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                            {(
+                              (aiMessageUsage / (quotaAIMessage || 500)) *
+                              100
+                            ).toFixed(1)}
+                            % quota utilized this month
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:via-emerald-900/30 dark:to-emerald-800/20 p-6 rounded-2xl border border-emerald-200/50 dark:border-emerald-700/50 group hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full -translate-y-12 translate-x-12"></div>
+                      <div className="relative">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                            <Lucide
+                              icon="Send"
+                              className="w-6 h-6 text-white"
+                            />
+                          </div>
+                          <h3 className="text-xl font-bold text-emerald-900 dark:text-emerald-100">
+                            Blast Messages
+                          </h3>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex flex-col space-y-1">
+                            <span className="text-4xl font-black text-emerald-900 dark:text-emerald-100 tracking-tight">
+                              {blastedMessageUsage.toLocaleString()}
+                            </span>
+                            <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+                              successful blasts
+                            </span>
+                          </div>
+                          <div className="relative w-full bg-emerald-200/50 dark:bg-emerald-800/50 rounded-full h-4 overflow-hidden">
+                            <div
+                              className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-500 rounded-full transition-all duration-700 ease-out shadow-sm"
+                              style={{
+                                width: "100%",
+                              }}
+                            >
+                              <div className="w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                            </div>
+                          </div>
+                          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                            No limits - unlimited blast messaging
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Daily Usage Chart */}
+                  <div className="bg-gradient-to-br from-gray-50/50 via-white to-gray-50/50 dark:from-gray-900/50 dark:via-gray-800 dark:to-gray-900/50 rounded-3xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden shadow-lg">
+                    <div className="bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-750 px-6 py-5 border-b border-gray-200/50 dark:border-gray-600/50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-gray-600 rounded-xl flex items-center justify-center">
+                            <Lucide
+                              icon="TrendingUp"
+                              className="w-5 h-5 text-white"
+                            />
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                              7-Day Usage Trend
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              Daily activity overview
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-8">
+                      {dailyUsageData.length > 0 ? (
+                        <div className="space-y-8">
+                          {/* Enhanced Line Chart */}
+                          <div className="relative h-96 bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700/50 shadow-inner overflow-hidden">
+                            {(() => {
+                              return (
+                                <div className="w-full h-full p-4">
+                                  <canvas
+                                    id="usage-chart"
+                                    ref={(canvas) => {
+                                      if (canvas && dailyUsageData.length > 0) {
+                                        const existingChart = (canvas as any)
+                                          .chart;
+                                        if (existingChart) {
+                                          existingChart.destroy();
+                                        }
+
+                                        import("chart.js/auto").then(
+                                          (Chart) => {
+                                            const ctx = canvas.getContext("2d");
+                                            if (ctx) {
+                                              const isDark =
+                                                document.documentElement.classList.contains(
+                                                  "dark"
+                                                );
+                                              const formatDateLabel = (
+                                                dateString: string
+                                              ) => {
+                                                const date = new Date(
+                                                  dateString
+                                                );
+                                                const monthNames = [
+                                                  "JAN",
+                                                  "FEB",
+                                                  "MAR",
+                                                  "APR",
+                                                  "MAY",
+                                                  "JUN",
+                                                  "JUL",
+                                                  "AUG",
+                                                  "SEP",
+                                                  "OCT",
+                                                  "NOV",
+                                                  "DEC",
+                                                ];
+                                                const month =
+                                                  monthNames[date.getMonth()];
+                                                const day = date
+                                                  .getDate()
+                                                  .toString()
+                                                  .padStart(2, "0");
+                                                return `${month} ${day}`;
+                                              };
+
+                                              (canvas as any).chart =
+                                                new Chart.default(ctx, {
+                                                  type: "line",
+                                                  data: {
+                                                    labels: dailyUsageData.map(
+                                                      (day) =>
+                                                        formatDateLabel(
+                                                          day.date
+                                                        )
+                                                    ),
+                                                    datasets: [
+                                                      {
+                                                        label: "AI Messages",
+                                                        data: dailyUsageData.map(
+                                                          (day) =>
+                                                            day.aiMessages
+                                                        ),
+                                                        borderColor: "#3B82F6",
+                                                        backgroundColor:
+                                                          "rgba(59, 130, 246, 0.1)",
+                                                        borderWidth: 3,
+                                                        pointBackgroundColor:
+                                                          "#3B82F6",
+                                                        pointBorderColor:
+                                                          "#ffffff",
+                                                        pointBorderWidth: 2,
+                                                        pointRadius: 6,
+                                                        pointHoverRadius: 8,
+                                                        tension: 0.4,
+                                                        fill: true,
+                                                      },
+                                                      {
+                                                        label: "Blast Messages",
+                                                        data: dailyUsageData.map(
+                                                          (day) =>
+                                                            day.blastMessages
+                                                        ),
+                                                        borderColor: "#10B981",
+                                                        backgroundColor:
+                                                          "rgba(16, 185, 129, 0.1)",
+                                                        borderWidth: 3,
+                                                        pointBackgroundColor:
+                                                          "#10B981",
+                                                        pointBorderColor:
+                                                          "#ffffff",
+                                                        pointBorderWidth: 2,
+                                                        pointRadius: 6,
+                                                        pointHoverRadius: 8,
+                                                        tension: 0.4,
+                                                        fill: true,
+                                                      },
+                                                    ],
+                                                  },
+                                                  options: {
+                                                    responsive: true,
+                                                    maintainAspectRatio: false,
+                                                    interaction: {
+                                                      intersect: false,
+                                                      mode: "index" as const,
+                                                    },
+                                                    plugins: {
+                                                      legend: {
+                                                        position:
+                                                          "top" as const,
+                                                        labels: {
+                                                          usePointStyle: true,
+                                                          pointStyle:
+                                                            "circle" as const,
+                                                          padding: 20,
+                                                          color: isDark
+                                                            ? "#9CA3AF"
+                                                            : "#6B7280",
+                                                          font: {
+                                                            size: 14,
+                                                          },
+                                                        },
+                                                      },
+                                                      tooltip: {
+                                                        backgroundColor: isDark
+                                                          ? "#1F2937"
+                                                          : "#FFFFFF",
+                                                        titleColor: isDark
+                                                          ? "#F3F4F6"
+                                                          : "#1F2937",
+                                                        bodyColor: isDark
+                                                          ? "#D1D5DB"
+                                                          : "#4B5563",
+                                                        borderColor: isDark
+                                                          ? "#374151"
+                                                          : "#E5E7EB",
+                                                        borderWidth: 1,
+                                                        cornerRadius: 8,
+                                                        displayColors: true,
+                                                        padding: 12,
+                                                      },
+                                                    },
+                                                    scales: {
+                                                      x: {
+                                                        grid: {
+                                                          display: true,
+                                                          color: isDark
+                                                            ? "#374151"
+                                                            : "#F3F4F6",
+                                                        },
+                                                        ticks: {
+                                                          color: isDark
+                                                            ? "#9CA3AF"
+                                                            : "#6B7280",
+                                                          font: {
+                                                            size: 12,
+                                                          },
+                                                          padding: 10,
+                                                        },
+                                                      },
+                                                      y: {
+                                                        beginAtZero: true,
+                                                        grid: {
+                                                          display: true,
+                                                          color: isDark
+                                                            ? "#374151"
+                                                            : "#F3F4F6",
+                                                        },
+                                                        ticks: {
+                                                          color: isDark
+                                                            ? "#9CA3AF"
+                                                            : "#6B7280",
+                                                          font: {
+                                                            size: 12,
+                                                          },
+                                                          padding: 10,
+                                                          callback: function (
+                                                            value: any
+                                                          ) {
+                                                            return Number.isInteger(
+                                                              value
+                                                            )
+                                                              ? value
+                                                              : "";
+                                                          },
+                                                        },
+                                                      },
+                                                    },
+                                                  },
+                                                });
+                                            }
+                                          }
+                                        );
+                                      }
+                                    }}
+                                    className="w-full h-full"
+                                  />
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Enhanced Usage Summary */}
+                          <div className="grid grid-cols-2 gap-6 pt-6 border-t border-gray-200/50 dark:border-gray-600/50">
+                            <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/10 rounded-2xl border border-blue-200/30 dark:border-blue-700/30">
+                              <div className="text-3xl font-black text-blue-600 dark:text-blue-400 mb-1">
+                                {dailyUsageData
+                                  .reduce((sum, day) => sum + day.aiMessages, 0)
+                                  .toLocaleString()}
+                              </div>
+                              <div className="text-sm text-blue-700 dark:text-blue-300 font-semibold">
+                                Total AI Messages
+                              </div>
+                              <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                Past 7 days
+                              </div>
+                            </div>
+                            <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/10 rounded-2xl border border-emerald-200/30 dark:border-emerald-700/30">
+                              <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mb-1">
+                                {dailyUsageData
+                                  .reduce(
+                                    (sum, day) => sum + day.blastMessages,
+                                    0
+                                  )
+                                  .toLocaleString()}
+                              </div>
+                              <div className="text-sm text-emerald-700 dark:text-emerald-300 font-semibold">
+                                Total Blast Messages
+                              </div>
+                              <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                                Past 7 days
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="h-80 flex items-center justify-center text-gray-500 dark:text-gray-400">
+                          <div className="text-center">
+                            <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <Lucide
+                                icon="BarChart3"
+                                className="w-10 h-10 text-gray-400 dark:text-gray-500"
+                              />
+                            </div>
+                            <p className="text-xl font-bold text-gray-600 dark:text-gray-400 mb-2">
+                              No usage data yet
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-500 max-w-sm">
+                              Your usage analytics will appear here once you
+                              start sending AI and blast messages
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-700 rounded-3xl p-5 border border-gray-200/50 dark:border-gray-600/50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={() => {
+                            toast.info(
+                              "📊 Export functionality will be available soon with CSV, PDF, and Excel formats!"
+                            );
+                          }}
+                          className="flex items-center gap-3 px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md group"
+                        >
+                          <Lucide
+                            icon="Download"
+                            className="w-5 h-5 group-hover:scale-110 transition-transform"
+                          />
+                          <span className="font-semibold">
+                            Export Analytics
+                          </span>
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          toast.info(
+                            "🚀 Quota top-up functionality coming soon! You'll be able to increase your limits instantly."
+                          );
+                        }}
+                        className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-slate-500 to-gray-600 text-white rounded-2xl hover:from-slate-600 hover:to-gray-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 group"
+                      >
+                        <Lucide
+                          icon="Plus"
+                          className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300"
+                        />
+                        <span className="font-semibold">Upgrade Quota</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog>
       <ImageModal
         isOpen={isImageModalOpen}
         onClose={closeImageModal}
