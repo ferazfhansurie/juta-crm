@@ -686,7 +686,7 @@ function Main() {
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const baseMessageClass =
     "flex flex-col max-w-[auto] min-w-[auto] px-2 py-1.5 text-white";
-  const myMessageClass = `${baseMessageClass} bg-primary self-end ml-auto text-left mb-0.5 mr-6 group`;
+  const myMessageClass = `flex flex-col max-w-[auto] min-w-[auto] px-2 py-1.5 self-end ml-auto text-left mb-0.5 mr-6 group`;
   const otherMessageClass = `${baseMessageClass} bg-white dark:bg-gray-800 self-start text-left mt-0.5 ml-2 group`;
   const myFirstMessageClass = `${myMessageClass} rounded-tr-2xl rounded-tl-2xl rounded-br-2xl rounded-bl-2xl mt-1`;
   const myMiddleMessageClass = `${myMessageClass} rounded-tr-2xl rounded-tl-2xl rounded-br-2xl rounded-bl-2xl`;
@@ -696,7 +696,7 @@ function Main() {
   const otherLastMessageClass = `${otherMessageClass} rounded-tr-2xl rounded-tl-2xl rounded-br-2xl rounded-bl-2xl mb-1`;
   const privateNoteClass = `${baseMessageClass} bg-yellow-500 dark:bg-yellow-900 self-start text-left mt-1 ml-2 group rounded-tr-2xl rounded-tl-2xl rounded-br-2xl rounded-bl-2xl`;
   const [messageMode, setMessageMode] = useState("reply");
-  const myMessageTextClass = "text-white";
+  const myMessageTextClass = "text-black";
   const otherMessageTextClass = "text-black dark:text-white";
   const [activeTags, setActiveTags] = useState<string[]>(["all"]);
   const [tagList, setTagList] = useState<Tag[]>([]);
@@ -9656,13 +9656,13 @@ function Main() {
         </div>
         {companyPlan === "enterprise" && (
           <div
-            className="px-3 py-2 rounded-xl bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 shadow-md border border-gray-200 dark:border-gray-700 mb-2 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.01]"
+            className="px-2 py-1.5 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 mb-1.5 cursor-pointer hover:shadow-md transition-all duration-200"
             onClick={openUsageDashboard}
             title="Click to view detailed usage analytics"
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <Lucide icon="Sparkles" className="w-3 h-3 text-primary" />
+                <Lucide icon="Sparkles" className="w-2.5 h-2.5 text-primary" />
                 AI Messages
               </span>
               <div className="flex items-center gap-2">
@@ -9670,7 +9670,7 @@ function Main() {
                   {aiMessageUsage}
                   <span className="opacity-70 font-normal">
                     /{quotaAIMessage || 500}
-                  </span>
+              </span>
                 </span>
                 <button
                   onClick={(e) => {
@@ -9681,12 +9681,14 @@ function Main() {
                 >
                   Top-up
                 </button>
-              </div>
             </div>
-            <div className="w-full h-2 rounded-full bg-gradient-to-r from-primary/10 to-gray-200 dark:from-primary/20 dark:to-gray-700 mb-2 overflow-hidden">
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-primary/10 to-gray-200 dark:from-primary/20 dark:to-gray-700 mb-1 overflow-hidden">
               <div
-                className={`h-2 rounded-full transition-all duration-500 ease-in-out ${
-                  aiMessageUsage > (quotaAIMessage || 500) * 0.9
+                className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
+                  aiMessageUsage > (quotaAIMessage || 500)
+                    ? "bg-gradient-to-r from-red-600 to-red-800"
+                    : aiMessageUsage > (quotaAIMessage || 500) * 0.9
                     ? "bg-gradient-to-r from-red-500 to-red-700"
                     : aiMessageUsage > (quotaAIMessage || 500) * 0.7
                     ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
@@ -9695,23 +9697,28 @@ function Main() {
                 style={{
                   width: `${Math.min(
                     (aiMessageUsage / (quotaAIMessage || 500)) * 100,
-                    100
+                    120
                   )}%`,
                 }}
               ></div>
-            </div>
-            <div className="flex items-center justify-between mb-2">
+              {aiMessageUsage > (quotaAIMessage || 500) && (
+                <div className="text-xs text-red-600 dark:text-red-400 text-center mt-0.5 font-medium">
+                  ⚠️ Limit exceeded by {aiMessageUsage - (quotaAIMessage || 500)} responses
+          </div>
+        )}
+                  </div>
+            <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <Lucide icon="Send" className="w-3 h-3 text-blue-500" />
+                <Lucide icon="Send" className="w-2.5 h-2.5 text-blue-500" />
                 Blast Messages
                         </span>
               <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
                 {blastedMessageUsage} successful blasts
                         </span>
                       </div>
-            <div className="w-full h-2 rounded-full bg-gradient-to-r from-blue-400/10 to-gray-200 dark:from-blue-400/20 dark:to-gray-700 overflow-hidden">
+            <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-blue-400/10 to-gray-200 dark:from-blue-400/20 dark:to-gray-700 overflow-hidden">
               <div
-                className="h-2 rounded-full transition-all duration-500 ease-in-out bg-gradient-to-r from-green-500 to-green-700"
+                className="h-1.5 rounded-full transition-all duration-500 ease-in-out bg-gradient-to-r from-green-500 to-green-700"
                       style={{
                   width: "100%",
                       }}
@@ -9719,8 +9726,8 @@ function Main() {
                   </div>
 
             {/* Analytics button */}
-            <div className="flex items-center justify-center mt-2 pt-1 border-t border-gray-200 dark:border-gray-600">
-              <button
+            <div className="flex items-center justify-center mt-1 pt-1 border-t border-gray-200 dark:border-gray-600">
+                              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   openUsageDashboard();
@@ -9729,11 +9736,11 @@ function Main() {
               >
                 <Lucide icon="BarChart3" className="w-3 h-3" />
                 View Analytics
-              </button>
-            </div>
+                              </button>
                           </div>
+                        </div>
         )}
-        <div className="sticky top-20 bg-gray-100 dark:bg-gray-900 p-3">
+        <div className="sticky top-20 bg-gray-100 dark:bg-gray-900 p-2">
           <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
             {notifications.length > 0 && (
               <NotificationPopup notifications={notifications} />
@@ -10156,7 +10163,7 @@ function Main() {
                 }
               >
                 <div
-                  className={`px-3 py-2.5 cursor-pointer transition-all duration-200 group hover:bg-gray-100/50 dark:hover:bg-gray-700/30 mx-1.5 my-1.5 ${
+                  className={`px-2 py-1.5 cursor-pointer transition-all duration-200 group hover:bg-gray-100/50 dark:hover:bg-gray-700/30 mx-1 my-0.5 ${
                     contact.contact_id !== undefined
                       ? selectedChatId === contact.contact_id
                         ? "bg-blue-100/50 dark:bg-blue-900/20 border border-blue-500/30 rounded-lg"
@@ -10167,9 +10174,9 @@ function Main() {
                   }`}
                   onClick={() => selectChat(contact.contact_id!, contact.id!)}
                 >
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1.5">
                     <div className="relative flex-shrink-0">
-                      <div className="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 overflow-hidden">
+                      <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 overflow-hidden">
                         {contact &&
                           (contact.chat_id &&
                           contact.chat_id.includes("@g.us") ? (
@@ -10188,7 +10195,7 @@ function Main() {
                             ) : (
                               <Lucide
                                 icon="Users"
-                                className="w-3.5 h-3.5 text-white dark:text-gray-200"
+                                className="w-2.5 h-2.5 text-white dark:text-gray-200"
                               />
                             )
                           ) : contact.profilePicUrl ? (
@@ -10199,7 +10206,7 @@ function Main() {
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                              <Lucide icon="User" className="w-3.5 h-3.5" />
+                              <Lucide icon="User" className="w-2.5 h-2.5" />
                             </div>
                           ))}
                       </div>
@@ -10209,7 +10216,7 @@ function Main() {
                         <>
                           {/* Prominent badge for unread messages */}
                       {(contact.unreadCount ?? 0) > 0 && (
-                            <span className="absolute -top-0.5 -right-0.5 bg-green-500 text-white text-xs rounded-full px-1 py-0.5 min-w-[16px] h-[16px] flex items-center justify-center font-bold">
+                            <span className="absolute -top-0.5 -right-0.5 bg-green-500 text-white text-xs rounded-full px-1 py-0.5 min-w-[14px] h-[14px] flex items-center justify-center font-bold">
                               {(contact.unreadCount ?? 0) > 99
                                 ? "99+"
                                 : contact.unreadCount ?? 0}
@@ -10220,10 +10227,10 @@ function Main() {
                     </div>
 
                   <div className="flex-1 min-w-0">
-                      <div className="flex flex-col space-y-1">
+                      <div className="flex flex-col space-y-0.5">
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-0.5">
+                            <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate mb-0">
                           {(
                             contact.contactName ??
                             contact.firstName ??
@@ -10240,7 +10247,7 @@ function Main() {
                             : ""}
                             </h3>
 
-                            <div className="flex items-center space-x-1 text-xs text-gray-600 dark:text-gray-400">
+                            <div className="flex items-center space-x-0.5 text-xs text-gray-600 dark:text-gray-400">
                         <div className="flex flex-grow items-center">
                           {(() => {
                             const employeeTags =
@@ -10337,10 +10344,10 @@ function Main() {
                                             : String(tag)
                                           ).toLowerCase() !== "stop bot"
                                       ).length > 0 && (
-                                        <span className="bg-blue-100 dark:bg-blue-600/30 text-blue-700 dark:text-blue-300 text-xs font-medium px-2 py-1 rounded-full mr-2">
+                                        <span className="bg-blue-100 dark:bg-blue-600/30 text-blue-700 dark:text-blue-300 text-xs font-medium px-1.5 py-0.5 rounded-full mr-1">
                                       <Lucide
                                         icon="Tag"
-                                            className="w-4 h-4 inline-block mr-1"
+                                              className="w-3 h-3 inline-block mr-0.5"
                                       />
                                         {
                                           uniqueTags.filter(
@@ -10354,10 +10361,10 @@ function Main() {
                                       </span>
                                 )}
                                 {employeeTags.length > 0 && (
-                                        <span className="bg-green-100 dark:bg-green-600/30 text-green-700 dark:text-green-300 text-xs font-medium px-2 py-1 rounded-full mr-2">
+                                        <span className="bg-green-100 dark:bg-green-600/30 text-green-700 dark:text-green-300 text-xs font-medium px-1.5 py-0.5 rounded-full mr-1">
                                       <Lucide
                                         icon="Users"
-                                            className="w-4 h-4 inline-block mr-1"
+                                              className="w-3 h-3 inline-block mr-0.5"
                                       />
                                         {employeeTags.length === 1
                                             ? employeeList.find(
@@ -10383,7 +10390,7 @@ function Main() {
                             </div>
                         </div>
 
-                          <div className="flex flex-col items-end space-y-0.5 ml-1.5">
+                          <div className="flex flex-col items-end space-y-0 ml-1">
                           <span
                               className={`text-xs ${
                               contact.unreadCount && contact.unreadCount > 0
@@ -10405,14 +10412,14 @@ function Main() {
 
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
-                            <div className="mt-1">
-                              <span className="text-sm text-gray-700 dark:text-gray-400 truncate block">
+                            <div className="mt-0.5">
+                              <span className="text-xs text-gray-700 dark:text-gray-400 truncate block">
                         {contact.last_message ? (
                           <>
                             {contact.last_message.from_me && (
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                        className="inline-block w-5 h-5 text-blue-600 dark:text-blue-400 mr-2"
+                                        className="inline-block w-3 h-3 text-blue-600 dark:text-blue-400 mr-1"
                                 viewBox="0 0 20 20"
                                 fill="currentColor"
                               >
@@ -10494,7 +10501,7 @@ function Main() {
                               onClick={(e) =>
                                 toggleStopBotLabel(contact, index, e)
                               }
-                              className="cursor-pointer ml-3"
+                              className="cursor-pointer ml-2"
                               title={
                                 contact.tags?.includes("stop bot")
                                   ? "Bot Disabled"
@@ -10509,16 +10516,16 @@ function Main() {
                               readOnly
                             />
                                 <span
-                                  className={`relative w-12 h-6 flex items-center rounded-full transition-colors duration-300 ${
+                                  className={`relative w-8 h-4 flex items-center rounded-full transition-colors duration-300 ${
                                 contact.tags?.includes("stop bot")
                                       ? "bg-gradient-to-r from-red-500 to-red-700"
                                       : "bg-gradient-to-r from-green-500 to-green-700"
                                   }`}
                                 >
                                   <span
-                                    className={`absolute left-1 top-1 w-4 h-4 rounded-full bg-white shadow-md transition-transform duration-300 ${
+                                    className={`absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-md transition-transform duration-300 ${
                                       contact.tags?.includes("stop bot")
-                                        ? "translate-x-6"
+                                        ? "translate-x-4"
                                         : "translate-x-0"
                                     }`}
                                   ></span>
@@ -11097,12 +11104,24 @@ function Main() {
                                     : "250"
                                 }px`,
                                 minWidth: "300px",
+                                backgroundColor: message.from_me ? "#dcf8c6" : undefined,
                               }}
                               onMouseEnter={() =>
                                 setHoveredMessageId(message.id)
                               }
                               onMouseLeave={() => setHoveredMessageId(null)}
                             >
+                              {/* Sender name display */}
+                              {!message.isPrivateNote && (
+                                <div className="text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">
+                                  {message.from_me 
+                                    ? (userData?.name || "Me") 
+                                    : (selectedContact?.contactName || 
+                                       selectedContact?.firstName || 
+                                       selectedContact?.phone || 
+                                       "Contact")}
+                                </div>
+                              )}
                               {message.isPrivateNote && (
                                 <div className="flex items-center mb-1.5">
                                   <Lock size={10} className="mr-1.5" />
@@ -11900,8 +11919,8 @@ function Main() {
                                       <div
                                         className={`text-xs px-2 py-1 ${
                                           message.from_me
-                                            ? "text-white"
-                                            : "text-white-500 dark:text-gray-400"
+                                            ? "text-black"
+                                            : "text-black dark:text-gray-400"
                                         }`}
                                       >
                                         {phoneNames[message.phoneIndex] ||
@@ -14239,9 +14258,8 @@ function Main() {
 
                       <button
                         onClick={() => {
-                          toast.info(
-                            "🚀 Click the Top-up button above to upgrade your plan or purchase additional AI responses!"
-                          );
+                          setIsUsageDashboardOpen(false);
+                          setIsTopUpModalOpen(true);
                         }}
                         className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-slate-500 to-gray-600 text-white rounded-2xl hover:from-slate-600 hover:to-gray-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 group"
                       >
@@ -14535,14 +14553,18 @@ function Main() {
                       Monthly Limit
                     </div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {Math.max(0, (quotaAIMessage || 500) - aiMessageUsage)}
+                                      <div className="text-center">
+                      <div className={`text-2xl font-bold ${
+                        (quotaAIMessage || 500) - aiMessageUsage >= 0 
+                          ? "text-blue-600 dark:text-blue-400" 
+                          : "text-red-600 dark:text-red-400"
+                      }`}>
+                        {(quotaAIMessage || 500) - aiMessageUsage}
+                      </div>
+                      <div className="text-sm text-blue-700 dark:text-blue-300">
+                        Remaining
+                      </div>
                     </div>
-                    <div className="text-sm text-blue-700 dark:text-blue-300">
-                      Remaining
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -14707,7 +14729,7 @@ function Main() {
                 </div>
               </div>
             </div>
-          </div>
+            </div>
           </div>
         </div>
       )}
