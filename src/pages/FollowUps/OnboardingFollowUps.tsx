@@ -423,7 +423,7 @@ const OnboardingFollowUps: React.FC = () => {
       } else {
         toast.warning("Template created but no messages were added. Please check the console for errors.");
       }
-      setTimeout(() => navigate('/follow-ups'), 1500);
+      setTimeout(() => navigate('/ai-responses-onboarding'), 1500);
     } catch (error) {
       console.error("Error creating template:", error);
       toast.error("Failed to create template and messages");

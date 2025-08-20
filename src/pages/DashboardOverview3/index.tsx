@@ -1,4 +1,4 @@
-  import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Chart from "@/components/Base/Chart";
 import { ChartData, ChartOptions } from "chart.js/auto";
 import BarChart from "@/components/ReportBarChart1";
@@ -681,10 +681,187 @@ function useFeedbackResponses() {
   return { feedbackResponses, loading, error };
 }
 
+function useEvents() {
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('Fetching events...');
+        const { companyId } = await getCompanyApiUrl();
+        console.log('Company ID retrieved:', companyId);
+        
+        const apiUrl = `${baseUrl}/api/events?company_id=${companyId}`;
+        console.log('API URL:', apiUrl);
+        
+        const response = await axios.get(apiUrl);
+        console.log('API response status:', response.status);
+        console.log('API response data:', response.data);
+        
+        if (response.data.success) {
+          setEvents(response.data.events);
+          console.log('Successfully set events:', response.data.events);
+        } else {
+          const errorMsg = response.data.error || 'API returned success: false';
+          console.error('API returned error:', errorMsg);
+          setError(`API Error: ${errorMsg}`);
+        }
+      } catch (err: any) {
+        console.error('Error fetching events:', err);
+        
+        let errorMessage = 'Error fetching events';
+        if (err.response) {
+          errorMessage = `Server Error: ${err.response.status} - ${err.response.statusText}`;
+          if (err.response.data?.error) {
+            errorMessage += `: ${err.response.data.error}`;
+          }
+        } else if (err.request) {
+          errorMessage = 'Network Error: No response from server';
+        } else {
+          errorMessage = `Request Error: ${err.message}`;
+        }
+        
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
+
+  return { events, loading, error };
+}
+
+function useEnrollees() {
+  const [enrollees, setEnrollees] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchEnrollees = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('Fetching enrollees...');
+        const { companyId } = await getCompanyApiUrl();
+        console.log('Company ID retrieved:', companyId);
+        
+        const apiUrl = `${baseUrl}/api/enrollees?company_id=${companyId}`;
+        console.log('API URL:', apiUrl);
+        
+        const response = await axios.get(apiUrl);
+        console.log('API response status:', response.status);
+        console.log('API response data:', response.data);
+        
+        if (response.data.success) {
+          setEnrollees(response.data.enrollees);
+          console.log('Successfully set enrollees:', response.data.enrollees);
+        } else {
+          const errorMsg = response.data.error || 'API returned success: false';
+          console.error('API returned error:', errorMsg);
+          setError(`API Error: ${errorMsg}`);
+        }
+      } catch (err: any) {
+        console.error('Error fetching enrollees:', err);
+        
+        let errorMessage = 'Error fetching enrollees';
+        if (err.response) {
+          errorMessage = `Server Error: ${err.response.status} - ${err.response.statusText}`;
+          if (err.response.data?.error) {
+            errorMessage += `: ${err.response.data.error}`;
+          }
+        } else if (err.request) {
+          errorMessage = 'Network Error: No response from server';
+        } else {
+          errorMessage = `Request Error: ${err.message}`;
+        }
+        
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEnrollees();
+  }, []);
+
+  return { enrollees, loading, error };
+}
+
+function useParticipants() {
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchParticipants = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('Fetching participants...');
+        const { companyId } = await getCompanyApiUrl();
+        console.log('Company ID retrieved:', companyId);
+        
+        const apiUrl = `${baseUrl}/api/participants?company_id=${companyId}`;
+        console.log('API URL:', apiUrl);
+        
+        const response = await axios.get(apiUrl);
+        console.log('API response status:', response.status);
+        console.log('API response data:', response.data);
+        
+        if (response.data.success) {
+          setParticipants(response.data.participants);
+          console.log('Successfully set participants:', response.data.participants);
+        } else {
+          const errorMsg = response.data.error || 'API returned success: false';
+          console.error('API returned error:', errorMsg);
+          setError(`API Error: ${errorMsg}`);
+        }
+      } catch (err: any) {
+        console.error('Error fetching participants:', err);
+        
+        let errorMessage = 'Error fetching participants';
+        if (err.response) {
+          errorMessage = `Server Error: ${err.response.status} - ${err.response.statusText}`;
+          if (err.response.data?.error) {
+            errorMessage += `: ${err.response.data.error}`;
+          }
+        } else if (err.request) {
+          errorMessage = 'Network Error: No response from server';
+        } else {
+          errorMessage = `Request Error: ${err.message}`;
+        }
+        
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchParticipants();
+  }, []);
+
+  return { participants, loading, error };
+}
+
 function DashboardOverview3() {
+  // Fetch CSV data
   const rsvpData = useSheetData(RSVP_CSV_URL);
   const aiHorizonRSVP = useSheetData(AI_HORIZON_CSV_URL);
   const feedbackData = useSheetData(FEEDBACK_CSV_URL);
+  
+  // Fetch Neon database data
+  const { events, loading: eventsLoading, error: eventsError } = useEvents();
+  const { enrollees, loading: enrolleesLoading, error: enrolleesError } = useEnrollees();
+  const { participants, loading: participantsLoading, error: participantsError } = useParticipants();
   const { feedbackResponses: neonFeedbackResponses, loading: feedbackResponsesLoading, error: feedbackResponsesError } = useFeedbackResponses();
   const [selectedProgram, setSelectedProgram] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -920,6 +1097,36 @@ function normalizePhone(phone: string) {
     return digits;
   }
 
+  // Process Neon participants data to match CSV format
+  const processedNeonParticipants = useMemo(() => {
+    if (!participants.length || !enrollees.length || !events.length) return [];
+
+    return participants.map((participant) => {
+      const enrollee = enrollees.find(e => e.id === participant.enrollee_id);
+      const event = events.find(e => e.id === participant.event_id);
+      
+      return {
+        Date: new Date(participant.created_at).toLocaleDateString(),
+        "Full Name": enrollee?.name || "Unknown",
+        Company: enrollee?.organisation || "",
+        Phone: enrollee?.mobile_number || "",
+        Email: enrollee?.email || "",
+        "Program Name": event?.name || "Unknown Event",
+        "Program Date & Time": `${event?.start_date} ${event?.start_time}`,
+        "RSVP status": participant.payment_status_id === "paid" ? "Accepted" : "Pending",
+        "Attendance status": participant.is_attended ? "Accepted" : "Pending",
+        Profession: enrollee?.designation || "",
+        Category: "Neon Event", // Default category for Neon-only participants
+        // Additional fields for compatibility
+        "Reference Number": participant.reference_number,
+        "Remarks": participant.remarks,
+        "Event ID": participant.event_id,
+        "Enrollee ID": participant.enrollee_id,
+        "Source": "Neon Database"
+      };
+    });
+  }, [participants, enrollees, events]);
+
   // Merge both RSVP sources and deduplicate by normalized email and phone
   function mergeRSVPByEmailAndPhone(data: any[]) {
     // Don't merge - allow multiple programs per person
@@ -934,10 +1141,72 @@ function normalizePhone(phone: string) {
     });
   }
 
-  // Merge and deduplicate RSVP data
-  const mergedRSVP = mergeRSVPByEmailAndPhone([...normalizedMtdc, ...normalizedAihorizon]);
+  // Merge CSV and Neon RSVP data
+  const mergedRSVP = useMemo(() => {
+    const csvData = mergeRSVPByEmailAndPhone([...normalizedMtdc, ...normalizedAihorizon]);
+    const neonData = processedNeonParticipants;
+    
+    // Create a set of existing emails and phones from CSV to avoid duplicates
+    const existingEmails = new Set(csvData.map(row => normalizeEmail(row.Email)).filter(Boolean));
+    const existingPhones = new Set(csvData.map(row => normalizePhone(row.Phone)).filter(Boolean));
+    
+    // Find Neon participants that aren't in the CSV data
+    const neonOnlyParticipants = neonData.filter(row => {
+      const normalizedEmail = normalizeEmail(row.Email);
+      const normalizedPhone = normalizePhone(row.Phone);
+      
+      // Check if this participant already exists in CSV data
+      const alreadyExists = (normalizedEmail && existingEmails.has(normalizedEmail)) ||
+                           (normalizedPhone && existingPhones.has(normalizedPhone));
+      
+      return !alreadyExists && (normalizedEmail || normalizedPhone);
+    });
+    
+    console.log('📊 CSV + Neon Data Merge Results:', {
+      csvCount: csvData.length,
+      neonCount: neonData.length,
+      neonOnlyCount: neonOnlyParticipants.length,
+      finalCount: csvData.length + neonOnlyParticipants.length,
+      csvSources: {
+        mtdc: normalizedMtdc.length,
+        aiHorizon: normalizedAihorizon.length
+      },
+      neonSources: {
+        events: events.length,
+        enrollees: enrollees.length,
+        participants: participants.length
+      }
+    });
+    
+    // Log sample of programs from each source
+    console.log('📋 Sample Programs from CSV:', csvData.slice(0, 5).map(r => ({
+      programName: r['Program Name'],
+      dateTime: r['Program Date & Time'],
+      source: 'CSV'
+    })));
+    
+    console.log('📋 Sample Programs from Neon:', neonData.slice(0, 5).map(r => ({
+      programName: r['Program Name'],
+      dateTime: r['Program Date & Time'],
+      source: 'Neon'
+    })));
+    
+    // Combine CSV data with Neon-only participants
+    return [...csvData, ...neonOnlyParticipants];
+  }, [normalizedMtdc, normalizedAihorizon, processedNeonParticipants, events, enrollees, participants]);
 
-
+  // Log sample of programs from each source for debugging
+  console.log('📋 Sample Programs from CSV:', mergedRSVP.slice(0, 10).filter(r => !r.Source || r.Source !== 'Neon Database').map(r => ({
+    programName: r['Program Name'],
+    dateTime: r['Program Date & Time'],
+    source: 'CSV'
+  })));
+  
+  console.log('📋 Sample Programs from Neon:', mergedRSVP.slice(0, 10).filter(r => r.Source === 'Neon Database').map(r => ({
+    programName: r['Program Name'],
+    dateTime: r['Program Date & Time'],
+    source: 'Neon'
+  })));
 
   // Merge CSV feedback data with Neon database feedback responses
   const mergedFeedbackData = useMemo(() => {
@@ -1147,7 +1416,29 @@ function normalizePhone(phone: string) {
   const parseDate = (dateTimeStr: string): Date => {
     if (!dateTimeStr) return new Date(0); // Default to epoch for sorting
     
-   
+    // Handle Neon UTC timestamps (e.g., "2025-08-25T16:00:00.000Z 09:00:00")
+    if (dateTimeStr.includes('T') && dateTimeStr.includes('Z')) {
+      // Extract the UTC timestamp part
+      const utcMatch = dateTimeStr.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)/);
+      if (utcMatch) {
+        const utcTimestamp = utcMatch[1];
+        const utcDate = new Date(utcTimestamp);
+        
+        // Convert UTC to Malaysia time (UTC+8)
+        const malaysiaTime = new Date(utcDate.getTime() + (8 * 60 * 60 * 1000));
+        
+        console.log('🌍 Timezone Conversion:', {
+          original: dateTimeStr,
+          utcTimestamp,
+          utcDate: utcDate.toISOString(),
+          malaysiaTime: malaysiaTime.toISOString(),
+          malaysiaDate: malaysiaTime.toLocaleDateString('en-GB'),
+          malaysiaTimeStr: malaysiaTime.toLocaleTimeString('en-GB')
+        });
+        
+        return malaysiaTime;
+      }
+    }
     
     // Handle DD/MM/YYYY HH:MM:SS format
     const match = dateTimeStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})/);
@@ -1163,7 +1454,6 @@ function normalizePhone(phone: string) {
       const [, day, month, year] = dateOnlyMatch;
       const result = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
       
-    
       return result;
     }
     
@@ -1171,12 +1461,11 @@ function normalizePhone(phone: string) {
     const parsedDate = new Date(dateTimeStr);
     const result = isNaN(parsedDate.getTime()) ? new Date(0) : parsedDate;
     
-    
     return result;
   };
 
-  // Get all unique programs with their dates
-  const allPrograms: Array<{ name: string; dateTime: string; parsedDate: Date; cleanedName: string }> = [];
+  // Get all unique programs with their dates and combine events with same date
+  const allPrograms: Array<{ name: string; dateTime: string; parsedDate: Date; cleanedName: string; combinedNames: string[]; source: string }> = [];
 
   mergedRSVP.forEach((r: any) => {
     let dateTime = r['Program Date & Time'] || '';
@@ -1222,21 +1511,57 @@ function normalizePhone(phone: string) {
     }
     
     const parsedDate = parseDate(dateTime);
+    const cleanedName = cleanProgramName(r['Program Name']);
+    const source = r.Source || 'CSV';
 
-    const program = {
-      name: r['Program Name'],
-      dateTime: dateTime,
-      parsedDate: parsedDate,
-      cleanedName: cleanProgramName(r['Program Name'])
-    };
- 
-    // Only add if this program name + date combination doesn't already exist
-    const exists = allPrograms.some(p => 
-      p.cleanedName === program.cleanedName && 
-      p.dateTime === program.dateTime
-    );
+    // Check if we already have a program with the same date AND similar name
+    const existingProgramIndex = allPrograms.findIndex(p => {
+      // First check if dates match (use calendar date comparison, not exact time)
+      const existingDate = new Date(p.parsedDate);
+      const newDate = new Date(parsedDate);
+      
+      // Compare calendar dates (ignore time differences)
+      const existingCalendarDate = existingDate.toDateString();
+      const newCalendarDate = newDate.toDateString();
+      
+      if (existingCalendarDate !== newCalendarDate) {
+        return false;
+      }
+      
+      // Then check if names are similar enough to be the same event
+      const normalizedExisting = normalizeProgramName(p.cleanedName);
+      const normalizedNew = normalizeProgramName(cleanedName);
+      
+      // Check if names are very similar (80%+ similarity)
+      return isSimilarProgram(normalizedExisting, normalizedNew);
+    });
     
-    if (!exists) {
+    if (existingProgramIndex >= 0) {
+      // Combine with existing program on the same date
+      const existingProgram = allPrograms[existingProgramIndex];
+      
+      // Add the new program name if it's not already included
+      if (!existingProgram.combinedNames.includes(cleanedName)) {
+        existingProgram.combinedNames.push(cleanedName);
+      }
+      
+      // Update the source to show it's from multiple sources
+      if (existingProgram.source !== source) {
+        existingProgram.source = 'Multiple Sources';
+      }
+      
+      // Update the name to show it's a combined event
+      existingProgram.name = `${existingProgram.combinedNames.slice(0, 2).join(' + ')}${existingProgram.combinedNames.length > 2 ? ' + ...' : ''}`;
+    } else {
+      // Create new program entry
+      const program = {
+        name: r['Program Name'],
+        dateTime: dateTime,
+        parsedDate: parsedDate,
+        cleanedName: cleanedName,
+        combinedNames: [cleanedName],
+        source: source
+      };
       allPrograms.push(program);
     }
   });
@@ -1244,6 +1569,27 @@ function normalizePhone(phone: string) {
   // Sort programs by date (latest first)
   const sortedPrograms = allPrograms
     .sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime());
+
+  // Log all programs before deduplication
+  console.log('📋 All Programs Before Deduplication:', allPrograms.map(p => ({
+    name: p.name,
+    cleanedName: p.cleanedName,
+    dateTime: p.dateTime,
+    source: p.source,
+    combinedNames: p.combinedNames,
+    combinedCount: p.combinedNames?.length || 1
+  })));
+  
+  // Log combined events for debugging
+  const combinedEvents = allPrograms.filter(p => p.combinedNames && p.combinedNames.length > 1);
+  if (combinedEvents.length > 0) {
+    console.log('📅 Combined Events by Date:', combinedEvents.map(p => ({
+      date: p.dateTime,
+      programs: p.combinedNames,
+      displayName: p.name,
+      source: p.source
+    })));
+  }
 
   // Get programs available for selected category (for Program-Specific Dashboard) - MOVED UP
     const programsInSelectedCategoryForDashboard = selectedCategory
@@ -1387,8 +1733,32 @@ function normalizePhone(phone: string) {
         p.dateTime === program.dateTime && p.dateTime !== "Unspecified"
       );
       
-      // If there are multiple programs with the same date/time, keep the one with the longest name (most descriptive)
+      // If there are multiple programs with the same date/time, check if they're the same event
       if (sameDateTimePrograms.length > 1) {
+        // Check if any of these programs are actually the same event (similar names)
+        const similarPrograms = sameDateTimePrograms.filter(p => 
+          p !== program && isSimilarProgram(
+            normalizeProgramName(p.cleanedName), 
+            normalizeProgramName(program.cleanedName)
+          )
+        );
+        
+        if (similarPrograms.length > 0) {
+          // These are the same event, keep the one with the most combined names or longest name
+          const bestProgram = sameDateTimePrograms.reduce((best, current) => {
+            // Prefer programs with more combined names
+            if (current.combinedNames && best.combinedNames) {
+              if (current.combinedNames.length !== best.combinedNames.length) {
+                return current.combinedNames.length > best.combinedNames.length ? current : best;
+              }
+            }
+            // If same number of combined names, prefer the longer name
+            return current.cleanedName.length > best.cleanedName.length ? current : best;
+          });
+          return program === bestProgram;
+        }
+        
+        // If no similar programs, keep the one with the longest name (most descriptive)
         const longestNameProgram = sameDateTimePrograms.reduce((longest, current) => 
           current.cleanedName.length > longest.cleanedName.length ? current : longest
         );
@@ -1402,7 +1772,11 @@ function normalizePhone(phone: string) {
     
     // If this program doesn't have a date or has "Unspecified" date, check if there's a similar program with a valid date
     const hasSimilarWithValidDate = self.some(p => 
-      p.cleanedName === program.cleanedName && p.dateTime && p.dateTime !== "Unspecified" && p !== program
+      p.dateTime && p.dateTime !== "Unspecified" && p !== program &&
+      isSimilarProgram(
+        normalizeProgramName(p.cleanedName), 
+        normalizeProgramName(program.cleanedName)
+      )
     );
     
     // Remove programs without dates or with "Unspecified" dates if there's a similar one with a valid date
@@ -1411,19 +1785,87 @@ function normalizePhone(phone: string) {
 
   // Ensure the final list is still sorted by date (latest first)
   const finalSortedPrograms = uniquePrograms.sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime());
+  
+  // Log final deduplicated programs
+  console.log('🎯 Final Deduplicated Programs:', finalSortedPrograms.map(p => ({
+    name: p.name,
+    cleanedName: p.cleanedName,
+    dateTime: p.dateTime,
+    source: p.source,
+    combinedNames: p.combinedNames,
+    combinedCount: p.combinedNames?.length || 1
+  })));
+  
+  // Log deduplication summary
+  console.log('🔍 Event Deduplication Summary:', {
+    totalPrograms: allPrograms.length,
+    combinedEvents: combinedEvents.length,
+    uniqueAfterDedup: uniquePrograms.length,
+    finalSortedCount: finalSortedPrograms.length,
+    deduplicationRatio: ((allPrograms.length - finalSortedPrograms.length) / allPrograms.length * 100).toFixed(1) + '%'
+  });
 
   // For dropdown: show program name with date
   const dropdownNames = finalSortedPrograms.map(program => {
     if (program.dateTime) {
+      // Show combined names if multiple programs on same date
+      if (program.combinedNames && program.combinedNames.length > 1) {
+        const combinedDisplay = program.combinedNames.slice(0, 2).join(' + ');
+        const remainingCount = program.combinedNames.length - 2;
+        const suffix = remainingCount > 0 ? ` + ${remainingCount} more` : '';
+        return `${combinedDisplay}${suffix} (${program.dateTime})`;
+      }
       return `${program.cleanedName} (${program.dateTime})`;
     }
     return program.cleanedName;
   });
+  
+  // Log dropdown names for debugging
+  console.log('📝 Dropdown Names Generated:', dropdownNames.map((name, index) => ({
+    index,
+    name,
+    originalProgram: finalSortedPrograms[index]
+  })));
 
   // When a program is selected:
   const selectedProgramData = finalSortedPrograms[selectedProgram];
   const selectedCleanedName = selectedProgramData?.cleanedName || "";
   const normalizedSelected = normalizeProgramName(selectedCleanedName);
+  
+  // Get all program names that should be included for the selected program
+  // This handles both individual programs and combined events
+  const selectedProgramNames = useMemo(() => {
+    if (!selectedProgramData) return [];
+    
+    // If this is a combined event, return all the individual program names
+    if (selectedProgramData.combinedNames && selectedProgramData.combinedNames.length > 1) {
+      return selectedProgramData.combinedNames;
+    }
+    
+    // If it's a single program, return just that name
+    return [selectedCleanedName];
+  }, [selectedProgramData, selectedCleanedName]);
+  
+  console.log('🎯 Selected Program Details:', {
+    selectedProgram,
+    selectedCleanedName,
+    selectedProgramNames,
+    isCombinedEvent: selectedProgramData?.combinedNames && selectedProgramData.combinedNames.length > 1,
+    combinedNames: selectedProgramData?.combinedNames,
+    fullSelectedProgramData: selectedProgramData
+  });
+  
+  // Log what programs are available for selection
+  console.log('📋 Available Programs for Selection:', finalSortedPrograms.map((p, index) => ({
+    index,
+    isSelected: index === selectedProgram,
+    name: p.name,
+    cleanedName: p.cleanedName,
+    dateTime: p.dateTime,
+    source: p.source,
+    combinedNames: p.combinedNames,
+    combinedCount: p.combinedNames?.length || 1
+  })));
 
   // Get all unique program names from feedback
   const programNames = Array.from(new Set(mergedFeedbackData.map((f: any) => f["Which session did you attend?"])));
@@ -1462,10 +1904,20 @@ function normalizePhone(phone: string) {
   }).filter((item): item is { program: string; metrics: Record<string, number | undefined> } => item !== null); // Remove null entries with proper typing
 
   // Find all feedback entries that match this program (fuzzy)
-  const feedbackForSelected = mergedFeedbackData.filter(
-    (f: any) => 
-      normalizeProgramName(f["Which session did you attend?"]) === normalizedSelected
-  );
+  // This handles both individual programs and combined events
+  const feedbackForSelected = mergedFeedbackData.filter((f: any) => {
+    const feedbackProgramName = f["Which session did you attend?"];
+    if (!feedbackProgramName) return false;
+    
+    // Check if this feedback matches any of the selected program names
+    return selectedProgramNames.some(selectedName => {
+      const normalizedFeedback = normalizeProgramName(feedbackProgramName);
+      const normalizedSelected = normalizeProgramName(selectedName);
+      return normalizedFeedback === normalizedSelected;
+    });
+  });
+  
+
 
   // Get attendance from both CSV data and Neon attendance_records
   const [neonAttendanceData, setNeonAttendanceData] = useState<any[]>([]);
@@ -1601,13 +2053,25 @@ function normalizePhone(phone: string) {
       matchesProgram = programsInSelectedCategoryForDashboard.includes(cleanProgramName(r['Program Name']));
       // Don't filter by category here - we want to see all categories for these programs
     } else {
-      // Normal program filtering
-      matchesProgram = cleanProgramName(r['Program Name']) === selectedCleanedName;
+      // Normal program filtering - check if the participant's program matches any of the selected program names
+      const participantProgramName = cleanProgramName(r['Program Name']);
+      matchesProgram = selectedProgramNames.includes(participantProgramName);
     }
     
     // Only apply category filter when NOT in "All Programs in Category" mode
     const matchesCategory = showAllProgramsInCategory ? true : (!selectedCategory || r.Category === selectedCategory);
     return matchesProgram && matchesCategory;
+  });
+  
+  // Log the results after all variables are defined
+  console.log('🎯 Program Selection Results:', {
+    selectedProgram,
+    selectedCleanedName,
+    selectedProgramNames,
+    isCombinedEvent: selectedProgramData?.combinedNames && selectedProgramData.combinedNames.length > 1,
+    combinedNames: selectedProgramData?.combinedNames,
+    totalParticipants: selectedProgramFilteredParticipants.length,
+    totalFeedback: feedbackForSelected.length
   });
 
   // Registered/attended counts
@@ -1677,28 +2141,30 @@ function normalizePhone(phone: string) {
       });
     }).length;
   } else {
-    // For single program view, use the existing logic
+    // For single program view, check against all selected program names (handles combined events)
     neonAttendedCount = neonAttendanceData.filter((record: any) => {
       // Find the event that matches this attendance record
       const event = neonEvents.find((e: any) => e.id === record.event_id);
       if (!event) return false;
       
-      // Match the event name with the selected program name
-      const eventName = event.name || '';
-      const normalizedEventName = eventName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-      const normalizedProgramName = selectedCleanedName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-      
-      // Check if the event name contains key words from the program name
-      const programWords = normalizedProgramName.split(' ').filter((word: string) => word.length > 2);
-      const eventWords = normalizedEventName.split(' ').filter((word: string) => word.length > 2);
-      
-      // Count how many program words are found in the event name
-      const matchingWords = programWords.filter((word: string) => 
-        eventWords.some((eventWord: string) => eventWord.includes(word) || word.includes(eventWord))
-      );
-      
-      // Consider it a match if at least 2 key words match (to avoid false positives)
-      return matchingWords.length >= 2;
+      // Check if this event matches any of the selected program names
+      return selectedProgramNames.some(programName => {
+        const eventName = event.name || '';
+        const normalizedEventName = eventName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+        const normalizedProgramName = programName.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+        
+        // Check if the event name contains key words from the program name
+        const programWords = normalizedProgramName.split(' ').filter((word: string) => word.length > 2);
+        const eventWords = normalizedEventName.split(' ').filter((word: string) => word.length > 2);
+        
+        // Count how many program words are found in the event name
+        const matchingWords = programWords.filter((word: string) => 
+          eventWords.some((eventWord: string) => eventWord.includes(word) || word.includes(eventWord))
+        );
+        
+        // Consider it a match if at least 2 key words match (to avoid false positives)
+        return matchingWords.length >= 2;
+      });
     }).length;
   }
   
@@ -1903,6 +2369,28 @@ function normalizePhone(phone: string) {
       return matchingWords.length >= 2;
     }).length;
   };
+  
+  // Enhanced function to get Neon attendance count for combined events
+  const getCombinedEventNeonAttendanceCount = (selectedProgramData: any) => {
+    if (!selectedProgramData || !selectedProgramData.combinedNames) {
+      // Fallback to single program logic
+      return getProgramNeonAttendanceCount(selectedProgramData?.cleanedName || '');
+    }
+    
+    // For combined events, sum up attendance from all individual programs
+    let totalAttendance = 0;
+    selectedProgramData.combinedNames.forEach((programName: string) => {
+      totalAttendance += getProgramNeonAttendanceCount(programName);
+    });
+    
+    console.log('🎯 Combined Event Neon Attendance:', {
+      combinedEvent: selectedProgramData.name,
+      individualPrograms: selectedProgramData.combinedNames,
+      totalAttendance
+    });
+    
+    return totalAttendance;
+  };
 
   // Cache for program attendance counts
   const programAttendanceCache = new Map<string, number>();
@@ -1919,12 +2407,24 @@ function normalizePhone(phone: string) {
       return "Attended";
     }
     
-    // Get or calculate Neon attendance count for this program
-    let neonAttendanceCount = programAttendanceCache.get(programName);
-    if (neonAttendanceCount === undefined) {
+      // Get or calculate Neon attendance count for this program
+  let neonAttendanceCount = programAttendanceCache.get(programName);
+  if (neonAttendanceCount === undefined) {
+    // Check if this is part of a combined event
+    const combinedEvent = allPrograms.find(p => 
+      p.combinedNames && p.combinedNames.includes(cleanProgramName(programName))
+    );
+    
+    if (combinedEvent && combinedEvent.combinedNames && combinedEvent.combinedNames.length > 1) {
+      // Use combined event attendance count
+      neonAttendanceCount = getCombinedEventNeonAttendanceCount(combinedEvent);
+    } else {
+      // Use single program attendance count
       neonAttendanceCount = getProgramNeonAttendanceCount(programName);
-      programAttendanceCache.set(programName, neonAttendanceCount);
     }
+    
+    programAttendanceCache.set(programName, neonAttendanceCount);
+  }
     
     // Get all participants for this program
     const programParticipants = mergedRSVPWithNeon.filter(p => p["Program Name"] === programName);
@@ -2333,12 +2833,38 @@ function normalizePhone(phone: string) {
     return filteredData.length;
   };
 
-
+  // Helper function to format date consistently for display
+  const formatDateForDisplay = (dateTimeStr: string): string => {
+    if (!dateTimeStr) return 'Unspecified';
+    
+    // Handle Neon UTC timestamps
+    if (dateTimeStr.includes('T') && dateTimeStr.includes('Z')) {
+      const utcMatch = dateTimeStr.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)/);
+      if (utcMatch) {
+        const utcDate = new Date(utcMatch[1]);
+        // Convert to Malaysia time (UTC+8)
+        const malaysiaTime = new Date(utcDate.getTime() + (8 * 60 * 60 * 1000));
+        
+        // Format as DD/MM/YYYY HH:MM:SS
+        const day = malaysiaTime.getDate().toString().padStart(2, '0');
+        const month = (malaysiaTime.getMonth() + 1).toString().padStart(2, '0');
+        const year = malaysiaTime.getFullYear();
+        const hours = malaysiaTime.getHours().toString().padStart(2, '0');
+        const minutes = malaysiaTime.getMinutes().toString().padStart(2, '0');
+        const seconds = malaysiaTime.getSeconds().toString().padStart(2, '0');
+        
+        return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+      }
+    }
+    
+    // Return original if not a UTC timestamp
+    return dateTimeStr;
+  };
 
   return (
     <div className="p-6 space-y-10 h-screen overflow-auto">
       {/* Loading State */}
-      {feedbackResponsesLoading && (
+      {(feedbackResponsesLoading || eventsLoading || enrolleesLoading || participantsLoading) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-slate-800 rounded-lg p-8 shadow-xl">
             <div className="flex items-center space-x-4">
@@ -2348,23 +2874,65 @@ function normalizePhone(phone: string) {
               </svg>
               <div>
                 <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">Loading Dashboard Data</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Fetching feedback responses from database...</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Fetching CSV and Neon database data...</div>
               </div>
             </div>
           </div>
         </div>
       )}
       
+      {/* Error State */}
+      {(eventsError || enrolleesError || participantsError || feedbackResponsesError) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-8 shadow-xl max-w-md">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Data Loading Error</h3>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                {eventsError && <div>Events: {eventsError}</div>}
+                {enrolleesError && <div>Enrollees: {enrolleesError}</div>}
+                {participantsError && <div>Participants: {participantsError}</div>}
+                {feedbackResponsesError && <div>Feedback: {feedbackResponsesError}</div>}
+              </div>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      
       {/* Participant Overview */}
       <section className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8 border border-gray-100 dark:border-gray-700">
-        <div className="flex items-center mb-6">
-          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-4">
-            <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-4">
+              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Participant Overview</h2>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Participant Overview</h2>
-        
+          
+          {/* Data Source Indicator */}
+          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span>CSV Data</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Neon Database</span>
+            </div>
+          </div>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -2380,6 +2948,8 @@ function normalizePhone(phone: string) {
               </div>
             </div>
           </div>
+          
+     
           
           {/* Profession Chart */}
           <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-6 border border-purple-200 dark:border-purple-700">
@@ -2525,7 +3095,11 @@ function normalizePhone(phone: string) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
           </div>
+          <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Program-Specific Dashboard</h2>
+          
+       
+        </div>
         </div>
         <div className="flex flex-col md:flex-row gap-4 mb-6 items-start">
           <div className="flex flex-col gap-2">

@@ -596,18 +596,25 @@ const Main: React.FC = () => {
           })
         );
 
+        console.log("Assistant configs found:", assistantConfigs);
+        console.log("Setting assistants state:", assistantConfigs);
         setAssistants(assistantConfigs);
+        
         const response2 = await axios.get(
           `https://juta-dev.ngrok.dev/api/company-config/${companyId}`
         );
 
         const { openaiApiKey } = response2.data;
         setApiKey(openaiApiKey);
-        console.log(assistantConfigs);
+        console.log("API Key set:", openaiApiKey ? "Present" : "Missing");
+        console.log("Assistant configs:", assistantConfigs);
         // Set default selected assistant
         if (assistantConfigs.length > 0) {
+          console.log("Setting selected assistant to:", assistantConfigs[0].id);
           setSelectedAssistant(assistantConfigs[0].id);
           setAssistantId(assistantConfigs[0].id);
+        } else {
+          console.log("No assistant configs found, not setting assistantId");
         }
       }
     } catch (error) {
@@ -616,7 +623,21 @@ const Main: React.FC = () => {
     }
   };
   const fetchAssistantInfo = async (assistantId: string, apiKey: string) => {
-    console.log("fetching id");
+    // Validate inputs before making API call
+    if (!assistantId || !assistantId.trim() || !apiKey || !apiKey.trim()) {
+      console.log("Skipping assistant info fetch - invalid assistantId or apiKey");
+      setLoading(false);
+      return;
+    }
+
+    // Check if assistantId looks like a valid OpenAI assistant ID format
+    if (!assistantId.startsWith('asst_')) {
+      console.log("Skipping assistant info fetch - invalid assistant ID format:", assistantId);
+      setLoading(false);
+      return;
+    }
+
+    console.log("Fetching assistant info for ID:", assistantId);
     setLoading(true);
     try {
       const response = await axios.get(
@@ -636,8 +657,14 @@ const Main: React.FC = () => {
         metadata: { files: [] },
       });
     } catch (error) {
-      console.error("Error fetching assistant information:", error);
-      setError("Failed to fetch assistant information");
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        console.log("Assistant not found in OpenAI (404) - ID may be invalid:", assistantId);
+        // Don't set error for 404s, just log it
+        setError(null);
+      } else {
+        console.error("Error fetching assistant information:", error);
+        setError("Failed to fetch assistant information");
+      }
     } finally {
       setLoading(false);
     }
@@ -954,7 +981,7 @@ const Main: React.FC = () => {
   };
 
   useEffect(() => {
-    if (assistantId && apiKey) {
+    if (assistantId && apiKey && assistantId.trim() && apiKey.trim() && assistantId.startsWith('asst_')) {
       fetchAssistantInfo(assistantId, apiKey);
     }
   }, [assistantId, apiKey]);
@@ -1400,7 +1427,11 @@ const Main: React.FC = () => {
     setSelectedAssistant(assistantId);
     setAssistantId(assistantId);
     setMessages([]); // Clear messages when switching assistants
-    fetchAssistantInfo(assistantId, apiKey);
+    
+    // Only fetch assistant info if we have valid data
+    if (assistantId && apiKey && assistantId.trim() && apiKey.trim() && assistantId.startsWith('asst_')) {
+      fetchAssistantInfo(assistantId, apiKey);
+    }
   };
 
   // Only show the assistant selector if there are multiple assistants

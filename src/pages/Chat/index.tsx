@@ -917,7 +917,29 @@ function Main() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [employeeSearch, setEmployeeSearch] = useState("");
-
+  const planConfig = {
+    free: {
+      aiMessages: 100,
+      contacts: 100,
+      title: "Free Plan"
+    },
+    enterprise: {
+      aiMessages: 5000,
+      contacts: 10000,
+      title: "Enterprise Plan"
+    },
+    pro: {
+      aiMessages: 20000,
+      contacts: 50000,
+      title: "Pro Plan"
+    }
+  };
+  const getCurrentPlanLimits = () => {
+    const plan = companyPlan.toLowerCase();
+    return planConfig[plan as keyof typeof planConfig] || planConfig.free;
+  };
+  
+  const currentPlanLimits = getCurrentPlanLimits();
   // Initialize user context from localStorage and NeonDB
   useEffect(() => {
     // Use user info from localStorage (set during API login)
@@ -9765,70 +9787,102 @@ function Main() {
             onClick={openUsageDashboard}
             title="Click to view detailed usage analytics"
           >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <Lucide icon="Sparkles" className="w-2.5 h-2.5 text-primary" />
-                AI Messages
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  {aiMessageUsage}
-                  <span className="opacity-70 font-normal">
-                    /{quotaAIMessage || 500}
-              </span>
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsTopUpModalOpen(true);
-                  }}
-                  className="px-2 py-1 text-xs bg-primary hover:bg-primary/80 text-white rounded-md transition-all duration-200 hover:scale-105 active:scale-95 font-medium"
-                >
-                  Top-up
-                </button>
-            </div>
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-primary/10 to-gray-200 dark:from-primary/20 dark:to-gray-700 mb-1 overflow-hidden">
-              <div
-                className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
-                  aiMessageUsage > (quotaAIMessage || 500)
-                    ? "bg-gradient-to-r from-red-600 to-red-800"
-                    : aiMessageUsage > (quotaAIMessage || 500) * 0.9
-                    ? "bg-gradient-to-r from-red-500 to-red-700"
-                    : aiMessageUsage > (quotaAIMessage || 500) * 0.7
-                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                    : "bg-gradient-to-r from-green-500 to-green-700"
-                }`}
-                style={{
-                  width: `${Math.min(
-                    (aiMessageUsage / (quotaAIMessage || 500)) * 100,
-                    120
-                  )}%`,
-                }}
-              ></div>
-              {aiMessageUsage > (quotaAIMessage || 500) && (
-                <div className="text-xs text-red-600 dark:text-red-400 text-center mt-0.5 font-medium">
-                  ⚠️ Limit exceeded by {aiMessageUsage - (quotaAIMessage || 500)} responses
-          </div>
-        )}
-                  </div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <Lucide icon="Send" className="w-2.5 h-2.5 text-blue-500" />
-                Blast Messages
-                        </span>
-              <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                {blastedMessageUsage} successful blasts
-                        </span>
-                      </div>
-            <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-blue-400/10 to-gray-200 dark:from-blue-400/20 dark:to-gray-700 overflow-hidden">
-              <div
-                className="h-1.5 rounded-full transition-all duration-500 ease-in-out bg-gradient-to-r from-green-500 to-green-700"
-                      style={{
-                  width: "100%",
-                      }}
-              ></div>
-                  </div>
+           <div className="flex items-center justify-between mb-1">
+  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+    <Lucide icon="Sparkles" className="w-2.5 h-2.5 text-primary" />
+    AI Messages
+  </span>
+  <div className="flex items-center gap-2">
+    <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+      {aiMessageUsage}
+      <span className="opacity-70 font-normal">
+        /{currentPlanLimits.aiMessages}
+      </span>
+    </span>
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsTopUpModalOpen(true);
+      }}
+      className="px-2 py-1 text-xs bg-primary hover:bg-primary/80 text-white rounded-md transition-all duration-200 hover:scale-105 active:scale-95 font-medium"
+    >
+      Top-up
+    </button>
+  </div>
+</div>
+
+<div className="w-full h-1.5 rounded-full bg-gradient-to-r from-primary/10 to-gray-200 dark:from-primary/20 dark:to-gray-700 mb-1 overflow-hidden">
+  <div
+    className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
+      aiMessageUsage > currentPlanLimits.aiMessages
+        ? "bg-gradient-to-r from-red-600 to-red-800"
+        : aiMessageUsage > currentPlanLimits.aiMessages * 0.9
+        ? "bg-gradient-to-r from-red-500 to-red-700"
+        : aiMessageUsage > currentPlanLimits.aiMessages * 0.7
+        ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+        : "bg-gradient-to-r from-green-500 to-green-700"
+    }`}
+    style={{
+      width: `${Math.min(
+        (aiMessageUsage / currentPlanLimits.aiMessages) * 100,
+        120
+      )}%`,
+    }}
+  ></div>
+  {aiMessageUsage > currentPlanLimits.aiMessages && (
+    <div className="text-xs text-red-600 dark:text-red-400 text-center mt-0.5 font-medium">
+      ⚠️ Limit exceeded by {aiMessageUsage - currentPlanLimits.aiMessages} responses
+    </div>
+  )}
+</div>
+<div className="flex items-center justify-between mb-1">
+  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+  <Lucide icon="Contact" className="w-2.5 h-2.5 text-primary" />
+    Contacts
+  </span>
+  <div className="flex items-center gap-2">
+    <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+      {contacts.length}
+      <span className="opacity-70 font-normal">
+        /{currentPlanLimits.contacts}
+      </span> 
+    </span>
+
+  </div>
+</div>
+
+
+<div className="w-full h-1.5 rounded-full bg-gradient-to-r from-emerald-400/10 to-gray-200 dark:from-emerald-400/20 dark:to-gray-700 overflow-hidden">
+  <div
+    className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
+      contacts.length > currentPlanLimits.contacts
+        ? "bg-gradient-to-r from-red-600 to-red-800"
+        : contacts.length > currentPlanLimits.contacts * 0.9
+        ? "bg-gradient-to-r from-red-500 to-red-700"
+        : contacts.length > currentPlanLimits.contacts * 0.7
+        ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+        : "bg-gradient-to-r from-emerald-500 to-emerald-700"
+    }`}
+    style={{
+      width: `${Math.min(
+        (contacts.length / currentPlanLimits.contacts) * 100,
+        120
+      )}%`,
+    }}
+  ></div>
+</div>
+<div className="flex items-center justify-between mt-1">
+  
+
+ 
+</div>
+{contacts.length > currentPlanLimits.contacts && (
+  <div className="mt-1 text-center">
+    <span className="text-xs text-orange-600 dark:text-orange-400 font-medium bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">
+      ⚠️ Contact limit exceeded - upgrade plan for more contacts
+    </span>
+  </div>
+)}
 
             {/* Analytics button */}
             <div className="flex items-center justify-center mt-1 pt-1 border-t border-gray-200 dark:border-gray-600">
@@ -14014,40 +14068,40 @@ function Main() {
                     <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:via-emerald-900/30 dark:to-emerald-800/20 p-6 rounded-2xl border border-emerald-200/50 dark:border-emerald-700/50 group hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
                       <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full -translate-y-12 translate-x-12"></div>
                       <div className="relative">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                            <Lucide
-                              icon="Send"
-                              className="w-6 h-6 text-white"
-                            />
-                          </div>
-                          <h3 className="text-xl font-bold text-emerald-900 dark:text-emerald-100">
-                            Blast Messages
-                          </h3>
-                        </div>
+                      
                         <div className="space-y-3">
-                          <div className="flex flex-col space-y-1">
-                            <span className="text-4xl font-black text-emerald-900 dark:text-emerald-100 tracking-tight">
-                              {blastedMessageUsage.toLocaleString()}
-                            </span>
-                            <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
-                              successful blasts
-                            </span>
-                          </div>
-                          <div className="relative w-full bg-emerald-200/50 dark:bg-emerald-800/50 rounded-full h-4 overflow-hidden">
-                            <div
-                              className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-500 rounded-full transition-all duration-700 ease-out shadow-sm"
-                              style={{
-                                width: "100%",
-                              }}
-                            >
-                              <div className="w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                            </div>
-                          </div>
-                          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                            No limits - unlimited blast messaging
-                          </p>
-                        </div>
+
+  <div className="flex items-center justify-between text-sm">
+    <span className="font-medium text-emerald-700 dark:text-emerald-300">
+      {contacts.length || 0} total contacts
+    </span>
+    <span className="font-medium text-emerald-700 dark:text-emerald-300">
+      {((blastedMessageUsage / Math.max(contacts.length || 1, 1)) * 100).toFixed(1)}% coverage
+    </span>
+  </div>
+  <div className="flex items-center justify-between text-sm">
+    <span className="font-medium text-emerald-700 dark:text-emerald-300">
+      Contact Limit
+    </span>
+    <span className={`font-bold ${
+      contacts.length <= currentPlanLimits.contacts 
+        ? "text-emerald-800 dark:text-emerald-200" 
+        : "text-red-600 dark:text-red-400"
+    }`}>
+      {currentPlanLimits.contacts.toLocaleString()}
+    </span>
+  </div>
+  {contacts.length > currentPlanLimits.contacts && (
+    <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg border border-orange-200 dark:border-orange-700/50">
+      <p className="text-xs text-orange-700 dark:text-orange-300 font-medium">
+        ⚠️ You have {(contacts.length - currentPlanLimits.contacts).toLocaleString()} contacts over your plan limit. Consider upgrading to manage all contacts effectively.
+      </p>
+    </div>
+  )}
+  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+    {currentPlanLimits.title} - {currentPlanLimits.contacts.toLocaleString()} contacts limit
+  </p>
+</div>
                       </div>
                     </div>
                   </div>
@@ -14068,7 +14122,7 @@ function Main() {
                               7-Day Usage Trend
                             </h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Daily activity overview
+                              AI messages activity
                             </p>
                           </div>
                         </div>
@@ -14153,26 +14207,6 @@ function Main() {
                                                         borderWidth: 3,
                                                         pointBackgroundColor:
                                                           "#3B82F6",
-                                                        pointBorderColor:
-                                                          "#ffffff",
-                                                        pointBorderWidth: 2,
-                                                        pointRadius: 6,
-                                                        pointHoverRadius: 8,
-                                                        tension: 0.4,
-                                                        fill: true,
-                                                      },
-                                                      {
-                                                        label: "Blast Messages",
-                                                        data: dailyUsageData.map(
-                                                          (day) =>
-                                                            day.blastMessages
-                                                        ),
-                                                        borderColor: "#10B981",
-                                                        backgroundColor:
-                                                          "rgba(16, 185, 129, 0.1)",
-                                                        borderWidth: 3,
-                                                        pointBackgroundColor:
-                                                          "#10B981",
                                                         pointBorderColor:
                                                           "#ffffff",
                                                         pointBorderWidth: 2,
@@ -14287,7 +14321,7 @@ function Main() {
                           </div>
 
                           {/* Enhanced Usage Summary */}
-                          <div className="grid grid-cols-2 gap-6 pt-6 border-t border-gray-200/50 dark:border-gray-600/50">
+                          <div className="grid grid-cols-3 gap-6 pt-6 border-t border-gray-200/50 dark:border-gray-600/50">
                             <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/10 rounded-2xl border border-blue-200/30 dark:border-blue-700/30">
                               <div className="text-3xl font-black text-blue-600 dark:text-blue-400 mb-1">
                                 {dailyUsageData
@@ -14302,19 +14336,36 @@ function Main() {
                               </div>
                             </div>
                             <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/10 rounded-2xl border border-emerald-200/30 dark:border-emerald-700/30">
+                              <div className="flex items-center justify-center mb-2">
+                                <Lucide icon="UserPlus" className="w-6 h-6 text-emerald-500" />
+                              </div>
                               <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mb-1">
                                 {dailyUsageData
                                   .reduce(
-                                    (sum, day) => sum + day.blastMessages,
+                                    (sum, day) => sum + (day.contacts || 0),
                                     0
                                   )
                                   .toLocaleString()}
                               </div>
                               <div className="text-sm text-emerald-700 dark:text-emerald-300 font-semibold">
-                                Total Blast Messages
+                                New Contacts
                               </div>
                               <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
                                 Past 7 days
+                              </div>
+                            </div>
+                            <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 rounded-2xl border border-purple-200/30 dark:border-purple-700/30">
+                              <div className="flex items-center justify-center mb-2">
+                                <Lucide icon="Users" className="w-6 h-6 text-purple-500" />
+                              </div>
+                              <div className="text-3xl font-black text-purple-600 dark:text-purple-400 mb-1">
+                                {contacts.length || 0}
+                              </div>
+                              <div className="text-sm text-purple-700 dark:text-purple-300 font-semibold">
+                                Total Contacts
+                              </div>
+                              <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                                Available for blasts
                               </div>
                             </div>
                           </div>
@@ -14657,24 +14708,24 @@ function Main() {
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {quotaAIMessage || 500}
+                      {currentPlanLimits.aiMessages}
                     </div>
                     <div className="text-sm text-blue-700 dark:text-blue-300">
-                      Monthly Limit
+                      Monthly Limit ({currentPlanLimits.title})
                     </div>
                   </div>
-                                      <div className="text-center">
-                      <div className={`text-2xl font-bold ${
-                        (quotaAIMessage || 500) - aiMessageUsage >= 0 
-                          ? "text-blue-600 dark:text-blue-400" 
-                          : "text-red-600 dark:text-red-400"
-                      }`}>
-                        {(quotaAIMessage || 500) - aiMessageUsage}
-                      </div>
-                      <div className="text-sm text-blue-700 dark:text-blue-300">
-                        Remaining
-                      </div>
+                  <div className="text-center">
+                    <div className={`text-2xl font-bold ${
+                      currentPlanLimits.aiMessages - aiMessageUsage >= 0 
+                        ? "text-blue-600 dark:text-blue-400" 
+                        : "text-red-600 dark:text-red-400"
+                    }`}>
+                      {currentPlanLimits.aiMessages - aiMessageUsage}
                     </div>
+                    <div className="text-sm text-blue-700 dark:text-blue-300">
+                      Remaining
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -14684,85 +14735,6 @@ function Main() {
                   Choose Your Plan
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {/* Starter Plan */}
-                  <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
-                    <div className="text-center">
-                      <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                        Starter Plan
-                      </h4>
-                      <div className="text-3xl font-black text-primary mb-4">
-                        RM 98
-                        <span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
-                      </div>
-                      <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-                        Perfect for small businesses. Get 500 AI responses monthly with full access to all system features.
-                      </p>
-                      <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                        Start Plan
-                      </button>
-                    </div>
-                    <div className="mt-6 space-y-3">
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        500 AI Responses Monthly
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Follow-Up System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Tagging System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Mobile & Desktop Access
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Professional Plan */}
-                  <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-primary shadow-xl scale-105">
-                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                      <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">
-                        Most Popular
-                      </span>
-                    </div>
-                    <div className="text-center">
-                      <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                        Professional Plan
-                      </h4>
-                      <div className="text-3xl font-black text-primary mb-4">
-                        RM 688
-                        <span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
-                      </div>
-                      <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-                        Premium support with 5,000 AI responses monthly. We handle your prompting, follow-ups, and maintenance.
-                      </p>
-                      <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                        Start Plan
-                      </button>
-                    </div>
-                    <div className="mt-6 space-y-3">
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        5,000 AI Responses Monthly
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Follow-Up System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Tagging System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Full Maintenance & Support
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Free Plan */}
                   <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
                     <div className="text-center">
@@ -14772,30 +14744,169 @@ function Main() {
                       <div className="text-3xl font-black text-primary mb-4">
                         RM 0
                         <span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
-                  </div>
+                      </div>
                       <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-                        Basic solution with limited AI responses, perfect for getting started with Juta CRM.
+                        Perfect for small businesses. Get 100 AI responses monthly and 100 contacts with full access to all system features.
                       </p>
                       <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                        Current Plan
+                        Start Free
                       </button>
                     </div>
                     <div className="mt-6 space-y-3">
                       <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
                         <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Limited AI Responses Monthly
+                        100 AI Responses Monthly
                       </div>
                       <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
                         <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Basic AI Features
+                        100 Contacts
                       </div>
                       <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
                         <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Standard Support
+                        AI Follow-Up System
                       </div>
                       <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
                         <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Core CRM Features
+                        AI Booking System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Tagging System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Assign System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        Mobile App Access
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        Desktop App Access
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Enterprise Plan - Most Popular */}
+                  <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-primary shadow-xl scale-105">
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                      <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">
+                        Most Popular
+                      </span>
+                    </div>
+                    <div className="text-center">
+                      <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                        Enterprise Plan
+                      </h4>
+                      <div className="text-3xl font-black text-primary mb-4">
+                        RM 888
+                        <span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+                        Premium support with 5,000 AI responses monthly and 10,000 contacts. We handle your prompting, follow-ups, and maintenance.
+                      </p>
+                      <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                        Start
+                      </button>
+                    </div>
+                    <div className="mt-6 space-y-3">
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        5,000 AI Responses Monthly
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        10,000 Contacts
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Follow-Up System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Booking System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Tagging System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Assign System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        Mobile App Access
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        Desktop App Access
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        Full Maintenance & Support
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pro Plan */}
+                  <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
+                    <div className="text-center">
+                      <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                        Pro Plan
+                      </h4>
+                      <div className="text-3xl font-black text-primary mb-4">
+                        RM 3088
+                        <span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+                        Complete solution with 20,000 AI responses, 50,000 contacts, custom integrations, full setup and maintenance included.
+                      </p>
+                      <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                        Start
+                      </button>
+                    </div>
+                    <div className="mt-6 space-y-3">
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        20,000 AI Responses Monthly
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        50,000 Contacts
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Follow-Up System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Booking System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Tagging System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Assign System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        Mobile App Access
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        Desktop App Access
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        Full Maintenance & Support
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        Full AI Setup & Custom Automations
                       </div>
                     </div>
                   </div>

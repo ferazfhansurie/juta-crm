@@ -160,6 +160,7 @@ function Main() {
     }
   };
 
+
   const handleRegister = async () => {
     try {
       setIsLoading(true);
@@ -187,9 +188,23 @@ function Main() {
         });
   
         if (channelResponse.data) {
+            const response = await fetch('https://juta-dev.ngrok.dev/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await response.json();
+  console.log('Login response:', data);
           // Sign in the user after successful registration
-          navigate('/onboarding');
-          toast.success("Registration successful!");
+          if (response.ok) {
+            localStorage.setItem('userEmail', email);
+            localStorage.setItem('userData', JSON.stringify(data.user));
+            navigate('/onboarding');
+            toast.success("Registration successful!");
+          } else {
+           
+          }
+        
         }
       }
   

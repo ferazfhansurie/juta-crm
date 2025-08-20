@@ -47,6 +47,8 @@ function PublicFeedbackForm() {
   const [form, setForm] = useState<Form | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingCertificate, setIsGeneratingCertificate] = useState(false);
+  const [certificateStatus, setCertificateStatus] = useState<'pending' | 'success' | 'error' | null>(null);
   const [responses, setResponses] = useState<{ [fieldId: string]: string | number }>({});
   const [phoneNumber, setPhoneNumber] = useState( '+60');
   const [baseUrl] = useState<string>('https://juta-dev.ngrok.dev');
@@ -143,19 +145,28 @@ function PublicFeedbackForm() {
       if (response.data.success) {
         console.log(`[Form][${requestId}] ✅ Form submitted successfully, initiating certificate generation...`);
         
-        // Generate and download PDF certificate
+        // Start certificate generation process
+        setIsGeneratingCertificate(true);
+        setCertificateStatus('pending');
+        
         try {
           console.log(`[Form][${requestId}] Starting certificate generation process...`);
           await generateAndSendCertificate();
           console.log(`[Form][${requestId}] Certificate generation process completed`);
+          setCertificateStatus('success');
+          
+          // Wait a moment to show success state before navigating
+          setTimeout(() => {
+            console.log(`[Form][${requestId}] Navigating to thank you page...`);
+            navigate('/thank-you');
+          }, 2000);
+          
         } catch (certError) {
           console.error(`[Form][${requestId}] ❌ Error generating certificate:`, certError);
-          console.log(`[Form][${requestId}] Continuing to thank you page despite certificate error`);
-          // Continue to thank you page even if certificate fails
+          setCertificateStatus('error');
+          console.log(`[Form][${requestId}] Certificate generation failed, staying on page`);
+          // Stay on page to show error and support options
         }
-        
-        console.log(`[Form][${requestId}] Navigating to thank you page...`);
-        navigate('/thank-you');
       } else {
         console.error(`[Form][${requestId}] ❌ Form submission failed:`, response.data.error);
         throw new Error(response.data.error);
@@ -387,7 +398,7 @@ function PublicFeedbackForm() {
       if (!requestPayload.phoneNumber || !requestPayload.formId || !requestPayload.formTitle || !requestPayload.companyId) {
         console.error(`[Frontend][${requestId}] ❌ Validation failed - missing required fields`);
         console.error(`[Frontend][${requestId}] Cannot proceed with certificate generation`);
-        return;
+        throw new Error('Missing required fields for certificate generation');
       }
       
       console.log(`[Frontend][${requestId}] ✅ All required fields present, making API call...`);
@@ -422,6 +433,7 @@ function PublicFeedbackForm() {
         if (response.data.details) {
           console.error(`[Frontend][${requestId}] Details: ${response.data.details}`);
         }
+        throw new Error(response.data.error || 'Certificate generation failed');
       }
       
     } catch (error: any) {
@@ -451,9 +463,11 @@ function PublicFeedbackForm() {
         console.error(`[Frontend][${requestId}] System call: ${error.syscall}`);
       }
       
-      // Don't throw the error - just log it and continue
-      // This ensures the form submission still succeeds even if certificate generation fails
-      console.log(`[Frontend][${requestId}] Continuing with form submission despite certificate error`);
+      // Re-throw the error so the calling function can handle it properly
+      throw error;
+    } finally {
+      // Always set generating to false when done
+      setIsGeneratingCertificate(false);
     }
     
     console.log(`[Frontend][${requestId}] ===== CERTIFICATE GENERATION COMPLETED =====`);
@@ -699,7 +713,7 @@ function PublicFeedbackForm() {
                 <Button
                   type="submit"
                   variant="primary"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isGeneratingCertificate}
                   className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   {isSubmitting ? (
@@ -707,18 +721,120 @@ function PublicFeedbackForm() {
                       <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       <span>Submitting...</span>
                     </div>
+                  ) : isGeneratingCertificate ? (
+                    <div className="flex items-center justify-center sm:justify-start space-x-2">
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Generating Certificate...</span>
+                    </div>
                   ) : (
                     'Submit'
                   )}
                 </Button>
               </div>
             </div>
+
+            {/* Certificate Status Display */}
+            {isGeneratingCertificate && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <div>
+                    <h3 className="font-medium text-blue-900">Generating Your Certificate</h3>
+                    <p className="text-sm text-blue-700">Please wait while we create and send your certificate via WhatsApp...</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Certificate Success/Error Status */}
+            {certificateStatus === 'success' && (
+              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <div>
+                    <h3 className="font-medium text-green-900">Certificate Sent Successfully!</h3>
+                    <p className="text-sm text-green-700">Your certificate has been generated and sent to your WhatsApp. Redirecting to thank you page...</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {certificateStatus === 'error' && (
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <svg className="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1">
+                    <h3 className="font-medium text-red-900">Certificate Generation Failed</h3>
+                    <p className="text-sm text-red-700 mb-3">
+                      We encountered an issue while generating your certificate. Don't worry, your feedback has been submitted successfully.
+                    </p>
+                    
+                    {/* WhatsApp Support Button */}
+                    <div className="space-y-3">
+                      <p className="text-sm text-red-600 font-medium">
+                        Need help? Contact our support team via WhatsApp:
+                      </p>
+                      
+                      <a
+                        href={`https://wa.me/601137206640?text=Hi, I'm having an issue with my feedback form certificate for ${formTitle || 'the event'}. My phone number is ${phoneNumber || 'not provided'}. Can you help me get my certificate?`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg transition-colors duration-200 shadow hover:shadow-md"
+                      >
+                        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.87 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.86 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.88 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
+                        </svg>
+                        Chat with Support
+                      </a>
+                      
+                      <div className="text-center">
+                        <button
+                          onClick={() => {
+                            setCertificateStatus(null);
+                            setIsGeneratingCertificate(false);
+                          }}
+                          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium text-sm"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </form>
         </div>
 
         {/* Footer */}
         <div className="text-center mt-6 sm:mt-8 text-xs sm:text-sm text-gray-500 px-2">
           <p>Thank you for taking the time to provide your feedback!</p>
+        </div>
+
+        {/* WhatsApp Support Section */}
+        <div className="mt-6 sm:mt-8 p-4 sm:p-6 bg-gray-50 rounded-xl border border-gray-200">
+          <div className="text-center">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">Need Help?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              If you encounter any issues or need assistance, our support team is here to help!
+            </p>
+            
+            <a
+              href={`https://wa.me/601137206640?text=Hi, I need help with the feedback form for ${formTitle || 'the event'}. My phone number is ${phoneNumber || 'not provided'}. Can you assist me?`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg transition-colors duration-200 shadow hover:shadow-md"
+            >
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.87 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.86 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.88 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
+              </svg>
+              Chat with Support via WhatsApp
+            </a>
+          </div>
         </div>
       </div>
     </div>
