@@ -875,6 +875,7 @@ function Main() {
   // Usage Dashboard states
   const [isUsageDashboardOpen, setIsUsageDashboardOpen] =
     useState<boolean>(false);
+  const [isTopUpModalOpen, setIsTopUpModalOpen] = useState<boolean>(false);
   const [dailyUsageData, setDailyUsageData] = useState<any[]>([]);
   const [isLoadingUsageData, setIsLoadingUsageData] = useState<boolean>(false);
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
@@ -2311,7 +2312,7 @@ function Main() {
             "Cannot delete contact: Contact has associated data. Please remove dependencies first."
           );
         } else {
-          toast.error("Failed to delete contact");
+        toast.error("Failed to delete contact");
         }
 
         // Revert the UI state
@@ -2998,7 +2999,7 @@ function Main() {
         : loadedContacts.length > 0
         ? loadedContacts
         : contacts; // Use loaded contacts for regular browsing
-
+    
     let fil = filterContactsByUserRole(
       contactsToFilter,
       userRole,
@@ -3201,7 +3202,7 @@ function Main() {
         console.log("🔍 Contact matches tag:", matchesTag);
         return matchesTag;
       });
-
+      
       console.log("🔍 After tag filtering, contacts count:", fil.length);
     }
 
@@ -3235,7 +3236,7 @@ function Main() {
       "📊 RESULT - Filtered contacts:",
       filteredContactsSearch.length
     );
-
+    
     // Debug: Log all available tags from contacts
     const allTags = new Set<string>();
     contacts.forEach((contact) => {
@@ -3251,7 +3252,7 @@ function Main() {
       "🔍 All available tags in contacts:",
       Array.from(allTags).sort()
     );
-
+    
     if (filteredContactsSearch.length > 0) {
       console.log("📊 SORTING - First 10 contacts sorted by timestamp:");
       filteredContactsSearch.slice(0, 10).forEach((contact, index) => {
@@ -5876,17 +5877,17 @@ function Main() {
 
     // Update UI immediately for instant feedback
     setMessages((prevMessages) => [
-      ...prevMessages,
-      {
-        ...tempMessage,
-      } as unknown as Message,
+        ...prevMessages,
+        {
+          ...tempMessage,
+        } as unknown as Message,
     ]);
 
     // Also update allMessages to ensure consistency
     setAllMessages((prevAllMessages) => [
-      ...prevAllMessages,
-      {
-        ...tempMessage,
+        ...prevAllMessages,
+        {
+          ...tempMessage,
       } as unknown as Message,
     ]);
 
@@ -7392,10 +7393,10 @@ function Main() {
   const filterTagContact = (tag: string) => {
     console.log("🔍 filterTagContact called with tag:", tag);
     console.log("🔍 Current employeeList:", employeeList);
-
+    
     // Set loading state for tag filtering
     setIsTagFiltering(true);
-
+    
     if (
       employeeList.some(
         (employee) =>
@@ -7414,7 +7415,7 @@ function Main() {
       ]);
     }
     setSearchQuery("");
-
+    
     // Reset loading state after a short delay to allow filtering to complete
     setTimeout(() => {
       setIsTagFiltering(false);
@@ -9664,12 +9665,23 @@ function Main() {
                 <Lucide icon="Sparkles" className="w-3 h-3 text-primary" />
                 AI Messages
               </span>
-              <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                {aiMessageUsage}
-                <span className="opacity-70 font-normal">
-                  /{quotaAIMessage || 500}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                  {aiMessageUsage}
+                  <span className="opacity-70 font-normal">
+                    /{quotaAIMessage || 500}
+                  </span>
                 </span>
-              </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsTopUpModalOpen(true);
+                  }}
+                  className="px-2 py-1 text-xs bg-primary hover:bg-primary/80 text-white rounded-md transition-all duration-200 hover:scale-105 active:scale-95 font-medium"
+                >
+                  Top-up
+                </button>
+              </div>
             </div>
             <div className="w-full h-2 rounded-full bg-gradient-to-r from-primary/10 to-gray-200 dark:from-primary/20 dark:to-gray-700 mb-2 overflow-hidden">
               <div
@@ -9692,28 +9704,34 @@ function Main() {
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
                 <Lucide icon="Send" className="w-3 h-3 text-blue-500" />
                 Blast Messages
-              </span>
+                        </span>
               <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
                 {blastedMessageUsage} successful blasts
-              </span>
-            </div>
+                        </span>
+                      </div>
             <div className="w-full h-2 rounded-full bg-gradient-to-r from-blue-400/10 to-gray-200 dark:from-blue-400/20 dark:to-gray-700 overflow-hidden">
               <div
                 className="h-2 rounded-full transition-all duration-500 ease-in-out bg-gradient-to-r from-green-500 to-green-700"
-                style={{
+                      style={{
                   width: "100%",
-                }}
+                      }}
               ></div>
-            </div>
+                  </div>
 
-            {/* Click indicator */}
+            {/* Analytics button */}
             <div className="flex items-center justify-center mt-2 pt-1 border-t border-gray-200 dark:border-gray-600">
-              <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openUsageDashboard();
+                }}
+                className="text-xs text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary flex items-center gap-1 transition-all duration-200 hover:scale-105 active:scale-95 font-medium"
+              >
                 <Lucide icon="BarChart3" className="w-3 h-3" />
-                Click for detailed analytics
-              </span>
+                View Analytics
+              </button>
             </div>
-          </div>
+                          </div>
         )}
         <div className="sticky top-20 bg-gray-100 dark:bg-gray-900 p-3">
           <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
@@ -9722,50 +9740,50 @@ function Main() {
             )}
 
             {/* WhatsApp Web-style search bar */}
-            <div className="relative flex-grow">
-              <button
-                onClick={() => setIsSearchModalOpen(true)}
+                <div className="relative flex-grow">
+                  <button
+                    onClick={() => setIsSearchModalOpen(true)}
                 className="flex items-center w-full h-7 py-1.5 pl-6 pr-3 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-              >
+                  >
                 <Lucide icon="Search" className="absolute left-2 w-3 h-3" />
                 <span className="ml-1.5 text-sm">Search contacts...</span>
-              </button>
+                  </button>
 
-              <SearchModal
-                isOpen={isSearchModalOpen}
-                onClose={() => setIsSearchModalOpen(false)}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                companyId={currentCompanyId || ""}
-                initial={contacts}
-                onSelectResult={(type, id, contactId) => {
-                  if (type === "contact") {
-                    const contact = contacts.find((c) => c.id === id);
-                    if (contact) {
-                      selectChat(contact.contact_id!, contact.id!, contact);
-                    }
-                  } else if (type === "message") {
-                    const contact = contacts.find(
-                      (c) => c.contact_id === contactId
-                    );
-                    if (contact) {
-                      selectChat(
-                        contact.contact_id!,
-                        contact.id!,
-                        contact
-                      ).then(() => {
-                        setTimeout(() => {
-                          scrollToMessage(id);
+                  <SearchModal
+                    isOpen={isSearchModalOpen}
+                    onClose={() => setIsSearchModalOpen(false)}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    companyId={currentCompanyId || ""}
+                    initial={contacts}
+                    onSelectResult={(type, id, contactId) => {
+                      if (type === "contact") {
+                        const contact = contacts.find((c) => c.id === id);
+                        if (contact) {
+                          selectChat(contact.contact_id!, contact.id!, contact);
+                        }
+                      } else if (type === "message") {
+                        const contact = contacts.find(
+                          (c) => c.contact_id === contactId
+                        );
+                        if (contact) {
+                          selectChat(
+                            contact.contact_id!,
+                            contact.id!,
+                            contact
+                          ).then(() => {
+                            setTimeout(() => {
+                              scrollToMessage(id);
                         }, 5000);
-                      });
-                    }
-                  }
-                  setSearchQuery("");
-                  setIsSearchModalOpen(false);
-                }}
-                contacts={contacts}
-              />
-            </div>
+                          });
+                        }
+                      }
+                      setSearchQuery("");
+                      setIsSearchModalOpen(false);
+                    }}
+                    contacts={contacts}
+                  />
+                </div>
 
             {/* Action buttons with WhatsApp Web styling */}
             <div className="flex items-center space-x-1.5">
@@ -9790,11 +9808,11 @@ function Main() {
               {/* Employee assignment button */}
               <Menu as="div" className="relative inline-block text-left">
                 <Menu.Button className="flex items-center justify-center p-1.5 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-all duration-200">
-                  <Lucide
-                    icon="Users"
+                      <Lucide
+                        icon="Users"
                     className="w-3 h-3 text-gray-800 dark:text-gray-200"
-                  />
-                </Menu.Button>
+                      />
+                  </Menu.Button>
                 <Menu.Items className="absolute right-0 mt-1.5 w-36 shadow-lg rounded-md bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 p-1.5 z-10 max-h-40 overflow-y-auto">
                   <div className="p-1.5">
                     <input
@@ -9876,10 +9894,10 @@ function Main() {
                 onClick={toggleTagsExpansion}
                 title={isTagsExpanded ? "Show Less Tags" : "Show More Tags"}
               >
-                <Lucide
-                  icon={isTagsExpanded ? "ChevronUp" : "ChevronDown"}
+                  <Lucide
+                    icon={isTagsExpanded ? "ChevronUp" : "ChevronDown"}
                   className="w-3 h-3 text-gray-800 dark:text-gray-200"
-                />
+                  />
               </button>
             </div>
           </div>
@@ -9990,20 +10008,20 @@ function Main() {
                   }`}
                 >
                   <span className="flex items-center space-x-1">
-                    <span>{tagName}</span>
-                    {userData?.role === "1" && unreadCount > 0 && (
-                      <span
+                  <span>{tagName}</span>
+                  {userData?.role === "1" && unreadCount > 0 && (
+                    <span
                         className={`px-1 py-0.5 rounded-full text-xs font-bold ${
-                          tagName.toLowerCase() === "stop bot"
+                        tagName.toLowerCase() === "stop bot"
                             ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-                            : tagName.toLowerCase() === "active bot"
+                          : tagName.toLowerCase() === "active bot"
                             ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
                             : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                         }`}
-                      >
-                        {unreadCount}
-                      </span>
-                    )}
+                    >
+                      {unreadCount}
+                    </span>
+                  )}
                   </span>
                 </button>
               );
@@ -10086,30 +10104,30 @@ function Main() {
 
                       {/* Loading steps with better visual hierarchy */}
                       <div className="mt-4 space-y-2">
-                        {loadingSteps.userConfig && (
+                      {loadingSteps.userConfig && (
                           <div className="flex items-center text-xs text-green-600 dark:text-green-400">
                             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                             <span>User configuration loaded</span>
-                          </div>
-                        )}
-                        {loadingSteps.contactsFetch && (
+                        </div>
+                      )}
+                      {loadingSteps.contactsFetch && (
                           <div className="flex items-center text-xs text-green-600 dark:text-green-400">
                             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                             <span>Contacts fetched</span>
-                          </div>
-                        )}
-                        {loadingSteps.contactsProcess && (
+                        </div>
+                      )}
+                      {loadingSteps.contactsProcess && (
                           <div className="flex items-center text-xs text-blue-600 dark:text-blue-400">
                             <div className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
                             <span>Processing contacts...</span>
-                          </div>
-                        )}
-                        {loadingSteps.complete && (
+                        </div>
+                      )}
+                      {loadingSteps.complete && (
                           <div className="flex items-center text-xs text-green-600 dark:text-green-400 font-medium">
                             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                             <span>Loading complete!</span>
-                          </div>
-                        )}
+                        </div>
+                      )}
                       </div>
                     </div>
                   )}
@@ -10190,129 +10208,129 @@ function Main() {
                       {contact.unreadCount !== undefined && (
                         <>
                           {/* Prominent badge for unread messages */}
-                          {(contact.unreadCount ?? 0) > 0 && (
+                      {(contact.unreadCount ?? 0) > 0 && (
                             <span className="absolute -top-0.5 -right-0.5 bg-green-500 text-white text-xs rounded-full px-1 py-0.5 min-w-[16px] h-[16px] flex items-center justify-center font-bold">
                               {(contact.unreadCount ?? 0) > 99
                                 ? "99+"
                                 : contact.unreadCount ?? 0}
-                            </span>
+                        </span>
                           )}
                         </>
                       )}
                     </div>
 
-                    <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0">
                       <div className="flex flex-col space-y-1">
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-0.5">
-                              {(
-                                contact.contactName ??
-                                contact.firstName ??
-                                contact.phone ??
-                                ""
+                          {(
+                            contact.contactName ??
+                            contact.firstName ??
+                            contact.phone ??
+                            ""
                               ).slice(0, 25)}
-                              {(
-                                contact.contactName ??
-                                contact.firstName ??
-                                contact.phone ??
-                                ""
+                          {(
+                            contact.contactName ??
+                            contact.firstName ??
+                            contact.phone ??
+                            ""
                               ).length > 25
-                                ? "..."
-                                : ""}
+                            ? "..."
+                            : ""}
                             </h3>
 
                             <div className="flex items-center space-x-1 text-xs text-gray-600 dark:text-gray-400">
-                              <div className="flex flex-grow items-center">
-                                {(() => {
-                                  const employeeTags =
-                                    contact.tags?.filter((tag) =>
-                                      employeeList.some(
-                                        (employee) =>
+                        <div className="flex flex-grow items-center">
+                          {(() => {
+                            const employeeTags =
+                              contact.tags?.filter((tag) =>
+                                employeeList.some(
+                                  (employee) =>
                                           (employee.name?.toLowerCase() ||
                                             "") ===
                                           (typeof tag === "string"
                                             ? tag
                                             : String(tag)
                                           ).toLowerCase()
-                                      )
-                                    ) || [];
+                                )
+                              ) || [];
 
-                                  const otherTags =
-                                    contact.tags?.filter(
-                                      (tag) =>
-                                        !employeeList.some(
-                                          (employee) =>
+                            const otherTags =
+                              contact.tags?.filter(
+                                (tag) =>
+                                  !employeeList.some(
+                                    (employee) =>
                                             (employee.name?.toLowerCase() ||
                                               "") ===
                                             (typeof tag === "string"
                                               ? tag
                                               : String(tag)
                                             ).toLowerCase()
-                                        )
-                                    ) || [];
+                                  )
+                              ) || [];
 
-                                  const uniqueTags = Array.from(
-                                    new Set([...otherTags])
-                                  );
+                            const uniqueTags = Array.from(
+                              new Set([...otherTags])
+                            );
 
-                                  return (
-                                    <>
-                                      <button
+                            return (
+                              <>
+                                <button
                                         className={`text-sm ${
-                                          contact.pinned
+                                    contact.pinned
                                             ? "text-blue-600 dark:text-blue-400 font-bold"
                                             : "text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:font-bold mr-1"
-                                        }`}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
+                                  }`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                           togglePinConversation(
                                             contact.chat_id!
                                           );
-                                        }}
-                                      >
-                                        {contact.pinned ? (
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
+                                  }}
+                                >
+                                  {contact.pinned ? (
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
                                             width="9"
                                             height="9"
-                                            viewBox="0 0 48 48"
+                                      viewBox="0 0 48 48"
                                             className="text-blue-600 dark:text-blue-400 fill-current mr-0.5"
-                                          >
-                                            <mask id="ipSPin0">
-                                              <path
-                                                fill="#fff"
-                                                stroke="#fff"
-                                                strokeLinejoin="round"
-                                                strokeWidth="4"
-                                                d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"
-                                              />
-                                            </mask>
-                                            <path
-                                              fill="currentColor"
-                                              d="M0 0h48v48H0z"
-                                              mask="url(#ipSPin0)"
-                                            />
-                                          </svg>
-                                        ) : (
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                      <mask id="ipSPin0">
+                                        <path
+                                          fill="#fff"
+                                          stroke="#fff"
+                                          strokeLinejoin="round"
+                                          strokeWidth="4"
+                                          d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"
+                                        />
+                                      </mask>
+                                      <path
+                                        fill="currentColor"
+                                        d="M0 0h48v48H0z"
+                                        mask="url(#ipSPin0)"
+                                      />
+                                    </svg>
+                                  ) : (
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
                                             width="18"
                                             height="18"
-                                            viewBox="0 0 48 48"
-                                            className="group-hover:block hidden"
-                                          >
-                                            <path
-                                              fill="none"
-                                              stroke="currentColor"
-                                              strokeLinejoin="round"
-                                              strokeWidth="4"
-                                              d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"
-                                            />
-                                          </svg>
-                                        )}
-                                      </button>
-                                      {uniqueTags.filter(
+                                      viewBox="0 0 48 48"
+                                      className="group-hover:block hidden"
+                                    >
+                                      <path
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeLinejoin="round"
+                                        strokeWidth="4"
+                                        d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"
+                                      />
+                                    </svg>
+                                  )}
+                                </button>
+                                {uniqueTags.filter(
                                         (tag) =>
                                           (typeof tag === "string"
                                             ? tag
@@ -10320,159 +10338,159 @@ function Main() {
                                           ).toLowerCase() !== "stop bot"
                                       ).length > 0 && (
                                         <span className="bg-blue-100 dark:bg-blue-600/30 text-blue-700 dark:text-blue-300 text-xs font-medium px-2 py-1 rounded-full mr-2">
-                                          <Lucide
-                                            icon="Tag"
+                                      <Lucide
+                                        icon="Tag"
                                             className="w-4 h-4 inline-block mr-1"
-                                          />
-                                          {
-                                            uniqueTags.filter(
-                                              (tag) =>
+                                      />
+                                        {
+                                          uniqueTags.filter(
+                                            (tag) =>
                                                 (typeof tag === "string"
                                                   ? tag
                                                   : String(tag)
                                                 ).toLowerCase() !== "stop bot"
-                                            ).length
-                                          }
-                                        </span>
-                                      )}
-                                      {employeeTags.length > 0 && (
+                                          ).length
+                                        }
+                                      </span>
+                                )}
+                                {employeeTags.length > 0 && (
                                         <span className="bg-green-100 dark:bg-green-600/30 text-green-700 dark:text-green-300 text-xs font-medium px-2 py-1 rounded-full mr-2">
-                                          <Lucide
-                                            icon="Users"
+                                      <Lucide
+                                        icon="Users"
                                             className="w-4 h-4 inline-block mr-1"
-                                          />
-                                          {employeeTags.length === 1
+                                      />
+                                        {employeeTags.length === 1
                                             ? employeeList.find(
-                                                (e) =>
-                                                  (e.name?.toLowerCase() ||
-                                                    "") ===
+                                              (e) =>
+                                                (e.name?.toLowerCase() ||
+                                                  "") ===
                                                   (typeof employeeTags[0] ===
                                                   "string"
                                                     ? employeeTags[0]
                                                     : String(employeeTags[0])
                                                   ).toLowerCase()
-                                              )?.employeeId ||
-                                              (employeeTags[0]?.length > 8
-                                                ? employeeTags[0].slice(0, 6)
-                                                : employeeTags[0])
-                                            : employeeTags.length}
-                                        </span>
-                                      )}
-                                    </>
-                                  );
-                                })()}
+                                            )?.employeeId ||
+                                            (employeeTags[0]?.length > 8
+                                              ? employeeTags[0].slice(0, 6)
+                                              : employeeTags[0])
+                                          : employeeTags.length}
+                                      </span>
+                                )}
+                              </>
+                            );
+                          })()}
                               </div>
                             </div>
-                          </div>
+                        </div>
 
                           <div className="flex flex-col items-end space-y-0.5 ml-1.5">
-                            <span
+                          <span
                               className={`text-xs ${
-                                contact.unreadCount && contact.unreadCount > 0
+                              contact.unreadCount && contact.unreadCount > 0
                                   ? "text-green-600 dark:text-green-400 font-medium"
                                   : "text-gray-600 dark:text-gray-400"
-                              }`}
-                            >
-                              {contact.last_message?.createdAt ||
-                              contact.last_message?.timestamp
-                                ? formatDate(
-                                    contact.last_message.createdAt ||
-                                      (contact.last_message.timestamp &&
-                                        contact.last_message.timestamp * 1000)
-                                  )
+                            }`}
+                          >
+                            {contact.last_message?.createdAt ||
+                            contact.last_message?.timestamp
+                              ? formatDate(
+                                  contact.last_message.createdAt ||
+                                    (contact.last_message.timestamp &&
+                                      contact.last_message.timestamp * 1000)
+                                )
                                 : "New"}
-                            </span>
-                          </div>
+                          </span>
                         </div>
+                    </div>
 
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
                             <div className="mt-1">
                               <span className="text-sm text-gray-700 dark:text-gray-400 truncate block">
-                                {contact.last_message ? (
-                                  <>
-                                    {contact.last_message.from_me && (
-                                      <svg
-                                        xmlns="http://www.w3.org/2000/svg"
+                        {contact.last_message ? (
+                          <>
+                            {contact.last_message.from_me && (
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
                                         className="inline-block w-5 h-5 text-blue-600 dark:text-blue-400 mr-2"
-                                        viewBox="0 0 20 20"
-                                        fill="currentColor"
-                                      >
-                                        <path
-                                          fillRule="evenodd"
-                                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                          clipRule="evenodd"
-                                        />
-                                      </svg>
-                                    )}
-                                    {(() => {
-                                      const message = contact.last_message;
-                                      if (!message) return "No Messages";
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            )}
+                            {(() => {
+                              const message = contact.last_message;
+                              if (!message) return "No Messages";
 
-                                      const getMessageContent = () => {
-                                        switch (message.type) {
-                                          case "text":
-                                          case "chat":
+                              const getMessageContent = () => {
+                                switch (message.type) {
+                                  case "text":
+                                  case "chat":
                                             return (
                                               message.text?.body || "Message"
                                             );
-                                          case "image":
-                                            return message.text?.body
-                                              ? `📷 ${message.text?.body}`
-                                              : "📷 Photo";
-                                          case "document":
-                                            return `📄 ${
-                                              message.document?.filename ||
-                                              message.text?.body ||
-                                              "Document"
-                                            }`;
-                                          case "audio":
-                                          case "ptt":
-                                            return "🎵 Audio";
-                                          case "video":
-                                            return message.text?.body
-                                              ? `🎥 ${message.text?.body}`
-                                              : "🎥 Video";
-                                          case "voice":
-                                            return "🎤 Voice message";
-                                          case "sticker":
-                                            return "😊 Sticker";
-                                          case "location":
-                                            return "📍 Location";
-                                          case "call_log":
-                                            return `📞 ${
-                                              message.call_log?.status || "Call"
-                                            }`;
-                                          case "order":
-                                            return "🛒 Order";
-                                          case "gif":
-                                            return "🎞️ GIF";
-                                          case "link_preview":
-                                            return "🔗 Link";
-                                          case "privateNote":
-                                            return "📝 Private note";
-                                          default:
+                                  case "image":
+                                    return message.text?.body
+                                      ? `📷 ${message.text?.body}`
+                                      : "📷 Photo";
+                                  case "document":
+                                    return `📄 ${
+                                      message.document?.filename ||
+                                      message.text?.body ||
+                                      "Document"
+                                    }`;
+                                  case "audio":
+                                  case "ptt":
+                                    return "🎵 Audio";
+                                  case "video":
+                                    return message.text?.body
+                                      ? `🎥 ${message.text?.body}`
+                                      : "🎥 Video";
+                                  case "voice":
+                                    return "🎤 Voice message";
+                                  case "sticker":
+                                    return "😊 Sticker";
+                                  case "location":
+                                    return "📍 Location";
+                                  case "call_log":
+                                    return `📞 ${
+                                      message.call_log?.status || "Call"
+                                    }`;
+                                  case "order":
+                                    return "🛒 Order";
+                                  case "gif":
+                                    return "🎞️ GIF";
+                                  case "link_preview":
+                                    return "🔗 Link";
+                                  case "privateNote":
+                                    return "📝 Private note";
+                                  default:
                                             return (
                                               message.text?.body || "Message"
                                             );
-                                        }
-                                      };
+                                }
+                              };
 
-                                      const content = getMessageContent();
+                              const content = getMessageContent();
                                       return message.from_me
                                         ? content
                                         : content;
-                                    })()}
-                                  </>
-                                ) : (
-                                  "No Messages"
-                                )}
-                              </span>
+                            })()}
+                          </>
+                        ) : (
+                          "No Messages"
+                        )}
+                      </span>
                             </div>
                           </div>
 
-                          {isAssistantAvailable && (
-                            <div
+                      {isAssistantAvailable && (
+                        <div
                               onClick={(e) =>
                                 toggleStopBotLabel(contact, index, e)
                               }
@@ -10484,15 +10502,15 @@ function Main() {
                               }
                             >
                               <label className="inline-flex items-center cursor-pointer group">
-                                <input
-                                  type="checkbox"
-                                  className="sr-only peer"
-                                  checked={contact.tags?.includes("stop bot")}
-                                  readOnly
-                                />
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={contact.tags?.includes("stop bot")}
+                              readOnly
+                            />
                                 <span
                                   className={`relative w-12 h-6 flex items-center rounded-full transition-colors duration-300 ${
-                                    contact.tags?.includes("stop bot")
+                                contact.tags?.includes("stop bot")
                                       ? "bg-gradient-to-r from-red-500 to-red-700"
                                       : "bg-gradient-to-r from-green-500 to-green-700"
                                   }`}
@@ -10505,12 +10523,12 @@ function Main() {
                                     }`}
                                   ></span>
                                 </span>
-                              </label>
-                            </div>
-                          )}
+                          </label>
                         </div>
-                      </div>
+                      )}
                     </div>
+                  </div>
+                </div>
                   </div>
                 </div>
               </React.Fragment>
@@ -10524,27 +10542,27 @@ function Main() {
         >
           {/* Main Pagination */}
           <div className="flex justify-center items-center">
-            <ReactPaginate
-              breakLabel="…"
-              nextLabel="Next"
-              onPageChange={isLoadingMoreContacts ? () => {} : handlePageChange}
+          <ReactPaginate
+            breakLabel="…"
+            nextLabel="Next"
+            onPageChange={isLoadingMoreContacts ? () => {} : handlePageChange}
               pageRangeDisplayed={2}
-              marginPagesDisplayed={2}
-              pageCount={Math.ceil(totalContacts / contactsPerPage)}
-              previousLabel="Previous"
-              renderOnZeroPageCount={null}
+            marginPagesDisplayed={2}
+            pageCount={Math.ceil(totalContacts / contactsPerPage)}
+            previousLabel="Previous"
+            renderOnZeroPageCount={null}
               containerClassName="flex justify-center items-center flex-wrap gap-0.5"
               pageClassName="mx-0.25"
               pageLinkClassName="px-1.5 py-1 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs min-w-[18px] text-center font-medium transition-all duration-200 border border-gray-200 dark:border-gray-600"
-              previousClassName="mx-0.5"
-              nextClassName="mx-0.5"
+            previousClassName="mx-0.5"
+            nextClassName="mx-0.5"
               previousLinkClassName="px-1.5 py-1 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-medium transition-all duration-200 border border-gray-200 dark:border-gray-600"
               nextLinkClassName="px-1.5 py-1 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-medium transition-all duration-200 border border-gray-200 dark:border-gray-600"
-              disabledClassName="opacity-50 cursor-not-allowed"
-              activeClassName="font-bold"
+            disabledClassName="opacity-50 cursor-not-allowed"
+            activeClassName="font-bold"
               activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700 border-blue-500"
-              forcePage={currentPage}
-            />
+            forcePage={currentPage}
+          />
           </div>
         </div>
         {isLoadingMoreContacts && (
@@ -11093,10 +11111,10 @@ function Main() {
                                   </span>
                                 </div>
                               )}
-                              {message.chat_id &&
-                                (message.chat_id.includes("@g.us") ||
-                                  (userData?.companyId === "0123" &&
-                                    message.chat_id.includes("@c.us"))) &&
+                                    {message.chat_id &&
+                                      (message.chat_id.includes("@g.us") ||
+                                        (userData?.companyId === "0123" &&
+                                          message.chat_id.includes("@c.us"))) &&
                                 message.author && (
                                   <div
                                     className="pb-1 text-sm font-medium capitalize mb-1.5"
@@ -11107,7 +11125,7 @@ function Main() {
                                     }}
                                   >
                                     {message.author.split("@")[0].toLowerCase()}
-                                  </div>
+                              </div>
                                 )}
                               {message.type === "text" &&
                                 message.text?.context && (
@@ -11890,11 +11908,11 @@ function Main() {
                                           `Phone ${message.phoneIndex + 1}`}
                                       </div>
                                     )}
-                                    {formatTimestamp(
-                                      message.createdAt ||
-                                        message.dateAdded ||
-                                        message.timestamp
-                                    )}
+                                      {formatTimestamp(
+                                        message.createdAt ||
+                                          message.dateAdded ||
+                                          message.timestamp
+                                      )}
 
                                     {/* Message status indicator for sent messages */}
                                     {message.from_me && (
@@ -12840,15 +12858,15 @@ function Main() {
                 new conversation to get started.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={openNewChatModal}
+              <button
+                onClick={openNewChatModal}
                   className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
+              >
                   <div className="flex items-center space-x-2">
                     <Lucide icon="Plus" className="w-4 h-4" />
                     <span>Start New Chat</span>
                   </div>
-                </button>
+              </button>
                 <button
                   onClick={() => setIsSearchModalOpen(true)}
                   className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold py-3 px-6 rounded-lg transition-all duration-200 border border-gray-300 dark:border-gray-600"
@@ -13751,28 +13769,26 @@ function Main() {
       />
 
       {/* Usage Dashboard Modal */}
-      <Dialog
-        open={isUsageDashboardOpen}
-        onClose={() => setIsUsageDashboardOpen(false)}
-        className="relative z-50"
-      >
-        <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm"
-          aria-hidden="true"
-        />
-        <div className="fixed inset-0 flex items-center justify-center p-3">
-          <Dialog.Panel className="mx-auto max-w-5xl w-full bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+      {isUsageDashboardOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsUsageDashboardOpen(false)}
+          />
+          {/* Modal Content */}
+          <div className="relative flex flex-col w-full h-full bg-white dark:bg-gray-900 overflow-hidden">
             {/* Header */}
-            <div className="relative bg-gradient-to-r from-slate-600 via-gray-600 to-slate-700 p-4">
+            <div className="relative bg-gradient-to-r from-slate-600 via-gray-600 to-slate-700 p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20">
                     <Lucide icon="BarChart3" className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <Dialog.Title className="text-xl font-bold text-white">
+                    <h2 className="text-xl font-bold text-white">
                       Usage Analytics
-                    </Dialog.Title>
+                    </h2>
                     <p className="text-gray-200 text-sm">
                       Real-time monitoring and insights
                     </p>
@@ -13803,7 +13819,8 @@ function Main() {
             </div>
 
             {/* Content */}
-            <div className="p-5">
+            <div className="flex-1 p-8 overflow-y-auto bg-gray-50 dark:bg-gray-800">
+              <div className="max-w-7xl mx-auto">
               {isLoadingUsageData ? (
                 <div className="flex items-center justify-center py-16">
                   <div className="flex flex-col items-center gap-4">
@@ -14223,7 +14240,7 @@ function Main() {
                       <button
                         onClick={() => {
                           toast.info(
-                            "🚀 Quota top-up functionality coming soon! You'll be able to increase your limits instantly."
+                            "🚀 Click the Top-up button above to upgrade your plan or purchase additional AI responses!"
                           );
                         }}
                         className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-slate-500 to-gray-600 text-white rounded-2xl hover:from-slate-600 hover:to-gray-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 group"
@@ -14239,9 +14256,10 @@ function Main() {
                 </div>
               )}
             </div>
-          </Dialog.Panel>
+          </div>
+          </div>
         </div>
-      </Dialog>
+      )}
       <ImageModal
         isOpen={isImageModalOpen}
         onClose={closeImageModal}
@@ -14453,6 +14471,243 @@ function Main() {
                 Set Reminder
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top-up Modal */}
+      {isTopUpModalOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsTopUpModalOpen(false)}
+          />
+          {/* Modal Content */}
+          <div className="relative flex flex-col w-full h-full bg-white dark:bg-gray-900 overflow-hidden">
+            {/* Header */}
+            <div className="relative bg-gradient-to-r from-slate-600 via-gray-600 to-slate-700 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20">
+                    <Lucide icon="Sparkles" className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">
+                      AI Response Top-up & Plans
+                    </h2>
+                    <p className="text-gray-200 text-sm mt-1">
+                      Upgrade your plan or top up your AI responses
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsTopUpModalOpen(false)}
+                  className="p-2 hover:bg-white/15 rounded-xl transition-all duration-200 border border-white/20"
+                >
+                  <Lucide icon="X" className="w-6 h-6 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 p-8 overflow-y-auto bg-gray-50 dark:bg-gray-800">
+              <div className="max-w-7xl mx-auto">
+                {/* Current Usage Summary */}
+                <div className="mb-10 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-2xl border border-blue-200/50 dark:border-blue-700/50">
+                <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">
+                  Current Usage
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {aiMessageUsage}
+                    </div>
+                    <div className="text-sm text-blue-700 dark:text-blue-300">
+                      AI Responses Used
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {quotaAIMessage || 500}
+                    </div>
+                    <div className="text-sm text-blue-700 dark:text-blue-300">
+                      Monthly Limit
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {Math.max(0, (quotaAIMessage || 500) - aiMessageUsage)}
+                    </div>
+                    <div className="text-sm text-blue-700 dark:text-blue-300">
+                      Remaining
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pricing Plans */}
+              <div className="mb-10">
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-8">
+                  Choose Your Plan
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  {/* Starter Plan */}
+                  <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
+                    <div className="text-center">
+                      <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                        Starter Plan
+                      </h4>
+                      <div className="text-3xl font-black text-primary mb-4">
+                        RM 98
+                        <span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+                        Perfect for small businesses. Get 500 AI responses monthly with full access to all system features.
+                      </p>
+                      <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                        Start Plan
+                      </button>
+                    </div>
+                    <div className="mt-6 space-y-3">
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        500 AI Responses Monthly
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Follow-Up System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Tagging System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        Mobile & Desktop Access
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Professional Plan */}
+                  <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-primary shadow-xl scale-105">
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                      <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">
+                        Most Popular
+                      </span>
+                    </div>
+                    <div className="text-center">
+                      <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                        Professional Plan
+                      </h4>
+                      <div className="text-3xl font-black text-primary mb-4">
+                        RM 688
+                        <span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+                        Premium support with 5,000 AI responses monthly. We handle your prompting, follow-ups, and maintenance.
+                      </p>
+                      <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                        Start Plan
+                      </button>
+                    </div>
+                    <div className="mt-6 space-y-3">
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        5,000 AI Responses Monthly
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Follow-Up System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Tagging System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        Full Maintenance & Support
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Enterprise Plan */}
+                  <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
+                    <div className="text-center">
+                      <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                        Enterprise Plan
+                      </h4>
+                      <div className="text-3xl font-black text-primary mb-4">
+                        RM 3,088
+                        <span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
+                  </div>
+                      <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+                        Complete solution with 20,000 AI responses, custom integrations, full setup and maintenance included.
+                      </p>
+                      <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                        Start Plan
+                      </button>
+                    </div>
+                    <div className="mt-6 space-y-3">
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        20,000 AI Responses Monthly
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Follow-Up System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        AI Tagging System
+                      </div>
+                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
+                        Full AI Setup & Custom Automations
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Top-up Section */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-2xl border border-green-200/50 dark:border-green-700/50 p-8">
+                <h3 className="text-2xl font-bold text-green-900 dark:text-green-100 mb-6">
+                  Need More AI Responses?
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="text-center">
+                    <div className="text-3xl font-black text-green-600 dark:text-green-400 mb-2">
+                      RM 10
+                    </div>
+                    <div className="text-lg font-semibold text-green-700 dark:text-green-300 mb-2">
+                      per 100 AI Responses
+                    </div>
+                    <p className="text-green-600 dark:text-green-400 text-sm mb-4">
+                      Top up anytime, regardless of your plan
+                    </p>
+                    <button className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                      Get Top-up
+                    </button>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-black text-green-600 dark:text-green-400 mb-2">
+                      Custom
+                    </div>
+                    <div className="text-lg font-semibold text-green-700 dark:text-green-300 mb-2">
+                      AI Setup & Automations
+                    </div>
+                    <p className="text-green-600 dark:text-green-400 text-sm mb-4">
+                      Based on your specific requirements
+                    </p>
+                    <button className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                      Get Quote
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           </div>
         </div>
       )}

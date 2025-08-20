@@ -2788,10 +2788,10 @@ interface BotStatusResponse {
                   setDeleteConfirmationModal(false);
                   setCurrentContact(null);
 
-                  await fetchContacts();
-                  await fetchScheduledMessages();
+          await fetchContacts();
+          await fetchScheduledMessages();
                   return;
-                } else {
+        } else {
                   const forceErrorData = await forceDeleteResponse.json();
                   toast.error(`Force delete failed: ${forceErrorData.message || 'Unknown error'}`);
                 }
