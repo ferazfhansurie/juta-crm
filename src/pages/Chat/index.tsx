@@ -8871,20 +8871,125 @@ function Main() {
       const companyId = userData.userData.companyId;
       console.log("contact_id", contact.contact_id);
 
-      // Call the reset unread API
-      await fetch(
-        `${baseUrl}/api/contacts/${contact.contact_id}/reset-unread`,
+      // Call the mark as unread API
+      const response = await fetch(
+        `${baseUrl}/api/contacts/${contact.contact_id}/mark-unread`,
         {
-          method: "PUT",
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ companyId }),
+          body: JSON.stringify({ company_id: companyId, increment: 1 }),
         }
       );
 
-      toast.success("Marked as unread");
+      if (!response.ok) {
+        throw new Error("Failed to mark contact as unread");
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update the contact's unread count in the local state
+        setContacts(prevContacts => 
+          prevContacts.map(c => 
+            c.contact_id === contact.contact_id 
+              ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
+              : c
+          )
+        );
+        
+        setLoadedContacts(prevLoadedContacts => 
+          prevLoadedContacts.map(c => 
+            c.contact_id === contact.contact_id 
+              ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
+              : c
+          )
+        );
+        
+        setFilteredContacts(prevFilteredContacts => 
+          prevFilteredContacts.map(c => 
+            c.contact_id === contact.contact_id 
+              ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
+              : c
+          )
+        );
+
+        toast.success("Marked as unread");
+      } else {
+        throw new Error(result.error || "Failed to mark contact as unread");
+      }
     } catch (error) {
-      console.error("Failed to reset unread count:", error);
+      console.error("Failed to mark contact as unread:", error);
       toast.error("Failed to mark as unread");
+    }
+  };
+
+  const markAsRead = async (contact: Contact) => {
+    if (!contact?.contact_id) return;
+
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
+
+      // Get user/company info
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
+          userEmail
+        )}`
+      );
+      if (!userResponse.ok) return;
+      const userData = await userResponse.json();
+      const companyId = userData.userData.companyId;
+      console.log("contact_id", contact.contact_id);
+
+      // Call the mark as read API
+      const response = await fetch(
+        `${baseUrl}/api/contacts/${contact.contact_id}/mark-read`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ company_id: companyId }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to mark contact as read");
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update the contact's unread count in the local state
+        setContacts(prevContacts => 
+          prevContacts.map(c => 
+            c.contact_id === contact.contact_id 
+              ? { ...c, unreadCount: 0 }
+              : c
+          )
+        );
+        
+        setLoadedContacts(prevLoadedContacts => 
+          prevLoadedContacts.map(c => 
+            c.contact_id === contact.contact_id 
+              ? { ...c, unreadCount: 0 }
+              : c
+          )
+        );
+        
+        setFilteredContacts(prevFilteredContacts => 
+          prevFilteredContacts.map(c => 
+            c.contact_id === contact.contact_id 
+              ? { ...c, unreadCount: 0 }
+              : c
+          )
+        );
+
+        toast.success("Marked as read");
+      } else {
+        throw new Error(result.error || "Failed to mark contact as read");
+      }
+    } catch (error) {
+      console.error("Failed to mark contact as read:", error);
+      toast.error("Failed to mark as read");
     }
   };
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -10163,7 +10268,7 @@ function Main() {
                 }
               >
                 <div
-                  className={`px-2 py-1.5 cursor-pointer transition-all duration-200 group hover:bg-gray-100/50 dark:hover:bg-gray-700/30 mx-1 my-0.5 ${
+                  className={`px-2 py-1.5 cursor-pointer transition-all duration-200 group hover:bg-gray-100/50 dark:hover:bg-gray-700/30 mx-1 my-0.5 select-none ${
                     contact.contact_id !== undefined
                       ? selectedChatId === contact.contact_id
                         ? "bg-blue-100/50 dark:bg-blue-900/20 border border-blue-500/30 rounded-lg"
@@ -10173,6 +10278,8 @@ function Main() {
                       : "bg-transparent"
                   }`}
                   onClick={() => selectChat(contact.contact_id!, contact.id!)}
+                  onContextMenu={(e) => handleContextMenu(e, contact)}
+                  title="Right-click for more options"
                 >
                   <div className="flex items-center space-x-1.5">
                     <div className="relative flex-shrink-0">
@@ -14416,6 +14523,9 @@ function Main() {
       <ContextMenu id="contact-context-menu">
         <Item onClick={({ props }) => markAsUnread(props.contact)}>
           Mark as Unread
+        </Item>
+        <Item onClick={({ props }) => markAsRead(props.contact)}>
+          Mark as Read
         </Item>
         <Separator />
         <Item
