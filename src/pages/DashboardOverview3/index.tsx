@@ -1453,7 +1453,7 @@ function normalizePhone(phone: string) {
     if (dateOnlyMatch) {
       const [, day, month, year] = dateOnlyMatch;
       const result = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      
+    
       return result;
     }
     
@@ -1554,10 +1554,10 @@ function normalizePhone(phone: string) {
       existingProgram.name = `${existingProgram.combinedNames.slice(0, 2).join(' + ')}${existingProgram.combinedNames.length > 2 ? ' + ...' : ''}`;
     } else {
       // Create new program entry
-      const program = {
-        name: r['Program Name'],
-        dateTime: dateTime,
-        parsedDate: parsedDate,
+    const program = {
+      name: r['Program Name'],
+      dateTime: dateTime,
+      parsedDate: parsedDate,
         cleanedName: cleanedName,
         combinedNames: [cleanedName],
         source: source
@@ -1810,7 +1810,7 @@ function normalizePhone(phone: string) {
     if (program.dateTime) {
       // Show combined names if multiple programs on same date
       if (program.combinedNames && program.combinedNames.length > 1) {
-        const combinedDisplay = program.combinedNames.slice(0, 2).join(' + ');
+        const combinedDisplay = program.combinedNames[0];
         const remainingCount = program.combinedNames.length - 2;
         const suffix = remainingCount > 0 ? ` + ${remainingCount} more` : '';
         return `${combinedDisplay}${suffix} (${program.dateTime})`;
@@ -2914,12 +2914,12 @@ function normalizePhone(phone: string) {
       <section className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8 border border-gray-100 dark:border-gray-700">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-4">
-              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Participant Overview</h2>
+          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-4">
+            <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Participant Overview</h2>
           </div>
           
           {/* Data Source Indicator */}
@@ -3316,7 +3316,7 @@ function normalizePhone(phone: string) {
             </div>
           </div>
 
-        </div>Pr
+        </div>
 
         {/* Profession Breakdown Pie Chart */}
         {selectedProgramFilteredParticipants.length > 0 && (
