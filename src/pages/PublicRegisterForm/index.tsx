@@ -9,11 +9,16 @@ function PublicRegisterForm() {
   const { phone } = useParams<{ phone: string }>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [baseUrl] = useState<string>('https://juta-dev.ngrok.dev');
+  
+  // Add error state for better error handling
+  const [errors, setErrors] = useState<string[]>([]);
+  const [showErrors, setShowErrors] = useState(false);
+  
   const [formData, setFormData] = useState({
     selectedPrograms: [] as string[], // Changed to array for multiple events
     fullName: '',
     organisation: '',
-    email: '',
+    email: '', // This will be auto-generated from phone number
     profession: '',
     phone: ''
   });
@@ -25,20 +30,35 @@ function PublicRegisterForm() {
       fullName: '',
       organisation: '',
       email: '',
-      profession: ''
+      profession: '',
+      phone: '' // Add phone field
     }
   ]);
 
   // Extract phone number from URL parameter
   useEffect(() => {
     if (phone) {
+      console.log('Raw phone parameter:', phone);
+      
       // Remove any non-digit characters and ensure it starts with 60
       let phoneDigits = phone.replace(/\D/g, "");
+      console.log('Phone after removing non-digits:', phoneDigits);
+      
       if (!phoneDigits.startsWith("60")) {
         phoneDigits = "60" + phoneDigits;
+        console.log('Phone after adding 60 prefix:', phoneDigits);
       }
+      
+      console.log('Final formatted phone:', phoneDigits);
+      console.log('Phone length:', phoneDigits.length);
+      
+      // Validate phone number format
+      if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+        console.warn('Phone number length seems unusual:', phoneDigits.length);
+      }
+      
       setFormData(prev => ({
-      ...prev,
+        ...prev,
         phone: phoneDigits
       }));
 
@@ -218,14 +238,168 @@ function PublicRegisterForm() {
     });
   };
 
+  // Error handling functions
+  const clearErrors = () => {
+    setErrors([]);
+    setShowErrors(false);
+  };
+
+  const addError = (error: string) => {
+    setErrors(prev => [...prev, error]);
+  };
+
+  const showErrorModal = (errorMessages: string[]) => {
+    setErrors(errorMessages);
+    setShowErrors(true);
+  };
+
+  // Enhanced validation with specific error messages
+  const validateForm = () => {
+    clearErrors();
+    const newErrors: string[] = [];
+
+    console.log('🔍 VALIDATION DEBUG - Form data:', formData);
+    console.log('🔍 VALIDATION DEBUG - Email field:', {
+      value: formData.email,
+      type: typeof formData.email,
+      length: formData.email.length,
+      trimmed: formData.email.trim(),
+      trimmedLength: formData.email.trim().length
+    });
+
+    // Check if there are any upcoming events available
+    if (upcomingEvents.length === 0) {
+      newErrors.push('❌ No upcoming events are available for registration. Please check back later.');
+    }
+    
+    // Check if events are still loading
+    if (eventsLoading) {
+      newErrors.push('❌ Events are still loading. Please wait a moment and try again.');
+    }
+    
+    // Validate that selected events have proper IDs
+    if (formData.selectedPrograms.length > 0) {
+      const invalidEvents = formData.selectedPrograms.filter(slug => {
+        const event = upcomingEvents.find(e => e.slug === slug);
+        return !event || !event.id;
+      });
+      
+      if (invalidEvents.length > 0) {
+        newErrors.push(`❌ Some selected events are invalid: ${invalidEvents.join(', ')}. Please refresh the page and try again.`);
+      }
+    }
+    
+    if (formData.selectedPrograms.length === 0) {
+      newErrors.push('❌ Please select at least one program to register for.');
+    }
+    
+    if (!formData.fullName.trim()) {
+      newErrors.push('❌ Full name is required for your certificate of attendance.');
+    } else if (formData.fullName.trim().length < 2) {
+      newErrors.push('❌ Full name must be at least 2 characters long.');
+    }
+    
+    if (!formData.organisation.trim()) {
+      newErrors.push('❌ Organisation/company name is required.');
+    } else if (formData.organisation.trim().length < 2) {
+      newErrors.push('❌ Organisation name must be at least 2 characters long.');
+    }
+    
+    if (!formData.phone.trim()) {
+      newErrors.push('❌ Phone number is required for WhatsApp confirmation.');
+    } else {
+      // Enhanced phone number validation
+      const cleanPhone = formData.phone.replace(/\s/g, '');
+      const phoneRegex = /^[+]?[0-9\s\-\(\)]{10,}$/;
+      
+      if (!phoneRegex.test(cleanPhone)) {
+        newErrors.push('❌ Please enter a valid phone number (minimum 10 digits).');
+      }
+      
+      // Check for the specific problematic phone number
+      if (cleanPhone === '60192692775') {
+        console.log('🚨 VALIDATING PROBLEMATIC PHONE NUMBER: 60192692775');
+        console.log('Phone validation details:', {
+          original: formData.phone,
+          cleaned: cleanPhone,
+          length: cleanPhone.length,
+          matchesRegex: phoneRegex.test(cleanPhone),
+          startsWith60: cleanPhone.startsWith('60')
+        });
+      }
+    }
+    
+    if (!formData.profession) {
+      newErrors.push('❌ Please select your profession from the available options.');
+    }
+
+    if (newErrors.length > 0) {
+      showErrorModal(newErrors);
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Check if user is already registered for selected events
+  const checkExistingRegistration = async (phone: string, eventIds: string[]) => {
+    try {
+      const response = await fetch(`${baseUrl}/api/participants?company_id=0380`);
+      if (response.ok) {
+        const data = await response.json();
+        const existingRegistrations = data.participants?.filter((p: any) => {
+          // Check by phone number
+          if (p.enrollee?.phone === phone || p.enrollee?.mobile_number === phone) {
+            return eventIds.includes(p.event_id);
+          }
+          
+          // Check by email if user provided one
+          if (formData.email.trim() && p.enrollee?.email?.toLowerCase() === formData.email.trim().toLowerCase()) {
+            return eventIds.includes(p.event_id);
+          }
+          
+          return false;
+        }) || [];
+        
+        if (existingRegistrations.length > 0) {
+          const eventNames = existingRegistrations.map((r: any) => {
+            const event = upcomingEvents.find(e => e.id === r.event_id);
+            return event ? event.name : 'Unknown Event';
+          });
+          return {
+            isRegistered: true,
+            events: eventNames,
+            message: `You are already registered for: ${eventNames.join(', ')}`
+          };
+        }
+      }
+      return { isRegistered: false, events: [], message: '' };
+    } catch (error) {
+      console.error('Error checking existing registration:', error);
+      return { isRegistered: false, events: [], message: '' };
+    }
+  };
+
   // Helper function to get event ID from program selection
   const getEventIdFromProgram = (programValue: string) => {
+    console.log('getEventIdFromProgram called with:', programValue);
+    console.log('Available events:', upcomingEvents);
+    
     // Find the event by slug
     const event = upcomingEvents.find(e => e.slug === programValue);
     
     if (!event) {
-      console.error(`No event found for program: ${programValue}`);
-      throw new Error(`Invalid program selection: ${programValue}`);
+      console.error(`No event found for program slug: ${programValue}`);
+      console.error('Available slugs:', upcomingEvents.map(e => e.slug));
+      throw new Error(`Invalid program selection: ${programValue}. Please refresh the page and try again.`);
+    }
+    
+    console.log('Found event:', event);
+    console.log('Event ID:', event.id);
+    
+    if (!event.id) {
+      console.error('Event found but ID is missing:', event);
+      throw new Error(`Event ${event.name} has no ID. Please contact support.`);
     }
     
     return event.id; // This will be the actual UUID from the database
@@ -274,7 +448,8 @@ function PublicRegisterForm() {
       fullName: '',
       organisation: '',
       email: '',
-      profession: ''
+      profession: '',
+      phone: formData.phone // Use the main contact's phone number
     }]);
   };
 
@@ -295,6 +470,7 @@ function PublicRegisterForm() {
       participant.fullName.trim() && 
       participant.organisation.trim() && 
       participant.email.trim() && 
+      participant.phone.trim() && 
       participant.profession
     );
   };
@@ -302,7 +478,7 @@ function PublicRegisterForm() {
   // Bulk registration function
   const handleBulkRegistration = async () => {
     if (!validateForm() || !validateParticipants()) {
-      alert('Please fill in all required fields for all participants');
+      alert('Please fill in all required fields for all participants (name, organisation, email, phone, profession)');
         return;
       }
       
@@ -313,12 +489,12 @@ function PublicRegisterForm() {
       
       for (const participant of participants) {
         try {
-                    // Create or find enrollee for each participant
+          // Create or find enrollee for each participant
           const enrolleeData = {
             name: participant.fullName, // Try 'name' instead of 'full_name'
             full_name: participant.fullName, // Keep both for compatibility
             organisation: participant.organisation,
-            email: participant.email,
+            email: participant.email, // Use the actual email provided by participant
             company_id: "0380"
           };
 
@@ -471,6 +647,18 @@ function PublicRegisterForm() {
   };
 
   const handleInputChange = (field: string, value: string) => {
+    console.log(`🔄 Input change - Field: ${field}, Value: "${value}"`);
+    console.log(`🔄 Input change - Value type: ${typeof value}, Length: ${value.length}`);
+    
+    // Special debugging for email field
+    if (field === 'email') {
+      console.log('🔍 EMAIL INPUT DEBUG:');
+      console.log('Raw email value:', value);
+      console.log('Email after trim:', value.trim());
+      console.log('Email contains spaces:', value.includes(' '));
+      console.log('Email contains special chars:', /[^\w@.-]/.test(value));
+    }
+    
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -487,48 +675,6 @@ function PublicRegisterForm() {
     }));
   };
 
-  const validateForm = () => {
-    // Check if there are any upcoming events available
-    if (upcomingEvents.length === 0) {
-      alert('No upcoming events are available for registration');
-      return false;
-    }
-    
-    if (formData.selectedPrograms.length === 0) {
-      alert('Please select at least one program to register for');
-      return false;
-    }
-    if (!formData.fullName.trim()) {
-      alert('Please enter your full name');
-      return false;
-    }
-    if (!formData.organisation.trim()) {
-      alert('Please enter your organisation/company');
-      return false;
-    }
-    if (!formData.email.trim()) {
-      alert('Please enter your email address');
-      return false;
-    }
-    if (!formData.phone.trim()) {
-      alert('Please enter your phone number for WhatsApp confirmation');
-      return false;
-    }
-    if (!formData.profession) {
-      alert('Please select your profession');
-      return false;
-    }
-    
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      alert('Please enter a valid email address');
-      return false;
-    }
-    
-    return true;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -537,16 +683,34 @@ function PublicRegisterForm() {
       }
       
     setIsSubmitting(true);
+    clearErrors();
     
     try {
       console.log('Form data to submit:', formData);
+      
+      // Check for existing registrations first
+      const eventIds = formData.selectedPrograms.map(slug => getEventIdFromProgram(slug));
+      const existingCheck = await checkExistingRegistration(formData.phone, eventIds);
+      
+      if (existingCheck.isRegistered) {
+        showErrorModal([
+          '❌ Registration Failed',
+          `You are already registered for the following events:`,
+          ...existingCheck.events.map((event: string) => `   • ${event}`),
+          '',
+          'If you need to make changes to your registration, please contact our support team via WhatsApp.',
+          'Click the WhatsApp buttons above to get help.'
+        ]);
+        setIsSubmitting(false);
+        return;
+      }
       
       // First, create or find the enrollee
       const enrolleeData = {
         name: formData.fullName, // Try 'name' instead of 'full_name'
         full_name: formData.fullName, // Keep both for compatibility
         organisation: formData.organisation,
-        email: formData.email,
+        email: formData.email.trim() || `${formData.phone}@whatsapp.local`, // Use actual email if provided, otherwise phone-based
         designation: formData.profession,  // ← ADD THIS LINE
         mobile_number: formData.phone, // Try 'mobile_number' instead of 'phone'
         phone: formData.phone, // Keep both for compatibility
@@ -554,9 +718,31 @@ function PublicRegisterForm() {
       };
 
       console.log('Creating/finding enrollee:', enrolleeData);
+      console.log('Phone number being used:', formData.phone);
+      console.log('Phone number type:', typeof formData.phone);
+      console.log('Phone number length:', formData.phone.length);
 
-      // Try to find existing enrollee first by email
-      console.log('Searching for existing enrollee with email:', formData.email);
+      // Special debugging for the problematic phone number
+      if (formData.phone === '60192692775') {
+        console.log('🚨 DEBUGGING PROBLEMATIC PHONE NUMBER: 60192692775');
+        console.log('Form data for this phone:', formData);
+        console.log('Upcoming events:', upcomingEvents);
+        console.log('Selected programs:', formData.selectedPrograms);
+        console.log('Enrollee data being sent:', enrolleeData);
+        
+        // Validate phone number format
+        const cleanPhone = formData.phone.replace(/\s/g, '');
+        console.log('Phone validation for problematic number:', {
+          original: formData.phone,
+          cleaned: cleanPhone,
+          length: cleanPhone.length,
+          startsWith60: cleanPhone.startsWith('60'),
+          isValid: /^[0-9]{10,15}$/.test(cleanPhone)
+        });
+      }
+
+      // Try to find existing enrollee first by phone number (since we don't have email)
+      console.log('Searching for existing enrollee with phone:', formData.phone);
       
       let enrolleeId: string;
       
@@ -565,53 +751,203 @@ function PublicRegisterForm() {
       if (allEnrolleesResponse.ok) {
         const allEnrollees = await allEnrolleesResponse.json();
         console.log('All enrollees response:', allEnrollees);
+        console.log('Total enrollees found:', allEnrollees.enrollees?.length || 0);
         
-        // Manually search for the email
-        const existingEnrollee = allEnrollees.enrollees?.find((e: any) => 
-          e.email && e.email.toLowerCase() === formData.email.toLowerCase()
-        );
+        // Manually search for the enrollee by phone number or email
+        const existingEnrollee = allEnrollees.enrollees?.find((e: any) => {
+          // If user provided an email, search by email first
+          if (formData.email.trim()) {
+            if (e.email && e.email.toLowerCase() === formData.email.trim().toLowerCase()) {
+              return true;
+            }
+          }
+          
+          // Also search by phone number as fallback
+          if (e.phone && e.phone === formData.phone) {
+            return true;
+          }
+          
+          if (e.mobile_number && e.mobile_number === formData.phone) {
+            return true;
+          }
+          
+          return false;
+        });
+        
+        console.log('Searching for enrollee with phone:', formData.phone);
+        console.log('Searching for enrollee with email:', formData.email);
+        console.log('Existing enrollee found:', existingEnrollee);
         
         if (existingEnrollee) {
           enrolleeId = existingEnrollee.id;
           console.log('Found existing enrollee manually:', existingEnrollee);
+          console.log('Using existing enrollee ID:', enrolleeId);
         } else {
           console.log('No existing enrollee found, creating new one...');
           console.log('Enrollee data to create:', enrolleeData);
           
-          const createResponse = await fetch(`${baseUrl}/api/enrollees`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(enrolleeData),
-          });
+          // Retry mechanism for enrollee creation
+          let createResponse: Response | undefined;
+          let enrolleeResult: any;
+          let retryCount = 0;
+          const maxRetries = 2;
           
-          if (createResponse.ok) {
-            const enrolleeResult = await createResponse.json();
-            enrolleeId = enrolleeResult.enrollee_id || enrolleeResult.id;
-            console.log('Enrollee created successfully:', enrolleeResult);
+          while (retryCount <= maxRetries) {
+            try {
+              console.log(`Attempting enrollee creation (attempt ${retryCount + 1}/${maxRetries + 1})`);
+              
+              createResponse = await fetch(`${baseUrl}/api/enrollees`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(enrolleeData),
+              });
+              
+              if (createResponse.ok) {
+                enrolleeResult = await createResponse.json();
+                console.log(`Enrollee creation successful on attempt ${retryCount + 1}`);
+                break;
+              } else {
+                const errorData = await createResponse.json();
+                console.error(`Enrollee creation failed on attempt ${retryCount + 1}:`, errorData);
+                
+                if (retryCount === maxRetries) {
+                  // Final attempt failed, throw error
+                  if (createResponse.status === 409) {
+                    throw new Error('An account with this email already exists. Please use a different email or contact support if this is your account.');
+                  } else if (createResponse.status === 400) {
+                    throw new Error('Invalid data provided. Please check your information and try again.');
+                  } else if (createResponse.status === 500) {
+                    throw new Error('Server error occurred while creating your account. Please try again later or contact support.');
+                  } else {
+                    throw new Error(`Failed to create account: ${errorData.error || createResponse.statusText}`);
+                  }
+                }
+                
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+                retryCount++;
+              }
+            } catch (error) {
+              if (retryCount === maxRetries) {
+                throw error;
+              }
+              console.log(`Enrollee creation attempt ${retryCount + 1} failed, retrying...`);
+              await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+              retryCount++;
+            }
+          }
+          
+          if (createResponse && createResponse.ok) {
+            // Try different possible field names for the ID
+            enrolleeId = enrolleeResult.enrollee_id || enrolleeResult.id || enrolleeResult.user_id || enrolleeResult.enrolleeId;
+            
+            // Special debugging for the problematic phone number
+            if (formData.phone === '60192692775') {
+              console.log('🚨 DEBUGGING ENROLLEE RESPONSE FOR PROBLEMATIC PHONE:');
+              console.log('Full response object:', enrolleeResult);
+              console.log('Response stringified:', JSON.stringify(enrolleeResult, null, 2));
+              console.log('Attempted ID extraction:', {
+                enrollee_id: enrolleeResult.enrollee_id,
+                id: enrolleeResult.id,
+                user_id: enrolleeResult.user_id,
+                enrolleeId: enrolleeResult.enrolleeId,
+                final_enrolleeId: enrolleeId
+              });
+            }
+            
+            if (!enrolleeId) {
+              console.error('No enrollee ID found in response:', enrolleeResult);
+              console.error('Response structure:', JSON.stringify(enrolleeResult, null, 2));
+              
+              // Try to extract ID from nested objects
+              if (enrolleeResult.data && enrolleeResult.data.id) {
+                enrolleeId = enrolleeResult.data.id;
+                console.log('Found ID in data.id:', enrolleeId);
+              } else if (enrolleeResult.result && enrolleeResult.result.id) {
+                enrolleeId = enrolleeResult.result.id;
+                console.log('Found ID in result.id:', enrolleeId);
+              } else if (enrolleeResult.enrollee && enrolleeResult.enrollee.id) {
+                enrolleeId = enrolleeResult.enrollee.id;
+                console.log('Found ID in enrollee.id:', enrolleeId);
+              }
+              
+              if (!enrolleeId) {
+                throw new Error(`Failed to get enrollee ID from server response. Server returned: ${JSON.stringify(enrolleeResult)}`);
+              }
+            }
+            
+            console.log('Enrollee created successfully with ID:', enrolleeId);
           } else {
-            const errorData = await createResponse.json();
+            // Handle case where enrollee creation failed after all retries
+            if (!createResponse) {
+              throw new Error('Failed to create enrollee: No response received from server');
+            }
+            
+            const errorData = await createResponse?.json();
             console.error('Failed to create enrollee:', errorData);
-            throw new Error(`Failed to create enrollee: ${errorData.error || createResponse.statusText}`);
+            
+            // Provide specific error messages based on the error
+            if (createResponse?.status === 409) {
+              throw new Error('An account with this email already exists. Please use a different email or contact support if this is your account.');
+            } else if (createResponse?.status === 400) {
+              throw new Error('Invalid data provided. Please check your information and try again.');
+            } else if (createResponse?.status === 500) {
+              throw new Error('Server error occurred while creating your account. Please try again later or contact support.');
+            } else {
+              throw new Error(`Failed to create account: ${errorData?.error || createResponse?.statusText}`);
+            }
           }
         }
       } else {
         const errorData = await allEnrolleesResponse.json();
         console.error('Failed to fetch all enrollees:', errorData);
-        throw new Error(`Failed to fetch enrollees: ${errorData.error || allEnrolleesResponse.statusText}`);
+        
+        if (allEnrolleesResponse.status === 503) {
+          throw new Error('Service temporarily unavailable. Please try again in a few minutes.');
+        } else if (allEnrolleesResponse.status === 500) {
+          throw new Error('Server error occurred. Please try again later or contact support.');
+        } else {
+          throw new Error(`Failed to verify account: ${errorData.error || allEnrolleesResponse.statusText}`);
+        }
       }
 
       // Register for all selected programs
       const results = [];
       
+      // Ensure we have a valid enrollee ID before proceeding
+      if (!enrolleeId) {
+        throw new Error('Failed to get or create enrollee. Please try again or contact support.');
+      }
+      
+      console.log('Proceeding with registration using enrollee ID:', enrolleeId);
+      
       for (const programSlug of formData.selectedPrograms) {
         try {
+          // Get event ID and validate it exists
+          const eventId = getEventIdFromProgram(programSlug);
+          console.log(`Event ID for ${programSlug}:`, eventId);
+          
+          // Special debugging for the problematic phone number
+          if (formData.phone === '60192692775') {
+            console.log('🚨 DEBUGGING EVENT LOOKUP FOR PROBLEMATIC PHONE:');
+            console.log('Program slug:', programSlug);
+            console.log('Event ID found:', eventId);
+            console.log('Event ID type:', typeof eventId);
+            console.log('Event ID length:', eventId ? eventId.length : 'undefined');
+          }
+          
+          // Validate enrollee ID
+          if (!enrolleeId) {
+            throw new Error('Enrollee ID is missing. Please try again.');
+          }
+          
           // Prepare participant data for each event
           const participantData = {
             reference_number: generateReferenceNumber(),
             enrollee_id: enrolleeId,
-            event_id: getEventIdFromProgram(programSlug),
+            event_id: eventId,
             fee_id: generateUUID(),
             payment_date: new Date().toISOString(),
             payment_status_id: 1,
@@ -622,6 +958,22 @@ function PublicRegisterForm() {
             company_id: "0380",
             remarks: `Registered via public form for ${getProgramTitle(programSlug)}`
           };
+          
+          console.log(`Participant data for ${programSlug}:`, participantData);
+          
+          // Special debugging for the problematic phone number
+          if (formData.phone === '60192692775') {
+            console.log('🚨 DEBUGGING PARTICIPANT DATA FOR PROBLEMATIC PHONE:');
+            console.log('Full participant data:', participantData);
+            console.log('enrollee_id:', participantData.enrollee_id);
+            console.log('event_id:', participantData.event_id);
+            console.log('company_id:', participantData.company_id);
+            console.log('All required fields present:', {
+              enrollee_id: !!participantData.enrollee_id,
+              event_id: !!participantData.event_id,
+              company_id: !!participantData.company_id
+            });
+          }
           
           console.log(`Registering for program: ${programSlug}`);
           
@@ -636,7 +988,27 @@ function PublicRegisterForm() {
           
           if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || `Failed to register for ${getProgramTitle(programSlug)}: ${response.status}`);
+            console.error(`API Error for ${programSlug}:`, errorData);
+            
+            // Provide specific error messages based on the error
+            if (response.status === 409) {
+              throw new Error(`You are already registered for ${getProgramTitle(programSlug)}.`);
+            } else if (response.status === 400) {
+              throw new Error(`Invalid registration data for ${getProgramTitle(programSlug)}. Please check your information.`);
+            } else if (response.status === 404) {
+              throw new Error(`Event ${getProgramTitle(programSlug)} not found or no longer available.`);
+            } else if (response.status === 422) {
+              // Check if it's a validation error
+              if (errorData.error && errorData.error.includes('required')) {
+                throw new Error(`Missing required data for ${getProgramTitle(programSlug)}. Please contact support.`);
+              } else {
+                throw new Error(`Event ${getProgramTitle(programSlug)} is full or registration is closed.`);
+              }
+            } else if (response.status === 500) {
+              throw new Error(`Server error occurred while registering for ${getProgramTitle(programSlug)}. Please try again.`);
+            } else {
+              throw new Error(errorData.error || `Failed to register for ${getProgramTitle(programSlug)}: ${response.status}`);
+            }
           }
           
           const result = await response.json();
@@ -667,9 +1039,21 @@ function PublicRegisterForm() {
         // Navigate to thank you page
         navigate('/thank-you');
       } else {
-        // Some registrations failed
-        const errorMessage = `Registration Results:\n✅ ${successCount} successful\n❌ ${failedCount} failed\n\nFailed programs:\n${results.filter(r => r.status === 'failed').map(r => `- ${getProgramTitle(r.program)}`).join('\n')}`;
-        alert(errorMessage);
+        // Some registrations failed - show detailed error
+        const failedPrograms = results.filter(r => r.status === 'failed');
+        const errorMessages = [
+          '❌ Registration Partially Failed',
+          '',
+          `✅ Successfully registered for ${successCount} event(s)`,
+          `❌ Failed to register for ${failedCount} event(s):`,
+          '',
+          ...failedPrograms.map(r => `• ${getProgramTitle(r.program)}: ${r.error}`),
+          '',
+          'Please try registering for the failed events again, or contact support via WhatsApp if the problem persists.',
+          'Click the WhatsApp buttons above to get help.'
+        ];
+        
+        showErrorModal(errorMessages);
         console.error('Some registrations failed:', results);
       }
       
@@ -677,111 +1061,152 @@ function PublicRegisterForm() {
 
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert(`Failed to submit registration: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'An unexpected error occurred during registration.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'Network error: Please check your internet connection and try again.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Request timed out. Please try again or contact support if the problem persists.';
+        } else if (error.message.includes('already exists')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('already registered')) {
+          errorMessage = error.message;
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      showErrorModal([
+        '❌ Registration Failed',
+        '',
+        errorMessage,
+        '',
+        'If you continue to experience issues, please contact our support team via WhatsApp:',
+        'Click the WhatsApp buttons above to get help.',
+        'Or call: +60 3-1234 5678'
+      ]);
     } finally {
       setIsSubmitting(false);
     }
   };
 
         return (
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-          <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-12">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-4">
+          <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         {/* Header */}
-                  <div className="text-center mb-6 sm:mb-8 md:mb-12">
-            <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-blue-100 rounded-full mb-4 sm:mb-6 md:mb-8">
-              <svg className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="text-center mb-4 sm:mb-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-full mb-3 sm:mb-4">
+              <svg className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 md:mb-6">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
               FUTUREX.AI 2025
             </h1>
-            <p className="text-base sm:text-lg md:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed px-2">
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
               Event Registration Form
             </p>
-            <p className="text-sm sm:text-base text-gray-500 mt-3 sm:mt-4 max-w-2xl mx-auto">
-              Join us for cutting-edge AI and robotics events. Register now to secure your spot and receive your certificate of attendance.
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-500 mt-2 max-w-xl mx-auto">
+              Join us for cutting-edge AI and robotics events. Register now to secure your spot.
             </p>
           </div>
 
+          {/* Help Button */}
+          <button
+            onClick={() => {
+              setErrors([
+                "Need help with registration?",
+                "• Make sure all required fields are filled",
+                "• Check that your email format is correct (e.g., user@example.com)",
+                "• Ensure your phone number includes country code (e.g., 60123456789)",
+                "• Select at least one program to register for",
+                "• If you're already registered, you'll see a message",
+                "• For technical issues, contact our support team via WhatsApp below"
+              ]);
+              setShowErrors(true);
+            }}
+            className="inline-flex items-center mt-3 px-3 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-lg transition-colors duration-200"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Need Help?
+          </button>
+
         {/* Phone Number Display */}
         {formData.phone && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-            </svg>
-            </div>
+                </svg>
+              </div>
               <div>
-                <div className="font-semibold text-green-800">Registration for Phone Number</div>
-                <div className="text-green-700">+{formData.phone}</div>
-                <div className="text-sm text-green-600">WhatsApp confirmation will be sent to this number</div>
-          </div>
+                <div className="font-medium text-green-800 text-sm">Registration for +{formData.phone}</div>
+                <div className="text-green-600 text-xs">WhatsApp confirmation will be sent to this number</div>
+              </div>
             </div>
           </div>
         )}
 
         {/* Form Container */}
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl sm:shadow-2xl border border-gray-100 overflow-hidden">
-          <form onSubmit={handleSubmit} className="p-4 sm:p-6 md:p-8 lg:p-10">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-6">
             
             {/* Program Selection */}
-            <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg sm:rounded-xl border border-blue-200">
-              <div className="flex items-start space-x-2 sm:space-x-3 mb-4">
+            <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+              <div className="flex items-start space-x-2 mb-3">
                 <div className="flex-shrink-0 mt-1">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold text-blue-600">
+                  <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs font-bold text-blue-600">
                     1
                   </div>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">
+                  <label className="block text-sm font-bold text-gray-900 mb-2">
                     Programs To Register <span className="text-red-500">*</span>
                   </label>
                   {formData.selectedPrograms.length > 0 && (
-                    <div className="mb-3 p-2 bg-blue-100 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-800 font-medium">
-                        ✅ {formData.selectedPrograms.length} event{formData.selectedPrograms.length > 1 ? 's' : ''} selected
-                      </p>
+                    <div className="mb-2 p-2 bg-blue-100 border border-blue-200 rounded text-xs text-blue-800">
+                      ✅ {formData.selectedPrograms.length} event{formData.selectedPrograms.length > 1 ? 's' : ''} selected
                     </div>
                   )}
-                  <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
                     {upcomingEvents.length > 0 ? (
                       upcomingEvents.map((event) => (
-                        <label key={event.id} className="flex items-start p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 cursor-pointer">
+                        <label key={event.id} className="flex items-start p-2 border border-gray-200 rounded hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 cursor-pointer">
                           <input
                             type="checkbox"
                             name="selectedPrograms"
                             value={event.slug}
                             checked={formData.selectedPrograms.includes(event.slug)}
                             onChange={(e) => handleProgramSelection(event.slug, e.target.checked)}
-                            className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 border-gray-300 focus:ring-blue-500 mt-1"
+                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 mt-0.5"
                           />
-                          <div className="ml-3 sm:ml-4 flex-1">
-                            <div className="font-semibold text-gray-900 text-base sm:text-lg">
+                          <div className="ml-2 flex-1">
+                            <div className="font-medium text-gray-900 text-xs">
                               {new Date(event.start_date).toLocaleDateString('en-US', { 
-                                weekday: 'long', 
-                                year: 'numeric', 
-                                month: 'long', 
-                                day: 'numeric' 
+                                month: 'short', 
+                                day: 'numeric',
+                                year: 'numeric'
                               })}
                             </div>
-                            <div className="text-gray-700 text-sm sm:text-base mt-1">
+                            <div className="text-gray-700 text-xs mt-0.5">
                               {event.name}
                             </div>
-                            <div className="text-gray-500 text-xs sm:text-sm mt-1">
+                            <div className="text-gray-500 text-xs mt-0.5">
                               {event.start_time} - {event.end_time} • {event.location}
                             </div>
                           </div>
                         </label>
                       ))
                     ) : (
-                      <div className="p-4 sm:p-6 text-center bg-gray-50 rounded-lg border border-gray-200">
-                        <svg className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <p className="text-gray-600 text-base sm:text-lg font-medium">No upcoming events available</p>
-                        <p className="text-gray-500 text-xs sm:text-sm mt-1">All scheduled events have passed. Check back later for new events!</p>
+                      <div className="p-3 text-center bg-gray-50 rounded border border-gray-200">
+                        <p className="text-gray-600 text-xs font-medium">No upcoming events available</p>
+                        <p className="text-gray-500 text-xs mt-1">Check back later for new events!</p>
                       </div>
                     )}
                   </div>
@@ -790,109 +1215,107 @@ function PublicRegisterForm() {
             </div>
 
             {/* Full Name */}
-            <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
-              <div className="flex items-start space-x-3 mb-4">
+            <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+              <div className="flex items-start space-x-2 mb-2">
                 <div className="flex-shrink-0 mt-1">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-sm font-bold text-green-600">
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-xs font-bold text-green-600">
                     2
                   </div>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xl font-bold text-gray-900 mb-4">
-                    Full Name (Please register with your full name for certificate of attendance) <span className="text-red-500">*</span>
-            </label>
+                  <label className="block text-sm font-bold text-gray-900 mb-2">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
                   <textarea
                     value={formData.fullName}
                     onChange={(e) => handleInputChange('fullName', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 resize-none text-base"
-                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 resize-none text-sm"
+                    rows={2}
                     placeholder="Type your answer here..."
                   />
-                  <div className="text-sm text-gray-500 mt-2">
+                  <div className="text-xs text-gray-500 mt-1">
                     {formData.fullName.length > 0 ? `${formData.fullName.length} characters` : ''}
-          </div>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Organisation/Company */}
-            <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
-              <div className="flex items-start space-x-3 mb-4">
+            <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+              <div className="flex items-start space-x-2 mb-2">
                 <div className="flex-shrink-0 mt-1">
-                  <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-sm font-bold text-purple-600">
+                  <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center text-xs font-bold text-purple-600">
                     3
                   </div>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xl font-bold text-gray-900 mb-4">
+                  <label className="block text-sm font-bold text-gray-900 mb-2">
                     Organisation/Company <span className="text-red-500">*</span>
                   </label>
-            <textarea
+                  <textarea
                     value={formData.organisation}
                     onChange={(e) => handleInputChange('organisation', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 resize-none text-base"
-                    rows={3}
-              placeholder="Type your answer here..."
-            />
-                  <div className="text-sm text-gray-500 mt-2">
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 resize-none text-sm"
+                    rows={2}
+                    placeholder="Type your answer here..."
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
                     {formData.organisation.length > 0 ? `${formData.organisation.length} characters` : ''}
-            </div>
-          </div>
-      </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Email Address */}
-            <div className="mb-8 p-6 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200">
-              <div className="flex items-start space-x-3 mb-4">
-                        <div className="flex-shrink-0 mt-1">
-                  <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-sm font-bold text-orange-600">
+            <div className="mb-4 p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
+              <div className="flex items-start space-x-2 mb-2">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-xs font-bold text-orange-600">
                     4
-        </div>
-      </div>
+                  </div>
+                </div>
                 <div className="flex-1">
-                  <label className="block text-xl font-bold text-gray-900 mb-4">
+                  <label className="block text-sm font-bold text-gray-900 mb-2">
                     Email Address <span className="text-red-500">*</span>
-                          </label>
+                  </label>
                   <textarea
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200 resize-none text-base"
-                    rows={3}
-                    placeholder="Type your answer here..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200 resize-none text-sm"
+                    rows={2}
+                    placeholder="Enter your email address..."
                   />
-                  <div className="text-sm text-gray-500 mt-2">
+                  <div className="text-xs text-gray-500 mt-1">
                     {formData.email.length > 0 ? `${formData.email.length} characters` : ''}
-          </div>
-                        </div>
-          </div>
-        </div>
-
-
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Profession */}
-            <div className="mb-8 p-6 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl border border-teal-200">
-              <div className="flex items-start space-x-3 mb-4">
+            <div className="mb-4 p-3 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg border border-teal-200">
+              <div className="flex items-start space-x-2 mb-2">
                 <div className="flex-shrink-0 mt-1">
-                  <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-sm font-bold text-teal-600">
+                  <div className="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center text-xs font-bold text-teal-600">
                     5
                   </div>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xl font-bold text-gray-900 mb-4">
+                  <label className="block text-sm font-bold text-gray-900 mb-2">
                     Profession <span className="text-red-500">*</span>
                   </label>
-                  <div className="space-y-3">
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
                     {professionOptions.map((option, index) => (
-                      <label key={index} className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-teal-300 hover:bg-teal-50 transition-all duration-200 cursor-pointer">
-                  <input
+                      <label key={index} className="flex items-center p-2 border border-gray-200 rounded hover:border-teal-300 hover:bg-teal-50 transition-all duration-200 cursor-pointer">
+                        <input
                           type="radio"
                           name="profession"
                           value={option}
                           checked={formData.profession === option}
                           onChange={(e) => handleInputChange('profession', e.target.value)}
-                          className="w-5 h-5 text-teal-600 border-gray-300 focus:ring-teal-500"
+                          className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
                         />
-                        <span className="ml-4 text-gray-900 text-base font-medium">{option}</span>
+                        <span className="ml-2 text-gray-900 text-xs">{option}</span>
                       </label>
                     ))}
                   </div>
@@ -901,83 +1324,83 @@ function PublicRegisterForm() {
             </div>
 
             {/* Participants Management */}
-            <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
-              <div className="flex items-start space-x-3 mb-4">
-                        <div className="flex-shrink-0 mt-1">
-                  <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-sm font-bold text-purple-600">
+            <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+              <div className="flex items-start space-x-2 mb-2">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center text-xs font-bold text-purple-600">
                     6
-                          </div>
-                        </div>
+                  </div>
+                </div>
                 <div className="flex-1">
-                  <div className="flex items-center justify-between mb-4">
-                    <label className="block text-xl font-bold text-gray-900">
-                      Additional Participants <span className="text-sm font-normal text-gray-600">(Optional)</span>
-                          </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-bold text-gray-900">
+                      Additional Participants <span className="text-xs font-normal text-gray-600">(Optional)</span>
+                    </label>
                     <button
                       type="button"
                       onClick={addParticipant}
-                      className="px-4 py-3 text-sm bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200 rounded-lg font-medium transition-all duration-200"
+                      className="px-2 py-1 text-xs bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200 rounded font-medium transition-all duration-200"
                     >
-                      + Add Participant
+                      + Add
                     </button>
-                          </div>
+                  </div>
                   
-                  <div className="space-y-4">
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
                     {participants.map((participant, index) => (
-                      <div key={participant.id} className="p-4 border border-purple-200 rounded-lg bg-white">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-purple-800">Participant {index + 1}</h4>
+                      <div key={participant.id} className="p-2 border border-purple-200 rounded bg-white">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-purple-800 text-xs">Participant {index + 1}</h4>
                           {participants.length > 1 && (
                             <button
                               type="button"
                               onClick={() => removeParticipant(participant.id)}
-                              className="text-red-500 hover:text-red-700 text-sm"
+                              className="text-red-500 hover:text-red-700 text-xs"
                             >
                               Remove
                             </button>
                           )}
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Full Name *</label>
                             <input
                               type="text"
                               value={participant.fullName}
                               onChange={(e) => updateParticipant(participant.id, 'fullName', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs"
                               placeholder="Enter full name"
                             />
-                      </div>
+                          </div>
                           
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Organisation *</label>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Organisation *</label>
                             <input
                               type="text"
                               value={participant.organisation}
                               onChange={(e) => updateParticipant(participant.id, 'organisation', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs"
                               placeholder="Enter organisation"
                             />
-                    </div>
+                          </div>
                           
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Email *</label>
                             <input
                               type="email"
                               value={participant.email}
                               onChange={(e) => updateParticipant(participant.id, 'email', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs"
                               placeholder="Enter email address"
                             />
                           </div>
                           
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Profession *</label>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Profession *</label>
                             <select
                               value={participant.profession}
                               onChange={(e) => updateParticipant(participant.id, 'profession', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs"
                             >
                               <option value="">Select profession</option>
                               {professionOptions.map((option, idx) => (
@@ -985,12 +1408,23 @@ function PublicRegisterForm() {
                               ))}
                             </select>
                           </div>
+                          
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number *</label>
+                            <input
+                              type="tel"
+                              value={participant.phone}
+                              onChange={(e) => updateParticipant(participant.id, 'phone', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs"
+                              placeholder="Enter phone number"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))}
-            </div>
 
-                  <div className="mt-4 text-sm text-gray-600">
+                  <div className="mt-2 text-xs text-gray-600">
                     <p>• Add multiple participants to register them all at once</p>
                     <p>• All participants will be registered for the same event</p>
                     <p>• WhatsApp confirmation will be sent to the main contact number</p>
@@ -1000,24 +1434,24 @@ function PublicRegisterForm() {
             </div>
 
             {/* Submit Section */}
-            <div className="pt-6 sm:pt-8 border-t border-gray-200">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-                <div className="text-xs sm:text-sm text-gray-500 text-center sm:text-left">
-                  <span className="font-semibold text-gray-700">{participants.length > 1 ? `${participants.length} participants` : '1 participant'} to register</span>
+            <div className="pt-3 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                <div className="text-xs text-gray-500 text-center sm:text-left">
+                  <span className="font-medium text-gray-700">{participants.length > 1 ? `${participants.length} participants` : '1 participant'} to register</span>
                 </div>
-                <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:space-x-3">
+                <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:space-x-2">
                   {participants.length > 1 && (
                     <Button
                       type="button"
                       variant="secondary"
                       onClick={handleBulkRegistration}
                       disabled={isSubmitting}
-                      className="w-full sm:w-auto px-4 sm:px-6 py-3 text-sm sm:text-base font-semibold rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                      className="w-full sm:w-auto px-3 py-2 text-xs font-medium rounded shadow hover:shadow-md transition-all duration-200 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
                     >
                       {isSubmitting ? (
-                        <div className="flex items-center justify-center space-x-2 sm:space-x-3">
-                          <LoadingIcon icon="three-dots" className="w-4 h-4" />
-                          <span className="text-sm sm:text-base">Registering All...</span>
+                        <div className="flex items-center justify-center space-x-1">
+                          <LoadingIcon icon="three-dots" className="w-3 h-3" />
+                          <span className="text-xs">Registering All...</span>
                         </div>
                       ) : (
                         `Register All (${participants.length})`
@@ -1028,12 +1462,12 @@ function PublicRegisterForm() {
                     type="submit"
                     variant="primary"
                     disabled={isSubmitting}
-                    className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    className="w-full sm:w-auto px-4 py-2 text-sm font-medium rounded shadow hover:shadow-md transition-all duration-200 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
                   >
                     {isSubmitting ? (
-                      <div className="flex items-center justify-center space-x-2 sm:space-x-3">
-                        <LoadingIcon icon="three-dots" className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <span className="text-sm sm:text-base">Submitting...</span>
+                      <div className="flex items-center justify-center space-x-1">
+                        <LoadingIcon icon="three-dots" className="w-3 h-3" />
+                        <span className="text-xs">Submitting...</span>
                       </div>
                     ) : (
                       'Register Main Contact'
@@ -1046,9 +1480,71 @@ function PublicRegisterForm() {
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-8 text-sm text-gray-500 px-2">
-          <p>Thank you for registering for FUTUREX.AI 2025! You will receive a confirmation email shortly.</p>
+        <div className="text-center mt-4 text-xs text-gray-500 px-2">
+          <p>Thank you for registering for FUTUREX.AI 2025! You will receive a confirmation shortly.</p>
         </div>
+
+        {/* Error Modal */}
+        {showErrors && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-red-600 dark:text-red-400">Registration Issues</h3>
+                  <button
+                    onClick={clearErrors}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="space-y-3 mb-6">
+                  {errors.map((error, index) => (
+                    <div key={index} className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                      {error}
+                    </div>
+                  ))}
+                </div>
+
+                {/* WhatsApp Support Section */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 text-center">
+                    Need help with registration? Contact our support team via WhatsApp:
+                  </p>
+                  
+                  <div className="space-y-2">
+                    {/* Main Support WhatsApp */}
+                    <a
+                      href={`https://wa.me/601137206640?text=Hi, I'm having an issue with my registration for FUTUREX.AI 2025. My phone number is ${formData.phone || 'not provided'}. Can you help me complete my registration?`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg transition-colors duration-200 shadow hover:shadow-md"
+                    >
+                      <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.87 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.86 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
+                      </svg>
+                      Chat with Main Support
+                    </a>
+                    
+                
+                  </div>
+                  
+                  <div className="mt-4 text-center">
+                    <button
+                      onClick={clearErrors}
+                      className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium text-sm"
+                    >
+                      Close & Try Again
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

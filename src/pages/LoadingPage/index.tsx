@@ -1320,6 +1320,9 @@ function LoadingPage() {
 
       // Set amount based on plan
       switch (companyData.plan) {
+        case "free":
+          amount = 0; // Free plan - no payment required
+          break;
         case "blaster":
           amount = 6800; // RM 68.00
           break;
@@ -1330,7 +1333,7 @@ function LoadingPage() {
           amount = 71800; // RM 718.00
           break;
         default:
-          amount = 6800; // Default to blaster plan if no plan is specified
+          amount = 0; // Default to free plan if no plan is specified
       }
 
       const response = await fetch(`${baseUrl}/api/payments/create`, {
@@ -1343,7 +1346,7 @@ function LoadingPage() {
           name: userData.name || userEmail,
           amount,
           description: `WhatsApp Business API Subscription - ${
-            companyData.plan?.toUpperCase() || "BLASTER"
+            companyData.plan?.toUpperCase() || "FREE"
           } Plan`,
         }),
       });

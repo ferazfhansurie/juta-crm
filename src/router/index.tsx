@@ -42,6 +42,7 @@ import QuickReplies from "../pages/QuickReplies";
 import Automations from "../pages/Automations";
 import Builder from "../pages/Builder";
 import FollowUps from "../pages/FollowUps";
+import OnboardingFollowUps from "../pages/FollowUps/OnboardingFollowUps";
 import OldFollowUps from "../pages/FollowUpsOld";
 import SelectFollowUpMode from "../pages/FollowUpsSelect";
 import BlastHistory from "../pages/BlastHistory"
@@ -49,6 +50,7 @@ import Layout from "../themes";
 import { getAuth } from "firebase/auth";
 import { useState, useEffect } from "react";
 import AIResponses from "../pages/AIResponses";
+import OnboardingAIResponses from "../pages/AIResponses/OnboardingAIResponses";
 import StoragePricing from "../pages/StoragePricing";
 import { ContactsProvider, useContacts } from "../contact"; // Adjust the path as needed
 import DatabaseManager from "../pages/DatabaseManager";
@@ -66,6 +68,7 @@ import PublicAttendanceForm from "../pages/PublicAttendanceForm";
 import PublicBookingForm from "../pages/PublicBookingForm";
 import DataImport from "../pages/DataImport";
 import Builder2 from "../pages/Builder2";
+import ChatGPTStyle from "../pages/ChatGPTStyle";
 import SplitTest from "../pages/SplitTest";
 import ThankYou from "../pages/ThankYou";
 import OnboardingDemo from "../pages/OnboardingDemo";
@@ -105,6 +108,7 @@ function Router() {
         { path: "a-i-responses", element: <AIResponses /> },
         { path: "automations", element: <Automations /> },
         { path: "follow-ups", element: <FollowUps /> },
+
         { path: "follow-ups-select", element: <SelectFollowUpMode /> },
         { path: "follow-ups-old", element: <OldFollowUps /> },
         { path: "a-i-generative-responses", element: <AIGenerativeResponses /> },
@@ -167,8 +171,13 @@ function Router() {
         { path: "opp", element: <Opportunities /> },
         { path: "users-layout-2/loading2", element: <LoadingIcon2 /> },
         { path: "dashboard-overview-2", element: <DashboardOverview2 /> },
+     
       ],
     },
+
+    { path: "follow-ups-onboarding", element: <OnboardingFollowUps /> },
+    { path: "ai-responses-onboarding", element: <OnboardingAIResponses /> },
+    { path: "/onboarding", element: <ChatGPTStyle /> },
     { path: "/guest-chat/:companyId", element: <GuestChat />},
     { path: "/feedback/:formTitle/:phone", element: <PublicFeedbackForm />},
     { path: "/register/:formTitle/:phone", element: <PublicRegisterForm />},
@@ -182,6 +191,7 @@ function Router() {
     { path: "loading", element:<LoadingIcon />  },
     { path: "/login", element: <Login /> },
     { path: "/register", element: <Register /> },
+  
     { path: "/loading", element: <LoadingIcon />},
     { path: "/error-page", element: <ErrorPage /> },
     { path: "*", element: <ErrorPage /> },

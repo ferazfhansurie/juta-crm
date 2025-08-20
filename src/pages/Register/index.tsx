@@ -1,5 +1,7 @@
 import ThemeSwitcher from "@/components/ThemeSwitcher";
-import logoUrl from "@/assets/images/logo3.png";
+
+import logoUrl from "@/assets/images/logo.png";
+import logoUrl2 from "@/assets/images/logo3.png";
 import { FormInput } from "@/components/Base/Form";
 import Button from "@/components/Base/Button";
 import clsx from "clsx";
@@ -45,7 +47,6 @@ function Main() {
 
   
   const [registerResult, setRegisterResult] = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<'blaster' | 'enterprise' | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
   const [isVerificationSent, setIsVerificationSent] = useState(false);
   const [verificationStep, setVerificationStep] = useState(false);
@@ -163,11 +164,7 @@ function Main() {
     try {
       setIsLoading(true);
       // Validate plan selection
-      if (!selectedPlan) {
-        toast.error("Please select a plan to continue");
-        setIsLoading(false);
-        return;
-      }
+      // The plan selection is now automatic for all users
   
       // Generate a unique company ID with proper padding
       const timestamp = Date.now().toString().slice(-6);
@@ -185,13 +182,13 @@ function Main() {
           phoneNumber: formatPhoneNumber(phoneNumber),
           email: email,
           password: password,
-          plan: selectedPlan,
+          plan: 'free', // All users are now free
           country: selectedCountry
         });
   
         if (channelResponse.data) {
           // Sign in the user after successful registration
-          navigate('/loading');
+          navigate('/onboarding');
           toast.success("Registration successful!");
         }
       }
@@ -233,16 +230,19 @@ function Main() {
           
           {/* Main Title and Logo */}
           <div className="mb-4">
+      
             <div className="mb-3 flex justify-center">
               <img
                 alt="Juta Software Logo"
                 className="w-20 h-auto object-contain"
                 src={logoUrl}
+                onError={(e) => {
+                  console.error('Logo failed to load:', logoUrl2);
+                  // Fallback to logo2 if logo fails
+                  e.currentTarget.src = logoUrl2;
+                }}
               />
             </div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-1.5">
-              Join Juta Web
-            </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Create your account to start managing your business
             </p>
@@ -325,32 +325,7 @@ function Main() {
                 />
               </div>
 
-              {/* Plan Selection Section */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5 text-left">
-                  Choose Your Plan
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-                  {[
-                    ['blaster', 'Team Inbox', 'Perfect for small teams'],
-                    ['enterprise', 'Standard AI', 'Advanced features for growing businesses'],
-                  ].map(([id, name, description]) => (
-                    <div 
-                      key={id}
-                      className={clsx(
-                        "p-2 border-2 rounded-md cursor-pointer transition-all duration-200",
-                        selectedPlan === id 
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                      )}
-                      onClick={() => setSelectedPlan(id as 'blaster' | 'enterprise')}
-                    >
-                      <div className="text-xs font-bold text-gray-800 dark:text-gray-200 mb-0.5">{name}</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">{description}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+           
 
               {/* Register Button */}
               <Button
@@ -401,7 +376,7 @@ function Main() {
           {/* Additional Info */}
           <div className="mt-3 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Start your journey with Juta CRM today
+             Join Us to Automate
             </p>
           </div>
         </div>

@@ -4289,8 +4289,8 @@ function Main() {
       }
       setToken(data.companyData.whapiToken);
 
-      // Set message usage for enterprise plan
-      if (data.companyData.plan === "enterprise") {
+      // Set message usage for all plans (including free plan)
+      if (data.companyData.plan === "enterprise" || data.companyData.plan === "free") {
         setAiMessageUsage(data.messageUsage.aiMessages || 0);
         setBlastedMessageUsage(data.messageUsage.blastedMessages || 0);
         setQuotaAIMessage(data.usageQuota.aiMessages || 0);
@@ -9759,7 +9759,7 @@ function Main() {
             </div>
           </div>
         </div>
-        {companyPlan === "enterprise" && (
+        {(companyPlan === "enterprise" || companyPlan === "free") && (
           <div
             className="px-2 py-1.5 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 mb-1.5 cursor-pointer hover:shadow-md transition-all duration-200"
             onClick={openUsageDashboard}
@@ -14763,39 +14763,39 @@ function Main() {
                     </div>
                   </div>
 
-                  {/* Enterprise Plan */}
+                  {/* Free Plan */}
                   <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
                     <div className="text-center">
                       <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                        Enterprise Plan
+                        Free Plan
                       </h4>
                       <div className="text-3xl font-black text-primary mb-4">
-                        RM 3,088
+                        RM 0
                         <span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
                   </div>
                       <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-                        Complete solution with 20,000 AI responses, custom integrations, full setup and maintenance included.
+                        Basic solution with limited AI responses, perfect for getting started with Juta CRM.
                       </p>
                       <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                        Start Plan
+                        Current Plan
                       </button>
                     </div>
                     <div className="mt-6 space-y-3">
                       <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
                         <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        20,000 AI Responses Monthly
+                        Limited AI Responses Monthly
                       </div>
                       <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
                         <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Follow-Up System
+                        Basic AI Features
                       </div>
                       <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
                         <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Tagging System
+                        Standard Support
                       </div>
                       <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
                         <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Full AI Setup & Custom Automations
+                        Core CRM Features
                       </div>
                     </div>
                   </div>
