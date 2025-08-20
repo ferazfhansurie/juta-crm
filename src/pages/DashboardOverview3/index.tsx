@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+  import { useEffect, useState, useMemo } from "react";
 import Chart from "@/components/Base/Chart";
 import { ChartData, ChartOptions } from "chart.js/auto";
 import BarChart from "@/components/ReportBarChart1";
@@ -159,24 +159,22 @@ function normalizeProgramName(name: string) {
 function cleanProgramName(name: string) {
   if (!name) return 'Unspecified';
   
-  // Remove patterns like "14 May - ", "5 May - ", "26 May - " etc.
-  // Handle all variations: "5 May - ", "5 May-", "5 May ", etc.
   let cleaned = name
-    .replace(/^\d{1,2}\s+[A-Za-z]+(\s*[-–]\s*|\s*$)/, '')  // "5 May - ", "5 May-", "5 May ", etc.
+    .trim()
+    // Remove date prefixes more comprehensively
+    .replace(/^\d{1,2}\s+[A-Za-z]+(\s*[-–]\s*|\s*$)/, '')
+    // Remove date in parentheses (e.g., "(01/01/2023 10:00:00)")
+    .replace(/\s*\(\d{1,2}\/\d{1,2}\/\d{4}.*\)/, '')
+    // Remove "(Unspecified)" or similar non-date suffixes in parentheses
+    .replace(/\s*\(Unspecified\)/i, '')
+    // Remove specific date strings like ", 26 May" or ", 5 May"
+    .replace(/,\s*\d{1,2}\s+\w+/, '')
+    // Remove specific long suffixes that might contain dates or other info
+    .replace(/,\s*\d{1,2}\s+\w+\s*-\s*AI-Powered Visibility: Leveraging Google Business Profile \(GBP\) to Grow Your Business/, '')
+    .replace(/,\s*\d{1,2}\s+\w+\s*-\s*Generative AI in Social Media Marketing/, '')
+    // Normalize whitespace and remove extra spaces
+    .replace(/\s+/g, ' ')
     .trim();
-  
-  // Remove date in parentheses (e.g., "(01/01/2023 10:00:00)")
-  cleaned = cleaned.replace(/\s*\(\d{1,2}\/\d{1,2}\/\d{4}.*\)/, '').trim();
-  
-  // Remove "(Unspecified)" or similar non-date suffixes in parentheses
-  cleaned = cleaned.replace(/\s*\(Unspecified\)/i, '').trim();
-  
-  // Remove specific date strings like ", 26 May" or ", 5 May"
-  cleaned = cleaned.replace(/,\s*\d{1,2}\s+\w+/, '').trim();
-  
-  // Remove specific long suffixes that might contain dates or other info
-  cleaned = cleaned.replace(/,\s*\d{1,2}\s+\w+\s*-\s*AI-Powered Visibility: Leveraging Google Business Profile \(GBP\) to Grow Your Business/, '').trim();
-  cleaned = cleaned.replace(/,\s*\d{1,2}\s+\w+\s*-\s*Generative AI in Social Media Marketing/, '').trim();
   
   // Handle complex AI Horizon combinations - keep the most descriptive part
   // For combinations like "A - B - C", keep the longest meaningful part
@@ -206,6 +204,58 @@ function cleanProgramName(name: string) {
   
   // If the result is empty or just whitespace, return 'Unspecified'
   return cleaned || 'Unspecified';
+}
+
+// Additional function to normalize program names more aggressively for deduplication
+function normalizeProgramNameForDedup(name: string) {
+  if (!name) return '';
+  
+  return name
+    .toLowerCase()
+    .trim()
+    // Remove common punctuation and special characters
+    .replace(/[^\w\s]/g, ' ')
+    // Normalize whitespace
+    .replace(/\s+/g, ' ')
+    // Handle common variations like "Automation" vs "Automations"
+    .replace(/\bautomations\b/g, 'automation')
+    .replace(/\bautomation\b/g, 'automation')
+    // Handle other common plural/singular variations
+    .replace(/\btechnologies\b/g, 'technology')
+    .replace(/\bapplications\b/g, 'application')
+    .replace(/\bsolutions\b/g, 'solution')
+    .trim();
+}
+
+// Function to check if two program names are similar enough to merge
+function isSimilarProgram(name1: string, name2: string): boolean {
+  if (!name1 || !name2) return false;
+  
+  // If they're exactly the same after normalization, they're identical
+  if (name1 === name2) return true;
+  
+  // Split into words and compare
+  const words1 = name1.split(/\s+/).filter(word => word.length > 2);
+  const words2 = name2.split(/\s+/).filter(word => word.length > 2);
+  
+  if (words1.length === 0 || words2.length === 0) return false;
+  
+  // Count matching words
+  let matchingWords = 0;
+  words1.forEach(word1 => {
+    if (words2.some(word2 => 
+      word1.includes(word2) || word2.includes(word1) || 
+      word1 === word2
+    )) {
+      matchingWords++;
+    }
+  });
+  
+  // Calculate similarity percentage
+  const similarity = matchingWords / Math.max(words1.length, words2.length);
+  
+  // Consider programs similar if they share 80%+ of their key words
+  return similarity >= 0.8;
 }
 
 function getProgramFront(name: string, wordCount = 3) {
@@ -887,10 +937,7 @@ function normalizePhone(phone: string) {
   // Merge and deduplicate RSVP data
   const mergedRSVP = mergeRSVPByEmailAndPhone([...normalizedMtdc, ...normalizedAihorizon]);
 
-  // Create a map for RSVP by email
-  const rsvpByEmail: { [key: string]: any } = Object.fromEntries(
-    mergedRSVP.map((row: any) => [normalizeEmail(row.Email), row])
-  );
+
 
   // Merge CSV feedback data with Neon database feedback responses
   const mergedFeedbackData = useMemo(() => {
@@ -1057,11 +1104,7 @@ function normalizePhone(phone: string) {
     return filteredData;
   };
 
-  // Join feedback with RSVP using merged data
-  const feedbackWithRSVP = mergedFeedbackData.map((feedback: any) => ({
-    ...feedback,
-    rsvp: rsvpByEmail[normalizeEmail(feedback.Email)]
-  }));
+
 
   // Profession breakdown
   const professionCounts: { [key: string]: number } = {};
@@ -1203,13 +1246,98 @@ function normalizePhone(phone: string) {
     .sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime());
 
   // Get programs available for selected category (for Program-Specific Dashboard) - MOVED UP
-  const programsInSelectedCategoryForDashboard = selectedCategory 
-    ? Array.from(new Set(
-        mergedRSVP
+    const programsInSelectedCategoryForDashboard = selectedCategory
+    ? (() => {
+        // Debug: Log raw and cleaned program names to identify duplicates
+        const rawProgramNames = mergedRSVP
           .filter((row: any) => row["Category"] === selectedCategory)
-          .map((row: any) => cleanProgramName(row["Program Name"]))
+          .map((row: any) => row["Program Name"]);
+        
+        const cleanedNames = rawProgramNames.map(name => cleanProgramName(name));
+        
+        console.log('Raw program names for dashboard category:', selectedCategory, rawProgramNames);
+        console.log('Cleaned program names for dashboard:', cleanedNames);
+        
+        // More aggressive deduplication using normalized names
+        const normalizedNames = cleanedNames.map(name => normalizeProgramNameForDedup(name));
+        console.log('Normalized names for dashboard deduplication:', normalizedNames);
+        
+        // Debug: Show character-by-character analysis for similar names
+        const similarNames = new Map();
+        cleanedNames.forEach((name, index) => {
+          const normalized = normalizedNames[index];
+          if (!similarNames.has(normalized)) {
+            similarNames.set(normalized, []);
+          }
+          similarNames.get(normalized).push({
+            original: rawProgramNames[index],
+            cleaned: name,
+            normalized: normalized
+          });
+        });
+        
+        // Log any names that have multiple variations
+        similarNames.forEach((variations, normalized) => {
+          if (variations.length > 1) {
+            console.log(`🔍 Dashboard - Multiple variations found for normalized name "${normalized}":`);
+            variations.forEach((variation: any, i: number) => {
+              console.log(`  Variation ${i + 1}:`);
+              console.log(`    Original: "${variation.original}"`);
+              console.log(`    Cleaned: "${variation.cleaned}"`);
+              console.log(`    Length: ${variation.cleaned.length}`);
+              console.log(`    Char codes:`, Array.from(variation.cleaned).map((c: any) => (c as string).charCodeAt(0)));
+            });
+          }
+        });
+        
+        // Create a map to keep the most descriptive version of each program
+        const programMap = new Map();
+        cleanedNames.forEach((cleanedName, index) => {
+          const normalizedName = normalizedNames[index];
+          if (normalizedName && cleanedName) {
+            // If we already have this normalized name, keep the longer/more descriptive version
+            if (programMap.has(normalizedName)) {
+              const existing = programMap.get(normalizedName);
+              if (cleanedName.length > existing.length) {
+                programMap.set(normalizedName, cleanedName);
+              }
+            } else {
+              programMap.set(normalizedName, cleanedName);
+            }
+          }
+        });
+        
+        // Additional merging: Look for programs that are very similar (fuzzy matching)
+        const finalPrograms = new Map();
+        const programArray = Array.from(programMap.entries());
+        
+        programArray.forEach(([normalizedName, cleanedName]) => {
+          let merged = false;
+          
+          // Check if this program should be merged with an existing one
+          for (const [existingNormalized, existingCleaned] of finalPrograms.entries()) {
+            // If programs are very similar (80%+ similarity), merge them
+            if (isSimilarProgram(normalizedName, existingNormalized)) {
+              console.log(`🔄 Dashboard - Merging similar programs: "${cleanedName}" with "${existingCleaned}"`);
+              merged = true;
+              break;
+            }
+          }
+          
+          if (!merged) {
+            finalPrograms.set(normalizedName, cleanedName);
+          }
+        });
+        
+        const uniquePrograms = Array.from(finalPrograms.values())
           .filter(Boolean)
-      ))
+          .map(name => name.trim())
+          .sort();
+        
+        console.log('Final deduplicated dashboard programs after fuzzy merging:', uniquePrograms);
+        
+        return uniquePrograms;
+      })()
     : [];
 
   // Get categories available for selected program
@@ -1339,32 +1467,6 @@ function normalizePhone(phone: string) {
       normalizeProgramName(f["Which session did you attend?"]) === normalizedSelected
   );
 
-  // Filter participants by selected program and category
-  const selectedProgramFilteredParticipants = mergedRSVP.filter((r: any) => {
-    let matchesProgram = true;
-    
-    if (showAllProgramsInCategory && selectedCategory) {
-      // If "All Programs in Category" is selected, only filter by programs in that category
-      matchesProgram = programsInSelectedCategoryForDashboard.includes(cleanProgramName(r['Program Name']));
-      // Don't filter by category here - we want to see all categories for these programs
-    } else {
-      // Normal program filtering
-      matchesProgram = cleanProgramName(r['Program Name']) === selectedCleanedName;
-    }
-    
-    // Only apply category filter when NOT in "All Programs in Category" mode
-    const matchesCategory = showAllProgramsInCategory ? true : (!selectedCategory || r.Category === selectedCategory);
-    return matchesProgram && matchesCategory;
-  });
-
-  // Registered/attended counts
-  const registeredCount = selectedProgramFilteredParticipants.length;
-  
-  // Calculate RSVP count (participants with "Accepted" RSVP status)
-  const rsvpCount = selectedProgramFilteredParticipants.filter(
-    (r: any) => r['RSVP status'] === 'Accepted'
-  ).length;
-  
   // Get attendance from both CSV data and Neon attendance_records
   const [neonAttendanceData, setNeonAttendanceData] = useState<any[]>([]);
   const [neonEvents, setNeonEvents] = useState<any[]>([]);
@@ -1417,8 +1519,119 @@ function normalizePhone(phone: string) {
     fetchNeonData();
   }, []);
   
+  // Now merge in Neon enrollee data that's not in the CSV
+  const mergedRSVPWithNeon = useMemo(() => {
+    if (!neonAttendanceData || !neonEvents || neonAttendanceData.length === 0) {
+      console.log('📊 No Neon data available for merging');
+      return mergedRSVP;
+    }
+    
+    console.log('📊 Starting Neon enrollee data merge...');
+    console.log('📊 CSV participants count:', mergedRSVP.length);
+    console.log('📊 Neon attendance records count:', neonAttendanceData.length);
+    console.log('📊 Neon events count:', neonEvents.length);
+    
+    // Create a set of existing emails and phones from CSV to avoid duplicates
+    const existingEmails = new Set(mergedRSVP.map(row => normalizeEmail(row.Email)).filter(Boolean));
+    const existingPhones = new Set(mergedRSVP.map(row => normalizePhone(row.Phone)).filter(Boolean));
+    
+    // Find Neon enrollees that aren't in the CSV
+    const neonOnlyEnrollees: any[] = [];
+    const neonMergedCount = { added: 0, skipped: 0 };
+    
+    neonAttendanceData.forEach((record: any) => {
+      const event = neonEvents.find((e: any) => e.id === record.event_id);
+      if (!event) return;
+      
+      // Try to find participant info from the record
+      const participantEmail = record.email || record.participant_email || '';
+      const participantPhone = record.phone || record.participant_phone || '';
+      const participantName = record.name || record.participant_name || 'Unknown';
+      
+      const normalizedEmail = normalizeEmail(participantEmail);
+      const normalizedPhone = normalizePhone(participantPhone);
+      
+      // Check if this participant already exists in CSV data
+      const alreadyExists = (normalizedEmail && existingEmails.has(normalizedEmail)) ||
+                           (normalizedPhone && existingPhones.has(normalizedPhone));
+      
+      if (!alreadyExists && (normalizedEmail || normalizedPhone)) {
+        // Create a new participant record from Neon data
+        const neonParticipant = {
+          'Full Name': participantName,
+          'Email': participantEmail,
+          'Phone': participantPhone,
+          'Program Name': event.name || 'Unknown Program',
+          'Category': 'Neon Event', // Default category for Neon-only participants
+          'RSVP status': 'Accepted', // They attended, so they were accepted
+          'Attendance status': 'Accepted', // They attended
+          'Source': 'Neon Database',
+          'Event ID': record.event_id,
+          'Event Slug': event.slug || '',
+          'Attendance Date': record.created_at || record.attended_at || ''
+        };
+        
+        neonOnlyEnrollees.push(neonParticipant);
+        neonMergedCount.added++;
+        
+        // Add to existing sets to prevent duplicates
+        if (normalizedEmail) existingEmails.add(normalizedEmail);
+        if (normalizedPhone) existingPhones.add(normalizedPhone);
+      } else {
+        neonMergedCount.skipped++;
+      }
+    });
+    
+    console.log('📊 Neon merge results:', neonMergedCount);
+    console.log('📊 Neon-only enrollees added:', neonOnlyEnrollees.length);
+    
+    // Combine CSV data with Neon-only enrollees
+    const finalMergedData = [...mergedRSVP, ...neonOnlyEnrollees];
+    console.log('📊 Final merged participant count:', finalMergedData.length);
+    
+    return finalMergedData;
+  }, [mergedRSVP, neonAttendanceData, neonEvents]);
+  
+  // Filter participants by selected program and category
+  const selectedProgramFilteredParticipants = mergedRSVPWithNeon.filter((r: any) => {
+    let matchesProgram = true;
+    
+    if (showAllProgramsInCategory && selectedCategory) {
+      // If "All Programs in Category" is selected, only filter by programs in that category
+      matchesProgram = programsInSelectedCategoryForDashboard.includes(cleanProgramName(r['Program Name']));
+      // Don't filter by category here - we want to see all categories for these programs
+    } else {
+      // Normal program filtering
+      matchesProgram = cleanProgramName(r['Program Name']) === selectedCleanedName;
+    }
+    
+    // Only apply category filter when NOT in "All Programs in Category" mode
+    const matchesCategory = showAllProgramsInCategory ? true : (!selectedCategory || r.Category === selectedCategory);
+    return matchesProgram && matchesCategory;
+  });
+
+  // Registered/attended counts
+  const registeredCount = selectedProgramFilteredParticipants.length;
+  
+  // Calculate RSVP count (participants with "Accepted" RSVP status)
+  const rsvpCount = selectedProgramFilteredParticipants.filter(
+    (r: any) => r['RSVP status'] === 'Accepted'
+  ).length;
+  
   // Calculate total attended count from both sources for Participant Overview
-  const csvTotalAttended = mergedRSVP.filter((r: any) => r['Attendance status'] === 'Accepted').length;
+  const csvTotalAttended = mergedRSVPWithNeon.filter((r: any) => r['Attendance status'] === 'Accepted').length;
+  
+  // Create a map for RSVP by email using the merged data
+  const rsvpByEmail: { [key: string]: any } = Object.fromEntries(
+    mergedRSVPWithNeon.map((row: any) => [normalizeEmail(row.Email), row])
+  );
+  
+  // Join feedback with RSVP using merged data
+  const feedbackWithRSVP = mergedFeedbackData.map((feedback: any) => ({
+    ...feedback,
+    rsvp: rsvpByEmail[normalizeEmail(feedback.Email)]
+  }));
+  
   const neonTotalAttended = neonAttendanceData.length;
   const totalAttended = csvTotalAttended + neonTotalAttended;
   
@@ -1567,12 +1780,97 @@ function normalizePhone(phone: string) {
 
   // Get programs available for selected category (for participant filters)
   const programsInSelectedCategory = participantCategoryFilter 
-    ? Array.from(new Set(
-        mergedRSVP
+    ? (() => {
+        // Debug: Log raw and cleaned program names to identify duplicates
+        const rawProgramNames = mergedRSVP
           .filter((row: any) => row["Category"] === participantCategoryFilter)
-          .map((row: any) => cleanProgramName(row["Program Name"]))
+          .map((row: any) => row["Program Name"]);
+        
+        const cleanedNames = rawProgramNames.map(name => cleanProgramName(name));
+        
+        console.log('Raw program names for category:', participantCategoryFilter, rawProgramNames);
+        console.log('Cleaned program names:', cleanedNames);
+        
+        // More aggressive deduplication using normalized names
+        const normalizedNames = cleanedNames.map(name => normalizeProgramNameForDedup(name));
+        console.log('Normalized names for deduplication:', normalizedNames);
+        
+        // Debug: Show character-by-character analysis for similar names
+        const similarNames = new Map();
+        cleanedNames.forEach((name, index) => {
+          const normalized = normalizedNames[index];
+          if (!similarNames.has(normalized)) {
+            similarNames.set(normalized, []);
+          }
+          similarNames.get(normalized).push({
+            original: rawProgramNames[index],
+            cleaned: name,
+            normalized: normalized
+          });
+        });
+        
+        // Log any names that have multiple variations
+        similarNames.forEach((variations, normalized) => {
+          if (variations.length > 1) {
+            console.log(`🔍 Multiple variations found for normalized name "${normalized}":`);
+            variations.forEach((variation: any, i: number) => {
+              console.log(`  Variation ${i + 1}:`);
+              console.log(`    Original: "${variation.original}"`);
+              console.log(`    Cleaned: "${variation.cleaned}"`);
+              console.log(`    Length: ${variation.cleaned.length}`);
+              console.log(`    Char codes:`, Array.from(variation.cleaned).map((c: any) => (c as string).charCodeAt(0)));
+            });
+          }
+        });
+        
+        // Create a map to keep the most descriptive version of each program
+        const programMap = new Map();
+        cleanedNames.forEach((cleanedName, index) => {
+          const normalizedName = normalizedNames[index];
+          if (normalizedName && cleanedName) {
+            // If we already have this normalized name, keep the longer/more descriptive version
+            if (programMap.has(normalizedName)) {
+              const existing = programMap.get(normalizedName);
+              if (cleanedName.length > existing.length) {
+                programMap.set(normalizedName, cleanedName);
+              }
+            } else {
+              programMap.set(normalizedName, cleanedName);
+            }
+          }
+        });
+        
+        // Additional merging: Look for programs that are very similar (fuzzy matching)
+        const finalPrograms = new Map();
+        const programArray = Array.from(programMap.entries());
+        
+        programArray.forEach(([normalizedName, cleanedName]) => {
+          let merged = false;
+          
+          // Check if this program should be merged with an existing one
+          for (const [existingNormalized, existingCleaned] of finalPrograms.entries()) {
+            // If programs are very similar (90%+ similarity), merge them
+            if (isSimilarProgram(normalizedName, existingNormalized)) {
+              console.log(`🔄 Merging similar programs: "${cleanedName}" with "${existingCleaned}"`);
+              merged = true;
+              break;
+            }
+          }
+          
+          if (!merged) {
+            finalPrograms.set(normalizedName, cleanedName);
+          }
+        });
+        
+        const uniquePrograms = Array.from(finalPrograms.values())
           .filter(Boolean)
-      ))
+          .map(name => name.trim())
+          .sort();
+        
+        console.log('Final deduplicated programs after fuzzy merging:', uniquePrograms);
+        
+        return uniquePrograms;
+      })()
     : [];
 
 
@@ -1629,7 +1927,7 @@ function normalizePhone(phone: string) {
     }
     
     // Get all participants for this program
-    const programParticipants = mergedRSVP.filter(p => p["Program Name"] === programName);
+    const programParticipants = mergedRSVPWithNeon.filter(p => p["Program Name"] === programName);
     
     // Count of "Accepted" participants for this program
     const acceptedCount = programParticipants.filter(p => p["Attendance status"] === "Accepted").length;
@@ -1677,7 +1975,7 @@ function normalizePhone(phone: string) {
   }).length;
 
   // Filtered data for participants
-  const filteredParticipants = mergedRSVP.filter(row => {
+  const filteredParticipants = mergedRSVPWithNeon.filter(row => {
     // Apply search filter
     if (participantSearch.trim() !== "") {
       const searchMatch = Object.values(row).some(val =>
@@ -2444,7 +2742,7 @@ function normalizePhone(phone: string) {
             </div>
           </div>
 
-        </div>
+        </div>Pr
 
         {/* Profession Breakdown Pie Chart */}
         {selectedProgramFilteredParticipants.length > 0 && (

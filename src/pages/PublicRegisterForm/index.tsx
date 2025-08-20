@@ -547,6 +547,7 @@ function PublicRegisterForm() {
         full_name: formData.fullName, // Keep both for compatibility
         organisation: formData.organisation,
         email: formData.email,
+        designation: formData.profession,  // ← ADD THIS LINE
         mobile_number: formData.phone, // Try 'mobile_number' instead of 'phone'
         phone: formData.phone, // Keep both for compatibility
         company_id: "0380"
