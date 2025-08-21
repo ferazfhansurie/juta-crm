@@ -962,7 +962,7 @@ return (
                       <textarea
                         id="instructions"
                         name="instructions"
-                        className="w-full h-full p-4 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#dcf8c6] focus:border-[#2d5a2d] transition-all duration-200 resize-none"
+                        className="w-full h-full p-4 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#dcf8c6] focus:border-[#2d5a2d] transition-all duration-200 resize-none font-mono"
                         placeholder="Tell your assistant what to do. Be specific about its role, tone, and capabilities..."
                         value={assistantInfo.instructions}
                         onChange={(e) => {
@@ -1132,7 +1132,7 @@ return (
                         <textarea
                           id="instructions"
                           name="instructions"
-                          className="w-full h-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#dcf8c6] focus:border-[#2d5a2d] transition-all duration-200 resize-none"
+                          className="w-full h-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#dcf8c6] focus:border-[#2d5a2d] transition-all duration-200 resize-none font-mono"
                           placeholder="Tell your assistant what to do. Be specific about its role, tone, and capabilities..."
                           value={assistantInfo.instructions}
                           onChange={(e) => {

@@ -71,6 +71,7 @@ interface MessageListProps {
   threadId: string; // Add this line
   enterFullscreenMode: () => void; // Add this line
   openPDFModal: (documentUrl: string, documentName?: string) => void; // Add this line
+  companyId: string | null; // Add this line
 }
 interface AssistantConfig {
   id: string;
@@ -163,6 +164,7 @@ const MessageList: React.FC<MessageListProps> = ({
   threadId,
   enterFullscreenMode,
   openPDFModal,
+  companyId,
 }) => {
   const [newMessage, setNewMessage] = useState("");
 
@@ -196,37 +198,96 @@ const MessageList: React.FC<MessageListProps> = ({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={enterFullscreenMode}
-            className="px-4 py-2 bg-green-500 dark:bg-green-600 text-white rounded flex items-center gap-2 hover:bg-green-600 dark:hover:bg-green-700 active:scale-95 transition-colors"
-            title="Open in fullscreen"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" />
-            </svg>
-            Fullscreen
-          </button>
+        <div className="flex items-center gap-1">
           <button
             onClick={deleteThread}
-            className={`px-4 py-2 text-white rounded flex items-center ${
+            className={`px-4 py-2 text-white rounded flex items-center text-sm ${
               !threadId
                 ? "bg-gray-500 dark:bg-gray-600 cursor-not-allowed"
                 : "bg-red-500 dark:bg-red-600"
-            } active:scale-95`}
+            } active:scale-95 transition-all duration-200`}
             disabled={!threadId}
           >
-            Delete Thread
+            Reset Conversation
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 dark:bg-gray-900">
+      <div className="flex-1 overflow-y-auto p-4 dark:bg-gray-900 relative">
+                {/* Tool Buttons - Positioned at top of chat area */}
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+          {/* Add subtle background for better visual separation */}
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-50/50 to-transparent dark:from-gray-800/50 pointer-events-none rounded-t-lg"></div>
+          <Link to="/a-i-responses">
+            <button className="px-3 py-2 bg-blue-500 dark:bg-blue-600 text-white border-2 border-blue-600 dark:border-blue-500 rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:border-blue-700 dark:hover:border-blue-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              AI Tools
+            </button>
+          </Link>
+          <Link to="/follow-ups">
+            <button className="px-3 py-2 bg-teal-500 dark:bg-teal-600 text-white border-2 border-teal-600 dark:border-teal-500 rounded-lg hover:bg-teal-600 dark:hover:bg-teal-700 hover:border-teal-700 dark:hover:border-teal-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+                <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+            </svg>
+              Follow-Ups
+          </button>
+          </Link>
+          <Link to="/users-layout-2/builder2">
+            <button className="px-3 py-2 bg-purple-500 dark:bg-purple-600 text-white border-2 border-purple-600 dark:border-purple-500 rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 hover:border-purple-700 dark:hover:border-purple-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
+              </svg>
+              Prompt Builder
+          </button>
+          </Link>
+          <Link to="/split-test">
+            <button className="px-3 py-2 bg-orange-500 dark:bg-orange-600 text-white border-2 border-orange-600 dark:border-orange-500 rounded-lg hover:bg-orange-600 dark:hover:bg-orange-700 hover:border-orange-700 dark:hover:border-orange-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
+              Split Test
+            </button>
+          </Link>
+          <a
+            href={`https://web.jutateknologi.com/guest-chat/${companyId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <button className="px-3 py-2 bg-indigo-500 dark:bg-indigo-600 text-white border-2 border-indigo-600 dark:border-indigo-500 rounded-lg hover:bg-indigo-600 dark:hover:bg-indigo-700 hover:border-indigo-700 dark:hover:border-indigo-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
+                  clipRule="evenodd"
+                />
+          </svg>
+              Guest Chat
+        </button>
+          </a>
+        </div>
+        
         {messages
           .slice()
           .reverse()
@@ -341,7 +402,7 @@ const MessageList: React.FC<MessageListProps> = ({
                     </div>
                   )}
                   {splitIndex === message.text.split("||").filter(splitText => splitText.trim() !== "").length - 1 && (
-                    <div className="message-timestamp text-xs text-gray-500 dark:text-gray-300 mt-1">
+                    <div className="message-timestamp text-xs text-gray-400 dark:text-gray-500 mt-2 px-2 py-1 bg-gray-50 dark:bg-gray-800 rounded-full inline-block">
                       {new Date(message.createdAt).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -353,6 +414,26 @@ const MessageList: React.FC<MessageListProps> = ({
             </div>
           ))}
       </div>
+      
+      {/* Fullscreen Button - Positioned inside chatbox */}
+      <button
+        onClick={enterFullscreenMode}
+        className="absolute bottom-20 right-4 p-3 bg-green-500 dark:bg-green-600 text-white rounded-full hover:bg-green-600 dark:hover:bg-green-700 active:scale-95 transition-colors z-10 shadow-lg"
+        title="Open in fullscreen"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+        </svg>
+      </button>
 
       <div className="p-4 border-t border-gray-300 dark:border-gray-700">
         <div className="flex items-center">
@@ -365,8 +446,16 @@ const MessageList: React.FC<MessageListProps> = ({
           />
           <button
             onClick={() => onSendMessage(newMessage)}
-            className="px-4 py-2 ml-2 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 focus:outline-none"
+            className="px-4 py-2 ml-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
           >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+          >
+              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+            </svg>
             Send
           </button>
         </div>
@@ -414,6 +503,7 @@ const Main: React.FC = () => {
   const [isToolsCollapsed, setIsToolsCollapsed] = useState(false);
   const [aiAutoResponse, setAiAutoResponse] = useState<boolean>(false);
   const [aiDelay, setAiDelay] = useState<number>(0);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   
   // Fullscreen mode state
   const location = useLocation();
@@ -682,6 +772,8 @@ const Main: React.FC = () => {
       return;
     }
 
+    setIsSaving(true);
+
     // Get all unique vector store IDs from files
     const vectorStoreIds = [
       ...new Set(files.map((file) => file.vectorStoreId).filter(Boolean)),
@@ -726,6 +818,8 @@ const Main: React.FC = () => {
         console.error("Error updating assistant information:", error);
         setError("Failed to update assistant information");
       }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1570,7 +1664,7 @@ const Main: React.FC = () => {
                 clipRule="evenodd"
               />
             </svg>
-            View Templates
+            View Saved Versions
           </button>
         </div>
       </div>
@@ -1843,7 +1937,7 @@ const Main: React.FC = () => {
                             <div key={docIndex} className="relative">
                               <div className="flex items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
                                 <svg className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M4 4a2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                  <path fillRule="evenodd" d="M4 4a2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                                 </svg>
                                 <div className="flex-1">
                                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -1947,7 +2041,7 @@ const Main: React.FC = () => {
 
   return (
     <div className="flex justify-center h-screen bg-gray-100 dark:bg-gray-900">
-      <div className={`w-full ${isWideScreen ? "max-w-6xl flex" : "max-w-lg"}`}>
+      <div className={`w-full ${isWideScreen ? "max-w-7xl flex" : "max-w-lg"}`}>
         {isWideScreen ? (
           <>
             <div className="w-1/2 pl-2 pr-2 ml-2 mr-2 mt-4 overflow-auto">
@@ -2011,12 +2105,11 @@ const Main: React.FC = () => {
                     >
                       Instructions
                     </label>
-                    {renderTemplateSection()}
                     <div className="relative">
                       <textarea
                         id="instructions"
                         name="instructions"
-                        className="w-full p-3 border border-gray-300 rounded-lg h-[600px] text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-full p-4 border border-gray-300 rounded-xl h-[600px] text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono shadow-sm"
                         placeholder="Tell your assistant what to do"
                         value={assistantInfo.instructions}
                         onChange={handleInputChange}
@@ -2029,76 +2122,64 @@ const Main: React.FC = () => {
                           console.log("Opening fullscreen modal");
                           setIsFullscreenModalOpen(true);
                         }}
-                        className="absolute top-2 right-2 p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                        className="absolute top-2 right-2 px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
                         title="Edit in fullscreen"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          className="h-5 w-5"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
+                          className="h-4 w-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
                         >
-                          <path d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" />
+                          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
                         </svg>
                       </button>
-                    </div>
-                  </div>
-
-                  <div className="mb-4">
-                    <label
-                      className="mb-2 text-lg font-medium dark:text-gray-200"
-                      htmlFor="file-upload"
-                    >
-                      Knowledge Base
-                    </label>
-                    <input
-                      id="file-upload"
-                      type="file"
-                      onChange={handleFileUpload}
-                      className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                      disabled={uploading || userRole === "3"}
-                    />
-                    {uploading && (
-                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        Uploading...
-                      </p>
-                    )}
-                  </div>
-                  <div className="mb-4">
-                    <ul className="list-disc list-inside">
-                      {(files || []).map((file) => (
-                        <li
-                          key={file.id}
-                          className="text-sm text-green-500 flex items-center justify-between"
+                      
+                      {/* Template Buttons - Positioned at bottom left inside textarea */}
+                      <div className="absolute bottom-2 left-2 flex gap-2">
+                        <button
+                          onClick={saveTemplate}
+                          className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+                          disabled={userRole === "3"}
                         >
-                          <a
-                            href={file.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
                           >
-                            {file.name}
-                          </a>
-                          <button
-                            onClick={() => deleteFile(file.id)}
-                            className="text-red-500 hover:text-red-700"
+                            <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h-2v5.586l-1.293-1.293z" />
+                          </svg>
+                          Save Current
+                        </button>
+                        <button
+                          onClick={() => setIsTemplateModalOpen(true)}
+                          className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
                           >
-                            Delete
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-
-
-                  <div className="mt-2 mb-4">
-                    <div className="flex flex-wrap items-center gap-4">
+                            <path
+                              d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          View Saved Versions
+                        </button>
+                      </div>
+                      
+                      {/* Update Assistant Button - Positioned at bottom inside textarea */}
                       <button
                         ref={updateButtonRef}
                         onClick={updateAssistantInfo}
-                        className={`px-5 py-2.5 bg-primary text-white rounded-lg transition-transform ${
-                          isFloating ? "fixed bottom-4 left-20" : "relative"
-                        } hover:bg-primary/90 active:scale-95 font-medium ${
+                        className={`absolute bottom-2 right-2 px-4 py-2 ${isSaving ? 'bg-green-600 dark:bg-green-700' : 'bg-green-500 dark:bg-green-600'} text-white border-2 border-green-600 dark:border-green-500 rounded-lg hover:bg-green-600 dark:hover:bg-green-700 hover:border-green-700 dark:hover:border-green-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 ${
                           userRole === "3"
                             ? "opacity-50 cursor-not-allowed"
                             : ""
@@ -2106,204 +2187,43 @@ const Main: React.FC = () => {
                         onFocus={handleFocus}
                         disabled={userRole === "3"}
                       >
-                        <span className="flex items-center">
+                          {isSaving ? (
+                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          ) : (
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4 mr-2"
+                              className="h-4 w-4"
                             viewBox="0 0 20 20"
                             fill="currentColor"
                           >
                             <path
                               fillRule="evenodd"
-                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
+                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
                               clipRule="evenodd"
                             />
                           </svg>
-                          Update Assistant
-                        </span>
+                          )}
+                        {isSaving ? 'Saving...' : 'Save Instructions'}
                       </button>
-                      <Link to="/users-layout-2/builder">
-                        <Button
-                          variant="outline-primary"
-                          className="shadow-sm px-4 py-2.5 font-medium dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700"
-                        >
-                          <span className="flex items-center">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4 mr-2"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                              <path
-                                fillRule="evenodd"
-                                d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            Create New Assistant
-                          </span>
-                        </Button>
-                      </Link>
-                      <Link to="/users-layout-2/builder2">
-                        <Button variant="outline-primary" className="shadow-sm px-4 py-2.5 font-medium dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700">
-                          <span className="flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                              <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
-                            </svg>
-                            Prompt Builder
-                          </span>
-                        </Button>
-                      </Link>
-                      <Link to="/split-test">
-                        <Button variant="outline-primary" className="shadow-sm px-4 py-2.5 font-medium dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700">
-                          <span className="flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" clipRule="evenodd" />
-                            </svg>
-                            Split Test
-                          </span>
-                        </Button>
-                      </Link>
-                      <a
-                        href={`https://web.jutateknologi.com/guest-chat/${companyId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Button
-                          variant="outline-primary"
-                          className="shadow-sm px-4 py-2.5 font-medium dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700"
-                        >
-                          <span className="flex items-center">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4 mr-2"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            Guest Chat
-                          </span>
-                        </Button>
-                      </a>
                     </div>
                   </div>
 
+
+
+
+
+
+
                                       <div className="mb-5 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-100 dark:border-green-800 shadow-sm">
-                      <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-md font-medium text-green-700 dark:text-green-300">
-                          AI & Follow-up Tools
-                        </h3>
-                        <button
-                          onClick={() => setIsToolsCollapsed(!isToolsCollapsed)}
-                          className="text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-100 focus:outline-none"
-                          aria-label={
-                            isToolsCollapsed ? "Expand tools" : "Collapse tools"
-                          }
-                        >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className={`h-5 w-5 transform transition-transform duration-200 ${
-                            isToolsCollapsed ? "rotate-180" : ""
-                          }`}
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                    {!isToolsCollapsed && (
-                      <>
-                        <div className="flex flex-wrap gap-3 mt-3 transition-all duration-300">
-                          <Link to="/a-i-responses">
-                            <Button
-                              variant="secondary"
-                              className="shadow-sm bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/50 px-4 py-2"
-                            >
-                              <span className="flex items-center">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4 mr-2"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                                AI Responses
-                              </span>
-                            </Button>
-                          </Link>
-
-                          <Link to="/follow-ups">
-                            <Button
-                              variant="secondary"
-                              className="shadow-sm bg-white dark:bg-gray-700 border-green-200 dark:border-green-700 text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/50 px-4 py-2"
-                            >
-                              <span className="flex items-center">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4 mr-2"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
-                                </svg>
-                                Follow Ups
-                              </span>
-                            </Button>
-                          </Link>
-                          {companyId === "0123" && (
-                            <Link to="/storage-pricing">
-                              <Button
-                                variant="secondary"
-                                className="shadow-sm bg-white dark:bg-gray-700 border-green-200 dark:border-green-700 text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/50 px-4 py-2"
-                              >
-                                <span className="flex items-center">
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-4 w-4 mr-2"
-                                    viewBox="0 0 20 20"
-                                    fill="currentColor"
-                                  >
-                                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
-                                    <path
-                                      fillRule="evenodd"
-                                      d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"
-                                      clipRule="evenodd"
-                                    />
-                                  </svg>
-                                  Storage Pricing
-                                </span>
-                              </Button>
-                            </Link>
-                          )}
-                        </div>
-
-                        {/* AI Settings */}
-                        <div className="mt-4 space-y-4">
+                    <div className="space-y-4">
                           <h3 className="text-md font-medium text-gray-700 dark:text-gray-300">
-                            AI Response Settings
+                              Response Delay (seconds)
                           </h3>
 
                           <div>
-                            <label className="block mb-2 text-gray-700 dark:text-gray-300">
-                              Response Delay (seconds)
-                            </label>
                             <input
                               type="number"
                               min="0"
@@ -2339,19 +2259,88 @@ const Main: React.FC = () => {
                                   clipRule="evenodd"
                                 />
                               </svg>
-                              Save AI Settings
+                              Save Response Delay
                             </button>
                           </div>
                         </div>
-                      </>
-                    )}
+                  </div>
+
+                  <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <label
+                      className="mb-3 text-lg font-medium dark:text-gray-200 flex items-center gap-2"
+                      htmlFor="file-upload"
+                    >
+                      <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.414L7.293 9.293z" clipRule="evenodd" />
+                      </svg>
+                      Knowledge Base
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="file-upload"
+                        type="file"
+                        onChange={handleFileUpload}
+                        className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 hover:border-gray-400 dark:hover:border-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
+                        disabled={uploading || userRole === "3"}
+                      />
+                      {uploading && (
+                        <div className="absolute inset-0 bg-white/80 dark:bg-gray-700/80 rounded-lg flex items-center justify-center">
+                          <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="text-sm font-medium">Uploading...</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <div className="space-y-2">
+                      {(files || []).map((file) => (
+                        <div
+                          key={file.id}
+                          className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                            </svg>
+                            <a
+                              href={file.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 transition-colors font-medium"
+                            >
+                              {file.name}
+                            </a>
+                          </div>
+                          <button
+                            onClick={() => deleteFile(file.id)}
+                            className="px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ))}
+                      {files.length === 0 && (
+                        <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                          <svg className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                          </svg>
+                          <p className="text-sm">No files uploaded yet</p>
+                          <p className="text-xs mt-1">Upload files to enhance your assistant's knowledge</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {error && <div className="mt-4 text-red-500">{error}</div>}
                 </>
               )}
             </div>
-            <div className="w-1/2 pr-2">
+            <div className="w-3/5 pr-2">
               <MessageList
                 messages={messages}
                 onSendMessage={sendMessageToAssistant}
@@ -2360,6 +2349,7 @@ const Main: React.FC = () => {
                 threadId={threadId}
                 enterFullscreenMode={enterFullscreenMode}
                 openPDFModal={openPDFModal}
+                companyId={companyId}
               />
             </div>
           </>
@@ -2454,7 +2444,6 @@ const Main: React.FC = () => {
                       >
                         Instructions
                       </label>
-                      {renderTemplateSection()}
                       <div className="relative">
                         <textarea
                           id="instructions"
@@ -2477,12 +2466,86 @@ const Main: React.FC = () => {
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
+                            className="h-4 w-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
                           >
-                            <path d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" />
+                            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
                           </svg>
+                        </button>
+                        
+                        {/* Template Buttons - Positioned at bottom left inside textarea */}
+                        <div className="absolute bottom-2 left-2 flex gap-2">
+                          <button
+                            onClick={saveTemplate}
+                            className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+                            disabled={userRole === "3"}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h-2v5.586l-1.293-1.293z" />
+                            </svg>
+                            Save Current
+                          </button>
+                          <button
+                            onClick={() => setIsTemplateModalOpen(true)}
+                            className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            View Templates
+                          </button>
+                        </div>
+                        
+                        {/* Update Assistant Button - Positioned at bottom inside textarea */}
+                        <button
+                          ref={updateButtonRef}
+                          onClick={updateAssistantInfo}
+                          className={`absolute bottom-2 right-2 px-4 py-2 ${isSaving ? 'bg-green-600 dark:bg-green-700' : 'bg-green-500 dark:bg-green-600'} text-white border-2 border-green-600 dark:border-green-500 rounded-lg hover:bg-green-600 dark:hover:bg-green-700 hover:border-green-700 dark:hover:border-green-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 ${
+                            userRole === "3"
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                          onFocus={handleFocus}
+                          disabled={userRole === "3"}
+                        >
+                                                        {isSaving ? (
+                              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            ) : (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            )}
+                          {isSaving ? 'Saving...' : 'Save Instructions'}
                         </button>
                       </div>
                     </div>
@@ -2533,218 +2596,15 @@ const Main: React.FC = () => {
 
 
 
-                    <div className="mt-8 mb-4">
-                      <h3 className="text-md font-medium mb-3 text-gray-700 dark:text-gray-300">
-                        Assistant Configuration
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-4">
-                        <button
-                          ref={updateButtonRef}
-                          onClick={updateAssistantInfo}
-                          className={`px-5 py-2.5 bg-primary text-white rounded-lg transition-transform ${
-                            isFloating ? "fixed bottom-4 left-20" : "relative"
-                          } hover:bg-primary/90 active:scale-95 font-medium ${
-                            userRole === "3"
-                              ? "opacity-50 cursor-not-allowed"
-                              : ""
-                          }`}
-                          onFocus={handleFocus}
-                          disabled={userRole === "3"}
-                        >
-                          <span className="flex items-center">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4 mr-2"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            Update Assistant
-                          </span>
-                        </button>
-                        <Link to="builder">
-                          <Button
-                            variant="outline-primary"
-                            className="shadow-sm px-4 py-2.5 font-medium"
-                          >
-                            <span className="flex items-center">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 w-4 mr-2"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                              >
-                                <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                                <path
-                                  fillRule="evenodd"
-                                  d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                              Prompt Builder
-                            </span>
-                          </Button>
-                        </Link>
-                        <Link to="/split-test">
-                          <Button
-                            variant="outline-primary"
-                            className="shadow-sm px-4 py-2.5 font-medium"
-                          >
-                            <span className="flex items-center">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 w-4 mr-2"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                              Split Test
-                            </span>
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
 
-                    {/* Featured navigation buttons for mobile view */}
+
+                    {/* Response Delay Setting for mobile */}
                     <div className="mb-5 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-100 dark:border-green-800 shadow-sm">
-                      <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-md font-medium text-green-700 dark:text-green-300">
-                          AI & Follow-up Tools
-                        </h3>
-                        <button
-                          onClick={() => setIsToolsCollapsed(!isToolsCollapsed)}
-                          className="text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-100 focus:outline-none"
-                          aria-label={
-                            isToolsCollapsed ? "Expand tools" : "Collapse tools"
-                          }
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className={`h-5 w-5 transform transition-transform duration-200 ${
-                              isToolsCollapsed ? "rotate-180" : ""
-                            }`}
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                      {!isToolsCollapsed && (
-                        <div className="flex flex-wrap gap-3 mt-3 transition-all duration-300">
-                          <Link to="/a-i-responses">
-                            <Button
-                              variant="secondary"
-                              className="shadow-sm bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/50 px-4 py-2"
-                            >
-                              <span className="flex items-center">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4 mr-2"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                                AI Responses
-                              </span>
-                            </Button>
-                          </Link>
-                          <Link to="/a-i-generative-responses">
-                            <Button
-                              variant="secondary"
-                              className="shadow-sm bg-white dark:bg-gray-700 border-green-200 dark:border-green-700 text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/50 px-4 py-2"
-                            >
-                              <span className="flex items-center">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4 mr-2"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                                AI Generative Responses
-                              </span>
-                            </Button>
-                          </Link>
-                          <Link to="/follow-ups-select">
-                            <Button
-                              variant="secondary"
-                              className="shadow-sm bg-white dark:bg-gray-700 border-green-200 dark:border-green-700 text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/50 px-4 py-2"
-                            >
-                              <span className="flex items-center">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4 mr-2"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
-                                </svg>
-                                Follow Ups
-                              </span>
-                            </Button>
-                          </Link>
-                          {companyId === "0123" && (
-                            <Link to="/storage-pricing">
-                              <Button
-                                variant="secondary"
-                                className="shadow-sm bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/50 px-4 py-2"
-                              >
-                                <span className="flex items-center">
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-4 w-4 mr-2"
-                                    viewBox="0 0 20 20"
-                                    fill="currentColor"
-                                  >
-                                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
-                                    <path
-                                      fillRule="evenodd"
-                                      d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"
-                                      clipRule="evenodd"
-                                    />
-                                  </svg>
-                                  Storage Pricing
-                                </span>
-                              </Button>
-                            </Link>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* AI Settings Section for mobile */}
-                    <div className="mt-8 mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                      <h3 className="text-md font-medium mb-3 text-gray-700 dark:text-gray-300">
-                        AI Response Settings
-                      </h3>
-
                       <div className="space-y-4">
+                        <h3 className="text-md font-medium text-gray-700 dark:text-gray-300">
+                          Response Delay
+                        </h3>
+
                         <div>
                           <label className="block mb-2 text-gray-700 dark:text-gray-300">
                             Response Delay (seconds)
@@ -2801,6 +2661,7 @@ const Main: React.FC = () => {
                   threadId={threadId}
                   enterFullscreenMode={enterFullscreenMode}
                   openPDFModal={openPDFModal}
+                  companyId={companyId}
                 />
               </Tab.Panel>
             </Tab.Panels>
@@ -2875,14 +2736,84 @@ const Main: React.FC = () => {
                       </svg>
                     </button>
                   </div>
-                  <textarea
-                    className="w-full h-[calc(100vh-120px)] p-4 text-base bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    value={assistantInfo.instructions}
-                    onChange={handleInputChange}
-                    name="instructions"
-                    placeholder="Tell your assistant what to do"
-                    disabled={userRole === "3"}
-                  />
+                  <div className="relative w-full h-[calc(100vh-180px)]">
+                    <textarea
+                      className="w-full h-full p-4 text-base bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono"
+                      value={assistantInfo.instructions}
+                      onChange={handleInputChange}
+                      name="instructions"
+                      placeholder="Tell your assistant what to do"
+                      disabled={userRole === "3"}
+                    />
+                    
+                    {/* Template Buttons - Positioned at bottom left inside textarea */}
+                    <div className="absolute bottom-2 left-2 flex gap-2">
+                      <button
+                        onClick={saveTemplate}
+                        className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+                        disabled={userRole === "3"}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h-2v5.586l-1.293-1.293z" />
+                        </svg>
+                        Save Current
+                      </button>
+                      <button
+                        onClick={() => setIsTemplateModalOpen(true)}
+                        className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        View Saved Versions
+                      </button>
+                    </div>
+                    
+                    {/* Save Instructions Button - Positioned at bottom right inside textarea */}
+                    <button
+                      onClick={updateAssistantInfo}
+                      className={`absolute bottom-2 right-2 px-4 py-2 ${isSaving ? 'bg-green-600 dark:bg-green-700' : 'bg-green-500 dark:bg-green-600'} text-white border-2 border-green-600 dark:border-green-500 rounded-lg hover:bg-green-600 dark:hover:bg-green-700 hover:border-green-700 dark:hover:border-green-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 ${
+                        userRole === "3"
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
+                      disabled={userRole === "3"}
+                    >
+                      {isSaving ? (
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                      {isSaving ? 'Saving...' : 'Save Instructions'}
+                    </button>
+                  </div>
                 </Dialog.Panel>
               </Transition.Child>
             </div>
