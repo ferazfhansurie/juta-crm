@@ -921,24 +921,24 @@ function Main() {
     free: {
       aiMessages: 100,
       contacts: 100,
-      title: "Free Plan"
+      title: "Free Plan",
     },
     enterprise: {
       aiMessages: 5000,
       contacts: 10000,
-      title: "Enterprise Plan"
+      title: "Enterprise Plan",
     },
     pro: {
       aiMessages: 20000,
       contacts: 50000,
-      title: "Pro Plan"
-    }
+      title: "Pro Plan",
+    },
   };
   const getCurrentPlanLimits = () => {
     const plan = companyPlan.toLowerCase();
     return planConfig[plan as keyof typeof planConfig] || planConfig.free;
   };
-  
+
   const currentPlanLimits = getCurrentPlanLimits();
   // Initialize user context from localStorage and NeonDB
   useEffect(() => {
@@ -2334,7 +2334,7 @@ function Main() {
             "Cannot delete contact: Contact has associated data. Please remove dependencies first."
           );
         } else {
-        toast.error("Failed to delete contact");
+          toast.error("Failed to delete contact");
         }
 
         // Revert the UI state
@@ -3021,7 +3021,7 @@ function Main() {
         : loadedContacts.length > 0
         ? loadedContacts
         : contacts; // Use loaded contacts for regular browsing
-    
+
     let fil = filterContactsByUserRole(
       contactsToFilter,
       userRole,
@@ -3224,7 +3224,7 @@ function Main() {
         console.log("🔍 Contact matches tag:", matchesTag);
         return matchesTag;
       });
-      
+
       console.log("🔍 After tag filtering, contacts count:", fil.length);
     }
 
@@ -3258,7 +3258,7 @@ function Main() {
       "📊 RESULT - Filtered contacts:",
       filteredContactsSearch.length
     );
-    
+
     // Debug: Log all available tags from contacts
     const allTags = new Set<string>();
     contacts.forEach((contact) => {
@@ -3274,7 +3274,7 @@ function Main() {
       "🔍 All available tags in contacts:",
       Array.from(allTags).sort()
     );
-    
+
     if (filteredContactsSearch.length > 0) {
       console.log("📊 SORTING - First 10 contacts sorted by timestamp:");
       filteredContactsSearch.slice(0, 10).forEach((contact, index) => {
@@ -4312,7 +4312,10 @@ function Main() {
       setToken(data.companyData.whapiToken);
 
       // Set message usage for all plans (including free plan)
-      if (data.companyData.plan === "enterprise" || data.companyData.plan === "free") {
+      if (
+        data.companyData.plan === "enterprise" ||
+        data.companyData.plan === "free"
+      ) {
         setAiMessageUsage(data.messageUsage.aiMessages || 0);
         setBlastedMessageUsage(data.messageUsage.blastedMessages || 0);
         setQuotaAIMessage(data.usageQuota.aiMessages || 0);
@@ -5899,17 +5902,17 @@ function Main() {
 
     // Update UI immediately for instant feedback
     setMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          ...tempMessage,
-        } as unknown as Message,
+      ...prevMessages,
+      {
+        ...tempMessage,
+      } as unknown as Message,
     ]);
 
     // Also update allMessages to ensure consistency
     setAllMessages((prevAllMessages) => [
-        ...prevAllMessages,
-        {
-          ...tempMessage,
+      ...prevAllMessages,
+      {
+        ...tempMessage,
       } as unknown as Message,
     ]);
 
@@ -7415,10 +7418,10 @@ function Main() {
   const filterTagContact = (tag: string) => {
     console.log("🔍 filterTagContact called with tag:", tag);
     console.log("🔍 Current employeeList:", employeeList);
-    
+
     // Set loading state for tag filtering
     setIsTagFiltering(true);
-    
+
     if (
       employeeList.some(
         (employee) =>
@@ -7437,7 +7440,7 @@ function Main() {
       ]);
     }
     setSearchQuery("");
-    
+
     // Reset loading state after a short delay to allow filtering to complete
     setTimeout(() => {
       setIsTagFiltering(false);
@@ -8908,28 +8911,28 @@ function Main() {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         // Update the contact's unread count in the local state
-        setContacts(prevContacts => 
-          prevContacts.map(c => 
-            c.contact_id === contact.contact_id 
+        setContacts((prevContacts) =>
+          prevContacts.map((c) =>
+            c.contact_id === contact.contact_id
               ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
               : c
           )
         );
-        
-        setLoadedContacts(prevLoadedContacts => 
-          prevLoadedContacts.map(c => 
-            c.contact_id === contact.contact_id 
+
+        setLoadedContacts((prevLoadedContacts) =>
+          prevLoadedContacts.map((c) =>
+            c.contact_id === contact.contact_id
               ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
               : c
           )
         );
-        
-        setFilteredContacts(prevFilteredContacts => 
-          prevFilteredContacts.map(c => 
-            c.contact_id === contact.contact_id 
+
+        setFilteredContacts((prevFilteredContacts) =>
+          prevFilteredContacts.map((c) =>
+            c.contact_id === contact.contact_id
               ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
               : c
           )
@@ -8978,30 +8981,24 @@ function Main() {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         // Update the contact's unread count in the local state
-        setContacts(prevContacts => 
-          prevContacts.map(c => 
-            c.contact_id === contact.contact_id 
-              ? { ...c, unreadCount: 0 }
-              : c
+        setContacts((prevContacts) =>
+          prevContacts.map((c) =>
+            c.contact_id === contact.contact_id ? { ...c, unreadCount: 0 } : c
           )
         );
-        
-        setLoadedContacts(prevLoadedContacts => 
-          prevLoadedContacts.map(c => 
-            c.contact_id === contact.contact_id 
-              ? { ...c, unreadCount: 0 }
-              : c
+
+        setLoadedContacts((prevLoadedContacts) =>
+          prevLoadedContacts.map((c) =>
+            c.contact_id === contact.contact_id ? { ...c, unreadCount: 0 } : c
           )
         );
-        
-        setFilteredContacts(prevFilteredContacts => 
-          prevFilteredContacts.map(c => 
-            c.contact_id === contact.contact_id 
-              ? { ...c, unreadCount: 0 }
-              : c
+
+        setFilteredContacts((prevFilteredContacts) =>
+          prevFilteredContacts.map((c) =>
+            c.contact_id === contact.contact_id ? { ...c, unreadCount: 0 } : c
           )
         );
 
@@ -9787,106 +9784,101 @@ function Main() {
             onClick={openUsageDashboard}
             title="Click to view detailed usage analytics"
           >
-           <div className="flex items-center justify-between mb-1">
-  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-    <Lucide icon="Sparkles" className="w-2.5 h-2.5 text-primary" />
-    AI Messages
-  </span>
-  <div className="flex items-center gap-2">
-    <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-      {aiMessageUsage}
-      <span className="opacity-70 font-normal">
-        /{currentPlanLimits.aiMessages}
-      </span>
-    </span>
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        setIsTopUpModalOpen(true);
-      }}
-      className="px-2 py-1 text-xs bg-primary hover:bg-primary/80 text-white rounded-md transition-all duration-200 hover:scale-105 active:scale-95 font-medium"
-    >
-      Top-up
-    </button>
-  </div>
-</div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                <Lucide icon="Sparkles" className="w-2.5 h-2.5 text-primary" />
+                AI Messages
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                  {aiMessageUsage}
+                  <span className="opacity-70 font-normal">
+                    /{currentPlanLimits.aiMessages}
+                  </span>
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsTopUpModalOpen(true);
+                  }}
+                  className="px-2 py-1 text-xs bg-primary hover:bg-primary/80 text-white rounded-md transition-all duration-200 hover:scale-105 active:scale-95 font-medium"
+                >
+                  Top-up
+                </button>
+              </div>
+            </div>
 
-<div className="w-full h-1.5 rounded-full bg-gradient-to-r from-primary/10 to-gray-200 dark:from-primary/20 dark:to-gray-700 mb-1 overflow-hidden">
-  <div
-    className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
-      aiMessageUsage > currentPlanLimits.aiMessages
-        ? "bg-gradient-to-r from-red-600 to-red-800"
-        : aiMessageUsage > currentPlanLimits.aiMessages * 0.9
-        ? "bg-gradient-to-r from-red-500 to-red-700"
-        : aiMessageUsage > currentPlanLimits.aiMessages * 0.7
-        ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-        : "bg-gradient-to-r from-green-500 to-green-700"
-    }`}
-    style={{
-      width: `${Math.min(
-        (aiMessageUsage / currentPlanLimits.aiMessages) * 100,
-        120
-      )}%`,
-    }}
-  ></div>
-  {aiMessageUsage > currentPlanLimits.aiMessages && (
-    <div className="text-xs text-red-600 dark:text-red-400 text-center mt-0.5 font-medium">
-      ⚠️ Limit exceeded by {aiMessageUsage - currentPlanLimits.aiMessages} responses
-    </div>
-  )}
-</div>
-<div className="flex items-center justify-between mb-1">
-  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-  <Lucide icon="Contact" className="w-2.5 h-2.5 text-primary" />
-    Contacts
-  </span>
-  <div className="flex items-center gap-2">
-    <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-      {contacts.length}
-      <span className="opacity-70 font-normal">
-        /{currentPlanLimits.contacts}
-      </span> 
-    </span>
+            <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-primary/10 to-gray-200 dark:from-primary/20 dark:to-gray-700 mb-1 overflow-hidden">
+              <div
+                className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
+                  aiMessageUsage > currentPlanLimits.aiMessages
+                    ? "bg-gradient-to-r from-red-600 to-red-800"
+                    : aiMessageUsage > currentPlanLimits.aiMessages * 0.9
+                    ? "bg-gradient-to-r from-red-500 to-red-700"
+                    : aiMessageUsage > currentPlanLimits.aiMessages * 0.7
+                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                    : "bg-gradient-to-r from-green-500 to-green-700"
+                }`}
+                style={{
+                  width: `${Math.min(
+                    (aiMessageUsage / currentPlanLimits.aiMessages) * 100,
+                    120
+                  )}%`,
+                }}
+              ></div>
+              {aiMessageUsage > currentPlanLimits.aiMessages && (
+                <div className="text-xs text-red-600 dark:text-red-400 text-center mt-0.5 font-medium">
+                  ⚠️ Limit exceeded by{" "}
+                  {aiMessageUsage - currentPlanLimits.aiMessages} responses
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                <Lucide icon="Contact" className="w-2.5 h-2.5 text-primary" />
+                Contacts
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                  {contacts.length}
+                  <span className="opacity-70 font-normal">
+                    /{currentPlanLimits.contacts}
+                  </span>
+                </span>
+              </div>
+            </div>
 
-  </div>
-</div>
-
-
-<div className="w-full h-1.5 rounded-full bg-gradient-to-r from-emerald-400/10 to-gray-200 dark:from-emerald-400/20 dark:to-gray-700 overflow-hidden">
-  <div
-    className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
-      contacts.length > currentPlanLimits.contacts
-        ? "bg-gradient-to-r from-red-600 to-red-800"
-        : contacts.length > currentPlanLimits.contacts * 0.9
-        ? "bg-gradient-to-r from-red-500 to-red-700"
-        : contacts.length > currentPlanLimits.contacts * 0.7
-        ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-        : "bg-gradient-to-r from-emerald-500 to-emerald-700"
-    }`}
-    style={{
-      width: `${Math.min(
-        (contacts.length / currentPlanLimits.contacts) * 100,
-        120
-      )}%`,
-    }}
-  ></div>
-</div>
-<div className="flex items-center justify-between mt-1">
-  
-
- 
-</div>
-{contacts.length > currentPlanLimits.contacts && (
-  <div className="mt-1 text-center">
-    <span className="text-xs text-orange-600 dark:text-orange-400 font-medium bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">
-      ⚠️ Contact limit exceeded - upgrade plan for more contacts
-    </span>
-  </div>
-)}
+            <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-emerald-400/10 to-gray-200 dark:from-emerald-400/20 dark:to-gray-700 overflow-hidden">
+              <div
+                className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
+                  contacts.length > currentPlanLimits.contacts
+                    ? "bg-gradient-to-r from-red-600 to-red-800"
+                    : contacts.length > currentPlanLimits.contacts * 0.9
+                    ? "bg-gradient-to-r from-red-500 to-red-700"
+                    : contacts.length > currentPlanLimits.contacts * 0.7
+                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                    : "bg-gradient-to-r from-emerald-500 to-emerald-700"
+                }`}
+                style={{
+                  width: `${Math.min(
+                    (contacts.length / currentPlanLimits.contacts) * 100,
+                    120
+                  )}%`,
+                }}
+              ></div>
+            </div>
+            <div className="flex items-center justify-between mt-1"></div>
+            {contacts.length > currentPlanLimits.contacts && (
+              <div className="mt-1 text-center">
+                <span className="text-xs text-orange-600 dark:text-orange-400 font-medium bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">
+                  ⚠️ Contact limit exceeded - upgrade plan for more contacts
+                </span>
+              </div>
+            )}
 
             {/* Analytics button */}
             <div className="flex items-center justify-center mt-1 pt-1 border-t border-gray-200 dark:border-gray-600">
-                              <button
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   openUsageDashboard();
@@ -9895,9 +9887,9 @@ function Main() {
               >
                 <Lucide icon="BarChart3" className="w-3 h-3" />
                 View Analytics
-                              </button>
-                          </div>
-                        </div>
+              </button>
+            </div>
+          </div>
         )}
         <div className="sticky top-20 bg-gray-100 dark:bg-gray-900 p-2">
           <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
@@ -9906,50 +9898,50 @@ function Main() {
             )}
 
             {/* WhatsApp Web-style search bar */}
-                <div className="relative flex-grow">
-                  <button
-                    onClick={() => setIsSearchModalOpen(true)}
+            <div className="relative flex-grow">
+              <button
+                onClick={() => setIsSearchModalOpen(true)}
                 className="flex items-center w-full h-7 py-1.5 pl-6 pr-3 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                  >
+              >
                 <Lucide icon="Search" className="absolute left-2 w-3 h-3" />
                 <span className="ml-1.5 text-sm">Search contacts...</span>
-                  </button>
+              </button>
 
-                  <SearchModal
-                    isOpen={isSearchModalOpen}
-                    onClose={() => setIsSearchModalOpen(false)}
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                    companyId={currentCompanyId || ""}
-                    initial={contacts}
-                    onSelectResult={(type, id, contactId) => {
-                      if (type === "contact") {
-                        const contact = contacts.find((c) => c.id === id);
-                        if (contact) {
-                          selectChat(contact.contact_id!, contact.id!, contact);
-                        }
-                      } else if (type === "message") {
-                        const contact = contacts.find(
-                          (c) => c.contact_id === contactId
-                        );
-                        if (contact) {
-                          selectChat(
-                            contact.contact_id!,
-                            contact.id!,
-                            contact
-                          ).then(() => {
-                            setTimeout(() => {
-                              scrollToMessage(id);
+              <SearchModal
+                isOpen={isSearchModalOpen}
+                onClose={() => setIsSearchModalOpen(false)}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                companyId={currentCompanyId || ""}
+                initial={contacts}
+                onSelectResult={(type, id, contactId) => {
+                  if (type === "contact") {
+                    const contact = contacts.find((c) => c.id === id);
+                    if (contact) {
+                      selectChat(contact.contact_id!, contact.id!, contact);
+                    }
+                  } else if (type === "message") {
+                    const contact = contacts.find(
+                      (c) => c.contact_id === contactId
+                    );
+                    if (contact) {
+                      selectChat(
+                        contact.contact_id!,
+                        contact.id!,
+                        contact
+                      ).then(() => {
+                        setTimeout(() => {
+                          scrollToMessage(id);
                         }, 5000);
-                          });
-                        }
-                      }
-                      setSearchQuery("");
-                      setIsSearchModalOpen(false);
-                    }}
-                    contacts={contacts}
-                  />
-                </div>
+                      });
+                    }
+                  }
+                  setSearchQuery("");
+                  setIsSearchModalOpen(false);
+                }}
+                contacts={contacts}
+              />
+            </div>
 
             {/* Action buttons with WhatsApp Web styling */}
             <div className="flex items-center space-x-1.5">
@@ -9974,11 +9966,11 @@ function Main() {
               {/* Employee assignment button */}
               <Menu as="div" className="relative inline-block text-left">
                 <Menu.Button className="flex items-center justify-center p-1.5 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-all duration-200">
-                      <Lucide
-                        icon="Users"
+                  <Lucide
+                    icon="Users"
                     className="w-3 h-3 text-gray-800 dark:text-gray-200"
-                      />
-                  </Menu.Button>
+                  />
+                </Menu.Button>
                 <Menu.Items className="absolute right-0 mt-1.5 w-36 shadow-lg rounded-md bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 p-1.5 z-10 max-h-40 overflow-y-auto">
                   <div className="p-1.5">
                     <input
@@ -10060,10 +10052,10 @@ function Main() {
                 onClick={toggleTagsExpansion}
                 title={isTagsExpanded ? "Show Less Tags" : "Show More Tags"}
               >
-                  <Lucide
-                    icon={isTagsExpanded ? "ChevronUp" : "ChevronDown"}
+                <Lucide
+                  icon={isTagsExpanded ? "ChevronUp" : "ChevronDown"}
                   className="w-3 h-3 text-gray-800 dark:text-gray-200"
-                  />
+                />
               </button>
             </div>
           </div>
@@ -10174,20 +10166,20 @@ function Main() {
                   }`}
                 >
                   <span className="flex items-center space-x-1">
-                  <span>{tagName}</span>
-                  {userData?.role === "1" && unreadCount > 0 && (
-                    <span
+                    <span>{tagName}</span>
+                    {userData?.role === "1" && unreadCount > 0 && (
+                      <span
                         className={`px-1 py-0.5 rounded-full text-xs font-bold ${
-                        tagName.toLowerCase() === "stop bot"
+                          tagName.toLowerCase() === "stop bot"
                             ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-                          : tagName.toLowerCase() === "active bot"
+                            : tagName.toLowerCase() === "active bot"
                             ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
                             : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                         }`}
-                    >
-                      {unreadCount}
-                    </span>
-                  )}
+                      >
+                        {unreadCount}
+                      </span>
+                    )}
                   </span>
                 </button>
               );
@@ -10270,30 +10262,30 @@ function Main() {
 
                       {/* Loading steps with better visual hierarchy */}
                       <div className="mt-4 space-y-2">
-                      {loadingSteps.userConfig && (
+                        {loadingSteps.userConfig && (
                           <div className="flex items-center text-xs text-green-600 dark:text-green-400">
                             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                             <span>User configuration loaded</span>
-                        </div>
-                      )}
-                      {loadingSteps.contactsFetch && (
+                          </div>
+                        )}
+                        {loadingSteps.contactsFetch && (
                           <div className="flex items-center text-xs text-green-600 dark:text-green-400">
                             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                             <span>Contacts fetched</span>
-                        </div>
-                      )}
-                      {loadingSteps.contactsProcess && (
+                          </div>
+                        )}
+                        {loadingSteps.contactsProcess && (
                           <div className="flex items-center text-xs text-blue-600 dark:text-blue-400">
                             <div className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
                             <span>Processing contacts...</span>
-                        </div>
-                      )}
-                      {loadingSteps.complete && (
+                          </div>
+                        )}
+                        {loadingSteps.complete && (
                           <div className="flex items-center text-xs text-green-600 dark:text-green-400 font-medium">
                             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                             <span>Loading complete!</span>
-                        </div>
-                      )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -10376,129 +10368,129 @@ function Main() {
                       {contact.unreadCount !== undefined && (
                         <>
                           {/* Prominent badge for unread messages */}
-                      {(contact.unreadCount ?? 0) > 0 && (
+                          {(contact.unreadCount ?? 0) > 0 && (
                             <span className="absolute -top-0.5 -right-0.5 bg-green-500 text-white text-xs rounded-full px-1 py-0.5 min-w-[14px] h-[14px] flex items-center justify-center font-bold">
                               {(contact.unreadCount ?? 0) > 99
                                 ? "99+"
                                 : contact.unreadCount ?? 0}
-                        </span>
+                            </span>
                           )}
                         </>
                       )}
                     </div>
 
-                  <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0">
                       <div className="flex flex-col space-y-0.5">
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
                             <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate mb-0">
-                          {(
-                            contact.contactName ??
-                            contact.firstName ??
-                            contact.phone ??
-                            ""
+                              {(
+                                contact.contactName ??
+                                contact.firstName ??
+                                contact.phone ??
+                                ""
                               ).slice(0, 25)}
-                          {(
-                            contact.contactName ??
-                            contact.firstName ??
-                            contact.phone ??
-                            ""
+                              {(
+                                contact.contactName ??
+                                contact.firstName ??
+                                contact.phone ??
+                                ""
                               ).length > 25
-                            ? "..."
-                            : ""}
+                                ? "..."
+                                : ""}
                             </h3>
 
                             <div className="flex items-center space-x-0.5 text-xs text-gray-600 dark:text-gray-400">
-                        <div className="flex flex-grow items-center">
-                          {(() => {
-                            const employeeTags =
-                              contact.tags?.filter((tag) =>
-                                employeeList.some(
-                                  (employee) =>
+                              <div className="flex flex-grow items-center">
+                                {(() => {
+                                  const employeeTags =
+                                    contact.tags?.filter((tag) =>
+                                      employeeList.some(
+                                        (employee) =>
                                           (employee.name?.toLowerCase() ||
                                             "") ===
                                           (typeof tag === "string"
                                             ? tag
                                             : String(tag)
                                           ).toLowerCase()
-                                )
-                              ) || [];
+                                      )
+                                    ) || [];
 
-                            const otherTags =
-                              contact.tags?.filter(
-                                (tag) =>
-                                  !employeeList.some(
-                                    (employee) =>
+                                  const otherTags =
+                                    contact.tags?.filter(
+                                      (tag) =>
+                                        !employeeList.some(
+                                          (employee) =>
                                             (employee.name?.toLowerCase() ||
                                               "") ===
                                             (typeof tag === "string"
                                               ? tag
                                               : String(tag)
                                             ).toLowerCase()
-                                  )
-                              ) || [];
+                                        )
+                                    ) || [];
 
-                            const uniqueTags = Array.from(
-                              new Set([...otherTags])
-                            );
+                                  const uniqueTags = Array.from(
+                                    new Set([...otherTags])
+                                  );
 
-                            return (
-                              <>
-                                <button
+                                  return (
+                                    <>
+                                      <button
                                         className={`text-sm ${
-                                    contact.pinned
+                                          contact.pinned
                                             ? "text-blue-600 dark:text-blue-400 font-bold"
                                             : "text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:font-bold mr-1"
-                                  }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
+                                        }`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           togglePinConversation(
                                             contact.chat_id!
                                           );
-                                  }}
-                                >
-                                  {contact.pinned ? (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
+                                        }}
+                                      >
+                                        {contact.pinned ? (
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
                                             width="9"
                                             height="9"
-                                      viewBox="0 0 48 48"
+                                            viewBox="0 0 48 48"
                                             className="text-blue-600 dark:text-blue-400 fill-current mr-0.5"
-                                    >
-                                      <mask id="ipSPin0">
-                                        <path
-                                          fill="#fff"
-                                          stroke="#fff"
-                                          strokeLinejoin="round"
-                                          strokeWidth="4"
-                                          d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"
-                                        />
-                                      </mask>
-                                      <path
-                                        fill="currentColor"
-                                        d="M0 0h48v48H0z"
-                                        mask="url(#ipSPin0)"
-                                      />
-                                    </svg>
-                                  ) : (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
+                                          >
+                                            <mask id="ipSPin0">
+                                              <path
+                                                fill="#fff"
+                                                stroke="#fff"
+                                                strokeLinejoin="round"
+                                                strokeWidth="4"
+                                                d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"
+                                              />
+                                            </mask>
+                                            <path
+                                              fill="currentColor"
+                                              d="M0 0h48v48H0z"
+                                              mask="url(#ipSPin0)"
+                                            />
+                                          </svg>
+                                        ) : (
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
                                             width="18"
                                             height="18"
-                                      viewBox="0 0 48 48"
-                                      className="group-hover:block hidden"
-                                    >
-                                      <path
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeLinejoin="round"
-                                        strokeWidth="4"
-                                        d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"
-                                      />
-                                    </svg>
-                                  )}
-                                </button>
-                                {uniqueTags.filter(
+                                            viewBox="0 0 48 48"
+                                            className="group-hover:block hidden"
+                                          >
+                                            <path
+                                              fill="none"
+                                              stroke="currentColor"
+                                              strokeLinejoin="round"
+                                              strokeWidth="4"
+                                              d="M10.696 17.504c2.639-2.638 5.774-2.565 9.182-.696L32.62 9.745l-.721-4.958L43.213 16.1l-4.947-.71l-7.074 12.73c1.783 3.638 1.942 6.544-.697 9.182l-7.778-7.778L6.443 41.556l11.995-16.31l-7.742-7.742Z"
+                                            />
+                                          </svg>
+                                        )}
+                                      </button>
+                                      {uniqueTags.filter(
                                         (tag) =>
                                           (typeof tag === "string"
                                             ? tag
@@ -10506,159 +10498,159 @@ function Main() {
                                           ).toLowerCase() !== "stop bot"
                                       ).length > 0 && (
                                         <span className="bg-blue-100 dark:bg-blue-600/30 text-blue-700 dark:text-blue-300 text-xs font-medium px-1.5 py-0.5 rounded-full mr-1">
-                                      <Lucide
-                                        icon="Tag"
-                                              className="w-3 h-3 inline-block mr-0.5"
-                                      />
-                                        {
-                                          uniqueTags.filter(
-                                            (tag) =>
+                                          <Lucide
+                                            icon="Tag"
+                                            className="w-3 h-3 inline-block mr-0.5"
+                                          />
+                                          {
+                                            uniqueTags.filter(
+                                              (tag) =>
                                                 (typeof tag === "string"
                                                   ? tag
                                                   : String(tag)
                                                 ).toLowerCase() !== "stop bot"
-                                          ).length
-                                        }
-                                      </span>
-                                )}
-                                {employeeTags.length > 0 && (
+                                            ).length
+                                          }
+                                        </span>
+                                      )}
+                                      {employeeTags.length > 0 && (
                                         <span className="bg-green-100 dark:bg-green-600/30 text-green-700 dark:text-green-300 text-xs font-medium px-1.5 py-0.5 rounded-full mr-1">
-                                      <Lucide
-                                        icon="Users"
-                                              className="w-3 h-3 inline-block mr-0.5"
-                                      />
-                                        {employeeTags.length === 1
+                                          <Lucide
+                                            icon="Users"
+                                            className="w-3 h-3 inline-block mr-0.5"
+                                          />
+                                          {employeeTags.length === 1
                                             ? employeeList.find(
-                                              (e) =>
-                                                (e.name?.toLowerCase() ||
-                                                  "") ===
+                                                (e) =>
+                                                  (e.name?.toLowerCase() ||
+                                                    "") ===
                                                   (typeof employeeTags[0] ===
                                                   "string"
                                                     ? employeeTags[0]
                                                     : String(employeeTags[0])
                                                   ).toLowerCase()
-                                            )?.employeeId ||
-                                            (employeeTags[0]?.length > 8
-                                              ? employeeTags[0].slice(0, 6)
-                                              : employeeTags[0])
-                                          : employeeTags.length}
-                                      </span>
-                                )}
-                              </>
-                            );
-                          })()}
+                                              )?.employeeId ||
+                                              (employeeTags[0]?.length > 8
+                                                ? employeeTags[0].slice(0, 6)
+                                                : employeeTags[0])
+                                            : employeeTags.length}
+                                        </span>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
-                        </div>
+                          </div>
 
                           <div className="flex flex-col items-end space-y-0 ml-1">
-                          <span
+                            <span
                               className={`text-xs ${
-                              contact.unreadCount && contact.unreadCount > 0
+                                contact.unreadCount && contact.unreadCount > 0
                                   ? "text-green-600 dark:text-green-400 font-medium"
                                   : "text-gray-600 dark:text-gray-400"
-                            }`}
-                          >
-                            {contact.last_message?.createdAt ||
-                            contact.last_message?.timestamp
-                              ? formatDate(
-                                  contact.last_message.createdAt ||
-                                    (contact.last_message.timestamp &&
-                                      contact.last_message.timestamp * 1000)
-                                )
+                              }`}
+                            >
+                              {contact.last_message?.createdAt ||
+                              contact.last_message?.timestamp
+                                ? formatDate(
+                                    contact.last_message.createdAt ||
+                                      (contact.last_message.timestamp &&
+                                        contact.last_message.timestamp * 1000)
+                                  )
                                 : "New"}
-                          </span>
+                            </span>
+                          </div>
                         </div>
-                    </div>
 
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
                             <div className="mt-0.5">
                               <span className="text-xs text-gray-700 dark:text-gray-400 truncate block">
-                        {contact.last_message ? (
-                          <>
-                            {contact.last_message.from_me && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
+                                {contact.last_message ? (
+                                  <>
+                                    {contact.last_message.from_me && (
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
                                         className="inline-block w-3 h-3 text-blue-600 dark:text-blue-400 mr-1"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            )}
-                            {(() => {
-                              const message = contact.last_message;
-                              if (!message) return "No Messages";
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    )}
+                                    {(() => {
+                                      const message = contact.last_message;
+                                      if (!message) return "No Messages";
 
-                              const getMessageContent = () => {
-                                switch (message.type) {
-                                  case "text":
-                                  case "chat":
+                                      const getMessageContent = () => {
+                                        switch (message.type) {
+                                          case "text":
+                                          case "chat":
                                             return (
                                               message.text?.body || "Message"
                                             );
-                                  case "image":
-                                    return message.text?.body
-                                      ? `📷 ${message.text?.body}`
-                                      : "📷 Photo";
-                                  case "document":
-                                    return `📄 ${
-                                      message.document?.filename ||
-                                      message.text?.body ||
-                                      "Document"
-                                    }`;
-                                  case "audio":
-                                  case "ptt":
-                                    return "🎵 Audio";
-                                  case "video":
-                                    return message.text?.body
-                                      ? `🎥 ${message.text?.body}`
-                                      : "🎥 Video";
-                                  case "voice":
-                                    return "🎤 Voice message";
-                                  case "sticker":
-                                    return "😊 Sticker";
-                                  case "location":
-                                    return "📍 Location";
-                                  case "call_log":
-                                    return `📞 ${
-                                      message.call_log?.status || "Call"
-                                    }`;
-                                  case "order":
-                                    return "🛒 Order";
-                                  case "gif":
-                                    return "🎞️ GIF";
-                                  case "link_preview":
-                                    return "🔗 Link";
-                                  case "privateNote":
-                                    return "📝 Private note";
-                                  default:
+                                          case "image":
+                                            return message.text?.body
+                                              ? `📷 ${message.text?.body}`
+                                              : "📷 Photo";
+                                          case "document":
+                                            return `📄 ${
+                                              message.document?.filename ||
+                                              message.text?.body ||
+                                              "Document"
+                                            }`;
+                                          case "audio":
+                                          case "ptt":
+                                            return "🎵 Audio";
+                                          case "video":
+                                            return message.text?.body
+                                              ? `🎥 ${message.text?.body}`
+                                              : "🎥 Video";
+                                          case "voice":
+                                            return "🎤 Voice message";
+                                          case "sticker":
+                                            return "😊 Sticker";
+                                          case "location":
+                                            return "📍 Location";
+                                          case "call_log":
+                                            return `📞 ${
+                                              message.call_log?.status || "Call"
+                                            }`;
+                                          case "order":
+                                            return "🛒 Order";
+                                          case "gif":
+                                            return "🎞️ GIF";
+                                          case "link_preview":
+                                            return "🔗 Link";
+                                          case "privateNote":
+                                            return "📝 Private note";
+                                          default:
                                             return (
                                               message.text?.body || "Message"
                                             );
-                                }
-                              };
+                                        }
+                                      };
 
-                              const content = getMessageContent();
+                                      const content = getMessageContent();
                                       return message.from_me
                                         ? content
                                         : content;
-                            })()}
-                          </>
-                        ) : (
-                          "No Messages"
-                        )}
-                      </span>
+                                    })()}
+                                  </>
+                                ) : (
+                                  "No Messages"
+                                )}
+                              </span>
                             </div>
                           </div>
 
-                      {isAssistantAvailable && (
-                        <div
+                          {isAssistantAvailable && (
+                            <div
                               onClick={(e) =>
                                 toggleStopBotLabel(contact, index, e)
                               }
@@ -10670,15 +10662,15 @@ function Main() {
                               }
                             >
                               <label className="inline-flex items-center cursor-pointer group">
-                            <input
-                              type="checkbox"
-                              className="sr-only peer"
-                              checked={contact.tags?.includes("stop bot")}
-                              readOnly
-                            />
+                                <input
+                                  type="checkbox"
+                                  className="sr-only peer"
+                                  checked={contact.tags?.includes("stop bot")}
+                                  readOnly
+                                />
                                 <span
                                   className={`relative w-8 h-4 flex items-center rounded-full transition-colors duration-300 ${
-                                contact.tags?.includes("stop bot")
+                                    contact.tags?.includes("stop bot")
                                       ? "bg-gradient-to-r from-red-500 to-red-700"
                                       : "bg-gradient-to-r from-green-500 to-green-700"
                                   }`}
@@ -10691,12 +10683,12 @@ function Main() {
                                     }`}
                                   ></span>
                                 </span>
-                          </label>
+                              </label>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                </div>
                   </div>
                 </div>
               </React.Fragment>
@@ -10710,27 +10702,27 @@ function Main() {
         >
           {/* Main Pagination */}
           <div className="flex justify-center items-center">
-          <ReactPaginate
-            breakLabel="…"
-            nextLabel="Next"
-            onPageChange={isLoadingMoreContacts ? () => {} : handlePageChange}
+            <ReactPaginate
+              breakLabel="…"
+              nextLabel="Next"
+              onPageChange={isLoadingMoreContacts ? () => {} : handlePageChange}
               pageRangeDisplayed={2}
-            marginPagesDisplayed={2}
-            pageCount={Math.ceil(totalContacts / contactsPerPage)}
-            previousLabel="Previous"
-            renderOnZeroPageCount={null}
+              marginPagesDisplayed={2}
+              pageCount={Math.ceil(totalContacts / contactsPerPage)}
+              previousLabel="Previous"
+              renderOnZeroPageCount={null}
               containerClassName="flex justify-center items-center flex-wrap gap-0.5"
               pageClassName="mx-0.25"
               pageLinkClassName="px-1.5 py-1 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs min-w-[18px] text-center font-medium transition-all duration-200 border border-gray-200 dark:border-gray-600"
-            previousClassName="mx-0.5"
-            nextClassName="mx-0.5"
+              previousClassName="mx-0.5"
+              nextClassName="mx-0.5"
               previousLinkClassName="px-1.5 py-1 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-medium transition-all duration-200 border border-gray-200 dark:border-gray-600"
               nextLinkClassName="px-1.5 py-1 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-medium transition-all duration-200 border border-gray-200 dark:border-gray-600"
-            disabledClassName="opacity-50 cursor-not-allowed"
-            activeClassName="font-bold"
+              disabledClassName="opacity-50 cursor-not-allowed"
+              activeClassName="font-bold"
               activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700 border-blue-500"
-            forcePage={currentPage}
-          />
+              forcePage={currentPage}
+            />
           </div>
         </div>
         {isLoadingMoreContacts && (
@@ -11265,7 +11257,9 @@ function Main() {
                                     : "250"
                                 }px`,
                                 minWidth: "300px",
-                                backgroundColor: message.from_me ? "#dcf8c6" : undefined,
+                                backgroundColor: message.from_me
+                                  ? "#dcf8c6"
+                                  : undefined,
                               }}
                               onMouseEnter={() =>
                                 setHoveredMessageId(message.id)
@@ -11275,12 +11269,12 @@ function Main() {
                               {/* Sender name display */}
                               {!message.isPrivateNote && (
                                 <div className="text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">
-                                  {message.from_me 
-                                    ? (userData?.name || "Me") 
-                                    : (selectedContact?.contactName || 
-                                       selectedContact?.firstName || 
-                                       selectedContact?.phone || 
-                                       "Contact")}
+                                  {message.from_me
+                                    ? userData?.name || "Me"
+                                    : selectedContact?.contactName ||
+                                      selectedContact?.firstName ||
+                                      selectedContact?.phone ||
+                                      "Contact"}
                                 </div>
                               )}
                               {message.isPrivateNote && (
@@ -11291,10 +11285,10 @@ function Main() {
                                   </span>
                                 </div>
                               )}
-                                    {message.chat_id &&
-                                      (message.chat_id.includes("@g.us") ||
-                                        (userData?.companyId === "0123" &&
-                                          message.chat_id.includes("@c.us"))) &&
+                              {message.chat_id &&
+                                (message.chat_id.includes("@g.us") ||
+                                  (userData?.companyId === "0123" &&
+                                    message.chat_id.includes("@c.us"))) &&
                                 message.author && (
                                   <div
                                     className="pb-1 text-sm font-medium capitalize mb-1.5"
@@ -11305,7 +11299,7 @@ function Main() {
                                     }}
                                   >
                                     {message.author.split("@")[0].toLowerCase()}
-                              </div>
+                                  </div>
                                 )}
                               {message.type === "text" &&
                                 message.text?.context && (
@@ -12088,11 +12082,11 @@ function Main() {
                                           `Phone ${message.phoneIndex + 1}`}
                                       </div>
                                     )}
-                                      {formatTimestamp(
-                                        message.createdAt ||
-                                          message.dateAdded ||
-                                          message.timestamp
-                                      )}
+                                    {formatTimestamp(
+                                      message.createdAt ||
+                                        message.dateAdded ||
+                                        message.timestamp
+                                    )}
 
                                     {/* Message status indicator for sent messages */}
                                     {message.from_me && (
@@ -13038,15 +13032,15 @@ function Main() {
                 new conversation to get started.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={openNewChatModal}
+                <button
+                  onClick={openNewChatModal}
                   className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
+                >
                   <div className="flex items-center space-x-2">
                     <Lucide icon="Plus" className="w-4 h-4" />
                     <span>Start New Chat</span>
                   </div>
-              </button>
+                </button>
                 <button
                   onClick={() => setIsSearchModalOpen(true)}
                   className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold py-3 px-6 rounded-lg transition-all duration-200 border border-gray-300 dark:border-gray-600"
@@ -14001,438 +13995,489 @@ function Main() {
             {/* Content */}
             <div className="flex-1 p-8 overflow-y-auto bg-gray-50 dark:bg-gray-800">
               <div className="max-w-7xl mx-auto">
-              {isLoadingUsageData ? (
-                <div className="flex items-center justify-center py-16">
-                  <div className="flex flex-col items-center gap-4">
-                    <LoadingIcon
-                      icon="oval"
-                      className="w-10 h-10 text-blue-500"
-                    />
-                    <p className="text-gray-600 dark:text-gray-400 font-medium">
-                      Loading analytics data...
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  {/* Current Usage Stats */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 dark:from-blue-950/50 dark:via-blue-900/30 dark:to-blue-800/20 p-6 rounded-2xl border border-blue-200/50 dark:border-blue-700/50 group hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full -translate-y-12 translate-x-12"></div>
-                      <div className="relative">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                            <Lucide
-                              icon="Sparkles"
-                              className="w-6 h-6 text-white"
-                            />
-                          </div>
-                          <h3 className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                            AI Messages
-                          </h3>
-                        </div>
-                        <div className="space-y-3">
-                          <div className="flex items-end justify-between">
-                            <span className="text-4xl font-black text-blue-900 dark:text-blue-100 tracking-tight">
-                              {aiMessageUsage.toLocaleString()}
-                            </span>
-                            <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-                              / {(quotaAIMessage || 500).toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="relative w-full bg-blue-200/50 dark:bg-blue-800/50 rounded-full h-4 overflow-hidden">
-                            <div
-                              className="absolute inset-0 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500 rounded-full transition-all duration-700 ease-out shadow-sm"
-                              style={{
-                                width: `${Math.min(
-                                  (aiMessageUsage / (quotaAIMessage || 500)) *
-                                    100,
-                                  100
-                                )}%`,
-                              }}
-                            >
-                              <div className="w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                            </div>
-                          </div>
-                          <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                            {(
-                              (aiMessageUsage / (quotaAIMessage || 500)) *
-                              100
-                            ).toFixed(1)}
-                            % quota utilized this month
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:via-emerald-900/30 dark:to-emerald-800/20 p-6 rounded-2xl border border-emerald-200/50 dark:border-emerald-700/50 group hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full -translate-y-12 translate-x-12"></div>
-                      <div className="relative">
-                      
-                        <div className="space-y-3">
-
-  <div className="flex items-center justify-between text-sm">
-    <span className="font-medium text-emerald-700 dark:text-emerald-300">
-      {contacts.length || 0} total contacts
-    </span>
-    <span className="font-medium text-emerald-700 dark:text-emerald-300">
-      {((blastedMessageUsage / Math.max(contacts.length || 1, 1)) * 100).toFixed(1)}% coverage
-    </span>
-  </div>
-  <div className="flex items-center justify-between text-sm">
-    <span className="font-medium text-emerald-700 dark:text-emerald-300">
-      Contact Limit
-    </span>
-    <span className={`font-bold ${
-      contacts.length <= currentPlanLimits.contacts 
-        ? "text-emerald-800 dark:text-emerald-200" 
-        : "text-red-600 dark:text-red-400"
-    }`}>
-      {currentPlanLimits.contacts.toLocaleString()}
-    </span>
-  </div>
-  {contacts.length > currentPlanLimits.contacts && (
-    <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg border border-orange-200 dark:border-orange-700/50">
-      <p className="text-xs text-orange-700 dark:text-orange-300 font-medium">
-        ⚠️ You have {(contacts.length - currentPlanLimits.contacts).toLocaleString()} contacts over your plan limit. Consider upgrading to manage all contacts effectively.
-      </p>
-    </div>
-  )}
-  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-    {currentPlanLimits.title} - {currentPlanLimits.contacts.toLocaleString()} contacts limit
-  </p>
-</div>
-                      </div>
+                {isLoadingUsageData ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="flex flex-col items-center gap-4">
+                      <LoadingIcon
+                        icon="oval"
+                        className="w-10 h-10 text-blue-500"
+                      />
+                      <p className="text-gray-600 dark:text-gray-400 font-medium">
+                        Loading analytics data...
+                      </p>
                     </div>
                   </div>
-
-                  {/* Daily Usage Chart */}
-                  <div className="bg-gradient-to-br from-gray-50/50 via-white to-gray-50/50 dark:from-gray-900/50 dark:via-gray-800 dark:to-gray-900/50 rounded-3xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden shadow-lg">
-                    <div className="bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-750 px-6 py-5 border-b border-gray-200/50 dark:border-gray-600/50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-gray-600 rounded-xl flex items-center justify-center">
-                            <Lucide
-                              icon="TrendingUp"
-                              className="w-5 h-5 text-white"
-                            />
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                              7-Day Usage Trend
-                            </h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              AI messages activity
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-8">
-                      {dailyUsageData.length > 0 ? (
-                        <div className="space-y-8">
-                          {/* Enhanced Line Chart */}
-                          <div className="relative h-96 bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700/50 shadow-inner overflow-hidden">
-                            {(() => {
-                              return (
-                                <div className="w-full h-full p-4">
-                                  <canvas
-                                    id="usage-chart"
-                                    ref={(canvas) => {
-                                      if (canvas && dailyUsageData.length > 0) {
-                                        const existingChart = (canvas as any)
-                                          .chart;
-                                        if (existingChart) {
-                                          existingChart.destroy();
-                                        }
-
-                                        import("chart.js/auto").then(
-                                          (Chart) => {
-                                            const ctx = canvas.getContext("2d");
-                                            if (ctx) {
-                                              const isDark =
-                                                document.documentElement.classList.contains(
-                                                  "dark"
-                                                );
-                                              const formatDateLabel = (
-                                                dateString: string
-                                              ) => {
-                                                const date = new Date(
-                                                  dateString
-                                                );
-                                                const monthNames = [
-                                                  "JAN",
-                                                  "FEB",
-                                                  "MAR",
-                                                  "APR",
-                                                  "MAY",
-                                                  "JUN",
-                                                  "JUL",
-                                                  "AUG",
-                                                  "SEP",
-                                                  "OCT",
-                                                  "NOV",
-                                                  "DEC",
-                                                ];
-                                                const month =
-                                                  monthNames[date.getMonth()];
-                                                const day = date
-                                                  .getDate()
-                                                  .toString()
-                                                  .padStart(2, "0");
-                                                return `${month} ${day}`;
-                                              };
-
-                                              (canvas as any).chart =
-                                                new Chart.default(ctx, {
-                                                  type: "line",
-                                                  data: {
-                                                    labels: dailyUsageData.map(
-                                                      (day) =>
-                                                        formatDateLabel(
-                                                          day.date
-                                                        )
-                                                    ),
-                                                    datasets: [
-                                                      {
-                                                        label: "AI Messages",
-                                                        data: dailyUsageData.map(
-                                                          (day) =>
-                                                            day.aiMessages
-                                                        ),
-                                                        borderColor: "#3B82F6",
-                                                        backgroundColor:
-                                                          "rgba(59, 130, 246, 0.1)",
-                                                        borderWidth: 3,
-                                                        pointBackgroundColor:
-                                                          "#3B82F6",
-                                                        pointBorderColor:
-                                                          "#ffffff",
-                                                        pointBorderWidth: 2,
-                                                        pointRadius: 6,
-                                                        pointHoverRadius: 8,
-                                                        tension: 0.4,
-                                                        fill: true,
-                                                      },
-                                                    ],
-                                                  },
-                                                  options: {
-                                                    responsive: true,
-                                                    maintainAspectRatio: false,
-                                                    interaction: {
-                                                      intersect: false,
-                                                      mode: "index" as const,
-                                                    },
-                                                    plugins: {
-                                                      legend: {
-                                                        position:
-                                                          "top" as const,
-                                                        labels: {
-                                                          usePointStyle: true,
-                                                          pointStyle:
-                                                            "circle" as const,
-                                                          padding: 20,
-                                                          color: isDark
-                                                            ? "#9CA3AF"
-                                                            : "#6B7280",
-                                                          font: {
-                                                            size: 14,
-                                                          },
-                                                        },
-                                                      },
-                                                      tooltip: {
-                                                        backgroundColor: isDark
-                                                          ? "#1F2937"
-                                                          : "#FFFFFF",
-                                                        titleColor: isDark
-                                                          ? "#F3F4F6"
-                                                          : "#1F2937",
-                                                        bodyColor: isDark
-                                                          ? "#D1D5DB"
-                                                          : "#4B5563",
-                                                        borderColor: isDark
-                                                          ? "#374151"
-                                                          : "#E5E7EB",
-                                                        borderWidth: 1,
-                                                        cornerRadius: 8,
-                                                        displayColors: true,
-                                                        padding: 12,
-                                                      },
-                                                    },
-                                                    scales: {
-                                                      x: {
-                                                        grid: {
-                                                          display: true,
-                                                          color: isDark
-                                                            ? "#374151"
-                                                            : "#F3F4F6",
-                                                        },
-                                                        ticks: {
-                                                          color: isDark
-                                                            ? "#9CA3AF"
-                                                            : "#6B7280",
-                                                          font: {
-                                                            size: 12,
-                                                          },
-                                                          padding: 10,
-                                                        },
-                                                      },
-                                                      y: {
-                                                        beginAtZero: true,
-                                                        grid: {
-                                                          display: true,
-                                                          color: isDark
-                                                            ? "#374151"
-                                                            : "#F3F4F6",
-                                                        },
-                                                        ticks: {
-                                                          color: isDark
-                                                            ? "#9CA3AF"
-                                                            : "#6B7280",
-                                                          font: {
-                                                            size: 12,
-                                                          },
-                                                          padding: 10,
-                                                          callback: function (
-                                                            value: any
-                                                          ) {
-                                                            return Number.isInteger(
-                                                              value
-                                                            )
-                                                              ? value
-                                                              : "";
-                                                          },
-                                                        },
-                                                      },
-                                                    },
-                                                  },
-                                                });
-                                            }
-                                          }
-                                        );
-                                      }
-                                    }}
-                                    className="w-full h-full"
-                                  />
-                                </div>
-                              );
-                            })()}
-                          </div>
-
-                          {/* Enhanced Usage Summary */}
-                          <div className="grid grid-cols-3 gap-6 pt-6 border-t border-gray-200/50 dark:border-gray-600/50">
-                            <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/10 rounded-2xl border border-blue-200/30 dark:border-blue-700/30">
-                              <div className="text-3xl font-black text-blue-600 dark:text-blue-400 mb-1">
-                                {dailyUsageData
-                                  .reduce((sum, day) => sum + day.aiMessages, 0)
-                                  .toLocaleString()}
-                              </div>
-                              <div className="text-sm text-blue-700 dark:text-blue-300 font-semibold">
-                                Total AI Messages
-                              </div>
-                              <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                                Past 7 days
-                              </div>
-                            </div>
-                            <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/10 rounded-2xl border border-emerald-200/30 dark:border-emerald-700/30">
-                              <div className="flex items-center justify-center mb-2">
-                                <Lucide icon="UserPlus" className="w-6 h-6 text-emerald-500" />
-                              </div>
-                              <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mb-1">
-                                {dailyUsageData
-                                  .reduce(
-                                    (sum, day) => sum + (day.contacts || 0),
-                                    0
-                                  )
-                                  .toLocaleString()}
-                              </div>
-                              <div className="text-sm text-emerald-700 dark:text-emerald-300 font-semibold">
-                                New Contacts
-                              </div>
-                              <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                                Past 7 days
-                              </div>
-                            </div>
-                            <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 rounded-2xl border border-purple-200/30 dark:border-purple-700/30">
-                              <div className="flex items-center justify-center mb-2">
-                                <Lucide icon="Users" className="w-6 h-6 text-purple-500" />
-                              </div>
-                              <div className="text-3xl font-black text-purple-600 dark:text-purple-400 mb-1">
-                                {contacts.length || 0}
-                              </div>
-                              <div className="text-sm text-purple-700 dark:text-purple-300 font-semibold">
-                                Total Contacts
-                              </div>
-                              <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                                Available for blasts
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="h-80 flex items-center justify-center text-gray-500 dark:text-gray-400">
-                          <div className="text-center">
-                            <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                ) : (
+                  <div className="space-y-5">
+                    {/* Current Usage Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 dark:from-blue-950/50 dark:via-blue-900/30 dark:to-blue-800/20 p-6 rounded-2xl border border-blue-200/50 dark:border-blue-700/50 group hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full -translate-y-12 translate-x-12"></div>
+                        <div className="relative">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
                               <Lucide
-                                icon="BarChart3"
-                                className="w-10 h-10 text-gray-400 dark:text-gray-500"
+                                icon="Sparkles"
+                                className="w-6 h-6 text-white"
                               />
                             </div>
-                            <p className="text-xl font-bold text-gray-600 dark:text-gray-400 mb-2">
-                              No usage data yet
-                            </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-500 max-w-sm">
-                              Your usage analytics will appear here once you
-                              start sending AI and blast messages
+                            <h3 className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                              AI Messages
+                            </h3>
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex items-end justify-between">
+                              <span className="text-4xl font-black text-blue-900 dark:text-blue-100 tracking-tight">
+                                {aiMessageUsage.toLocaleString()}
+                              </span>
+                              <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                                / {(quotaAIMessage || 500).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="relative w-full bg-blue-200/50 dark:bg-blue-800/50 rounded-full h-4 overflow-hidden">
+                              <div
+                                className="absolute inset-0 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500 rounded-full transition-all duration-700 ease-out shadow-sm"
+                                style={{
+                                  width: `${Math.min(
+                                    (aiMessageUsage / (quotaAIMessage || 500)) *
+                                      100,
+                                    100
+                                  )}%`,
+                                }}
+                              >
+                                <div className="w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                              </div>
+                            </div>
+                            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                              {(
+                                (aiMessageUsage / (quotaAIMessage || 500)) *
+                                100
+                              ).toFixed(1)}
+                              % quota utilized this month
                             </p>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-700 rounded-3xl p-5 border border-gray-200/50 dark:border-gray-600/50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <button
-                          onClick={() => {
-                            toast.info(
-                              "📊 Export functionality will be available soon with CSV, PDF, and Excel formats!"
-                            );
-                          }}
-                          className="flex items-center gap-3 px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md group"
-                        >
-                          <Lucide
-                            icon="Download"
-                            className="w-5 h-5 group-hover:scale-110 transition-transform"
-                          />
-                          <span className="font-semibold">
-                            Export Analytics
-                          </span>
-                        </button>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          setIsUsageDashboardOpen(false);
-                          setIsTopUpModalOpen(true);
-                        }}
-                        className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-slate-500 to-gray-600 text-white rounded-2xl hover:from-slate-600 hover:to-gray-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 group"
-                      >
-                        <Lucide
-                          icon="Plus"
-                          className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300"
-                        />
-                        <span className="font-semibold">Upgrade Quota</span>
-                      </button>
+                      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:via-emerald-900/30 dark:to-emerald-800/20 p-6 rounded-2xl border border-emerald-200/50 dark:border-emerald-700/50 group hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full -translate-y-12 translate-x-12"></div>
+                        <div className="relative">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                              <Lucide icon="Users" className="w-6 h-6 text-white" />
+                            </div>
+                            <h3 className="text-xl font-bold text-emerald-900 dark:text-emerald-100">
+                              Contacts
+                            </h3>
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex items-end justify-between">
+                              <span className="text-4xl font-black text-emerald-900 dark:text-emerald-100 tracking-tight">
+                                {contacts.length.toLocaleString()}
+                              </span>
+                              <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+                                / {currentPlanLimits.contacts.toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="relative w-full bg-emerald-200/50 dark:bg-emerald-800/50 rounded-full h-4 overflow-hidden">
+                              <div
+                                className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-500 rounded-full transition-all duration-700 ease-out shadow-sm"
+                                style={{
+                                  width: `${Math.min(
+                                    (contacts.length / currentPlanLimits.contacts) * 100,
+                                    100
+                                  )}%`,
+                                }}
+                              >
+                                <div className="w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                              </div>
+                            </div>
+                            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                              {(
+                                (contacts.length / Math.max(currentPlanLimits.contacts || 1, 1)) * 100
+                              ).toFixed(1)}% quota utilized for this account
+                            </p>
+                            {contacts.length > currentPlanLimits.contacts && (
+                              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg border border-orange-200 dark:border-orange-700/50">
+                                <p className="text-xs text-orange-700 dark:text-orange-300 font-medium">
+                                  ⚠️ You have{" "}
+                                  {(contacts.length - currentPlanLimits.contacts).toLocaleString()}{" "}
+                                  contacts over your plan limit. Consider upgrading to manage all contacts effectively.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Daily Usage Chart */}
+                    <div className="bg-gradient-to-br from-gray-50/50 via-white to-gray-50/50 dark:from-gray-900/50 dark:via-gray-800 dark:to-gray-900/50 rounded-3xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden shadow-lg">
+                      <div className="bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-750 px-6 py-5 border-b border-gray-200/50 dark:border-gray-600/50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-gray-600 rounded-xl flex items-center justify-center">
+                              <Lucide
+                                icon="TrendingUp"
+                                className="w-5 h-5 text-white"
+                              />
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                                7-Day Usage Trend
+                              </h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                AI messages activity
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-8">
+                        {dailyUsageData.length > 0 ? (
+                          <div className="space-y-8">
+                            {/* Enhanced Line Chart */}
+                            <div className="relative h-96 bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700/50 shadow-inner overflow-hidden">
+                              {(() => {
+                                return (
+                                  <div className="w-full h-full p-4">
+                                    <canvas
+                                      ref={(canvas) => {
+                                        if (
+                                          canvas &&
+                                          dailyUsageData.length > 0
+                                        ) {
+                                          // Use a timeout to ensure proper destruction
+                                          setTimeout(() => {
+                                            // Destroy any existing chart instance
+                                            const existingChart = (canvas as any).chart;
+                                            if (existingChart) {
+                                              try {
+                                                existingChart.destroy();
+                                              } catch (e) {
+                                                console.warn('Error destroying chart:', e);
+                                              }
+                                              (canvas as any).chart = null;
+                                            }
+
+                                            // Clear the canvas
+                                            const ctx = canvas.getContext("2d");
+                                            if (ctx) {
+                                              ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                            }
+
+                                            import("chart.js/auto").then(
+                                              (Chart) => {
+                                                if (ctx && !(canvas as any).chart) {
+                                                  const isDark =
+                                                    document.documentElement.classList.contains(
+                                                      "dark"
+                                                    );
+                                                  const formatDateLabel = (
+                                                    dateString: string
+                                                  ) => {
+                                                    const date = new Date(
+                                                      dateString
+                                                    );
+                                                    const monthNames = [
+                                                      "JAN",
+                                                      "FEB",
+                                                      "MAR",
+                                                      "APR",
+                                                      "MAY",
+                                                      "JUN",
+                                                      "JUL",
+                                                      "AUG",
+                                                      "SEP",
+                                                      "OCT",
+                                                      "NOV",
+                                                      "DEC",
+                                                    ];
+                                                    const month =
+                                                      monthNames[date.getMonth()];
+                                                    const day = date
+                                                      .getDate()
+                                                      .toString()
+                                                      .padStart(2, "0");
+                                                    return `${month} ${day}`;
+                                                  };
+
+                                                  try {
+                                                    (canvas as any).chart =
+                                                      new Chart.default(ctx, {
+                                                        type: "line",
+                                                        data: {
+                                                          labels:
+                                                            dailyUsageData.map(
+                                                              (day) =>
+                                                                formatDateLabel(
+                                                                  day.date
+                                                                )
+                                                            ),
+                                                          datasets: [
+                                                            {
+                                                              label: "AI Messages",
+                                                              data: dailyUsageData.map(
+                                                                (day) =>
+                                                                  day.aiMessages
+                                                              ),
+                                                              borderColor:
+                                                                "#3B82F6",
+                                                              backgroundColor:
+                                                                "rgba(59, 130, 246, 0.1)",
+                                                              borderWidth: 3,
+                                                              pointBackgroundColor:
+                                                                "#3B82F6",
+                                                              pointBorderColor:
+                                                                "#ffffff",
+                                                              pointBorderWidth: 2,
+                                                              pointRadius: 6,
+                                                              pointHoverRadius: 8,
+                                                              tension: 0.4,
+                                                              fill: true,
+                                                            },
+                                                          ],
+                                                        },
+                                                        options: {
+                                                          responsive: true,
+                                                          maintainAspectRatio:
+                                                            false,
+                                                          interaction: {
+                                                            intersect: false,
+                                                            mode: "index" as const,
+                                                          },
+                                                          plugins: {
+                                                            legend: {
+                                                              position:
+                                                                "top" as const,
+                                                              labels: {
+                                                                usePointStyle: true,
+                                                                pointStyle:
+                                                                  "circle" as const,
+                                                                padding: 20,
+                                                                color: isDark
+                                                                  ? "#9CA3AF"
+                                                                  : "#6B7280",
+                                                                font: {
+                                                                  size: 14,
+                                                                },
+                                                              },
+                                                            },
+                                                            tooltip: {
+                                                              backgroundColor:
+                                                                isDark
+                                                                  ? "#1F2937"
+                                                                  : "#FFFFFF",
+                                                              titleColor: isDark
+                                                                ? "#F3F4F6"
+                                                                : "#1F2937",
+                                                              bodyColor: isDark
+                                                                ? "#D1D5DB"
+                                                                : "#4B5563",
+                                                              borderColor: isDark
+                                                                ? "#374151"
+                                                                : "#E5E7EB",
+                                                              borderWidth: 1,
+                                                              cornerRadius: 8,
+                                                              displayColors: true,
+                                                              padding: 12,
+                                                            },
+                                                          },
+                                                          scales: {
+                                                            x: {
+                                                              grid: {
+                                                                display: true,
+                                                                color: isDark
+                                                                  ? "#374151"
+                                                                  : "#F3F4F6",
+                                                              },
+                                                              ticks: {
+                                                                color: isDark
+                                                                  ? "#9CA3AF"
+                                                                  : "#6B7280",
+                                                                font: {
+                                                                  size: 12,
+                                                                },
+                                                                padding: 10,
+                                                              },
+                                                            },
+                                                            y: {
+                                                              beginAtZero: true,
+                                                              grid: {
+                                                                display: true,
+                                                                color: isDark
+                                                                  ? "#374151"
+                                                                  : "#F3F4F6",
+                                                              },
+                                                              ticks: {
+                                                                color: isDark
+                                                                  ? "#9CA3AF"
+                                                                  : "#6B7280",
+                                                                font: {
+                                                                  size: 12,
+                                                                },
+                                                                padding: 10,
+                                                                callback: function (
+                                                                  value: any
+                                                                ) {
+                                                                  return Number.isInteger(
+                                                                    value
+                                                                  )
+                                                                    ? value
+                                                                    : "";
+                                                                },
+                                                              },
+                                                            },
+                                                          },
+                                                        },
+                                                      });
+                                                  } catch (error) {
+                                                    console.error('Error creating chart:', error);
+                                                  }
+                                                }
+                                              }
+                                            ).catch((error) => {
+                                              console.error('Error importing Chart.js:', error);
+                                            });
+                                          }, 100);
+                                        }
+                                      }}
+                                      className="w-full h-full"
+                                    />
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Enhanced Usage Summary */}
+                            <div className="grid grid-cols-3 gap-6 pt-6 border-t border-gray-200/50 dark:border-gray-600/50">
+                              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/10 rounded-2xl border border-blue-200/30 dark:border-blue-700/30">
+                                <div className="flex items-center justify-center mb-2">
+                                  <Lucide
+                                    icon="Sparkles"
+                                    className="w-6 h-6 text-blue-500"
+                                  />
+                                </div>
+                                <div className="text-3xl font-black text-blue-600 dark:text-blue-400 mb-1">
+                                  {dailyUsageData
+                                    .reduce(
+                                      (sum, day) => sum + day.aiMessages,
+                                      0
+                                    )
+                                    .toLocaleString()}
+                                </div>
+                                <div className="text-sm text-blue-700 dark:text-blue-300 font-semibold">
+                                  Total AI Messages
+                                </div>
+                                <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                  Past 7 days
+                                </div>
+                              </div>
+                              <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-800/10 rounded-2xl border border-emerald-200/30 dark:border-emerald-700/30">
+                                <div className="flex items-center justify-center mb-2">
+                                  <Lucide
+                                    icon="UserPlus"
+                                    className="w-6 h-6 text-emerald-500"
+                                  />
+                                </div>
+                                <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mb-1">
+                                  {dailyUsageData
+                                    .reduce(
+                                      (sum, day) => sum + (day.contacts || 0),
+                                      0
+                                    )
+                                    .toLocaleString()}
+                                </div>
+                                <div className="text-sm text-emerald-700 dark:text-emerald-300 font-semibold">
+                                  New Contacts
+                                </div>
+                                <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                                  Past 7 days
+                                </div>
+                              </div>
+                              <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 rounded-2xl border border-purple-200/30 dark:border-purple-700/30">
+                                <div className="flex items-center justify-center mb-2">
+                                  <Lucide
+                                    icon="Users"
+                                    className="w-6 h-6 text-purple-500"
+                                  />
+                                </div>
+                                <div className="text-3xl font-black text-purple-600 dark:text-purple-400 mb-1">
+                                  {contacts.length || 0}
+                                </div>
+                                <div className="text-sm text-purple-700 dark:text-purple-300 font-semibold">
+                                  Total Contacts
+                                </div>
+                                <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                                  Available for blasts
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="h-80 flex items-center justify-center text-gray-500 dark:text-gray-400">
+                            <div className="text-center">
+                              <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Lucide
+                                  icon="BarChart3"
+                                  className="w-10 h-10 text-gray-400 dark:text-gray-500"
+                                />
+                              </div>
+                              <p className="text-xl font-bold text-gray-600 dark:text-gray-400 mb-2">
+                                No usage data yet
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-500 max-w-sm">
+                                Your usage analytics will appear here once you
+                                start sending AI and blast messages
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-700 rounded-3xl p-5 border border-gray-200/50 dark:border-gray-600/50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <button
+                            onClick={() => {
+                              toast.info(
+                                "📊 Export functionality will be available soon with CSV, PDF, and Excel formats!"
+                              );
+                            }}
+                            className="flex items-center gap-3 px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md group"
+                          >
+                            <Lucide
+                              icon="Download"
+                              className="w-5 h-5 group-hover:scale-110 transition-transform"
+                            />
+                            <span className="font-semibold">
+                              Export Analytics
+                            </span>
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setIsUsageDashboardOpen(false);
+                            setIsTopUpModalOpen(true);
+                          }}
+                          className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-slate-500 to-gray-600 text-white rounded-2xl hover:from-slate-600 hover:to-gray-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 group"
+                        >
+                          <Lucide
+                            icon="Plus"
+                            className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300"
+                          />
+                          <span className="font-semibold">Upgrade Quota</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
           </div>
         </div>
       )}
@@ -14694,262 +14739,357 @@ function Main() {
               <div className="max-w-7xl mx-auto">
                 {/* Current Usage Summary */}
                 <div className="mb-10 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-2xl border border-blue-200/50 dark:border-blue-700/50">
-                <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">
-                  Current Usage
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {aiMessageUsage}
-                    </div>
-                    <div className="text-sm text-blue-700 dark:text-blue-300">
-                      AI Responses Used
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {currentPlanLimits.aiMessages}
-                    </div>
-                    <div className="text-sm text-blue-700 dark:text-blue-300">
-                      Monthly Limit ({currentPlanLimits.title})
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className={`text-2xl font-bold ${
-                      currentPlanLimits.aiMessages - aiMessageUsage >= 0 
-                        ? "text-blue-600 dark:text-blue-400" 
-                        : "text-red-600 dark:text-red-400"
-                    }`}>
-                      {currentPlanLimits.aiMessages - aiMessageUsage}
-                    </div>
-                    <div className="text-sm text-blue-700 dark:text-blue-300">
-                      Remaining
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pricing Plans */}
-              <div className="mb-10">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-8">
-                  Choose Your Plan
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {/* Free Plan */}
-                  <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
+                  <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">
+                    Current Usage
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center">
-                      <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                        Free Plan
-                      </h4>
-                      <div className="text-3xl font-black text-primary mb-4">
-                        RM 0
-                        <span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {aiMessageUsage}
                       </div>
-                      <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-                        Perfect for small businesses. Get 100 AI responses monthly and 100 contacts with full access to all system features.
-                      </p>
-                      <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                        Start Free
-                      </button>
-                    </div>
-                    <div className="mt-6 space-y-3">
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        100 AI Responses Monthly
+                      <div className="text-sm text-blue-700 dark:text-blue-300">
+                        AI Responses Used
                       </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        100 Contacts
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Follow-Up System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Booking System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Tagging System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Assign System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Mobile App Access
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Desktop App Access
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Enterprise Plan - Most Popular */}
-                  <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-primary shadow-xl scale-105">
-                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                      <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">
-                        Most Popular
-                      </span>
                     </div>
                     <div className="text-center">
-                      <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                        Enterprise Plan
-                      </h4>
-                      <div className="text-3xl font-black text-primary mb-4">
-                        RM 888
-                        <span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {currentPlanLimits.aiMessages}
                       </div>
-                      <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-                        Premium support with 5,000 AI responses monthly and 10,000 contacts. We handle your prompting, follow-ups, and maintenance.
-                      </p>
-                      <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                        Start
-                      </button>
-                    </div>
-                    <div className="mt-6 space-y-3">
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        5,000 AI Responses Monthly
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        10,000 Contacts
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Follow-Up System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Booking System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Tagging System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Assign System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Mobile App Access
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Desktop App Access
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Full Maintenance & Support
+                      <div className="text-sm text-blue-700 dark:text-blue-300">
+                        Monthly Limit ({currentPlanLimits.title})
                       </div>
                     </div>
-                  </div>
-
-                  {/* Pro Plan */}
-                  <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
                     <div className="text-center">
-                      <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                        Pro Plan
-                      </h4>
-                      <div className="text-3xl font-black text-primary mb-4">
-                        RM 3088
-                        <span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
+                      <div
+                        className={`text-2xl font-bold ${
+                          currentPlanLimits.aiMessages - aiMessageUsage >= 0
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-red-600 dark:text-red-400"
+                        }`}
+                      >
+                        {currentPlanLimits.aiMessages - aiMessageUsage}
                       </div>
-                      <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-                        Complete solution with 20,000 AI responses, 50,000 contacts, custom integrations, full setup and maintenance included.
-                      </p>
-                      <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                        Start
-                      </button>
-                    </div>
-                    <div className="mt-6 space-y-3">
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        20,000 AI Responses Monthly
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        50,000 Contacts
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Follow-Up System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Booking System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Tagging System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        AI Assign System
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Mobile App Access
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Desktop App Access
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Full Maintenance & Support
-                      </div>
-                      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                        <Lucide icon="Check" className="w-4 h-4 text-green-500 mr-3" />
-                        Full AI Setup & Custom Automations
+                      <div className="text-sm text-blue-700 dark:text-blue-300">
+                        Remaining
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Top-up Section */}
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-2xl border border-green-200/50 dark:border-green-700/50 p-8">
-                <h3 className="text-2xl font-bold text-green-900 dark:text-green-100 mb-6">
-                  Need More AI Responses?
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="text-center">
-                    <div className="text-3xl font-black text-green-600 dark:text-green-400 mb-2">
-                      RM 10
+                {/* Pricing Plans */}
+                <div className="mb-10">
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-8">
+                    Choose Your Plan
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {/* Free Plan */}
+                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
+                      <div className="text-center">
+                        <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                          Free Plan
+                        </h4>
+                        <div className="text-3xl font-black text-primary mb-4">
+                          RM 0
+                          <span className="text-lg font-normal text-gray-600 dark:text-gray-400">
+                            /month
+                          </span>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+                          Perfect for small businesses. Get 100 AI responses
+                          monthly and 100 contacts with full access to all
+                          system features.
+                        </p>
+                        <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                          Start Free
+                        </button>
+                      </div>
+                      <div className="mt-6 space-y-3">
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          100 AI Responses Monthly
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          100 Contacts
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          AI Follow-Up System
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          AI Booking System
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          AI Tagging System
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          AI Assign System
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          Mobile App Access
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          Desktop App Access
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-lg font-semibold text-green-700 dark:text-green-300 mb-2">
-                      per 100 AI Responses
+
+                    {/* Enterprise Plan - Most Popular */}
+                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-primary shadow-xl scale-105">
+                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                        <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">
+                          Most Popular
+                        </span>
+                      </div>
+                      <div className="text-center">
+                        <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                          Enterprise Plan
+                        </h4>
+                        <div className="text-3xl font-black text-primary mb-4">
+                          RM 888
+                          <span className="text-lg font-normal text-gray-600 dark:text-gray-400">
+                            /month
+                          </span>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+                          Premium support with 5,000 AI responses monthly and
+                          10,000 contacts. We handle your prompting, follow-ups,
+                          and maintenance.
+                        </p>
+                        <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                          Start
+                        </button>
+                      </div>
+                      <div className="mt-6 space-y-3">
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          5,000 AI Responses Monthly
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          10,000 Contacts
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          AI Follow-Up System
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          AI Booking System
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          AI Tagging System
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          AI Assign System
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          Mobile App Access
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          Desktop App Access
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          Full Maintenance & Support
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-green-600 dark:text-green-400 text-sm mb-4">
-                      Top up anytime, regardless of your plan
-                    </p>
-                    <button className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                      Get Top-up
-                    </button>
+
+                    {/* Pro Plan */}
+                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
+                      <div className="text-center">
+                        <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                          Pro Plan
+                        </h4>
+                        <div className="text-3xl font-black text-primary mb-4">
+                          RM 3088
+                          <span className="text-lg font-normal text-gray-600 dark:text-gray-400">
+                            /month
+                          </span>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+                          Complete solution with 20,000 AI responses, 50,000
+                          contacts, custom integrations, full setup and
+                          maintenance included.
+                        </p>
+                        <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                          Start
+                        </button>
+                      </div>
+                      <div className="mt-6 space-y-3">
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          20,000 AI Responses Monthly
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          50,000 Contacts
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          AI Follow-Up System
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          AI Booking System
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          AI Tagging System
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          AI Assign System
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          Mobile App Access
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          Desktop App Access
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          Full Maintenance & Support
+                        </div>
+                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                          <Lucide
+                            icon="Check"
+                            className="w-4 h-4 text-green-500 mr-3"
+                          />
+                          Full AI Setup & Custom Automations
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-black text-green-600 dark:text-green-400 mb-2">
-                      Custom
+                </div>
+
+                {/* Top-up Section */}
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-2xl border border-green-200/50 dark:border-green-700/50 p-8">
+                  <h3 className="text-2xl font-bold text-green-900 dark:text-green-100 mb-6">
+                    Need More AI Responses?
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="text-center">
+                      <div className="text-3xl font-black text-green-600 dark:text-green-400 mb-2">
+                        RM 10
+                      </div>
+                      <div className="text-lg font-semibold text-green-700 dark:text-green-300 mb-2">
+                        per 100 AI Responses
+                      </div>
+                      <p className="text-green-600 dark:text-green-400 text-sm mb-4">
+                        Top up anytime, regardless of your plan
+                      </p>
+                      <button className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                        Get Top-up
+                      </button>
                     </div>
-                    <div className="text-lg font-semibold text-green-700 dark:text-green-300 mb-2">
-                      AI Setup & Automations
+                    <div className="text-center">
+                      <div className="text-3xl font-black text-green-600 dark:text-green-400 mb-2">
+                        Custom
+                      </div>
+                      <div className="text-lg font-semibold text-green-700 dark:text-green-300 mb-2">
+                        AI Setup & Automations
+                      </div>
+                      <p className="text-green-600 dark:text-green-400 text-sm mb-4">
+                        Based on your specific requirements
+                      </p>
+                      <button className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                        Get Quote
+                      </button>
                     </div>
-                    <p className="text-green-600 dark:text-green-400 text-sm mb-4">
-                      Based on your specific requirements
-                    </p>
-                    <button className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                      Get Quote
-                    </button>
                   </div>
                 </div>
               </div>
-            </div>
             </div>
           </div>
         </div>

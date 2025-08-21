@@ -3552,8 +3552,8 @@ interface BotStatusResponse {
       return;
     }
 
-    if (!blastStartTime) {
-      toast.error("Please select a start time for the blast message.");
+    if (!blastStartTime || !blastStartDate) {
+      toast.error("Please select both a date and time for the blast message.");
       return;
     }
 
@@ -3673,7 +3673,22 @@ interface BotStatusResponse {
       });
 
       // Prepare scheduledMessageData
-      const scheduledTime = blastStartTime || new Date();
+      let scheduledTime: Date;
+      if (blastStartTime && blastStartDate) {
+        const timeHours = blastStartTime.getHours();
+        const timeMinutes = blastStartTime.getMinutes();
+        const timeSeconds = blastStartTime.getSeconds();
+        const timeMilliseconds = blastStartTime.getMilliseconds();
+        
+        scheduledTime = new Date(blastStartDate);
+        scheduledTime.setHours(timeHours, timeMinutes, timeSeconds, timeMilliseconds);
+      } else if (blastStartTime) {
+        scheduledTime = new Date();
+        scheduledTime.setHours(blastStartTime.getHours(), blastStartTime.getMinutes(), blastStartTime.getSeconds(), blastStartTime.getMilliseconds());
+      } else {
+        scheduledTime = new Date();
+      }
+      
       const scheduledMessageData = {
         chatIds,
         message: messages[0]?.text || "",
@@ -3739,6 +3754,8 @@ interface BotStatusResponse {
     setRepeatUnit("days");
     setSelectedMedia(null);
     setSelectedDocument(null);
+    setBlastStartTime(null);
+    setBlastStartDate(new Date());
     setActiveTimeStart("09:00");
     setActiveTimeEnd("17:00");
     setMinDelay(1);
@@ -8652,17 +8669,35 @@ const handleConfirmSyncFirebase = async () => {
                       <div className="flex space-x-2">
                         <DatePickerComponent
                           selected={blastStartDate}
-                          onChange={(date: Date | null) =>
-                            setBlastStartDate(date as Date)
-                          }
+                          onChange={(date: Date | null) => {
+                            if (date) {
+                              setBlastStartDate(date);
+                              console.log("Blast Start Date:", date);
+                              // If we don't have a time selected yet, set default time to current time
+                              if (!blastStartTime) {
+                                const defaultTime = new Date();
+                                setBlastStartTime(defaultTime);
+                                console.log("Setting default time:", defaultTime);
+                              }
+                            }
+                          }}
                           dateFormat="MMMM d, yyyy"
                           className="w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                         <DatePickerComponent
                           selected={blastStartTime}
-                          onChange={(date: Date | null) =>
-                            setBlastStartTime(date as Date)
-                          }
+                          onChange={(date: Date | null) => {
+                            if (date) {
+                              setBlastStartTime(date);
+                              console.log("Blast Start Time:", date);
+                              // If we don't have a date selected yet, set default date to today
+                              if (!blastStartDate) {
+                                const defaultDate = new Date();
+                                setBlastStartDate(defaultDate);
+                                console.log("Setting default date:", defaultDate);
+                              }
+                            }
+                          }}
                           showTimeSelect
                           showTimeSelectOnly
                           timeIntervals={15}
