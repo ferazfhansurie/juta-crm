@@ -1034,9 +1034,15 @@ function DashboardOverview3() {
   const [sendingInProgress, setSendingInProgress] = useState(false);
 
   // Add state for individual certificate sending
-  const [sendingIndividualCert, setSendingIndividualCert] = useState<{
-    [key: string]: boolean;
-  }>({});
+  const [sendingIndividualCert, setSendingIndividualCert] = useState<Record<string, boolean>>({});
+  const [sendingBulkCert, setSendingBulkCert] = useState(false);
+  const [selectedFeedbackProgram, setSelectedFeedbackProgram] = useState<string>("");
+  const [feedbackCertModalOpen, setFeedbackCertModalOpen] = useState(false);
+  const [feedbackAttendeesToSend, setFeedbackAttendeesToSend] = useState<any[]>([]);
+  const [feedbackSendingModalOpen, setFeedbackSendingModalOpen] = useState(false);
+  const [feedbackSendingInProgress, setFeedbackSendingInProgress] = useState(false);
+  const [feedbackSendingStatus, setFeedbackSendingStatus] = useState<Array<{ name: string; phone: string; status: string }>>([]);
+  const [failedNumbersInput, setFailedNumbersInput] = useState<string>("");
 
   // Add state for selected program for sending certificates
   const [selectedSendProgram, setSelectedSendProgram] = useState<string>("");
@@ -3312,6 +3318,91 @@ function DashboardOverview3() {
       `[Dashboard][${requestId}] ===== BULK CERTIFICATE GENERATION COMPLETED =====`
     );
     setSendingInProgress(false);
+  };
+
+  // Handler to confirm and start sending feedback certificates
+  const handleFeedbackConfirmAndSend = async () => {
+    const requestId = Math.random().toString(36).substring(2, 10);
+    console.log(`[Dashboard][${requestId}] ===== BULK FEEDBACK CERTIFICATE GENERATION STARTED =====`);
+    
+    const attendees = feedbackAttendeesToSend.filter(a => a.selected);
+    
+    if (attendees.length === 0) {
+      console.log(`[Dashboard][${requestId}] No feedback attendees selected`);
+      return;
+    }
+    
+    console.log(`[Dashboard][${requestId}] Processing ${attendees.length} selected feedback attendees`);
+    setFeedbackSendingModalOpen(true);
+    setFeedbackSendingInProgress(true);
+    setFeedbackSendingStatus(attendees.map((a: any) => ({ 
+      name: a["full_name"] || a["Full Name"] || "Unknown", 
+      phone: a["phone_number"] || a["Phone"] || a["contact_number"] || "No Phone", 
+      status: "pending" 
+    })));
+    
+    // Get company ID for API calls
+    let companyId;
+    try {
+      console.log(`[Dashboard][${requestId}] Getting company ID...`);
+      companyId = await getCompanyId();
+      console.log(`[Dashboard][${requestId}] Company ID: ${companyId}`);
+    } catch (error) {
+      console.error(`[Dashboard][${requestId}] Failed to get company ID:`, error);
+      setFeedbackSendingInProgress(false);
+      return;
+    }
+    
+    for (let i = 0; i < attendees.length; i++) {
+      const attendee = attendees[i];
+      const participantName = attendee["full_name"] || attendee["Full Name"] || "Unknown";
+      console.log(`[Dashboard][${requestId}] Processing feedback attendee ${i + 1}/${attendees.length}: ${participantName}`);
+      
+      let status = "pending";
+      try {
+        const name = participantName;
+        const phone = attendee["phone_number"] || attendee["Phone"] || attendee["contact_number"];
+        const programDate = attendee["Which session did you attend?"] || "Unknown Session";
+        
+        if (!name || !phone) {
+          throw new Error("Missing name or phone");
+        }
+        
+        const actualFormId = attendees[0]?.form_id || "feedback-certificate-send";
+
+        const requestPayload = {
+          phoneNumber: phone,
+          formId: actualFormId, // ✅ Use the real form ID
+          formTitle: `FUTUREX.AI 2025 Feedback Certificate - ${programDate}`,
+          companyId: companyId
+        };
+        console.log(`[Dashboard][${requestId}] Sending request for ${name}:`, JSON.stringify(requestPayload, null, 2));
+        
+        const response = await axios.post(`${baseUrl}/api/certificates/generate-and-send`, requestPayload);
+        
+        if (response.data.success) {
+          console.log(`[Dashboard][${requestId}] ✅ Certificate sent successfully for ${name}`);
+          status = "success";
+        } else {
+          console.error(`[Dashboard][${requestId}] ❌ Certificate failed for ${name}:`, response.data.error);
+          status = "failed";
+        }
+        
+      } catch (err: any) {
+        console.error(`[Dashboard][${requestId}] ❌ Error processing ${participantName}:`, err);
+        status = "failed";
+      }
+      
+      // Update status for this attendee
+      setFeedbackSendingStatus((prev) =>
+        prev.map((s, idx) =>
+          idx === i ? { ...s, status } : s
+        )
+      );
+    }
+    
+    console.log(`[Dashboard][${requestId}] ===== BULK FEEDBACK CERTIFICATE GENERATION COMPLETED =====`);
+    setFeedbackSendingInProgress(false);
   };
 
   // Memoized PieChart data/labels
@@ -5936,18 +6027,8 @@ Co9P AI Chatbot`;
       <section className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8 border border-gray-100 dark:border-gray-700 mt-8">
         <div className="flex items-center mb-6">
           <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/30 rounded-lg flex items-center justify-center mr-4">
-            <svg
-              className="w-6 h-6 text-pink-600 dark:text-pink-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-              />
+            <svg className="w-6 h-6 text-pink-600 dark:text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
@@ -6099,10 +6180,11 @@ Co9P AI Chatbot`;
             Clear All Filters
           </button>
         </div>
+        
+        {/* Certificate Controls and Download Buttons */}
         <div className="mb-4 flex flex-wrap gap-2 items-center">
           <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-            Showing {filteredFeedback.length} of {mergedFeedbackData.length}{" "}
-            feedback responses
+            Showing {filteredFeedback.length} of {mergedFeedbackData.length} feedback responses
           </div>
           <div className="flex gap-2">
             <button
@@ -6121,8 +6203,38 @@ Co9P AI Chatbot`;
             >
               Download as Excel
             </button>
+            {/* Certificate sending controls */}
+            <div className="flex gap-2 items-center">
+              <select
+                className="px-3 py-2 border rounded text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={selectedFeedbackProgram}
+                onChange={(e) => setSelectedFeedbackProgram(e.target.value)}
+              >
+                <option value="">Select Program for Certificates</option>
+                {Array.from(new Set(filteredFeedback.map((row: any) => row["Which session did you attend?"]).filter(Boolean))).map((program) => (
+                  <option value={program} key={program}>{program}</option>
+                ))}
+              </select>
+              <button
+                className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:opacity-50"
+                onClick={() => {
+                  if (selectedFeedbackProgram) {
+                    const attendeesForProgram = filteredFeedback.filter(
+                      (row: any) => row["Which session did you attend?"] === selectedFeedbackProgram
+                    );
+                    setFeedbackAttendeesToSend(attendeesForProgram.map(a => ({ ...a, selected: true })));
+                    setFeedbackCertModalOpen(true);
+                  }
+                }}
+                disabled={!selectedFeedbackProgram}
+              >
+                Send Certificates to Program
+              </button>
+            </div>
           </div>
         </div>
+        
+        {/* Feedback Responses Table */}
         <div className="overflow-x-auto max-h-96">
           <table className="min-w-full border text-xs">
             <thead>
@@ -6132,6 +6244,8 @@ Co9P AI Chatbot`;
                     {key}
                   </th>
                 ))}
+                <th className="border px-2 py-1">Certificate</th>
+                <th className="border px-2 py-1">Send via WhatsApp</th>
               </tr>
             </thead>
             <tbody>
@@ -6151,12 +6265,350 @@ Co9P AI Chatbot`;
                         : String((row as Record<string, any>)[key])}
                     </td>
                   ))}
+                  {/* Certificate column */}
+                  <td className="border px-2 py-1">
+                    <button
+                      className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                      onClick={() => {
+                        const participantName = (row as Record<string, any>)["full_name"] || (row as Record<string, any>)["Full Name"] || "Unknown";
+                        const programDate = (row as Record<string, any>)["Which session did you attend?"] || "Unknown Session";
+                        generateCertificate(participantName, programDate);
+                      }}
+                      title="Download Certificate"
+                    >
+                      Download Certificate
+                    </button>
+                  </td>
+                  {/* Send via WhatsApp column */}
+                  <td className="border px-2 py-1">
+                    <button
+                      className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 disabled:opacity-50"
+                      onClick={async () => {
+                        const participantName = (row as Record<string, any>)["full_name"] || (row as Record<string, any>)["Full Name"] || "Unknown";
+                        const phone = (row as Record<string, any>)["phone_number"] || (row as Record<string, any>)["Phone"] || (row as Record<string, any>)["contact_number"];
+                        const programDate = (row as Record<string, any>)["Which session did you attend?"] || "Unknown Session";
+                        
+                        if (!participantName || !phone) {
+                          alert("Missing name or phone number for certificate sending");
+                          return;
+                        }
+                        
+                        // Normalize phone number
+                        let normalizedPhone = String(phone).replace(/\D/g, "");
+                        if (!normalizedPhone.startsWith("6")) {
+                          normalizedPhone = "6" + normalizedPhone;
+                        }
+                        
+                        // Format phone number for WhatsApp API
+                        const formattedPhone = normalizedPhone.includes('@c.us') ? normalizedPhone : `${normalizedPhone}@c.us`;
+                        
+                        const participantKey = `${participantName}_${phone}`;
+                        
+                        // Prevent multiple clicks
+                        if (sendingIndividualCert[participantKey]) return;
+                        
+                        setSendingIndividualCert(prev => ({ ...prev, [participantKey]: true }));
+                        
+                        try {
+                          // Generate certificate as blob
+                          const certificateBlob = await generateCertificate(
+                            participantName, 
+                            programDate,
+                            { returnBlob: true }
+                          ) as Blob;
+                          
+                          if (!certificateBlob) {
+                            throw new Error("Failed to generate certificate");
+                          }
+                          
+                          // Ensure the blob is properly formatted as a PDF
+                          let pdfBlob = certificateBlob;
+                          if (certificateBlob.type !== 'application/pdf') {
+                            pdfBlob = new Blob([certificateBlob], { type: 'application/pdf' });
+                          }
+                          
+                          // Upload certificate
+                          const fileName = `${participantName}_FUTUREX.AI_2025_Certificate.pdf`;
+                          const documentUrl = await uploadFile(pdfBlob, fileName);
+                          
+                          // Send thank you message
+                          const thankYouText = `Dear ${participantName}
+
+Thank You for Attending FUTUREX.AI 2025
+
+On behalf of the organizing team, we would like to extend our heartfelt thanks for your participation in FUTUREX.AI 2025 held on 21 August 2025.
+
+Your presence and engagement in the AI Immersion - Automate It. Analyse It. Storytell It. session greatly contributed to the success of the event.
+
+We hope the experience was insightful and inspiring as we continue to explore how artificial intelligence and robotics can shape the future.
+
+We hope you can join our next event as well.
+
+Please find your digital certificate of participation attached.
+
+Warm regards,
+Co9P AI Chatbot`;
+                          
+                          await sendTextMessage(formattedPhone, thankYouText);
+                          
+                          // Send certificate as document
+                          await sendDocumentMessage(formattedPhone, documentUrl, fileName, "Your FUTUREX.AI 2025 Certificate of Participation");
+                          
+                          alert(`Certificate sent successfully to ${participantName}`);
+                        } catch (error) {
+                          console.error("Error sending certificate:", error);
+                          alert(`Failed to send certificate: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                        } finally {
+                          setSendingIndividualCert(prev => ({ ...prev, [participantKey]: false }));
+                        }
+                      }}
+                      disabled={!((row as Record<string, any>)["full_name"] || (row as Record<string, any>)["Full Name"]) || !((row as Record<string, any>)["phone_number"] || (row as Record<string, any>)["Phone"] || (row as Record<string, any>)["contact_number"]) || sendingIndividualCert[`${(row as Record<string, any>)["full_name"] || (row as Record<string, any>)["Full Name"]}_${(row as Record<string, any>)["phone_number"] || (row as Record<string, any>)["Phone"] || (row as Record<string, any>)["contact_number"]}`]}
+                      title="Send certificate via WhatsApp"
+                    >
+                      {sendingIndividualCert[`${(row as Record<string, any>)["full_name"] || (row as Record<string, any>)["Full Name"]}_${(row as Record<string, any>)["phone_number"] || (row as Record<string, any>)["Phone"] || (row as Record<string, any>)["contact_number"]}`] ? 'Sending...' : 'Send via WhatsApp'}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </section>
+      
+      {/* Feedback Certificate Confirmation Modal */}
+      {feedbackCertModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">Confirm Certificate Sending</h3>
+              <button
+                className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl font-bold focus:outline-none"
+                onClick={() => setFeedbackCertModalOpen(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                You are about to send certificates to <strong>{feedbackAttendeesToSend.length}</strong> feedback respondents for the program: <strong>{selectedFeedbackProgram}</strong>
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                This will generate and send certificates via WhatsApp to all selected respondents.
+              </p>
+              
+              {/* Failed Numbers Resend Section */}
+              <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
+                <h4 className="font-medium text-red-800 dark:text-red-200 mb-2">Resend to Failed Numbers</h4>
+                <p className="text-xs text-red-600 dark:text-red-300 mb-2">
+                  Paste failed phone numbers (one per line) to resend certificates:
+                </p>
+                <textarea
+                  className="w-full p-2 border border-red-300 dark:border-red-700 rounded text-sm bg-white dark:bg-slate-700 dark:text-white"
+                  rows={4}
+                  placeholder="+60127332108&#10;+60192645440&#10;+60112147247&#10;..."
+                  value={failedNumbersInput}
+                  onChange={(e) => setFailedNumbersInput(e.target.value)}
+                />
+                <div className="flex gap-2 mt-2">
+                  <button
+                    className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                    onClick={() => {
+                      const numbers = failedNumbersInput.split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line.length > 0)
+                        .map(phone => ({
+                          phone_number: phone, // Use phone_number to match the table display
+                          phone: phone, // Keep phone for backward compatibility
+                          name: "Failed Number Resend",
+                          selected: true,
+                          "Which session did you attend?": selectedFeedbackProgram || "Unknown Session"
+                        }));
+                      
+                      if (numbers.length > 0) {
+                        setFeedbackAttendeesToSend(numbers); // Replace instead of add
+                        setFailedNumbersInput("");
+                      }
+                    }}
+                  >
+                    Add Failed Numbers
+                  </button>
+                  <button
+                    className="px-3 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700"
+                    onClick={() => {
+                      const allFailedNumbers = `+60127332108
++60192645440
++60112147247
++60192398428
++60122246205
++60163165869
++60194382875
++60192335125
++60124800026
++60179256448
++60133247703
++60165640579
++60
++601153521500
++60136700477
++60192624682
++60193602939
++6014-7397602
++60196242866
++60136976227
++60128413003
++601124229331
++60172382600
++60192776720
++601159989195
++60137363385
++60178795899
+0123210737
++60139982740
++60165432100
++60125170216
++60179084972
++60196992405
++60165683182
++601160562819
++60123210737
++60139808813
++60195710737
++601121677672`;
+                      setFailedNumbersInput(allFailedNumbers);
+                    }}
+                  >
+                    Paste All Failed Numbers
+                  </button>
+                  <button
+                    className="px-3 py-1 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
+                    onClick={() => setFailedNumbersInput("")}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="max-h-64 overflow-y-auto border rounded mb-4">
+              <table className="min-w-full border text-xs">
+                <thead className="bg-gray-100 dark:bg-slate-700">
+                  <tr>
+                    <th className="border px-2 py-1">
+                      <input
+                        type="checkbox"
+                        checked={feedbackAttendeesToSend.every(a => a.selected)}
+                        onChange={(e) => setFeedbackAttendeesToSend(prev => prev.map(a => ({ ...a, selected: e.target.checked })))}
+                        className="mr-2"
+                      />
+                      Select All
+                    </th>
+                    <th className="border px-2 py-1">Name</th>
+                    <th className="border px-2 py-1">Phone</th>
+                    <th className="border px-2 py-1">Session</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {feedbackAttendeesToSend.map((attendee, idx) => (
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-gray-50 dark:bg-slate-700'}>
+                      <td className="border px-2 py-1">
+                        <input
+                          type="checkbox"
+                          checked={attendee.selected}
+                          onChange={() => {
+                            setFeedbackAttendeesToSend(prev => prev.map((a, i) => i === idx ? { ...a, selected: !a.selected } : a));
+                          }}
+                        />
+                      </td>
+                      <td className="border px-2 py-1">{attendee["full_name"] || attendee["Full Name"] || "Unknown"}</td>
+                      <td className="border px-2 py-1">{attendee["phone_number"] || attendee["Phone"] || attendee["contact_number"] || "No Phone"}</td>
+                      <td className="border px-2 py-1">{attendee["Which session did you attend?"] || "Unknown"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
+                onClick={() => setFeedbackCertModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
+                onClick={() => {
+                  setFeedbackCertModalOpen(false);
+                  handleFeedbackConfirmAndSend();
+                }}
+                disabled={!feedbackAttendeesToSend.some(a => a.selected)}
+              >
+                Send Certificates ({feedbackAttendeesToSend.filter(a => a.selected).length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Feedback Certificate Sending Progress Modal */}
+      {feedbackSendingModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl font-bold focus:outline-none"
+              onClick={() => {
+                if (!feedbackSendingInProgress) setFeedbackSendingModalOpen(false);
+                else if (window.confirm('Sending is in progress. Are you sure you want to close?')) setFeedbackSendingModalOpen(false);
+              }}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <h3 className="text-lg font-bold mb-4 text-center">Sending Feedback Certificates</h3>
+            <div className="max-h-64 overflow-y-auto border rounded mb-4">
+              <table className="min-w-full border text-xs">
+                <thead className="bg-gray-100 dark:bg-slate-700">
+                  <tr>
+                    <th className="border px-2 py-1">Name</th>
+                    <th className="border px-2 py-1">Phone</th>
+                    <th className="border px-2 py-1">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {feedbackSendingStatus.map((s, i) => (
+                    <tr key={i}>
+                      <td className="border px-2 py-1">{s.name}</td>
+                      <td className="border px-2 py-1">{s.phone}</td>
+                      <td className="border px-2 py-1">
+                        {s.status === "pending" && <span className="text-yellow-500">Pending...</span>}
+                        {s.status === "success" && <span className="text-green-600">Sent</span>}
+                        {s.status === "failed" && <span className="text-red-600">Failed</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                className={`px-4 py-2 rounded ${feedbackSendingInProgress ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-400 text-white hover:bg-gray-500'}`}
+                onClick={() => {
+                  if (!feedbackSendingInProgress) setFeedbackSendingModalOpen(false);
+                  else if (window.confirm('Sending is in progress. Are you sure you want to close?')) setFeedbackSendingModalOpen(false);
+                }}
+                disabled={false}
+              >
+                Close
+              </button>
+            </div>
+            {feedbackSendingInProgress && (
+              <div className="mt-2 text-center text-sm text-blue-500">Sending in progress...</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

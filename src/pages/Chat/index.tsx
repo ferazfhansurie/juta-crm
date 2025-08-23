@@ -605,19 +605,7 @@ const getContactTimestamp = (contact: Contact): number => {
   }
 
   // Debug logging for problematic cases
-  if (timestamp === 0 || isNaN(timestamp)) {
-    console.warn(
-      `🚨 Invalid timestamp for contact ${
-        contact.contactName || contact.firstName
-      }:`,
-      {
-        contact: contact,
-        source: source,
-        timestamp: timestamp,
-        last_message: contact.last_message,
-      }
-    );
-  }
+ 
 
   return timestamp || 0; // No timestamp available
 };
@@ -876,6 +864,263 @@ function Main() {
   const [isUsageDashboardOpen, setIsUsageDashboardOpen] =
     useState<boolean>(false);
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState<boolean>(false);
+  const [isTopUpAmountModalOpen, setIsTopUpAmountModalOpen] = useState<boolean>(false);
+  const [topUpAmount, setTopUpAmount] = useState<number>(10);
+  const [isTopUpLoading, setIsTopUpLoading] = useState<boolean>(false);
+  
+  // Top-up calculator functions
+  const calculateTopUpPrice = () => {
+    return topUpAmount;
+  };
+
+  const calculateAIResponses = () => {
+    // RM 10 = 100 AI responses, so rate is 10 AI responses per RM 1
+    return topUpAmount * 10;
+  };
+
+  const handleTopUpPurchase = async () => {
+    if (topUpAmount < 1) return;
+    
+    setIsTopUpLoading(true);
+    
+    try {
+      console.log('Sending topup request with companyId:', companyId);
+      const response = await fetch(`${baseUrl}/api/payex/create-topup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: topUpAmount,
+          aiResponses: calculateAIResponses(),
+          email: localStorage.getItem('userEmail'),
+          companyId: companyId
+        }),
+      });
+
+      const data = await response.json();
+console.log(data);
+      if (response.ok && data.success) {
+        if (data.paymentUrl) {
+          // Store payment intent ID for tracking
+          localStorage.setItem('pendingTopUpId', data.paymentIntentId);
+          localStorage.setItem('pendingTopUpAmount', topUpAmount.toString());
+          localStorage.setItem('pendingTopUpResponses', data.aiResponses.toString());
+          
+          // Show success message before redirect
+          const message = data.message || `Payment initiated! You will receive ${data.aiResponses} AI responses for RM ${topUpAmount}.`;
+          //alert(message);
+          
+          // Redirect to PayEx payment page
+          // The backend should already include the return URL with payment ID
+          window.open(data.paymentUrl, '_blank');
+        } else {
+          // Development mode or no payment URL
+          toast.success(`Top-up created successfully! ${data.message || 'You will receive ' + data.aiResponses + ' AI responses.'}`);
+        }
+      } else {
+        console.error('Top-up payment creation failed:', data.error);
+        const errorMessage = data.details || data.error || 'Unknown error occurred';
+        toast.error(`Payment creation failed: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error('Top-up payment error:', error);
+      toast.error('Network error. Please check your connection and try again.');
+    } finally {
+      setIsTopUpLoading(false);
+    }
+  };
+
+    // Function to refresh user's quota display
+  const refreshUserQuota = async () => {
+    try {
+      console.log('Refreshing user quota display...');
+      setQuotaLoading(true);
+      
+      if (!companyId) {
+        console.log('No company ID available, skipping quota refresh');
+        return;
+      }
+
+      // Fetch current quota from the backend
+      const response = await fetch(`${baseUrl}/api/usage/quota?companyId=${companyId}`);
+      const data = await response.json();
+      console.log("usagee",data);
+      if (data.success) {
+        console.log('Quota data received:', data.quota);
+        
+        // Update the existing quota state variables
+        const { limit, used, remaining, percentageUsed } = data.quota;
+        
+        // Update AI message quota
+        setQuotaAIMessage(limit);
+        setAiMessageUsage(used);
+        
+        // Store full quota data for other uses - ensure consistent structure
+        setQuotaData({
+          limit: limit,
+          used: used,
+          remaining: remaining,
+          percentageUsed: percentageUsed
+        });
+        
+        // Show success toast with quota info
+        toast.success(`Quota refreshed: ${aiMessageUsage}/${limit} AI responses used (${percentageUsed}% used)`);
+        
+      } else {
+        console.error('Failed to fetch quota:', data.error);
+        toast.error('Failed to refresh quota information');
+      }
+    } catch (error) {
+      console.error('Error refreshing quota:', error);
+      toast.error('Error refreshing quota information');
+    } finally {
+      setQuotaLoading(false);
+    }
+  };
+
+  // Alternative function to get quota by email
+  const getQuotaByEmail = async (email: string) => {
+    try {
+      console.log('Fetching quota by email:', email);
+      
+      const response = await fetch(`${baseUrl}/api/usage/quota?email=${encodeURIComponent(email)}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('Quota data by email received:', data.quota);
+        return data.quota;
+      } else {
+        console.error('Failed to fetch quota by email:', data.error);
+        toast.error('Failed to fetch quota information');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching quota by email:', error);
+      toast.error('Error fetching quota information');
+      return null;
+    }
+  };
+
+  // Function to get usage history
+  const getUsageHistory = async (months: number = 6) => {
+    try {
+      console.log('Fetching usage history for', months, 'months');
+      
+      if (!companyId) {
+        console.log('No company ID available, skipping usage history');
+        return null;
+      }
+
+      const response = await fetch(`${baseUrl}/api/usage/history?companyId=${companyId}&months=${months}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('Usage history received:', data.usageHistory);
+        return data;
+      } else {
+        console.error('Failed to fetch usage history:', data.error);
+        toast.error('Failed to fetch usage history');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching usage history:', error);
+      toast.error('Error fetching usage history');
+      return null;
+    }
+  };
+
+
+
+  // Check payment status when component mounts or when returning from PayEx
+  useEffect(() => {
+    const checkPaymentStatus = async () => {
+      // Check if there's a payment ID in the URL (returning from PayEx)
+      const urlParams = new URLSearchParams(window.location.search);
+      const paymentId = urlParams.get('payment_intent') || urlParams.get('reference_number');
+      const companyId = urlParams.get('company_id');
+      const paymentStatus = urlParams.get('status');
+      
+      if (paymentId) {
+        try {
+          console.log('Payment return detected:', { paymentId, companyId, paymentStatus });
+          
+          // If status is already success from URL, handle it directly
+          if (paymentStatus === 'success') {
+            console.log('Payment success confirmed from URL parameters');
+            // Show success message
+            toast.success('Payment successful! Your AI quota has been updated.');
+            // Clear any pending payment data
+            localStorage.removeItem('pendingTopUpId');
+            localStorage.removeItem('pendingTopUpAmount');
+            localStorage.removeItem('pendingTopUpResponses');
+            // Refresh user's quota display
+            refreshUserQuota();
+            // Clean up the URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            console.log('Payment completed successfully!');
+            return;
+          }
+          
+          // If status is not success, check with backend
+          console.log('Checking payment status for ID:', paymentId);
+          const response = await fetch(`${baseUrl}/api/payex/check-status/${paymentId}`);
+          const data = await response.json();
+          
+          if (data.status === 'completed' || data.status === 'success') {
+            // Show success message
+            toast.success('Payment successful! Your AI quota has been updated.');
+            // Clear any pending payment data
+            localStorage.removeItem('pendingTopUpAmount');
+            localStorage.removeItem('pendingTopUpResponses');
+            // Refresh user's quota display
+            refreshUserQuota();
+            // Clean up the URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            console.log('Payment completed successfully!');
+          } else if (data.status === 'failed') {
+            toast.error('Payment failed. Please try again or contact support.');
+            // Clean up the URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } else {
+            console.log('Payment status:', data.status);
+          }
+        } catch (error) {
+          console.error('Error checking payment status:', error);
+          toast.error('Error checking payment status. Please contact support.');
+        }
+      } else {
+        // Check if there's a pending payment in localStorage
+        const pendingTopUpId = localStorage.getItem('pendingTopUpId');
+        if (pendingTopUpId) {
+          try {
+            // Check if payment was completed
+            const response = await fetch(`${baseUrl}/api/payex/quota-status/${companyId}`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.success) {
+                // Clear pending payment data
+                localStorage.removeItem('pendingTopUpId');
+                localStorage.removeItem('pendingTopUpAmount');
+                localStorage.removeItem('pendingTopUpResponses');
+                
+                // Refresh usage data
+                refreshUserQuota();
+                console.log('Payment completed successfully!');
+              }
+            }
+          } catch (error) {
+            console.error('Error checking payment status:', error);
+          }
+        }
+      }
+    };
+
+    checkPaymentStatus();
+  }, [companyId]);
+
+
+
   const [dailyUsageData, setDailyUsageData] = useState<any[]>([]);
   const [isLoadingUsageData, setIsLoadingUsageData] = useState<boolean>(false);
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
@@ -900,6 +1145,10 @@ function Main() {
   const [wsReconnectAttempts, setWsReconnectAttempts] = useState(0);
   const [wsError, setWsError] = useState<string | null>(null);
   const maxReconnectAttempts = 5;
+  
+  // Quota state variables
+  const [quotaData, setQuotaData] = useState<any>(null);
+  const [quotaLoading, setQuotaLoading] = useState(false);
   const [scrollToMessageId, setScrollToMessageId] = useState<string | null>(
     null
   );
@@ -940,6 +1189,41 @@ function Main() {
   };
 
   const currentPlanLimits = getCurrentPlanLimits();
+
+  // PayEx payment handler
+  const handlePayExPayment = async (planType: string, amount: number) => {
+    try {
+      console.log('Sending payment request with companyId:', companyId);
+      // Call your backend API to handle PayEx integration
+      const response = await fetch(`${baseUrl}/api/payex/create-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planType,
+          amount,
+          email: localStorage.getItem('userEmail'),
+          companyId: companyId
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.paymentUrl) {
+        // Redirect to PayEx payment page
+        // The backend should already include the return URL with payment ID
+        window.location.href = data.paymentUrl;
+      } else {
+        console.error('Payment creation failed:', data.error);
+        toast.error(`Payment creation failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Payment error occurred. Please try again.');
+    }
+  };
+
   // Initialize user context from localStorage and NeonDB
   useEffect(() => {
     // Use user info from localStorage (set during API login)
@@ -3036,31 +3320,13 @@ function Main() {
     const isUsingMultiPhoneAPI =
       hasMultiplePhones && userPhone !== null && userPhone !== undefined;
 
-    console.log(
-      "sortContacts - isUsingMultiPhoneAPI:",
-      isUsingMultiPhoneAPI,
-      "phoneCount:",
-      phoneCount,
-      "userPhone:",
-      userPhone
-    );
+ 
 
     // Always apply phone filtering when userPhone is set
     if (userPhone !== null && userPhone !== undefined) {
-      console.log("🔍 Before phone filtering - contacts count:", fil.length);
-      console.log("🔍 Filtering by userPhone:", userPhone);
+   
 
-      // Debug first few contacts
-      fil.slice(0, 3).forEach((contact, index) => {
-        console.log(
-          `🔍 Contact ${index}:`,
-          contact.contactName,
-          "phoneIndexes:",
-          contact.phoneIndexes,
-          "phoneIndex:",
-          contact.phoneIndex
-        );
-      });
+     
 
       const beforeFilter = fil.length;
       fil = fil.filter((contact) => {
@@ -3089,26 +3355,12 @@ function Main() {
 
         // Debug first few contacts
         if (fil.indexOf(contact) < 3) {
-          console.log(
-            "🔍 Contact:",
-            contact.contactName,
-            "phoneIndexes:",
-            contact.phoneIndexes,
-            "phoneIndex:",
-            contact.phoneIndex,
-            "hasPhone:",
-            hasPhone
-          );
+   
         }
 
         return hasPhone;
       });
-      console.log(
-        "🔍 After phone filtering - contacts count:",
-        fil.length,
-        "filtered out:",
-        beforeFilter - fil.length
-      );
+     
     } else if (!isUsingMultiPhoneAPI) {
       // Legacy filtering logic for single phone or when userPhone is not set
       let userPhoneIndex =
@@ -3177,8 +3429,8 @@ function Main() {
     // Tag filtering
     if (activeTags.length > 0) {
       const tag = activeTags[0]?.toLowerCase() || "all";
-      console.log("🔍 Filtering by tag:", tag);
-      console.log("🔍 Active tags:", activeTags);
+     // console.log("🔍 Filtering by tag:", tag);
+      //console.log("🔍 Active tags:", activeTags);
 
       fil = fil.filter((contact) => {
         const isGroup = contact.chat_id?.endsWith("@g.us");
@@ -3187,14 +3439,7 @@ function Main() {
             (typeof t === "string" ? t : String(t)).toLowerCase()
           ) || [];
 
-        console.log(
-          "🔍 Contact:",
-          contact.contactName || contact.phone,
-          "Tags:",
-          contact.tags,
-          "Lowercase tags:",
-          contactTags
-        );
+       
 
         const matchesTag =
           tag === "all"
@@ -3221,11 +3466,11 @@ function Main() {
             ? contact.tags?.includes("stop bot")
             : contactTags.includes(tag);
 
-        console.log("🔍 Contact matches tag:", matchesTag);
+       // console.log("🔍 Contact matches tag:", matchesTag);
         return matchesTag;
       });
 
-      console.log("🔍 After tag filtering, contacts count:", fil.length);
+    //  console.log("🔍 After tag filtering, contacts count:", fil.length);
     }
 
     // Sort by timestamp (works for both APIs)
@@ -3254,11 +3499,7 @@ function Main() {
 
   // Debug: Log the filtered results
   useEffect(() => {
-    console.log(
-      "📊 RESULT - Filtered contacts:",
-      filteredContactsSearch.length
-    );
-
+   
     // Debug: Log all available tags from contacts
     const allTags = new Set<string>();
     contacts.forEach((contact) => {
@@ -3270,10 +3511,7 @@ function Main() {
         });
       }
     });
-    console.log(
-      "🔍 All available tags in contacts:",
-      Array.from(allTags).sort()
-    );
+   
 
     if (filteredContactsSearch.length > 0) {
       console.log("📊 SORTING - First 10 contacts sorted by timestamp:");
@@ -3712,7 +3950,6 @@ function Main() {
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
         body: JSON.stringify(quickReplyData),
       });
 
@@ -3770,7 +4007,6 @@ function Main() {
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
         body: JSON.stringify(updateData),
       });
 
@@ -3800,7 +4036,6 @@ function Main() {
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
       });
 
       if (!response.ok) {
@@ -4049,18 +4284,8 @@ function Main() {
             if (data.type === "new_message") {
               console.log("📨 [WEBSOCKET] Received new_message:", data);
               handleNewMessage(data);
-            } else if (data.type === "bot_status_update") {
-              console.log("🤖 [WEBSOCKET] Received bot_status_update:", data);
-              handleBotStatusUpdate(
-                data,
-                setContacts,
-                setLoadedContacts,
-                setFilteredContacts,
-                setSelectedContact,
-                selectedContact,
-                contacts
-              );
-            } else if (data.type === "contact_assignment_update") {
+            }
+            else if (data.type === "contact_assignment_update") {
               console.log(
                 "👤 [WEBSOCKET] Received contact_assignment_update:",
                 data
@@ -4316,13 +4541,23 @@ function Main() {
         data.companyData.plan === "enterprise" ||
         data.companyData.plan === "free"
       ) {
-        setAiMessageUsage(data.messageUsage.aiMessages || 0);
-        setBlastedMessageUsage(data.messageUsage.blastedMessages || 0);
-        setQuotaAIMessage(data.usageQuota.aiMessages || 0);
+     
       }
+      setAiMessageUsage(data.messageUsage.aiMessages || 0);
+      setBlastedMessageUsage(data.messageUsage.blastedMessages || 0);
+      setQuotaAIMessage(data.usageQuota.aiMessages || 0)
+      var quota = 0;
+      if (data.companyData.plan === "enterprise") {
+        quota = (data.usageQuota.aiMessages || 0) + 5000;
+      } else if (data.companyData.plan === "pro") {
+        quota = (data.usageQuota.aiMessages || 0) + 20000;
+      } else {
+        quota = (data.usageQuota.aiMessages || 0) + 100;
+      }
+      setQuotaData({ limit: quota, used: data.messageUsage.aiMessages || 0, remaining: quota - (data.messageUsage.aiMessages || 0), percentageUsed: ((data.messageUsage.aiMessages || 0) / quota) * 100 });
       console.log("AI Message Usage:", data.messageUsage.aiMessages);
       console.log("Blasted Message Usage:", data.messageUsage.blastedMessages);
-      console.log("Quota AI Message:", data.usageQuota.aiMessages);
+      console.log("Quota AI Message:", currentPlanLimits.aiMessages);
 
       // Set employee list
       setEmployeeList(data.employeeList);
@@ -4624,7 +4859,7 @@ function Main() {
     }
 
     // Default case - invalid timestamp
-    console.warn("Invalid timestamp format:", timestamp);
+    //console.warn("Invalid timestamp format:", timestamp);
     return 0;
   };
   // Add this helper function above your component
@@ -9790,12 +10025,18 @@ function Main() {
                 AI Messages
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  {aiMessageUsage}
-                  <span className="opacity-70 font-normal">
-                    /{currentPlanLimits.aiMessages}
+                {quotaLoading ? (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Loading...
                   </span>
-                </span>
+                ) : (
+                  <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                    {aiMessageUsage || 0}
+                    <span className="opacity-70 font-normal">
+                      /{quotaData?.limit || currentPlanLimits.aiMessages}
+                    </span>
+                  </span>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -9811,27 +10052,27 @@ function Main() {
             <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-primary/10 to-gray-200 dark:from-primary/20 dark:to-gray-700 mb-1 overflow-hidden">
               <div
                 className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
-                  aiMessageUsage > currentPlanLimits.aiMessages
+                  (aiMessageUsage || 0) > (currentPlanLimits.aiMessages || 0)
                     ? "bg-gradient-to-r from-red-600 to-red-800"
-                    : aiMessageUsage > currentPlanLimits.aiMessages * 0.9
+                    : (aiMessageUsage || 0) > (currentPlanLimits.aiMessages || 0) * 0.9
                     ? "bg-gradient-to-r from-red-500 to-red-700"
-                    : aiMessageUsage > currentPlanLimits.aiMessages * 0.7
+                    : (aiMessageUsage || 0) > (currentPlanLimits.aiMessages || 0) * 0.7
                     ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
                     : "bg-gradient-to-r from-green-500 to-green-700"
                 }`}
                 style={{
                   width: `${Math.min(
-                    (aiMessageUsage / currentPlanLimits.aiMessages) * 100,
+                    ((aiMessageUsage || 0) / (currentPlanLimits.aiMessages || 1)) * 100,
                     120
                   )}%`,
                 }}
               ></div>
-              {aiMessageUsage > currentPlanLimits.aiMessages && (
-                <div className="text-xs text-red-600 dark:text-red-400 text-center mt-0.5 font-medium">
-                  ⚠️ Limit exceeded by{" "}
-                  {aiMessageUsage - currentPlanLimits.aiMessages} responses
-                </div>
-              )}
+                                {(aiMessageUsage || 0) > (currentPlanLimits.aiMessages || 0) && (
+                    <div className="text-xs text-red-600 dark:text-red-400 text-center mt-0.5 font-medium">
+                      ⚠️ Limit exceeded by{" "}
+                      {(aiMessageUsage || 0) - (currentPlanLimits.aiMessages || 0)} responses
+                    </div>
+                  )}
             </div>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
@@ -9842,7 +10083,7 @@ function Main() {
                 <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
                   {contacts.length}
                   <span className="opacity-70 font-normal">
-                    /{currentPlanLimits.contacts}
+                    /{currentPlanLimits.contacts || 0}
                   </span>
                 </span>
               </div>
@@ -9851,24 +10092,24 @@ function Main() {
             <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-emerald-400/10 to-gray-200 dark:from-emerald-400/20 dark:to-gray-700 overflow-hidden">
               <div
                 className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
-                  contacts.length > currentPlanLimits.contacts
+                  contacts.length > (currentPlanLimits.contacts || 0)
                     ? "bg-gradient-to-r from-red-600 to-red-800"
-                    : contacts.length > currentPlanLimits.contacts * 0.9
+                    : contacts.length > (currentPlanLimits.contacts || 0) * 0.9
                     ? "bg-gradient-to-r from-red-500 to-red-700"
-                    : contacts.length > currentPlanLimits.contacts * 0.7
+                    : contacts.length > (currentPlanLimits.contacts || 0) * 0.7
                     ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
                     : "bg-gradient-to-r from-emerald-500 to-emerald-700"
                 }`}
                 style={{
                   width: `${Math.min(
-                    (contacts.length / currentPlanLimits.contacts) * 100,
+                    (contacts.length / (currentPlanLimits.contacts || 1)) * 100,
                     120
                   )}%`,
                 }}
               ></div>
             </div>
             <div className="flex items-center justify-between mt-1"></div>
-            {contacts.length > currentPlanLimits.contacts && (
+            {contacts.length > (currentPlanLimits.contacts || 0) && (
               <div className="mt-1 text-center">
                 <span className="text-xs text-orange-600 dark:text-orange-400 font-medium bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">
                   ⚠️ Contact limit exceeded - upgrade plan for more contacts
@@ -10689,6 +10930,7 @@ function Main() {
                         </div>
                       </div>
                     </div>
+              
                   </div>
                 </div>
               </React.Fragment>
@@ -14737,6 +14979,69 @@ function Main() {
             {/* Content */}
             <div className="flex-1 p-8 overflow-y-auto bg-gray-50 dark:bg-gray-800">
               <div className="max-w-7xl mx-auto">
+                {/* AI Response Calculator - Moved to Top */}
+                <div className="mb-10 p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-2xl border border-green-200/50 dark:border-green-700/50">
+                  <div className="text-center mb-6">
+                    <h3 className="text-2xl font-bold text-green-900 dark:text-green-100">
+                      AI Response Calculator
+                    </h3>
+                    <p className="text-green-600 dark:text-green-400 text-sm mt-1">
+                      Calculate how many AI responses you need and get instant pricing
+                    </p>
+                  </div>
+                  
+                  <div className="max-w-md mx-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-green-200 dark:border-green-700">
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Amount in RM
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={topUpAmount}
+                          onChange={(e) => setTopUpAmount(parseInt(e.target.value) || 0)}
+                          className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-center text-lg font-semibold"
+                          placeholder="Enter amount in RM"
+                        />
+                      </div>
+                      
+                      <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                            RM {calculateTopUpPrice()}
+                          </div>
+                          <div className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                            for {calculateAIResponses()} AI Responses
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            (RM 10 = 100 AI responses)
+                          </div>
+                          <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium">
+                            💡 Great value for your AI needs!
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <button 
+                        onClick={() => handleTopUpPurchase()}
+                        disabled={topUpAmount < 1 || isTopUpLoading}
+                        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95"
+                      >
+                        {isTopUpLoading ? (
+                          <div className="flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                            Processing...
+                          </div>
+                        ) : (
+                          `Buy Now - RM ${calculateTopUpPrice()}`
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Current Usage Summary */}
                 <div className="mb-10 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-2xl border border-blue-200/50 dark:border-blue-700/50">
                   <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">
@@ -14762,12 +15067,12 @@ function Main() {
                     <div className="text-center">
                       <div
                         className={`text-2xl font-bold ${
-                          currentPlanLimits.aiMessages - aiMessageUsage >= 0
+                          (currentPlanLimits.aiMessages || 0) - (aiMessageUsage || 0) >= 0
                             ? "text-blue-600 dark:text-blue-400"
                             : "text-red-600 dark:text-red-400"
                         }`}
                       >
-                        {currentPlanLimits.aiMessages - aiMessageUsage}
+                        {(currentPlanLimits.aiMessages || 0) - (aiMessageUsage || 0)}
                       </div>
                       <div className="text-sm text-blue-700 dark:text-blue-300">
                         Remaining
@@ -14781,314 +15086,197 @@ function Main() {
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-8">
                     Choose Your Plan
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     {/* Free Plan */}
-                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
+                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
                       <div className="text-center">
-                        <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
                           Free Plan
                         </h4>
-                        <div className="text-3xl font-black text-primary mb-4">
+                        <div className="text-2xl font-black text-primary mb-3">
                           RM 0
-                          <span className="text-lg font-normal text-gray-600 dark:text-gray-400">
+                          <span className="text-sm font-normal text-gray-600 dark:text-gray-400">
                             /month
                           </span>
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-                          Perfect for small businesses. Get 100 AI responses
-                          monthly and 100 contacts with full access to all
-                          system features.
+                        <p className="text-gray-600 dark:text-gray-400 mb-4 text-xs">
+                          Perfect for getting started. Get 100 AI responses monthly and 100 contacts with full access to all system features.
                         </p>
-                        <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                          Start Free
-                        </button>
+                        <div className="w-full bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400 font-semibold py-2 px-4 rounded-xl text-sm text-center">
+                          Current Plan
+                        </div>
                       </div>
-                      <div className="mt-6 space-y-3">
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          100 AI Responses Monthly
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          100 Contacts
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          AI Follow-Up System
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          AI Booking System
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          AI Tagging System
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          AI Assign System
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          Mobile App Access
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          Desktop App Access
-                        </div>
+                      <div className="mt-4 space-y-2">
+                        {[
+                          "100 AI Responses Monthly",
+                          "100 Contacts",
+                          "AI Follow-Up System",
+                          "AI Booking System",
+                          "AI Tagging System",
+                          "AI Assign System",
+                          "Mobile App Access",
+                          "Desktop App Access",
+                        ].map((benefit, index) => (
+                          <div key={index} className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                            <Lucide
+                              icon="Check"
+                              className="w-3 h-3 text-green-500 mr-2 flex-shrink-0"
+                            />
+                            {benefit}
+                          </div>
+                        ))}
                       </div>
                     </div>
 
-                    {/* Enterprise Plan - Most Popular */}
-                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-primary shadow-xl scale-105">
+                    {/* Standard Plan */}
+                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
+                      <div className="text-center">
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+                          Standard Plan
+                        </h4>
+                        <div className="text-2xl font-black text-primary mb-3">
+                          RM 500
+                          <span className="text-sm font-normal text-gray-600 dark:text-gray-400">
+                            /month
+                          </span>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-4 text-xs">
+                          Perfect for small businesses. Get 1000 AI responses monthly and 5000 contacts with full access to all system features.
+                        </p>
+                        <a 
+                          href="https://api.payex.io/Payment/Details?key=78cd6WScl365InsA&amount=500&payment_type=fpx&description=Standard%20Plan&signature=8f619e38ff161beeb887286cc69b2aaf1bdf278df51249436c7ce0063179a617"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-full bg-primary hover:bg-primary/80 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 text-sm text-center"
+                        >
+                          Upgrade Now
+                        </a>
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        {[
+                          "1000 AI Responses Monthly",
+                          "5000 Contacts",
+                          "AI Follow-Up System",
+                          "AI Booking System",
+                          "AI Tagging System",
+                          "AI Assign System",
+                          "Mobile App Access",
+                          "Desktop App Access",
+                        ].map((benefit, index) => (
+                          <div key={index} className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                            <Lucide
+                              icon="Check"
+                              className="w-3 h-3 text-green-500 mr-2 flex-shrink-0"
+                            />
+                            {benefit}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Pro Support Plan - Most Popular */}
+                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 border-2 border-primary shadow-xl scale-105">
                       <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                         <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">
                           Most Popular
                         </span>
                       </div>
                       <div className="text-center">
-                        <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+                          Pro Support Plan
+                        </h4>
+                        <div className="text-2xl font-black text-primary mb-3">
+                          RM 950
+                          <span className="text-sm font-normal text-gray-600 dark:text-gray-400">
+                            /month
+                          </span>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-4 text-xs">
+                          Premium support with 5,000 AI responses monthly and 10,000 contacts. We handle your prompting, follow-ups, and maintenance.
+                        </p>
+                        <a 
+                          href="https://api.payex.io/Payment/Details?key=78cd6WScl365InsA&amount=950&payment_type=fpx&description=Pro%20Plan&signature=c33c1d57c6ddb0976c02f5dab08bc683b25e01d099e92e707b82a607268e28a7"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-full bg-primary hover:bg-primary/80 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 text-sm text-center"
+                        >
+                          Upgrade Now
+                        </a>
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        {[
+                          "5,000 AI Responses Monthly",
+                          "10,000 Contacts",
+                          "AI Follow-Up System",
+                          "AI Booking System",
+                          "AI Tagging System",
+                          "AI Assign System",
+                          "Mobile App Access",
+                          "Desktop App Access",
+                          "Full Maintenance & Support",
+                        ].map((benefit, index) => (
+                          <div key={index} className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                            <Lucide
+                              icon="Check"
+                              className="w-3 h-3 text-green-500 mr-2 flex-shrink-0"
+                            />
+                            {benefit}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Enterprise Plan */}
+                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
+                      <div className="text-center">
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
                           Enterprise Plan
                         </h4>
-                        <div className="text-3xl font-black text-primary mb-4">
-                          RM 888
-                          <span className="text-lg font-normal text-gray-600 dark:text-gray-400">
+                        <div className="text-2xl font-black text-primary mb-3">
+                          RM XXXX+
+                          <span className="text-sm font-normal text-gray-600 dark:text-gray-400">
                             /month
                           </span>
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-                          Premium support with 5,000 AI responses monthly and
-                          10,000 contacts. We handle your prompting, follow-ups,
-                          and maintenance.
+                        <p className="text-gray-600 dark:text-gray-400 mb-4 text-xs">
+                          Complete solution with 20,000 AI responses, 50,000 contacts, custom integrations, full setup and maintenance included.
                         </p>
-                        <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                          Start
-                        </button>
+                        <a 
+                          href="https://wa.me/601121677522?text=Hi%20i%20would%20like%20to%20know%20more%20about%20your%20enterprise%20plan"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-full bg-primary hover:bg-primary/80 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 text-sm"
+                        >
+                          Learn More
+                        </a>
                       </div>
-                      <div className="mt-6 space-y-3">
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          5,000 AI Responses Monthly
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          10,000 Contacts
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          AI Follow-Up System
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          AI Booking System
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          AI Tagging System
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          AI Assign System
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          Mobile App Access
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          Desktop App Access
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          Full Maintenance & Support
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Pro Plan */}
-                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
-                      <div className="text-center">
-                        <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                          Pro Plan
-                        </h4>
-                        <div className="text-3xl font-black text-primary mb-4">
-                          RM 3088
-                          <span className="text-lg font-normal text-gray-600 dark:text-gray-400">
-                            /month
-                          </span>
-                        </div>
-                        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-                          Complete solution with 20,000 AI responses, 50,000
-                          contacts, custom integrations, full setup and
-                          maintenance included.
-                        </p>
-                        <button className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                          Start
-                        </button>
-                      </div>
-                      <div className="mt-6 space-y-3">
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          20,000 AI Responses Monthly
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          50,000 Contacts
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          AI Follow-Up System
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          AI Booking System
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          AI Tagging System
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          AI Assign System
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          Mobile App Access
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          Desktop App Access
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          Full Maintenance & Support
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                          <Lucide
-                            icon="Check"
-                            className="w-4 h-4 text-green-500 mr-3"
-                          />
-                          Full AI Setup & Custom Automations
-                        </div>
+                      <div className="mt-4 space-y-2">
+                        {[
+                          "20,000 AI Responses Monthly",
+                          "50,000 Contacts",
+                          "AI Follow-Up System",
+                          "AI Booking System",
+                          "AI Tagging System",
+                          "AI Assign System",
+                          "Mobile App Access",
+                          "Desktop App Access",
+                          "Full Maintenance & Support",
+                          "Full AI Setup & Custom Automations",
+                        ].map((benefit, index) => (
+                          <div key={index} className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                            <Lucide
+                              icon="Check"
+                              className="w-3 h-3 text-green-500 mr-2 flex-shrink-0"
+                            />
+                            {benefit}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Top-up Section */}
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-2xl border border-green-200/50 dark:border-green-700/50 p-8">
-                  <h3 className="text-2xl font-bold text-green-900 dark:text-green-100 mb-6">
-                    Need More AI Responses?
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="text-center">
-                      <div className="text-3xl font-black text-green-600 dark:text-green-400 mb-2">
-                        RM 10
-                      </div>
-                      <div className="text-lg font-semibold text-green-700 dark:text-green-300 mb-2">
-                        per 100 AI Responses
-                      </div>
-                      <p className="text-green-600 dark:text-green-400 text-sm mb-4">
-                        Top up anytime, regardless of your plan
-                      </p>
-                      <button className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                        Get Top-up
-                      </button>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-3xl font-black text-green-600 dark:text-green-400 mb-2">
-                        Custom
-                      </div>
-                      <div className="text-lg font-semibold text-green-700 dark:text-green-300 mb-2">
-                        AI Setup & Automations
-                      </div>
-                      <p className="text-green-600 dark:text-green-400 text-sm mb-4">
-                        Based on your specific requirements
-                      </p>
-                      <button className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                        Get Quote
-                      </button>
-                    </div>
-                  </div>
-                </div>
+
               </div>
             </div>
           </div>

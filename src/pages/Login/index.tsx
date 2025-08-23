@@ -5,23 +5,9 @@ import { FormInput, FormCheck } from "@/components/Base/Form";
 import Button from "@/components/Base/Button";
 import clsx from "clsx";
 import { Link, useNavigate } from "react-router-dom";
-import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { initializeApp } from 'firebase/app';
 import { useState } from "react";
 import { co } from "@fullcalendar/core/internal-common";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc",
-  authDomain: "onboarding-a5fcb.firebaseapp.com",
-  databaseURL: "https://onboarding-a5fcb-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "onboarding-a5fcb",
-  storageBucket: "onboarding-a5fcb.appspot.com",
-  messagingSenderId: "334607574757",
-  appId: "1:334607574757:web:2603a69bf85f4a1e87960c",
-  measurementId: "G-2C9J1RY67L"
-};
-
-const app = initializeApp(firebaseConfig);
+import { API_ENDPOINTS } from "@/config/backend";
 
 function Main() {
   const [email, setEmail] = useState("");
@@ -29,15 +15,21 @@ function Main() {
   const [error, setError] = useState("");
   const [signedIn, setSignedIn] = useState(false);
   const navigate = useNavigate();
-  const [resetEmail, setResetEmail] = useState("");
+  const [resetPhoneNumber, setResetPhoneNumber] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [resetMessage, setResetMessage] = useState("");
   const [showResetModal, setShowResetModal] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetStep, setResetStep] = useState(1); // 1: phone number, 2: code + new password
+  const [formattedPhone, setFormattedPhone] = useState("");
 
   const handleSignIn = async () => {
     setError("");
     try {
       console.log('Sending login request with:', { email });
-      const response = await fetch('https://juta-dev.ngrok.dev/api/login', {
+      const response = await fetch(API_ENDPOINTS.login, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -67,36 +59,122 @@ function Main() {
     navigate('/register');
   };
 
+  const formatPhoneNumber = (phone: string) => {
+    let formatted = phone.toString();
+    if (formatted.startsWith('+')) {
+      formatted = formatted.substring(1);
+    }
+    if (formatted.startsWith('60')) {
+      formatted = formatted;
+    } else if (formatted.startsWith('0')) {
+      formatted = '60' + formatted.substring(1);
+    } else {
+      formatted = '60' + formatted;
+    }
+    return formatted;
+  };
+
   const handleForgotPassword = async () => {
-    const auth = getAuth(app);
     setError("");
     setResetMessage("");
+    setIsResetting(true);
     
-    if (!resetEmail) {
-      setResetMessage("Please enter your email address.");
+    if (!resetPhoneNumber) {
+      setResetMessage("Please enter your phone number.");
+      setIsResetting(false);
       return;
     }
 
     try {
-      await sendPasswordResetEmail(auth, resetEmail);
-      setResetMessage("Password reset email sent! Please check your inbox.");
-      setResetEmail("");
-      setTimeout(() => {
-        setShowResetModal(false);
-        setResetMessage("");
-      }, 3000);
-    } catch (error: any) {
-      switch (error.code) {
-        case "auth/invalid-email":
-          setResetMessage("Please enter a valid email address.");
-          break;
-        case "auth/user-not-found":
-          setResetMessage("No account found with this email.");
-          break;
-        default:
-          setResetMessage("An error occurred. Please try again later.");
+      const formattedPhone = formatPhoneNumber(resetPhoneNumber);
+      setFormattedPhone(formattedPhone);
+
+      const response = await fetch(API_ENDPOINTS.forgotPassword, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber: formattedPhone }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setResetMessage(`Password reset code sent to your WhatsApp number ${data.phoneNumber || formattedPhone.replace('60', '+60-')}. Please check your WhatsApp and enter the code below.`);
+        setResetStep(2);
+      } else {
+        setResetMessage(data.error || "An error occurred. Please try again later.");
       }
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      setResetMessage("An error occurred. Please try again later.");
+    } finally {
+      setIsResetting(false);
     }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetCode || !newPassword || !confirmPassword) {
+      setResetMessage("Please fill in all fields.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setResetMessage("Passwords do not match.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setResetMessage("Password must be at least 6 characters long.");
+      return;
+    }
+
+    setIsResetting(true);
+    setResetMessage("");
+
+    try {
+      const response = await fetch(API_ENDPOINTS.resetPassword, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          phoneNumber: formattedPhone, 
+          resetCode, 
+          newPassword 
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setResetMessage("Password updated successfully! You can now sign in with your new password.");
+        setTimeout(() => {
+          setShowResetModal(false);
+          setResetMessage("");
+          setResetStep(1);
+          setResetPhoneNumber("");
+          setResetCode("");
+          setNewPassword("");
+          setConfirmPassword("");
+          setFormattedPhone("");
+        }, 3000);
+      } else {
+        setResetMessage(data.error || "An error occurred. Please try again later.");
+      }
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      setResetMessage("An error occurred. Please try again later.");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const resetModal = () => {
+    setShowResetModal(false);
+    setResetMessage("");
+    setResetStep(1);
+    setResetPhoneNumber("");
+    setResetCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setFormattedPhone("");
   };
 
   return (
@@ -222,27 +300,101 @@ function Main() {
             <div className="text-center mb-3">
               <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">Reset Password</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Enter your email to receive a password reset link
+                {resetStep === 1 
+                  ? "Enter your phone number to receive a password reset code via WhatsApp"
+                  : "Enter the reset code sent to your WhatsApp and set a new password"
+                }
               </p>
             </div>
             
             <div className="space-y-2">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
-                  Email Address
-                </label>
-                <FormInput
-                  type="email"
-                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
-                  placeholder="Enter your email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                />
-              </div>
+              {resetStep === 1 && (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
+                      Phone Number
+                    </label>
+                                          <FormInput
+                        type="text"
+                        className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
+                        placeholder="Enter your phone number (e.g., 0123456789)"
+                        value={resetPhoneNumber}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 15);
+                          setResetPhoneNumber(value);
+                        }}
+                        maxLength={15}
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 text-left">
+                        Enter your phone number without country code (e.g., 0123456789)
+                      </p>
+                  </div>
+                  <Button
+                    variant="primary"
+                    className="w-full px-2 py-1.5 rounded-md text-sm"
+                    onClick={handleForgotPassword}
+                    disabled={isResetting}
+                  >
+                                         {isResetting ? "Sending..." : "Send WhatsApp Code"}
+                  </Button>
+                </>
+              )}
+              {resetStep === 2 && (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
+                      Reset Code
+                    </label>
+                    <FormInput
+                      type="text"
+                      className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
+                      placeholder="Enter 6-digit reset code"
+                      value={resetCode}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setResetCode(value);
+                      }}
+                      maxLength={6}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
+                      New Password
+                    </label>
+                    <FormInput
+                      type="password"
+                      className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
+                      placeholder="Enter new password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-left">
+                      Confirm New Password
+                    </label>
+                    <FormInput
+                      type="password"
+                      className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
+                      placeholder="Confirm new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    variant="primary"
+                    className="w-full px-2 py-1.5 rounded-md text-sm"
+                    onClick={handleResetPassword}
+                    disabled={isResetting}
+                  >
+                    {isResetting ? "Resetting..." : "Reset Password"}
+                  </Button>
+                </>
+              )}
 
               {resetMessage && (
                 <div className={`p-1.5 rounded-md text-xs ${
-                  resetMessage.includes("sent") 
+                  resetMessage.includes("sent") || resetMessage.includes("successfully")
                     ? "bg-green-50 border border-green-200 text-green-700" 
                     : "bg-red-50 border border-red-200 text-red-700"
                 }`}>
@@ -254,21 +406,21 @@ function Main() {
                 <Button
                   variant="outline-secondary"
                   className="flex-1 px-2 py-1.5 rounded-md border-2 border-gray-300 hover:border-gray-400 transition-all duration-200 text-sm"
-                  onClick={() => {
-                    setShowResetModal(false);
-                    setResetMessage("");
-                    setResetEmail("");
-                  }}
+                  onClick={resetModal}
                 >
                   Cancel
                 </Button>
-                <Button
-                  variant="primary"
-                  className="flex-1 px-2 py-1.5 rounded-md text-sm"
-                  onClick={handleForgotPassword}
-                >
-                  Send Reset Link
-                </Button>
+                {/* Only show "Send WhatsApp Code" button if in step 1 */}
+                {resetStep === 1 && (
+                  <Button
+                    variant="primary"
+                    className="flex-1 px-2 py-1.5 rounded-md text-sm"
+                    onClick={handleForgotPassword}
+                    disabled={isResetting}
+                  >
+                    {isResetting ? "Sending..." : "Send WhatsApp Code"}
+                  </Button>
+                )}
               </div>
             </div>
           </div>

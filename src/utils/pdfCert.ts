@@ -97,7 +97,7 @@ export async function generateCertificate(
     const subtitleMaxWidth = 500; // Increased width for your layout
 
     const subtitleLineHeight = 18; // Adjust for spacing between lines
-    const subtitleText = sanitizeText('Digitalpreneur Create an Online Course with AI');
+    const subtitleText = sanitizeText('AI Immersion - Automate It. Analyse It. Storytell It.');
     let subtitleLines = splitTextToLines(subtitleText, subtitleFont, subtitleFontSize, subtitleMaxWidth);
     if (subtitleLines.length > 3) {
       // Truncate to 3 lines and add ellipsis to the last line
@@ -137,7 +137,7 @@ export async function generateCertificate(
 
   // Date (medium font)
 
-    page.drawText(sanitizeText('14 August 2025'), {
+    page.drawText(sanitizeText('21 August 2025'), {
       x: 520,
       y: subtitleY,
       size: 14,
@@ -147,8 +147,8 @@ export async function generateCertificate(
 
 
   // Venue (small font)
-  page.drawText(sanitizeText('Co9P Event Hall, Idea Tower 1, UPM-MTDC Technology Centre'), {
-    x: 395,
+  page.drawText(sanitizeText('Rashid Theaterette, Ground Floor, Idea Tower 1, UPM-MTDC Technology Centre'), {
+    x: 350,
     y: 172,
     size: 12,
     font: helvetica,

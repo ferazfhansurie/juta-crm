@@ -5,7 +5,120 @@ Create a Node.js/Express backend API system that handles file uploads and metada
 
 ## Required API Endpoints
 
-### 1. File Upload Endpoint
+### 1. Authentication Endpoints
+
+**POST `/api/login`**
+
+**Purpose:** Authenticate user login
+
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "password": "userpassword"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "user": {
+    "id": 1,
+    "email": "user@example.com",
+    "companyId": "123",
+    "role": "admin"
+  },
+  "token": "jwt_token_here"
+}
+```
+
+**POST `/api/forgot-password`**
+
+**Purpose:** Send password reset email
+
+**Request:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Implementation Requirements:**
+- Check if user exists in database
+- Generate secure reset token with expiration (24 hours)
+- Store reset token in database with expiration timestamp
+- Send email with reset link containing token
+- Use email service (Nodemailer, SendGrid, etc.)
+
+**Database Schema (password_resets table):**
+```sql
+CREATE TABLE password_resets (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) NOT NULL,
+  token VARCHAR(255) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  used_at TIMESTAMP NULL
+);
+
+CREATE INDEX idx_password_resets_email ON password_resets(email);
+CREATE INDEX idx_password_resets_token ON password_resets(token);
+CREATE INDEX idx_password_resets_expires ON password_resets(expires_at);
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Password reset email sent successfully"
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "error": "User not found"
+}
+```
+
+**POST `/api/reset-password`**
+
+**Purpose:** Reset password using token
+
+**Request:**
+```json
+{
+  "token": "reset_token_here",
+  "newPassword": "newpassword123"
+}
+```
+
+**Implementation Requirements:**
+- Validate reset token and check expiration
+- Hash new password using bcrypt
+- Update user password in database
+- Mark reset token as used
+- Return success message
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Password reset successfully"
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "error": "Invalid or expired token"
+}
+```
+
+### 2. File Upload Endpoint
 **POST `/api/upload-file`**
 
 **Purpose:** Upload files to local storage and return public URL
@@ -163,6 +276,10 @@ CREATE TABLE assistant_files (
   "multer": "^1.4.5",
   "pg": "^8.8.0",
   "cors": "^2.8.5",
+  "bcrypt": "^5.1.0",
+  "jsonwebtoken": "^9.0.0",
+  "nodemailer": "^6.9.0",
+  "crypto": "built-in",
   "path": "built-in",
   "fs": "built-in"
 }
@@ -202,6 +319,20 @@ DB_PASSWORD=your-password
 UPLOAD_DIR=./uploads
 MAX_FILE_SIZE=10485760
 ALLOWED_FILE_TYPES=pdf,doc,docx,txt,xlsx,pptx
+
+# Email Configuration
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+EMAIL_FROM=noreply@yourdomain.com
+
+# JWT Configuration
+JWT_SECRET=your-super-secret-jwt-key
+JWT_EXPIRES_IN=24h
+
+# App Configuration
+APP_URL=http://localhost:3000
 ```
 
 ### Error Handling

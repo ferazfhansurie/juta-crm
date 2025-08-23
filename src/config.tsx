@@ -44,8 +44,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
     });
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = 'Are you sure you want to leave? Changes you made may not be saved.';
+    
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
