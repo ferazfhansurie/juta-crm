@@ -10052,25 +10052,25 @@ console.log(data);
             <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-primary/10 to-gray-200 dark:from-primary/20 dark:to-gray-700 mb-1 overflow-hidden">
               <div
                 className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
-                  (aiMessageUsage || 0) > (currentPlanLimits.aiMessages || 0)
+                  (aiMessageUsage || 0) > (quotaData?.limit || currentPlanLimits.aiMessages || 0)
                     ? "bg-gradient-to-r from-red-600 to-red-800"
-                    : (aiMessageUsage || 0) > (currentPlanLimits.aiMessages || 0) * 0.9
+                    : (aiMessageUsage || 0) > (quotaData?.limit || currentPlanLimits.aiMessages || 0) * 0.9
                     ? "bg-gradient-to-r from-red-500 to-red-700"
-                    : (aiMessageUsage || 0) > (currentPlanLimits.aiMessages || 0) * 0.7
+                    : (aiMessageUsage || 0) > (quotaData?.limit || currentPlanLimits.aiMessages || 0) * 0.7
                     ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
                     : "bg-gradient-to-r from-green-500 to-green-700"
                 }`}
                 style={{
                   width: `${Math.min(
-                    ((aiMessageUsage || 0) / (currentPlanLimits.aiMessages || 1)) * 100,
-                    120
+                    ((aiMessageUsage || 0) / (quotaData?.limit || currentPlanLimits.aiMessages || 1)) * 100,
+                    100
                   )}%`,
                 }}
               ></div>
-                                {(aiMessageUsage || 0) > (currentPlanLimits.aiMessages || 0) && (
+                                {(aiMessageUsage || 0) > (quotaData?.limit || currentPlanLimits.aiMessages || 0) && (
                     <div className="text-xs text-red-600 dark:text-red-400 text-center mt-0.5 font-medium">
                       ⚠️ Limit exceeded by{" "}
-                      {(aiMessageUsage || 0) - (currentPlanLimits.aiMessages || 0)} responses
+                      {(aiMessageUsage || 0) - (quotaData?.limit || currentPlanLimits.aiMessages || 0)} responses
                     </div>
                   )}
             </div>
@@ -14273,7 +14273,7 @@ console.log(data);
                                 {aiMessageUsage.toLocaleString()}
                               </span>
                               <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-                                / {(quotaAIMessage || 500).toLocaleString()}
+                                / {(quotaData?.limit || currentPlanLimits.aiMessages || 500).toLocaleString()}
                               </span>
                             </div>
                             <div className="relative w-full bg-blue-200/50 dark:bg-blue-800/50 rounded-full h-4 overflow-hidden">
@@ -14281,7 +14281,7 @@ console.log(data);
                                 className="absolute inset-0 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500 rounded-full transition-all duration-700 ease-out shadow-sm"
                                 style={{
                                   width: `${Math.min(
-                                    (aiMessageUsage / (quotaAIMessage || 500)) *
+                                    ((aiMessageUsage || 0) / (quotaData?.limit || currentPlanLimits.aiMessages || 500)) *
                                       100,
                                     100
                                   )}%`,
@@ -14292,7 +14292,7 @@ console.log(data);
                             </div>
                             <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
                               {(
-                                (aiMessageUsage / (quotaAIMessage || 500)) *
+                                ((aiMessageUsage || 0) / (quotaData?.limit || currentPlanLimits.aiMessages || 500)) *
                                 100
                               ).toFixed(1)}
                               % quota utilized this month
@@ -14318,7 +14318,7 @@ console.log(data);
                                 {contacts.length.toLocaleString()}
                               </span>
                               <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
-                                / {currentPlanLimits.contacts.toLocaleString()}
+                                / {(currentPlanLimits.contacts || 0).toLocaleString()}
                               </span>
                             </div>
                             <div className="relative w-full bg-emerald-200/50 dark:bg-emerald-800/50 rounded-full h-4 overflow-hidden">
@@ -14326,7 +14326,7 @@ console.log(data);
                                 className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-500 rounded-full transition-all duration-700 ease-out shadow-sm"
                                 style={{
                                   width: `${Math.min(
-                                    (contacts.length / currentPlanLimits.contacts) * 100,
+                                    (contacts.length / (currentPlanLimits.contacts || 1)) * 100,
                                     100
                                   )}%`,
                                 }}
@@ -14336,7 +14336,7 @@ console.log(data);
                             </div>
                             <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
                               {(
-                                (contacts.length / Math.max(currentPlanLimits.contacts || 1, 1)) * 100
+                                (contacts.length / (currentPlanLimits.contacts || 1)) * 100
                               ).toFixed(1)}% quota utilized for this account
                             </p>
                             {contacts.length > currentPlanLimits.contacts && (
