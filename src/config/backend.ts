@@ -7,8 +7,8 @@ export const BACKEND_CONFIG = {
   },
   // Production - replace with your actual Neon backend URL
   production: {
-    baseUrl: 'https://your-neon-backend-url.com',
-    apiUrl: 'https://your-neon-backend-url.com/api'
+    baseUrl: 'https://juta-dev.ngrok.dev',
+    apiUrl: 'https://juta-dev.ngrok.dev/api'
   }
 };
 
