@@ -552,33 +552,100 @@ interface BotStatusResponse {
     fetchUserData();
   }, []);
 
+  // Additional useEffect to fetch phone names as early as possible
+  useEffect(() => {
+    const fetchPhoneNamesEarly = async () => {
+      const userEmail = localStorage.getItem("userEmail");
+      if (userEmail && Object.keys(phoneNames).length === 0) {
+        try {
+          const response = await fetch(
+            `${baseUrl}/api/user-page-context?email=${encodeURIComponent(userEmail)}`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data.phoneNames && typeof data.phoneNames === 'object') {
+              console.log("Setting phone names early from user-page-context:", data.phoneNames);
+              setPhoneNames(data.phoneNames);
+              setPhoneOptions(Object.keys(data.phoneNames).map(Number));
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching phone names early:", error);
+        }
+      }
+    };
+
+    fetchPhoneNamesEarly();
+  }, [phoneNames]);
+
   const fetchPhoneIndex = async (companyId: string) => {
     try {
-      const companyDocRef = doc(firestore, "companies", companyId);
-      const companyDocSnap = await getDoc(companyDocRef);
-      if (companyDocSnap.exists()) {
-        const companyData = companyDocSnap.data();
-        const phoneCount = companyData.phoneCount || 0;
+      // Get current user email for API call
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("No user email found");
+        return;
+      }
 
-        // Generate phoneNames object
-        const phoneNamesData: { [key: number]: string } = {};
+      // Use the same API endpoint as Chat component to get phone names
+      const response = await fetch(
+        `${baseUrl}/api/user-page-context?email=${encodeURIComponent(userEmail)}`
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch user context");
+      }
+      
+      const data = await response.json();
+      
+      // Set phone names from the API response
+      if (data.phoneNames && typeof data.phoneNames === 'object') {
+        console.log("Setting phone names from user-page-context:", data.phoneNames);
+        setPhoneNames(data.phoneNames);
+        setPhoneOptions(Object.keys(data.phoneNames).map(Number));
+      } else {
+        // Fallback: create default phone names based on phone count
+        const phoneCount = data.companyData?.phoneCount || 0;
+        console.log("Creating default phone names for phone count:", phoneCount);
+        const defaultPhoneNames: { [key: number]: string } = {};
         for (let i = 0; i < phoneCount; i++) {
-          const phoneName = companyData[`phone${i + 1}`];
-          if (phoneName) {
-            phoneNamesData[i] = phoneName;
-          } else {
-            // Use default name if not found
-            phoneNamesData[i] = `Phone ${i + 1}`;
-          }
+          defaultPhoneNames[i] = `Phone ${i + 1}`;
         }
-
-        setPhoneNames(phoneNamesData);
-        setPhoneOptions(Object.keys(phoneNamesData).map(Number));
+        setPhoneNames(defaultPhoneNames);
+        setPhoneOptions(Object.keys(defaultPhoneNames).map(Number));
       }
     } catch (error) {
-      console.error("Error fetching phone count:", error);
-      setPhoneOptions([]);
-      setPhoneNames({});
+      console.error("Error fetching phone names from user-page-context:", error);
+      
+      // Fallback: try to get phone count from bot status API
+      try {
+        const botStatusResponse = await axios.get(
+          `${baseUrl}/api/bot-status/${companyId}`
+        );
+        
+        if (botStatusResponse.status === 200) {
+          const botData = botStatusResponse.data;
+          const phoneCount = botData.phoneCount || 0;
+          
+          // Create default phone names based on phone count
+          const defaultPhoneNames: { [key: number]: string } = {};
+          for (let i = 0; i < phoneCount; i++) {
+            defaultPhoneNames[i] = `Phone ${i + 1}`;
+          }
+          setPhoneNames(defaultPhoneNames);
+          setPhoneOptions(Object.keys(defaultPhoneNames).map(Number));
+        } else {
+          // Final fallback: set empty phone names
+          setPhoneOptions([]);
+          setPhoneNames({});
+        }
+      } catch (fallbackError) {
+        console.error("Error fetching phone names from bot status API:", fallbackError);
+        setPhoneOptions([]);
+        setPhoneNames({});
+      }
     }
   };
 
@@ -3568,17 +3635,23 @@ interface BotStatusResponse {
     }
     const effectivePhoneIndex = phoneIndex ?? 0;
 
-    // Check if the selected phone is connected
-    if (
-      !qrCodes[effectivePhoneIndex] ||
-      !["ready", "authenticated"].includes(
-        qrCodes[effectivePhoneIndex].status?.toLowerCase()
-      )
-    ) {
+    // Check if the selected phone exists in phoneNames
+    if (!phoneNames[effectivePhoneIndex]) {
       toast.error(
-        "Selected phone is not connected. Please select a connected phone."
+        "Selected phone is not available. Please select a valid phone."
       );
       return;
+    }
+
+    // Check if the selected phone is connected (only if qrCodes data is available)
+    if (qrCodes[effectivePhoneIndex]) {
+      const status = qrCodes[effectivePhoneIndex].status?.toLowerCase();
+      if (!["ready", "authenticated"].includes(status)) {
+        toast.error(
+          "Selected phone is not connected. Please select a connected phone."
+        );
+        return;
+      }
     }
 
     setIsScheduling(true);
@@ -5233,7 +5306,7 @@ const handleConfirmSyncFirebase = async () => {
     }
 
     // Default fallback - consistent with Chat component
-    return "Select a phone";
+    return `Phone ${phoneIndex + 1}`;
   };
 
   // Add this effect to fetch phone statuses periodically
@@ -8806,9 +8879,6 @@ const handleConfirmSyncFirebase = async () => {
 
                     {/* Active Hours */}
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Active Hours
-                      </label>
                       <div className="flex items-center space-x-2">
                         <div>
                           <label className="text-sm text-gray-600 dark:text-gray-400">
@@ -8880,12 +8950,6 @@ const handleConfirmSyncFirebase = async () => {
 
                     {/* Phone Selection */}
                     <div className="mt-4">
-                      <label
-                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        htmlFor="phone"
-                      >
-                        Phone
-                      </label>
                       <div className="relative mt-1">
                         <select
                           id="phone"
@@ -8896,14 +8960,26 @@ const handleConfirmSyncFirebase = async () => {
                           }
                           className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200"
                         >
-                          {qrCodes.map((phone, index) => {
-                            const statusInfo = getStatusInfo(phone.status);
-                            return (
-                              <option key={index} value={index}>
-                                {`${getPhoneName(index)} - ${statusInfo.text}`}
-                              </option>
+                          {(() => {
+                            console.log("Rendering phone dropdown - phoneNames:", phoneNames, "qrCodes:", qrCodes);
+                            return Object.keys(phoneNames).length > 0 ? (
+                              Object.keys(phoneNames).map((index) => {
+                                const phoneIndex = parseInt(index);
+                                const qrCode = qrCodes[phoneIndex];
+                                const statusInfo = qrCode ? getStatusInfo(qrCode.status) : 
+                                isLoadingStatus ? 
+                                  { text: "Checking...", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200", icon: "RefreshCw" } :
+                                  { text: "Not Connected", color: "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200", icon: "XCircle" };
+                                return (
+                                  <option key={phoneIndex} value={phoneIndex}>
+                                    {`${getPhoneName(phoneIndex)} - ${qrCode ? '✅' : isLoadingStatus ? '⏳' : '❌'} ${statusInfo.text}`}
+                                  </option>
+                                );
+                              })
+                            ) : (
+                              <option value="">No phones available - Please check your configuration</option>
                             );
-                          })}
+                          })()}
                         </select>
                         {isLoadingStatus && (
                           <div className="absolute right-10 top-1/2 transform -translate-y-1/2">
@@ -8920,19 +8996,27 @@ const handleConfirmSyncFirebase = async () => {
                           />
                         </div>
                       </div>
-                      {phoneIndex !== null && qrCodes[phoneIndex] && (
+                      {phoneIndex !== null && phoneNames[phoneIndex] && (
                         <div
                           className={`mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            getStatusInfo(qrCodes[phoneIndex].status).color
+                            qrCodes[phoneIndex] ? getStatusInfo(qrCodes[phoneIndex].status).color : "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200"
                           }`}
                         >
                           <Lucide
                             icon={
-                              getStatusInfo(qrCodes[phoneIndex].status).icon
+                              qrCodes[phoneIndex] ? getStatusInfo(qrCodes[phoneIndex].status).icon : "XCircle"
                             }
                             className="w-4 h-4 mr-1"
                           />
-                          {getStatusInfo(qrCodes[phoneIndex].status).text}
+                          {qrCodes[phoneIndex] ? getStatusInfo(qrCodes[phoneIndex].status).text : 
+                            isLoadingStatus ? "Checking..." : "Not Connected"}
+                        </div>
+                      )}
+                      
+                      {/* Help message when phones are not connected */}
+                      {Object.keys(phoneNames).length > 0 && !Object.values(qrCodes).some(qr => qr && ["ready", "authenticated"].includes(qr.status?.toLowerCase())) && (
+                        <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-md">
+                          ⚠️ No phones are currently connected. Please ensure your WhatsApp bot is running and connected before sending messages.
                         </div>
                       )}
                     </div>

@@ -9,9 +9,12 @@ interface ChatMessage {
   text: string;
   createdAt: string;
   isLoading?: boolean;
+  isBrainstorm?: boolean;
+  suggestions?: string[];
 }
 
 interface StageTemplateData {
+  templateId: string;
   stageName: string;
   purpose: string;
   triggerTags: string[];
@@ -102,6 +105,16 @@ interface CurrentFollowUpMessage {
   removeTags: string[];
 }
 
+// Add interface for AI Assistant Info
+interface AssistantInfo {
+  name: string;
+  description: string;
+  instructions: string;
+  metadata: {
+    files: Array<{id: string, name: string, url: string}>;
+  };
+}
+
 interface AIFollowupBuilderProps {
   onClose: () => void;
   onApplyMessages: (stageTemplates: StageTemplateData[], templateName: string, triggerTags: string[], triggerKeywords: string[]) => void;
@@ -118,8 +131,11 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedData, setGeneratedData] = useState<GeneratedData | null>(null);
-  const [isApplying, setIsApplying] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [isApplyingChanges, setIsApplyingChanges] = useState(false);
+  const [applyProgress, setApplyProgress] = useState(0);
+  const [brainstormSuggestions, setBrainstormSuggestions] = useState<string[]>([]);
+  const [currentBrainstormMessage, setCurrentBrainstormMessage] = useState('');
+  const [hasChanges, setHasChanges] = useState(false);
   
   // New state for current follow-up data
   const [currentFollowUps, setCurrentFollowUps] = useState<{
@@ -131,10 +147,169 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
   // New state for expanded templates
   const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set());
 
-  // Fetch current follow-up templates and messages on component mount
+  // Add state for AI Assistant Info (like in Prompt Builder)
+  const [assistantInfo, setAssistantInfo] = useState<AssistantInfo>({
+    name: '',
+    description: '',
+    instructions: '',
+    metadata: {
+      files: [],
+    },
+  });
+  const [loading, setLoading] = useState<boolean>(true);
+  const [apiKey, setApiKey] = useState<string>('');
+  const [assistantId, setAssistantId] = useState<string>('');
+  const [companyId, setCompanyId] = useState<string | null>(null);
+
+  // Functions from Prompt Builder to fetch assistant info
+  const fetchCompanyId = async () => {
+    const userEmail = localStorage.getItem("userEmail");
+    if (!userEmail) {
+      console.error("No user email found");
+      setError("No user email found");
+      return;
+    }
+
+    try {
+      const userResponse = await fetch(
+        `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!userResponse.ok) {
+        console.error("Failed to fetch user config from Neon");
+        setError("Failed to fetch user config from Neon");
+        return;
+      }
+
+      const userData = await userResponse.json();
+      console.log('User data received:', userData);
+      
+      const companyId = userData.company_id;
+      
+      console.log('Company ID:', companyId);
+      
+      setCompanyId(companyId);
+    } catch (error) {
+      console.error("Error fetching company ID:", error);
+      setError("Failed to fetch company ID");
+    }
+  };
+
+  const fetchNeonConfig = async (companyId: string) => {
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        setError("No user email found");
+        return;
+      }
+
+      const response = await axios.get(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+
+      if (response.status === 200) {
+        const { companyData } = response.data;
+        console.log('Company data received:', companyData);
+        
+        // Parse assistant IDs (handle both string and array)
+        let assistantIds: string[] = [];
+        if (Array.isArray(companyData.assistants_ids)) {
+          assistantIds = companyData.assistants_ids;
+        } else if (typeof companyData.assistants_ids === 'string') {
+          assistantIds = companyData.assistants_ids.split(',').map((id: string) => id.trim());
+        }
+
+        // Check for alternative field names
+        if (assistantIds.length === 0) {
+          if (companyData.assistant_id) {
+            assistantIds = [companyData.assistant_id];
+          } else if (companyData.assistantId) {
+            assistantIds = [companyData.assistantId];
+          } else if (companyData.assistants_id) {
+            assistantIds = [companyData.assistants_id];
+          }
+        }
+
+        // Get the first assistant ID
+        if (assistantIds.length > 0) {
+          setAssistantId(assistantIds[0]);
+          console.log('Setting assistant ID to:', assistantIds[0]);
+          setError(null);
+        } else {
+          console.error("No assistant IDs found in company data");
+          setError("No assistants configured for this company. Please contact your administrator.");
+          return;
+        }
+
+        // Fetch API key from company config
+        const response2 = await axios.get(`https://juta-dev.ngrok.dev/api/company-config/${companyId}`);
+        const { openaiApiKey } = response2.data;
+        setApiKey(openaiApiKey);
+        console.log('API key fetched successfully');
+      }
+    } catch (error) {
+      console.error("Error fetching company config:", error);
+      setError("Failed to fetch company configuration");
+    }
+  };
+
+  const fetchAssistantInfo = async (assistantId: string, apiKey: string) => {
+    console.log('fetching assistant info for ID:', assistantId);
+    setLoading(true);
+    try {
+      const response = await axios.get(`https://api.openai.com/v1/assistants/${assistantId}`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'OpenAI-Beta': 'assistants=v2'
+        }
+      });
+      const { name, description = "", instructions = "" } = response.data;
+      setAssistantInfo({ name, description, instructions, metadata: { files: [] } });
+      
+      setError(null);
+      console.log('Assistant info fetched successfully:', name);
+    } catch (error) {
+      console.error("Error fetching assistant information:", error);
+      setError("Failed to fetch assistant information");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch company ID and assistant info on component mount (like in Prompt Builder)
   useEffect(() => {
-    fetchCurrentFollowUps();
+    fetchCompanyId();
   }, []);
+
+  useEffect(() => {
+    if (companyId) {
+      fetchNeonConfig(companyId);
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    if (assistantId && apiKey) {
+      fetchAssistantInfo(assistantId, apiKey);
+    }
+  }, [assistantId, apiKey]);
+
+  // Fetch current follow-up templates and messages after assistant info is loaded
+  useEffect(() => {
+    if (assistantInfo.instructions && !loading) {
+      fetchCurrentFollowUps();
+    }
+  }, [assistantInfo.instructions, loading]);
+
+  // Function to generate unique template IDs
+  const generateTemplateId = () => {
+    return `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
 
   // Add custom styles for better scrolling
   useEffect(() => {
@@ -221,18 +396,26 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
 
       setCurrentFollowUps({ templates, messages: messagesData });
 
-      // Add initial AI message showing current follow-ups
+      // Add initial AI message based on current state
+      let initialMessageText = '';
+      
       if (templates.length > 0) {
+        // If user has follow-ups, show them with context from current prompt
+        initialMessageText = `I can see you currently have ${templates.length} follow-up template(s) in your system:\n\n${templates.map((template: CurrentFollowUpTemplate, index: number) => 
+          `${index + 1}. **${template.name}** (${template.status})\n   - Created: ${new Date(template.createdAt).toLocaleDateString()}\n   - Messages: ${messagesData[template.templateId]?.length || 0}\n   - Trigger Tags: ${template.triggerTags?.join(', ') || 'None'}\n   - Trigger Keywords: ${template.triggerKeywords?.join(', ') || 'None'}`
+        ).join('\n\n')}\n\nI also have your current AI assistant instructions loaded, so I understand your business context and conversation stages.\n\nI can help you:\n• Modify existing follow-up messages\n• Create new follow-up templates based on your current prompt stages\n• Optimize message content and timing\n• Update trigger conditions\n\nWhat would you like me to help you with?`;
+      } else {
+        // If no follow-ups, encourage creating them based on current prompt
+        initialMessageText = `I can see you don't have any follow-up templates yet, but I have your current AI assistant instructions loaded!\n\nBased on your current prompt, I can help you create follow-up sequences that align with your conversation stages:\n\n**Your Current Prompt Summary:**\n${assistantInfo.instructions.substring(0, 300)}...\n\nI can help you:\n• Create follow-up templates based on your current conversation stages\n• Generate messages that match your business tone and style\n• Set up proper trigger conditions for each stage\n• Build automated sequences for lead nurturing\n\n**Try asking me:** "Create follow-up templates based on my current prompt stages" or "Generate follow-up messages for Stage 2 leads"`;
+      }
+      
         const initialMessage: ChatMessage = {
           from_me: false,
           type: 'text',
-          text: `I can see you currently have ${templates.length} follow-up template(s) in your system:\n\n${templates.map((template: CurrentFollowUpTemplate, index: number) => 
-            `${index + 1}. **${template.name}** (${template.status})\n   - Created: ${new Date(template.createdAt).toLocaleDateString()}\n   - Messages: ${messagesData[template.templateId]?.length || 0}\n   - Trigger Tags: ${template.triggerTags?.join(', ') || 'None'}\n   - Trigger Keywords: ${template.triggerKeywords?.join(', ') || 'None'}`
-          ).join('\n\n')}\n\nI can help you:\n• Modify existing templates\n• Create new templates\n• Adjust message sequences\n• Update trigger conditions\n\nWhat would you like me to help you with?`,
+        text: initialMessageText,
           createdAt: new Date().toISOString(),
         };
         setMessages([initialMessage]);
-      }
 
     } catch (error) {
       console.error("Error fetching current follow-ups:", error);
@@ -263,7 +446,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       isLoading: true,
     };
   
-    setMessages(prevMessages => [loadingMessage, newMessage, ...prevMessages]);
+    setMessages(prevMessages => [...prevMessages, newMessage, loadingMessage]);
   
     try {
       const userEmail = localStorage.getItem("userEmail");
@@ -279,62 +462,124 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
         totalMessages: Object.values(currentFollowUps.messages).reduce((sum, msgs) => sum + msgs.length, 0)
       };
   
+      // Use the brainstorming endpoint for follow-up suggestions with current prompt
       const response = await axios.post(
-        'https://juta-dev.ngrok.dev/api/generate-followup-messages/',
+        'https://juta-dev.ngrok.dev/api/followup-brainstorm/',
         {
           message: messageText,
           email: userEmail,
-          currentFollowUps: currentFollowUpData // Send current follow-up data to AI
+          currentPrompt: assistantInfo.instructions, // Include current AI assistant instructions
+          currentFollowUps: currentFollowUpData
         }
       );
       
       if (!response.data.success) {
-        throw new Error(response.data.details || 'Failed to generate follow-up messages');
+        throw new Error(response.data.details || 'Failed to generate follow-up suggestions');
       }
-  
-      const { workflowStages, stageTemplates } = response.data.data;
+
+      // Debug: Log the full response structure
+      console.log("=== BRAINSTORM RESPONSE DEBUG ===");
+      console.log("Full response:", response);
+      console.log("Response.data:", response.data);
+      console.log("Response.data.data:", response.data?.data);
+      console.log("Response.data.suggestions:", response.data?.suggestions);
+      console.log("Response.data.data?.suggestions:", response.data?.data?.suggestions);
       
-      // Store the generated data
+      // Extract the AI response and templates
+      let responseText = 'No response provided';
+      let templates: StageTemplateData[] = [];
+      
+      // The AI response should contain templates
+      if (response.data?.data?.templates && Array.isArray(response.data.data.templates)) {
+        templates = response.data.data.templates;
+        responseText = response.data.data.explanation || 'Templates generated successfully';
+        console.log("✅ Found templates in response.data.data.templates");
+      } else if (response.data?.templates && Array.isArray(response.data.templates)) {
+        templates = response.data.templates;
+        responseText = response.data.explanation || 'Templates generated successfully';
+        console.log("✅ Found templates in response.data.templates");
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        // If data is directly an array of templates
+        templates = response.data.data;
+        responseText = 'Templates generated successfully';
+        console.log("✅ Found templates in response.data.data (array)");
+      } else {
+        console.log("❌ No templates found in response");
+        console.log("Available fields:", Object.keys(response.data || {}));
+        if (response.data?.data) {
+          console.log("Data fields:", Object.keys(response.data.data));
+        }
+      }
+      
+      // Clean up the response text
+      if (responseText && responseText !== 'No response provided') {
+        responseText = responseText
+          .replace(/\\n/g, '\n')
+          .replace(/\\"/g, '"')
+          .replace(/\\t/g, '\t')
+          .trim();
+        console.log("✅ Cleaned response text:", responseText.substring(0, 100) + "...");
+      } else {
+        console.log("❌ Response text is empty or 'No response provided'");
+      }
+      
+      // Process templates and add templateId if missing
+      const processedTemplates = templates.map((template: any) => ({
+        templateId: template.templateId || generateTemplateId(),
+        stageName: template.stageName || template.name || 'Unknown Stage',
+        purpose: template.purpose || template.description || 'Follow-up sequence',
+        triggerTags: template.triggerTags || template.trigger_tags || [],
+        triggerKeywords: template.triggerKeywords || template.trigger_keywords || [],
+        messages: template.messages || template.messageArray || [],
+        messageCount: template.messageCount || template.message_count || (template.messages || template.messageArray || []).length
+      }));
+      
+      // Store templates for later use
       setGeneratedData({
-        workflowStages,
-        stageTemplates
+        stageTemplates: processedTemplates,
+        workflowStages: responseText
       });
       
-      // Move to step 2
-      setCurrentStep(2);
+      // Mark that there are changes to be applied
+      if (processedTemplates.length > 0) {
+        setHasChanges(true);
+        console.log("✅ Templates ready to apply:", processedTemplates.length);
+      } else {
+        setHasChanges(false);
+        console.log("❌ No templates generated");
+      }
       
-      // Create AI response message
-      const aiResponse = `I've analyzed your current follow-up templates and generated an updated sequence with ${stageTemplates?.length || 0} stages:\n\n${workflowStages}\n\n${stageTemplates?.map((stage: StageTemplateData) => `• ${stage.stageName}: ${stage.purpose} (${stage.messageCount} messages)`).join('\n')}\n\nThis sequence takes into account your existing templates and optimizes them based on your requirements.`;
+      console.log("=== END BRAINSTORM DEBUG ===");
       
       const assistantResponse: ChatMessage = {
         from_me: false,
         type: 'text',
-        text: aiResponse,
+        text: responseText,
         createdAt: new Date().toISOString(),
+        isBrainstorm: true
       };
       
       // Remove loading message and add the real response
       setMessages(prevMessages => {
         const filteredMessages = prevMessages.filter(msg => !msg.isLoading);
-        return [assistantResponse, ...filteredMessages];
+        return [...filteredMessages, assistantResponse];
       });
   
     } catch (error) {
       console.error('Error:', error);
-      setError("Failed to generate follow-up messages. Please try again.");
+      setError("Failed to generate follow-up suggestions. Please try again.");
+      // Remove loading message on error
       setMessages(prevMessages => prevMessages.filter(msg => !msg.isLoading));
     } finally {
       setIsSending(false);
     }
   };
 
-  const applyMessages = async () => {
-    if (!generatedData?.stageTemplates || !Array.isArray(generatedData.stageTemplates) || generatedData.stageTemplates.length === 0) {
-      toast.error("No stage templates available");
-      return;
-    }
-
-    setIsApplying(true);
+  const applyChangesToFollowUps = async () => {
+    if (isApplyingChanges || !generatedData?.stageTemplates?.length) return;
+    
+    setIsApplyingChanges(true);
+    setApplyProgress(0);
     setError(null);
 
     try {
@@ -343,362 +588,123 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
         throw new Error("User not authenticated");
       }
 
-      // Get company ID
+      // Get company ID first
       const userResponse = await axios.get(
         `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`
       );
       const companyId = userResponse.data.userData.companyId;
 
-      // Auto-generate template name based on the first stage
-      const autoTemplateName = generatedData.stageTemplates[0]?.stageName || "AI Generated Follow-up";
+      // Start with initial progress
+      setApplyProgress(1);
       
-      // Extract all unique trigger tags and keywords from all stages
-      const allTriggerTags = new Set<string>();
-      const allTriggerKeywords = new Set<string>();
-      
-      generatedData.stageTemplates.forEach((stage: StageTemplateData) => {
-        if (stage.triggerTags && Array.isArray(stage.triggerTags)) {
-          stage.triggerTags.forEach(tag => allTriggerTags.add(tag));
-        }
-        if (stage.triggerKeywords && Array.isArray(stage.triggerKeywords)) {
-          stage.triggerKeywords.forEach(keyword => allTriggerKeywords.add(keyword));
-        }
-      });
-
-      // Call the apply follow-up messages API
-      const response = await axios.post(
-        `https://juta-dev.ngrok.dev/api/apply-followup-messages/?email=${encodeURIComponent(userEmail)}`,
-        {
-          companyId: companyId,
-          templateName: autoTemplateName,
-          workflowStages: generatedData.workflowStages,
-          stageTemplates: generatedData.stageTemplates,
-          triggerTags: Array.from(allTriggerTags),
-          triggerKeywords: Array.from(allTriggerKeywords)
-        }
-      );
-
-      if (!response.data.success) {
-        throw new Error(response.data.details || "Failed to apply follow-up messages");
-      }
-
-      const templateStructure = response.data.data;
-      setGeneratedData(prev => ({ ...prev, templateStructure }));
-      setCurrentStep(3);
-
-      toast.success("Follow-up messages applied successfully!");
-
-    } catch (error) {
-      console.error("Error applying messages:", error);
-      setError("Failed to apply follow-up messages. Please try again.");
-    } finally {
-      setIsApplying(false);
-    }
-  };
-
-  const createTemplate = async () => {
-    if (!generatedData?.templateStructure) {
-      toast.error("No template structure available");
-      return;
-    }
-
-    try {
-      const userEmail = localStorage.getItem("userEmail");
-      if (!userEmail) {
-        throw new Error("User not authenticated");
-      }
-
-      // Get company ID
-      const userResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`
-      );
-      const companyId = userResponse.data.userData.companyId;
-
-      // Auto-generate template name based on the first stage
-      const autoTemplateName = generatedData.stageTemplates?.[0]?.stageName || "AI Generated Follow-up";
-      
-      // Extract all unique trigger tags and keywords from all stages
-      const allTriggerTags = new Set<string>();
-      const allTriggerKeywords = new Set<string>();
-      
-      if (generatedData.stageTemplates && Array.isArray(generatedData.stageTemplates)) {
-        generatedData.stageTemplates.forEach((stage: StageTemplateData) => {
-          if (stage.triggerTags && Array.isArray(stage.triggerTags)) {
-            stage.triggerTags.forEach(tag => allTriggerTags.add(tag));
+      // Smooth progress animation
+      const progressInterval = setInterval(() => {
+        setApplyProgress(prev => {
+          if (prev >= 15) {
+            clearInterval(progressInterval);
+            return 15;
           }
-          if (stage.triggerKeywords && Array.isArray(stage.triggerKeywords)) {
-            stage.triggerKeywords.forEach(keyword => allTriggerKeywords.add(keyword));
-          }
+          return prev + 1;
         });
-      }
-
-      // Call the create AI follow-up template API
-      const response = await axios.post(
-        "https://juta-dev.ngrok.dev/api/create-ai-followup-template/",
-        {
-          companyId: companyId,
-          templateName: autoTemplateName,
-          workflowStages: generatedData.workflowStages,
-          stageTemplates: generatedData.stageTemplates,
-          triggerTags: Array.from(allTriggerTags),
-          triggerKeywords: Array.from(allTriggerKeywords)
-        }
-      );
-
-      if (!response.data.success) {
-        throw new Error(response.data.details || "Failed to create template");
-      }
-
-      // Handle multiple stage templates response
-      const { createdTemplates, totalStages, originalTemplateName }: CreateTemplateResponse = response.data.data;
+      }, 50);
       
-      // Store the created templates data for display
-      setGeneratedData(prev => ({
-        ...prev,
-        createdTemplates,
-        totalStages,
-        originalTemplateName
+      setApplyProgress(15);
+
+      // Prepare templates for database save
+      const templatesToSave = generatedData.stageTemplates.map((template: StageTemplateData) => ({
+        templateId: template.templateId,
+        stageName: template.stageName,
+        purpose: template.purpose,
+        triggerTags: template.triggerTags,
+        triggerKeywords: template.triggerKeywords,
+        messages: template.messages,
+        messageCount: template.messageCount
       }));
       
-      // Set current step to success
-      setCurrentStep(4);
-      
-      // Show success message with template count
-      toast.success(`✅ Successfully created ${totalStages} stage templates for "${originalTemplateName}"`);
-      
-      // Call the parent callback to apply the messages with the new template structure
-      onApplyMessages(
-        generatedData.stageTemplates || [],
-        originalTemplateName,
-        Array.from(allTriggerTags),
-        Array.from(allTriggerKeywords)
+      // Call the direct save API
+      const response = await axios.post(
+        'https://juta-dev.ngrok.dev/api/followup-save-templates/',
+        {
+          companyId: companyId,
+          email: userEmail,
+          templates: templatesToSave
+        }
       );
       
-      // Add success message to chat
-      const successMessage: ChatMessage = {
-        from_me: false,
-        type: "text",
-        text: `🎉 Successfully created ${totalStages} stage templates!\n\n${createdTemplates.map((template: StageTemplate) => 
-          `• ${template.templateName} (${template.messageCount} messages)\n  Stage: ${template.stageName}${template.purpose ? `\n  Purpose: ${template.purpose}` : ''}`
-        ).join('\n\n')}\n\nEach stage template has been created and is ready to use.`,
-        createdAt: new Date().toISOString(),
-      };
+      // Smooth progress animation to 60%
+      const progressInterval2 = setInterval(() => {
+        setApplyProgress(prev => {
+          if (prev >= 60) {
+            clearInterval(progressInterval2);
+            return 60;
+          }
+          return prev + 1;
+        });
+      }, 30);
       
-      setMessages(prevMessages => [successMessage, ...prevMessages]);
+      setApplyProgress(60);
 
-    } catch (error) {
-      console.error("Error creating template:", error);
-      setError("Failed to create template. Please try again.");
-    }
-  };
-
-  // New function to update existing templates
-  const updateExistingTemplates = async () => {
-    if (!generatedData?.stageTemplates || !Array.isArray(generatedData.stageTemplates) || generatedData.stageTemplates.length === 0) {
-      toast.error("No stage templates available for update");
-      return;
-    }
-
-    try {
-      const userEmail = localStorage.getItem("userEmail");
-      if (!userEmail) {
-        throw new Error("User not authenticated");
+      if (!response.data.success) {
+        throw new Error(response.data.details || 'Failed to save templates');
       }
 
-      // Get company ID
-      const userResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`
-      );
-      const companyId = userResponse.data.userData.companyId;
-
-      // Update existing templates with new data
-      const updatePromises = currentFollowUps.templates.map(async (template) => {
-        try {
-          const response = await axios.put(
-            `https://juta-dev.ngrok.dev/api/followup-templates/${template.templateId}`,
-            {
-              companyId: companyId,
-              name: template.name,
-              status: template.status,
-              triggerTags: generatedData.stageTemplates?.[0]?.triggerTags || template.triggerTags,
-              triggerKeywords: generatedData.stageTemplates?.[0]?.triggerKeywords || template.triggerKeywords
-            }
-          );
-          return { success: true, templateId: template.templateId };
-        } catch (error) {
-          console.error(`Error updating template ${template.templateId}:`, error);
-          return { success: false, templateId: template.templateId, error };
-        }
-      });
-
-      const results = await Promise.all(updatePromises);
-      const successfulUpdates = results.filter(r => r.success).length;
-      const failedUpdates = results.filter(r => !r.success).length;
-
-      if (successfulUpdates > 0) {
-        toast.success(`✅ Successfully updated ${successfulUpdates} template(s)`);
-        if (failedUpdates > 0) {
-          toast.warning(`⚠️ Failed to update ${failedUpdates} template(s)`);
-        }
-        
-        // Refresh current follow-up data
+      const { templatesUpdated, templatesCreated, totalChanges } = response.data.data || {};
+      
+      // Smooth progress animation to 80%
+      const progressInterval3 = setInterval(() => {
+        setApplyProgress(prev => {
+          if (prev >= 80) {
+            clearInterval(progressInterval3);
+            return 80;
+          }
+          return prev + 1;
+        });
+      }, 20);
+      
+      setApplyProgress(80);
+      
+      // Refresh current follow-up data to show the changes
         await fetchCurrentFollowUps();
         
-        // Move to success step
-        setCurrentStep(4);
+      // Mark that there are no pending changes (they've been applied)
+      setHasChanges(false);
         
-        // Add success message to chat
+      // Add success message
         const successMessage: ChatMessage = {
-          from_me: false,
-          type: "text",
-          text: `🎉 Successfully updated ${successfulUpdates} existing template(s)!\n\n${failedUpdates > 0 ? `Note: ${failedUpdates} template(s) could not be updated.` : ''}\n\nYour follow-up sequences have been optimized based on your requirements.`,
-          createdAt: new Date().toISOString(),
-        };
-        
-        setMessages(prevMessages => [successMessage, ...prevMessages]);
-      } else {
-        throw new Error("Failed to update any templates");
-      }
-
-    } catch (error) {
-      console.error("Error updating templates:", error);
-      setError("Failed to update existing templates. Please try again.");
-    }
-  };
-
-  // New function to analyze and optimize individual messages
-  const analyzeAndOptimizeMessages = async () => {
-    if (!currentFollowUps.templates.length) {
-      toast.error("No templates available for message analysis");
-      return;
-    }
-
-    try {
-      const userEmail = localStorage.getItem("userEmail");
-      if (!userEmail) {
-        throw new Error("User not authenticated");
-      }
-
-      // Prepare message data for AI analysis
-      const messageAnalysisData = {
-        templates: currentFollowUps.templates.map(template => ({
-          ...template,
-          messages: currentFollowUps.messages[template.templateId] || []
-        })),
-        analysisRequest: "Please analyze and optimize each message for better conversion rates, engagement, and follow-up effectiveness"
-      };
-
-      // Call AI API for message-level analysis
-      const response = await axios.post(
-        'https://juta-dev.ngrok.dev/api/analyze-followup-messages/',
-        {
-          message: "Please analyze and optimize the individual messages in my follow-up templates for better conversion and engagement",
-          email: userEmail,
-          messageData: messageAnalysisData
-        }
-      );
-
-      if (!response.data.success) {
-        throw new Error(response.data.details || 'Failed to analyze messages');
-      }
-
-      const { messageOptimizations, overallMessageAnalysis } = response.data.data;
-      
-      // Update generated data with message optimizations
-      setGeneratedData(prev => ({
-        ...prev,
-        messageOptimizations,
-        overallMessageAnalysis
-      }));
-
-      // Move to step 2 to show message optimizations
-      setCurrentStep(2);
-
-      // Add AI response about message analysis
-      const analysisMessage: ChatMessage = {
         from_me: false,
         type: 'text',
-        text: `I've analyzed ${overallMessageAnalysis?.totalMessages || 0} messages across your templates and found ${overallMessageAnalysis?.messagesOptimized || 0} that could be optimized for better results.\n\nKey improvements identified:\n${overallMessageAnalysis?.keyImprovements?.map((imp: string) => `• ${imp}`).join('\n') || '• Message timing and sequencing\n• Call-to-action effectiveness\n• Personalization opportunities\n• Conversion optimization'}\n\nCheck the right panel to review specific message improvements.`,
+        text: `🎉 Templates saved successfully!\n\n• Templates Updated: ${templatesUpdated || 0}\n• Templates Created: ${templatesCreated || 0}\n• Total Changes: ${totalChanges || 0}\n\nYour follow-up templates have been saved to the database.`,
         createdAt: new Date().toISOString(),
       };
       
-      setMessages(prevMessages => [analysisMessage, ...prevMessages]);
-
-    } catch (error) {
-      console.error("Error analyzing messages:", error);
-      setError("Failed to analyze messages. Please try again.");
-    }
-  };
-
-  // New function to apply message-level updates
-  const applyMessageUpdates = async () => {
-    if (!generatedData?.messageOptimizations) {
-      toast.error("No message optimizations available");
-      return;
-    }
-
-    try {
-      const userEmail = localStorage.getItem("userEmail");
-      if (!userEmail) {
-        throw new Error("User not authenticated");
-      }
-
-      // Apply message updates to each template
-      const updatePromises = generatedData.messageOptimizations.map(async (templateOptimization) => {
-        const messageUpdates = templateOptimization.messageUpdates.map(async (messageUpdate) => {
-          try {
-            const response = await axios.put(
-              `https://juta-dev.ngrok.dev/api/followup-templates/${templateOptimization.templateId}/messages/${messageUpdate.messageId}`,
-              {
-                message: messageUpdate.suggestedMessage,
-                optimized: true,
-                optimizationReason: messageUpdate.reason,
-                improvements: messageUpdate.improvements
-              }
-            );
-            return { success: true, messageId: messageUpdate.messageId };
-          } catch (error) {
-            console.error(`Error updating message ${messageUpdate.messageId}:`, error);
-            return { success: false, messageId: messageUpdate.messageId, error };
+      setMessages(prevMessages => [...prevMessages, successMessage]);
+      
+      toast.success(`Templates saved successfully! 🎉\n${totalChanges || 0} template(s) processed.`);
+      
+      // Clear generated data after successful save
+      setGeneratedData(null);
+      
+      // Smooth progress animation to 100%
+      const progressInterval4 = setInterval(() => {
+        setApplyProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(progressInterval4);
+            return 100;
           }
+          return prev + 1;
         });
-
-        return Promise.all(messageUpdates);
-      });
-
-      const allResults = await Promise.all(updatePromises);
-      const flatResults = allResults.flat();
-      const successfulUpdates = flatResults.filter(r => r.success).length;
-      const failedUpdates = flatResults.filter(r => !r.success).length;
-
-      if (successfulUpdates > 0) {
-        toast.success(`✅ Successfully optimized ${successfulUpdates} message(s)`);
-        if (failedUpdates > 0) {
-          toast.warning(`⚠️ Failed to optimize ${failedUpdates} message(s)`);
-        }
-        
-        // Refresh current follow-up data
-        await fetchCurrentFollowUps();
-        
-        // Move to success step
-        setCurrentStep(4);
-        
-        // Add success message to chat
-        const successMessage: ChatMessage = {
-          from_me: false,
-          type: "text",
-          text: `🎉 Successfully optimized ${successfulUpdates} message(s)!\n\n${failedUpdates > 0 ? `Note: ${failedUpdates} message(s) could not be updated.` : ''}\n\nYour follow-up messages have been enhanced for better conversion and engagement.`,
-          createdAt: new Date().toISOString(),
-        };
-        
-        setMessages(prevMessages => [successMessage, ...prevMessages]);
-      } else {
-        throw new Error("Failed to update any messages");
-      }
+      }, 15);
+      
+      setApplyProgress(100);
 
     } catch (error) {
-      console.error("Error updating messages:", error);
-      setError("Failed to update messages. Please try again.");
+      console.error('Error saving templates:', error);
+      setError("Failed to save templates. Please try again.");
+      setApplyProgress(0);
+    } finally {
+      setIsApplyingChanges(false);
+      // Reset progress after a delay
+      setTimeout(() => setApplyProgress(0), 1000);
     }
   };
 
@@ -725,6 +731,27 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
     });
   };
 
+  // Show loading state while fetching assistant info
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[1200px] h-[95vh] flex flex-col overflow-hidden">
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-4">
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-3">Loading AI Assistant...</h3>
+              <p className="text-gray-600 dark:text-gray-400 max-w-lg text-base">
+                Fetching your AI assistant instructions to understand your business context.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[1200px] h-[95vh] flex flex-col overflow-hidden">
@@ -738,7 +765,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">AI Follow-up Builder</h2>
-              <p className="text-gray-600 dark:text-gray-400">Create effective follow-up sequences with AI</p>
+              <p className="text-gray-600 dark:text-gray-400">Create and optimize follow-up sequences with AI</p>
             </div>
           </div>
           <button
@@ -749,34 +776,6 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-        </div>
-
-        {/* Progress Steps */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            {[1, 2, 3, 4].map((step) => (
-              <div key={step} className="flex items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  currentStep >= step 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                }`}>
-                  {step}
-                </div>
-                {step < 4 && (
-                  <div className={`w-16 h-1 mx-2 ${
-                    currentStep > step ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
-                  }`} />
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
-            <span>Analyze & Chat</span>
-            <span>Review & Configure</span>
-            <span>Apply Messages</span>
-            <span>Success</span>
-          </div>
         </div>
 
         {/* Main Content */}
@@ -793,7 +792,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                     </div>
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-3">Loading Your Follow-up Data...</h3>
                     <p className="text-gray-600 dark:text-gray-400 max-w-lg text-base">
-                      I'm analyzing your current follow-up templates and messages to provide personalized assistance.
+                      I'm analyzing your current AI assistant instructions and follow-up templates to provide personalized assistance.
                     </p>
                   </div>
                 )}
@@ -807,8 +806,16 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                     </div>
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-3">Welcome to AI Follow-up Builder!</h3>
                     <p className="text-gray-600 dark:text-gray-400 max-w-lg text-base">
-                      I'll analyze your current follow-up templates and help you improve or create new ones based on your requirements.
+                      I have your AI assistant instructions loaded and I'll help you create or improve follow-up templates based on your conversation stages.
                     </p>
+                    <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                        💡 <strong>Examples:</strong> 
+                        <br />• "Create follow-up templates based on my prompt stages"
+                        <br />• "Change Stage 2 Day 2 message to be more urgent"
+                        <br />• "Optimize my follow-up sequences for better conversion"
+                      </p>
+                    </div>
                   </div>
                 )}
                 
@@ -834,7 +841,54 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                           <span className="text-sm">AI is thinking...</span>
                         </div>
                       ) : (
+                        <>
                         <div className="whitespace-pre-wrap">{message.text}</div>
+                          
+                          {/* Show Apply Changes button for brainstorm messages */}
+                          {message.isBrainstorm && hasChanges && generatedData?.stageTemplates && generatedData.stageTemplates.length > 0 && (
+                            <div className="mt-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                              {/* Progress bar for apply changes */}
+                              {isApplyingChanges && (
+                                <div className="mb-3">
+                                  <div className="flex items-center justify-between text-xs text-green-600 dark:text-green-400 mb-1">
+                                    <span>Preparing changes...</span>
+                                    <span>{applyProgress}%</span>
+                                  </div>
+                                  <div className="w-full bg-green-200 dark:bg-green-700 rounded-full h-2">
+                                    <div 
+                                      className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full transition-all duration-300 ease-out"
+                                      style={{ width: `${applyProgress}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <button
+                                onClick={applyChangesToFollowUps}
+                                disabled={isApplyingChanges}
+                                className={`w-full px-4 py-2 text-sm font-medium text-white rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-200 dark:focus:ring-green-800 shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
+                                  isApplyingChanges 
+                                    ? 'bg-green-400 dark:bg-green-500 cursor-not-allowed' 
+                                    : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+                                }`}
+                              >
+                                {isApplyingChanges ? (
+                                  <div className="flex items-center justify-center space-x-2">
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <span>Applying Changes...</span>
+                                  </div>
+                                ) : (
+                                                                      <div className="flex items-center space-x-2">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                      <span>Apply Changes</span>
+                                    </div>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -848,7 +902,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={handleSendMessage}
-                    placeholder="Describe what you'd like me to help you with regarding your follow-up templates..."
+                    placeholder="Ask me to create or modify follow-up templates based on your AI assistant stages..."
                     className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     rows={3}
                   />
@@ -870,6 +924,9 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                     <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
                   </div>
                 )}
+                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Press Enter to send, Shift+Enter for new line
+                </div>
               </div>
             </div>
           </div>
@@ -877,8 +934,25 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
           {/* Configuration Section */}
           <div className="w-1/2 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto p-6 ai-followup-builder-scroll" style={{ minHeight: 0 }}>
+              {/* Current AI Assistant Instructions */}
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Current AI Assistant Context</h3>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                    Assistant: {assistantInfo.name || 'Loading...'}
+                  </h4>
+                  <div className="text-sm text-blue-700 dark:text-blue-300 bg-white dark:bg-blue-950/30 p-3 rounded border max-h-48 overflow-y-auto">
+                    <strong>Instructions Preview:</strong>
+                    <div className="mt-2 font-mono text-xs whitespace-pre-wrap">
+                      {assistantInfo.instructions?.substring(0, 500) || 'Loading instructions...'}
+                      {assistantInfo.instructions && assistantInfo.instructions.length > 500 && '...'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             {/* Current Follow-ups Overview */}
-            {currentStep === 1 && isLoadingCurrentFollowUps && (
+              {isLoadingCurrentFollowUps && (
               <div className="space-y-6">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Loading Follow-up Data...</h3>
@@ -890,7 +964,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
               </div>
             )}
 
-            {currentStep === 1 && !isLoadingCurrentFollowUps && currentFollowUps.templates.length > 0 && (
+              {!isLoadingCurrentFollowUps && currentFollowUps.templates.length > 0 && (
               <div className="space-y-6">
                 <div>
                   <div className="flex items-center justify-between mb-4">
@@ -947,8 +1021,6 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                           <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                             <p><strong>Created:</strong> {new Date(template.createdAt).toLocaleDateString()}</p>
                             <p><strong>Messages:</strong> {currentFollowUps.messages[template.templateId]?.length || 0}</p>
-                            
-
                             
                             {template.triggerTags && template.triggerTags.length > 0 && (
                               <div>
@@ -1070,14 +1142,14 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                   
                   <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <p className="text-sm text-blue-800 dark:text-blue-200">
-                      💡 <strong>Tip:</strong> I can help you modify these existing templates, create new ones, or improve your current follow-up sequences. Just tell me what you'd like to achieve!
+                        💡 <strong>Tip:</strong> I can help you modify these existing templates, create new ones based on your AI assistant stages, or improve your current follow-up sequences. Just tell me what you'd like to achieve!
                     </p>
                   </div>
                 </div>
               </div>
             )}
 
-            {currentStep === 1 && !isLoadingCurrentFollowUps && currentFollowUps.templates.length === 0 && (
+              {!isLoadingCurrentFollowUps && currentFollowUps.templates.length === 0 && (
               <div className="space-y-6">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">No Follow-up Templates Found</h3>
@@ -1088,8 +1160,13 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                       </svg>
                     </div>
                     <p className="text-gray-600 dark:text-gray-400 mb-4">
-                      You don't have any follow-up templates yet. I can help you create your first one!
+                        You don't have any follow-up templates yet, but I have your AI assistant instructions loaded! I can create follow-up sequences based on your conversation stages.
                     </p>
+                      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800 mb-4">
+                        <p className="text-sm text-green-800 dark:text-green-200">
+                          <strong>Try asking:</strong> "Create follow-up templates based on my current prompt stages"
+                        </p>
+                      </div>
                     <Button
                       onClick={fetchCurrentFollowUps}
                       className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white"
@@ -1104,286 +1181,45 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
               </div>
             )}
 
-            {currentStep >= 2 && generatedData && (
-              <div className="space-y-8">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-6">Template Configuration</h3>
-                  
-                  {/* Current vs New Template Comparison */}
-                  <div className="mb-6">
-                    <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">Template Analysis & Updates</h4>
-                    
-                    {/* Current Templates Summary */}
-                    <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                      <h5 className="font-medium text-gray-800 dark:text-white mb-2">Current Templates Summary</h5>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        <p><strong>Total Templates:</strong> {currentFollowUps.templates.length}</p>
-                        <p><strong>Total Messages:</strong> {Object.values(currentFollowUps.messages).reduce((sum, msgs) => sum + msgs.length, 0)}</p>
-                        <p><strong>Active Templates:</strong> {currentFollowUps.templates.filter(t => t.status === 'active').length}</p>
-                      </div>
-                    </div>
-                    
-                    {/* AI-Generated Template Information */}
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
-                        The AI has analyzed your current templates and generated an optimized configuration based on your requirements:
-                      </p>
-                      
-                      {generatedData.stageTemplates && Array.isArray(generatedData.stageTemplates) ? (
-                        <div className="space-y-4">
-                          {generatedData.stageTemplates.map((stage: StageTemplateData, index: number) => (
-                            <div key={index} className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-blue-200 dark:border-blue-600">
-                              <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-                                Stage {index + 1}: {stage.stageName}
-                              </h5>
-                              <div className="space-y-2 text-sm">
-                                <p><strong>Purpose:</strong> {stage.purpose}</p>
-                                <p><strong>Messages:</strong> {stage.messageCount}</p>
-                                
-                                {/* Trigger Tags */}
-                                {stage.triggerTags && stage.triggerTags.length > 0 && (
-                                  <div>
-                                    <strong>Trigger Tags:</strong>
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {stage.triggerTags.map((tag, tagIndex) => (
-                                        <span key={tagIndex} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                          {tag}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {/* Trigger Keywords */}
-                                {stage.triggerKeywords && stage.triggerKeywords.length > 0 && (
-                                  <div>
-                                    <strong>Trigger Keywords:</strong>
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {stage.triggerKeywords.map((keyword, keywordIndex) => (
-                                        <span key={keywordIndex} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                                          {keyword}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-blue-800 dark:text-blue-200">
-                          No stage templates generated yet. Please wait for the AI to complete the generation.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Generated Content Preview */}
-                  <div className="mb-6">
-                    <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">Generated Content</h4>
-                    <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        <strong>Workflow Stages:</strong>
-                        <div className="mt-2 whitespace-pre-wrap">{generatedData.workflowStages || "Not specified"}</div>
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400 mt-4">
-                        <strong>Generated Stage Templates:</strong>
-                        <div className="mt-2 whitespace-pre-wrap">
-                          {generatedData.stageTemplates && Array.isArray(generatedData.stageTemplates) ? generatedData.stageTemplates.map((stage: StageTemplateData) => 
-                            `• ${stage.stageName}: ${stage.purpose} (${stage.messageCount} messages)`
-                          ).join('\n') : "No stage templates generated"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                      {/* AI Suggestions Summary */}
-                      <div className="mb-6">
-                        <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">AI Recommendations</h4>
+              {/* Show prepared changes */}
+              {hasChanges && generatedData && (
+                <div className="mt-6 space-y-4">
                         <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                          <div className="text-sm text-yellow-800 dark:text-yellow-200 space-y-2">
-                            <p><strong>🎯 Key Improvements Suggested:</strong></p>
-                            <ul className="list-disc list-inside space-y-1 ml-4">
-                              {currentFollowUps.templates.length > 0 && (
-                                <li>Optimize existing template sequences based on your requirements</li>
-                              )}
-                              <li>Enhance trigger conditions for better lead qualification</li>
-                              <li>Improve message timing and sequencing</li>
-                              <li>Add new stages if needed for better conversion flow</li>
-                            </ul>
-                            <p className="mt-3 text-xs">
-                              <strong>Note:</strong> The AI has analyzed your current templates and suggested optimizations. You can choose to update existing templates or create new ones.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Message Optimizations */}
-                      {generatedData.messageOptimizations && generatedData.messageOptimizations.length > 0 && (
-                        <div className="mb-6">
-                          <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">Message-Level Optimizations</h4>
-                          
-                          {/* Overall Message Analysis */}
-                          {generatedData.overallMessageAnalysis && (
-                            <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                              <h5 className="font-medium text-green-800 dark:text-green-200 mb-2">Message Analysis Summary</h5>
-                              <div className="text-sm text-green-800 dark:text-green-200 space-y-1">
-                                <p><strong>Total Messages Analyzed:</strong> {generatedData.overallMessageAnalysis.totalMessages}</p>
-                                <p><strong>Messages Optimized:</strong> {generatedData.overallMessageAnalysis.messagesOptimized}</p>
-                                <p><strong>Conversion Potential:</strong> {generatedData.overallMessageAnalysis.conversionPotential}</p>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Individual Template Message Optimizations */}
-                          <div className="space-y-4">
-                            {generatedData.messageOptimizations.map((templateOptimization, templateIndex) => (
-                              <div key={templateIndex} className="bg-white dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                                <h5 className="font-medium text-gray-800 dark:text-white mb-3">
-                                  {templateOptimization.templateName}
-                                </h5>
-                                
-                                <div className="space-y-3">
-                                  {templateOptimization.messageUpdates.map((messageUpdate, messageIndex) => (
-                                    <div key={messageIndex} className="border-l-4 border-blue-500 pl-4">
-                                      <div className="text-sm space-y-2">
-                                        <div>
-                                          <strong className="text-gray-700 dark:text-gray-300">Current Message:</strong>
-                                          <p className="text-gray-600 dark:text-gray-400 mt-1 bg-gray-50 dark:bg-gray-800 p-2 rounded">
-                                            {messageUpdate.currentMessage}
-                                          </p>
-                                        </div>
-                                        
-                                        <div>
-                                          <strong className="text-green-700 dark:text-green-300">Optimized Message:</strong>
-                                          <p className="text-gray-600 dark:text-gray-400 mt-1 bg-green-50 dark:bg-green-900/20 p-2 rounded border border-green-200 dark:border-green-800">
-                                            {messageUpdate.suggestedMessage}
-                                          </p>
-                                        </div>
-                                        
-                                        <div>
-                                          <strong className="text-blue-700 dark:text-blue-300">Improvements:</strong>
-                                          <ul className="list-disc list-inside mt-1 text-gray-600 dark:text-gray-400">
-                                            {messageUpdate.improvements.map((improvement, impIndex) => (
-                                              <li key={impIndex}>{improvement}</li>
-                                            ))}
-                                          </ul>
-                                        </div>
-                                        
-                                        <div>
-                                          <strong className="text-purple-700 dark:text-purple-300">Reason:</strong>
-                                          <p className="text-gray-600 dark:text-gray-400 mt-1 italic">
-                                            {messageUpdate.reason}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                  {/* Action Buttons */}
-                  <div className="flex justify-between items-center">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      <p>Choose how you want to proceed:</p>
-                    </div>
-                    <div className="flex gap-3">
-                      {generatedData.messageOptimizations && generatedData.messageOptimizations.length > 0 && (
-                        <Button
-                          onClick={applyMessageUpdates}
-                          className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 text-base"
-                        >
-                          Apply Message Updates
-                        </Button>
-                      )}
-                      {currentFollowUps.templates.length > 0 && (
-                        <Button
-                          onClick={updateExistingTemplates}
-                          disabled={!generatedData.stageTemplates || !Array.isArray(generatedData.stageTemplates) || generatedData.stageTemplates.length === 0}
-                          className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 text-base"
-                        >
-                          Update Existing
-                        </Button>
-                      )}
-                    <Button
-                      onClick={applyMessages}
-                      disabled={!generatedData.stageTemplates || !Array.isArray(generatedData.stageTemplates) || generatedData.stageTemplates.length === 0}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-base"
-                    >
-                        {isApplying ? "Applying..." : "Create New"}
-                    </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Apply Messages */}
-            {currentStep >= 3 && generatedData && (
-              <div className="space-y-8">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-6">Apply Messages</h3>
-                  
-                  <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800 mb-6">
-                    <p className="text-sm text-green-800 dark:text-green-200">
-                      ✅ Messages have been applied successfully! Now you can create the template.
+                    <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">Changes Ready to Apply</h4>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                      I've prepared optimizations for your follow-up templates based on your AI assistant context. Click "Apply Changes" to save these changes.
                     </p>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={createTemplate}
-                      className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-base"
+                        <Button
+                      onClick={applyChangesToFollowUps}
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg"
                     >
-                      Create Template
+                      Apply Changes
                     </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 4: Success */}
-            {currentStep >= 4 && generatedData && (
-              <div className="space-y-8">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-6">Success!</h3>
-                  
-                  {/* Success Summary */}
-                  <div className="mb-6">
-                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-                      <p className="text-sm text-green-800 dark:text-green-200 font-medium">
-                        ✅ {generatedData.createdTemplates ? 
-                          `Successfully created ${generatedData.totalStages || generatedData.createdTemplates?.length || 0} stage templates for "${generatedData.originalTemplateName || generatedData.stageTemplates?.[0]?.stageName || 'AI Generated Follow-up'}"` :
-                          `Successfully updated your existing follow-up templates with AI optimizations!`
-                        }
-                      </p>
                     </div>
+                  
+                  {/* Drafted Templates Table */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                      <h4 className="font-medium text-gray-800 dark:text-white">Drafted Templates ({generatedData.stageTemplates?.length || 0})</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Review the templates before applying</p>
                   </div>
 
-                  {/* Created Templates Details */}
-                  {generatedData.createdTemplates && Array.isArray(generatedData.createdTemplates) && (
-                    <div className="mb-6">
-                      <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">Created Templates</h4>
-                      <div className="space-y-3">
-                        {generatedData.createdTemplates.map((template: StageTemplate, index: number) => (
-                          <div key={index} className="bg-white dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                            <h5 className="font-medium text-gray-800 dark:text-white mb-2">
-                              {template.templateName}
-                            </h5>
-                            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                              <p><strong>Stage:</strong> {template.stageName}</p>
-                              <p><strong>Messages:</strong> {template.messageCount}</p>
-                              {template.purpose && <p><strong>Purpose:</strong> {template.purpose}</p>}
+                    <div className="divide-y divide-gray-200 dark:divide-gray-600">
+                      {generatedData.stageTemplates?.map((template, index) => (
+                        <div key={template.templateId} className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h5 className="font-medium text-gray-800 dark:text-white mb-1">
+                                {template.stageName}
+                              </h5>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                {template.purpose}
+                              </p>
                               
                               {/* Trigger Tags */}
-                              {template.triggerTags && Array.isArray(template.triggerTags) && template.triggerTags.length > 0 && (
-                                <div>
-                                  <strong>Trigger Tags:</strong>
+                              {template.triggerTags && template.triggerTags.length > 0 && (
+                                <div className="mb-2">
+                                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Trigger Tags:</span>
                                   <div className="flex flex-wrap gap-1 mt-1">
                                     {template.triggerTags.map((tag, tagIndex) => (
                                       <span key={tagIndex} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
@@ -1395,9 +1231,9 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                               )}
                               
                               {/* Trigger Keywords */}
-                              {template.triggerKeywords && Array.isArray(template.triggerKeywords) && template.triggerKeywords.length > 0 && (
-                                <div>
-                                  <strong>Trigger Keywords:</strong>
+                              {template.triggerKeywords && template.triggerKeywords.length > 0 && (
+                                <div className="mb-2">
+                                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Trigger Keywords:</span>
                                   <div className="flex flex-wrap gap-1 mt-1">
                                     {template.triggerKeywords.map((keyword, keywordIndex) => (
                                       <span key={keywordIndex} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
@@ -1408,55 +1244,33 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                                 </div>
                               )}
                             </div>
+                            
+                            <div className="text-right ml-4">
+                              <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                                {template.messageCount} messages
+                              </span>
                           </div>
-                        ))}
                       </div>
+                          
+                          {/* Messages Preview */}
+                          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                            <h6 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Messages Preview:</h6>
+                            <div className="space-y-2">
+                              {template.messages.slice(0, 3).map((message, msgIndex) => (
+                                <div key={msgIndex} className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 p-2 rounded border">
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">#{msgIndex + 1}</span>
+                                  {message.length > 100 ? `${message.substring(0, 100)}...` : message}
+                                </div>
+                              ))}
+                              {template.messages.length > 3 && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                                  +{template.messages.length - 3} more messages
                     </div>
                   )}
-
-                  {/* Summary of Changes */}
-                  <div className="mb-6">
-                    <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">Summary of Changes</h4>
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <div className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
-                        <p><strong>🎯 What was accomplished:</strong></p>
-                        <ul className="list-disc list-inside space-y-1 ml-4">
-                          {generatedData.messageOptimizations && generatedData.messageOptimizations.length > 0 && (
-                            <>
-                              <li>Optimized {generatedData.overallMessageAnalysis?.messagesOptimized || 0} individual messages for better conversion</li>
-                              <li>Enhanced message content and engagement</li>
-                              <li>Improved call-to-action effectiveness</li>
-                            </>
-                          )}
-                          {generatedData.createdTemplates ? (
-                            <>
-                              <li>Created {generatedData.totalStages || generatedData.createdTemplates?.length || 0} new stage templates</li>
-                              <li>Optimized trigger conditions and keywords</li>
-                              <li>Established a structured follow-up workflow</li>
-                            </>
-                          ) : (
-                            <>
-                              <li>Updated existing template configurations</li>
-                              <li>Optimized trigger conditions and keywords</li>
-                              <li>Improved message sequencing and timing</li>
-                            </>
-                          )}
-                        </ul>
-                        <p className="mt-3 text-xs">
-                          <strong>Next Steps:</strong> Your follow-up templates and messages are now optimized and ready to use. You can monitor their performance and make further adjustments as needed.
-                        </p>
                       </div>
                     </div>
                   </div>
-
-                  {/* Close Button */}
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={onClose}
-                      className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 text-base"
-                    >
-                      Close
-                    </Button>
+                      ))}
                   </div>
                 </div>
               </div>

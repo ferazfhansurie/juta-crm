@@ -72,6 +72,7 @@ interface MessageListProps {
   enterFullscreenMode: () => void; // Add this line
   openPDFModal: (documentUrl: string, documentName?: string) => void; // Add this line
   companyId: string | null; // Add this line
+  isAiThinking: boolean; // Add this line
 }
 interface AssistantConfig {
   id: string;
@@ -165,6 +166,7 @@ const MessageList: React.FC<MessageListProps> = ({
   enterFullscreenMode,
   openPDFModal,
   companyId,
+  isAiThinking,
 }) => {
   const [newMessage, setNewMessage] = useState("");
 
@@ -188,9 +190,14 @@ const MessageList: React.FC<MessageListProps> = ({
       <div className="flex items-center justify-between p-2 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
         <div className="flex items-center">
           <div className="w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 dark:bg-gray-600 flex items-center justify-center text-white mr-3">
-            <span className="text-lg capitalize">
-              {assistantName.charAt(0)}
-            </span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H9L3 7V9C3 10.1 3.9 11 5 11V17C5 18.1 5.9 19 7 19H9C10.1 19 11 18.1 11 17V15H13V17C13 18.1 13.9 19 15 19H17C18.1 19 19 18.1 19 17V11C20.1 11 21 10.1 21 9ZM7.5 7.5C7.5 8.3 8.2 9 9 9S10.5 8.3 10.5 7.5S9.8 6 9 6S7.5 6.7 7.5 7.5ZM13.5 7.5C13.5 8.3 14.2 9 15 9S16.5 8.3 16.5 7.5S15.8 6 15 6S13.5 6.7 13.5 7.5Z"/>
+            </svg>
           </div>
           <div>
             <div className="font-semibold text-gray-800 dark:text-gray-200 capitalize">
@@ -213,79 +220,9 @@ const MessageList: React.FC<MessageListProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 dark:bg-gray-900 relative">
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900 relative">
                 {/* Tool Buttons - Positioned at top of chat area */}
         <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-          {/* Add subtle background for better visual separation */}
-          <div className="absolute inset-0 bg-gradient-to-r from-gray-50/50 to-transparent dark:from-gray-800/50 pointer-events-none rounded-t-lg"></div>
-          <Link to="/a-i-responses">
-            <button className="px-3 py-2 bg-blue-500 dark:bg-blue-600 text-white border-2 border-blue-600 dark:border-blue-500 rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:border-blue-700 dark:hover:border-blue-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              AI Tools
-            </button>
-          </Link>
-          <Link to="/follow-ups">
-            <button className="px-3 py-2 bg-teal-500 dark:bg-teal-600 text-white border-2 border-teal-600 dark:border-teal-500 rounded-lg hover:bg-teal-600 dark:hover:bg-teal-700 hover:border-teal-700 dark:hover:border-teal-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-                <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
-            </svg>
-              Follow-Ups
-          </button>
-          </Link>
-          <Link to="/users-layout-2/builder2">
-            <button className="px-3 py-2 bg-purple-500 dark:bg-purple-600 text-white border-2 border-purple-600 dark:border-purple-500 rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 hover:border-purple-700 dark:hover:border-purple-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
-              </svg>
-              Prompt Builder
-          </button>
-          </Link>
-          <Link to="/split-test">
-            <button className="px-3 py-2 bg-orange-500 dark:bg-orange-600 text-white border-2 border-orange-600 dark:border-orange-500 rounded-lg hover:bg-orange-600 dark:hover:bg-orange-700 hover:border-orange-700 dark:hover:border-orange-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              Split Test
-            </button>
-          </Link>
-          <a
-            href={`https://web.jutateknologi.com/guest-chat/${companyId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <button className="px-3 py-2 bg-indigo-500 dark:bg-indigo-600 text-white border-2 border-indigo-600 dark:border-indigo-500 rounded-lg hover:bg-indigo-600 dark:hover:bg-indigo-700 hover:border-indigo-700 dark:hover:border-indigo-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-                <path
-                  fillRule="evenodd"
-                  d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
-                  clipRule="evenodd"
-                />
-          </svg>
-              Guest Chat
-        </button>
-          </a>
         </div>
         
         {messages
@@ -402,7 +339,7 @@ const MessageList: React.FC<MessageListProps> = ({
                     </div>
                   )}
                   {splitIndex === message.text.split("||").filter(splitText => splitText.trim() !== "").length - 1 && (
-                    <div className="message-timestamp text-xs text-gray-400 dark:text-gray-500 mt-2 px-2 py-1 bg-gray-50 dark:bg-gray-800 rounded-full inline-block">
+                    <div className="message-timestamp text-xs text-gray-400 dark:text-gray-500 mt-2 whitespace-nowrap">
                       {new Date(message.createdAt).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -413,12 +350,53 @@ const MessageList: React.FC<MessageListProps> = ({
               ))}
             </div>
           ))}
+          
+        {/* AI Thinking Indicator - Positioned at bottom */}
+        {isAiThinking && (
+          <div className="p-2 mb-2 rounded bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm self-start text-left max-w-[70%]">
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
+                <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+              <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">AI is thinking...</span>
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Fullscreen Button - Positioned inside chatbox */}
+      <div className="absolute bottom-20 right-4 flex gap-2 z-10">
+        {/* Guest Chat Button */}
+        <a
+          href={`https://web.jutateknologi.com/guest-chat/${companyId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <button
+            className="p-3 bg-indigo-500 dark:bg-indigo-600 text-white rounded-full hover:bg-indigo-600 dark:hover:bg-indigo-700 active:scale-95 transition-colors shadow-lg"
+            title="Open Guest Chat"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </a>
+        
+        {/* Fullscreen Button */}
       <button
         onClick={enterFullscreenMode}
-        className="absolute bottom-20 right-4 p-3 bg-green-500 dark:bg-green-600 text-white rounded-full hover:bg-green-600 dark:hover:bg-green-700 active:scale-95 transition-colors z-10 shadow-lg"
+          className="p-3 bg-green-500 dark:bg-green-600 text-white rounded-full hover:bg-green-600 dark:hover:bg-green-700 active:scale-95 transition-colors shadow-lg"
         title="Open in fullscreen"
       >
         <svg
@@ -434,6 +412,7 @@ const MessageList: React.FC<MessageListProps> = ({
           <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
         </svg>
       </button>
+      </div>
 
       <div className="p-4 border-t border-gray-300 dark:border-gray-700">
         <div className="flex items-center">
@@ -504,6 +483,7 @@ const Main: React.FC = () => {
   const [aiAutoResponse, setAiAutoResponse] = useState<boolean>(false);
   const [aiDelay, setAiDelay] = useState<number>(0);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
   
   // Fullscreen mode state
   const location = useLocation();
@@ -774,6 +754,7 @@ const Main: React.FC = () => {
 
     setIsSaving(true);
 
+    try {
     // Get all unique vector store IDs from files
     const vectorStoreIds = [
       ...new Set(files.map((file) => file.vectorStoreId).filter(Boolean)),
@@ -791,7 +772,7 @@ const Main: React.FC = () => {
       },
     };
 
-    try {
+      // Update the assistant in OpenAI
       const response = await axios.post(
         `https://api.openai.com/v1/assistants/${assistantId}`,
         payload,
@@ -804,7 +785,32 @@ const Main: React.FC = () => {
         }
       );
 
+      // Also save the template version
+      if (companyId && assistantInfo.instructions.trim()) {
+        try {
+          const timestamp = new Date().toLocaleString();
+          const templateResponse = await axios.post(
+            "https://juta-dev.ngrok.dev/api/instruction-templates",
+            {
+              companyId,
+              name: timestamp,
+              instructions: assistantInfo.instructions,
+            }
+          );
+
+          if (templateResponse.data.success) {
+            fetchTemplates(); // Refresh templates list
+            toast.success("Assistant updated and template saved successfully");
+          } else {
+            toast.success("Assistant updated successfully, but template save failed");
+          }
+        } catch (templateError) {
+          console.error("Error saving template:", templateError);
+          toast.success("Assistant updated successfully, but template save failed");
+        }
+      } else {
       toast.success("Assistant updated successfully");
+      }
     } catch (error) {
       if (axios.isAxiosError(error)) {
         console.error(
@@ -1007,7 +1013,8 @@ const Main: React.FC = () => {
       }
     });
 
-    // Log assistantId
+    // Show AI thinking indicator
+    setIsAiThinking(true);
 
     try {
       const userEmail = localStorage.getItem("userEmail");
@@ -1071,6 +1078,9 @@ const Main: React.FC = () => {
     } catch (error) {
       console.error("Error:", error);
       setError("Failed to send message");
+    } finally {
+      // Hide AI thinking indicator
+      setIsAiThinking(false);
     }
   };
 
@@ -1635,21 +1645,6 @@ const Main: React.FC = () => {
       <div className="flex justify-between items-center mb-2">
         <div className="flex gap-2">
           <button
-            onClick={saveTemplate}
-            className="px-4 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
-            disabled={userRole === "3"}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h-2v5.586l-1.293-1.293z" />
-            </svg>
-            Save Current
-          </button>
-          <button
             onClick={() => setIsTemplateModalOpen(true)}
             className="px-4 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
           >
@@ -1664,123 +1659,10 @@ const Main: React.FC = () => {
                 clipRule="evenodd"
               />
             </svg>
-            View Saved Versions
+            Version History
           </button>
         </div>
       </div>
-
-      <Transition appear show={isTemplateModalOpen} as={Fragment}>
-        <Dialog
-          as="div"
-          className="relative z-50"
-          onClose={() => setIsTemplateModalOpen(false)}
-        >
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black bg-opacity-25" />
-          </Transition.Child>
-
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all">
-                  <Dialog.Title
-                    as="h3"
-                    className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4"
-                  >
-                    Saved Templates
-                  </Dialog.Title>
-                  <div className="max-h-[60vh] overflow-y-auto">
-                    {templates.length === 0 ? (
-                      <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-                        No templates saved yet
-                      </p>
-                    ) : (
-                      templates.map((template) => (
-                        <div
-                          key={template.id}
-                          className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
-                        >
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm text-gray-600 dark:text-gray-300">
-                              {template.name}
-                            </span>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => {
-                                  loadTemplate(template);
-                                  setIsTemplateModalOpen(false);
-                                }}
-                                className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm flex items-center gap-1"
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h-2v5.586l-1.293-1.293z" />
-                                </svg>
-                                Load
-                              </button>
-                              <button
-                                onClick={() => deleteTemplate(template.id)}
-                                className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 text-sm flex items-center gap-1"
-                                disabled={userRole === "3"}
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
-                            {template.instructions}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <div className="mt-4">
-                    <button
-                      type="button"
-                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-100 dark:bg-gray-600 px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
-                      onClick={() => setIsTemplateModalOpen(false)}
-                    >
-                      Close
-                    </button>
-                  </div>
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
-          </div>
-        </Dialog>
-      </Transition>
     </div>
   );
 
@@ -1846,9 +1728,14 @@ const Main: React.FC = () => {
         <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
           <div className="flex items-center">
             <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 dark:bg-gray-600 flex items-center justify-center text-white mr-3">
-              <span className="text-xl capitalize">
-                {assistantInfo.name.charAt(0)}
-              </span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H9L3 7V9C3 10.1 3.9 11 5 11V17C5 18.1 5.9 19 7 19H9C10.1 19 11 18.1 11 17V15H13V17C13 18.1 13.9 19 15 19H17C18.1 19 19 18.1 19 17V11C20.1 11 21 10.1 21 9ZM7.5 7.5C7.5 8.3 8.2 9 9 9S10.5 8.3 10.5 7.5S9.8 6 9 6S7.5 6.7 7.5 7.5ZM13.5 7.5C13.5 8.3 14.2 9 15 9S16.5 8.3 16.5 7.5S15.8 6 15 6S13.5 6.7 13.5 7.5Z"/>
+              </svg>
             </div>
             <div>
               <div className="font-semibold text-xl text-gray-800 dark:text-gray-200 capitalize">
@@ -1870,7 +1757,7 @@ const Main: React.FC = () => {
         </div>
 
         {/* Fullscreen Chat Messages */}
-        <div className="flex-1 overflow-y-auto p-4 dark:bg-gray-900">
+        <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center text-gray-500 dark:text-gray-400">
@@ -1937,7 +1824,7 @@ const Main: React.FC = () => {
                             <div key={docIndex} className="relative">
                               <div className="flex items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
                                 <svg className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M4 4a2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                                 </svg>
                                 <div className="flex-1">
                                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -1998,6 +1885,20 @@ const Main: React.FC = () => {
                 </div>
               ))
           )}
+          
+          {/* AI Thinking Indicator for Fullscreen - Positioned at bottom */}
+          {isAiThinking && (
+            <div className="p-3 mb-3 rounded-lg bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm self-start text-left max-w-[70%]">
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
+                  <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                </div>
+                <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">AI is thinking...</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Fullscreen Message Input */}
@@ -2040,11 +1941,11 @@ const Main: React.FC = () => {
   }
 
   return (
-    <div className="flex justify-center h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="flex justify-center h-screen bg-gray-50 dark:bg-gray-900">
       <div className={`w-full ${isWideScreen ? "max-w-7xl flex" : "max-w-lg"}`}>
         {isWideScreen ? (
           <>
-            <div className="w-1/2 pl-2 pr-2 ml-2 mr-2 mt-4 overflow-auto">
+            <div className="w-1/2 pl-2 pr-2 ml-2 mr-2 mt-4 overflow-auto bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-4">
@@ -2088,7 +1989,7 @@ const Main: React.FC = () => {
                           id="name"
                           name="name"
                           type="text"
-                          className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 pr-10"
+                          className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 pr-10 font-mono"
                           placeholder="Name your assistant"
                           value={assistantInfo.name}
                           onChange={handleInputChange}
@@ -2098,13 +1999,61 @@ const Main: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* AI Tools Section */}
                   <div className="mb-4">
-                    <label
-                      className="mb-2 text-lg font-medium dark:text-gray-200"
-                      htmlFor="instructions"
-                    >
-                      Instructions
-                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Link to="/a-i-responses">
+                        <button className="px-3 py-2 bg-blue-500 dark:bg-blue-600 text-white border-2 border-blue-600 dark:border-blue-500 rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:border-blue-700 dark:hover:border-blue-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          AI Tools
+                        </button>
+                      </Link>
+                      <Link to="/follow-ups">
+                        <button className="px-3 py-2 bg-teal-500 dark:bg-teal-600 text-white border-2 border-teal-600 dark:border-teal-500 rounded-lg hover:bg-teal-600 dark:hover:bg-teal-700 hover:border-teal-700 dark:hover:border-teal-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+                          </svg>
+                          Follow-Ups
+                        </button>
+                      </Link>
+                      <Link to="/users-layout-2/builder2">
+                        <button className="px-3 py-2 bg-purple-500 dark:bg-purple-600 text-white border-2 border-purple-600 dark:border-purple-500 rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 hover:border-purple-700 dark:hover:border-purple-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                            <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
+                          </svg>
+                          Prompt Builder
+                        </button>
+                      </Link>
+                      <Link to="/split-test">
+                        <button className="px-3 py-2 bg-orange-500 dark:bg-orange-600 text-white border-2 border-orange-600 dark:border-orange-500 rounded-lg hover:bg-orange-600 dark:hover:bg-orange-700 hover:border-orange-700 dark:hover:border-orange-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" clipRule="evenodd" />
+                          </svg>
+                          Split Test
+                        </button>
+                      </Link>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+ 
                     <div className="relative">
                       <textarea
                         id="instructions"
@@ -2142,21 +2091,6 @@ const Main: React.FC = () => {
                       {/* Template Buttons - Positioned at bottom left inside textarea */}
                       <div className="absolute bottom-2 left-2 flex gap-2">
                         <button
-                          onClick={saveTemplate}
-                          className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
-                          disabled={userRole === "3"}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h-2v5.586l-1.293-1.293z" />
-                          </svg>
-                          Save Current
-                        </button>
-                        <button
                           onClick={() => setIsTemplateModalOpen(true)}
                           className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
                         >
@@ -2171,7 +2105,7 @@ const Main: React.FC = () => {
                               clipRule="evenodd"
                             />
                           </svg>
-                          View Saved Versions
+                          Version History
                         </button>
                       </div>
                       
@@ -2206,7 +2140,7 @@ const Main: React.FC = () => {
                             />
                           </svg>
                           )}
-                        {isSaving ? 'Saving...' : 'Save Instructions'}
+                        {isSaving ? 'Saving...' : 'Save'}
                       </button>
                     </div>
                   </div>
@@ -2350,6 +2284,7 @@ const Main: React.FC = () => {
                 enterFullscreenMode={enterFullscreenMode}
                 openPDFModal={openPDFModal}
                 companyId={companyId}
+                isAiThinking={isAiThinking}
               />
             </div>
           </>
@@ -2411,7 +2346,7 @@ const Main: React.FC = () => {
                           id="name"
                           name="name"
                           type="text"
-                          className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 pr-10"
+                          className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 pr-10 font-mono"
                           placeholder="Name your assistant"
                           value={assistantInfo.name}
                           onChange={handleInputChange}
@@ -2481,21 +2416,6 @@ const Main: React.FC = () => {
                         {/* Template Buttons - Positioned at bottom left inside textarea */}
                         <div className="absolute bottom-2 left-2 flex gap-2">
                           <button
-                            onClick={saveTemplate}
-                            className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
-                            disabled={userRole === "3"}
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h-2v5.586l-1.293-1.293z" />
-                            </svg>
-                            Save Current
-                          </button>
-                          <button
                             onClick={() => setIsTemplateModalOpen(true)}
                             className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
                           >
@@ -2510,7 +2430,7 @@ const Main: React.FC = () => {
                                 clipRule="evenodd"
                               />
                             </svg>
-                            View Templates
+                            Version History
                           </button>
                         </div>
                         
@@ -2662,6 +2582,7 @@ const Main: React.FC = () => {
                   enterFullscreenMode={enterFullscreenMode}
                   openPDFModal={openPDFModal}
                   companyId={companyId}
+                  isAiThinking={isAiThinking}
                 />
               </Tab.Panel>
             </Tab.Panels>
@@ -2749,21 +2670,6 @@ const Main: React.FC = () => {
                     {/* Template Buttons - Positioned at bottom left inside textarea */}
                     <div className="absolute bottom-2 left-2 flex gap-2">
                       <button
-                        onClick={saveTemplate}
-                        className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
-                        disabled={userRole === "3"}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h-2v5.586l-1.293-1.293z" />
-                        </svg>
-                        Save Current
-                      </button>
-                      <button
                         onClick={() => setIsTemplateModalOpen(true)}
                         className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
                       >
@@ -2778,7 +2684,7 @@ const Main: React.FC = () => {
                             clipRule="evenodd"
                           />
                         </svg>
-                        View Saved Versions
+                        Version History
                       </button>
                     </div>
                     
@@ -2812,6 +2718,120 @@ const Main: React.FC = () => {
                         </svg>
                       )}
                       {isSaving ? 'Saving...' : 'Save Instructions'}
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Template Modal */}
+      <Transition appear show={isTemplateModalOpen} as={Fragment}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={() => setIsTemplateModalOpen(false)}
+        >
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4"
+                  >
+                    Version History
+                  </Dialog.Title>
+                  <div className="max-h-[60vh] overflow-y-auto">
+                    {templates.length === 0 ? (
+                      <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                        No templates saved yet
+                      </p>
+                    ) : (
+                      templates.map((template) => (
+                        <div
+                          key={template.id}
+                          className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
+                        >
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm text-gray-600 dark:text-gray-300">
+                              {template.name}
+                            </span>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  loadTemplate(template);
+                                  setIsTemplateModalOpen(false);
+                                }}
+                                className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm flex items-center gap-1"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 w-4"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                >
+                                  <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h-2v5.586l-1.293-1.293z" />
+                                </svg>
+                                Load
+                              </button>
+                              <button
+                                onClick={() => deleteTemplate(template.id)}
+                                className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 text-sm flex items-center gap-1"
+                                disabled={userRole === "3"}
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 w-4"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+                            {template.instructions}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-100 dark:bg-gray-600 px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+                      onClick={() => setIsTemplateModalOpen(false)}
+                    >
+                      Close
                     </button>
                   </div>
                 </Dialog.Panel>

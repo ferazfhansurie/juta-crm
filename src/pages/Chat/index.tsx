@@ -2057,6 +2057,7 @@ console.log(data);
 
         if (botStatusResponse.status === 200) {
           const data: BotStatusResponse = botStatusResponse.data;
+          console.log("Bot status response data:", data);
 
           // Check if phones array exists before mapping
           if (data.phones && Array.isArray(data.phones)) {
@@ -2066,17 +2067,19 @@ console.log(data);
               status: phone.status,
               qrCode: phone.qrCode,
             }));
+            console.log("Setting qrCodes for multiple phones:", qrCodesData);
             setQrCodes(qrCodesData);
           } else if (data.phoneCount === 1 && data.phoneInfo) {
             // Single phone: create QRCodeData from flat structure
-            setQrCodes([
-              {
-                phoneIndex: 0,
-                status: data.status,
-                qrCode: data.qrCode,
-              },
-            ]);
+            const singlePhoneData = [{
+              phoneIndex: 0,
+              status: data.status,
+              qrCode: data.qrCode,
+            }];
+            console.log("Setting qrCodes for single phone:", singlePhoneData);
+            setQrCodes(singlePhoneData);
           } else {
+            console.log("No phone data found, setting empty qrCodes");
             setQrCodes([]);
           }
         }
@@ -2089,12 +2092,146 @@ console.log(data);
     if (companyId) {
       fetchPhoneStatuses();
 
-      // Set up an interval to refresh the status every 30 seconds
-      const intervalId = setInterval(fetchPhoneStatuses, 30000);
+      // Set up an interval to refresh the status every 10 seconds for more responsive updates
+      const intervalId = setInterval(fetchPhoneStatuses, 10000);
 
       return () => clearInterval(intervalId);
     }
   }, [companyId]); // Add companyId as dependency
+
+  // Additional useEffect to fetch phone status when phone names become available
+  useEffect(() => {
+    if (companyId && Object.keys(phoneNames).length > 0 && qrCodes.length === 0) {
+      console.log("Phone names available, fetching phone status...");
+      const fetchPhoneStatuses = async () => {
+        try {
+          const botStatusResponse = await axios.get(
+            `${baseUrl}/api/bot-status/${companyId}`
+          );
+          console.log("Additional phone status fetch response:", botStatusResponse);
+
+          if (botStatusResponse.status === 200) {
+            const data: BotStatusResponse = botStatusResponse.data;
+            console.log("Additional bot status response data:", data);
+
+            if (data.phones && Array.isArray(data.phones)) {
+              const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
+                phoneIndex: phone.phoneIndex,
+                status: phone.status,
+                qrCode: phone.qrCode,
+              }));
+              console.log("Setting qrCodes from additional fetch:", qrCodesData);
+              setQrCodes(qrCodesData);
+            } else if (data.phoneCount === 1 && data.phoneInfo) {
+              const singlePhoneData = [{
+                phoneIndex: 0,
+                status: data.status,
+                qrCode: data.qrCode,
+              }];
+              console.log("Setting qrCodes for single phone from additional fetch:", singlePhoneData);
+              setQrCodes(singlePhoneData);
+            }
+          }
+        } catch (error) {
+          console.error("Error in additional phone status fetch:", error);
+        }
+      };
+
+      fetchPhoneStatuses();
+    }
+  }, [companyId, phoneNames, qrCodes.length]);
+
+  // Debug useEffect to log phone status changes
+  useEffect(() => {
+    console.log("🔍 Phone status debug - qrCodes changed:", {
+      qrCodes,
+      qrCodesLength: qrCodes.length,
+      phoneNames,
+      phoneNamesCount: Object.keys(phoneNames).length,
+      companyId
+    });
+  }, [qrCodes, phoneNames, companyId]);
+
+  // Force refresh phone status when component becomes visible or user interacts
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && companyId) {
+        console.log("Page became visible, refreshing phone status...");
+        const fetchPhoneStatuses = async () => {
+          try {
+            const botStatusResponse = await axios.get(
+              `${baseUrl}/api/bot-status/${companyId}`
+            );
+            if (botStatusResponse.status === 200) {
+              const data: BotStatusResponse = botStatusResponse.data;
+              if (data.phones && Array.isArray(data.phones)) {
+                const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
+                  phoneIndex: phone.phoneIndex,
+                  status: phone.status,
+                  qrCode: phone.qrCode,
+                }));
+                setQrCodes(qrCodesData);
+              } else if (data.phoneCount === 1 && data.phoneInfo) {
+                setQrCodes([{
+                  phoneIndex: 0,
+                  status: data.status,
+                  qrCode: data.qrCode,
+                }]);
+              }
+            }
+          } catch (error) {
+            console.error("Error refreshing phone status on visibility change:", error);
+          }
+        };
+        fetchPhoneStatuses();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [companyId]);
+
+  // Force phone status fetch on component mount and when dependencies change
+  useEffect(() => {
+    if (companyId) {
+      console.log("🔄 Force fetching phone status on mount/dependency change...");
+      const fetchPhoneStatuses = async () => {
+        try {
+          const botStatusResponse = await axios.get(
+            `${baseUrl}/api/bot-status/${companyId}`
+          );
+          console.log("🔄 Force fetch response:", botStatusResponse);
+          
+          if (botStatusResponse.status === 200) {
+            const data: BotStatusResponse = botStatusResponse.data;
+            console.log("🔄 Force fetch data:", data);
+            
+            if (data.phones && Array.isArray(data.phones)) {
+              const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
+                phoneIndex: phone.phoneIndex,
+                status: phone.status,
+                qrCode: phone.qrCode,
+              }));
+              console.log("🔄 Setting qrCodes from force fetch:", qrCodesData);
+              setQrCodes(qrCodesData);
+            } else if (data.phoneCount === 1 && data.phoneInfo) {
+              const singlePhoneData = [{
+                phoneIndex: 0,
+                status: data.status,
+                qrCode: data.qrCode,
+              }];
+              console.log("🔄 Setting qrCodes for single phone from force fetch:", singlePhoneData);
+              setQrCodes(singlePhoneData);
+            }
+          }
+        } catch (error) {
+          console.error("🔄 Error in force phone status fetch:", error);
+        }
+      };
+      
+      fetchPhoneStatuses();
+    }
+  }, [companyId, phoneNames]);
 
   // Fetch contacts with client-side lazy loading
   const fetchContactsWithLazyLoading = async () => {
@@ -13718,10 +13855,91 @@ console.log(data);
 
                 <div className="p-4">
                   {/* Phone Index Selector */}
-                  <div className="mb-4 flex justify-between items-center">
-                    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
-                      Active Phone:
-                    </p>
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+                        Active Phone:
+                      </p>
+                      <button
+                        onClick={async () => {
+                          if (companyId) {
+                            try {
+                              const botStatusResponse = await axios.get(
+                                `${baseUrl}/api/bot-status/${companyId}`
+                              );
+                              if (botStatusResponse.status === 200) {
+                                const data: BotStatusResponse = botStatusResponse.data;
+                                if (data.phones && Array.isArray(data.phones)) {
+                                  const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
+                                    phoneIndex: phone.phoneIndex,
+                                    status: phone.status,
+                                    qrCode: phone.qrCode,
+                                  }));
+                                  setQrCodes(qrCodesData);
+                                  toast.success("Phone status refreshed!");
+                                } else if (data.phoneCount === 1 && data.phoneInfo) {
+                                  setQrCodes([{
+                                    phoneIndex: 0,
+                                    status: data.status,
+                                    qrCode: data.qrCode,
+                                  }]);
+                                  toast.success("Phone status refreshed!");
+                                }
+                              }
+                            } catch (error) {
+                              console.error("Error refreshing phone status:", error);
+                              toast.error("Failed to refresh phone status");
+                            }
+                          }
+                        }}
+                        className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center"
+                        title="Refresh phone connection status"
+                      >
+                        <span className="mr-1">🔄</span>
+                        Refresh Status
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (companyId) {
+                            try {
+                              const botStatusResponse = await axios.get(
+                                `${baseUrl}/api/bot-status/${companyId}`
+                              );
+                              if (botStatusResponse.status === 200) {
+                                const data: BotStatusResponse = botStatusResponse.data;
+                                if (data.phones && Array.isArray(data.phones)) {
+                                  const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
+                                    phoneIndex: phone.phoneIndex,
+                                    status: phone.status,
+                                    qrCode: phone.qrCode,
+                                  }));
+                                  setQrCodes(qrCodesData);
+                                  toast.success("Phone status refreshed!");
+                                } else if (data.phoneCount === 1 && data.phoneInfo) {
+                                  setQrCodes([{
+                                    phoneIndex: 0,
+                                    status: data.status,
+                                    qrCode: data.qrCode,
+                                  }]);
+                                  toast.success("Phone status refreshed!");
+                                }
+                              }
+                            } catch (error) {
+                              console.error("Error refreshing phone status:", error);
+                              toast.error("Failed to refresh phone status");
+                            }
+                          }
+                        }}
+                        className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center"
+                        title="Refresh phone connection status"
+                      >
+                        <span className="mr-1">🔄</span>
+                        Refresh Status
+                      </button>
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      Status indicators: ✅ Connected • ❌ Not Connected • ⏳ Checking
+                    </div>
                     <select
                       value={selectedContact.phoneIndex ?? 0}
                       onChange={async (e) => {
@@ -13739,12 +13957,113 @@ console.log(data);
                       }}
                       className="px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ml-4 w-32"
                     >
-                      {Object.entries(phoneNames).map(([index, name]) => (
-                        <option key={index} value={index}>
-                          {name}
-                        </option>
-                      ))}
+                      {Object.entries(phoneNames).map(([index, name]) => {
+                        const phoneIndex = parseInt(index);
+                        const qrCode = qrCodes[phoneIndex];
+                        const isConnected = qrCode && ["ready", "authenticated"].includes(qrCode.status?.toLowerCase());
+                        
+                        // Debug logging for phone status in dropdown
+                        console.log(`Phone ${phoneIndex} dropdown status debug:`, {
+                          phoneIndex,
+                          qrCode,
+                          status: qrCode?.status,
+                          statusLower: qrCode?.status?.toLowerCase(),
+                          isConnected,
+                          validStatuses: ["ready", "authenticated"],
+                          qrCodesLength: qrCodes.length,
+                          statusComparison: qrCode ? {
+                            statusExists: !!qrCode.status,
+                            statusType: typeof qrCode.status,
+                            statusValue: qrCode.status,
+                            readyCheck: qrCode.status === "ready",
+                            authenticatedCheck: qrCode.status === "authenticated",
+                            readyLowerCheck: qrCode.status?.toLowerCase() === "ready",
+                            authenticatedLowerCheck: qrCode.status?.toLowerCase() === "authenticated"
+                          } : "No qrCode"
+                        });
+                        
+                        // Show loading state when status is not yet available
+                        if (!qrCode && qrCodes.length === 0) {
+                          return (
+                            <option key={index} value={index}>
+                              {`${name} - ⏳ Checking...`}
+                            </option>
+                          );
+                        }
+                        
+                        const statusIcon = isConnected ? '✅' : '❌';
+                        const statusText = isConnected ? 'Connected' : 'Not Connected';
+                        
+                        return (
+                          <option key={index} value={index}>
+                            {`${name} - ${statusIcon} ${statusText}`}
+                          </option>
+                        );
+                      })}
                     </select>
+                    
+                    {/* Phone Connection Status Indicator */}
+                    {selectedContact.phoneIndex !== null && phoneNames[selectedContact.phoneIndex ?? 0] && (
+                      <div className="mt-2">
+                        {(() => {
+                          const currentPhoneIndex = selectedContact.phoneIndex ?? 0;
+                          const qrCode = qrCodes[currentPhoneIndex];
+                          const isConnected = qrCode && ["ready", "authenticated"].includes(qrCode.status?.toLowerCase());
+                          
+                          // Debug logging
+                          console.log("Phone status debug:", {
+                            currentPhoneIndex,
+                            qrCode,
+                            qrCodes,
+                            isConnected,
+                            phoneNames: phoneNames[currentPhoneIndex]
+                          });
+                          
+                          // Show loading state when status is not yet available
+                          if (!qrCode && qrCodes.length === 0) {
+                            return (
+                              <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200">
+                                <span className="mr-1">⏳</span>
+                                Checking connection...
+                              </div>
+                            );
+                          }
+                          
+                          return (
+                            <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              isConnected 
+                                ? "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200" 
+                                : "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200"
+                            }`}>
+                              <span className="mr-1">
+                                {isConnected ? '✅' : '❌'}
+                              </span>
+                              {isConnected ? 'Connected' : 'Not Connected'}
+                              {qrCode && !isConnected && ` (${qrCode.status})`}
+                              {!qrCode && ` (Status not available)`}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                    
+                    {/* Warning when no phones are connected */}
+                    {Object.keys(phoneNames).length > 0 && !Object.values(qrCodes).some(qr => qr && ["ready", "authenticated"].includes(qr.status?.toLowerCase())) && (
+                      <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-md">
+                        ⚠️ No phones are currently connected. Please ensure your WhatsApp bot is running and connected before sending messages.
+                      </div>
+                    )}
+                    
+                    {/* Debug Panel - Remove this in production */}
+                    <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-md text-xs">
+                      <div className="font-semibold mb-2">Debug Info:</div>
+                      <div>Company ID: {companyId || 'Not set'}</div>
+                      <div>Phone Names: {JSON.stringify(phoneNames)}</div>
+                      <div>QR Codes: {JSON.stringify(qrCodes)}</div>
+                      <div>Selected Phone Index: {selectedContact.phoneIndex ?? 'Not set'}</div>
+                      <div>Phone Names Count: {Object.keys(phoneNames).length}</div>
+                      <div>QR Codes Count: {qrCodes.length}</div>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     {[
