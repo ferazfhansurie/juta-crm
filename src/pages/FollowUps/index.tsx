@@ -225,7 +225,10 @@ const FollowUpsPage: React.FC = () => {
     const navigate = useNavigate();
 
     return (
-      <Button onClick={() => navigate("/inbox")} className="mr-4">
+      <Button 
+        onClick={() => navigate("/inbox")} 
+        className="mr-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-slate-800 dark:text-slate-100 shadow-lg transition-all duration-300 hover:shadow-xl"
+      >
         ← Back
       </Button>
     );
@@ -894,25 +897,25 @@ const FollowUpsPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-white dark:bg-gray-800">
+      <div className="flex items-center justify-between p-6 border-b border-white/20 bg-white/10 backdrop-blur-md shadow-lg">
         <div className="flex items-center gap-4">
           <BackButton />
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
             Follow Up Templates
           </h2>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <Button
             onClick={() => setIsAddingTemplate(true)}
-            className="bg-primary hover:bg-primary-dark text-white"
+            className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-slate-800 dark:text-slate-100 shadow-lg transition-all duration-300 hover:shadow-xl"
           >
             Add Template
           </Button>
           <Button
             onClick={() => setIsAIBuilderOpen(true)}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            className="bg-gradient-to-r from-blue-500/80 to-purple-600/80 hover:from-blue-600/90 hover:to-purple-700/90 backdrop-blur-sm border border-white/30 text-white shadow-lg transition-all duration-300 hover:shadow-xl"
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -925,16 +928,16 @@ const FollowUpsPage: React.FC = () => {
       {/* Main Content - Two Column Layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Column - Templates List */}
-        <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 overflow-y-auto bg-white dark:bg-gray-800">
-          <div className="p-4">
+        <div className="w-1/3 border-r border-white/20 overflow-y-auto">
+          <div className="p-6">
             <div className="grid gap-4">
               {templates.map((template) => (
                 <div
                   key={template.id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
+                  className={`p-5 rounded-xl cursor-pointer transition-all duration-300 hover:scale-[1.02] ${
                     selectedTemplate === template.id
-                      ? "border-primary bg-primary/5"
-                      : "border-gray-200 dark:border-gray-700 hover:border-primary/50"
+                      ? "bg-white/30 backdrop-blur-md border border-white/40 shadow-xl"
+                      : "bg-white/20 backdrop-blur-sm border border-white/20 hover:bg-white/25 hover:border-white/30 hover:shadow-lg"
                   }`}
                   onClick={() => {
                     setSelectedTemplate(template.id);
@@ -944,10 +947,10 @@ const FollowUpsPage: React.FC = () => {
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-grow">
-                      <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
                         {template.name}
                       </h3>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">
                         Created:{" "}
                         {template.createdAt
                           ? new Date(template.createdAt).toLocaleDateString()
@@ -957,15 +960,15 @@ const FollowUpsPage: React.FC = () => {
                       {/* Tags */}
                       {template.triggerTags &&
                         template.triggerTags.length > 0 && (
-                          <div className="mt-3">
-                            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          <div className="mb-3">
+                            <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
                               Trigger Tags
                             </p>
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap gap-2">
                               {template.triggerTags.map((tag, index) => (
                                 <span
                                   key={index}
-                                  className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full"
+                                  className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-full border border-blue-300/30 backdrop-blur-sm"
                                 >
                                   {tag}
                                 </span>
@@ -977,16 +980,16 @@ const FollowUpsPage: React.FC = () => {
                       {/* Keywords */}
                       {template.triggerKeywords &&
                         template.triggerKeywords.length > 0 && (
-                          <div className="mt-2">
-                            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          <div className="mb-2">
+                            <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
                               Trigger Keywords
                             </p>
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap gap-2">
                               {template.triggerKeywords.map(
                                 (keyword, index) => (
                                   <span
                                     key={index}
-                                    className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full"
+                                    className="text-xs bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-3 py-1 rounded-full border border-emerald-300/30 backdrop-blur-sm"
                                   >
                                     {keyword}
                                   </span>
@@ -1005,7 +1008,7 @@ const FollowUpsPage: React.FC = () => {
                           setIsEditingTemplate(template.id);
                           setEditingTemplate(template);
                         }}
-                        className="text-white bg-primary hover:bg-primary-dark"
+                        className="text-slate-700 dark:text-slate-200 bg-white/30 hover:bg-white/40 backdrop-blur-sm border border-white/30 shadow-sm transition-all duration-200"
                       >
                         Edit
                       </Button>
@@ -1020,7 +1023,7 @@ const FollowUpsPage: React.FC = () => {
                             deleteTemplate(template.id);
                           }
                         }}
-                        className="text-white bg-red-500 hover:bg-red-600"
+                        className="text-white bg-red-500/80 hover:bg-red-600/90 backdrop-blur-sm border border-red-300/30 shadow-sm transition-all duration-200"
                       >
                         Delete
                       </Button>
@@ -1033,22 +1036,22 @@ const FollowUpsPage: React.FC = () => {
         </div>
 
         {/* Right Column - Messages */}
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+        <div className="flex-1 overflow-y-auto">
           {selectedTemplate ? (
-            <div className="p-4">
+            <div className="p-6">
               {/* Add Message Form */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">
+              <div className="bg-white/20 backdrop-blur-md rounded-xl shadow-lg border border-white/30 p-6 mb-8">
+                <h3 className="text-lg font-semibold mb-6 text-slate-800 dark:text-slate-100">
                   Add New Message
                 </h3>
-                <div className="flex gap-4 mb-4">
+                <div className="flex gap-4 mb-6">
                   <div className="w-1/4">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                       Day Number
                     </label>
                     <input
                       type="number"
-                      className="w-full px-4 py-2 border rounded-lg text-gray-900 dark:text-gray-900"
+                      className="w-full px-4 py-3 border border-white/30 rounded-lg bg-white/50 backdrop-blur-sm text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
                       placeholder="Day #"
                       value={newMessage.dayNumber}
                       onChange={(e) =>
@@ -1060,12 +1063,12 @@ const FollowUpsPage: React.FC = () => {
                     />
                   </div>
                   <div className="w-1/4">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                       Sequence
                     </label>
                     <input
                       type="number"
-                      className="w-full px-4 py-2 border rounded-lg text-gray-900 dark:text-gray-900"
+                      className="w-full px-4 py-3 border border-white/30 rounded-lg bg-white/50 backdrop-blur-sm text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
                       placeholder="Sequence #"
                       value={newMessage.sequence}
                       onChange={(e) =>
@@ -1083,19 +1086,19 @@ const FollowUpsPage: React.FC = () => {
                   newMessage.dayNumber,
                   newMessage.sequence
                 ) && (
-                  <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+                  <div className="mb-6 p-4 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg text-sm border border-red-300/30 backdrop-blur-sm">
                     ⚠️ A message with this day and sequence number already
                     exists.
                   </div>
                 )}
 
                 {/* Message Input */}
-                <div className="relative mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <div className="relative mb-6">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                     Message Content
                   </label>
                   <textarea
-                    className="w-full px-4 py-3 border rounded-lg resize-none min-h-[100px] text-gray-900 dark:text-gray-900"
+                    className="w-full px-4 py-4 border border-white/30 rounded-lg resize-none min-h-[120px] bg-white/50 backdrop-blur-sm text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
                     placeholder="Enter your message here..."
                     value={newMessage.message}
                     onChange={(e) =>
@@ -1105,17 +1108,17 @@ const FollowUpsPage: React.FC = () => {
                       })
                     }
                   />
-                  <div className="absolute bottom-2 right-2 text-sm text-gray-500">
+                  <div className="absolute bottom-3 right-3 text-sm text-slate-500 bg-white/50 px-2 py-1 rounded-full backdrop-blur-sm">
                     {newMessage.message.length} characters
                   </div>
                 </div>
 
                 {/* Timing Settings */}
-                <div className="space-y-2 mb-4">
-                  <label className="flex items-center gap-2">
+                <div className="space-y-3 mb-6">
+                  <label className="flex items-center gap-3">
                     <input
                       type="checkbox"
-                      className="form-checkbox h-4 w-4 text-primary"
+                      className="form-checkbox h-5 w-5 text-blue-500 rounded border-white/30 bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 transition-all duration-200"
                       checked={newMessage.useScheduledTime}
                       onChange={(e) =>
                         setNewMessage({
@@ -1129,15 +1132,15 @@ const FollowUpsPage: React.FC = () => {
                         })
                       }
                     />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       Send at specific time
                     </span>
                   </label>
 
                   {!newMessage.useScheduledTime && (
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-3 mt-3">
                       <select
-                        className="flex-1 px-4 py-2 border rounded-lg text-gray-900 dark:text-gray-900"
+                        className="flex-1 px-4 py-3 border border-white/30 rounded-lg bg-white/50 backdrop-blur-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
                         value={`${newMessage.delayAfter.value}_${newMessage.delayAfter.unit}`}
                         onChange={(e) => {
                           const [value, unit] = e.target.value.split("_");
@@ -1160,7 +1163,7 @@ const FollowUpsPage: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                      <span className="text-sm text-slate-600 dark:text-slate-400">
                         {newMessage.dayNumber === 1 && newMessage.sequence === 1
                           ? "after template starts"
                           : "after previous message"}
@@ -1170,16 +1173,16 @@ const FollowUpsPage: React.FC = () => {
                   {!newMessage.useScheduledTime &&
                     newMessage.dayNumber === 1 &&
                     newMessage.sequence === 1 && (
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 bg-white/30 px-3 py-2 rounded-lg backdrop-blur-sm">
                         For the first message, this delay will be applied after
                         the template is triggered.
                       </p>
                     )}
 
                   {newMessage.useScheduledTime && (
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-3 mt-3">
                       <select
-                        className="flex-1 px-4 py-2 border rounded-lg text-gray-900 dark:text-gray-900"
+                        className="flex-1 px-4 py-3 border border-white/30 rounded-lg bg-white/50 backdrop-blur-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
                         value={newMessage.scheduledTime}
                         onChange={(e) =>
                           setNewMessage({
@@ -1200,14 +1203,14 @@ const FollowUpsPage: React.FC = () => {
                 </div>
 
                 {/* Tag Management */}
-                <div className="mb-4 border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-                  <h4 className="text-md font-semibold mb-3 text-gray-800 dark:text-gray-200">
+                <div className="mb-6 border-t border-white/20 pt-6 mt-6">
+                  <h4 className="text-md font-semibold mb-4 text-slate-800 dark:text-slate-200">
                     Tag Management
                   </h4>
 
                   {/* Add Tags */}
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                       Add Tags
                     </label>
                     <Select
@@ -1235,86 +1238,84 @@ const FollowUpsPage: React.FC = () => {
                       styles={{
                         control: (base) => ({
                           ...base,
-                          backgroundColor: "var(--color-bg-primary, white)",
-                          borderColor: "var(--color-border, #e2e8f0)",
-                          color: "var(--color-text-primary, #1a202c)",
+                          backgroundColor: "rgba(255, 255, 255, 0.5)",
+                          borderColor: "rgba(255, 255, 255, 0.3)",
+                          color: "#1e293b",
+                          backdropFilter: "blur(8px)",
+                          borderRadius: "8px",
+                          minHeight: "48px",
+                          boxShadow: "none",
+                          "&:hover": {
+                            borderColor: "rgba(255, 255, 255, 0.5)",
+                          },
+                          "&:focus-within": {
+                            borderColor: "rgba(59, 130, 246, 0.5)",
+                            boxShadow: "0 0 0 2px rgba(59, 130, 246, 0.25)",
+                          },
                         }),
                         menu: (base) => ({
                           ...base,
-                          backgroundColor: "var(--color-bg-primary, white)",
+                          backgroundColor: "rgba(255, 255, 255, 0.9)",
+                          backdropFilter: "blur(12px)",
+                          border: "1px solid rgba(255, 255, 255, 0.3)",
+                          borderRadius: "8px",
+                          boxShadow: "0 10px 25px rgba(0, 0, 0, 0.1)",
                           zIndex: 9999,
                         }),
                         option: (base, state) => ({
                           ...base,
                           backgroundColor: state.isFocused
-                            ? "var(--color-bg-highlight, #4299e1)"
-                            : "var(--color-bg-primary, white)",
+                            ? "rgba(59, 130, 246, 0.1)"
+                            : "transparent",
                           color: state.isFocused
-                            ? "white"
-                            : "var(--color-text-primary, #1a202c)",
+                            ? "#1e293b"
+                            : "#475569",
+                          "&:active": {
+                            backgroundColor: "rgba(59, 130, 246, 0.2)",
+                          },
                         }),
                         multiValue: (base) => ({
                           ...base,
-                          backgroundColor: "var(--color-bg-tag, #4299e1)",
+                          backgroundColor: "rgba(59, 130, 246, 0.2)",
+                          border: "1px solid rgba(59, 130, 246, 0.3)",
+                          borderRadius: "16px",
                         }),
                         multiValueLabel: (base) => ({
                           ...base,
-                          color: "white",
+                          color: "#1e40af",
+                          fontWeight: "500",
                         }),
                         multiValueRemove: (base) => ({
                           ...base,
-                          color: "white",
+                          color: "#1e40af",
                           ":hover": {
-                            backgroundColor: "#3182ce",
-                            color: "white",
+                            backgroundColor: "rgba(59, 130, 246, 0.3)",
+                            color: "#1e40af",
                           },
                         }),
                         input: (base) => ({
                           ...base,
-                          color: "var(--color-text-primary, #1a202c)",
+                          color: "#1e293b",
                         }),
                         placeholder: (base) => ({
                           ...base,
-                          color: "var(--color-text-secondary, #718096)",
+                          color: "#64748b",
                         }),
                         singleValue: (base) => ({
                           ...base,
-                          color: "var(--color-text-primary, #1a202c)",
+                          color: "#1e293b",
                         }),
                       }}
-                      theme={(theme) => ({
-                        ...theme,
-                        colors: {
-                          ...theme.colors,
-                          primary: "#4299e1",
-                          primary75: "#63b3ed",
-                          primary50: "#90cdf4",
-                          primary25: "#bee3f8",
-                          danger: "#e53e3e",
-                          dangerLight: "#feb2b2",
-                          neutral0: "var(--color-bg-primary, white)",
-                          neutral5: "var(--color-bg-secondary, #f7fafc)",
-                          neutral10: "var(--color-bg-secondary, #edf2f7)",
-                          neutral20: "var(--color-border, #e2e8f0)",
-                          neutral30: "var(--color-border-hover, #cbd5e0)",
-                          neutral40: "var(--color-text-secondary, #718096)",
-                          neutral50: "var(--color-text-secondary, #718096)",
-                          neutral60: "var(--color-text-secondary, #4a5568)",
-                          neutral70: "var(--color-text-primary, #2d3748)",
-                          neutral80: "var(--color-text-primary, #1a202c)",
-                          neutral90: "var(--color-text-primary, #171923)",
-                        },
-                      })}
                     />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 bg-white/30 px-3 py-2 rounded-lg backdrop-blur-sm">
                       These tags will be added to the contact when this message
                       is sent
                     </p>
                   </div>
 
                   {/* Remove Tags */}
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                       Remove Tags
                     </label>
                     <Select
@@ -1342,78 +1343,76 @@ const FollowUpsPage: React.FC = () => {
                       styles={{
                         control: (base) => ({
                           ...base,
-                          backgroundColor: "var(--color-bg-primary, white)",
-                          borderColor: "var(--color-border, #e2e8f0)",
-                          color: "var(--color-text-primary, #1a202c)",
+                          backgroundColor: "rgba(255, 255, 255, 0.5)",
+                          borderColor: "rgba(255, 255, 255, 0.3)",
+                          color: "#1e293b",
+                          backdropFilter: "blur(8px)",
+                          borderRadius: "8px",
+                          minHeight: "48px",
+                          boxShadow: "none",
+                          "&:hover": {
+                            borderColor: "rgba(255, 255, 255, 0.5)",
+                          },
+                          "&:focus-within": {
+                            borderColor: "rgba(239, 68, 68, 0.5)",
+                            boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.25)",
+                          },
                         }),
                         menu: (base) => ({
                           ...base,
-                          backgroundColor: "var(--color-bg-primary, white)",
+                          backgroundColor: "rgba(255, 255, 255, 0.9)",
+                          backdropFilter: "blur(12px)",
+                          border: "1px solid rgba(255, 255, 255, 0.3)",
+                          borderRadius: "8px",
+                          boxShadow: "0 10px 25px rgba(0, 0, 0, 0.1)",
                           zIndex: 9999,
                         }),
                         option: (base, state) => ({
                           ...base,
                           backgroundColor: state.isFocused
-                            ? "var(--color-bg-highlight, #4299e1)"
-                            : "var(--color-bg-primary, white)",
+                            ? "rgba(239, 68, 68, 0.1)"
+                            : "transparent",
                           color: state.isFocused
-                            ? "white"
-                            : "var(--color-text-primary, #1a202c)",
+                            ? "#1e293b"
+                            : "#475569",
+                          "&:active": {
+                            backgroundColor: "rgba(239, 68, 68, 0.2)",
+                          },
                         }),
                         multiValue: (base) => ({
                           ...base,
-                          backgroundColor: "var(--color-bg-tag, #fc8181)",
+                          backgroundColor: "rgba(239, 68, 68, 0.2)",
+                          border: "1px solid rgba(239, 68, 68, 0.3)",
+                          borderRadius: "16px",
                         }),
                         multiValueLabel: (base) => ({
                           ...base,
-                          color: "white",
+                          color: "#dc2626",
+                          fontWeight: "500",
                         }),
                         multiValueRemove: (base) => ({
                           ...base,
-                          color: "white",
+                          color: "#dc2626",
                           ":hover": {
-                            backgroundColor: "#f56565",
-                            color: "white",
+                            backgroundColor: "rgba(239, 68, 68, 0.3)",
+                            color: "#dc2626",
                           },
                         }),
                         input: (base) => ({
                           ...base,
-                          color: "var(--color-text-primary, #1a202c)",
+                          color: "#1e293b",
                         }),
                         placeholder: (base) => ({
                           ...base,
-                          color: "var(--color-text-secondary, #718096)",
+                          color: "#64748b",
                         }),
                         singleValue: (base) => ({
                           ...base,
-                          color: "var(--color-text-primary, #1a202c)",
+                          color: "#1e293b",
                         }),
                       }}
-                      theme={(theme) => ({
-                        ...theme,
-                        colors: {
-                          ...theme.colors,
-                          primary: "#4299e1",
-                          primary75: "#63b3ed",
-                          primary50: "#90cdf4",
-                          primary25: "#bee3f8",
-                          danger: "#e53e3e",
-                          dangerLight: "#feb2b2",
-                          neutral0: "var(--color-bg-primary, white)",
-                          neutral5: "var(--color-bg-secondary, #f7fafc)",
-                          neutral10: "var(--color-bg-secondary, #edf2f7)",
-                          neutral20: "var(--color-border, #e2e8f0)",
-                          neutral30: "var(--color-border-hover, #cbd5e0)",
-                          neutral40: "var(--color-text-secondary, #718096)",
-                          neutral50: "var(--color-text-secondary, #718096)",
-                          neutral60: "var(--color-text-secondary, #4a5568)",
-                          neutral70: "var(--color-text-primary, #2d3748)",
-                          neutral80: "var(--color-text-primary, #1a202c)",
-                          neutral90: "var(--color-text-primary, #171923)",
-                        },
-                      })}
                     />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 bg-white/30 px-3 py-2 rounded-lg backdrop-blur-sm">
                       These tags will be removed from the contact when this
                       message is sent
                     </p>
@@ -1421,14 +1420,14 @@ const FollowUpsPage: React.FC = () => {
                 </div>
 
                 {/* File Attachments */}
-                <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="grid grid-cols-3 gap-4 mb-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                       Attach Document
                     </label>
                     <input
                       type="file"
-                      className="w-full px-4 py-2 border rounded-lg text-gray-900 dark:text-gray-900"
+                      className="w-full px-4 py-3 border border-white/30 rounded-lg bg-white/50 backdrop-blur-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-500/20 file:text-blue-700 hover:file:bg-blue-500/30"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
                           setSelectedDocument(e.target.files[0]);
@@ -1436,10 +1435,10 @@ const FollowUpsPage: React.FC = () => {
                       }}
                     />
                     {selectedDocument && (
-                      <div className="mt-2 text-sm text-gray-600">
-                        Selected: {selectedDocument.name}
+                      <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white/30 px-3 py-2 rounded-lg backdrop-blur-sm flex items-center justify-between">
+                        <span>Selected: {selectedDocument.name}</span>
                         <button
-                          className="ml-2 text-red-500"
+                          className="text-red-500 hover:text-red-700 transition-colors duration-200"
                           onClick={() => setSelectedDocument(null)}
                         >
                           ×
@@ -1448,39 +1447,39 @@ const FollowUpsPage: React.FC = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                       Attach Image
                     </label>
                     <input
                       type="file"
                       accept="image/*"
-                      className="w-full px-4 py-2 border rounded-lg text-gray-900 dark:text-gray-900"
+                      className="w-full px-4 py-3 border border-white/30 rounded-lg bg-white/50 backdrop-blur-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/20 file:text-emerald-700 hover:file:bg-emerald-500/30"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
                           setSelectedImage(e.target.files[0]);
                         }
                       }}
                     />
-                    {selectedImage && (
-                      <div className="mt-2 text-sm text-gray-600">
-                        Selected: {selectedImage.name}
-                        <button
-                          className="ml-2 text-red-500"
-                          onClick={() => setSelectedImage(null)}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    )}
+                                          {selectedImage && (
+                        <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white/30 px-3 py-2 rounded-lg backdrop-blur-sm flex items-center justify-between">
+                          <span>Selected: {selectedImage.name}</span>
+                          <button
+                            className="text-red-500 hover:text-red-700 transition-colors duration-200"
+                            onClick={() => setSelectedImage(null)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                       Attach Video
                     </label>
                     <input
                       type="file"
                       accept="video/*"
-                      className="w-full px-4 py-2 border rounded-lg text-gray-900 dark:text-gray-900"
+                      className="w-full px-4 py-3 border border-white/30 rounded-lg bg-white/50 backdrop-blur-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-500/20 file:text-purple-700 hover:file:bg-purple-500/30"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
                           setSelectedVideo(e.target.files[0]);
@@ -1488,10 +1487,10 @@ const FollowUpsPage: React.FC = () => {
                       }}
                     />
                     {selectedVideo && (
-                      <div className="mt-2 text-sm text-gray-600">
-                        Selected: {selectedVideo.name}
+                      <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white/30 px-3 py-2 rounded-lg backdrop-blur-sm flex items-center justify-between">
+                        <span>Selected: {selectedVideo.name}</span>
                         <button
-                          className="ml-2 text-red-500"
+                          className="text-red-500 hover:text-red-700 transition-colors duration-200"
                           onClick={() => setSelectedVideo(null)}
                         >
                           ×
@@ -1502,8 +1501,8 @@ const FollowUpsPage: React.FC = () => {
                 </div>
 
                 {/* Preview Section */}
-                <div className="bg-white dark:bg-gray-700 p-4 rounded-lg mb-4">
-                  <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <div className="bg-white/30 backdrop-blur-md p-6 rounded-xl mb-6 border border-white/30 shadow-lg">
+                  <h5 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                     Message Preview
                   </h5>
                   <MessagePreview
@@ -1521,17 +1520,17 @@ const FollowUpsPage: React.FC = () => {
                   />
 
                   {/* Display Tags */}
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-4 space-y-3">
                     {newMessage.addTags && newMessage.addTags.length > 0 && (
                       <div>
-                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
                           Tags to add:
                         </span>
-                        <div className="flex flex-wrap gap-1 mt-1">
+                        <div className="flex flex-wrap gap-2 mt-2">
                           {newMessage.addTags.map((tag, index) => (
                             <span
                               key={index}
-                              className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full"
+                              className="text-xs bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-3 py-1 rounded-full border border-emerald-300/30 backdrop-blur-sm"
                             >
                               +{tag}
                             </span>
@@ -1543,14 +1542,14 @@ const FollowUpsPage: React.FC = () => {
                     {newMessage.removeTags &&
                       newMessage.removeTags.length > 0 && (
                         <div>
-                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
                             Tags to remove:
                           </span>
-                          <div className="flex flex-wrap gap-1 mt-1">
+                          <div className="flex flex-wrap gap-2 mt-2">
                             {newMessage.removeTags.map((tag, index) => (
                               <span
                                 key={index}
-                                className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full"
+                                className="text-xs bg-red-500/20 text-red-700 dark:text-red-300 px-3 py-1 rounded-full border border-red-300/30 backdrop-blur-sm"
                               >
                                 -{tag}
                               </span>
@@ -1565,7 +1564,7 @@ const FollowUpsPage: React.FC = () => {
                 <div className="flex justify-end">
                   <Button
                     onClick={addMessage}
-                    className="bg-primary hover:bg-primary-dark text-white"
+                    className="bg-blue-500/80 hover:bg-blue-600/90 backdrop-blur-sm border border-white/30 text-white shadow-lg transition-all duration-300 hover:shadow-xl px-8 py-3 rounded-lg"
                     disabled={
                       !newMessage.message.trim() ||
                       isDuplicateMessage(
@@ -1597,9 +1596,9 @@ const FollowUpsPage: React.FC = () => {
                     .map(([day, dayMessages]) => (
                       <div
                         key={day}
-                        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4"
+                        className="bg-white/20 backdrop-blur-md rounded-xl shadow-lg border border-white/30 p-6"
                       >
-                        <h4 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">
+                        <h4 className="text-lg font-semibold mb-6 text-slate-800 dark:text-slate-100">
                           Day {day}
                         </h4>
                         <div className="space-y-4">
@@ -1608,9 +1607,9 @@ const FollowUpsPage: React.FC = () => {
                               (a, b) => (a.sequence || 0) - (b.sequence || 0)
                             )
                             .map((message: FollowUpMessage) => (
-                              <div key={message.id} className="space-y-2">
+                              <div key={message.id} className="space-y-3">
                                 <div className="flex justify-between items-center">
-                                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                                     Message {message.sequence}
                                   </p>
                                   <div className="flex gap-2">
@@ -1620,7 +1619,7 @@ const FollowUpsPage: React.FC = () => {
                                         setIsEditingMessage(message.id);
                                         setEditingMessage(message);
                                       }}
-                                      className="text-white bg-primary hover:bg-primary-dark"
+                                      className="text-slate-700 dark:text-slate-200 bg-white/30 hover:bg-white/40 backdrop-blur-sm border border-white/30 shadow-sm transition-all duration-200"
                                     >
                                       Edit
                                     </Button>
@@ -1635,7 +1634,7 @@ const FollowUpsPage: React.FC = () => {
                                           deleteMessage(message.id);
                                         }
                                       }}
-                                      className="text-white bg-red-500 hover:bg-red-600"
+                                      className="text-white bg-red-500/80 hover:bg-red-600/90 backdrop-blur-sm border border-red-300/30 shadow-sm transition-all duration-200"
                                     >
                                       Delete
                                     </Button>
@@ -1643,7 +1642,7 @@ const FollowUpsPage: React.FC = () => {
                                 </div>
 
                                 {isEditingMessage === message.id ? (
-                                  <div className="space-y-4 border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+                                  <div className="space-y-4 border border-white/30 rounded-xl p-6 bg-white/30 backdrop-blur-md shadow-lg">
                                     {/* Message Input */}
                                     <div className="relative">
                                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -2089,8 +2088,8 @@ const FollowUpsPage: React.FC = () => {
                       </div>
                     ))
                 ) : (
-                  <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg">
-                    <p className="text-gray-500 dark:text-gray-400">
+                  <div className="text-center py-16 bg-white/20 backdrop-blur-md rounded-xl border border-white/30">
+                    <p className="text-slate-500 dark:text-slate-400 text-lg">
                       No messages yet. Add your first message above.
                     </p>
                   </div>
@@ -2099,9 +2098,16 @@ const FollowUpsPage: React.FC = () => {
             </div>
           ) : (
             <div className="h-full flex items-center justify-center">
-              <p className="text-gray-500 dark:text-gray-400">
-                Select a template to view and manage messages
-              </p>
+              <div className="text-center">
+                <div className="w-24 h-24 mx-auto mb-6 bg-white/20 backdrop-blur-md rounded-full border border-white/30 flex items-center justify-center">
+                  <svg className="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <p className="text-slate-500 dark:text-slate-400 text-lg">
+                  Select a template to view and manage messages
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -2109,18 +2115,18 @@ const FollowUpsPage: React.FC = () => {
 
       {/* Keep the modals outside the main layout */}
       {isEditingTemplate && editingTemplate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Edit Template</h3>
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white/90 backdrop-blur-xl p-8 rounded-2xl w-[700px] max-h-[90vh] overflow-y-auto border border-white/30 shadow-2xl">
+            <h3 className="text-xl font-semibold mb-6 text-slate-800 dark:text-slate-100">Edit Template</h3>
 
             {/* Template Name */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                 Template Name
               </label>
               <input
                 type="text"
-                className="w-full px-4 py-2 border rounded-lg"
+                className="w-full px-4 py-3 border border-white/30 rounded-lg bg-white/50 backdrop-blur-sm text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
                 value={editingTemplate.name}
                 onChange={(e) =>
                   setEditingTemplate({
@@ -2482,14 +2488,14 @@ const FollowUpsPage: React.FC = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3">
               <Button
                 onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
                   setIsEditingTemplate(null);
                   setEditingTemplate(null);
                 }}
-                className="text-white bg-gray-500 hover:bg-gray-600"
+                className="text-slate-700 dark:text-slate-200 bg-white/30 hover:bg-white/40 backdrop-blur-sm border border-white/30 shadow-sm transition-all duration-200 px-6 py-2"
               >
                 Cancel
               </Button>
@@ -2498,7 +2504,7 @@ const FollowUpsPage: React.FC = () => {
                   editTemplate(editingTemplate.templateId)
                 }
                 disabled={!editingTemplate.name.trim()}
-                className="text-white bg-primary hover:bg-primary-dark"
+                className="text-white bg-blue-500/80 hover:bg-blue-600/90 backdrop-blur-sm border border-white/30 shadow-sm transition-all duration-200 px-6 py-2"
               >
                 Save Changes
               </Button>
@@ -2508,18 +2514,18 @@ const FollowUpsPage: React.FC = () => {
       )}
 
       {isAddingTemplate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-[700px] max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">New Template</h3>
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white/90 backdrop-blur-xl p-8 rounded-2xl w-[700px] max-h-[90vh] overflow-y-auto border border-white/30 shadow-2xl">
+            <h3 className="text-xl font-semibold mb-6 text-slate-800 dark:text-slate-100">New Template</h3>
 
             {/* Template Name */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                 Template Name
               </label>
               <input
                 type="text"
-                className="w-full px-4 py-2 border rounded-lg"
+                className="w-full px-4 py-3 border border-white/30 rounded-lg bg-white/50 backdrop-blur-sm text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200"
                 placeholder="Template Name"
                 value={newTemplate.name}
                 onChange={(e) =>
@@ -2913,7 +2919,7 @@ const FollowUpsPage: React.FC = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-2 mt-4">
+            <div className="flex justify-end gap-3 mt-6">
               <Button
                 onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
@@ -2926,14 +2932,14 @@ const FollowUpsPage: React.FC = () => {
                   });
                   setCustomStartTime("");
                 }}
-                className="text-white bg-gray-500 hover:bg-gray-600"
+                className="text-slate-700 dark:text-slate-200 bg-white/30 hover:bg-white/40 backdrop-blur-sm border border-white/30 shadow-sm transition-all duration-200 px-6 py-2"
               >
                 Cancel
               </Button>
               <Button
                 onClick={(e: React.MouseEvent) => addTemplate()}
                 disabled={!newTemplate.name.trim()}
-                className="text-white bg-primary hover:bg-primary-dark"
+                className="text-white bg-blue-500/80 hover:bg-blue-600/90 backdrop-blur-sm border border-white/30 shadow-sm transition-all duration-200 px-6 py-2"
               >
                 Add Template
               </Button>
@@ -2950,6 +2956,22 @@ const FollowUpsPage: React.FC = () => {
           tags={tags}
         />
       )}
+
+      {/* Toast Container */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+        toastClassName="bg-white/90 backdrop-blur-md border border-white/30 shadow-lg rounded-xl"
+        progressClassName="bg-blue-500/50"
+      />
     </div>
   );
 };
