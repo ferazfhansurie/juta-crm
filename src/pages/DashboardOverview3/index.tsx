@@ -1025,7 +1025,7 @@ function DashboardOverview3() {
     loading: feedbackResponsesLoading,
     error: feedbackResponsesError,
   } = useFeedbackResponses();
-  const [selectedProgram, setSelectedProgram] = useState(0);
+  const [selectedProgram, setSelectedProgram] = useState(-1); // -1 means no program selected
   const [selectedCategory, setSelectedCategory] = useState("");
   const [programDropdownOpen, setProgramDropdownOpen] = useState(false);
   const [showAllProgramsInCategory, setShowAllProgramsInCategory] =
@@ -2704,6 +2704,91 @@ console.log("🎯 Program Selection Results:", {
   totalFeedback: feedbackForSelected.length,
 });
 
+// Function to log attendance details with data source information
+const logAttendanceDetails = () => {
+  // Only log once per session
+  if (sessionStorage.getItem('attendanceLogged')) {
+    return;
+  }
+  
+  const targetProgram = "AI Agent & Agentic AI Day 2025: Empowering Malaysia's Workforce with Artificial Intelligence Automation";
+  
+  console.log("🎯 ===== AI AGENT PROGRAM ATTENDANCE REPORT =====");
+  console.log("🎯 Generated at:", new Date().toLocaleString());
+  console.log("🎯 Target Program:", targetProgram);
+  
+  // Get all participants for the specific AI Agent program
+  const aiAgentParticipants = mergedRSVPWithNeon.filter((participant: any) => {
+    const programName = participant["Program Name"];
+    return programName && programName.includes("AI Agent") && programName.includes("2025");
+  });
+  
+  console.log(`🎯 Total Participants for AI Agent Program: ${aiAgentParticipants.length}`);
+  
+  // Get attended participants from CSV data
+  const csvAttended = aiAgentParticipants.filter((participant: any) => {
+    return participant["Attendance status"] === "Accepted" && (!participant.Source || participant.Source !== "Neon Database");
+  });
+  
+  // Get attended participants from Neon database
+  const neonAttended = aiAgentParticipants.filter((participant: any) => {
+    return participant.Source === "Neon Database";
+  });
+  
+  console.log(`🎯 CSV Source Attended: ${csvAttended.length}`);
+  console.log(`🎯 Neon Database Attended: ${neonAttended.length}`);
+  
+  // Log detailed CSV attendance
+  if (csvAttended.length > 0) {
+    console.log("🎯 CSV Source Attendance Details:");
+    csvAttended.forEach((participant, index) => {
+      console.log(`  ${index + 1}. ${participant["Full Name"] || "Unknown"}`);
+      console.log(`     Phone: ${participant["Phone"] || "N/A"}`);
+      console.log(`     Email: ${participant["Email"] || "N/A"}`);
+      console.log(`     Company: ${participant["Company"] || "N/A"}`);
+      console.log(`     Profession: ${participant["Profession"] || "N/A"}`);
+      console.log(`     Date: ${participant["Program Date & Time"] || "Unknown"}`);
+      console.log(`     CSV Attendance Status: ${participant["Attendance status"] || "Unknown"}`);
+      console.log(`     ---`);
+    });
+  }
+  
+  // Log detailed Neon attendance
+  if (neonAttended.length > 0) {
+    console.log("🎯 Neon Database Attendance Details:");
+    neonAttended.forEach((participant, index) => {
+      console.log(`  ${index + 1}. ${participant["Full Name"] || "Unknown"}`);
+      console.log(`     Phone: ${participant["Phone"] || "N/A"}`);
+      console.log(`     Email: ${participant["Email"] || "N/A"}`);
+      console.log(`     Company: ${participant["Company"] || "N/A"}`);
+      console.log(`     Profession: ${participant["Profession"] || "N/A"}`);
+      console.log(`     Event ID: ${participant["Event ID"] || "Unknown"}`);
+      console.log(`     Event Slug: ${participant["Event Slug"] || "Unknown"}`);
+      console.log(`     Attendance Date: ${participant["Attendance Date"] || "Unknown"}`);
+      console.log(`     ---`);
+    });
+  }
+  
+  // Summary
+  console.log("🎯 Summary:");
+  console.log(`  Total AI Agent Program Participants: ${aiAgentParticipants.length}`);
+  console.log(`  CSV Source Attended: ${csvAttended.length}`);
+  console.log(`  Neon Database Attended: ${neonAttended.length}`);
+  console.log(`  Total Attended: ${csvAttended.length + neonAttended.length}`);
+  
+  console.log("🎯 ===== END AI AGENT PROGRAM REPORT =====");
+  
+  // Mark as logged for this session
+  sessionStorage.setItem('attendanceLogged', 'true');
+};
+
+// Call the logging function when component data is ready
+useEffect(() => {
+  if (mergedRSVPWithNeon.length > 0 && !participantsLoading) {
+    logAttendanceDetails();
+  }
+}, [mergedRSVPWithNeon, participantsLoading]);
+
 // Add detailed logging for program filtering
 if (selectedProgram !== -1 && selectedProgramData) {
   console.log("🔍 DETAILED PROGRAM FILTERING ANALYSIS:", {
@@ -3188,6 +3273,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
         // Use combined event attendance count
         neonAttendanceCount =
           getCombinedEventNeonAttendanceCount(combinedEvent);
+          console.log(`🎯 Combined Event Neon Attendance: ${neonAttendanceCount}`);
       } else {
         // Use single program attendance count
       neonAttendanceCount = getProgramNeonAttendanceCount(programName);
@@ -3255,11 +3341,22 @@ if (selectedProgram !== -1 && selectedProgramData) {
     const status = getCombinedAttendanceStatus(participant);
     return status === "Attended";
   }).length;
+  console.log(`Program Specific Attended Count: ${programSpecificAttendedCount}`);
 
   // Filtered data for participants
   const filteredParticipants = mergedRSVPWithNeon.filter((row) => {
     // Apply search filter
     if (participantSearch.trim() !== "") {
+      console.log("🔍 Applying search filter:", {
+        searchTerm: participantSearch,
+        rowData: row,
+        searchMatch: Object.values(row).some((val) =>
+          (val == null ? "" : String(val))
+            .toLowerCase()
+            .includes(participantSearch.toLowerCase())
+        )
+      });
+      
       const searchMatch = Object.values(row).some((val) =>
         (val == null ? "" : String(val))
           .toLowerCase()
@@ -3373,6 +3470,10 @@ if (selectedProgram !== -1 && selectedProgramData) {
     "Attendance status",
     "Category",
     "Profession",
+    "Source",
+    "Event ID",
+    "Event Slug",
+    "Attendance Date",
   ];
   const participantColumnsWithCert = [
     ...participantColumns,
@@ -4259,90 +4360,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
             </div>
           </div>
         </div>
-        {/* Show program breakdown when "All Programs in Category" is selected */}
-        {showAllProgramsInCategory && selectedCategory && (
-          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-3">
-              📊 Program Breakdown in {selectedCategory}
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {programsInSelectedCategoryForDashboard.map((programName) => {
-                const programParticipants =
-                  selectedProgramFilteredParticipants.filter(
-                    (row: any) =>
-                      cleanProgramName(row["Program Name"]) === programName
-                );
-                
-                // Calculate attended count from both CSV and Neon
-                const csvAttended = programParticipants.filter(
-                  (row: any) => row["Attendance status"] === "Accepted"
-                ).length;
-                
-                // Count Neon attendance for this specific program using event names
-                const neonAttended = neonAttendanceData.filter(
-                  (record: any) => {
-                  // Find the event that matches this attendance record
-                    const event = neonEvents.find(
-                      (e: any) => e.id === record.event_id
-                    );
-                  if (!event) return false;
-                  
-                  // Match the event name with the program name
-                    const eventName = event.name || "";
-                    const normalizedEventName = eventName
-                      .toLowerCase()
-                      .replace(/[^a-z0-9]/g, " ");
-                    const normalizedProgramName = programName
-                      .toLowerCase()
-                      .replace(/[^a-z0-9]/g, " ");
-                  
-                  // Check if the event name contains key words from the program name
-                    const programWords = normalizedProgramName
-                      .split(" ")
-                      .filter((word: string) => word.length > 2);
-                    const eventWords = normalizedEventName
-                      .split(" ")
-                      .filter((word: string) => word.length > 2);
-                  
-                  // Count how many program words are found in the event name
-                  const matchingWords = programWords.filter((word: string) => 
-                      eventWords.some(
-                        (eventWord: string) =>
-                          eventWord.includes(word) || word.includes(eventWord)
-                      )
-                  );
-                  
-                  // Consider it a match if at least 2 key words match
-                  return matchingWords.length >= 2;
-                  }
-                ).length;
-                
-                const attendedCount = csvAttended + neonAttended;
-                
-                // Log the breakdown for debugging
-                console.log(`📊 Program Breakdown - ${programName}:`, {
-                  csvAttended,
-                  neonAttended,
-                  totalAttended: attendedCount,
-                  registered: programParticipants.length,
-                });
-                
-                return (
-                  <div
-                    key={programName}
-                    className="bg-white dark:bg-slate-700 p-3 rounded border"
-                  >
-                    <div className="font-medium text-sm">{programName}</div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      {programParticipants.length} registered, {attendedCount}{" "}
-                      attended
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+     
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Registration Stats */}
@@ -5084,27 +5102,41 @@ if (selectedProgram !== -1 && selectedProgramData) {
           </div>
         </div>
       </section>
-      {/* Raw Data: Registered Participants */}
+              {/* Raw Data: Registered Participants */}
       <section className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8 border border-gray-100 dark:border-gray-700 mt-8">
-        <div className="flex items-center mb-6">
-          <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center mr-4">
-            <svg
-              className="w-6 h-6 text-indigo-600 dark:text-indigo-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-              />
-            </svg>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center mr-4">
+              <svg
+                className="w-6 h-6 text-indigo-600 dark:text-indigo-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              Registered Participants
+            </h2>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-            Registered Participants
-          </h2>
+
+          {/* Data Source Indicator */}
+          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span>CSV Data</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Neon Database</span>
+            </div>
+          </div>
         </div>
         
         {/* Enhanced Filters */}
@@ -5130,19 +5162,54 @@ if (selectedProgram !== -1 && selectedProgramData) {
             </label>
             <select
               className="px-3 py-2 border rounded text-sm bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={participantProgramFilter}
-              onChange={(e) => setParticipantProgramFilter(e.target.value)}
+              value={(() => {
+                // If a program is selected in the Program-Specific Dashboard, show it here
+                if (selectedProgram >= 0) {
+                  return finalSortedPrograms[selectedProgram]?.cleanedName || "";
+                } else if (showAllProgramsInCategory && selectedCategory) {
+                  return `all_in_category_${selectedCategory}`;
+                }
+                // Otherwise use the participant program filter
+                return participantProgramFilter;
+              })()}
+              onChange={(e) => {
+                // Update both the participant filter and the program selection
+                setParticipantProgramFilter(e.target.value);
+                
+                // If selecting a specific program, update the program selection
+                if (e.target.value && !e.target.value.startsWith("all_in_category_")) {
+                  const programIndex = finalSortedPrograms.findIndex(
+                    p => p.cleanedName === e.target.value
+                  );
+                  if (programIndex >= 0) {
+                    setSelectedProgram(programIndex);
+                    setShowAllProgramsInCategory(false);
+                  }
+                } else if (e.target.value.startsWith("all_in_category_")) {
+                  // Handle "All Programs in Category"
+                  const category = e.target.value.replace("all_in_category_", "");
+                  setSelectedCategory(category);
+                  setShowAllProgramsInCategory(true);
+                  setSelectedProgram(-1);
+                } else {
+                  // Clear selection
+                  setSelectedProgram(-1);
+                  setShowAllProgramsInCategory(false);
+                }
+              }}
             >
               <option value="">All Programs</option>
-              {participantCategoryFilter &&
-                programsInSelectedCategory.length > 0 && (
-                  <option
-                    value={`all_in_category_${participantCategoryFilter}`}
-                  >
-                    All Programs in {participantCategoryFilter} (
-                    {programsInSelectedCategory.length} programs)
-                </option>
-              )}
+              {(() => {
+                // Show category options if a category is selected
+                if (selectedCategory && programsInSelectedCategory.length > 0) {
+                  return (
+                    <option value={`all_in_category_${selectedCategory}`}>
+                      All Programs in {selectedCategory} ({programsInSelectedCategory.length} programs)
+                    </option>
+                  );
+                }
+                return null;
+              })()}
               {dropdownNames.map((programName, idx) => (
                 <option
                   value={finalSortedPrograms[idx]?.cleanedName || ""}
@@ -5167,7 +5234,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
               <option value="">All Categories</option>
               {Array.from(
                 new Set(
-                  mergedRSVP.map((row: any) => row["Category"]).filter(Boolean)
+                  mergedRSVPWithNeon.map((row: any) => row["Category"]).filter(Boolean)
                 )
               ).map((category) => (
                 <option value={category} key={category}>
@@ -5190,7 +5257,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
               <option value="">All Professions</option>
               {Array.from(
                 new Set(
-                  mergedRSVP
+                  mergedRSVPWithNeon
                     .map((row: any) => row["Profession"])
                     .filter(Boolean)
                 )
@@ -5215,7 +5282,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
               <option value="">All Statuses</option>
               {Array.from(
                 new Set(
-                  mergedRSVP
+                  mergedRSVPWithNeon
                     .map((row: any) => row["RSVP status"])
                     .filter(Boolean)
                 )
@@ -5241,7 +5308,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
               {(() => {
                 // Get all unique combined attendance statuses
                 const allStatuses = new Set<string>();
-                mergedRSVP.forEach((row) => {
+                mergedRSVPWithNeon.forEach((row) => {
                   const combinedStatus = getCombinedAttendanceStatus(row);
                   allStatuses.add(combinedStatus);
                 });
@@ -5266,9 +5333,10 @@ if (selectedProgram !== -1 && selectedProgramData) {
             </select>
           </div>
         </div>
+      
         
         {/* Clear Filters Button */}
-        <div className="mb-4">
+        <div className="mb-4 flex gap-2">
           <button
             className="px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
             onClick={() => {
@@ -5282,10 +5350,44 @@ if (selectedProgram !== -1 && selectedProgramData) {
           >
             Clear All Filters
           </button>
+          
+        
         </div>
         <div className="mb-4 flex flex-wrap gap-2 items-center">
           <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-            Showing {filteredParticipants.length} of {mergedRSVP.length}{" "}
+            Showing {(() => {
+              // Calculate the final count after search filter is applied
+              let finalCount = 0;
+              if (selectedProgram >= 0 || showAllProgramsInCategory) {
+                finalCount = selectedProgramFilteredParticipants.length;
+              } else {
+                finalCount = filteredParticipants.length;
+              }
+              
+              // Apply search filter if active
+              if (participantSearch.trim() !== "") {
+                const searchFilteredData = (selectedProgram >= 0 || showAllProgramsInCategory) 
+                  ? selectedProgramFilteredParticipants 
+                  : filteredParticipants;
+                finalCount = searchFilteredData.filter((row) => {
+                  const searchMatch = Object.values(row).some((val) =>
+                    (val == null ? "" : String(val))
+                      .toLowerCase()
+                      .includes(participantSearch.toLowerCase())
+                  );
+                  return searchMatch;
+                }).length;
+              }
+              
+              return finalCount;
+            })()} of {(() => {
+              // If a program is selected, show selectedProgramFilteredParticipants count
+              if (selectedProgram >= 0 || showAllProgramsInCategory) {
+                return selectedProgramFilteredParticipants.length;
+              }
+              // Otherwise show the total mergedRSVPWithNeon count
+              return mergedRSVPWithNeon.length;
+            })()}{" "}
             participants
             {participantProgramFilter.startsWith("all_in_category_") &&
               participantCategoryFilter && (
@@ -5298,23 +5400,81 @@ if (selectedProgram !== -1 && selectedProgramData) {
           <div className="flex gap-2">
             <button
               className="px-4 py-2 bg-blue-500 text-white rounded"
-              onClick={() =>
-                downloadCSV(
-                  getParticipantsForDownload(),
-                  "registered_participants.csv"
-                )
-              }
+              onClick={() => {
+                // If a program is selected, use selectedProgramFilteredParticipants
+                // Otherwise use the regular filteredParticipants
+                let dataToDownload = (selectedProgram >= 0 || showAllProgramsInCategory) 
+                  ? selectedProgramFilteredParticipants 
+                  : filteredParticipants;
+                
+                // Apply search filter if active
+                if (participantSearch.trim() !== "") {
+                  dataToDownload = dataToDownload.filter((row) => {
+                    const searchMatch = Object.values(row).some((val) =>
+                      (val == null ? "" : String(val))
+                        .toLowerCase()
+                        .includes(participantSearch.toLowerCase())
+                    );
+                    return searchMatch;
+                  });
+                }
+                
+                const downloadData = dataToDownload.map((row) => {
+                  const r = row as Record<string, any>;
+                  const out: Record<string, any> = {};
+                  participantColumns.forEach((col) => {
+                    if (col === "Attendance status") {
+                      // Use combined attendance status for download
+                      out[col] = getCombinedAttendanceStatus(row);
+                    } else {
+                      out[col] = r[col] ?? "";
+                    }
+                  });
+                  return out;
+                });
+                
+                downloadCSV(downloadData, "registered_participants.csv");
+              }}
             >
               Download as CSV
             </button>
             <button
               className="px-4 py-2 bg-green-600 text-white rounded"
-              onClick={() =>
-                downloadExcel(
-                  getParticipantsForDownload(),
-                  "registered_participants.xlsx"
-                )
-              }
+              onClick={() => {
+                // If a program is selected, use selectedProgramFilteredParticipants
+                // Otherwise use the regular filteredParticipants
+                let dataToDownload = (selectedProgram >= 0 || showAllProgramsInCategory) 
+                  ? selectedProgramFilteredParticipants 
+                  : filteredParticipants;
+                
+                // Apply search filter if active
+                if (participantSearch.trim() !== "") {
+                  dataToDownload = dataToDownload.filter((row) => {
+                    const searchMatch = Object.values(row).some((val) =>
+                      (val == null ? "" : String(val))
+                        .toLowerCase()
+                        .includes(participantSearch.trim().toLowerCase())
+                    );
+                    return searchMatch;
+                  });
+                }
+                
+                const downloadData = dataToDownload.map((row) => {
+                  const r = row as Record<string, any>;
+                  const out: Record<string, any> = {};
+                  participantColumns.forEach((col) => {
+                    if (col === "Attendance status") {
+                      // Use combined attendance status for download
+                      out[col] = getCombinedAttendanceStatus(row);
+                    } else {
+                      out[col] = r[col] ?? "";
+                    }
+                  });
+                  return out;
+                });
+                
+                downloadExcel(downloadData, "registered_participants.xlsx");
+              }}
             >
               Download as Excel
             </button>
@@ -5400,8 +5560,109 @@ if (selectedProgram !== -1 && selectedProgramData) {
           </div>
         )}
         
+        {/* Program Selection Status */}
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                Program Selection Status
+              </span>
+            </div>
+            <div className="text-right">
+              <div className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                {(() => {
+                  if (selectedProgram >= 0) {
+                    return `Selected: ${finalSortedPrograms[selectedProgram]?.name || "Unknown Program"}`;
+                  } else if (showAllProgramsInCategory && selectedCategory) {
+                    return `All Programs in: ${selectedCategory}`;
+                  }
+                  return "No Program Selected";
+                })()}
+              </div>
+              <div className="text-xs text-blue-600 dark:text-blue-400">
+                Connected to Program-Specific Dashboard
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Enhanced Data Summary */}
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Total Stats */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-700">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">
+                {mergedRSVPWithNeon.length}
+              </div>
+              <div className="text-blue-700 dark:text-blue-300 text-sm font-medium">
+                Total Participants
+              </div>
+            </div>
+          </div>
+          
+          {/* CSV Data */}
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200 dark:border-green-700">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
+                {mergedRSVPWithNeon.filter((row: any) => !row.Source || row.Source !== "Neon Database").length}
+              </div>
+              <div className="text-green-700 dark:text-green-300 text-sm font-medium">
+                CSV Data
+              </div>
+            </div>
+          </div>
+          
+          {/* Neon Database */}
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-700">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-1">
+                {mergedRSVPWithNeon.filter((row: any) => row.Source === "Neon Database").length}
+              </div>
+              <div className="text-purple-700 dark:text-purple-300 text-sm font-medium">
+                Neon Database
+              </div>
+            </div>
+          </div>
+          
+          {/* Program Filtered Results */}
+          <div className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-xl p-4 border border-orange-200 dark:border-orange-700">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400 mb-1">
+                {(() => {
+                  // If a program is selected, show selectedProgramFilteredParticipants count
+                  if (selectedProgram >= 0 || showAllProgramsInCategory) {
+                    return selectedProgramFilteredParticipants.length;
+                  }
+                  // Otherwise show the regular filtered participants count
+                  return filteredParticipants.length;
+                })()}
+              </div>
+              <div className="text-orange-700 dark:text-orange-300 text-sm font-medium">
+                {(() => {
+                  if (showAllProgramsInCategory && selectedCategory) {
+                    return `All Programs in ${selectedCategory}`;
+                  } else if (selectedProgram >= 0) {
+                    return "Selected Program";
+                  }
+                  return "Filtered Results";
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+
+     
+
+
+        
         <div className="overflow-x-auto max-h-96">
-          <table className="min-w-full border text-xs">
+          <table 
+            key={`participants-table-${selectedProgram}-${showAllProgramsInCategory}-${selectedCategory}`}
+            className="min-w-full border text-xs"
+          >
             <thead>
               <tr>
                 {participantColumnsWithCert.map((key) => (
@@ -5412,7 +5673,39 @@ if (selectedProgram !== -1 && selectedProgramData) {
               </tr>
             </thead>
             <tbody>
-              {filteredParticipants.map((row, i) => {
+              {(() => {
+                // If a program is selected, use selectedProgramFilteredParticipants
+                // Otherwise use the regular filteredParticipants
+                let dataToShow = (selectedProgram >= 0 || showAllProgramsInCategory) 
+                  ? selectedProgramFilteredParticipants 
+                  : filteredParticipants;
+                
+                // Apply search filter to the selected data if search is active
+                if (participantSearch.trim() !== "") {
+                  dataToShow = dataToShow.filter((row) => {
+                    const searchMatch = Object.values(row).some((val) =>
+                      (val == null ? "" : String(val))
+                        .toLowerCase()
+                        .includes(participantSearch.toLowerCase())
+                    );
+                    return searchMatch;
+                  });
+                }
+                
+                // Debug logging to see when data changes
+                console.log("🔄 Registered Participants Table Data:", {
+                  selectedProgram,
+                  showAllProgramsInCategory,
+                  selectedCategory,
+                  dataSource: (selectedProgram >= 0 || showAllProgramsInCategory) ? "selectedProgramFilteredParticipants" : "filteredParticipants",
+                  dataCount: dataToShow.length,
+                  selectedProgramCount: selectedProgramFilteredParticipants.length,
+                  filteredCount: filteredParticipants.length,
+                  searchTerm: participantSearch,
+                  searchApplied: participantSearch.trim() !== ""
+                });
+                
+                return dataToShow.map((row, i) => {
                 // Get combined attendance status using helper function
                 const combinedAttendanceStatus =
                   getCombinedAttendanceStatus(row);
@@ -5785,7 +6078,8 @@ Co9P AI Chatbot`;
                     </td>
                   </tr>
                 );
-              })}
+                });
+              })()}
             </tbody>
           </table>
         </div>
@@ -5800,8 +6094,17 @@ Co9P AI Chatbot`;
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {(() => {
-                  // Get base participants (before attendance filtering)
-                  let baseParticipants = mergedRSVP;
+                  // If a program is selected, use selectedProgramFilteredParticipants
+                  // Otherwise use the regular filtering logic
+                  if (selectedProgram >= 0 || showAllProgramsInCategory) {
+                    return selectedProgramFilteredParticipants.filter((row) => {
+                      const status = getCombinedAttendanceStatus(row);
+                      return status === "Attended";
+                    }).length;
+                  }
+                  
+                  // Regular filtering logic for when no program is selected
+                  let baseParticipants = mergedRSVPWithNeon;
                   
                   // Apply all filters EXCEPT attendance
                   if (
@@ -5849,8 +6152,17 @@ Co9P AI Chatbot`;
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {(() => {
-                  // Get base participants (before attendance filtering)
-                  let baseParticipants = mergedRSVP;
+                  // If a program is selected, use selectedProgramFilteredParticipants
+                  // Otherwise use the regular filtering logic
+                  if (selectedProgram >= 0 || showAllProgramsInCategory) {
+                    return selectedProgramFilteredParticipants.filter((row) => {
+                      const status = getCombinedAttendanceStatus(row);
+                      return status === "Not Attended";
+                    }).length;
+                  }
+                  
+                  // Regular filtering logic for when no program is selected
+                  let baseParticipants = mergedRSVPWithNeon;
                   
                   // Apply all filters EXCEPT attendance
                   if (
@@ -5898,8 +6210,17 @@ Co9P AI Chatbot`;
             <div className="text-center">
               <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                 {(() => {
-                  // Get base participants (before attendance filtering)
-                  let baseParticipants = mergedRSVP;
+                  // If a program is selected, use selectedProgramFilteredParticipants
+                  // Otherwise use the regular filtering logic
+                  if (selectedProgram >= 0 || showAllProgramsInCategory) {
+                    return selectedProgramFilteredParticipants.filter((row) => {
+                      const status = getCombinedAttendanceStatus(row);
+                      return status === "Pending";
+                    }).length;
+                  }
+                  
+                  // Regular filtering logic for when no program is selected
+                  let baseParticipants = mergedRSVPWithNeon;
                   
                   // Apply all filters EXCEPT attendance
                   if (
@@ -5945,8 +6266,14 @@ Co9P AI Chatbot`;
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {(() => {
-                  // Get base participants (before attendance filtering)
-                  let baseParticipants = mergedRSVP;
+                  // If a program is selected, use selectedProgramFilteredParticipants
+                  // Otherwise use the regular filtering logic
+                  if (selectedProgram >= 0 || showAllProgramsInCategory) {
+                    return selectedProgramFilteredParticipants.length;
+                  }
+                  
+                  // Regular filtering logic for when no program is selected
+                  let baseParticipants = mergedRSVPWithNeon;
                   
                   // Apply all filters EXCEPT attendance
                   if (
