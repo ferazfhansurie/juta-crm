@@ -19,7 +19,17 @@ interface StageTemplateData {
   purpose: string;
   triggerTags: string[];
   triggerKeywords: string[];
-  messages: string[];
+  messages: Array<{
+    dayNumber: number;
+    sequence: number;
+    message: string;
+    delayAfter: {
+      value: number;
+      unit: "minutes" | "hours" | "days";
+      isInstantaneous: boolean;
+    };
+    description: string;
+  }>;
   messageCount: number;
 }
 
@@ -137,15 +147,18 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
   const [currentBrainstormMessage, setCurrentBrainstormMessage] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   
+  // Add state for expanded templates
+  const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set());
+  
+  // Add state for editable messages
+  const [editableMessages, setEditableMessages] = useState<{[key: string]: string}>({});
+  
   // New state for current follow-up data
   const [currentFollowUps, setCurrentFollowUps] = useState<{
     templates: CurrentFollowUpTemplate[];
     messages: { [templateId: string]: CurrentFollowUpMessage[] };
   }>({ templates: [], messages: {} });
   const [isLoadingCurrentFollowUps, setIsLoadingCurrentFollowUps] = useState(false);
-  
-  // New state for expanded templates
-  const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set());
 
   // Add state for AI Assistant Info (like in Prompt Builder)
   const [assistantInfo, setAssistantInfo] = useState<AssistantInfo>({
@@ -170,9 +183,11 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       return;
     }
 
+    console.log('Fetching company ID for user email:', userEmail);
+
     try {
       const userResponse = await fetch(
-        `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`,
+        `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -192,7 +207,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       const userData = await userResponse.json();
       console.log('User data received:', userData);
       
-      const companyId = userData.company_id;
+      const companyId = userData.userData.companyId;
       
       console.log('Company ID:', companyId);
       
@@ -211,18 +226,23 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
         return;
       }
 
+      console.log('Fetching company config for company ID:', companyId);
+
+      // Use the same endpoint as the main application to get company data
       const response = await axios.get(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
 
       if (response.status === 200) {
         const { companyData } = response.data;
         console.log('Company data received:', companyData);
         
-        // Parse assistant IDs (handle both string and array)
+        // Get assistant IDs from company data (same as main app)
         let assistantIds: string[] = [];
+        if (companyData.assistants_ids) {
         if (Array.isArray(companyData.assistants_ids)) {
           assistantIds = companyData.assistants_ids;
         } else if (typeof companyData.assistants_ids === 'string') {
           assistantIds = companyData.assistants_ids.split(',').map((id: string) => id.trim());
+          }
         }
 
         // Check for alternative field names
@@ -236,6 +256,8 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
           }
         }
 
+        console.log('Found assistant IDs:', assistantIds);
+
         // Get the first assistant ID
         if (assistantIds.length > 0) {
           setAssistantId(assistantIds[0]);
@@ -247,11 +269,31 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
           return;
         }
 
-        // Fetch API key from company config
-        const response2 = await axios.get(`https://juta-dev.ngrok.dev/api/company-config/${companyId}`);
-        const { openaiApiKey } = response2.data;
-        setApiKey(openaiApiKey);
-        console.log('API key fetched successfully');
+        // Try to get API key from company data first
+        let apiKey = companyData.openaiApiKey;
+        
+        // If not found in company data, try to fetch from company-config endpoint
+        if (!apiKey) {
+          console.log('API key not found in company data, trying company-config endpoint...');
+          try {
+            const configResponse = await axios.get(`https://juta-dev.ngrok.dev/api/company-config/${companyId}`);
+            if (configResponse.data.openaiApiKey) {
+              apiKey = configResponse.data.openaiApiKey;
+              console.log('API key fetched from company-config endpoint');
+            }
+          } catch (configError) {
+            console.log('Failed to fetch from company-config endpoint:', configError);
+          }
+        }
+
+        // Set API key if found
+        if (apiKey) {
+          setApiKey(apiKey);
+          console.log('API key fetched successfully for company:', companyId);
+        } else {
+          console.error("No OpenAI API key found in company data or company-config");
+          setError("No OpenAI API key configured for this company. Please contact your administrator.");
+        }
       }
     } catch (error) {
       console.error("Error fetching company config:", error);
@@ -261,6 +303,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
 
   const fetchAssistantInfo = async (assistantId: string, apiKey: string) => {
     console.log('fetching assistant info for ID:', assistantId);
+    console.log('Using API key for company:', companyId);
     setLoading(true);
     try {
       const response = await axios.get(`https://api.openai.com/v1/assistants/${assistantId}`, {
@@ -274,6 +317,8 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       
       setError(null);
       console.log('Assistant info fetched successfully:', name);
+      console.log('Assistant instructions length:', instructions.length);
+      console.log('Assistant instructions preview:', instructions.substring(0, 200) + '...');
     } catch (error) {
       console.error("Error fetching assistant information:", error);
       setError("Failed to fetch assistant information");
@@ -309,6 +354,70 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
   // Function to generate unique template IDs
   const generateTemplateId = () => {
     return `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
+
+  // Function to toggle template expansion
+  const toggleTemplateExpansion = (templateId: string) => {
+    setExpandedTemplates(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(templateId)) {
+        newSet.delete(templateId);
+      } else {
+        newSet.add(templateId);
+      }
+      return newSet;
+    });
+  };
+
+  // Function to handle message editing
+  const handleMessageEdit = (templateId: string, messageIndex: number, newText: string) => {
+    const key = `${templateId}_${messageIndex}`;
+    setEditableMessages(prev => ({
+      ...prev,
+      [key]: newText
+    }));
+  };
+
+  // Function to save message edits
+  const saveMessageEdit = (templateId: string, messageIndex: number) => {
+    const key = `${templateId}_${messageIndex}`;
+    const newText = editableMessages[key];
+    
+    if (newText && generatedData?.stageTemplates) {
+      const updatedTemplates = generatedData.stageTemplates.map(template => {
+        if (template.templateId === templateId) {
+          const updatedMessages = [...template.messages];
+          updatedMessages[messageIndex] = {
+            ...updatedMessages[messageIndex],
+            message: newText
+          };
+          return { ...template, messages: updatedMessages };
+        }
+        return template;
+      });
+      
+      setGeneratedData({
+        ...generatedData,
+        stageTemplates: updatedTemplates
+      });
+      
+      // Remove from editable state
+      setEditableMessages(prev => {
+        const newState = { ...prev };
+        delete newState[key];
+        return newState;
+      });
+    }
+  };
+
+  // Function to cancel message edit
+  const cancelMessageEdit = (templateId: string, messageIndex: number) => {
+    const key = `${templateId}_${messageIndex}`;
+    setEditableMessages(prev => {
+      const newState = { ...prev };
+      delete newState[key];
+      return newState;
+    });
   };
 
   // Add custom styles for better scrolling
@@ -610,8 +719,141 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       
       setApplyProgress(15);
 
-      // Prepare templates for database save
-      const templatesToSave = generatedData.stageTemplates.map((template: StageTemplateData) => ({
+      // Transform the data to match your existing API format
+      const templatesToSave = generatedData.stageTemplates.map((template: StageTemplateData) => {
+        // Validate message structure
+        if (!template.messages || !Array.isArray(template.messages)) {
+          console.error(`Template ${template.stageName} has invalid messages:`, template.messages);
+          return null;
+        }
+        
+        // Transform messages from objects to strings (your API expects strings)
+        const transformedMessages = template.messages.map((msg: any, index: number) => {
+          if (!msg || typeof msg !== 'object') {
+            console.error(`Invalid message at index ${index}:`, msg);
+            return null;
+          }
+          
+          if (typeof msg.message !== 'string') {
+            console.error(`Message at index ${index} has invalid message field:`, msg.message);
+            return null;
+          }
+          
+          // Clean up the message content (remove artifacts like "||")
+          let cleanMessage = msg.message.trim();
+          // Remove common artifacts that might appear at the end
+          cleanMessage = cleanMessage.replace(/\|\s*$/, ''); // Remove trailing "|"
+          cleanMessage = cleanMessage.replace(/\|\|\s*$/, ''); // Remove trailing "||"
+          cleanMessage = cleanMessage.replace(/^\|\s*/, ''); // Remove leading "|"
+          
+          return cleanMessage; // Return cleaned message text
+        }).filter(Boolean); // Remove any null values
+        
+        return {
+          templateId: template.templateId,
+          stageName: template.stageName,
+          purpose: template.purpose,
+          triggerTags: template.triggerTags,
+          triggerKeywords: template.triggerKeywords,
+          messages: transformedMessages,
+          messageCount: transformedMessages.length
+        };
+      }).filter(Boolean); // Remove any null templates
+      
+      console.log("=== SAVE DEBUG ===");
+      console.log("Original templates:", generatedData.stageTemplates);
+      console.log("Transformed templates to save:", templatesToSave);
+      console.log("Sample message transformation:");
+      if (generatedData.stageTemplates[0]?.messages[0] && templatesToSave[0]) {
+        console.log("Original message object:", generatedData.stageTemplates[0].messages[0]);
+        console.log("Transformed message string:", templatesToSave[0].messages[0]);
+      }
+      console.log("=== END SAVE DEBUG ===");
+    
+    // Validate that we have templates to save
+    if (!templatesToSave || templatesToSave.length === 0) {
+      throw new Error("No valid templates to save. Please check the message structure.");
+    }
+    
+    // Validate that each template has messages
+    const invalidTemplates = templatesToSave.filter((template: any) => template && (!template.messages || template.messages.length === 0));
+    if (invalidTemplates.length > 0) {
+      console.error("Templates without messages:", invalidTemplates);
+      throw new Error("Some templates have no messages. Please check the data.");
+    }
+    
+    // Final validation: ensure each message is a string
+    const finalValidation = templatesToSave.map((template: any, templateIndex: number) => {
+      console.log(`Validating template ${templateIndex}: ${template.stageName}`);
+      console.log(`Original messages count: ${template.messages.length}`);
+      console.log(`Original messages:`, template.messages);
+      
+      const validMessages = template.messages.filter((msg: any, msgIndex: number) => {
+        if (typeof msg !== 'string') {
+          console.error(`Template ${templateIndex}, Message ${msgIndex} is not a string:`, msg);
+          return false;
+        }
+        if (!msg.trim()) {
+          console.error(`Template ${templateIndex}, Message ${msgIndex} is empty:`, msg);
+          return false;
+        }
+        console.log(`Template ${templateIndex}, Message ${msgIndex} is valid:`, msg);
+        return true;
+      });
+      
+      console.log(`Valid messages count: ${validMessages.length}`);
+      console.log(`Valid messages:`, validMessages);
+      
+      return {
+        ...template,
+        messages: validMessages,
+        messageCount: validMessages.length
+      };
+    }).filter(Boolean);
+    
+    console.log("=== FINAL VALIDATION ===");
+    console.log("Final templates to save:", finalValidation);
+    console.log("Message count per template:", finalValidation.map(t => ({ name: t.stageName, count: t.messageCount })));
+    
+    // Debug: Check each template's messages
+    finalValidation.forEach((template: any, index: number) => {
+      console.log(`Template ${index} (${template.stageName}):`);
+      console.log(`  - Messages count: ${template.messages.length}`);
+      console.log(`  - Messages:`, template.messages);
+      console.log(`  - Message type check:`, template.messages.map((msg: any, i: number) => ({ index: i, type: typeof msg, content: msg })));
+    });
+    
+    console.log("=== END FINAL VALIDATION ===");
+    
+    // Log detailed structure of each template
+    finalValidation.forEach((template: any, index: number) => {
+      console.log(`Template ${index} details:`, {
+        templateId: template.templateId,
+        stageName: template.stageName,
+        purpose: template.purpose,
+        triggerTags: template.triggerTags,
+        triggerKeywords: template.triggerKeywords,
+        messages: template.messages,
+        messageCount: template.messageCount,
+        messagesType: Array.isArray(template.messages) ? 'array' : typeof template.messages,
+        messagesLength: Array.isArray(template.messages) ? template.messages.length : 'not array'
+      });
+    });
+    
+    console.log("=== END FINAL VALIDATION ===");
+      
+      // Call the direct save API
+    console.log("=== SAVE API CALL ===");
+    console.log("Request payload:", {
+      companyId: companyId,
+      email: userEmail,
+      templates: finalValidation
+    });
+    
+    // Debug: Show detailed template structure
+    console.log("Detailed templates structure:");
+    finalValidation.forEach((template: any, index: number) => {
+      console.log(`Template ${index}:`, {
         templateId: template.templateId,
         stageName: template.stageName,
         purpose: template.purpose,
@@ -619,17 +861,35 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
         triggerKeywords: template.triggerKeywords,
         messages: template.messages,
         messageCount: template.messageCount
-      }));
-      
-      // Call the direct save API
+      });
+    });
+    
       const response = await axios.post(
         'https://juta-dev.ngrok.dev/api/followup-save-templates/',
         {
           companyId: companyId,
           email: userEmail,
-          templates: templatesToSave
-        }
-      );
+        templates: finalValidation
+      }
+    );
+    
+    console.log("Save API response:", response.data);
+    console.log("=== END SAVE API CALL ===");
+    
+    // Validate the response
+    if (!response.data.success) {
+      console.error("Save API returned error:", response.data);
+      throw new Error(response.data.details || response.data.error || 'Failed to save templates');
+    }
+    
+    // Log the response details
+    const { templatesUpdated, templatesCreated, totalChanges } = response.data.data || {};
+    console.log("Save API success details:", {
+      templatesUpdated,
+      templatesCreated,
+      totalChanges,
+      fullResponse: response.data
+    });
       
       // Smooth progress animation to 60%
       const progressInterval2 = setInterval(() => {
@@ -647,8 +907,6 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       if (!response.data.success) {
         throw new Error(response.data.details || 'Failed to save templates');
       }
-
-      const { templatesUpdated, templatesCreated, totalChanges } = response.data.data || {};
       
       // Smooth progress animation to 80%
       const progressInterval3 = setInterval(() => {
@@ -716,19 +974,6 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
         setNewMessage('');
       }
     }
-  };
-
-  // Function to toggle template expansion
-  const toggleTemplateExpansion = (templateId: string) => {
-    setExpandedTemplates(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(templateId)) {
-        newSet.delete(templateId);
-      } else {
-        newSet.add(templateId);
-      }
-      return newSet;
-    });
   };
 
   // Show loading state while fetching assistant info
@@ -1254,20 +1499,105 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                           
                           {/* Messages Preview */}
                           <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                            <h6 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Messages Preview:</h6>
+                            <div className="flex items-center justify-between mb-3">
+                              <h6 className="text-xs font-medium text-gray-600 dark:text-gray-400">Messages:</h6>
+                              <button
+                                onClick={() => toggleTemplateExpansion(template.templateId)}
+                                className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
+                              >
+                                {expandedTemplates.has(template.templateId) ? (
+                                  <>
+                                    <span>Show Less</span>
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                    </svg>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>Show All ({template.messages.length})</span>
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                            
                             <div className="space-y-2">
-                              {template.messages.slice(0, 3).map((message, msgIndex) => (
-                                <div key={msgIndex} className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 p-2 rounded border">
-                                  <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">#{msgIndex + 1}</span>
-                                  {message.length > 100 ? `${message.substring(0, 100)}...` : message}
+                              {template.messages.slice(0, expandedTemplates.has(template.templateId) ? template.messages.length : 3).map((messageObj: any, msgIndex) => {
+                                const editKey = `${template.templateId}_${msgIndex}`;
+                                const isEditing = editableMessages[editKey] !== undefined;
+                                const currentText = isEditing ? editableMessages[editKey] : messageObj.message;
+                                
+                                return (
+                                  <div key={msgIndex} className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 p-3 rounded border">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                                        #{msgIndex + 1} - Day {messageObj.dayNumber}, Seq {messageObj.sequence}
+                                      </span>
+                                      <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                                        {messageObj.delayAfter?.isInstantaneous ? 'Instant' : 
+                                         `${messageObj.delayAfter?.value} ${messageObj.delayAfter?.unit}`}
+                                      </span>
                                 </div>
-                              ))}
-                              {template.messages.length > 3 && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                  +{template.messages.length - 3} more messages
+                                    
+                                    <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                                      {messageObj.description}
+                                    </div>
+                                    
+                                    {isEditing ? (
+                                      <div className="space-y-2">
+                                        <textarea
+                                          value={currentText}
+                                          onChange={(e) => handleMessageEdit(template.templateId, msgIndex, e.target.value)}
+                                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                                          rows={3}
+                                        />
+                                        <div className="flex gap-2">
+                                          <button
+                                            onClick={() => saveMessageEdit(template.templateId, msgIndex)}
+                                            className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                                          >
+                                            Save
+                                          </button>
+                                          <button
+                                            onClick={() => cancelMessageEdit(template.templateId, msgIndex)}
+                                            className="px-3 py-1 text-xs bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <div className="text-sm whitespace-pre-wrap">
+                                            {messageObj.message}
+                                          </div>
+                                        </div>
+                                        <button
+                                          onClick={() => handleMessageEdit(template.templateId, msgIndex, messageObj.message)}
+                                          className="ml-3 px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex-shrink-0"
+                                        >
+                                          Edit
+                                        </button>
                     </div>
                   )}
                       </div>
+                                );
+                              })}
+                              
+                              {!expandedTemplates.has(template.templateId) && template.messages.length > 3 && (
+                                <div className="text-center">
+                                  <button
+                                    onClick={() => toggleTemplateExpansion(template.templateId)}
+                                    className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 px-3 py-2 rounded-lg border border-blue-300 hover:border-blue-400 transition-colors"
+                                  >
+                                    Show {template.messages.length - 3} More Messages
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                     </div>
                   </div>
                       ))}

@@ -501,30 +501,41 @@ const FollowUpsPage: React.FC = () => {
       // Create update data with all necessary fields
       const updateData: any = {
         message: editingMessage.message,
-        dayNumber: editingMessage.dayNumber,
+        day_number: editingMessage.dayNumber,
         sequence: editingMessage.sequence,
         status: editingMessage.status || "active",
-        delayAfter: editingMessage.useScheduledTime
-          ? {
-              value: 0,
-              unit: "minutes",
-              isInstantaneous: false,
-            }
-          : {
-              value: editingMessage.delayAfter?.value || 5,
-              unit: editingMessage.delayAfter?.unit || "minutes",
-              isInstantaneous:
-                editingMessage.delayAfter?.isInstantaneous || false,
-            },
-        specificNumbers: {
-          enabled: editingMessage.specificNumbers?.enabled || false,
-          numbers: editingMessage.specificNumbers?.numbers || [],
-        },
-        useScheduledTime: editingMessage.useScheduledTime || false,
-        scheduledTime: editingMessage.scheduledTime || "",
-        addTags: editingMessage.addTags || [],
-        removeTags: editingMessage.removeTags || [],
+        updated_at: new Date().toISOString(), // Add this field to match backend expectation
       };
+
+      // Always set delay_after or scheduled_time
+      if (editingMessage.useScheduledTime && editingMessage.scheduledTime) {
+        updateData.use_scheduled_time = true;
+        updateData.scheduled_time = editingMessage.scheduledTime;
+      } else {
+        // Default to delay_after if not using scheduled time
+        updateData.delay_after = {
+          value: editingMessage.delayAfter?.value || 5,
+          unit: editingMessage.delayAfter?.unit || "minutes",
+          is_instantaneous: editingMessage.delayAfter?.isInstantaneous || false,
+        };
+        updateData.use_scheduled_time = false;
+      }
+
+      // Add optional fields only if they exist
+      if (editingMessage.specificNumbers?.enabled) {
+        updateData.specific_numbers = {
+          enabled: editingMessage.specificNumbers.enabled,
+          numbers: editingMessage.specificNumbers.numbers || [],
+        };
+      }
+
+      if (editingMessage.addTags && editingMessage.addTags.length > 0) {
+        updateData.add_tags = editingMessage.addTags;
+      }
+
+      if (editingMessage.removeTags && editingMessage.removeTags.length > 0) {
+        updateData.remove_tags = editingMessage.removeTags;
+      }
 
       // Handle document upload if a new document is selected
       if (selectedDocument) {
@@ -541,9 +552,20 @@ const FollowUpsPage: React.FC = () => {
         updateData.video = await uploadVideo(selectedVideo);
       }
 
+      // Find the template to get the correct templateId
+      const template = templates.find(t => t.templateId === selectedTemplate2);
+      if (!template) {
+        toast.error("Template not found");
+        return;
+      }
+
       // Update the message via API
+      console.log("Updating message with data:", updateData);
+      console.log("Template ID:", template.templateId);
+      console.log("Message ID:", messageId);
+      
       const response = await axios.put(
-        `https://juta-dev.ngrok.dev/api/followup-templates/${selectedTemplate2}/messages/${messageId}`,
+        `https://juta-dev.ngrok.dev/api/followup-templates/${template.templateId}/messages/${messageId}`,
         updateData
       );
 
@@ -561,8 +583,12 @@ const FollowUpsPage: React.FC = () => {
       } else {
         toast.error("Failed to update message");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating message:", error);
+      if (error.response) {
+        console.error("Error response data:", error.response.data);
+        console.error("Error response status:", error.response.status);
+      }
       toast.error("Failed to update message");
     }
   };
@@ -570,8 +596,15 @@ const FollowUpsPage: React.FC = () => {
     if (!selectedTemplate2) return;
 
     try {
+      // Find the template to get the correct templateId
+      const template = templates.find(t => t.templateId === selectedTemplate2);
+      if (!template) {
+        toast.error("Template not found");
+        return;
+      }
+
       const response = await axios.delete(
-        `https://juta-dev.ngrok.dev/api/followup-templates/${selectedTemplate2}/messages/${messageId}`
+        `https://juta-dev.ngrok.dev/api/followup-templates/${template.templateId}/messages/${messageId}`
       );
 
       if (response.data.success) {
@@ -588,13 +621,20 @@ const FollowUpsPage: React.FC = () => {
 
   const deleteTemplate = async (templateId: string) => {
     try {
+      // Find the template to get the correct templateId
+      const template = templates.find(t => t.id === templateId);
+      if (!template) {
+        toast.error("Template not found");
+        return;
+      }
+
       const response = await axios.delete(
-        `https://juta-dev.ngrok.dev/api/followup-templates/${templateId}`
+        `https://juta-dev.ngrok.dev/api/followup-templates/${template.templateId}`
       );
 
       if (response.data.success) {
         // Clear selected template if it was the one deleted
-        if (selectedTemplate2 === templateId) {
+        if (selectedTemplate2 === template.templateId) {
           setSelectedTemplate2(null);
           setMessages([]);
         }
@@ -642,22 +682,67 @@ const FollowUpsPage: React.FC = () => {
   const fetchMessages = async (templateId: string) => {
     try {
       console.log("Fetching messages for template:", templateId);
-      const response = await axios.get(
-        `https://juta-dev.ngrok.dev/api/followup-templates/${templateId}/messages`
-      );
-      console.log("Messages response:", response.data);
-      if (response.data.success && Array.isArray(response.data.messages)) {
-        // If createdAt is a string, convert to Date for display
-        const fetchedMessages = response.data.messages.map((msg: any) => ({
-          ...msg,
-          createdAt: msg.createdAt ? new Date(msg.createdAt) : null,
-        }));
-        console.log("Setting messages:", fetchedMessages);
-        setMessages(fetchedMessages);
-      } else {
-        console.log("No messages found or invalid response format");
+      
+      // Find the template to get the correct templateId
+      const template = templates.find(t => t.templateId === templateId);
+      if (!template) {
+        console.error("Template not found for fetching messages");
         setMessages([]);
+        return;
       }
+
+      const response = await axios.get(
+        `https://juta-dev.ngrok.dev/api/followup-templates/${template.templateId}/messages`
+      );
+              console.log("Messages response:", response.data);
+        if (response.data.success && Array.isArray(response.data.messages)) {
+          // Transform snake_case fields to camelCase and handle date conversion
+          const fetchedMessages = response.data.messages.map((msg: any) => {
+            console.log("Raw message from API:", msg); // Debug log
+            
+            const transformedMsg = {
+              ...msg,
+              // Convert snake_case to camelCase for consistency
+              dayNumber: msg.day_number || msg.dayNumber,
+              sequence: msg.sequence,
+              status: msg.status,
+              createdAt: msg.created_at ? new Date(msg.created_at) : msg.createdAt ? new Date(msg.createdAt) : null,
+              document: msg.document,
+              image: msg.image,
+              video: msg.video,
+              // Handle delay_after field - prioritize snake_case
+              delayAfter: msg.delay_after ? {
+                value: msg.delay_after.value || 5,
+                unit: msg.delay_after.unit || "minutes",
+                isInstantaneous: msg.delay_after.is_instantaneous || false,
+              } : msg.delayAfter || {
+                value: 5,
+                unit: "minutes",
+                isInstantaneous: false,
+              },
+              // Handle other fields
+              specificNumbers: msg.specific_numbers ? {
+                enabled: msg.specific_numbers.enabled || false,
+                numbers: msg.specific_numbers.numbers || [],
+              } : msg.specificNumbers || {
+                enabled: false,
+                numbers: [],
+              },
+              useScheduledTime: msg.use_scheduled_time || msg.useScheduledTime || false,
+              scheduledTime: msg.scheduled_time || msg.scheduledTime || "",
+              addTags: msg.add_tags || msg.addTags || [],
+              removeTags: msg.remove_tags || msg.removeTags || [],
+            };
+            
+            console.log("Transformed message:", transformedMsg); // Debug log
+            return transformedMsg;
+          });
+          console.log("Setting messages:", fetchedMessages);
+          setMessages(fetchedMessages);
+        } else {
+          console.log("No messages found or invalid response format");
+          setMessages([]);
+        }
     } catch (error) {
       console.error("Error fetching messages:", error);
       setMessages([]);
@@ -674,7 +759,7 @@ const FollowUpsPage: React.FC = () => {
 
   // Add message to template
   const addMessage = async () => {
-    if (!selectedTemplate || !newMessage.message.trim()) return;
+    if (!selectedTemplate2 || !newMessage.message.trim()) return;
 
     // Double-check for duplicates before saving
     if (isDuplicateMessage(newMessage.dayNumber, newMessage.sequence)) {
@@ -682,45 +767,52 @@ const FollowUpsPage: React.FC = () => {
       return;
     }
     try {
+      // Find the template to get the correct templateId
+      const template = templates.find(t => t.templateId === selectedTemplate2);
+      if (!template) {
+        toast.error("Template not found");
+        return;
+      }
+
       // Prepare message data
       const messageData = {
-        templateId: selectedTemplate2,
+        template_id: template.templateId, // Use snake_case to match backend
         message: newMessage.message,
-        dayNumber: newMessage.dayNumber,
+        day_number: newMessage.dayNumber,
         sequence: newMessage.sequence,
         status: "active",
-        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
         document: selectedDocument
           ? await uploadDocument(selectedDocument)
           : null,
         image: selectedImage ? await uploadImage(selectedImage) : null,
         video: selectedVideo ? await uploadVideo(selectedVideo) : null,
-        delayAfter: newMessage.useScheduledTime
+        delay_after: newMessage.useScheduledTime
           ? {
               value: 0,
               unit: "minutes",
-              isInstantaneous: false,
+              is_instantaneous: false,
             }
           : {
               value: newMessage.delayAfter.value,
               unit: newMessage.delayAfter.unit,
-              isInstantaneous: newMessage.delayAfter.isInstantaneous,
+              is_instantaneous: newMessage.delayAfter.isInstantaneous,
             },
-        specificNumbers: {
+        specific_numbers: {
           enabled: newMessage.specificNumbers.enabled,
           numbers: newMessage.specificNumbers.numbers,
         },
-        useScheduledTime: newMessage.useScheduledTime,
-        scheduledTime: newMessage.useScheduledTime
+        use_scheduled_time: newMessage.useScheduledTime,
+        scheduled_time: newMessage.useScheduledTime
           ? newMessage.scheduledTime
           : "",
-        addTags: newMessage.addTags || [],
-        removeTags: newMessage.removeTags || [],
+        add_tags: newMessage.addTags || [],
+        remove_tags: newMessage.removeTags || [],
       };
 
       // Send to backend
       const response = await axios.post(
-        `https://juta-dev.ngrok.dev/api/followup-templates/${selectedTemplate2}/messages`,
+        `https://juta-dev.ngrok.dev/api/followup-templates/${template.templateId}/messages`,
         messageData
       );
 
@@ -730,7 +822,7 @@ const FollowUpsPage: React.FC = () => {
           message: "",
           dayNumber: 1,
           sequence: getNextSequenceNumber(newMessage.dayNumber),
-          templateId: selectedTemplate2 || undefined,
+          templateId: template.templateId || undefined,
           status: "active",
           delayAfter: {
             value: 5,
@@ -790,7 +882,7 @@ const FollowUpsPage: React.FC = () => {
       };
 
       const response = await axios.put(
-        `https://juta-dev.ngrok.dev/api/followup-templates/${templateId}`,
+        `https://juta-dev.ngrok.dev/api/followup-templates/${editingTemplate.templateId}`,
         updateData
       );
 
