@@ -15,6 +15,7 @@ import VoiceResponseForm from "@/components/AIResponses/VoiceResponseForm";
 import AssignResponseForm from "@/components/AIResponses/AssignResponseForm";
 import DocumentResponseForm from "@/components/AIResponses/DocumentResponseForm";
 import VideoResponseForm from "@/components/AIResponses/VideoResponseForm";
+import AIResponseBuilder from "@/components/AIResponseBuilder";
 
 interface Tag {
     id: string;
@@ -110,6 +111,7 @@ function AIResponses() {
     const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
     const [selectedVideos, setSelectedVideos] = useState<File[]>([]);
     const [selectedVideoUrls, setSelectedVideoUrls] = useState<string[]>([]);
+    const [isAIBuilderOpen, setIsAIBuilderOpen] = useState(false);
 
     const [keywordSource, setKeywordSource] = useState<'user' | 'bot' | 'own'>('user');
     const [tagActionMode, setTagActionMode] = useState<'add' | 'delete'>('add');
@@ -205,7 +207,7 @@ function AIResponses() {
                 throw new Error('Failed to fetch responses');
             }
             const data = await response.json();
-            
+            console.log(data);
             if (data.success) {
                 const fetchedResponses: AIResponse[] = data.data.map((item: any) => {
                     const baseResponse = {
@@ -972,6 +974,15 @@ function AIResponses() {
                                 </div>
                             </div>
                         </div>
+                        <Button
+                                onClick={() => setIsAIBuilderOpen(true)}
+                                className="backdrop-blur-sm bg-gradient-to-r from-blue-500/80 to-purple-600/80 hover:from-blue-600/90 hover:to-purple-700/90 border border-white/30 text-white shadow-lg transition-all duration-300 hover:shadow-xl text-xs px-3 py-2"
+                            >
+                                <svg className="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                                AI Builder
+                            </Button>
                     </div>
                 </div>
             </div>
@@ -1646,6 +1657,12 @@ function AIResponses() {
                     </div>
                 </div>
             </div>
+            
+            {/* AI Response Builder Modal */}
+            {isAIBuilderOpen && (
+                <AIResponseBuilder onClose={() => setIsAIBuilderOpen(false)} />
+            )}
+            
             <ToastContainer
                 position="top-right"
                 autoClose={5000}
