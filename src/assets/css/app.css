@@ -46,6 +46,17 @@
 @tailwind utilities;
 
 @layer components {
+  html, body {
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  #root {
+    height: 100%;
+    overflow-y: auto;
+  }
+
   html {
     scrollbar-width: thin;
     scrollbar-color: #CBD5E0 #F1F5F9;
@@ -97,5 +108,48 @@
     background-color: #4B5563;
     border-radius: 20px;
     border: 2px solid #1F2937;
+  }
+
+  /* Chat styling improvements */
+  .chat-message-bubble {
+    transition: all 0.2s ease-in-out;
+  }
+
+  .chat-message-bubble:hover {
+    transform: translateY(-1px);
+  }
+
+  .chat-reactions {
+    transition: all 0.2s ease-in-out;
+  }
+
+  .chat-reactions:hover {
+    transform: scale(1.05);
+  }
+
+  .chat-quoted-message {
+    border-left: 4px solid #3B82F6;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+  }
+
+  .chat-background-pattern {
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(16, 185, 129, 0.03) 0%, transparent 50%);
+    background-size: 100px 100px;
+  }
+
+  /* Image message specific styling */
+  .image-message img {
+    display: block !important;
+    max-width: 100% !important;
+    height: auto !important;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .image-message img:hover {
+    transform: scale(1.02);
+    transition: transform 0.2s ease-in-out;
   }
 }

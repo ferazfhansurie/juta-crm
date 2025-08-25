@@ -47,6 +47,7 @@ import { getFileTypeFromMimeType } from "../../utils/fileUtils";
 import { Transition } from "@headlessui/react";
 import VirtualContactList from "../../components/VirtualContactList";
 import SearchModal from "@/components/SearchModal";
+import QuickRepliesModal from "@/components/QuickRepliesModal";
 import { time } from "console";
 
 interface Label {
@@ -104,6 +105,7 @@ export interface Message {
   dateAdded?: number | 0;
   timestamp: number | 0;
   id: string;
+  message_id?: string; // WhatsApp message ID from database
   text?: { body: string | ""; context?: any };
   from_me?: boolean;
   from_name?: string | "";
@@ -692,6 +694,8 @@ function Main() {
   const [isForwardDialogOpen, setIsForwardDialogOpen] = useState(false);
   const [selectedContactsForForwarding, setSelectedContactsForForwarding] =
     useState<Contact[]>([]);
+  const [isForwarding, setIsForwarding] = useState(false);
+  const [isRefreshingMessages, setIsRefreshingMessages] = useState(false);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [isQuickRepliesOpen, setIsQuickRepliesOpen] = useState<boolean>(false);
@@ -752,7 +756,7 @@ function Main() {
   const location = useLocation();
   const [isChatActive, setIsChatActive] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
-  const [editedName, setEditedName] = useState("");
+  // Removed editedName state - no longer needed since inline editing was removed
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [newContactNumber, setNewContactNumber] = useState("");
   const [showMineContacts, setShowMineContacts] = useState(false);
@@ -773,7 +777,36 @@ function Main() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentUserName = userData?.name || "";
+  
+  // Debug: Log user data when it changes
+  useEffect(() => {
+    console.log("🔍 User data updated:", userData);
+    console.log("🔍 Current user name:", currentUserName);
+    console.log("🔍 Employee list:", employeeList);
+  }, [userData, currentUserName, employeeList]);
+
+  // Auto-refresh messages when temporary messages are selected
+  useEffect(() => {
+    if (selectedMessages.length > 0 && selectedMessages.every(msg => !msg.id || msg.id.startsWith('temp_'))) {
+      // Only refresh if we haven't already started refreshing
+      if (!isRefreshingMessages && selectedChatId && whapiToken) {
+        setIsRefreshingMessages(true);
+        
+        // Refresh messages and then check if they're still temporary
+        fetchMessages(selectedChatId, whapiToken).then(() => {
+          // After refresh, check if messages are still temporary
+          setTimeout(() => {
+            setIsRefreshingMessages(false);
+          }, 1000); // Give a moment for the refresh to complete
+        }).catch(() => {
+          setIsRefreshingMessages(false);
+        });
+      }
+    }
+  }, [selectedMessages, selectedChatId, whapiToken, isRefreshingMessages]);
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
+  const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
   const [messageSearchResults, setMessageSearchResults] = useState<any[]>([]);
   const messageSearchInputRef = useRef<HTMLInputElement>(null);
@@ -784,6 +817,7 @@ function Main() {
   const [blastStartTime, setBlastStartTime] = useState<Date | null>(null);
   const [blastStartDate, setBlastStartDate] = useState<Date>(new Date());
   const [batchQuantity, setBatchQuantity] = useState<number>(10);
+  const [showMoreContactInfo, setShowMoreContactInfo] = useState(false);
   const [repeatInterval, setRepeatInterval] = useState<number>(0);
   const [repeatUnit, setRepeatUnit] = useState<"minutes" | "hours" | "days">(
     "days"
@@ -804,6 +838,12 @@ function Main() {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [quickReplyFilter, setQuickReplyFilter] = useState("");
   const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
+  
+  // Debug: Log phone names when they change
+  useEffect(() => {
+    console.log("🔍 Phone names updated:", phoneNames);
+    console.log("🔍 Phone names entries:", Object.entries(phoneNames));
+  }, [phoneNames]);
   const [userPhone, setUserPhone] = useState<number | null>(null);
   const [activeNotifications, setActiveNotifications] = useState<
     (string | number)[]
@@ -1950,7 +1990,7 @@ console.log(data);
           const endpoint = getApiEndpoint(mainMessage.mediaUrl, chatId);
           const body: any = {
             phoneIndex: message.phoneIndex || userData?.phone || 0,
-            userName: userData?.name || email || "",
+            userName: currentUserName|| email || "",
           };
           if (endpoint.includes("/video/")) {
             body.videoUrl = mainMessage.mediaUrl;
@@ -1981,7 +2021,7 @@ console.log(data);
               body: JSON.stringify({
                 message: processedMessage,
                 phoneIndex: message.phoneIndex || userData?.phone || 0,
-                userName: userData?.name || email || "",
+                userName: currentUserName|| email || "",
               }),
             }
           );
@@ -2299,7 +2339,7 @@ console.log(data);
 
       setRealLoadingProgress(90);
       const data = await contactsResponse.json();
-
+      console.log("contactsss",data)
       // Step 3: Process contacts (75%)
       setRealLoadingProgress(95);
       setLoadingSteps((prev) => ({ ...prev, contactsProcess: true }));
@@ -3147,13 +3187,7 @@ console.log(data);
     setIsMessageSearchOpen(false); // Close the search panel after clicking a result
   };
 
-  useEffect(() => {
-    if (selectedContact) {
-      setEditedName(
-        selectedContact.contactName || selectedContact.firstName || ""
-      );
-    }
-  }, [selectedContact]);
+  // Removed useEffect for editedName since inline editing was removed
 
   useEffect(() => {
     /*updateEmployeeAssignedContacts();
@@ -3437,8 +3471,8 @@ console.log(data);
     // For tag filtering, always use ALL contacts to ensure we find all tagged contacts
     // For regular browsing, use loaded contacts for performance
     const contactsToFilter =
-      activeTags.length > 0 && activeTags[0] !== "all"
-        ? contacts // Use all contacts when filtering by tags
+      activeTags.length > 0
+        ? contacts // Always use all contacts when filtering by tags (including "all")
         : loadedContacts.length > 0
         ? loadedContacts
         : contacts; // Use loaded contacts for regular browsing
@@ -3446,7 +3480,7 @@ console.log(data);
     let fil = filterContactsByUserRole(
       contactsToFilter,
       userRole,
-      userData?.name || ""
+      currentUserName|| ""
     );
 
     const activeTag = activeTags.length > 0 ? activeTags[0].toLowerCase() : "";
@@ -3518,16 +3552,105 @@ console.log(data);
 
     // Check if the active tag matches any of the phone names
     if (activeTags.length > 0) {
-      const phoneIndex = Object.entries(phoneNames).findIndex(
-        ([_, name]) => name.toLowerCase() === activeTag
+      console.log("🔍 Checking phone filter for tag:", activeTag);
+      console.log("🔍 Available phoneNames:", phoneNames);
+      console.log("🔍 Object.entries(phoneNames):", Object.entries(phoneNames));
+      console.log("🔍 Active tag to match:", activeTag);
+      
+      // Try to find a phone index that matches the active tag
+      let phoneIndex = -1;
+      
+      // First, try exact match
+      phoneIndex = Object.entries(phoneNames).findIndex(
+        ([_, name]) => name.toLowerCase() === activeTag.toLowerCase()
       );
+      console.log("🔍 After exact match, phoneIndex:", phoneIndex);
+      
+      // If no exact match, try partial match (e.g., "phone 1" should match "Phone 1")
+      if (phoneIndex === -1) {
+        phoneIndex = Object.entries(phoneNames).findIndex(
+          ([_, name]) => name.toLowerCase().includes(activeTag.toLowerCase()) || 
+                         activeTag.toLowerCase().includes(name.toLowerCase())
+        );
+        console.log("🔍 After partial match, phoneIndex:", phoneIndex);
+      }
+      
+      // If still no match, try to parse the phone number from the tag
+      if (phoneIndex === -1 && activeTag.toLowerCase().includes("phone")) {
+        const phoneMatch = activeTag.toLowerCase().match(/phone\s*(\d+)/i);
+        if (phoneMatch) {
+          const phoneNum = parseInt(phoneMatch[1]) - 1; // Convert to 0-based index
+          console.log("🔍 Parsed phone number:", phoneMatch[1], "converted to index:", phoneNum);
+          if (phoneNames[phoneNum] !== undefined) {
+            phoneIndex = phoneNum;
+            console.log("🔍 Found phone index from parsed number:", phoneIndex);
+          }
+        }
+      }
 
       if (phoneIndex !== -1) {
-        fil = fil.filter((contact) =>
-          contact.phoneIndexes
-            ? contact.phoneIndexes.includes(phoneIndex)
-            : contact.phoneIndex === phoneIndex
-        );
+        console.log("🔍 Phone filter detected:", activeTag, "phoneIndex:", phoneIndex);
+        console.log("🔍 Sample contacts before phone filter:", fil.slice(0, 3).map(c => ({ 
+          id: c.id, 
+          contactName: c.contactName, 
+          phoneIndex: c.phoneIndex, 
+          phoneIndexes: c.phoneIndexes 
+        })));
+        
+        const beforePhoneFilter = fil.length;
+        fil = fil.filter((contact) => {
+          // Check multiple ways a contact might be associated with this phone
+          let hasPhone = false;
+          
+          // Method 1: Check phoneIndexes array
+          if (contact.phoneIndexes && Array.isArray(contact.phoneIndexes)) {
+            hasPhone = contact.phoneIndexes.includes(phoneIndex);
+          }
+          
+          // Method 2: Check phoneIndex field
+          if (!hasPhone && contact.phoneIndex !== undefined && contact.phoneIndex !== null) {
+            hasPhone = contact.phoneIndex === phoneIndex;
+          }
+          
+          // Method 3: Check if contact has messages from this phone
+          if (!hasPhone && contact.chat && Array.isArray(contact.chat)) {
+            hasPhone = contact.chat.some((message: any) => 
+              message.phoneIndex === phoneIndex
+            );
+          }
+          
+          // Method 4: Check last_message phoneIndex
+          if (!hasPhone && contact.last_message && contact.last_message.phoneIndex !== undefined) {
+            hasPhone = contact.last_message.phoneIndex === phoneIndex;
+          }
+          
+          // Debug: Log contacts that don't match the phone filter
+          if (!hasPhone && beforePhoneFilter < 10) {
+            console.log("🔍 Contact filtered out by phone:", {
+              id: contact.id,
+              contactName: contact.contactName,
+              phoneIndex: contact.phoneIndex,
+              phoneIndexes: contact.phoneIndexes,
+              expectedPhoneIndex: phoneIndex
+            });
+          }
+          
+          return hasPhone;
+        });
+        console.log("🔍 Phone filter: before", beforePhoneFilter, "after", fil.length);
+        
+        // If phone filter resulted in 0 contacts, log more details
+        if (fil.length === 0) {
+          console.log("🔍 WARNING: Phone filter resulted in 0 contacts!");
+          console.log("🔍 All contacts phone data:", contacts.slice(0, 10).map(c => ({
+            id: c.id,
+            contactName: c.contactName,
+            phoneIndex: c.phoneIndex,
+            phoneIndexes: c.phoneIndexes
+          })));
+        }
+      } else {
+        console.log("🔍 No phone filter match found for tag:", activeTag);
       }
     }
 
@@ -3566,8 +3689,10 @@ console.log(data);
     // Tag filtering
     if (activeTags.length > 0) {
       const tag = activeTags[0]?.toLowerCase() || "all";
-     // console.log("🔍 Filtering by tag:", tag);
-      //console.log("🔍 Active tags:", activeTags);
+      console.log("🔍 Filtering by tag:", tag);
+      console.log("🔍 Active tags:", activeTags);
+      console.log("🔍 Current user name:", currentUserName);
+      console.log("🔍 Available tags in contacts:", new Set(contacts.flatMap(c => c.tags || []).map(t => typeof t === "string" ? t : String(t))));
 
       fil = fil.filter((contact) => {
         const isGroup = contact.chat_id?.endsWith("@g.us");
@@ -3578,15 +3703,38 @@ console.log(data);
 
        
 
+        // First, check if contact is snoozed - if so, only show in snooze filter
+        const isSnoozed = contact.tags?.includes("snooze");
+        if (isSnoozed && tag !== "snooze") {
+          return false; // Hide snoozed contacts from all other filters
+        }
+
         const matchesTag =
           tag === "all"
-            ? true // Show all conversations (both individual and groups)
+            ? !isSnoozed // Show all non-snoozed conversations
             : tag === "unread"
-            ? contact.unreadCount && contact.unreadCount > 0
+            ? !isSnoozed && contact.unreadCount && contact.unreadCount > 0
             : tag === "mine"
-            ? contact.tags?.includes(currentUserName)
+            ? (() => {
+                // Check if the user is assigned to this contact in multiple ways
+                const hasMineTag = contact.tags?.some((t: string) => 
+                  (typeof t === "string" ? t : String(t)).toLowerCase() === currentUserName.toLowerCase()
+                );
+                
+                // Also check if the user is in the assignedTo array
+                const isAssignedToMe = contact.assignedTo?.some((assigned: string) => 
+                  assigned.toLowerCase() === currentUserName.toLowerCase()
+                );
+                
+                const isMine = hasMineTag || isAssignedToMe;
+                
+                if (tag === "mine") {
+                  console.log("🔍 Mine filter - contact:", contact.contactName, "tags:", contact.tags, "assignedTo:", contact.assignedTo, "currentUserName:", currentUserName, "hasMineTag:", hasMineTag, "isAssignedToMe:", isAssignedToMe, "isMine:", isMine);
+                }
+                return !isSnoozed && isMine;
+              })()
             : tag === "unassigned"
-            ? !contact.tags?.some((t: string) =>
+            ? !isSnoozed && !contact.tags?.some((t: string) =>
                 employeeList.some(
                   (e) =>
                     (e.name?.toLowerCase() || "") ===
@@ -3594,20 +3742,29 @@ console.log(data);
                 )
               )
             : tag === "snooze"
-            ? contact.tags?.includes("snooze")
+            ? isSnoozed // Show snoozed contacts only in snooze filter
             : tag === "resolved"
-            ? contact.tags?.includes("resolved")
+            ? !isSnoozed && contact.tags?.includes("resolved")
             : tag === "group"
-            ? isGroup
+            ? !isSnoozed && isGroup
             : tag === "stop bot"
-            ? contact.tags?.includes("stop bot")
-            : contactTags.includes(tag);
+            ? !isSnoozed && contact.tags?.includes("stop bot")
+            : tag === "active bot"
+            ? (() => {
+                const hasStopBotTag = contact.tags?.includes("stop bot");
+                const isActiveBot = !hasStopBotTag;
+                if (tag === "active bot") {
+                  console.log("🔍 Active Bot filter - contact:", contact.contactName, "tags:", contact.tags, "hasStopBotTag:", hasStopBotTag, "isActiveBot:", isActiveBot);
+                }
+                return !isSnoozed && isActiveBot;
+              })()
+            : !isSnoozed && contactTags.includes(tag);
 
        // console.log("🔍 Contact matches tag:", matchesTag);
         return matchesTag;
       });
 
-    //  console.log("🔍 After tag filtering, contacts count:", fil.length);
+
     }
 
     // Sort by timestamp (works for both APIs)
@@ -3634,8 +3791,9 @@ console.log(data);
     selectedEmployee,
   ]);
 
-  // Debug: Log the filtered results
+      // Debug: Log the filtered results
   useEffect(() => {
+
    
     // Debug: Log all available tags from contacts
     const allTags = new Set<string>();
@@ -3845,6 +4003,7 @@ console.log(data);
   };
 
   const openPDFModal = (url: string) => {
+
     setPdfUrl(url);
     setPDFModalOpen(true);
   };
@@ -3858,10 +4017,192 @@ console.log(data);
   let totalChats = 0;
 
   const openDeletePopup = () => {
+  
     setIsDeletePopupOpen(true);
   };
   const closeDeletePopup = () => {
     setIsDeletePopupOpen(false);
+  };
+
+  const handleForwardMessages = async () => {
+    if (selectedContactsForForwarding.length === 0) {
+      toast.error("Please select at least one contact to forward to");
+      return;
+    }
+
+    try {
+      const {
+        companyId: cId,
+        baseUrl: apiUrl,
+        userData: uData,
+      } = await getCompanyData();
+      
+      if (!uData) {
+        console.error("No authenticated user");
+        toast.error("Authentication error. Please try logging in again.");
+        return;
+      }
+
+      let successCount = 0;
+      let failureCount = 0;
+
+      // Forward each selected message to each selected contact
+      for (const contact of selectedContactsForForwarding) {
+        for (const message of selectedMessages) {
+          try {
+            // Skip temporary messages
+            if (!message.id || message.id.startsWith('temp_')) {
+              continue;
+            }
+
+            // Determine the message type and content
+            let messageType = 'text';
+            let messageContent = '';
+            let mediaUrl = '';
+            let caption = '';
+
+            if (message.text?.body) {
+              messageType = 'text';
+              messageContent = message.text.body;
+            } else if (message.image?.link) {
+              messageType = 'image';
+              mediaUrl = message.image.link;
+              caption = message.image.caption || '';
+            } else if (message.video?.link) {
+              messageType = 'video';
+              mediaUrl = message.video.link;
+              caption = message.video.caption || '';
+            } else if (message.document?.link) {
+              messageType = 'document';
+              mediaUrl = message.document.link;
+              caption = message.document.caption || '';
+            } else if (message.audio?.link) {
+              messageType = 'audio';
+              mediaUrl = message.audio.link;
+              caption = message.audio.caption || '';
+            } else if (message.voice?.link) {
+              messageType = 'audio';
+              mediaUrl = message.voice.link;
+              caption = message.voice.caption || '';
+            } else if (message.sticker?.link) {
+              messageType = 'sticker';
+              mediaUrl = message.sticker.link;
+            }
+
+            // Send the message using the appropriate v2/messages endpoint
+            let response;
+            const chatId = contact.chat_id || contact.contact_id;
+
+            if (!chatId) {
+              console.error('No valid chat ID for contact:', contact);
+              failureCount++;
+              continue;
+            }
+
+            switch (messageType) {
+              case 'text':
+                response = await fetch(`${apiUrl}/api/v2/messages/text/${cId}/${chatId}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    message: messageContent,
+                    phoneIndex: contact.phoneIndex || 0
+                  })
+                });
+                break;
+
+              case 'image':
+                response = await fetch(`${apiUrl}/api/v2/messages/image/${cId}/${chatId}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    imageUrl: mediaUrl,
+                    caption: caption,
+                    phoneIndex: contact.phoneIndex || 0
+                  })
+                });
+                break;
+
+              case 'video':
+                response = await fetch(`${apiUrl}/api/v2/messages/video/${cId}/${chatId}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    videoUrl: mediaUrl,
+                    caption: caption,
+                    phoneIndex: contact.phoneIndex || 0
+                  })
+                });
+                break;
+
+              case 'document':
+                response = await fetch(`${apiUrl}/api/v2/messages/document/${cId}/${chatId}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    documentUrl: mediaUrl,
+                    caption: caption,
+                    phoneIndex: contact.phoneIndex || 0
+                  })
+                });
+                break;
+
+              case 'audio':
+                response = await fetch(`${apiUrl}/api/v2/messages/audio/${cId}/${chatId}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    audioUrl: mediaUrl,
+                    caption: caption,
+                    phoneIndex: contact.phoneIndex || 0
+                  })
+                });
+                break;
+
+              case 'sticker':
+                response = await fetch(`${apiUrl}/api/v2/messages/sticker/${cId}/${chatId}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    stickerUrl: mediaUrl,
+                    phoneIndex: contact.phoneIndex || 0
+                  })
+                });
+                break;
+
+              default:
+                console.warn('Unsupported message type for forwarding:', messageType);
+                continue;
+            }
+
+            if (response.ok) {
+              successCount++;
+            } else {
+              console.error(`Failed to forward ${messageType} message to ${contact.contactName || contact.firstName}:`, response.status);
+              failureCount++;
+            }
+          } catch (error) {
+            console.error(`Error forwarding message to ${contact.contactName || contact.firstName}:`, error);
+            failureCount++;
+          }
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Successfully forwarded ${successCount} message(s)`);
+      }
+      if (failureCount > 0) {
+        toast.error(`Failed to forward ${failureCount} message(s)`);
+      }
+
+      // Close the forward dialog and clear selections
+      setIsForwardDialogOpen(false);
+      setSelectedContactsForForwarding([]);
+      setSelectedMessages([]);
+    } catch (error) {
+      console.error("Error in forward operation:", error);
+      toast.error("Failed to forward messages. Please try again.");
+    }
   };
 
   const deleteMessages = async () => {
@@ -3882,17 +4223,78 @@ console.log(data);
       let failureCount = 0;
 
       const phoneIndex = selectedContact?.phoneIndex || 0;
-
+      console.log(selectedMessages);
       for (const message of selectedMessages) {
+        // Skip temporary messages that don't have a real message_id
+        if (!message.id || message.id.startsWith('temp_')) {
+          console.log('Skipping temporary message:', message.id);
+          continue;
+        }
+        
         try {
+          console.log('msg',message);
+          // Construct the proper chat ID format: companyId-phoneNumber
+          // Extract phone number from the corrupted chat_id or use contact phone
+          let phoneNumber = '';
+          if (selectedContact?.chat_id) {
+            // Try to extract phone from the corrupted chat_id
+            const match = selectedContact.chat_id.match(/(\d+)@c\.us/);
+            if (match) {
+              phoneNumber = match[1];
+            }
+          }
+          
+          // Fallback to contact phone if extraction failed
+          if (!phoneNumber && selectedContact?.phone) {
+            phoneNumber = selectedContact.phone.replace('+', '');
+          }
+          
+          if (!phoneNumber) {
+            console.error('No valid phone number found for deletion');
+            failureCount++;
+            continue;
+          }
+          
+          // Construct chat ID in format: companyId-phoneNumber
+          const chatId = `${cId}-${phoneNumber}`;
+          
+          // Debug: Log the full message object to see what fields are available
+          console.log('Full message object:', message);
+          console.log('Available message fields:', Object.keys(message));
+          console.log('message.message_id:', message.message_id);
+          console.log('message.id:', message.id);
+          
+          // Use the message.id field which contains the WhatsApp message ID
+          let cleanMessageId = message.id;
+          console.log('Initial cleanMessageId:', cleanMessageId);
+          
+          // Extract the actual message ID part from the WhatsApp message_id
+          if (typeof cleanMessageId === 'string' && cleanMessageId.includes('@c.us_')) {
+            const parts = cleanMessageId.split('@c.us_');
+            if (parts.length > 1) {
+              cleanMessageId = parts[1];
+            }
+          }
+          
+          console.log('Final cleanMessageId:', cleanMessageId);
+          
+          console.log('Using chat ID for deletion:', chatId);
+          console.log('Using message ID for deletion:', cleanMessageId);
+
+          console.log('Sending delete request with:', {
+            companyId: cId,
+            chatId: chatId,
+            messageId: cleanMessageId,
+            phoneIndex: phoneIndex,
+            deleteForEveryone: true
+          });
+
           const response = await axios.delete(
-            `${apiUrl}/api/v2/messages/${cId}/${selectedContactId}/${message.id}`,
+            `${apiUrl}/api/v2/messages/${cId}/${chatId}/${cleanMessageId}`,
             {
               data: {
                 deleteForEveryone: true,
                 phoneIndex: phoneIndex,
-                messageId: message.id,
-                chatId: selectedChatId,
               },
             }
           );
@@ -3917,6 +4319,15 @@ console.log(data);
               error.response.status,
               error.response.data
             );
+            // Log the full response for debugging
+            console.error("Full error response:", {
+              status: error.response.status,
+              statusText: error.response.statusText,
+              data: error.response.data,
+              headers: error.response.headers
+            });
+          } else {
+            console.error("Non-Axios error:", error);
           }
           failureCount++;
         }
@@ -3924,6 +4335,16 @@ console.log(data);
 
       if (successCount > 0) {
         toast.success(`Successfully deleted ${successCount} message(s)`);
+        
+        // Remove deleted messages from the current messages state immediately
+        setMessages((prevMessages) => 
+          prevMessages.filter((msg) => 
+            !selectedMessages.some(selectedMsg => 
+              selectedMsg.id === msg.id
+            )
+          )
+        );
+        
         // Refresh the chat to ensure WhatsApp changes are reflected
         await fetchMessages(selectedChatId!, whapiToken!);
       }
@@ -3931,6 +4352,7 @@ console.log(data);
         toast.error(`Failed to delete ${failureCount} message(s)`);
       }
 
+      // Clear selected messages and close all modals
       setSelectedMessages([]);
       closeDeletePopup();
     } catch (error) {
@@ -5403,22 +5825,61 @@ console.log(data);
 
       const messages = await messagesResponse.json();
       console.log("meesages:", messages);
+      
+      // Debug: Log all action messages to see their structure
+      const actionMessages = messages.filter((msg: any) => msg.message_type === "action");
+      console.log("Action messages found:", actionMessages);
+      
+      // Debug: Log all messages with reactions
+      const messagesWithReactions = messages.filter((msg: any) => msg.reaction && msg.reaction_timestamp);
+      console.log("Messages with reactions:", messagesWithReactions);
+      
       const formattedMessages: any[] = [];
       const reactionsMap: Record<string, any[]> = {};
+      
+      // First pass: collect reactions from messages that have them directly attached
+      messagesWithReactions.forEach((message: any) => {
+        console.log("Processing message with reaction:", message.message_id, message.reaction);
+        if (!reactionsMap[message.message_id]) {
+          reactionsMap[message.message_id] = [];
+        }
+        reactionsMap[message.message_id].push({
+          emoji: message.reaction,
+          from_name: message.author || message.from_name,
+        });
+        console.log("Added reaction to map for message:", message.message_id, reactionsMap[message.message_id]);
+      });
 
       messages.forEach(async (message: any) => {
-        if (
-          message.message_type === "action" &&
-          message.content?.type === "reaction"
-        ) {
-          const targetMessageId = message.content.target;
-          if (!reactionsMap[targetMessageId]) {
-            reactionsMap[targetMessageId] = [];
+        // Handle reaction messages - they have message_type "action" and contain reaction data
+        if (message.message_type === "action") {
+          try {
+            // Parse the content to extract reaction information
+            let reactionData = null;
+            if (typeof message.content === 'string') {
+              reactionData = JSON.parse(message.content);
+            } else if (message.content) {
+              reactionData = message.content;
+            }
+            
+            // Check if this is a reaction message
+            if (reactionData && (reactionData.type === "reaction" || reactionData.reaction)) {
+              const targetMessageId = reactionData.target || reactionData.message_id;
+              const emoji = reactionData.emoji || reactionData.reaction;
+              
+              if (targetMessageId && emoji) {
+                if (!reactionsMap[targetMessageId]) {
+                  reactionsMap[targetMessageId] = [];
+                }
+                reactionsMap[targetMessageId].push({
+                  emoji: emoji,
+                  from_name: message.author || message.from_name,
+                });
+              }
+            }
+          } catch (error) {
+            console.error("Error parsing reaction message:", error, message);
           }
-          reactionsMap[targetMessageId].push({
-            emoji: message.content.emoji,
-            from_name: message.author,
-          });
         } else {
           const formattedMessage: any = {
             id:
@@ -5426,6 +5887,7 @@ console.log(data);
               `main-${message.chat_id}-${message.timestamp}-${Math.random()
                 .toString(36)
                 .substr(2, 9)}`,
+            message_id: message.message_id, // Preserve the WhatsApp message ID
             from_me: message.from_me,
             from_name: message.author,
             from: message.customer_phone,
@@ -5585,9 +6047,11 @@ console.log(data);
       });
 
       // Add reactions to the respective messages
+      console.log("Reactions map before applying:", reactionsMap); // Debug log
       formattedMessages.forEach((message) => {
         if (reactionsMap[message.id]) {
           message.reactions = reactionsMap[message.id];
+          console.log(`Added reactions to message ${message.id}:`, message.reactions); // Debug log
         }
       });
 
@@ -5662,20 +6126,51 @@ console.log(data);
         // Format new messages using the same logic as fetchMessages
         const formattedNewMessages: any[] = [];
         const reactionsMap: Record<string, any[]> = {};
+        
+        // First pass: collect reactions from messages that have them directly attached
+        newMessages.forEach((message: any) => {
+          if (message.reaction && message.reaction_timestamp) {
+            console.log("Poll: Found message with reaction:", message.message_id, message.reaction);
+            if (!reactionsMap[message.message_id]) {
+              reactionsMap[message.message_id] = [];
+            }
+            reactionsMap[message.message_id].push({
+              emoji: message.reaction,
+              from_name: message.author || message.from_name,
+            });
+          }
+        });
 
         newMessages.forEach((message: any) => {
-          if (
-            message.message_type === "action" &&
-            message.content?.type === "reaction"
-          ) {
-            const targetMessageId = message.content.target;
-            if (!reactionsMap[targetMessageId]) {
-              reactionsMap[targetMessageId] = [];
+          // Handle reaction messages - they have message_type "action" and contain reaction data
+          if (message.message_type === "action") {
+            try {
+              // Parse the content to extract reaction information
+              let reactionData = null;
+              if (typeof message.content === 'string') {
+                reactionData = JSON.parse(message.content);
+              } else if (message.content) {
+                reactionData = message.content;
+              }
+              
+              // Check if this is a reaction message
+              if (reactionData && (reactionData.type === "reaction" || reactionData.reaction)) {
+                const targetMessageId = reactionData.target || reactionData.message_id;
+                const emoji = reactionData.emoji || reactionData.reaction;
+                
+                if (targetMessageId && emoji) {
+                  if (!reactionsMap[targetMessageId]) {
+                    reactionsMap[targetMessageId] = [];
+                  }
+                  reactionsMap[targetMessageId].push({
+                    emoji: emoji,
+                    from_name: message.author || message.from_name,
+                  });
+                }
+              }
+            } catch (error) {
+              console.error("Error parsing reaction message:", error, message);
             }
-            reactionsMap[targetMessageId].push({
-              emoji: message.content.emoji,
-              from_name: message.author,
-            });
           } else {
             const formattedMessage: any = {
               id:
@@ -5984,20 +6479,51 @@ console.log(data);
 
       const formattedMessages: any[] = [];
       const reactionsMap: Record<string, any[]> = {};
+      
+      // First pass: collect reactions from messages that have them directly attached
+      messages.forEach((message: any) => {
+        if (message.reaction && message.reaction_timestamp) {
+          console.log("Third instance: Found message with reaction:", message.message_id, message.reaction);
+          if (!reactionsMap[message.message_id]) {
+            reactionsMap[message.message_id] = [];
+          }
+          reactionsMap[message.message_id].push({
+            emoji: message.reaction,
+            from_name: message.author || message.from_name,
+          });
+        }
+      });
 
       messages.forEach(async (message: any) => {
-        if (
-          message.message_type === "action" &&
-          message.content?.type === "reaction"
-        ) {
-          const targetMessageId = message.content.target;
-          if (!reactionsMap[targetMessageId]) {
-            reactionsMap[targetMessageId] = [];
+        // Handle reaction messages - they have message_type "action" and contain reaction data
+        if (message.message_type === "action") {
+          try {
+            // Parse the content to extract reaction information
+            let reactionData = null;
+            if (typeof message.content === 'string') {
+              reactionData = JSON.parse(message.content);
+            } else if (message.content) {
+              reactionData = message.content;
+            }
+            
+            // Check if this is a reaction message
+            if (reactionData && (reactionData.type === "reaction" || reactionData.reaction)) {
+              const targetMessageId = reactionData.target || reactionData.message_id;
+              const emoji = reactionData.emoji || reactionData.reaction;
+              
+              if (targetMessageId && emoji) {
+                if (!reactionsMap[targetMessageId]) {
+                  reactionsMap[targetMessageId] = [];
+                }
+                reactionsMap[targetMessageId].push({
+                  emoji: emoji,
+                  from_name: message.author || message.from_name,
+                });
+              }
+            }
+          } catch (error) {
+            console.error("Error parsing reaction message:", error, message);
           }
-          reactionsMap[targetMessageId].push({
-            emoji: message.content.emoji,
-            from_name: message.author,
-          });
         } else {
           const formattedMessage: any = {
             id: message.message_id,
@@ -6185,7 +6711,7 @@ console.log(data);
     try {
       // Get user info from localStorage or state
       const userEmail = localStorage.getItem("userEmail") || userData?.email;
-      const from = userData?.name || userEmail || "";
+      const from = currentUserName|| userEmail || "";
       const companyIdToUse = companyId || userData?.companyId;
 
       if (!companyIdToUse || !selectedChatId || !from) {
@@ -6334,7 +6860,7 @@ console.log(data);
         message: messageText,
         quotedMessageId: replyToMessage?.id || null,
         phoneIndex: phoneIndex,
-        userName: userData?.name || "",
+        userName: currentUserName|| "",
       };
 
       const response = await fetch(url, {
@@ -7529,6 +8055,11 @@ console.log(data);
   const handlePageChange = async ({ selected }: { selected: number }) => {
     setCurrentPage(selected);
 
+    // Reset contact list scroll to top when changing pages
+    if (contactListRef.current) {
+      contactListRef.current.scrollTop = 0;
+    }
+
     // Calculate how many contacts we need to display
     const startIndex = selected * contactsPerPage;
     const endIndex = startIndex + contactsPerPage;
@@ -7752,6 +8283,20 @@ console.log(data);
   // Update the pagination logic to work with loaded contacts
 
   useEffect(() => {
+    // Reset to first page if current page is beyond the available filtered contacts
+    const maxPage = Math.max(0, Math.ceil(filteredContactsSearch.length / contactsPerPage) - 1);
+    if (currentPage > maxPage && filteredContactsSearch.length > 0) {
+      setCurrentPage(0);
+      return;
+    }
+
+    // If there are no filtered contacts, reset to page 0
+    if (filteredContactsSearch.length === 0) {
+      setCurrentPage(0);
+      setPaginatedContacts([]);
+      return;
+    }
+
     const startIndex = currentPage * contactsPerPage;
     const endIndex = startIndex + contactsPerPage;
     // Use filteredContactsSearch instead of loadedContacts to ensure proper sorting
@@ -7787,9 +8332,16 @@ console.log(data);
     setFilteredContacts(filteredFromLoaded);
   }, [filteredContactsSearch, loadedContacts]);
 
+  // Reset to first page when filtering criteria change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchQuery, activeTags, selectedEmployee]);
+
   const filterTagContact = (tag: string) => {
     console.log("🔍 filterTagContact called with tag:", tag);
     console.log("🔍 Current employeeList:", employeeList);
+    console.log("🔍 Current phoneNames:", phoneNames);
+    console.log("🔍 Current userData:", userData);
 
     // Set loading state for tag filtering
     setIsTagFiltering(true);
@@ -7812,6 +8364,9 @@ console.log(data);
       ]);
     }
     setSearchQuery("");
+    
+    // Reset to first page when filtering
+    setCurrentPage(0);
 
     // Reset loading state after a short delay to allow filtering to complete
     setTimeout(() => {
@@ -8072,6 +8627,7 @@ console.log(data);
   };
 
   const handleSelectMessage = (message: Message) => {
+    console.log('messageaa',message);
     setSelectedMessages((prevSelectedMessages) =>
       prevSelectedMessages.includes(message)
         ? prevSelectedMessages.filter((m) => m.id !== message.id)
@@ -8435,6 +8991,8 @@ console.log(data);
 
   const togglePinConversation = async (chatId: string) => {
     try {
+      console.log("togglePinConversation called with chatId:", chatId);
+      
       // Find the contact to toggle
       const contactToToggle = contacts.find(
         (contact) => contact.chat_id === chatId
@@ -8444,44 +9002,127 @@ console.log(data);
         return;
       }
 
+      console.log("Found contact to toggle:", contactToToggle);
+      console.log("Current pinned status:", contactToToggle.pinned);
+
       // Get companyId from userData or state
       const cId = userData?.companyId || companyId;
+      console.log("userData:", userData);
+      console.log("companyId state:", companyId);
+      console.log("Using companyId:", cId);
+      
       if (!cId) {
         console.error("Company ID is missing");
+        console.error("userData:", userData);
+        console.error("companyId state:", companyId);
         return;
       }
+
+      console.log("Using companyId:", cId);
 
       // Toggle the pinned status
       const newPinnedStatus = !contactToToggle.pinned;
 
       // Call the backend API to update pinned status
-      const response = await fetch(
-        `${baseUrl}/api/contacts/${contactToToggle.contact_id}/pinned`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            companyId: cId,
-            pinned: newPinnedStatus,
-          }),
-        }
-      );
+      const apiUrl = `${baseUrl}/api/contacts/${contactToToggle.contact_id}/pinned`;
+      console.log("Making API call to:", apiUrl);
+      console.log("Request payload:", { companyId: cId, pinned: newPinnedStatus });
+      
+      const response = await fetch(apiUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          companyId: cId,
+          pinned: newPinnedStatus,
+        }),
+      });
+
+      console.log("API response status:", response.status);
+      console.log("API response ok:", response.ok);
 
       if (!response.ok) {
-        throw new Error("Failed to update pin status");
+        const errorText = await response.text();
+        console.error("API error response:", errorText);
+        throw new Error(`Failed to update pin status: ${response.status} ${errorText}`);
       }
 
-      // Update the local state
-      setContacts((prevContacts) =>
-        prevContacts.map((contact) =>
-          contact.id === contactToToggle.id
-            ? { ...contact, pinned: newPinnedStatus }
-            : contact
-        )
-      );
+      console.log("Updating local state with new pinned status:", newPinnedStatus);
+      console.log("Looking for contact with chat_id:", contactToToggle.chat_id);
+      
+      // Helper function to update contact pinned status
+      const updateContactPinnedStatus = (contact: Contact) => {
+        if (contact.chat_id === contactToToggle.chat_id) {
+          console.log("Found contact to update:", contact);
+          return { ...contact, pinned: newPinnedStatus };
+        }
+        return contact;
+      };
 
+      // Helper function to sort contacts (pinned first, then by timestamp)
+      const sortContacts = (contactsToSort: Contact[]) => {
+        return [...contactsToSort].sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          // If both have same pinned status, sort by timestamp (newest first)
+          return getContactTimestamp(b) - getContactTimestamp(a);
+        });
+      };
+
+      // Update all contact states and re-sort
+      setContacts((prevContacts) => {
+        const updatedContacts = prevContacts.map(updateContactPinnedStatus);
+        const sortedContacts = sortContacts(updatedContacts);
+        console.log("Updated and sorted main contacts state");
+        return sortedContacts;
+      });
+
+      // Update loadedContacts if it exists
+      setLoadedContacts((prevLoadedContacts) => {
+        if (prevLoadedContacts && prevLoadedContacts.length > 0) {
+          const updatedLoadedContacts = prevLoadedContacts.map(updateContactPinnedStatus);
+          const sortedLoadedContacts = sortContacts(updatedLoadedContacts);
+          console.log("Updated and sorted loaded contacts state");
+          return sortedLoadedContacts;
+        }
+        return prevLoadedContacts;
+      });
+
+      // Update filteredContacts if it exists
+      setFilteredContacts((prevFilteredContacts) => {
+        if (prevFilteredContacts && prevFilteredContacts.length > 0) {
+          const updatedFilteredContacts = prevFilteredContacts.map(updateContactPinnedStatus);
+          const sortedFilteredContacts = sortContacts(updatedFilteredContacts);
+          console.log("Updated and sorted filtered contacts state");
+          return sortedFilteredContacts;
+        }
+        return prevFilteredContacts;
+      });
+
+      console.log("Successfully updated pinned status to:", newPinnedStatus);
+      
+      // Force a re-render by updating a timestamp
+      setContacts((prevContacts) => {
+        const updatedContacts = prevContacts.map(contact => 
+          contact.chat_id === contactToToggle.chat_id 
+            ? { ...contact, pinned: newPinnedStatus, _lastUpdated: Date.now() }
+            : contact
+        );
+        return updatedContacts;
+      });
+      
       toast.success(`Conversation ${newPinnedStatus ? "pinned" : "unpinned"}`);
+      
+      // Log the final state for debugging
+      setTimeout(() => {
+        console.log("Final contacts state after pin update:");
+        console.log(contacts.map(c => ({ 
+          name: c.name, 
+          chat_id: c.chat_id, 
+          pinned: c.pinned,
+          _lastUpdated: (c as any)._lastUpdated 
+        })));
+      }, 100);
     } catch (error) {
       console.error("Error toggling chat pin state:", error);
       toast.error("Failed to update pin status");
@@ -8493,88 +9134,7 @@ console.log(data);
     setImageModalOpen(true);
   };
 
-  const handleSave = async () => {
-    try {
-      // Get user/company info from localStorage or state
-      const userEmail = localStorage.getItem("userEmail");
-      if (!userEmail) {
-        toast.error("No user email found");
-        return;
-      }
-
-      // Fetch user context to get companyId
-      const userResponse = await fetch(
-        `${baseUrl}/api/user-context?email=${encodeURIComponent(userEmail)}`,
-        {
-          method: "GET",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-      if (!userResponse.ok) {
-        toast.error("Failed to fetch user context");
-        return;
-      }
-      const userData = await userResponse.json();
-      const companyId = userData.companyId;
-
-      // Call the SQL API to update contact name
-      const response = await fetch(
-        `${baseUrl}/api/contacts/${selectedContact.contact_id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            companyId,
-            name: editedName,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        toast.error("Failed to update contact name");
-        return;
-      }
-
-      // Update local state
-      setSelectedContact((prevContact: any) => ({
-        ...prevContact,
-        contactName: editedName,
-      }));
-
-      setContacts((prevContacts) =>
-        prevContacts.map((contact) =>
-          contact.id === selectedContact.id
-            ? { ...contact, contactName: editedName }
-            : contact
-        )
-      );
-
-      // Update localStorage
-      const storedContacts = localStorage.getItem("contacts");
-      if (storedContacts) {
-        const decompressedContacts = JSON.parse(
-          LZString.decompress(storedContacts)!
-        );
-        const updatedContacts = decompressedContacts.map((contact: any) =>
-          contact.id === selectedContact.id
-            ? { ...contact, contactName: editedName }
-            : contact
-        );
-        localStorage.setItem(
-          "contacts",
-          LZString.compress(JSON.stringify(updatedContacts))
-        );
-      }
-
-      setIsEditing(false);
-      toast.success("Contact name updated successfully!");
-    } catch (error) {
-      console.error("Error updating contact name:", error);
-      toast.error("Failed to update contact name.");
-    }
-  };
+  // Removed unused handleSave function - contact editing is now handled by handleSaveContact
 
   const closeImageModal = () => {
     setImageModalOpen(false);
@@ -8990,26 +9550,6 @@ console.log(data);
     };
 
     checkAllBotsStopped();
-  }, [contacts]);
-
-  useEffect(() => {
-    const checkBotsStatus = () => {
-      const allStopped = contacts.every((contact) =>
-        contact.tags?.includes("stop bot")
-      );
-      const allRunning = contacts.every(
-        (contact) => !contact.tags?.includes("stop bot")
-      );
-      if (allStopped) {
-        setBotsStatus("allStopped");
-      } else if (allRunning) {
-        setBotsStatus("allRunning");
-      } else {
-        setBotsStatus("mixed");
-      }
-    };
-
-    checkBotsStatus();
   }, [contacts]);
 
   useEffect(() => {
@@ -9937,8 +10477,9 @@ console.log(data);
       }
 
       updateData.companyId = companyIdToUse;
-      updateData.name =
-        updateData.contactName || editedContact.contactName || "";
+      // Ensure both name and contactName are set correctly
+      updateData.name = editedContact.contactName || editedContact.name || "";
+      updateData.contactName = editedContact.contactName || editedContact.name || "";
 
       const response = await fetch(`${baseUrl}/api/contacts/${contact_id}`, {
         method: "PUT",
@@ -9952,7 +10493,33 @@ console.log(data);
         return;
       }
 
-      setSelectedContact({ ...selectedContact, ...updateData });
+      // Update selectedContact with all the edited data, including contactName
+      const updatedContact = {
+        ...selectedContact,
+        ...editedContact,
+        ...updateData,
+        // Ensure contactName and name are properly set and synchronized
+        contactName: editedContact.contactName || editedContact.name || selectedContact.contactName,
+        name: editedContact.contactName || editedContact.name || selectedContact.contactName,
+        // Also ensure firstName is updated if contactName is set
+        firstName: editedContact.contactName || editedContact.name || selectedContact.firstName,
+      };
+      
+      setSelectedContact(updatedContact);
+      
+      // Also update the contacts list to reflect the changes immediately
+      setContacts(prevContacts => 
+        prevContacts.map(contact => 
+          contact.contact_id === contact_id ? updatedContact : contact
+        )
+      );
+      
+      setFilteredContacts(prevContacts => 
+        prevContacts.map(contact => 
+          contact.contact_id === contact_id ? updatedContact : contact
+        )
+      );
+      
       setIsEditing(false);
       setEditedContact(null);
       toast.success("Contact updated successfully!");
@@ -9973,7 +10540,7 @@ console.log(data);
           selectedChatId ? "hidden md:flex" : "flex"
         }`}
       >
-        <div className="flex items-center justify-between pl-3 pr-3 pt-4 pb-2 sticky top-0 z-10 bg-gray-100 dark:bg-gray-900">
+        <div className="flex items-center justify-between pl-3 pr-3 pt-4 pb-2 sticky top-0 z-10 bg-white/10 dark:bg-gray-900/20 backdrop-blur-md border-b border-white/20 dark:border-gray-700/30 shadow-sm">
           <div className="flex items-center gap-3">
             <div>
               <div className="text-start text-xl font-bold capitalize text-gray-800 dark:text-gray-200 mb-1">
@@ -9998,7 +10565,7 @@ console.log(data);
             {
               <Menu as="div" className="relative inline-block text-left">
                 <div>
-                  <Menu.Button className="flex items-center space-x-1.5 text-sm font-bold opacity-75 bg-white dark:bg-gray-800 px-2 py-1.5 rounded-md shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-blue-500 transition-all duration-200">
+                  <Menu.Button className="flex items-center space-x-1.5 text-sm font-bold opacity-75 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md hover:bg-white dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100/50 focus:ring-blue-500/50 transition-all duration-300 border border-white/30 dark:border-gray-600/50">
                     <Lucide
                       icon="Phone"
                       className="w-3 h-3 text-gray-800 dark:text-white"
@@ -10075,10 +10642,10 @@ console.log(data);
                     setWsError(null);
                   }
                 }}
-                className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-md shadow-md border transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer w-full ${
+                className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg shadow-md border transition-all duration-300 ease-out hover:scale-105 active:scale-95 cursor-pointer w-full backdrop-blur-sm ${
                   wsConnected
-                    ? "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600"
+                    ? "bg-white/90 dark:bg-gray-800/90 border-white/30 dark:border-gray-600/50 hover:bg-white dark:hover:bg-gray-700"
+                    : "bg-white/90 dark:bg-gray-800/90 border-white/30 dark:border-gray-600/50"
                 }`}
                 disabled={!wsConnected}
               >
@@ -10126,7 +10693,7 @@ console.log(data);
                     // This will trigger the useEffect to re-run and create a new connection
                     setWsVersion((prev) => prev + 1);
                   }}
-                  className="flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-md hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none w-full"
+                  className="flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-bold bg-gradient-to-r from-blue-500/90 to-blue-600/90 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300 ease-out shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none w-full backdrop-blur-sm border border-blue-400/50"
                   disabled={wsReconnectAttempts >= maxReconnectAttempts}
                 >
                   <svg
@@ -10145,17 +10712,18 @@ console.log(data);
                   {wsReconnectAttempts >= maxReconnectAttempts
                     ? "Max retries"
                     : "Reconnect"}
-                </button>
+                </button> 
               )}
             </div>
           </div>
         </div>
         {(companyPlan === "enterprise" || companyPlan === "free") && (
-          <div
-            className="px-2 py-1.5 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 mb-1.5 cursor-pointer hover:shadow-md transition-all duration-200"
-            onClick={openUsageDashboard}
-            title="Click to view detailed usage analytics"
-          >
+          <div className="w-full pr-3 py-1.5">
+            <div
+              className="px-3 py-2 rounded-xl bg-gradient-to-br from-white/20 to-white/40 dark:from-gray-800/30 dark:to-gray-700/40 backdrop-blur-md shadow-lg border border-white/30 dark:border-gray-600/50 cursor-pointer hover:shadow-xl transition-all duration-300 ease-out hover:scale-[1.02]"
+              onClick={openUsageDashboard}
+              title="Click to view detailed usage analytics"
+            >
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
                 <Lucide icon="Sparkles" className="w-2.5 h-2.5 text-primary" />
@@ -10179,7 +10747,7 @@ console.log(data);
                     e.stopPropagation();
                     setIsTopUpModalOpen(true);
                   }}
-                  className="px-2 py-1 text-xs bg-primary hover:bg-primary/80 text-white rounded-md transition-all duration-200 hover:scale-105 active:scale-95 font-medium"
+                  className="px-2 py-1 text-xs bg-primary/90 hover:bg-primary backdrop-blur-sm text-white rounded-lg transition-all duration-300 ease-out hover:scale-105 active:scale-95 font-medium border border-primary/50 shadow-sm hover:shadow-md"
                 >
                   Top-up
                 </button>
@@ -10261,16 +10829,17 @@ console.log(data);
                   e.stopPropagation();
                   openUsageDashboard();
                 }}
-                className="text-xs text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary flex items-center gap-1 transition-all duration-200 hover:scale-105 active:scale-95 font-medium"
+                className="text-xs text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary flex items-center gap-1 transition-all duration-300 ease-out hover:scale-105 active:scale-95 font-medium bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm rounded-lg px-2 py-1 hover:bg-white/30 dark:hover:bg-gray-800/30 border border-white/20 dark:border-gray-600/30"
               >
                 <Lucide icon="BarChart3" className="w-3 h-3" />
                 View Analytics
               </button>
             </div>
           </div>
+        </div>
         )}
-        <div className="sticky top-20 bg-gray-100 dark:bg-gray-900 p-2">
-          <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-900">
+        <div className="sticky top-20 bg-white/10 dark:bg-gray-900/20 backdrop-blur-sm p-2 z-30 border-b border-white/20 dark:border-gray-700/30">
+          <div className="flex items-center space-x-2">
             {notifications.length > 0 && (
               <NotificationPopup notifications={notifications} />
             )}
@@ -10279,10 +10848,10 @@ console.log(data);
             <div className="relative flex-grow">
               <button
                 onClick={() => setIsSearchModalOpen(true)}
-                className="flex items-center w-full h-7 py-1.5 pl-6 pr-3 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                className="flex items-center w-full h-9 py-2 pl-7 pr-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm text-gray-500 dark:text-gray-400 rounded-lg hover:bg-white dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all duration-300 border border-white/30 dark:border-gray-600/50 shadow-sm hover:shadow-md"
               >
-                <Lucide icon="Search" className="absolute left-2 w-3 h-3" />
-                <span className="ml-1.5 text-sm">Search contacts...</span>
+                <Lucide icon="Search" className="absolute left-2.5 w-4 h-4" />
+                <span className="ml-2 text-base">Search contacts...</span>
               </button>
 
               <SearchModal
@@ -10325,10 +10894,10 @@ console.log(data);
             <div className="flex items-center space-x-1.5">
               {isAssistantAvailable && (
                 <button
-                  className={`flex items-center justify-center p-1.5 rounded-md transition-all duration-200 hover:scale-105 active:scale-95 ${
+                  className={`flex items-center justify-center p-2 rounded-lg transition-all duration-300 ease-out hover:scale-105 active:scale-95 backdrop-blur-sm border shadow-sm hover:shadow-md ${
                     companyStopBot
-                      ? "bg-red-500 hover:bg-red-600 text-white"
-                      : "bg-green-500 hover:bg-green-600 text-white"
+                      ? "bg-red-500/90 hover:bg-red-600/90 text-white border-red-400/50"
+                      : "bg-green-500/90 hover:bg-green-600/90 text-white border-green-400/50"
                   } ${userRole === "3" ? "opacity-50 cursor-not-allowed" : ""}`}
                   onClick={toggleBot}
                   disabled={userRole === "3"}
@@ -10336,17 +10905,17 @@ console.log(data);
                 >
                   <Lucide
                     icon={companyStopBot ? "PowerOff" : "Power"}
-                    className="w-3 h-3"
+                    className="w-4 h-4"
                   />
                 </button>
               )}
 
               {/* Employee assignment button */}
               <Menu as="div" className="relative inline-block text-left">
-                <Menu.Button className="flex items-center justify-center p-1.5 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-all duration-200">
+                <Menu.Button className="flex items-center justify-center p-2 bg-white/80 dark:bg-gray-800/80 hover:bg-white/90 dark:hover:bg-gray-700/90 backdrop-blur-sm rounded-lg transition-all duration-300 border border-white/30 dark:border-gray-600/50 shadow-sm hover:shadow-md">
                   <Lucide
                     icon="Users"
-                    className="w-3 h-3 text-gray-800 dark:text-gray-200"
+                    className="w-4 h-4 text-gray-800 dark:text-gray-200"
                   />
                 </Menu.Button>
                 <Menu.Items className="absolute right-0 mt-1.5 w-36 shadow-lg rounded-md bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 p-1.5 z-10 max-h-40 overflow-y-auto">
@@ -10426,20 +10995,22 @@ console.log(data);
 
               {/* Tags expansion toggle */}
               <button
-                className="p-1.5 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-all duration-200"
+                className="p-1.5 bg-blue-100/80 dark:bg-blue-600/40 backdrop-blur-sm hover:bg-blue-200/90 dark:hover:bg-blue-500/50 rounded-lg transition-all duration-300 border border-blue-200/50 dark:border-blue-500/30 shadow-sm hover:shadow-md"
                 onClick={toggleTagsExpansion}
                 title={isTagsExpanded ? "Show Less Tags" : "Show More Tags"}
               >
                 <Lucide
                   icon={isTagsExpanded ? "ChevronUp" : "ChevronDown"}
-                  className="w-3 h-3 text-gray-800 dark:text-gray-200"
+                  className="w-3 h-3 text-blue-700 dark:text-blue-300"
                 />
               </button>
             </div>
           </div>
         </div>
-        <div className="mt-2 mb-1 px-2 max-h-20 overflow-y-auto">
-          <div className="flex flex-wrap gap-1">
+        <div className={`mt-2 mb-1 px-3 py-2 pr-6 mr-2 transition-all duration-300 ease-in-out ${
+          isTagsExpanded ? 'max-h-96 pb-2' : 'max-h-20'
+        } overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent  backdrop-blur-sm rounded-xl  shadow-sm`}>
+          <div className="flex flex-wrap gap-2 justify-center">
             {[
               "Mine",
               "All",
@@ -10452,12 +11023,7 @@ console.log(data);
                     "Stop Bot",
                     "Active Bot",
                     "Resolved",
-                    ...(userData?.phone !== undefined && userData.phone !== -1
-                      ? [
-                          phoneNames[userData.phone] ||
-                            `Phone ${userData.phone + 1}`,
-                        ]
-                      : Object.values(phoneNames)),
+
                     ...visibleTags.filter(
                       (tag) =>
                         ![
@@ -10491,27 +11057,59 @@ console.log(data);
                     typeof t === "string" ? t.toLowerCase() : ""
                   ) || [];
                 const isGroup = contact.chat_id?.endsWith("@g.us");
-                const phoneIndex = Object.entries(phoneNames).findIndex(
+                const isSnoozed = contact.tags?.includes("snooze");
+                // Try to find a phone index that matches the tag
+                let phoneIndex = -1;
+                
+                // First, try exact match
+                phoneIndex = Object.entries(phoneNames).findIndex(
                   ([_, name]) => name.toLowerCase() === tagLower
                 );
+                
+                // If no exact match, try partial match
+                if (phoneIndex === -1) {
+                  phoneIndex = Object.entries(phoneNames).findIndex(
+                    ([_, name]) => name.toLowerCase().includes(tagLower) || 
+                                   tagLower.includes(name.toLowerCase())
+                  );
+                }
+                
+                // If still no match, try to parse the phone number from the tag
+                if (phoneIndex === -1 && tagLower.includes("phone")) {
+                  const phoneMatch = tagLower.match(/phone\s*(\d+)/i);
+                  if (phoneMatch) {
+                    const phoneNum = parseInt(phoneMatch[1]) - 1; // Convert to 0-based index
+                    if (phoneNames[phoneNum] !== undefined) {
+                      phoneIndex = phoneNum;
+                    }
+                  }
+                }
 
                 return (
                   (tagLower === "all"
-                    ? !isGroup
+                    ? !isGroup && !isSnoozed
                     : tagLower === "unread"
-                    ? contact.unreadCount && contact.unreadCount > 0
+                    ? !isSnoozed && contact.unreadCount && contact.unreadCount > 0
                     : tagLower === "mine"
-                    ? contactTags.includes(currentUserName.toLowerCase())
+                    ? (() => {
+                        // Check if the user is assigned to this contact in multiple ways
+                        const hasMineTag = contact.tags?.some((t) => 
+                          (typeof t === "string" ? t : String(t)).toLowerCase() === currentUserName.toLowerCase()
+                        );
+                        
+                        // Also check if the user is in the assignedTo array
+                        const isAssignedToMe = contact.assignedTo?.some((assigned: string) => 
+                          assigned.toLowerCase() === currentUserName.toLowerCase()
+                        );
+                        
+                        return !isSnoozed && (hasMineTag || isAssignedToMe);
+                      })()
                     : tagLower === "unassigned"
-                    ? contact.tags?.some((t) =>
+                    ? !isSnoozed && !contact.tags?.some((t: string) =>
                         employeeList.some(
                           (e) =>
-                            (typeof e.name === "string"
-                              ? e.name.toLowerCase()
-                              : "") ===
-                            (typeof t === "string"
-                              ? t.toLowerCase()
-                              : String(t).toLowerCase())
+                            (e.name?.toLowerCase() || "") ===
+                            (typeof t === "string" ? t : String(t)).toLowerCase()
                         )
                       )
                     : tagLower === "snooze"
@@ -10525,7 +11123,34 @@ console.log(data);
                     : tagLower === "active bot"
                     ? !contactTags.includes("stop bot")
                     : phoneIndex !== -1
-                    ? contact.phoneIndex === phoneIndex
+                    ? (() => {
+                        // Check multiple ways a contact might be associated with this phone
+                        let hasPhone = false;
+                        
+                        // Method 1: Check phoneIndexes array
+                        if (contact.phoneIndexes && Array.isArray(contact.phoneIndexes)) {
+                          hasPhone = contact.phoneIndexes.includes(phoneIndex);
+                        }
+                        
+                        // Method 2: Check phoneIndex field
+                        if (!hasPhone && contact.phoneIndex !== undefined && contact.phoneIndex !== null) {
+                          hasPhone = contact.phoneIndex === phoneIndex;
+                        }
+                        
+                        // Method 3: Check if contact has messages from this phone
+                        if (!hasPhone && contact.chat && Array.isArray(contact.chat)) {
+                          hasPhone = contact.chat.some((message: any) => 
+                            message.phoneIndex === phoneIndex
+                          );
+                        }
+                        
+                        // Method 4: Check last_message phoneIndex
+                        if (!hasPhone && contact.last_message && contact.last_message.phoneIndex !== undefined) {
+                          hasPhone = contact.last_message.phoneIndex === phoneIndex;
+                        }
+                        
+                        return hasPhone;
+                      })()
                     : contactTags.includes(tagLower)) &&
                   (tagLower !== "all" && tagLower !== "unassigned"
                     ? contact.unreadCount && contact.unreadCount > 0
@@ -10537,22 +11162,22 @@ console.log(data);
                 <button
                   key={typeof tag === "string" ? tag : tag.id}
                   onClick={() => filterTagContact(tagName)}
-                  className={`px-2 py-1 rounded-full text-xs font-medium transition-all duration-200 hover:scale-105 active:scale-95 ${
+                  className={`px-3 py-2 rounded-xl text-xs font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${
                     tagLower === activeTags[0]
-                      ? "bg-blue-500 text-white shadow-md"
-                      : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600"
+                      ? "bg-blue-600/90 backdrop-blur-md text-white shadow-lg shadow-blue-500/30 border border-blue-400/50"
+                      : "bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-700 dark:text-gray-200 hover:bg-white/90 dark:hover:bg-gray-700/90 border border-white/30 dark:border-gray-600/50 shadow-sm hover:shadow-md"
                   }`}
                 >
                   <span className="flex items-center space-x-1">
                     <span>{tagName}</span>
                     {userData?.role === "1" && unreadCount > 0 && (
                       <span
-                        className={`px-1 py-0.5 rounded-full text-xs font-bold ${
+                        className={`px-1.5 py-0.5 rounded-full text-xs font-bold backdrop-blur-sm border ${
                           tagName.toLowerCase() === "stop bot"
-                            ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                            ? "bg-red-100/80 text-red-700 dark:text-red-300 dark:bg-red-900/60 border-red-200/50 dark:border-red-700/50"
                             : tagName.toLowerCase() === "active bot"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                            : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                            ? "bg-green-100/80 text-green-700 dark:text-green-300 dark:bg-green-900/60 border-green-200/50 dark:border-green-700/50"
+                            : "bg-blue-100/80 text-blue-700 dark:text-blue-300 dark:bg-blue-900/60 border-blue-200/50 dark:border-blue-700/50"
                         }`}
                       >
                         {unreadCount}
@@ -10564,25 +11189,14 @@ console.log(data);
             })}
           </div>
         </div>
-        <span
-          className="flex items-center justify-center p-1.5 cursor-pointer text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-all duration-200 font-medium text-xs"
-          onClick={toggleTagsExpansion}
-        >
-          <span className="flex items-center space-x-1">
-            <span>{isTagsExpanded ? "Show Less" : "Show More"}</span>
-            <Lucide
-              icon={isTagsExpanded ? "ChevronUp" : "ChevronDown"}
-              className="w-2 h-2"
-            />
-          </span>
-        </span>
+
         <div
-          className="bg-white dark:bg-gray-900 flex-1 overflow-y-scroll h-full relative dark:border-gray-700 p-2"
+          className="bg-white/5 dark:bg-gray-900/10 backdrop-blur-sm flex-1 overflow-y-scroll h-full relative p-3 rounded-xl shadow-inner shadow-white/10 dark:shadow-gray-900/20"
           ref={contactListRef}
         >
           {isLoadingMoreContacts && (
-            <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-90 dark:bg-opacity-90 flex items-center justify-center z-10">
-              <div className="flex flex-col items-center bg-white dark:bg-gray-800 p-3 rounded-md shadow-md">
+            <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm flex items-center justify-center z-10">
+              <div className="flex flex-col items-center bg-white/90 dark:bg-gray-800/90 backdrop-blur-md p-4 rounded-xl shadow-lg border border-white/30 dark:border-gray-600/30">
                 <LoadingIcon icon="oval" className="w-4 h-4 text-blue-500" />
                 <span className="mt-1.5 text-xs text-gray-600 dark:text-gray-400 font-medium">
                   Loading more contacts...
@@ -10622,7 +11236,7 @@ console.log(data);
 
                   {/* Enhanced loading progress */}
                   {isInitialLoading && (
-                    <div className="w-full max-w-sm bg-gray-100 dark:bg-gray-800 rounded-lg p-3 shadow-inner">
+                    <div className="w-full max-w-sm bg-white/20 dark:bg-gray-800/30 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/30 dark:border-gray-600/30">
                       <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1.5">
                         <span className="font-medium">Loading progress</span>
                         <span className="font-bold text-blue-600 dark:text-blue-400">
@@ -10692,14 +11306,14 @@ console.log(data);
                 }
               >
                 <div
-                  className={`px-2 py-1.5 cursor-pointer transition-all duration-200 group hover:bg-gray-100/50 dark:hover:bg-gray-700/30 mx-1 my-0.5 select-none ${
+                  className={`px-3 py-2.5 cursor-pointer transition-all duration-300 ease-out group mx-2 my-1.5 select-none rounded-xl ${
                     contact.contact_id !== undefined
                       ? selectedChatId === contact.contact_id
-                        ? "bg-blue-100/50 dark:bg-blue-900/20 border border-blue-500/30 rounded-lg"
-                        : "bg-transparent"
+                        ? "bg-white/25 dark:bg-gray-800/40 backdrop-blur-md border border-white/40 dark:border-gray-600/40 shadow-lg shadow-blue-500/20 dark:shadow-blue-400/20"
+                        : "backdrop-blur-sm border-0 hover:border hover:border-white/30 dark:hover:border-gray-600/40 hover:from-white/15 hover:to-white/20 dark:hover:from-gray-700/20 dark:hover:to-gray-700/25"
                       : selectedChatId === contact.contact_id
-                      ? "bg-blue-100/50 dark:bg-blue-900/20 border border-blue-500/30 rounded-lg"
-                      : "bg-transparent"
+                      ? "bg-white/25 dark:bg-gray-800/40 backdrop-blur-md border border-white/40 dark:border-gray-600/40 shadow-lg shadow-blue-500/20 dark:shadow-blue-400/20"
+                      : "backdrop-blur-sm border-0 hover:border hover:border-white/30 dark:hover:border-gray-600/40 hover:from-white/15 hover:to-white/20 dark:hover:from-gray-700/20 dark:hover:to-gray-700/25"
                   }`}
                   onClick={() => selectChat(contact.contact_id!, contact.id!)}
                   onContextMenu={(e) => handleContextMenu(e, contact)}
@@ -10707,7 +11321,7 @@ console.log(data);
                 >
                   <div className="flex items-center space-x-1.5">
                     <div className="relative flex-shrink-0">
-                      <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 overflow-hidden">
+                      <div className="w-10 h-10 bg-white/30 dark:bg-gray-600/90 backdrop-blur-md rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 overflow-hidden border border-white/40 dark:border-gray-500/60 shadow-lg shadow-white/20 dark:shadow-gray-500/20">
                         {contact &&
                           (contact.chat_id &&
                           contact.chat_id.includes("@g.us") ? (
@@ -10747,7 +11361,7 @@ console.log(data);
                         <>
                           {/* Prominent badge for unread messages */}
                           {(contact.unreadCount ?? 0) > 0 && (
-                            <span className="absolute -top-0.5 -right-0.5 bg-green-500 text-white text-xs rounded-full px-1 py-0.5 min-w-[14px] h-[14px] flex items-center justify-center font-bold">
+                            <span className="absolute -top-0.5 -right-0.5 bg-green-500/90 backdrop-blur-sm text-white text-xs rounded-full px-1 py-0.5 min-w-[14px] h-[14px] flex items-center justify-center font-bold border border-white/30 shadow-sm">
                               {(contact.unreadCount ?? 0) > 99
                                 ? "99+"
                                 : contact.unreadCount ?? 0}
@@ -10761,7 +11375,7 @@ console.log(data);
                       <div className="flex flex-col space-y-0.5">
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate mb-0">
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-0">
                               {(
                                 contact.contactName ??
                                 contact.firstName ??
@@ -10875,44 +11489,82 @@ console.log(data);
                                             : String(tag)
                                           ).toLowerCase() !== "stop bot"
                                       ).length > 0 && (
-                                        <span className="bg-blue-100 dark:bg-blue-600/30 text-blue-700 dark:text-blue-300 text-xs font-medium px-1.5 py-0.5 rounded-full mr-1">
-                                          <Lucide
-                                            icon="Tag"
-                                            className="w-3 h-3 inline-block mr-0.5"
-                                          />
-                                          {
-                                            uniqueTags.filter(
+                                        <div className="flex flex-nowrap gap-1 mr-1 overflow-hidden">
+                                          {uniqueTags
+                                            .filter(
                                               (tag) =>
                                                 (typeof tag === "string"
                                                   ? tag
                                                   : String(tag)
                                                 ).toLowerCase() !== "stop bot"
-                                            ).length
-                                          }
-                                        </span>
+                                            )
+                                            .slice(0, 3) // Show first 3 tags to avoid overflow
+                                            .map((tag, tagIndex) => (
+                                              <span
+                                                key={tagIndex}
+                                                className="bg-blue-100/80 dark:bg-blue-600/40 text-blue-700 dark:text-blue-300 text-[10px] font-medium px-1 py-0.5 rounded-full flex items-center backdrop-blur-sm border border-blue-200/50 dark:border-blue-500/30 shadow-sm flex-shrink-0"
+                                                title={typeof tag === "string" ? tag : String(tag)}
+                                              >
+                                                <Lucide
+                                                  icon="Tag"
+                                                  className="w-3 h-3 inline-block mr-0.5"
+                                                />
+                                                <span className="truncate max-w-[60px]">
+                                                  {typeof tag === "string" ? tag : String(tag)}
+                                                </span>
+                                              </span>
+                                            ))}
+                                          {uniqueTags.filter(
+                                            (tag) =>
+                                              (typeof tag === "string"
+                                                ? tag
+                                                : String(tag)
+                                              ).toLowerCase() !== "stop bot"
+                                          ).length > 3 && (
+                                            <span className="bg-blue-100/80 dark:bg-blue-600/40 text-blue-700 dark:text-blue-300 text-[10px] font-medium px-1 py-0.5 rounded-full backdrop-blur-sm border border-blue-200/50 dark:border-blue-500/30 shadow-sm flex-shrink-0">
+                                              +{uniqueTags.filter(
+                                                (tag) =>
+                                                  (typeof tag === "string"
+                                                    ? tag
+                                                    : String(tag)
+                                                  ).toLowerCase() !== "stop bot"
+                                              ).length - 3}
+                                            </span>
+                                          )}
+                                        </div>
                                       )}
                                       {employeeTags.length > 0 && (
-                                        <span className="bg-green-100 dark:bg-green-600/30 text-green-700 dark:text-green-300 text-xs font-medium px-1.5 py-0.5 rounded-full mr-1">
-                                          <Lucide
-                                            icon="Users"
-                                            className="w-3 h-3 inline-block mr-0.5"
-                                          />
-                                          {employeeTags.length === 1
-                                            ? employeeList.find(
-                                                (e) =>
-                                                  (e.name?.toLowerCase() ||
-                                                    "") ===
-                                                  (typeof employeeTags[0] ===
-                                                  "string"
-                                                    ? employeeTags[0]
-                                                    : String(employeeTags[0])
-                                                  ).toLowerCase()
-                                              )?.employeeId ||
-                                              (employeeTags[0]?.length > 8
-                                                ? employeeTags[0].slice(0, 6)
-                                                : employeeTags[0])
-                                            : employeeTags.length}
-                                        </span>
+                                        <div className="flex flex-nowrap gap-1 mr-1 overflow-hidden">
+                                          {employeeTags.slice(0, 2).map((tag, tagIndex) => (
+                                            <span
+                                              key={tagIndex}
+                                              className="bg-green-100/80 dark:bg-green-600/40 text-green-700 dark:text-green-300 text-[10px] font-medium px-1 py-0.5 rounded-full flex items-center backdrop-blur-sm border border-green-200/50 dark:border-green-500/30 shadow-sm flex-shrink-0"
+                                              title={typeof tag === "string" ? tag : String(tag)}
+                                            >
+                                              <Lucide
+                                                icon="Users"
+                                                className="w-3 h-3 inline-block mr-0.5"
+                                              />
+                                              <span className="truncate max-w-[60px]">
+                                                {employeeList.find(
+                                                  (e) =>
+                                                    (e.name?.toLowerCase() ||
+                                                      "") ===
+                                                    (typeof tag === "string"
+                                                      ? tag
+                                                      : String(tag)
+                                                    ).toLowerCase()
+                                                )?.employeeId ||
+                                                (typeof tag === "string" ? tag : String(tag))}
+                                              </span>
+                                            </span>
+                                          ))}
+                                          {employeeTags.length > 2 && (
+                                            <span className="bg-green-100/80 dark:bg-green-600/40 text-green-700 dark:text-green-300 text-[10px] font-medium px-1 py-0.5 rounded-full backdrop-blur-sm border border-green-200/50 dark:border-green-500/30 shadow-sm flex-shrink-0">
+                                              +{employeeTags.length - 2}
+                                            </span>
+                                          )}
+                                        </div>
                                       )}
                                     </>
                                   );
@@ -10944,7 +11596,7 @@ console.log(data);
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
                             <div className="mt-0.5">
-                              <span className="text-xs text-gray-700 dark:text-gray-400 truncate block">
+                              <span className="text-sm text-gray-700 dark:text-gray-400 truncate block">
                                 {contact.last_message ? (
                                   <>
                                     {contact.last_message.from_me && (
@@ -11047,16 +11699,16 @@ console.log(data);
                                   readOnly
                                 />
                                 <span
-                                  className={`relative w-8 h-4 flex items-center rounded-full transition-colors duration-300 ${
+                                  className={`relative w-12 h-6 flex items-center rounded-full transition-colors duration-300 ${
                                     contact.tags?.includes("stop bot")
                                       ? "bg-gradient-to-r from-red-500 to-red-700"
                                       : "bg-gradient-to-r from-green-500 to-green-700"
                                   }`}
                                 >
                                   <span
-                                    className={`absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-md transition-transform duration-300 ${
+                                    className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${
                                       contact.tags?.includes("stop bot")
-                                        ? "translate-x-4"
+                                        ? "translate-x-6"
                                         : "translate-x-0"
                                     }`}
                                   ></span>
@@ -11080,64 +11732,64 @@ console.log(data);
           }`}
         >
           {/* Main Pagination */}
-          <div className="flex justify-center items-center">
+          <div className="flex justify-center items-center p-1">
             <ReactPaginate
               breakLabel="…"
               nextLabel="Next"
               onPageChange={isLoadingMoreContacts ? () => {} : handlePageChange}
               pageRangeDisplayed={2}
               marginPagesDisplayed={2}
-              pageCount={Math.ceil(totalContacts / contactsPerPage)}
+              pageCount={Math.ceil(filteredContactsSearch.length / contactsPerPage)}
               previousLabel="Previous"
               renderOnZeroPageCount={null}
-              containerClassName="flex justify-center items-center flex-wrap gap-0.5"
+              containerClassName="flex justify-center items-center flex-wrap gap-0.5 p-1.5 rounded-xl bg-white/10 dark:bg-gray-800/20 backdrop-blur-xl border border-white/20 dark:border-gray-600/30 shadow-lg"
               pageClassName="mx-0.25"
-              pageLinkClassName="px-1.5 py-1 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs min-w-[18px] text-center font-medium transition-all duration-200 border border-gray-200 dark:border-gray-600"
+              pageLinkClassName="px-2 py-1.5 rounded-lg bg-white/20 dark:bg-gray-700/30 backdrop-blur-md text-gray-700 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-gray-600/50 text-xs min-w-[20px] text-center font-medium transition-all duration-300 border border-white/30 dark:border-gray-500/40 shadow-md hover:shadow-lg hover:scale-105 transform"
               previousClassName="mx-0.5"
               nextClassName="mx-0.5"
-              previousLinkClassName="px-1.5 py-1 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-medium transition-all duration-200 border border-gray-200 dark:border-gray-600"
-              nextLinkClassName="px-1.5 py-1 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-medium transition-all duration-200 border border-gray-200 dark:border-gray-600"
-              disabledClassName="opacity-50 cursor-not-allowed"
+              previousLinkClassName="px-2.5 py-1.5 rounded-lg bg-white/20 dark:bg-gray-700/30 backdrop-blur-md text-gray-700 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-gray-600/50 text-xs font-medium transition-all duration-300 border border-white/30 dark:border-gray-500/40 shadow-md hover:shadow-lg hover:scale-105 transform"
+              nextLinkClassName="px-2.5 py-1.5 rounded-lg bg-white/20 dark:bg-gray-700/30 backdrop-blur-md text-gray-700 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-gray-600/50 text-xs font-medium transition-all duration-300 border border-white/30 dark:border-gray-500/40 shadow-md hover:shadow-lg hover:scale-105 transform"
+              disabledClassName="opacity-40 cursor-not-allowed hover:scale-100"
               activeClassName="font-bold"
-              activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700 border-blue-500"
+              activeLinkClassName="bg-gradient-to-r from-blue-500/80 to-purple-600/80 text-white hover:from-blue-600/90 hover:to-purple-700/90 border-blue-400/60 shadow-lg hover:shadow-xl"
               forcePage={currentPage}
             />
           </div>
         </div>
         {isLoadingMoreContacts && (
-          <div className="flex flex-col items-center justify-center mt-2 mb-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
-            <LoadingIcon icon="oval" className="w-3 h-3 text-primary" />
-            <span className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+          <div className="flex flex-col items-center justify-center mt-3 mb-3 p-4 bg-white/15 dark:bg-gray-800/25 backdrop-blur-xl rounded-2xl border border-white/25 dark:border-gray-600/40 shadow-2xl">
+            <LoadingIcon icon="oval" className="w-4 h-4 text-primary" />
+            <span className="mt-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
               Loading more contacts...
             </span>
-            <div className="mt-1 w-full max-w-xs">
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
-                <div className="bg-primary h-1 rounded-full animate-pulse"></div>
+            <div className="mt-2 w-full max-w-xs">
+              <div className="w-full bg-white/20 dark:bg-gray-700/40 rounded-full h-2 backdrop-blur-md border border-white/30 dark:border-gray-600/50 shadow-lg">
+                <div className="bg-gradient-to-r from-blue-500/80 to-purple-600/80 h-2 rounded-full animate-pulse shadow-xl"></div>
               </div>
             </div>
           </div>
         )}
       </div>
-      <div className="flex flex-col w-full sm:w-3/4  dark:bg-gray-900 relative flext-1 overflow-hidden">
+      <div className="flex flex-col w-full sm:w-3/4 relative flex-1 overflow-hidden bg-gradient-to-br from-white/5 to-white/10 dark:from-gray-800/10 dark:to-gray-800/15 backdrop-blur-sm">
         {selectedChatId ? (
           <>
-            <div className="flex items-center justify-between p-3 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
+            <div className="flex items-center justify-between p-4 bg-white/25 dark:bg-gray-800/40 backdrop-blur-md border-b border-white/30 dark:border-gray-600/40 shadow-sm">
               <div className="flex items-center">
                 <button
                   onClick={handleBack}
-                  className="back-button p-1.5 text-sm hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors duration-200"
+                  className="back-button p-2 text-sm hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-lg transition-all duration-300 backdrop-blur-sm border border-white/20 dark:border-gray-600/30"
                 >
-                  <Lucide icon="ChevronLeft" className="w-3.5 h-3.5" />
+                  <Lucide icon="ChevronLeft" className="w-4 h-4 text-gray-700 dark:text-gray-300" />
                 </button>
-                <div className="w-8 h-8 overflow-hidden rounded-full shadow-md bg-gray-700 flex items-center justify-center text-white mr-2 ml-1.5">
+                <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white mr-3 ml-1 border-2 border-white/30 dark:border-gray-600/30">
                   {selectedContact?.profilePicUrl ? (
                     <img
                       src={selectedContact.profilePicUrl}
                       alt={selectedContact.contactName || "Profile"}
-                      className="w-8 h-8 rounded-full object-cover"
+                      className="w-10 h-10 rounded-full object-cover"
                     />
                   ) : (
-                    <span className="text-sm font-bold">
+                    <span className="text-base font-bold">
                       {selectedContact?.contactName
                         ? selectedContact.contactName.charAt(0).toUpperCase()
                         : "?"}
@@ -11146,7 +11798,7 @@ console.log(data);
                 </div>
 
                 <div>
-                  <div className="text-sm font-bold text-gray-800 dark:text-gray-200 capitalize mb-0.5">
+                  <div className="text-base font-bold text-gray-800 dark:text-gray-200 capitalize mb-1">
                     {selectedContact.contactName && selectedContact.lastName
                       ? `${selectedContact.contactName} ${selectedContact.lastName}`
                       : selectedContact.contactName ||
@@ -11155,7 +11807,7 @@ console.log(data);
                   </div>
 
                   {userRole === "1" && (
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
                       {selectedContact.phone}
                     </div>
                   )}
@@ -11164,288 +11816,119 @@ console.log(data);
 
               <div className="flex items-center space-x-2">
                 <div className="hidden sm:flex space-x-2">
-                  <Menu as="div" className="relative inline-block text-left">
-                    <Menu.Button
-                      as={Button}
-                      className="p-2 !box m-0 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
-                    >
-                      <span className="flex items-center justify-center w-8 h-8">
-                        <Lucide
-                          icon="Users"
-                          className="w-5 h-5 text-gray-800 dark:text-gray-200"
-                        />
-                      </span>
-                    </Menu.Button>
-                    <Menu.Items className="absolute right-0 mt-2 w-64 shadow-xl rounded-xl p-4 z-10 max-h-96 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                      <div className="mb-4">
-                        <input
-                          type="text"
-                          placeholder="Search employees..."
-                          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                          value={employeeSearch}
-                          onChange={(e) => setEmployeeSearch(e.target.value)}
-                        />
-                      </div>
-                      <Menu.Item>
-                        {({ active }) => (
-                          <button
-                            className={`flex items-center w-full text-left px-4 py-3 rounded-lg text-base font-medium ${
-                              !selectedEmployee
-                                ? "bg-blue-600 text-white dark:bg-blue-600 dark:text-white"
-                                : active
-                                ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
-                                : "text-gray-700 dark:text-gray-200"
-                            }`}
-                            onClick={() => setSelectedEmployee(null)}
-                          >
-                            <span>All Contacts</span>
-                          </button>
-                        )}
-                      </Menu.Item>
-                      {employeeList
-                        .filter(
-                          (employee) =>
-                            (employee.name?.toLowerCase() || "").includes(
-                              employeeSearch?.toLowerCase() || ""
-                            ) &&
-                            (userRole === "1" ||
-                              employee.name === currentUserName)
-                        )
-                        .sort((a, b) =>
-                          (a.name?.toLowerCase() || "").localeCompare(
-                            b.name?.toLowerCase() || ""
-                          )
-                        )
-                        .map((employee) => (
-                          <Menu.Item key={employee.id}>
-                            {({ active }) => (
-                              <button
-                                className={`flex items-center justify-between w-full text-left px-4 py-3 rounded-lg text-base ${
-                                  selectedEmployee === employee.name
-                                    ? "bg-blue-600 text-white dark:bg-blue-600 dark:text-white"
-                                    : active
-                                    ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
-                                    : "text-gray-700 dark:text-gray-200"
-                                }`}
-                                onClick={() => {
-                                  console.log(
-                                    "🎯 [UI] Employee assignment clicked:",
-                                    employee.name,
-                                    selectedContact
-                                  );
-                                  handleAddTagToSelectedContacts(
-                                    employee.name,
-                                    selectedContact
-                                  );
-                                }}
-                              >
-                                <span className="font-medium">
-                                  {employee.name}
-                                </span>
-                                <div className="flex items-center space-x-2 text-sm">
-                                  {employee.quotaLeads !== undefined && (
-                                    <span className="text-gray-500 dark:text-gray-400">
-                                      {employee.assignedContacts || 0}/
-                                      {employee.quotaLeads} leads
-                                    </span>
-                                  )}
-                                </div>
-                              </button>
-                            )}
-                          </Menu.Item>
-                        ))}
-                    </Menu.Items>
-                  </Menu>
-                  <Menu as="div" className="relative inline-block text-left">
-                    <Menu.Button
-                      as={Button}
-                      className="p-2 !box m-0 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
-                    >
-                      <span className="flex items-center justify-center w-8 h-8">
-                        <Lucide
-                          icon="Tag"
-                          className="w-5 h-5 text-gray-800 dark:text-gray-200"
-                        />
-                      </span>
-                    </Menu.Button>
-                    <Menu.Items className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 shadow-xl rounded-xl p-4 z-10 max-h-96 overflow-y-auto border border-gray-200 dark:border-gray-700">
-                      {tagList.map((tag) => (
-                        <Menu.Item key={tag.id}>
-                          <button
-                            className={`flex items-center w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base ${
-                              activeTags.includes(tag.name)
-                                ? "bg-gray-200 dark:bg-gray-700"
-                                : ""
-                            }`}
-                            onClick={() => {
-                              console.log(
-                                "🎯 [UI] Tag assignment clicked:",
-                                tag.name,
-                                selectedContact
-                              );
-                              handleAddTagToSelectedContacts(
-                                tag.name,
-                                selectedContact
-                              );
-                            }}
-                          >
-                            <Lucide
-                              icon="User"
-                              className="w-5 h-5 mr-3 text-gray-800 dark:text-gray-200"
-                            />
-                            <span className="text-gray-800 dark:text-gray-200 font-medium">
-                              {tag.name}
-                            </span>
-                          </button>
-                        </Menu.Item>
-                      ))}
-                    </Menu.Items>
-                  </Menu>
+                  {/* Employee Assignment Button */}
                   <button
-                    className="p-3 m-0 !box hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                    className="group relative p-3 !box m-0 bg-white/10 dark:bg-gray-800/20 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl transition-all duration-300 backdrop-blur-md border border-white/20 dark:border-gray-600/30 shadow-lg hover:shadow-xl hover:scale-105"
+                    onClick={() => setIsEmployeeModalOpen(true)}
+                  >
+                    <span className="flex items-center justify-center w-6 h-6">
+                      <Lucide
+                        icon="Users"
+                        className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300"
+                      />
+                    </span>
+                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                      Assign Employee
+                    </div>
+                  </button>
+
+                  {/* Tag Assignment Button */}
+                  <button
+                    className="group relative p-3 !box m-0 bg-white/10 dark:bg-gray-800/20 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl transition-all duration-300 backdrop-blur-md border border-white/20 dark:border-gray-600/30 shadow-lg hover:shadow-xl hover:scale-105"
+                    onClick={() => setIsTagModalOpen(true)}
+                  >
+                    <span className="flex items-center justify-center w-6 h-6">
+                      <Lucide
+                        icon="Tag"
+                        className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300"
+                      />
+                    </span>
+                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                      Add Tag
+                    </div>
+                  </button>
+
+                  {/* View Details Button */}
+                  <button
+                    className="group relative p-3 !box m-0 bg-white/10 dark:bg-gray-800/20 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl transition-all duration-300 backdrop-blur-md border border-white/20 dark:border-gray-600/30 shadow-lg hover:shadow-xl hover:scale-105"
                     onClick={handleEyeClick}
                   >
                     <span className="flex items-center justify-center w-6 h-6">
                       <Lucide
                         icon={isTabOpen ? "X" : "Eye"}
-                        className="w-6 h-6 text-gray-800 dark:text-gray-200"
+                        className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-300"
                       />
                     </span>
+                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                      {isTabOpen ? "Close" : "View"} Details
+                    </div>
                   </button>
+
+                  {/* Message Search Button */}
                   <button
-                    className="p-3 m-0 !box hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                    className="group relative p-3 !box m-0 bg-white/10 dark:bg-gray-800/20 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl transition-all duration-300 backdrop-blur-md border border-white/20 dark:border-gray-600/30 shadow-lg hover:shadow-xl hover:scale-105"
                     onClick={handleMessageSearchClick}
                   >
                     <span className="flex items-center justify-center w-6 h-6">
                       <Lucide
                         icon={isMessageSearchOpen ? "X" : "Search"}
-                        className="w-6 h-6 text-gray-800 dark:text-gray-200"
+                        className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors duration-300"
                       />
                     </span>
+                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                      {isMessageSearchOpen ? "Close" : "Open"} Search
+                    </div>
                   </button>
                 </div>
+
+                {/* Mobile Menu Button */}
                 <Menu
                   as="div"
                   className="sm:hidden relative inline-block text-left"
                 >
                   <Menu.Button
                     as={Button}
-                    className="p-3 !box m-0 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                    className="p-3 !box m-0 bg-white/10 dark:bg-gray-800/20 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl transition-all duration-300 backdrop-blur-md border border-white/20 dark:border-gray-600/30 shadow-lg hover:shadow-xl hover:scale-105"
                   >
                     <span className="flex items-center justify-center w-6 h-6">
                       <Lucide
                         icon="MoreVertical"
-                        className="w-6 h-6 text-gray-800 dark:text-gray-200"
+                        className="w-6 h-6 text-gray-700 dark:text-gray-300"
                       />
                     </span>
                   </Menu.Button>
-                  <Menu.Items className="absolute right-0 mt-3 w-48 bg-white dark:bg-gray-800 shadow-xl rounded-xl p-3 z-10 border border-gray-200 dark:border-gray-700">
+                  <Menu.Items className="absolute right-0 mt-3 w-48 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl shadow-2xl rounded-2xl p-3 z-10 border border-white/20 dark:border-gray-600/30">
                     <Menu.Item>
-                      <Menu
-                        as="div"
-                        className="relative inline-block text-left w-full"
+                      <button
+                        className="flex items-center w-full text-left p-3 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl text-base transition-all duration-200"
+                        onClick={() => setIsEmployeeModalOpen(true)}
                       >
-                        <Menu.Button className="flex items-center w-full text-left p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base">
-                          <Lucide
-                            icon="Users"
-                            className="w-5 h-5 mr-3 text-gray-800 dark:text-gray-200"
-                          />
-                          <span className="text-gray-800 dark:text-gray-200">
-                            Assign Employee
-                          </span>
-                        </Menu.Button>
-                        <Menu.Items className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 shadow-xl rounded-xl p-4 z-10 overflow-y-auto max-h-96 border border-gray-200 dark:border-gray-700">
-                          <div className="mb-4">
-                            <input
-                              type="text"
-                              placeholder="Search employees..."
-                              value={employeeSearch}
-                              onChange={(e) =>
-                                setEmployeeSearch(e.target.value)
-                              }
-                              className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                            />
-                          </div>
-                          {employeeList
-                            .filter((employee) => {
-                              if (userRole === "4" || userRole === "2") {
-                                const shouldInclude =
-                                  employee.role === "2" &&
-                                  (employee.name?.toLowerCase() || "").includes(
-                                    employeeSearch?.toLowerCase() || ""
-                                  );
-                                return shouldInclude;
-                              }
-                              const shouldInclude = (
-                                employee.name?.toLowerCase() || ""
-                              ).includes(employeeSearch?.toLowerCase() || "");
-                              return shouldInclude;
-                            })
-                            .map((employee) => {
-                              return (
-                                <Menu.Item key={employee.id}>
-                                  <button
-                                    className="flex items-center w-full text-left p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base"
-                                    onClick={() =>
-                                      handleAddTagToSelectedContacts(
-                                        employee.name,
-                                        selectedContact
-                                      )
-                                    }
-                                  >
-                                    <span className="text-gray-800 dark:text-gray-200">
-                                      {employee.name}
-                                    </span>
-                                  </button>
-                                </Menu.Item>
-                              );
-                            })}
-                        </Menu.Items>
-                      </Menu>
-                    </Menu.Item>
-                    <Menu.Item>
-                      <Menu
-                        as="div"
-                        className="relative inline-block text-left w-full"
-                      >
-                        <Menu.Button className="flex items-center w-full text-left p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base">
-                          <Lucide
-                            icon="Tag"
-                            className="w-5 h-5 mr-3 text-gray-800 dark:text-gray-200"
-                          />
-                          <span className="text-gray-800 dark:text-gray-200">
-                            Add Tag
-                          </span>
-                        </Menu.Button>
-                        <Menu.Items className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 shadow-xl rounded-xl p-4 z-10 max-h-96 overflow-y-auto border border-gray-200 dark:border-gray-700">
-                          {tagList.map((tag) => (
-                            <Menu.Item key={tag.id}>
-                              <button
-                                className="flex items-center w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base"
-                                onClick={() => {
-                                  console.log(
-                                    "🎯 [UI] Tag assignment clicked (menu 2):",
-                                    tag.name,
-                                    selectedContact
-                                  );
-                                  handleAddTagToSelectedContacts(
-                                    tag.name,
-                                    selectedContact
-                                  );
-                                }}
-                              >
-                                <span className="text-gray-800 dark:text-gray-200 font-medium">
-                                  {tag.name}
-                                </span>
-                              </button>
-                            </Menu.Item>
-                          ))}
-                        </Menu.Items>
-                      </Menu>
+                        <Lucide
+                          icon="Users"
+                          className="w-5 h-5 mr-3 text-gray-800 dark:text-gray-200"
+                        />
+                        <span className="text-gray-800 dark:text-gray-200">
+                          Assign Employee
+                        </span>
+                      </button>
                     </Menu.Item>
                     <Menu.Item>
                       <button
-                        className="flex items-center w-full text-left p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base"
+                        className="flex items-center w-full text-left p-3 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl text-base transition-all duration-200"
+                        onClick={() => setIsTagModalOpen(true)}
+                      >
+                        <Lucide
+                          icon="Tag"
+                          className="w-5 h-5 mr-3 text-gray-800 dark:text-gray-200"
+                        />
+                        <span className="text-gray-800 dark:text-gray-200">
+                          Add Tag
+                        </span>
+                      </button>
+                    </Menu.Item>
+                    <Menu.Item>
+                      <button
+                        className="flex items-center w-full text-left p-3 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl text-base transition-all duration-200"
                         onClick={handleEyeClick}
                       >
                         <Lucide
@@ -11459,7 +11942,7 @@ console.log(data);
                     </Menu.Item>
                     <Menu.Item>
                       <button
-                        className="flex items-center w-full text-left p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base"
+                        className="flex items-center w-full text-left p-3 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl text-base transition-all duration-200"
                         onClick={handleMessageSearchClick}
                       >
                         <Lucide
@@ -11476,31 +11959,15 @@ console.log(data);
               </div>
             </div>
             <div
-              className="flex-1 overflow-y-auto p-2"
+              className="flex-1 overflow-y-auto p-2 bg-gradient-to-br from-white/8 via-white/3 to-transparent dark:from-gray-800/15 dark:via-gray-800/8 dark:to-transparent backdrop-blur-2xl"
               style={{
                 paddingBottom: "75px",
-                backgroundColor: selectedContact
-                  ? "transparent"
-                  : "bg-white dark:bg-gray-800",
                 backgroundSize: "cover",
                 backgroundRepeat: "no-repeat",
               }}
               ref={messageListRef}
             >
-              {isLoading2 && (
-                <div className="fixed top-0 left-0 right-10 bottom-0 flex justify-center items-center bg-opacity-50">
-                  <div className="items-center absolute top-1/2 left-1/2 transform translate-x-[200%] -translate-y-1/2 p-6">
-                    <div role="status">
-                      <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
-                        <LoadingIcon
-                          icon="spinning-circles"
-                          className="w-24 h-24 p-6 text-blue-500 dark:text-blue-400"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+
               {selectedChatId && (
                 <>
                   {messages
@@ -11576,8 +12043,8 @@ console.log(data);
                           }`}
                         >
                           {showDateHeader && (
-                            <div className="flex justify-center my-3">
-                              <div className="inline-block bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold py-1 px-3 rounded-lg shadow-md text-sm">
+                            <div className="flex justify-center my-2">
+                              <div className="inline-block bg-white/25 dark:bg-gray-800/35 text-slate-800 dark:text-white font-medium py-1 px-2.5 rounded-full shadow-lg backdrop-blur-2xl border border-white/40 dark:border-gray-600/50 text-xs">
                                 {(() => {
                                   const messageDate = new Date(
                                     (message.timestamp ||
@@ -11608,37 +12075,43 @@ console.log(data);
                               </div>
                             </div>
                           )}
-                          <div className="flex items-center gap-2 relative">
+                          <div className="flex items-center gap-1 relative">
                             <div
                               data-message-id={message.id}
-                              className={`p-2 mr-5 mb-2 ${
+                              className={`p-3 mr-2 mb-1 chat-message-bubble ${
                                 message.type === "privateNote"
                                   ? privateNoteClass
                                   : messageClass
-                              } relative`}
-                              style={{
-                                maxWidth:
-                                  message.type === "document" ? "90%" : "70%",
-                                width: `${
-                                  message.type === "document"
-                                    ? "600"
-                                    : message.type !== "text"
-                                    ? "500"
-                                    : message.text?.body
-                                    ? Math.min(
-                                        Math.max(
-                                          message.text.body.length,
-                                          message.text?.context?.quoted_content
-                                            ?.body?.length || 0
-                                        ) * 40,
-                                        500
-                                      )
-                                    : "250"
-                                }px`,
-                                minWidth: "300px",
+                              } relative backdrop-blur-2xl border border-white/30 dark:border-gray-500/40 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl`}
+                                                              style={{
+                                  maxWidth:
+                                    message.type === "document" ? "75%" : 
+                                    message.type === "image" ? "85%" : "60%",
+                                  width: `${
+                                    message.type === "document"
+                                      ? "350"
+                                      : message.type === "image"
+                                      ? "400"
+                                      : message.type !== "text"
+                                      ? "280"
+                                      : message.text?.body
+                                      ? Math.min(
+                                          Math.max(
+                                            message.text.body.length,
+                                            message.text?.context?.quoted_content
+                                              ?.body?.length || 0
+                                          ) * 16,
+                                          300
+                                        )
+                                      : "160"
+                                  }px`,
+                                  minWidth: message.type === "image" ? "300px" : "180px",
                                 backgroundColor: message.from_me
-                                  ? "#dcf8c6"
-                                  : undefined,
+                                  ? "rgba(59, 130, 246, 0.12)"
+                                  : "rgba(255, 255, 255, 0.06)",
+                                color: message.from_me ? "white" : "inherit",
+                                backdropFilter: "blur(24px)",
+                                WebkitBackdropFilter: "blur(24px)",
                               }}
                               onMouseEnter={() =>
                                 setHoveredMessageId(message.id)
@@ -11647,9 +12120,9 @@ console.log(data);
                             >
                               {/* Sender name display */}
                               {!message.isPrivateNote && (
-                                <div className="text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">
+                                <div className="text-xs font-medium mb-1 text-slate-800 dark:text-white/95 opacity-95 backdrop-blur-sm">
                                   {message.from_me
-                                    ? userData?.name || "Me"
+                                    ? (message.author && !/^\d+/.test(message.author) ? message.author : "Me")
                                     : selectedContact?.contactName ||
                                       selectedContact?.firstName ||
                                       selectedContact?.phone ||
@@ -11657,33 +12130,18 @@ console.log(data);
                                 </div>
                               )}
                               {message.isPrivateNote && (
-                                <div className="flex items-center mb-1.5">
-                                  <Lock size={10} className="mr-1.5" />
-                                  <span className="text-sm font-semibold">
+                                <div className="flex items-center mb-1 p-1.5 bg-amber-500/15 dark:bg-amber-400/25 rounded-lg border border-amber-400/30 dark:border-amber-300/40 shadow-md backdrop-blur-2xl">
+                                  <Lock size={10} className="mr-1.5 text-amber-500 dark:text-amber-400" />
+                                  <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
                                     Private Note
                                   </span>
                                 </div>
                               )}
-                              {message.chat_id &&
-                                (message.chat_id.includes("@g.us") ||
-                                  (userData?.companyId === "0123" &&
-                                    message.chat_id.includes("@c.us"))) &&
-                                message.author && (
-                                  <div
-                                    className="pb-1 text-sm font-medium capitalize mb-1.5"
-                                    style={{
-                                      color: getAuthorColor(
-                                        message.author.split("@")[0]
-                                      ),
-                                    }}
-                                  >
-                                    {message.author.split("@")[0].toLowerCase()}
-                                  </div>
-                                )}
+                          
                               {message.type === "text" &&
                                 message.text?.context && (
                                   <div
-                                    className="p-2 mb-2 rounded-lg bg-gray-200 dark:bg-gray-800 cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors duration-200"
+                                    className="p-2 mb-2 rounded-lg bg-white/20 dark:bg-gray-700/40 cursor-pointer hover:bg-white/30 dark:hover:bg-gray-600/50 transition-all duration-300 backdrop-blur-xl border-l-4 border-blue-500 dark:border-blue-400 shadow-md"
                                     onClick={() => {
                                       const quotedMessageId =
                                         message.text?.context?.id;
@@ -11739,29 +12197,17 @@ console.log(data);
                                       }
                                     }}
                                   >
-                                    <div
-                                      className="text-sm font-medium mb-1"
-                                      style={{
-                                        color: getAuthorColor(
-                                          message.text.context.from
-                                        ),
-                                      }}
-                                    >
-                                      {message.text.context.from === "Me"
-                                        ? "Me"
-                                        : selectedContact?.contactName ||
-                                          selectedContact?.firstName ||
-                                          selectedContact?.phone ||
-                                          message.text.context.from ||
-                                          ""}
+                               
+                                    <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">
+                                      {message.text.context.from || "You"}
                                     </div>
-                                    <div className="text-sm text-gray-700 dark:text-gray-300">
+                                    <div className="text-xs text-slate-800 dark:text-gray-200">
                                       {message.text.context.body || ""}
                                     </div>
                                   </div>
                                 )}
                               {message.type === "privateNote" && (
-                                <div className="inline-block whitespace-pre-wrap break-words text-gray-800 dark:text-gray-200 text-sm">
+                                <div className="inline-block whitespace-pre-wrap break-words text-slate-800 dark:text-white text-sm">
                                   {(() => {
                                     const text =
                                       typeof message.text === "string"
@@ -11804,6 +12250,7 @@ console.log(data);
                                         overflowWrap: "break-word",
                                         lineHeight: "1.4",
                                         letterSpacing: "0.01em",
+                                        color: message.from_me ? "white" : "inherit",
                                       }}
                                     >
                                       {formatText(message.text.body)}
@@ -11825,17 +12272,18 @@ console.log(data);
                                           message.image.data &&
                                           message.image.mimetype
                                         ) {
+                                          console.log("Using base64 image data");
                                           return `data:${message.image.mimetype};base64,${message.image.data}`;
                                         }
                                         if (message.image.url) {
-                                          return getFullImageUrl(
-                                            message.image.url
-                                          );
+                                          const fullUrl = getFullImageUrl(message.image.url);
+                                          console.log("Using image URL:", fullUrl);
+                                          return fullUrl;
                                         }
                                         if (message.image.link) {
-                                          return getFullImageUrl(
-                                            message.image.link
-                                          );
+                                          const fullUrl = getFullImageUrl(message.image.link);
+                                          console.log("Using image link:", fullUrl);
+                                          return fullUrl;
                                         }
                                         console.warn(
                                           "No valid image source found:",
@@ -11846,9 +12294,12 @@ console.log(data);
                                       alt="Image"
                                       className="rounded-2xl message-image cursor-pointer"
                                       style={{
-                                        maxWidth: "auto",
-                                        maxHeight: "auto",
+                                        maxWidth: "300px",
+                                        maxHeight: "300px",
                                         objectFit: "contain",
+                                        display: "block", // Ensure image is displayed as block
+                                        width: "auto", // Allow natural width
+                                        height: "auto", // Allow natural height
                                       }}
                                       onClick={() => {
                                         const imageUrl =
@@ -11907,10 +12358,10 @@ console.log(data);
                               {message.type === "order" && message.order && (
                                 <div className="p-0 message-content">
                                   <div className="flex items-center space-x-2.5 bg-emerald-800 rounded-lg p-2.5">
-                                    <img
-                                      src={`data:image/jpeg;base64,${message.order.thumbnail}`}
-                                      alt="Order"
-                                      className="w-10 h-10 rounded-lg object-cover"
+                                                                            <img
+                                          src={`data:image/jpeg;base64,${message.order.thumbnail}`}
+                                          alt="Order"
+                                          className="w-5 h-5 rounded-lg object-cover"
                                       onError={(e) => {
                                         const originalSrc = e.currentTarget.src;
                                         console.error(
@@ -11985,7 +12436,10 @@ console.log(data);
                                       src={message.gif.link}
                                       alt="GIF"
                                       className="rounded-lg message-image cursor-pointer"
-                                      style={{ maxWidth: "200px" }}
+                                      style={{ 
+                                        maxWidth: "200px",
+                                        maxHeight: "200px"
+                                      }}
                                       onClick={() =>
                                         openImageModal(message.gif?.link || "")
                                       }
@@ -12228,8 +12682,8 @@ console.log(data);
                                       alt="Sticker"
                                       className="rounded-lg message-image cursor-pointer"
                                       style={{
-                                        maxWidth: "auto",
-                                        maxHeight: "auto",
+                                        maxWidth: "150px",
+                                        maxHeight: "150px",
                                         objectFit: "contain",
                                       }}
                                       onClick={() =>
@@ -12339,24 +12793,36 @@ console.log(data);
                                     onClose={() => setShowReactionPicker(false)}
                                   />
                                 )}
-                              {message.reactions &&
-                                message.reactions.length > 0 && (
-                                  <div className="flex flex-wrap gap-1.5 mt-1.5 rounded-full px-2 py-1 w-fit">
-                                    {message.reactions.map(
-                                      (reaction: any, index: number) => (
-                                        <span key={index} className="text-lg">
-                                          {reaction.emoji}
-                                        </span>
-                                      )
-                                    )}
-                                  </div>
-                                )}
-                              <div className="flex justify-between items-center mt-1">
+                              {(() => {
+                                const reactions = message.reactions;
+                                if (reactions && reactions.length > 0) {
+                                  return (
+                                    <div className="flex items-center gap-0.5 mt-2 -mb-1 ml-auto">
+                                      {reactions.map(
+                                        (reaction: any, index: number) => (
+                                          <span 
+                                            key={index} 
+                                            className="text-sm bg-white/80 dark:bg-gray-700/80 rounded-full p-1 shadow-sm border border-white/30 dark:border-gray-600/30 backdrop-blur-sm"
+                                            style={{
+                                              transform: `translateX(${index * -8}px)`,
+                                              zIndex: reactions.length - index
+                                            }}
+                                          >
+                                            {reaction.emoji}
+                                          </span>
+                                        )
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
+                              <div className="flex justify-between items-center mt-2">
                                 <div
                                   className={`message-timestamp text-xs ${
                                     message.from_me
-                                      ? myMessageTextClass
-                                      : otherMessageTextClass
+                                      ? "text-white/80"
+                                      : "text-gray-500 dark:text-gray-400"
                                   } flex items-center h-4 ml-auto`}
                                 >
                                   <div className="flex items-center mr-1">
@@ -12435,19 +12901,25 @@ console.log(data);
                                       <div
                                         className={`text-xs px-2 py-1 ${
                                           message.from_me
-                                            ? "text-black"
-                                            : "text-black dark:text-gray-400"
+                                            ? "text-white"
+                                            : "text-slate-800 dark:text-white"
                                         }`}
                                       >
                                         {phoneNames[message.phoneIndex] ||
                                           `Phone ${message.phoneIndex + 1}`}
                                       </div>
                                     )}
-                                    {formatTimestamp(
-                                      message.createdAt ||
-                                        message.dateAdded ||
-                                        message.timestamp
-                                    )}
+                                    <span className={`text-xs ${
+                                      message.from_me
+                                        ? "text-white/90"
+                                        : "text-slate-700 dark:text-white/90"
+                                    }`}>
+                                      {formatTimestamp(
+                                        message.createdAt ||
+                                          message.dateAdded ||
+                                          message.timestamp
+                                      )}
+                                    </span>
 
                                     {/* Message status indicator for sent messages */}
                                     {message.from_me && (
@@ -12493,143 +12965,112 @@ console.log(data);
               )}
             </div>
 
-            <div className="absolute bottom-0 left-0 w-500px !box m-1 py-1 px-2">
-              {replyToMessage && (
-                <div className="p-2 mb-2 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-gray-800 dark:text-gray-200">
-                      {replyToMessage.from_me
-                        ? "Me"
-                        : selectedContact?.contactName ||
-                          selectedContact?.firstName ||
-                          selectedContact?.phone ||
-                          replyToMessage.from_name}
-                    </div>
-                    <div>
-                      {replyToMessage.type === "text" &&
-                        replyToMessage.text?.body}
-                      {replyToMessage.type === "link_preview" &&
-                        replyToMessage.link_preview?.body}
-                      {replyToMessage.type === "image" && (
-                        <img
-                          src={replyToMessage.image?.link}
-                          alt="Image"
-                          style={{ maxWidth: "200px" }}
-                        />
-                      )}
-                      {replyToMessage.type === "video" && (
-                        <video
-                          controls
-                          src={replyToMessage.video?.link}
-                          style={{ maxWidth: "200px" }}
-                        />
-                      )}
-                      {replyToMessage.type === "gif" && (
-                        <img
-                          src={replyToMessage.gif?.link}
-                          alt="GIF"
-                          style={{ maxWidth: "200px" }}
-                        />
-                      )}
-                      {replyToMessage.type === "audio" && (
-                        <audio controls src={replyToMessage.audio?.link} />
-                      )}
-                      {replyToMessage.type === "voice" && (
-                        <audio controls src={replyToMessage.voice?.link} />
-                      )}
-                      {replyToMessage.type === "document" && (
-                        <iframe
-                          src={replyToMessage.document?.link}
-                          width="100%"
-                          height="200px"
-                        />
-                      )}
-                      {replyToMessage.type === "sticker" && (
-                        <img
-                          src={replyToMessage.sticker?.link}
-                          alt="Sticker"
-                          style={{ maxWidth: "150px" }}
-                        />
-                      )}
-                      {replyToMessage.type === "location" && (
-                        <div className="text-gray-800 dark:text-gray-200">
-                          Location: {replyToMessage.location?.latitude},{" "}
-                          {replyToMessage.location?.longitude}
-                        </div>
-                      )}
-                      {replyToMessage.type === "poll" && (
-                        <div className="text-gray-800 dark:text-gray-200">
-                          Poll: {replyToMessage.poll?.title}
-                        </div>
-                      )}
-                      {replyToMessage.type === "hsm" && (
-                        <div className="text-gray-800 dark:text-gray-200">
-                          HSM: {replyToMessage.hsm?.title}
-                        </div>
-                      )}
-                      {replyToMessage.type === "call_log" && (
-                        <div className="text-gray-800 dark:text-gray-200">
-                          Call Logs: {replyToMessage.call_log?.title}
-                        </div>
-                      )}
-                    </div>
+            {replyToMessage && (
+              <div className="absolute bottom-20 left-2 p-3 rounded-xl bg-gray-800/60 dark:bg-gray-900/80 flex items-center justify-between backdrop-blur-xl border border-gray-600/50 dark:border-gray-700/60 shadow-xl shadow-black/20 dark:shadow-black/40 max-w-md">
+                <div>
+                  <div className="font-semibold text-gray-100 dark:text-gray-50 text-sm">
+                    {replyToMessage.from_me
+                      ? "Me"
+                      : selectedContact?.contactName ||
+                        selectedContact?.firstName ||
+                        selectedContact?.phone ||
+                        replyToMessage.from_name}
                   </div>
-                  <button onClick={() => setReplyToMessage(null)}>
-                    <Lucide
-                      icon="X"
-                      className="w-5 h-5 text-gray-800 dark:text-gray-200"
-                    />
-                  </button>
+                  <div className="text-xs text-gray-300 dark:text-gray-400 mt-1">
+                    {replyToMessage.type === "text" &&
+                      replyToMessage.text?.body}
+                    {replyToMessage.type === "link_preview" &&
+                      replyToMessage.link_preview?.body}
+                    {replyToMessage.type === "image" && (
+                      <img
+                        src={replyToMessage.image?.link}
+                        alt="Image"
+                        style={{ maxWidth: "150px" }}
+                        className="rounded-lg shadow-md"
+                      />
+                    )}
+                    {replyToMessage.type === "video" && (
+                      <video
+                        controls
+                        src={replyToMessage.video?.link}
+                        style={{ maxWidth: "150px" }}
+                        className="rounded-lg shadow-md"
+                      />
+                    )}
+                    {replyToMessage.type === "gif" && (
+                      <img
+                        src={replyToMessage.gif?.link}
+                        alt="GIF"
+                        style={{ maxWidth: "120px" }}
+                        className="rounded-lg shadow-md"
+                      />
+                    )}
+                    {replyToMessage.type === "audio" && (
+                      <audio controls src={replyToMessage.audio?.link} className="rounded-lg" />
+                    )}
+                    {replyToMessage.type === "voice" && (
+                      <audio controls src={replyToMessage.voice?.link} className="rounded-lg" />
+                    )}
+                    {replyToMessage.type === "document" && (
+                      <iframe
+                        src={replyToMessage.document?.link}
+                        width="100%"
+                        height="150px"
+                        className="rounded-lg shadow-md"
+                      />
+                    )}
+                    {replyToMessage.type === "sticker" && (
+                      <img
+                        src={replyToMessage.sticker?.link}
+                        alt="Sticker"
+                        style={{ maxWidth: "120px" }}
+                        className="rounded-lg shadow-md"
+                      />
+                    )}
+                    {replyToMessage.type === "location" && (
+                      <div className="text-gray-300 dark:text-gray-400">
+                        Location: {replyToMessage.location?.latitude},{" "}
+                        {replyToMessage.location?.longitude}
+                      </div>
+                    )}
+                    {replyToMessage.type === "poll" && (
+                      <div className="text-gray-300 dark:text-gray-400">
+                        Poll: {replyToMessage.poll?.title}
+                      </div>
+                    )}
+                    {replyToMessage.type === "hsm" && (
+                      <div className="text-gray-300 dark:text-gray-400">
+                        HSM: {replyToMessage.hsm?.title}
+                      </div>
+                    )}
+                    {replyToMessage.type === "call_log" && (
+                      <div className="text-gray-300 dark:text-gray-400">
+                        Call Logs: {replyToMessage.call_log?.title}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-              <div className="flex mb-1">
-                <button
-                  className={`px-4 py-2 mr-1 rounded-lg ${
-                    messageMode === "reply" ||
-                    messageMode === `phone${selectedContact?.phoneIndex + 1}`
-                      ? "bg-primary text-white"
-                      : "bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200"
-                  }`}
-                  onClick={() => {
-                    const phoneIndex = selectedContact?.phoneIndex || 0;
-                    setMessageMode(`phone${phoneIndex + 1}`);
-                  }}
+                <button 
+                  onClick={() => setReplyToMessage(null)}
+                  className="p-1.5 hover:bg-gray-700/60 dark:hover:bg-gray-800/80 rounded-lg transition-all duration-200 hover:scale-110 ml-2"
                 >
-                  Reply
-                </button>
-                <button
-                  className={`px-4 py-2 rounded-lg ${
-                    messageMode === "privateNote"
-                      ? "bg-yellow-600 text-white"
-                      : "bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200"
-                  }`}
-                  onClick={() => setMessageMode("privateNote")}
-                >
-                  Private Note
+                  <Lucide
+                    icon="X"
+                    className="w-4 h-4 text-gray-400 dark:text-gray-500"
+                  />
                 </button>
               </div>
-              {isPrivateNotesMentionOpen && messageMode === "privateNote" && (
-                <div className="absolute bottom-full left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-40 overflow-y-auto mb-1">
-                  {employeeList.map((employee) => (
-                    <div
-                      key={employee.id}
-                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-800 dark:text-gray-200"
-                      onClick={() => handlePrivateNoteMentionSelect(employee)}
-                    >
-                      {employee.name}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-center w-full bg-white dark:bg-gray-800 pl-1 pr-1 rounded-md">
-                <button
-                  className="p-1 m-0 !box"
+            )}
+            <div className="absolute bottom-0 left-0 right-0 mx-2 mb-2">
+              <div className="flex items-center w-full bg-gray-700/50 dark:bg-gray-800/70 pl-3 pr-3 py-2 rounded-2xl backdrop-blur-xl border border-gray-500/40 dark:border-gray-600/50 shadow-xl shadow-black/20 dark:shadow-black/40">
+                                <button
+                  className="p-2 m-0 !box hover:bg-gray-600/40 dark:hover:bg-gray-700/60 rounded-lg transition-all duration-200 hover:scale-105 group"
                   onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}
                 >
                   <span className="flex items-center justify-center w-5 h-5">
                     <Lucide
                       icon="Smile"
-                      className="w-5 h-5 text-gray-800 dark:text-gray-200"
+                      className="w-5 h-5 text-gray-300 dark:text-gray-200 group-hover:text-blue-400 dark:group-hover:text-blue-300 transition-colors duration-200"
                     />
                   </span>
                 </button>
@@ -12637,13 +13078,13 @@ console.log(data);
                   <div className="flex items-center space-x-1.5">
                     <Menu.Button
                       as={Button}
-                      className="p-1 !box m-0"
+                      className="p-2 !box m-0 hover:bg-gray-600/40 dark:hover:bg-gray-700/60 rounded-lg transition-all duration-200 hover:scale-105 group"
                       onClick={handleTagClick}
                     >
                       <span className="flex items-center justify-center w-5 h-5">
                         <Lucide
                           icon="Paperclip"
-                          className="w-5 h-5 text-gray-800 dark:text-gray-200"
+                          className="w-5 h-5 text-gray-300 dark:text-gray-200 group-hover:text-blue-400 dark:group-hover:text-blue-300 transition-colors duration-200"
                         />
                       </span>
                     </Menu.Button>
@@ -12722,13 +13163,29 @@ console.log(data);
                   </Menu.Items>
                 </Menu>
                 <button
-                  className="p-2 m-0 !box ml-2"
+                  className="p-2 m-0 !box hover:bg-gray-600/40 dark:hover:bg-gray-700/60 rounded-lg transition-all duration-200 hover:scale-105 group"
+                  onClick={() => {
+                    setIsQuickRepliesOpen(true);
+                    setQuickReplyFilter("");
+                  }}
+                >
+                  <span className="flex items-center justify-center w-5 h-5">
+                    <Lucide
+                      icon="MessageSquare"
+                      className="w-5 h-5 text-gray-300 dark:text-gray-200 group-hover:text-blue-400 dark:group-hover:text-blue-300 transition-colors duration-200"
+                    />
+                  </span>
+                </button>
+                
+      
+                <button
+                  className="p-2 m-0 !box hover:bg-gray-600/40 dark:hover:bg-gray-700/60 rounded-lg transition-all duration-200 hover:scale-105 group"
                   onClick={toggleRecordingPopup}
                 >
                   <span className="flex items-center justify-center w-5 h-5">
                     <Lucide
                       icon="Mic"
-                      className="w-5 h-5 text-gray-800 dark:text-gray-200"
+                      className="w-5 h-5 text-gray-300 dark:text-gray-200 group-hover:text-blue-400 dark:group-hover:text-blue-300 transition-colors duration-200"
                     />
                   </span>
                 </button>
@@ -12808,7 +13265,7 @@ console.log(data);
                 )}
                 <textarea
                   ref={textareaRef}
-                  className={`flex-grow h-8 px-1 py-1 m-0.5 ml-1 border rounded-md focus:outline-none focus:border-info text-sm resize-none overflow-hidden ${"bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400"} border-gray-300 dark:border-gray-700`}
+                  className="flex-grow h-8 px-3 py-2 text-sm resize-none overflow-hidden bg-transparent text-gray-100 dark:text-gray-50 placeholder-gray-400 dark:placeholder-gray-500 border-none outline-none focus:outline-none focus:ring-0 focus:border-none"
                   placeholder={
                     messageMode === "privateNote"
                       ? "Type a private note..."
@@ -12935,438 +13392,7 @@ console.log(data);
                   }}
                   disabled={userRole === "3"}
                 />
-                {isQuickRepliesOpen && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[95%] max-w-6xl max-h-[95vh] overflow-hidden animate-in zoom-in-95 duration-200">
-                      {/* Header */}
-                      <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                        <div className="flex items-center space-x-3">
-                          <div className="p-2 bg-primary/10 rounded-lg">
-                            <Lucide
-                              icon="MessageSquare"
-                              className="w-6 h-6 text-primary"
-                            />
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                              Quick Replies
-                            </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              Select a quick reply to send
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setIsQuickRepliesOpen(false)}
-                          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                          title="Close (ESC)"
-                        >
-                          <Lucide
-                            icon="X"
-                            className="w-6 h-6 text-gray-500 dark:text-gray-400"
-                          />
-                        </button>
-                      </div>
 
-                      {/* Content */}
-                      <div className="p-6">
-                        {/* Tabs */}
-                        <div className="flex space-x-4 mb-4">
-                          <button
-                            className={`px-4 py-2 rounded-lg ${
-                              activeQuickReplyTab === "all"
-                                ? "bg-primary text-white"
-                                : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                            }`}
-                            onClick={() => setActiveQuickReplyTab("all")}
-                          >
-                            All
-                          </button>
-                          <button
-                            className={`px-4 py-2 rounded-lg ${
-                              activeQuickReplyTab === "self"
-                                ? "bg-primary text-white"
-                                : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                            }`}
-                            onClick={() => setActiveQuickReplyTab("self")}
-                          >
-                            Personal
-                          </button>
-                        </div>
-
-                        {/* Search and Filter */}
-                        <div className="flex justify-between items-center mb-4">
-                          <div className="flex space-x-4">
-                            <select
-                              value={quickReplyCategory}
-                              onChange={(e) =>
-                                setQuickReplyCategory(e.target.value)
-                              }
-                              className="px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                            >
-                              <option value="all">All Categories</option>
-                              {categories
-                                .filter((cat) => cat !== "all")
-                                .map((category) => (
-                                  <option key={category} value={category}>
-                                    {category}
-                                  </option>
-                                ))}
-                            </select>
-                            <div className="relative">
-                              <input
-                                type="text"
-                                placeholder="Search quick replies..."
-                                value={quickReplyFilter}
-                                onChange={(e) =>
-                                  setQuickReplyFilter(e.target.value)
-                                }
-                                className="pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                              />
-                              <Lucide
-                                icon="Search"
-                                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Quick Replies List */}
-                        <div
-                          className="overflow-y-auto"
-                          style={{ maxHeight: "calc(90vh - 200px)" }}
-                        >
-                          {quickReplies
-                            .filter(
-                              (reply) =>
-                                activeQuickReplyTab === "all" ||
-                                reply.type === "self"
-                            )
-                            .filter(
-                              (reply) =>
-                                quickReplyCategory === "all" ||
-                                reply.category === quickReplyCategory
-                            )
-                            .filter(
-                              (reply) =>
-                                (reply.keyword ?? "")
-                                  .toLowerCase()
-                                  .includes(quickReplyFilter.toLowerCase()) ||
-                                (reply.text ?? "")
-                                  .toLowerCase()
-                                  .includes(quickReplyFilter.toLowerCase())
-                            )
-                            .sort((a, b) =>
-                              (a.keyword ?? "").localeCompare(b.keyword ?? "")
-                            )
-                            .map((reply) => (
-                              <div
-                                key={reply.id}
-                                className="flex items-center justify-between mb-2 bg-white dark:bg-gray-700 p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer transition-colors duration-200"
-                                onClick={() => {
-                                  if (editingReply?.id !== reply.id) {
-                                    // Handle videos first
-                                    if (reply.videos?.length) {
-                                      reply.videos.forEach((video) => {
-                                        fetch(video.url)
-                                          .then((response) => response.blob())
-                                          .then((blob) => {
-                                            const videoFile = new File(
-                                              [blob],
-                                              video.name,
-                                              {
-                                                type: video.type,
-                                                lastModified:
-                                                  video.lastModified,
-                                              }
-                                            );
-                                            setSelectedVideo(videoFile);
-                                            setVideoModalOpen(true);
-                                            setDocumentCaption(
-                                              reply.text || ""
-                                            );
-                                          })
-                                          .catch((error) => {
-                                            console.error(
-                                              "Error handling video:",
-                                              error
-                                            );
-                                            toast.error("Failed to load video");
-                                          });
-                                      });
-                                    }
-                                    // Handle images
-                                    else if (reply.images?.length) {
-                                      setPastedImageUrl(reply.images);
-                                      setDocumentCaption(reply.text || "");
-                                      setImageModalOpen2(true);
-                                    }
-                                    // Handle documents
-                                    else if (reply.documents?.length) {
-                                      reply.documents.forEach((doc) => {
-                                        fetch(doc.url)
-                                          .then((response) => response.blob())
-                                          .then((blob) => {
-                                            const documentFile = new File(
-                                              [blob],
-                                              doc.name,
-                                              {
-                                                type: doc.type,
-                                                lastModified: doc.lastModified,
-                                              }
-                                            );
-                                            setSelectedDocument(documentFile);
-                                            setDocumentModalOpen(true);
-                                            setDocumentCaption(
-                                              reply.text || ""
-                                            );
-                                          })
-                                          .catch((error) => {
-                                            console.error(
-                                              "Error handling document:",
-                                              error
-                                            );
-                                            toast.error(
-                                              "Failed to load document"
-                                            );
-                                          });
-                                      });
-                                    }
-                                    // Handle text-only replies
-                                    else if (
-                                      !reply.images?.length &&
-                                      !reply.documents?.length &&
-                                      !reply.videos?.length
-                                    ) {
-                                      setNewMessage(reply.text);
-                                    }
-                                    setIsQuickRepliesOpen(false);
-                                  }
-                                }}
-                              >
-                                {editingReply?.id === reply.id ? (
-                                  <div className="flex items-center w-full space-x-4">
-                                    <input
-                                      className="flex-1 px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                      value={editingReply.keyword}
-                                      onChange={(e) =>
-                                        setEditingReply({
-                                          ...editingReply,
-                                          keyword: e.target.value,
-                                        })
-                                      }
-                                      placeholder="Keyword"
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                    <select
-                                      className="flex-1 px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                      value={editingReply.category || ""}
-                                      onChange={(e) =>
-                                        setEditingReply({
-                                          ...editingReply,
-                                          category: e.target.value,
-                                        })
-                                      }
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <option value="">Select Category</option>
-                                      {categories
-                                        .filter((cat: string) => cat !== "all")
-                                        .map((category) => (
-                                          <option
-                                            key={category}
-                                            value={category}
-                                          >
-                                            {category}
-                                          </option>
-                                        ))}
-                                    </select>
-                                    <textarea
-                                      className="flex-grow px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                      value={editingReply.text || ""}
-                                      onChange={(e) =>
-                                        setEditingReply({
-                                          ...editingReply,
-                                          text: e.target.value,
-                                        })
-                                      }
-                                      placeholder="Message text (optional)"
-                                      rows={1}
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                    <div className="flex space-x-2">
-                                      <button
-                                        className="p-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          updateQuickReply(
-                                            reply.id,
-                                            editingReply.keyword ?? "",
-                                            editingReply.text || "",
-                                            editingReply.type as "all" | "self"
-                                          );
-                                        }}
-                                      >
-                                        <Lucide
-                                          icon="Save"
-                                          className="w-5 h-5"
-                                        />
-                                      </button>
-                                      <button
-                                        className="p-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setEditingReply(null);
-                                        }}
-                                      >
-                                        <Lucide icon="X" className="w-5 h-5" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div className="flex flex-col flex-grow">
-                                      <div className="flex items-center space-x-2 mb-2">
-                                        <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
-                                          {reply.keyword}
-                                        </span>
-                                        {reply.category && (
-                                          <span className="px-3 py-1 bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-full text-sm">
-                                            {reply.category}
-                                          </span>
-                                        )}
-                                      </div>
-                                      {reply.text && (
-                                        <span
-                                          className="px-2 py-1 text-gray-800 dark:text-gray-200"
-                                          style={{
-                                            whiteSpace: "pre-wrap",
-                                            wordBreak: "break-word",
-                                          }}
-                                        >
-                                          {reply.text}
-                                        </span>
-                                      )}
-                                      <div className="grid grid-cols-2 gap-2 mt-2">
-                                        {reply.documents &&
-                                          reply.documents.length > 0 &&
-                                          reply.documents.map((doc, index) => (
-                                            <div
-                                              key={index}
-                                              className="relative group"
-                                            >
-                                              <a
-                                                href={doc.url}
-                                                target="_blank"
-                                                className="p-2 bg-gray-100 dark:bg-gray-600 rounded-md flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-500"
-                                                onClick={(e) =>
-                                                  e.stopPropagation()
-                                                }
-                                              >
-                                                <Lucide
-                                                  icon="File"
-                                                  className="w-4 h-4"
-                                                />
-                                                <span className="text-sm truncate">
-                                                  {doc.name}
-                                                </span>
-                                              </a>
-                                            </div>
-                                          ))}
-                                        {(reply.images?.length ?? 0) > 0 &&
-                                          (reply.images as string[]).map(
-                                            (img, index) => (
-                                              <div
-                                                key={index}
-                                                className="relative group"
-                                              >
-                                                <img
-                                                  src={img}
-                                                  alt={`Preview ${index + 1}`}
-                                                  className="w-16 h-16 object-cover rounded-md hover:opacity-90 transition-opacity"
-                                                  onClick={(e) =>
-                                                    e.stopPropagation()
-                                                  }
-                                                />
-                                              </div>
-                                            )
-                                          )}
-                                        {reply.videos &&
-                                          reply.videos.length > 0 &&
-                                          reply.videos.map((video, index) => (
-                                            <div
-                                              key={`video-${index}`}
-                                              className="relative group"
-                                            >
-                                              <div
-                                                className="w-16 h-16 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30 rounded-md flex items-center justify-center hover:opacity-90 transition-opacity cursor-pointer"
-                                                onClick={(e) =>
-                                                  e.stopPropagation()
-                                                }
-                                              >
-                                                {video.thumbnail ? (
-                                                  <img
-                                                    src={video.thumbnail}
-                                                    alt={`Video ${index + 1}`}
-                                                    className="w-full h-full object-cover rounded-md"
-                                                  />
-                                                ) : (
-                                                  <Lucide
-                                                    icon="Video"
-                                                    className="w-6 h-6 text-purple-600 dark:text-purple-400"
-                                                  />
-                                                )}
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                  <div className="bg-black/60 rounded-full p-1">
-                                                    <Lucide
-                                                      icon="Play"
-                                                      className="w-3 h-3 text-white"
-                                                    />
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          ))}
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center space-x-2 ml-4">
-                                      <button
-                                        className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setEditingReply(reply);
-                                        }}
-                                      >
-                                        <Lucide
-                                          icon="PencilLine"
-                                          className="w-5 h-5"
-                                        />
-                                      </button>
-                                      <button
-                                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          deleteQuickReply(
-                                            reply.id,
-                                            reply.type as "all" | "self"
-                                          );
-                                        }}
-                                      >
-                                        <Lucide
-                                          icon="Trash"
-                                          className="w-5 h-5"
-                                        />
-                                      </button>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
               {isEmojiPickerOpen && (
                 <div className="absolute bottom-20 left-2 z-10">
@@ -13376,58 +13402,57 @@ console.log(data);
             </div>
           </>
         ) : (
-          <div className="hidden md:flex flex-col w-full h-full bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 items-center justify-center">
-            <div className="flex flex-col items-center justify-center p-9 rounded-xl shadow-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-              <div className="w-16 h-16 mb-4 overflow-hidden rounded-xl shadow-lg">
+          <div className="hidden md:flex flex-col w-full h-full bg-gradient-to-br from-white/10 to-white/20 dark:from-gray-800/20 dark:to-gray-800/30 backdrop-blur-xl text-gray-800 dark:text-gray-200 items-center justify-center p-8">
+            <div className="flex flex-col items-center justify-center p-12 rounded-3xl shadow-2xl bg-white/20 dark:bg-gray-800/25 backdrop-blur-2xl border border-white/40 dark:border-gray-600/50 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]">
+              <div className="w-24 h-24 mb-8 overflow-hidden rounded-2xl shadow-2xl bg-white/30 dark:bg-gray-700/40 backdrop-blur-md border border-white/50 dark:border-gray-600/60 p-3">
                 <img
                   src={logoImage}
                   alt="Logo"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover rounded-xl"
                 />
               </div>
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 text-center mb-3">
+              <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 text-center mb-6 bg-gradient-to-r from-gray-800 to-gray-600 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
                 Welcome to Chat
               </h2>
-              <p className="text-gray-600 dark:text-gray-400 text-lg text-center mb-6 max-w-sm leading-relaxed">
+              <p className="text-gray-700 dark:text-gray-300 text-lg text-center mb-10 max-w-lg leading-relaxed font-medium px-4">
                 Select a contact from the list to start messaging, or create a
                 new conversation to get started.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-6 mb-8">
                 <button
                   onClick={openNewChatModal}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+                  className="bg-gradient-to-r from-blue-500/80 to-purple-600/80 hover:from-blue-600/90 hover:to-purple-700/90 text-white font-bold py-5 px-10 rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 backdrop-blur-md border border-blue-400/50 dark:border-blue-300/50"
                 >
-                  <div className="flex items-center space-x-2">
-                    <Lucide icon="Plus" className="w-4 h-4" />
+                  <div className="flex items-center space-x-3">
+                    <Lucide icon="Plus" className="w-5 h-5" />
                     <span>Start New Chat</span>
                   </div>
                 </button>
                 <button
                   onClick={() => setIsSearchModalOpen(true)}
-                  className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold py-3 px-6 rounded-lg transition-all duration-200 border border-gray-300 dark:border-gray-600"
+                  className="bg-white/30 hover:bg-white/50 dark:bg-gray-700/30 dark:hover:bg-gray-600/50 text-gray-800 dark:text-gray-200 font-semibold py-5 px-10 rounded-2xl transition-all duration-300 border border-white/50 dark:border-gray-600/50 shadow-lg hover:shadow-xl backdrop-blur-md hover:scale-105 transform"
                 >
-                  <div className="flex items-center space-x-2">
-                    <Lucide icon="Search" className="w-4 h-4" />
+                  <div className="flex items-center space-x-3">
+                    <Lucide icon="Search" className="w-5 h-5" />
                     <span>Search Contacts</span>
                   </div>
                 </button>
               </div>
-              <div className="mt-6 text-center">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+              <div className="text-center">
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-6 font-semibold">
                   Quick Tips:
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 text-xs text-gray-500 dark:text-gray-400">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span>Click on any contact to start chatting</span>
+                <div className="flex flex-col sm:flex-row gap-6 text-sm text-gray-600 dark:text-gray-300">
+                  <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                    <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full shadow-lg"></div>
+                    <span className="font-medium">Click on any contact to start chatting</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>Use search to find specific contacts</span>
+                  <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                    <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-600 rounded-full shadow-lg"></div>
+                    <span className="font-medium">Use search to find specific contacts</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                    <span>Create new conversations anytime</span>
+                  <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                    <span className="font-medium">Create new conversations anytime</span>
                   </div>
                 </div>
               </div>
@@ -13435,28 +13460,364 @@ console.log(data);
           </div>
         )}
       </div>
-
+      {isLoading2 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center  backdrop-blur-sm">
+          <div className="relative p-8 rounded-3xl  backdrop-blur-2xl ">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="relative">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-600/20 backdrop-blur-md border border-blue-400/30 dark:border-blue-300/30 flex items-center justify-center">
+                  <LoadingIcon
+                    icon="spinning-circles"
+                    className="w-12 h-12 text-blue-500 dark:text-blue-400"
+                  />
+                </div>
+                {/* Animated rings */}
+                <div className="absolute inset-0 rounded-full border-2 border-blue-400/20 dark:border-blue-300/20 animate-ping"></div>
+                <div className="absolute inset-0 rounded-full border-2 border-purple-500/20 dark:border-purple-400/20 animate-ping" style={{ animationDelay: '0.5s' }}></div>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                  Loading Messages
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Please wait while we fetch your conversation...
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {selectedMessages.length > 0 && (
-        <div className="fixed bottom-16 right-2 md:right-10 space-y-2 md:space-y-0 md:space-x-4 flex flex-col md:flex-row">
-          <button
-            className="bg-blue-800 dark:bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg w-full md:w-auto"
-            onClick={() => setIsForwardDialogOpen(true)}
-          >
-            Forward
-          </button>
-          <button
-            className="bg-red-800 dark:bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg w-full md:w-auto"
-            onClick={openDeletePopup}
-          >
-            Delete
-          </button>
-          <button
-            className="bg-gray-700 dark:bg-gray-600 text-white px-4 py-2 rounded-lg shadow-lg w-full md:w-auto"
-            onClick={() => setSelectedMessages([])}
-            onKeyDown={handleKeyDown}
-          >
-            Cancel
-          </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/30 dark:border-gray-600/30 p-6 mx-4 max-w-sm w-full animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 bg-blue-100/80 dark:bg-blue-600/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3">
+                <Lucide icon="MessageSquare" className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Message Actions
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {selectedMessages.length} message{selectedMessages.length !== 1 ? 's' : ''} selected
+              </p>
+            </div>
+
+            {/* Check if all messages are temporary */}
+            {selectedMessages.every(msg => !msg.id || msg.id.startsWith('temp_')) ? (
+              // Show loading state while refreshing messages
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 bg-blue-100/80 dark:bg-blue-600/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3">
+                  <div className="w-8 h-8 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+                <div>
+                  <h4 className="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-2">
+                    Refreshing Messages
+                  </h4>
+                  <p className="text-sm text-blue-600 dark:text-blue-300 mb-4">
+                    Checking for updated message data...
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <button
+                    className="w-full bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-gray-400/30 dark:border-gray-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
+                    onClick={() => setSelectedMessages([])}
+                  >
+                    <Lucide icon="X" className="w-4 h-4" />
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // Show normal action buttons for real messages
+              <div className="space-y-3">
+                <button
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-500 dark:to-blue-600 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-blue-500/30 dark:border-blue-400/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
+                  onClick={() => setIsForwardDialogOpen(true)}
+                >
+                  <Lucide icon="Share" className="w-4 h-4" />
+                  Forward
+                </button>
+                
+                <button
+                  className="w-full bg-gradient-to-r from-red-600 to-red-700 dark:from-red-500 dark:to-red-600 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-red-500/30 dark:border-red-400/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
+                  onClick={openDeletePopup}
+                >
+                  <Lucide icon="Trash2" className="w-4 h-4" />
+                  Delete
+                </button>
+                
+                <button
+                  className="w-full bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-gray-400/30 dark:border-gray-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
+                  onClick={() => setSelectedMessages([])}
+                  onKeyDown={handleKeyDown}
+                >
+                  <Lucide icon="X" className="w-4 h-4" />
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {/* Close on backdrop click */}
+            <div 
+              className="absolute inset-0 -z-10" 
+              onClick={() => setSelectedMessages([])}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Fallback popup for still-temporary messages after refresh */}
+      {selectedMessages.length > 0 && 
+       !isRefreshingMessages && 
+       selectedMessages.every(msg => !msg.id || msg.id.startsWith('temp_')) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/30 dark:border-gray-600/30 p-6 mx-4 max-w-sm w-full animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-amber-100/80 dark:bg-amber-600/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lucide icon="AlertTriangle" className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                Messages Still Loading
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                These messages are still being processed. Please try again later.
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                className="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-400 dark:to-amber-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-amber-400/30 dark:border-amber-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
+                onClick={() => {
+                  setSelectedMessages([]);
+                  if (selectedChatId && whapiToken) {
+                    setIsRefreshingMessages(true);
+                    fetchMessages(selectedChatId, whapiToken).then(() => {
+                      setTimeout(() => setIsRefreshingMessages(false), 1000);
+                    }).catch(() => {
+                      setIsRefreshingMessages(false);
+                    });
+                  }
+                }}
+              >
+                <Lucide icon="RefreshCw" className="w-4 h-4" />
+                Try Again
+              </button>
+              
+              <button
+                className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-gray-400/30 dark:border-gray-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
+                onClick={() => setSelectedMessages([])}
+              >
+                <Lucide icon="X" className="w-4 h-4" />
+                Cancel
+              </button>
+            </div>
+
+            {/* Close on backdrop click */}
+            <div 
+              className="absolute inset-0 -z-10" 
+              onClick={() => setSelectedMessages([])}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeletePopupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/30 dark:border-gray-600/30 p-6 mx-4 max-w-md w-full animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-100/80 dark:bg-red-600/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lucide icon="AlertTriangle" className="w-8 h-8 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                Delete Messages
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Are you sure you want to delete {selectedMessages.length} message{selectedMessages.length !== 1 ? 's' : ''}? This action cannot be undone.
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                className="flex-1 bg-gradient-to-r from-red-600 to-red-700 dark:from-red-500 dark:to-red-600 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-red-500/30 dark:border-red-400/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
+                onClick={deleteMessages}
+              >
+                <Lucide icon="Trash2" className="w-4 h-4" />
+                Delete
+              </button>
+              
+              <button
+                className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-gray-400/30 dark:border-gray-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
+                onClick={closeDeletePopup}
+              >
+                <Lucide icon="X" className="w-4 h-4" />
+                Cancel
+              </button>
+            </div>
+
+            {/* Close on backdrop click */}
+            <div 
+              className="absolute inset-0 -z-10" 
+              onClick={closeDeletePopup}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Forward Messages Dialog */}
+      {isForwardDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/30 dark:border-gray-600/30 p-6 mx-4 max-w-2xl w-full animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-blue-100/80 dark:bg-blue-600/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lucide icon="Share" className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                Forward Messages
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Select contacts to forward {selectedMessages.length} message{selectedMessages.length !== 1 ? 's' : ''} to
+              </p>
+            </div>
+
+            {/* Contact Selection */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Select Contacts
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setForwardDialogTags([])}
+                    className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Clear Tags
+                  </button>
+                </div>
+              </div>
+              
+              {/* Tag Filter */}
+              <div className="mb-3">
+                <div className="flex flex-wrap gap-2">
+                  {Array.from(new Set(contacts.flatMap(c => c.tags || []))).map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => {
+                        setForwardDialogTags(prev => 
+                          prev.includes(tag) 
+                            ? prev.filter(t => t !== tag)
+                            : [...prev, tag]
+                        );
+                      }}
+                      className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                        forwardDialogTags.includes(tag)
+                          ? 'bg-blue-100 dark:bg-blue-600/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Contact List */}
+              <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg p-2 bg-gray-50 dark:bg-gray-800">
+                {contacts
+                  .filter(contact => 
+                    forwardDialogTags.length === 0 ||
+                    contact.tags?.some(tag => forwardDialogTags.includes(tag))
+                  )
+                  .map((contact) => (
+                    <div
+                      key={contact.id}
+                      className={`flex items-center p-2 rounded-lg cursor-pointer transition-colors ${
+                        selectedContactsForForwarding.some(c => c.id === contact.id)
+                          ? 'bg-blue-100 dark:bg-blue-600/40 border border-blue-200 dark:border-blue-500/30'
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                      onClick={() => {
+                        setSelectedContactsForForwarding(prev => 
+                          prev.some(c => c.id === contact.id)
+                            ? prev.filter(c => c.id !== contact.id)
+                            : [...prev, contact]
+                        );
+                      }}
+                    >
+                      <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-3">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {contact.contactName?.[0] || contact.firstName?.[0] || contact.lastName?.[0] || '?'}
+                        </span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 dark:text-gray-100">
+                          {contact.contactName || `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'Unknown Contact'}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {contact.phone || contact.customer_phone || 'No phone'}
+                        </div>
+                      </div>
+                      <div className="ml-2">
+                        {selectedContactsForForwarding.some(c => c.id === contact.id) && (
+                          <Lucide icon="Check" className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                className={`flex-1 px-4 py-3 rounded-xl shadow-lg transition-all duration-300 backdrop-blur-sm border font-medium flex items-center justify-center gap-2 ${
+                  isForwarding
+                    ? 'bg-gray-500 dark:bg-gray-600 text-white border-gray-400/30 dark:border-gray-500/30 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-500 dark:to-blue-600 text-white border-blue-500/30 dark:border-blue-400/30 hover:shadow-xl hover:scale-[1.02] active:scale-98'
+                }`}
+                onClick={handleForwardMessages}
+                disabled={selectedContactsForForwarding.length === 0 || isForwarding}
+              >
+                {isForwarding ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Forwarding...
+                  </>
+                ) : (
+                  <>
+                    <Lucide icon="Send" className="w-4 h-4" />
+                    Forward to {selectedContactsForForwarding.length} Contact{selectedContactsForForwarding.length !== 1 ? 's' : ''}
+                  </>
+                )}
+              </button>
+              
+              <button
+                className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-gray-400/30 dark:border-gray-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
+                onClick={() => {
+                  setIsForwardDialogOpen(false);
+                  setSelectedContactsForForwarding([]);
+                }}
+              >
+                <Lucide icon="X" className="w-4 h-4" />
+                Cancel
+              </button>
+            </div>
+
+            {/* Close on backdrop click */}
+            <div 
+              className="absolute inset-0 -z-10" 
+              onClick={() => {
+                setIsForwardDialogOpen(false);
+                setSelectedContactsForForwarding([]);
+              }}
+            />
+          </div>
         </div>
       )}
       {isNewChatModalOpen && (
@@ -13504,51 +13865,16 @@ console.log(data);
         </div>
       )}
       {isTabOpen && (
-        <div className="absolute top-0 right-0 h-full w-full md:w-1/4 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-700 overflow-y-auto z-50 shadow-lg transition-all duration-300 ease-in-out">
+        <div className="absolute top-0 right-0 h-full w-full md:w-1/3 lg:w-2/5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-l border-white/20 dark:border-gray-700/50 overflow-y-auto z-50 shadow-2xl transition-all duration-300 ease-in-out">
           <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
+            <div className="flex items-center justify-between p-3 border-b border-white/20 dark:border-gray-700/50 bg-white/40 dark:bg-gray-900/40 backdrop-blur-sm">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 shadow-lg"></div>
 
                 <div className="flex flex-col">
-                  {isEditing ? (
-                    <div className="flex items-center">
-                      <input
-                        type="text"
-                        value={editedName}
-                        onChange={(e) => setEditedName(e.target.value)}
-                        className="font-semibold bg-transparent text-gray-800 dark:text-gray-200 capitalize border-b-2 border-primary dark:border-primary-400 focus:outline-none focus:border-primary-600 dark:focus:border-primary-300 mr-2 px-1 py-0.5 transition-all duration-200"
-                        onKeyPress={(e) => e.key === "Enter" && handleSave()}
-                      />
-                      <button
-                        onClick={handleSave}
-                        className="p-1 bg-primary hover:bg-primary-600 text-white rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                      >
-                        <Lucide icon="Save" className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      className="font-semibold text-gray-800 dark:text-gray-200 capitalize cursor-pointer hover:text-primary dark:hover:text-primary-400 transition-colors duration-200 flex items-center group"
-                      onClick={() => setIsEditing(true)}
-                    >
-                      <span>
-                        {selectedContact?.contactName ||
-                          selectedContact?.firstName ||
-                          selectedContact?.phone ||
-                          ""}
-                      </span>
-                      <Lucide
-                        icon="PencilLine"
-                        className="w-4 h-4 ml-2 text-gray-500 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                      />
-                    </div>
-                  )}
-                  {userRole === "1" && (
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {selectedContact.phone}
-                    </span>
-                  )}
+                  <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    Contact info
+                  </h1>
                 </div>
               </div>
               <button
@@ -13562,15 +13888,58 @@ console.log(data);
               </button>
             </div>
             {/* Enhanced Content Area */}
-            <div className="flex-grow overflow-y-auto p-3 space-y-3 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-800/50 dark:to-gray-900">
+            <div className="flex-grow overflow-y-auto p-3 space-y-3 bg-gradient-to-b from-white/20 to-white/10 dark:from-gray-800/20 dark:to-gray-900/10 backdrop-blur-sm">
+                            {/* Profile Header Section - Mobile App Style */}
+              <div className="bg-gradient-to-br from-gray-100/60 via-gray-200/40 to-gray-100/60 dark:from-gray-800/40 dark:via-gray-700/30 dark:to-gray-800/40 backdrop-blur-md rounded-3xl shadow-xl overflow-hidden border border-white/20 dark:border-gray-600/30 p-6">
+                <div className="text-center mb-4">
+               
+                  
+                  {/* Profile Picture */}
+                  <div className="w-20 h-20 mx-auto mb-4 relative">
+                    {selectedContact?.profilePicUrl ? (
+                      <img
+                        src={selectedContact.profilePicUrl}
+                        alt="Profile"
+                        className="w-full h-full rounded-full object-cover shadow-lg border-2 border-white/50 dark:border-gray-600/50"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-500 to-gray-600 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-lg border-2 border-white/50 dark:border-gray-600/50">
+                        {selectedContact?.contactName?.charAt(0)?.toUpperCase() || 
+                         selectedContact?.firstName?.charAt(0)?.toUpperCase() || 
+                         selectedContact?.phone?.charAt(0) || "?"}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Contact Name */}
+                  <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+                    {selectedContact?.contactName || 
+                     selectedContact?.firstName || 
+                     selectedContact?.phone || "Contact Name"}
+                  </h2>
+                  
+                  {/* Company Information */}
+                  {selectedContact?.companyName && (
+                    <p className="text-base text-gray-700 dark:text-gray-200 mb-1">
+                      {selectedContact.companyName}
+                    </p>
+                  )}
+                  {selectedContact?.companyName && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Software Company
+                    </p>
+                  )}
+                </div>
+              </div>
+
               {/* Contact Information Card */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-shadow duration-300">
-                <div className="bg-blue-50 dark:bg-blue-900 px-2 py-1.5 border-b border-gray-200 dark:border-gray-600">
+              <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/30 dark:border-gray-700/50 hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+                <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 dark:from-blue-500/30 dark:to-blue-600/30 px-4 py-3 border-b border-white/20 dark:border-gray-600/50 backdrop-blur-sm">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                       Contact Information
                     </h3>
-                    <div className="flex space-x-1">
+                    <div className="flex space-x-2">
                       {!isEditing ? (
                         <>
                           <button
@@ -13578,7 +13947,7 @@ console.log(data);
                               setIsEditing(true);
                               setEditedContact({ ...selectedContact });
                             }}
-                            className="px-1.5 py-0.5 bg-primary text-white rounded-md hover:bg-primary-dark transition duration-200 text-xs"
+                            className="px-4 py-2 bg-primary/80 backdrop-blur-sm text-white rounded-lg hover:bg-primary transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105"
                           >
                             Edit
                           </button>
@@ -13587,10 +13956,10 @@ console.log(data);
                             as="div"
                             className="relative inline-block text-left"
                           >
-                            <Menu.Button className="px-1.5 py-0.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200 text-xs">
+                            <Menu.Button className="px-4 py-2 bg-blue-500/80 backdrop-blur-sm text-white rounded-lg hover:bg-blue-600 transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105">
                               Sync
                             </Menu.Button>
-                            <Menu.Items className="absolute right-0 mt-1 w-20 bg-white dark:bg-gray-800 shadow-md rounded-md p-1 z-10">
+                            <Menu.Items className="absolute right-0 mt-1 w-24 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-xl rounded-xl p-2 z-10 border border-white/20 dark:border-gray-700/50">
                               <Menu.Item>
                                 {({ active }) => (
                                   <button
@@ -13777,7 +14146,7 @@ console.log(data);
                           <button
                             onClick={handleDeleteContact}
                             disabled={deleteLoading}
-                            className={`px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-200 flex items-center space-x-1 ${
+                            className={`px-4 py-2 bg-red-500/80 backdrop-blur-sm text-white rounded-lg hover:bg-red-600 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105 text-sm font-medium ${
                               deleteLoading
                                 ? "opacity-50 cursor-not-allowed"
                                 : ""
@@ -13816,7 +14185,7 @@ console.log(data);
                         <div className="flex space-x-2">
                           <button
                             onClick={handleSaveContact}
-                            className="px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 transition duration-200"
+                            className="px-4 py-2 bg-green-500/80 backdrop-blur-sm text-white rounded-lg hover:bg-green-600 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 text-sm font-medium"
                           >
                             Save
                           </button>
@@ -13825,7 +14194,7 @@ console.log(data);
                               setIsEditing(false);
                               setEditedContact(null);
                             }}
-                            className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-200"
+                            className="px-4 py-2 bg-red-500/80 backdrop-blur-sm text-white rounded-lg hover:bg-red-600 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 text-sm font-medium"
                           >
                             Cancel
                           </button>
@@ -13937,7 +14306,7 @@ console.log(data);
                           `Phone updated to ${phoneNames[newPhoneIndex]}`
                         );
                       }}
-                      className="px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ml-4 w-32"
+                      className="px-3 py-2 border border-white/30 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-900 dark:text-gray-100 ml-4 w-32 shadow-inner transition-all duration-200"
                     >
                       {Object.entries(phoneNames).map(([index, name]) => {
                         const phoneIndex = parseInt(index);
@@ -14103,34 +14472,103 @@ console.log(data);
                             })
                           )
                         : []),
-                    ].map((item, index) => (
-                      <div key={index} className="col-span-1">
-                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
-                          {item.label}
-                        </p>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={
-                              editedContact?.[item.key as keyof Contact] || ""
-                            }
-                            onChange={(e) =>
-                              setEditedContact({
-                                ...editedContact,
-                                [item.key]: e.target.value,
-                              } as Contact)
-                            }
-                            className="w-full mt-1 px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                          />
-                        ) : (
-                          <p className="text-gray-800 dark:text-gray-200">
-                            {selectedContact[item.key as keyof Contact] ||
-                              "N/A"}
+                    ]
+                      .slice(0, showMoreContactInfo ? undefined : 6)
+                      .map((item, index) => (
+                        <div key={index} className="col-span-1">
+                          <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+                            {item.label}
                           </p>
-                        )}
-                      </div>
-                    ))}
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={
+                                editedContact?.[item.key as keyof Contact] || ""
+                              }
+                              onChange={(e) =>
+                                setEditedContact({
+                                  ...editedContact,
+                                  [item.key]: e.target.value,
+                                } as Contact)
+                              }
+                              className="w-full mt-1 px-3 py-2 border border-white/30 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-900 dark:text-gray-100 shadow-inner transition-all duration-200"
+                            />
+                          ) : (
+                            <p className="text-gray-800 dark:text-gray-200">
+                              {selectedContact[item.key as keyof Contact] ||
+                                "N/A"}
+                            </p>
+                          )}
+                        </div>
+                      ))}
                   </div>
+                  
+                  {/* Show More/Hide Button */}
+                  {[
+                    { label: "First Name", key: "contactName" },
+                    { label: "Last Name", key: "lastName" },
+                    { label: "Email", key: "email" },
+                    { label: "Phone", key: "phone" },
+                    { label: "Company", key: "companyName" },
+                    { label: "Address", key: "address1" },
+                    { label: "Website", key: "website" },
+                    ...(userData?.companyId === "095"
+                      ? [
+                          { label: "Country", key: "country" },
+                          { label: "Nationality", key: "nationality" },
+                          {
+                            label: "Highest Education",
+                            key: "highestEducation",
+                          },
+                          {
+                            label: "Program of Study",
+                            key: "programOfStudy",
+                          },
+                          {
+                            label: "Intake Preference",
+                            key: "intakePreference",
+                          },
+                          {
+                            label: "English Proficiency",
+                            key: "englishProficiency",
+                          },
+                          { label: "Passport Validity", key: "passport" },
+                        ]
+                      : []),
+                    ...(["079", "001"].includes(userData?.companyId ?? "")
+                      ? [
+                          { label: "IC", key: "ic" },
+                          { label: "Points", key: "points" },
+                          { label: "Branch", key: "branch" },
+                          { label: "Expiry Date", key: "expiryDate" },
+                          { label: "Vehicle Number", key: "vehicleNumber" },
+                        ]
+                      : []),
+                    ...(userData?.companyId === "001"
+                      ? [
+                          { label: "Assistant ID", key: "assistantId" },
+                          { label: "Thread ID", key: "threadid" },
+                        ]
+                      : []),
+                    ...(selectedContact.customFields
+                      ? Object.entries(selectedContact.customFields).map(
+                          ([key, value]) => ({
+                            label: key,
+                            key: `customFields.${key}`,
+                            isCustom: true,
+                          })
+                        )
+                      : []),
+                  ].length > 6 && (
+                    <div className="mt-4 text-center">
+                      <button
+                        onClick={() => setShowMoreContactInfo(!showMoreContactInfo)}
+                        className="px-4 py-2 bg-gray-500/20 dark:bg-gray-600/20 backdrop-blur-sm text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-500/30 dark:hover:bg-gray-600/30 transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105"
+                      >
+                        {showMoreContactInfo ? "Show Less" : "Show More"}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Enhanced Employee Assignment Section */}
                   {selectedContact.tags.some((tag: string) =>
@@ -14143,9 +14581,9 @@ console.log(data);
                         ).toLowerCase()
                     )
                   ) && (
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl p-6 border border-green-200 dark:border-green-700 mb-6">
+                    <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 dark:from-green-500/30 dark:to-emerald-500/30 backdrop-blur-md rounded-2xl p-6 border border-green-300/50 dark:border-green-600/50 mb-6 shadow-xl hover:shadow-2xl transition-all duration-300">
                       <div className="flex items-center space-x-3 mb-4">
-                        <div className="p-2 bg-green-500 rounded-lg">
+                        <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl shadow-lg">
                           <Lucide icon="Users" className="w-5 h-5 text-white" />
                         </div>
                         <h4 className="font-bold text-lg text-green-800 dark:text-green-200">
@@ -14167,12 +14605,12 @@ console.log(data);
                           .map((employeeTag: string, index: number) => (
                             <div
                               key={index}
-                              className="inline-flex items-center bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 text-sm font-semibold px-4 py-2 rounded-full border-2 border-green-300 dark:border-green-600 shadow-sm hover:shadow-md transition-all duration-200 group"
+                              className="inline-flex items-center bg-green-100/80 dark:bg-green-800/60 backdrop-blur-sm text-green-800 dark:text-green-200 text-sm font-semibold px-4 py-2 rounded-full border-2 border-green-300/50 dark:border-green-600/50 shadow-lg hover:shadow-xl transition-all duration-200 group hover:scale-105"
                             >
-                              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                              <div className="w-2 h-2 bg-green-500 rounded-full mr-2 shadow-sm"></div>
                               <span>{employeeTag}</span>
                               <button
-                                className="ml-3 p-1 rounded-full hover:bg-green-200 dark:hover:bg-green-700 transition-colors duration-200 focus:outline-none"
+                                className="ml-3 p-1 rounded-full hover:bg-green-200/80 dark:hover:bg-green-700/60 transition-colors duration-200 focus:outline-none"
                                 onClick={() =>
                                   handleRemoveTag(
                                     selectedContact.contact_id,
@@ -14193,8 +14631,8 @@ console.log(data);
                 </div>
               </div>
               {/* Enhanced Tags Section */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700 hover:shadow-2xl transition-shadow duration-300">
-                <div className="bg-indigo-50 dark:bg-indigo-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
+              <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/30 dark:border-gray-700/50 hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+                <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 dark:from-indigo-500/30 dark:to-purple-500/30 px-4 py-3 border-b border-white/20 dark:border-gray-600/50 backdrop-blur-sm">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                     Tags
                   </h3>
@@ -14224,7 +14662,7 @@ console.log(data);
                           .map((tag: string, index: number) => (
                             <div
                               key={index}
-                              className="inline-flex items-center bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-sm font-semibold px-3 py-1 rounded-full border border-blue-400 dark:border-blue-600"
+                              className="inline-flex items-center bg-blue-100/80 dark:bg-blue-800/60 backdrop-blur-sm text-blue-800 dark:text-blue-200 text-sm font-semibold px-3 py-1 rounded-full border border-blue-400/50 dark:border-blue-600/50 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                             >
                               <span>{tag}</span>
                               <button
@@ -14252,8 +14690,10 @@ console.log(data);
                   </div>
                 </div>
               </div>
-              <div className="bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden">
-                <div className="bg-yellow-50 dark:bg-yellow-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
+       
+              
+              <div className="bg-white/60 dark:bg-gray-700/60 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/30 dark:border-gray-700/50 hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+                <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 dark:from-yellow-500/30 dark:to-orange-500/30 px-4 py-3 border-b border-white/20 dark:border-gray-600/50 backdrop-blur-sm flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                     Scheduled Messages
                   </h3>
@@ -14271,7 +14711,7 @@ console.log(data);
                         {scheduledMessages.map((message) => (
                           <div
                             key={message.id}
-                            className="flex-none w-[320px] bg-gradient-to-br from-yellow-50/80 dark:from-yellow-900/40 to-white dark:to-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-600 shadow hover:shadow-lg transition-shadow duration-200"
+                            className="flex-none w-[320px] bg-gradient-to-br from-yellow-500/20 to-orange-500/20 dark:from-yellow-500/30 dark:to-orange-500/30 backdrop-blur-md rounded-2xl p-4 border border-yellow-300/50 dark:border-yellow-600/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
                           >
                             <div className="flex flex-col h-full">
                               <div className="flex items-center justify-between mb-2">
@@ -14340,7 +14780,7 @@ console.log(data);
                               <div className="flex gap-2 mt-2">
                                 <button
                                   onClick={() => handleSendNow(message)}
-                                  className="flex-1 px-3 py-1 bg-green-500 text-white text-xs rounded-md hover:bg-green-600 transition duration-200 font-medium"
+                                  className="flex-1 px-3 py-2 bg-green-500/80 backdrop-blur-sm text-white text-sm rounded-lg hover:bg-green-600 transition-all duration-200 font-medium shadow-lg hover:shadow-xl hover:scale-105"
                                   title="Send this message now"
                                 >
                                   Send Now
@@ -14350,7 +14790,7 @@ console.log(data);
                                     handleEditScheduledMessage(message);
                                     setEditScheduledMessageModal(true);
                                   }}
-                                  className="flex-1 px-3 py-1 bg-primary text-white text-xs rounded-md hover:bg-primary-dark transition duration-200 font-medium"
+                                  className="flex-1 px-3 py-2 bg-primary/80 backdrop-blur-sm text-white text-sm rounded-lg hover:bg-primary-dark transition-all duration-200 font-medium shadow-lg hover:shadow-xl hover:scale-105"
                                   title="Edit scheduled message"
                                 >
                                   Edit
@@ -14359,7 +14799,7 @@ console.log(data);
                                   onClick={() =>
                                     handleDeleteScheduledMessage(message.id!)
                                   }
-                                  className="flex-1 px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition duration-200 font-medium"
+                                  className="flex-1 px-3 py-2 bg-red-500/80 backdrop-blur-sm text-white text-sm rounded-lg hover:bg-red-600 transition-all duration-200 font-medium shadow-lg hover:shadow-xl hover:scale-105"
                                   title="Delete scheduled message"
                                 >
                                   Delete
@@ -14384,8 +14824,8 @@ console.log(data);
                 </div>
               </div>
               {/* Add the new Notes section */}
-              <div className="bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden ">
-                <div className="bg-yellow-50 dark:bg-yellow-900 px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
+              <div className="bg-white/60 dark:bg-gray-700/60 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/30 dark:border-gray-700/50 hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+                <div className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 dark:from-amber-500/30 dark:to-yellow-500/30 px-4 py-3 border-b border-white/20 dark:border-gray-600/50 backdrop-blur-sm flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                     Notes
                   </h3>
@@ -14395,7 +14835,7 @@ console.log(data);
                         setIsEditing(true);
                         setEditedContact({ ...selectedContact });
                       }}
-                      className="px-3 py-1 bg-primary text-white rounded-md hover:bg-primary-dark transition duration-200"
+                      className="px-4 py-2 bg-primary/80 backdrop-blur-sm text-white rounded-lg hover:bg-primary-dark transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 text-sm font-medium"
                     >
                       Edit Notes
                     </button>
@@ -14411,14 +14851,67 @@ console.log(data);
                           notes: e.target.value,
                         } as Contact)
                       }
-                      className="w-full h-32 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                      className="w-full h-32 p-3 border border-white/30 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-900 dark:text-gray-100 shadow-inner"
                       placeholder="Add notes about this contact..."
                     />
                   ) : (
-                    <div className="whitespace-pre-wrap text-gray-800 dark:text-gray-200">
+                    <div className="whitespace-pre-wrap text-gray-800 dark:text-gray-200 p-3 bg-white/40 dark:bg-gray-800/40 rounded-xl backdrop-blur-sm">
                       {selectedContact.notes || "No notes added yet."}
                     </div>
                   )}
+                </div>
+              </div>
+              
+              {/* Media, Links and Docs Section */}
+              <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/30 dark:border-gray-700/50 hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                      Media, links and docs
+                    </h3>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100/80 dark:bg-gray-700/80 px-2 py-1 rounded-full">
+                      121
+                    </span>
+                  </div>
+                  
+                  {/* Sample Media Thumbnails */}
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="w-full aspect-square bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-800/50 dark:to-blue-900/50 rounded-lg flex items-center justify-center border border-blue-200/50 dark:border-blue-700/50">
+                      <div className="text-center">
+                        <div className="w-8 h-8 bg-blue-500 rounded-lg mx-auto mb-1 flex items-center justify-center">
+                          <Lucide icon="BarChart3" className="w-4 h-4 text-white" />
+                        </div>
+                        <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">Engulfing</p>
+                      </div>
+                    </div>
+                    
+                    <div className="w-full aspect-square bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800/50 dark:to-green-900/50 rounded-lg flex items-center justify-center border border-green-200/50 dark:border-green-700/50">
+                      <div className="text-center">
+                        <div className="w-8 h-8 bg-green-500 rounded-lg mx-auto mb-1 flex items-center justify-center">
+                          <Lucide icon="FileText" className="w-4 h-4 text-white" />
+                        </div>
+                        <p className="text-xs text-green-700 dark:text-green-300 font-medium">Chapter 7</p>
+                      </div>
+                    </div>
+                    
+                    <div className="w-full aspect-square bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-800/50 dark:to-purple-900/50 rounded-lg flex items-center justify-center border border-purple-200/50 dark:border-purple-700/50">
+                      <div className="text-center">
+                        <div className="w-8 h-8 bg-purple-500 rounded-lg mx-auto mb-1 flex items-center justify-center">
+                          <Lucide icon="Image" className="w-4 h-4 text-white" />
+                        </div>
+                        <p className="text-xs text-purple-700 dark:text-purple-300 font-medium">Image</p>
+                      </div>
+                    </div>
+                    
+                    <div className="w-full aspect-square bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-800/50 dark:to-orange-900/50 rounded-lg flex items-center justify-center border border-orange-200/50 dark:border-orange-700/50">
+                      <div className="text-center">
+                        <div className="w-8 h-8 bg-orange-500 rounded-lg mx-auto mb-1 flex items-center justify-center">
+                          <Lucide icon="File" className="w-4 h-4 text-white" />
+                        </div>
+                        <p className="text-xs text-orange-700 dark:text-orange-300 font-medium">Doc</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -14427,41 +14920,58 @@ console.log(data);
       )}
       {isMessageSearchOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40"
+          className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm z-40 flex items-center justify-center p-4"
           onClick={() => {
             setIsMessageSearchOpen(false);
             setMessageSearchQuery("");
           }}
         >
           <div
-            className="absolute top-16 right-0 w-full md:w-1/3 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-700 p-4 shadow-lg z-50"
+            className="w-full max-w-4xl bg-white/20 dark:bg-gray-800/25 backdrop-blur-2xl border border-white/40 dark:border-gray-600/50 p-8 shadow-2xl z-50 rounded-3xl"
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="mb-6">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Search Messages</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Find specific messages in your conversation</p>
+            </div>
+            
             <input
               ref={messageSearchInputRef}
               type="text"
               placeholder="Search messages..."
               value={messageSearchQuery}
               onChange={handleMessageSearchChange}
-              className="w-full border rounded text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400"
+              className="w-full border-0 rounded-xl text-gray-800 dark:text-gray-200 bg-white/90 dark:bg-gray-700/90 placeholder-gray-500 dark:placeholder-gray-400 p-4 shadow-lg backdrop-blur-sm focus:ring-2 focus:ring-blue-500/50 focus:outline-none transition-all duration-300"
             />
-            <div className="mt-4 max-h-96 overflow-y-auto">
+            
+            <div className="mt-6 max-h-[70vh] overflow-y-auto space-y-3">
+              {messageSearchResults.length === 0 && messageSearchQuery && (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <p>No messages found matching "{messageSearchQuery}"</p>
+                </div>
+              )}
+              
               {messageSearchResults.map((result) => (
                 <div
                   key={result.id}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-200"
+                  className="p-4 hover:bg-white/30 dark:hover:bg-gray-700/40 cursor-pointer transition-all duration-300 rounded-2xl backdrop-blur-sm border border-white/30 dark:border-gray-600/40 hover:shadow-lg hover:scale-[1.02]"
                   onClick={() => scrollToMessage(result.id)}
                 >
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {result.from_me
-                      ? "You"
-                      : selectedContact.contactName ||
-                        selectedContact.firstName ||
-                        result.from.split("@")[0]}
-                  </p>
-                  <p className="text-gray-800 dark:text-gray-200">
-                    {result.text.body.length > 100
-                      ? result.text.body.substring(0, 100) + "..."
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white/50 dark:bg-gray-600/50 px-3 py-1 rounded-full backdrop-blur-sm">
+                      {result.from_me
+                        ? "You"
+                        : selectedContact.contactName ||
+                          selectedContact.firstName ||
+                          result.from.split("@")[0]}
+                    </p>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {new Date(result.timestamp * 1000).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="text-gray-800 dark:text-gray-200 leading-relaxed">
+                    {result.text.body.length > 150
+                      ? result.text.body.substring(0, 150) + "..."
                       : result.text.body}
                   </p>
                 </div>
@@ -14681,7 +15191,7 @@ console.log(data);
                         {dailyUsageData.length > 0 ? (
                           <div className="space-y-8">
                             {/* Enhanced Line Chart */}
-                            <div className="relative h-96 bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700/50 shadow-inner overflow-hidden">
+                            <div className="relative h-96 bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-800/50 rounded-2xl border border-gray-100/50 dark:border-gray-700/50 shadow-inner overflow-hidden">
                               {(() => {
                                 return (
                                   <div className="w-full h-full p-4">
@@ -15579,6 +16089,273 @@ console.log(data);
 
 
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+          {/* Quick Replies Modal */}
+          <QuickRepliesModal
+                  isOpen={isQuickRepliesOpen}
+                  onClose={() => setIsQuickRepliesOpen(false)}
+                  quickReplies={quickReplies}
+                  categories={categories}
+                  onSelectReply={(reply) => {
+                    // Handle videos first
+                    if (reply.videos?.length) {
+                      reply.videos.forEach((video) => {
+                        fetch(video.url)
+                          .then((response) => response.blob())
+                          .then((blob) => {
+                            const videoFile = new File(
+                              [blob],
+                              video.name,
+                              {
+                                type: video.type,
+                                lastModified: video.lastModified,
+                              }
+                            );
+                            setSelectedVideo(videoFile);
+                            setVideoModalOpen(true);
+                            setDocumentCaption(reply.text || "");
+                          })
+                          .catch((error) => {
+                            console.error("Error handling video:", error);
+                            toast.error("Failed to load video");
+                          });
+                      });
+                    }
+                    // Handle images
+                    else if (reply.images?.length) {
+                      setPastedImageUrl(reply.images);
+                      setDocumentCaption(reply.text || "");
+                      setImageModalOpen2(true);
+                    }
+                    // Handle documents
+                    else if (reply.documents?.length) {
+                      reply.documents.forEach((doc) => {
+                        fetch(doc.url)
+                          .then((response) => response.blob())
+                          .then((blob) => {
+                            const documentFile = new File(
+                              [blob],
+                              doc.name,
+                              {
+                                type: doc.type,
+                                lastModified: doc.lastModified,
+                              }
+                            );
+                            setSelectedDocument(documentFile);
+                            setDocumentModalOpen(true);
+                            setDocumentCaption(reply.text || "");
+                          })
+                          .catch((error) => {
+                            console.error("Error handling document:", error);
+                            toast.error("Failed to load document");
+                          });
+                      });
+                    }
+                    // Handle text-only replies
+                    else if (
+                      !reply.images?.length &&
+                      !reply.documents?.length &&
+                      !reply.videos?.length
+                    ) {
+                      setNewMessage(reply.text);
+                    }
+                  }}
+                  onUpdateReply={updateQuickReply}
+                  onDeleteReply={deleteQuickReply}
+                />
+      {/* Employee Assignment Modal */}
+      {isEmployeeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsEmployeeModalOpen(false)}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative w-full max-w-2xl mx-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20 dark:border-gray-600/30 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
+                    <Lucide icon="Users" className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Assign Employee</h2>
+                    <p className="text-blue-100 text-sm">Select an employee to assign to this contact</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsEmployeeModalOpen(false)}
+                  className="p-2 hover:bg-white/20 rounded-xl transition-all duration-200 border border-white/30"
+                >
+                  <Lucide icon="X" className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Search Input */}
+            <div className="p-6 border-b border-gray-200/50 dark:border-gray-600/50">
+              <div className="relative">
+                <Lucide 
+                  icon="Search" 
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" 
+                />
+                <input
+                  type="text"
+                  placeholder="Search employees..."
+                  className="w-full pl-10 pr-4 py-3 bg-white/50 dark:bg-gray-700/50 border border-gray-300/50 dark:border-gray-600/50 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent backdrop-blur-sm"
+                  value={employeeSearch}
+                  onChange={(e) => setEmployeeSearch(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Employee List */}
+            <div className="max-h-96 overflow-y-auto p-6">
+              {/* All Contacts Option */}
+              <button
+                className={`w-full flex items-center justify-between p-4 rounded-xl text-base font-medium transition-all duration-200 mb-3 ${
+                  !selectedEmployee
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "bg-gray-100/50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-600/50"
+                }`}
+                onClick={() => {
+                  setSelectedEmployee(null);
+                  setIsEmployeeModalOpen(false);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <Lucide icon="Users" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <span>All Contacts</span>
+                </div>
+                <span className="text-sm opacity-75">Default</span>
+              </button>
+
+              {/* Employee List */}
+              {employeeList
+                .filter(
+                  (employee) =>
+                    (employee.name?.toLowerCase() || "").includes(
+                      employeeSearch?.toLowerCase() || ""
+                    ) &&
+                    (userRole === "1" || employee.name === currentUserName)
+                )
+                .sort((a, b) =>
+                  (a.name?.toLowerCase() || "").localeCompare(
+                    b.name?.toLowerCase() || ""
+                  )
+                )
+                .map((employee) => (
+                  <button
+                    key={employee.id}
+                    className={`w-full flex items-center justify-between p-4 rounded-xl text-base transition-all duration-200 mb-3 ${
+                      selectedEmployee === employee.name
+                        ? "bg-blue-600 text-white shadow-lg"
+                        : "bg-gray-100/50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-600/50"
+                    }`}
+                    onClick={() => {
+                      console.log(
+                        "🎯 [UI] Employee assignment clicked:",
+                        employee.name,
+                        selectedContact
+                      );
+                      handleAddTagToSelectedContacts(
+                        employee.name,
+                        selectedContact
+                      );
+                      setIsEmployeeModalOpen(false);
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                        <Lucide icon="User" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <span className="font-medium">{employee.name}</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm">
+                      {employee.quotaLeads !== undefined && (
+                        <span className="px-2 py-1 bg-white/20 dark:bg-gray-600/30 rounded-lg">
+                          {employee.assignedContacts || 0}/{employee.quotaLeads} leads
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tag Assignment Modal */}
+      {isTagModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsTagModalOpen(false)}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative w-full max-w-2xl mx-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20 dark:border-gray-600/30 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-500 to-green-600 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
+                    <Lucide icon="Tag" className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Add Tag</h2>
+                    <p className="text-green-100 text-sm">Select a tag to assign to this contact</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsTagModalOpen(false)}
+                  className="p-2 hover:bg-white/20 rounded-xl transition-all duration-200 border border-white/30"
+                >
+                  <Lucide icon="X" className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Tag List */}
+            <div className="max-h-96 overflow-y-auto p-6">
+              {tagList.map((tag) => (
+                <button
+                  key={tag.id}
+                  className={`w-full flex items-center p-4 rounded-xl text-base transition-all duration-200 mb-3 ${
+                    activeTags.includes(tag.name)
+                      ? "bg-green-600 text-white shadow-lg"
+                      : "bg-gray-100/50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-600/50"
+                  }`}
+                  onClick={() => {
+                    console.log(
+                      "🎯 [UI] Tag assignment clicked:",
+                      tag.name,
+                      selectedContact
+                    );
+                    handleAddTagToSelectedContacts(
+                      tag.name,
+                      selectedContact
+                    );
+                    setIsTagModalOpen(false);
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                      <Lucide icon="Tag" className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    </div>
+                    <span className="font-medium">{tag.name}</span>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         </div>
