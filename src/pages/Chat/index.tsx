@@ -11884,27 +11884,18 @@ console.log(data);
                                     />
                                   </div>
                                   {message.image?.caption && (
-                                    <div
-                                      className="mb-4"
-                                      style={{
-                                        maxWidth: "70%",
-                                        width: `${Math.min(
-                                          (message.image.caption.length || 0) *
-                                            15,
-                                          500
-                                        )}px`,
-                                        minWidth: "120px",
-                                      }}
-                                    >
+                                    <div className="mt-2">
                                       <div
-                                        className={`whitespace-pre-wrap break-words leading-relaxed text-lg font-normal ${
+                                        className={`whitespace-pre-wrap break-words overflow-hidden leading-relaxed text-sm font-normal ${
                                           message.from_me
-                                            ? "text-white dark:text-white"
-                                            : "text-black dark:text-white"
+                                            ? `${myMessageTextClass}`
+                                            : `${otherMessageTextClass}`
                                         }`}
                                         style={{
-                                          lineHeight: "1.7",
-                                          letterSpacing: "0.03em",
+                                          wordBreak: "break-word",
+                                          overflowWrap: "break-word",
+                                          lineHeight: "1.4",
+                                          letterSpacing: "0.01em",
                                         }}
                                       >
                                         {formatText(message.image.caption)}
@@ -11953,18 +11944,39 @@ console.log(data);
                                 </div>
                               )}
                               {message.type === "video" && message.video && (
-                                <div className="video-content p-0 message-content image-message">
-                                  <video
-                                    controls
-                                    src={message.video.link}
-                                    className="rounded-lg message-image cursor-pointer"
-                                    style={{
-                                      width: "auto",
-                                      height: "auto",
-                                      maxWidth: "100%",
-                                    }}
-                                  />
-                                </div>
+                                <>
+                                  <div className="video-content p-0 message-content image-message">
+                                    <video
+                                      controls
+                                      src={message.video.link}
+                                      className="rounded-lg message-image cursor-pointer"
+                                      style={{
+                                        width: "auto",
+                                        height: "auto",
+                                        maxWidth: "100%",
+                                      }}
+                                    />
+                                  </div>
+                                  {message.video?.caption && (
+                                    <div className="mt-2">
+                                      <div
+                                        className={`whitespace-pre-wrap break-words overflow-hidden leading-relaxed text-sm font-normal ${
+                                          message.from_me
+                                            ? `${myMessageTextClass}`
+                                            : `${otherMessageTextClass}`
+                                        }`}
+                                        style={{
+                                          wordBreak: "break-word",
+                                          overflowWrap: "break-word",
+                                          lineHeight: "1.4",
+                                          letterSpacing: "0.01em",
+                                        }}
+                                      >
+                                        {formatText(message.video.caption)}
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
                               )}
                               {message.type === "gif" && message.gif && (
                                 <>
@@ -11980,27 +11992,18 @@ console.log(data);
                                     />
                                   </div>
                                   {message.gif?.caption && (
-                                    <div
-                                      className="mb-2"
-                                      style={{
-                                        maxWidth: "70%",
-                                        width: `${Math.min(
-                                          (message.gif.caption.length || 0) *
-                                            7.5,
-                                          250
-                                        )}px`,
-                                        minWidth: "60px",
-                                      }}
-                                    >
+                                    <div className="mt-2">
                                       <div
-                                        className={`whitespace-pre-wrap break-words leading-relaxed text-sm font-normal ${
+                                        className={`whitespace-pre-wrap break-words overflow-hidden leading-relaxed text-sm font-normal ${
                                           message.from_me
-                                            ? "text-white dark:text-white"
-                                            : "text-black dark:text-white"
+                                            ? `${myMessageTextClass}`
+                                            : `${otherMessageTextClass}`
                                         }`}
                                         style={{
-                                          lineHeight: "1.7",
-                                          letterSpacing: "0.03em",
+                                          wordBreak: "break-word",
+                                          overflowWrap: "break-word",
+                                          lineHeight: "1.4",
+                                          letterSpacing: "0.01em",
                                         }}
                                       >
                                         {formatText(message.gif.caption)}
@@ -12052,30 +12055,18 @@ console.log(data);
                                     </div>
                                     {(message.audio?.caption ||
                                       message.ptt?.caption) && (
-                                      <div
-                                        className="mb-4"
-                                        style={{
-                                          maxWidth: "70%",
-                                          width: `${Math.min(
-                                            ((
-                                              message.audio?.caption ||
-                                              message.ptt?.caption ||
-                                              ""
-                                            ).length || 0) * 15,
-                                            500
-                                          )}px`,
-                                          minWidth: "120px",
-                                        }}
-                                      >
+                                      <div className="mt-2">
                                         <div
-                                          className={`whitespace-pre-wrap break-words leading-relaxed text-lg font-normal ${
+                                          className={`whitespace-pre-wrap break-words overflow-hidden leading-relaxed text-sm font-normal ${
                                             message.from_me
-                                              ? "text-white dark:text-white"
-                                              : "text-black dark:text-white"
+                                              ? `${myMessageTextClass}`
+                                              : `${otherMessageTextClass}`
                                           }`}
                                           style={{
-                                            lineHeight: "1.7",
-                                            letterSpacing: "0.03em",
+                                            wordBreak: "break-word",
+                                            overflowWrap: "break-word",
+                                            lineHeight: "1.4",
+                                            letterSpacing: "0.01em",
                                           }}
                                         >
                                           {formatText(
@@ -12181,27 +12172,18 @@ console.log(data);
                                       </div>
                                     </div>
                                     {message.document?.caption && (
-                                      <div
-                                        className="mb-2"
-                                        style={{
-                                          maxWidth: "70%",
-                                          width: `${Math.min(
-                                            (message.document.caption.length ||
-                                              0) * 7.5,
-                                            250
-                                          )}px`,
-                                          minWidth: "60px",
-                                        }}
-                                      >
+                                      <div className="mt-2">
                                         <div
-                                          className={`whitespace-pre-wrap break-words leading-relaxed text-sm font-normal ${
+                                          className={`whitespace-pre-wrap break-words overflow-hidden leading-relaxed text-sm font-normal ${
                                             message.from_me
-                                              ? "text-white dark:text-white"
-                                              : "text-black dark:text-white"
+                                              ? `${myMessageTextClass}`
+                                              : `${otherMessageTextClass}`
                                           }`}
                                           style={{
-                                            lineHeight: "1.7",
-                                            letterSpacing: "0.03em",
+                                            wordBreak: "break-word",
+                                            overflowWrap: "break-word",
+                                            lineHeight: "1.4",
+                                            letterSpacing: "0.01em",
                                           }}
                                         >
                                           {formatText(message.document.caption)}

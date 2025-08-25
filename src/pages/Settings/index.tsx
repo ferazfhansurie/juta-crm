@@ -7,8 +7,15 @@ import LoadingIcon from '@/components/Base/LoadingIcon';
 import { Link } from 'react-router-dom';
 import Button from "@/components/Base/Button";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
+import { useAppDispatch, useAppSelector } from "@/stores/hooks";
+import { selectColorScheme, setColorScheme } from "@/stores/colorSchemeSlice";
+import { selectDarkMode, setDarkMode } from "@/stores/darkModeSlice";
 
 function SettingsPage() {
+  const dispatch = useAppDispatch();
+  const activeColorScheme = useAppSelector(selectColorScheme);
+  const activeDarkMode = useAppSelector(selectDarkMode);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
@@ -204,20 +211,22 @@ const fetchSettings = async () => {
     <div className="h-full overflow-y-auto">
       <div className="max-w-7xl mx-auto p-6 pb-20">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Settings</h1>
+          <div className="flex items-center space-x-4">
+            <Link to="/users-layout-2">
+              <Button variant="outline-secondary" className="shadow-md">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
+              </Button>
+            </Link>
+            <h1 className="text-2xl font-bold">Settings</h1>
+          </div>
           <ThemeSwitcher />
         </div>
 
         {/* Navigation Buttons */}
         <div className="flex flex-wrap gap-2 mb-8">
-          <Link to="/crud-form">
-            {showAddUserButton && role !== "3" && (
-              <Button variant="primary" className="shadow-md">
-                Add New User
-              </Button>
-            )}
-          </Link>
-          
           <Link to="/loading2">
             {showAddUserButton && phoneCount >= 2 && (
               <Button variant="primary" className="shadow-md">
@@ -249,6 +258,77 @@ const fetchSettings = async () => {
               </Button>
             </Link>
           )}
+        </div>
+
+        {/* Theme Settings Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-6">Theme Settings</h2>
+          
+          <div className="space-y-6">
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Appearance Mode
+              </label>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => dispatch(setDarkMode(false))}
+                  className={`px-4 py-2 rounded-lg border transition-all duration-200 ${
+                    !activeDarkMode
+                      ? 'bg-primary text-white border-primary shadow-md'
+                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 rounded-full bg-yellow-400"></div>
+                    <span>Light Mode</span>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => dispatch(setDarkMode(true))}
+                  className={`px-4 py-2 rounded-lg border transition-all duration-200 ${
+                    activeDarkMode
+                      ? 'bg-primary text-white border-primary shadow-md'
+                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 rounded-full bg-slate-700"></div>
+                    <span>Dark Mode</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Color Scheme
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                {['default', 'theme-1', 'theme-2', 'theme-3', 'theme-4'].map((theme) => (
+                  <button
+                    key={theme}
+                    onClick={() => dispatch(setColorScheme(theme as any))}
+                    className={`h-12 rounded-lg border-2 transition-all duration-200 ${
+                      activeColorScheme === theme
+                        ? 'border-primary shadow-md'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="h-full overflow-hidden rounded-lg">
+                      <div className="flex items-center h-full gap-1 -mx-2">
+                        <div className={`w-1/2 h-[140%] bg-theme-1 rotate-12 ${theme}`}></div>
+                        <div className={`w-1/2 h-[140%] bg-theme-2 rotate-12 ${theme}`}></div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Choose from different color schemes to customize your interface
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Company ID Change Section - Only show for juta.com users */}

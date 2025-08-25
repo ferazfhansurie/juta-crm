@@ -1117,7 +1117,7 @@ interface BotStatusResponse {
     const exportModal =
       userRole === "1" ? (
         <Dialog open={true} onClose={() => setExportModalOpen(false)}>
-          <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-lg">
+          <Dialog.Panel className="w-full max-w-md p-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-white/30 dark:border-gray-700/50 rounded-xl shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50">
             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
               Export Contacts
             </h3>
@@ -1125,7 +1125,7 @@ interface BotStatusResponse {
               {exportOptions.map((option) => (
                 <button
                   key={option.id}
-                  className="w-full p-2 text-left bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md"
+                  className="w-full p-2 text-left bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/50 hover:bg-white/90 dark:hover:bg-gray-600/90 rounded-md transition-all duration-200"
                   onClick={() => handleExportOption(option.id)}
                 >
                   {option.label}
@@ -1177,7 +1177,7 @@ interface BotStatusResponse {
     };
 
     return (
-      <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-lg">
+      <Dialog.Panel className="w-full max-w-md p-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-white/30 dark:border-gray-700/50 rounded-xl shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50">
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
           Select Tags to Export
         </h3>
@@ -1200,13 +1200,13 @@ interface BotStatusResponse {
         <div className="mt-4 flex justify-end space-x-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+            className="px-4 py-2 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/50 text-gray-800 dark:text-gray-200 rounded-md hover:bg-white/90 dark:hover:bg-gray-600/90 transition-all duration-200"
           >
             Cancel
           </button>
           <button
             onClick={() => onExport(localSelectedTags)}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600/90 backdrop-blur-sm border border-indigo-500/30 rounded-md hover:bg-indigo-700/90 transition-all duration-200"
           >
             Export
           </button>
@@ -5403,9 +5403,13 @@ const handleConfirmSyncFirebase = async () => {
     });
   };
   return (
-    <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
-      <div className="flex-grow overflow-y-auto">
-        <div className="grid grid-cols-12 mt-5">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50/80 via-blue-50/40 to-indigo-50/30 dark:from-gray-900/90 dark:via-blue-900/30 dark:to-indigo-900/20 relative overflow-hidden">
+      {/* Glassmorphic background elements */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-blue-100/10 to-indigo-100/10 dark:from-white/5 dark:via-blue-900/10 dark:to-indigo-900/10"></div>
+      <div className="absolute top-20 left-20 w-72 h-72 bg-blue-200/20 dark:bg-blue-800/10 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-20 right-20 w-96 h-96 bg-indigo-200/20 dark:bg-indigo-800/10 rounded-full blur-3xl"></div>
+        <div className="relative z-10 flex-grow overflow-y-auto">
+          <div className="grid grid-cols-12 mt-4 pl-4">
           <div className="flex items-center col-span-12 intro-y sm:flex-nowrap">
             <div className="w-full sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
               <div className="flex">
@@ -5413,9 +5417,9 @@ const handleConfirmSyncFirebase = async () => {
                 <div className="w-full">
                   {/* Desktop view */}
 
-                  <div className="hidden sm:flex sm:w-full sm:space-x-2">
+                  <div className="hidden sm:flex sm:w-full sm:space-x-1.5">
                     <button
-                      className={`flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                      className={`flex items-center justify-start p-2 !box bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-white/40 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 hover:scale-105 hover:shadow-xl shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300 ${
                         userRole === "3" ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                       onClick={() => {
@@ -5429,29 +5433,29 @@ const handleConfirmSyncFirebase = async () => {
                       }}
                       disabled={userRole === "3"}
                     >
-                      <Lucide icon="Plus" className="w-5 h-5 mr-2" />
-                      <span className="font-medium">Add Contact</span>
+                      <Lucide icon="Plus" className="w-4 h-4 mr-1.5" />
+                      <span className="font-medium text-xs">Add Contact</span>
                     </button>
                     <Menu as="div" className="relative inline-block text-left">
                       <Menu.Button
                         as={Button}
-                        className="flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="flex items-center justify-start p-1.5 !box bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-white/40 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 hover:scale-105 hover:shadow-xl shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                       >
-                        <Lucide icon="User" className="w-5 h-5 mr-2" />
-                        <span>Assign User</span>
+                        <Lucide icon="User" className="w-4 h-4 mr-1.5" />
+                        <span className="text-xs">Assign User</span>
                       </Menu.Button>
-                      <Menu.Items className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 shadow-lg rounded-md p-2 z-10 overflow-y-auto max-h-96">
+                      <Menu.Items className="absolute right-0 mt-2 w-64 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-white/30 dark:border-gray-700/50 shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50 rounded-xl p-2 z-10 overflow-y-auto max-h-96">
                         <div className="mb-2">
-                          <input
-                            type="text"
-                            placeholder="Search employees..."
-                            value={employeeSearch}
-                            onChange={(e) => setEmployeeSearch(e.target.value)}
-                            className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                          />
+                                                      <input
+                              type="text"
+                              placeholder="Search employees..."
+                              value={employeeSearch}
+                              onChange={(e) => setEmployeeSearch(e.target.value)}
+                              className="w-full px-2 py-1 text-sm border border-white/30 dark:border-gray-600/50 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm text-gray-800 dark:text-gray-200"
+                            />
                         </div>
-                        {employeeList
-                          .filter((employee) => {
+                        {(() => {
+                          const filteredEmployees = employeeList.filter((employee) => {
                             if (userRole === "4" || userRole === "2") {
                               return (
                                 employee.role === "2" &&
@@ -5463,8 +5467,34 @@ const handleConfirmSyncFirebase = async () => {
                             return employee.name
                               .toLowerCase()
                               .includes(employeeSearch.toLowerCase());
-                          })
-                          .map((employee) => (
+                          });
+                          
+                          console.log("🔍 [EMPLOYEE DEBUG] Total employees:", employeeList.length);
+                          console.log("🔍 [EMPLOYEE DEBUG] User role:", userRole);
+                          console.log("🔍 [EMPLOYEE DEBUG] Filtered employees:", filteredEmployees.length);
+                          console.log("🔍 [EMPLOYEE DEBUG] All employees:", employeeList);
+                          
+                          if (filteredEmployees.length === 0) {
+                            return (
+                              <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                                {employeeList.length === 0 ? (
+                                  <div>
+                                    <Lucide icon="Users" className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                                    <p>No employees found</p>
+                                    <p className="text-sm">Please check your company configuration</p>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <Lucide icon="Search" className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                                    <p>No employees match your search</p>
+                                    <p className="text-sm">Try a different search term</p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          
+                          return filteredEmployees.map((employee) => (
                             <Menu.Item key={employee.id}>
                               {({ active }) => (
                                 <button
@@ -5496,20 +5526,21 @@ const handleConfirmSyncFirebase = async () => {
                                 </button>
                               )}
                             </Menu.Item>
-                          ))}
+                          ));
+                        })()}
                       </Menu.Items>
                     </Menu>
                     <Menu>
                       {showAddUserButton && (
                         <Menu.Button
                           as={Button}
-                          className="flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          className="flex items-center justify-start p-1.5 !box bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-white/40 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 hover:scale-105 hover:shadow-xl shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                         >
-                          <Lucide icon="Tag" className="w-5 h-5 mr-2" />
-                          <span>Add Tag</span>
+                          <Lucide icon="Tag" className="w-4 h-4 mr-1.5" />
+                          <span className="text-xs">Add Tag</span>
                         </Menu.Button>
                       )}
-                      <Menu.Items className="w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-md mt-1 shadow-lg">
+                      <Menu.Items className="w-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-white/30 dark:border-gray-700/50 text-gray-800 dark:text-gray-200 rounded-xl mt-1 shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50">
                         <div className="p-2">
                           <button
                             className="flex items-center p-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 w-full rounded-md"
@@ -5557,13 +5588,13 @@ const handleConfirmSyncFirebase = async () => {
                       {showAddUserButton && (
                         <Menu.Button
                           as={Button}
-                          className="flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          className="flex items-center justify-start p-1.5 !box bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-white/40 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 hover:scale-105 hover:shadow-xl shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                         >
-                          <Lucide icon="Tags" className="w-5 h-5 mr-2" />
-                          <span>Remove Tag</span>
+                          <Lucide icon="Tags" className="w-4 h-4 mr-1.5" />
+                          <span className="text-xs">Remove Tag</span>
                         </Menu.Button>
                       )}
-                      <Menu.Items className="w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-md mt-1 shadow-lg">
+                      <Menu.Items className="w-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-white/30 dark:border-gray-700/50 text-gray-800 dark:text-gray-200 rounded-xl mt-1 shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50">
                         <div className="p-2">
                           <button
                             className="flex items-center p-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 w-full rounded-md text-red-500"
@@ -5604,12 +5635,12 @@ const handleConfirmSyncFirebase = async () => {
                     <Menu>
                       <Menu.Button
                         as={Button}
-                        className="flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="flex items-center justify-start p-1.5 !box bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-white/40 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 hover:scale-105 hover:shadow-xl shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                       >
-                        <Lucide icon="Filter" className="w-5 h-5 mr-2" />
-                        <span>Filter Tags</span>
+                        <Lucide icon="Filter" className="w-4 h-4 mr-1.5" />
+                        <span className="text-xs">Filter Tags</span>
                       </Menu.Button>
-                      <Menu.Items className="w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 min-w-[200px] p-2">
+                      <Menu.Items className="w-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-white/30 dark:border-gray-700/50 text-gray-800 dark:text-gray-200 min-w-[200px] p-2 rounded-xl shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50">
                         <div>
                           <button
                             className="flex items-center p-2 font-medium w-full rounded-md"
@@ -5735,7 +5766,7 @@ const handleConfirmSyncFirebase = async () => {
                       </Menu.Items>
                     </Menu>
                     <button
-                      className={`flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                      className={`flex items-center justify-start p-2 !box bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300 ${
                         userRole === "3" ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                       onClick={() => {
@@ -5749,14 +5780,14 @@ const handleConfirmSyncFirebase = async () => {
                       }}
                       disabled={userRole === "3"}
                     >
-                      <Lucide icon="Send" className="w-5 h-5 mr-2" />
-                      <span className="font-medium">Send Blast Message</span>
+                      <Lucide icon="Send" className="w-4 h-4 mr-1.5" />
+                      <span className="font-medium text-xs">Send Blast Message</span>
                     </button>
                     <button
                       className={`flex items-center justify-start p-2 !box ${
                         isSyncing || userRole === "3"
                           ? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed"
-                          : "bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          : "bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 hover:bg-white/90 dark:hover:bg-gray-700/90 shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                       } text-gray-700 dark:text-gray-300`}
                       onClick={() => {
                         if (userRole !== "3") {
@@ -5769,8 +5800,8 @@ const handleConfirmSyncFirebase = async () => {
                       }}
                       disabled={isSyncing || userRole === "3"}
                     >
-                      <Lucide icon="FolderSync" className="w-5 h-5 mr-2" />
-                      <span className="font-medium">
+                      <Lucide icon="FolderSync" className="w-4 h-4 mr-1.5" />
+                      <span className="font-medium text-xs">
                         {isSyncing ? "Syncing..." : "Sync Database"}
                       </span>
                     </button>
@@ -5778,7 +5809,7 @@ const handleConfirmSyncFirebase = async () => {
                       className={`flex items-center justify-start p-2 !box ${
                         isSyncing || userRole === "3"
                           ? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed"
-                          : "bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          : "bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 hover:bg-white/90 dark:hover:bg-gray-700/90 shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                       } text-gray-700 dark:text-gray-300`}
                       onClick={() => {
                         if (userRole !== "3") {
@@ -5791,8 +5822,8 @@ const handleConfirmSyncFirebase = async () => {
                       }}
                       disabled={isSyncing || userRole === "3"}
                     >
-                      <Lucide icon="FolderSync" className="w-5 h-5 mr-2" />
-                      <span className="font-medium">
+                      <Lucide icon="FolderSync" className="w-4 h-4 mr-1.5" />
+                      <span className="font-medium text-xs">
                         {isSyncing ? "Syncing..." : "Sync Contact Names"}
                       </span>
                     </button>
@@ -5801,7 +5832,7 @@ const handleConfirmSyncFirebase = async () => {
                       className={`flex items-center justify-start p-2 !box ${
                         userRole === "3"
                           ? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed"
-                          : "bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          : "bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 hover:bg-white/90 dark:hover:bg-gray-700/90 shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                       } text-gray-700 dark:text-gray-300`}
                       onClick={() => {
                         if (userRole !== "3") {
@@ -5814,19 +5845,19 @@ const handleConfirmSyncFirebase = async () => {
                       }}
                       disabled={userRole === "3"}
                     >
-                      <Lucide icon="Upload" className="w-5 h-5 mr-2" />
-                      <span className="font-medium">Import CSV</span>
+                      <Lucide icon="Upload" className="w-4 h-4 mr-1.5" />
+                      <span className="font-medium text-xs">Import CSV</span>
                     </button>
                     {userRole !== "2" &&
                       userRole !== "3" &&
                       userRole !== "5" && (
                         <>
                           <button
-                            className={`flex items-center justify-start p-2 !box bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300`}
+                            className={`flex items-center justify-start p-2 !box bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 hover:bg-white/90 dark:hover:bg-gray-700/90 shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300 text-gray-700 dark:text-gray-300`}
                             onClick={handleExportContacts}
                           >
-                            <Lucide icon="FolderUp" className="w-5 h-5 mr-2" />
-                            <span className="font-medium">Export Contacts</span>
+                            <Lucide icon="FolderUp" className="w-4 h-4 mr-1.5" />
+                            <span className="font-medium text-xs">Export Contacts</span>
                           </button>
                           {exportModalOpen && exportModalContent}
                         </>
@@ -5835,52 +5866,81 @@ const handleConfirmSyncFirebase = async () => {
                   {/* Mobile view */}
                   <div className="sm:hidden grid grid-cols-2 gap-2">
                     <button
-                      className="flex items-center justify-start p-2 w-full !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      className="flex items-center justify-start p-2 w-full !box bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-white/40 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 hover:scale-105 hover:shadow-xl shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                       onClick={() => setAddContactModal(true)}
                     >
-                      <Lucide icon="Plus" className="w-5 h-5 mr-2" />
-                      <span className="font-medium">Add Contact</span>
+                      <Lucide icon="Plus" className="w-4 h-4 mr-1.5" />
+                      <span className="font-medium text-xs">Add Contact</span>
                     </button>
                     <Menu className="w-full">
                       <Menu.Button
                         as={Button}
-                        className="flex items-center justify-start p-2 w-full !box bg-white text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="flex items-center justify-start p-2 w-full !box bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-white/40 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 hover:scale-105 hover:shadow-xl shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                       >
-                        <Lucide icon="User" className="w-5 h-5 mr-2" />
-                        <span>Assign User</span>
+                        <Lucide icon="User" className="w-4 h-4 mr-1.5" />
+                        <span className="text-xs">Assign User</span>
                       </Menu.Button>
-                      <Menu.Items className="w-full bg-white text-gray-800 dark:text-gray-200">
-                        {employeeList.map((employee) => (
-                          <Menu.Item key={employee.id}>
-                            <span
-                              className="flex items-center p-2"
-                              onClick={() => {
-                                selectedContacts.forEach((contact) => {
-                                  handleAddTagToSelectedContacts(
-                                    employee.name,
-                                    contact
-                                  );
-                                });
-                              }}
-                            >
-                              <Lucide icon="User" className="w-4 h-4 mr-2" />
-                              <span className="truncate">{employee.name}</span>
-                            </span>
-                          </Menu.Item>
-                        ))}
+                      <Menu.Items className="w-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-white/30 dark:border-gray-700/50 text-gray-800 dark:text-gray-200 rounded-xl shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50">
+                        {(() => {
+                          const filteredEmployees = employeeList.filter((employee) => {
+                            if (userRole === "4" || userRole === "2") {
+                              return employee.role === "2";
+                            }
+                            return true;
+                          });
+                          
+                          if (filteredEmployees.length === 0) {
+                            return (
+                              <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                                {employeeList.length === 0 ? (
+                                  <div>
+                                    <Lucide icon="Users" className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                                    <p>No employees found</p>
+                                    <p className="text-sm">Please check your company configuration</p>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <Lucide icon="UserX" className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                                    <p>No employees available for your role</p>
+                                    <p className="text-sm">Contact your administrator</p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          
+                          return filteredEmployees.map((employee) => (
+                            <Menu.Item key={employee.id}>
+                              <span
+                                className="flex items-center p-2 hover:bg-white/60 dark:hover:bg-gray-700/60 transition-all duration-200"
+                                onClick={() => {
+                                  selectedContacts.forEach((contact) => {
+                                    handleAddTagToSelectedContacts(
+                                      employee.name,
+                                      contact
+                                    );
+                                  });
+                                }}
+                              >
+                                <Lucide icon="User" className="w-4 h-4 mr-2" />
+                                <span className="truncate">{employee.name}</span>
+                              </span>
+                            </Menu.Item>
+                          ));
+                        })()}
                       </Menu.Items>
                     </Menu>
                     <Menu>
                       {showAddUserButton && (
                         <Menu.Button
                           as={Button}
-                          className="flex items-center justify-start p-2 w-full !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          className="flex items-center justify-start p-2 w-full !box bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                         >
-                          <Lucide icon="Tag" className="w-5 h-5 mr-2" />
-                          <span>Add Tag</span>
+                          <Lucide icon="Tag" className="w-4 h-4 mr-1.5" />
+                          <span className="text-xs">Add Tag</span>
                         </Menu.Button>
                       )}
-                      <Menu.Items className="w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-md mt-1 shadow-lg">
+                      <Menu.Items className="w-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-white/30 dark:border-gray-700/50 text-gray-800 dark:text-gray-200 rounded-xl mt-1 shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50">
                         <div className="p-2">
                           <button
                             className="flex items-center p-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 w-full rounded-md"
@@ -5927,12 +5987,12 @@ const handleConfirmSyncFirebase = async () => {
                     <Menu>
                       <Menu.Button
                         as={Button}
-                        className="flex items-center justify-start p-2 w-full !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="flex items-center justify-start p-2 w-full !box bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                       >
-                        <Lucide icon="Filter" className="w-5 h-5 mr-2" />
-                        <span>Filter Tags</span>
+                        <Lucide icon="Filter" className="w-4 h-4 mr-1.5" />
+                        <span className="text-xs">Filter Tags</span>
                       </Menu.Button>
-                      <Menu.Items className="w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 min-w-[200px] p-2">
+                      <Menu.Items className="w-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-white/30 dark:border-gray-700/50 text-gray-800 dark:text-gray-200 min-w-[200px] p-2 rounded-xl shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50">
                         <div>
                           <button
                             className="flex items-center p-2 font-medium w-full rounded-md"
@@ -6043,33 +6103,33 @@ const handleConfirmSyncFirebase = async () => {
                       </Menu.Items>
                     </Menu>
                     <button
-                      className="flex items-center justify-start p-2 w-full !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      className="flex items-center justify-start p-2 w-full !box bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                       onClick={() => setBlastMessageModal(true)}
                     >
-                      <Lucide icon="Send" className="w-5 h-5 mr-2" />
-                      <span className="font-medium">Send Blast</span>
+                      <Lucide icon="Send" className="w-4 h-4 mr-1.5" />
+                      <span className="font-medium text-xs">Send Blast</span>
                     </button>
                     <button
                       className={`flex items-center justify-start p-2 w-full !box ${
                         isSyncing
                           ? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed"
-                          : "bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          : "bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 hover:bg-white/90 dark:hover:bg-gray-700/90 shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                       } text-gray-700 dark:text-gray-300`}
                       onClick={handleSyncConfirmation}
                       disabled={isSyncing}
                     >
-                      <Lucide icon="FolderSync" className="w-5 h-5 mr-2" />
-                      <span className="font-medium">
+                      <Lucide icon="FolderSync" className="w-4 h-4 mr-1.5" />
+                      <span className="font-medium text-xs">
                         {isSyncing ? "Syncing..." : "Sync DB"}
                       </span>
                     </button>
 
                     <button
-                      className="flex items-center justify-start p-2 w-full !box bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      className="flex items-center justify-start p-2 w-full !box bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300"
                       onClick={() => setShowCsvImportModal(true)}
                     >
-                      <Lucide icon="Upload" className="w-5 h-5 mr-2" />
-                      <span className="font-medium">Import CSV</span>
+                      <Lucide icon="Upload" className="w-4 h-4 mr-1.5" />
+                      <span className="font-medium text-xs">Import CSV</span>
                     </button>
                   </div>
                 </div>
@@ -6097,7 +6157,7 @@ const handleConfirmSyncFirebase = async () => {
                     <div className="relative">
                       <FormInput
                         type="text"
-                        className="relative w-full h-[40px] !box text-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                        className="relative w-full h-[32px] !box text-sm bg-white/60 dark:bg-gray-800/60 backdrop-blur-md border border-white/50 dark:border-gray-700/60 text-gray-900 dark:text-gray-100 shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50 transition-all duration-300 focus:bg-white/90 dark:focus:bg-gray-700/90 focus:scale-[1.02] focus:shadow-2xl"
                         placeholder="Search contacts..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -6109,13 +6169,13 @@ const handleConfirmSyncFirebase = async () => {
                         >
                           <Lucide
                             icon="X"
-                            className="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                            className="w-4 h-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                           />
                         </button>
                       ) : (
                         <Lucide
                           icon="Search"
-                          className="absolute inset-y-0 right-0 items-center w-5 h-5 m-2 text-gray-500 dark:text-gray-400"
+                          className="absolute inset-y-0 right-0 items-center w-4 h-4 m-2 text-gray-500 dark:text-gray-400"
                         />
                       )}
                     </div>
@@ -6127,7 +6187,7 @@ const handleConfirmSyncFirebase = async () => {
               {!searchQuery && (
                 <div className="mt-3 mb-5">
                   <div className="flex items-center">
-                    <h2 className="z-10 text-xl font-semibold mb-1 text-gray-700 dark:text-gray-300">
+                    <h2 className="z-10 text-lg font-semibold mb-1 text-gray-700 dark:text-gray-300 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/40 dark:border-gray-700/60 shadow-lg shadow-gray-200/50 dark:shadow-gray-800/50">
                       Scheduled Messages
                     </h2>
                     <button
@@ -6136,20 +6196,20 @@ const handleConfirmSyncFirebase = async () => {
                     >
                       <Lucide
                         icon={showScheduledMessages ? "ChevronUp" : "ChevronDown"}
-                        className="w-6 h-6 ml-2 mb-1 text-gray-700 dark:text-gray-300"
+                        className="w-5 h-5 ml-1.5 mb-1 text-gray-700 dark:text-gray-300"
                       />
                     </button>
                     {selectedScheduledMessages.length > 0 && (
                       <div className="mb-4 flex gap-2">
                         <button
                           onClick={handleSendSelectedNow}
-                          className="text-sm bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition-colors duration-200"
+                          className="text-xs bg-green-600 hover:bg-green-700 text-white font-medium py-1.5 px-3 rounded-md shadow-sm transition-colors duration-200"
                         >
                           Send Selected ({selectedScheduledMessages.length})
                         </button>
                         <button
                           onClick={handleDeleteSelected}
-                          className="text-sm bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition-colors duration-200"
+                          className="text-xs bg-red-600 hover:bg-red-700 text-white font-medium py-1.5 px-3 rounded-md shadow-sm transition-colors duration-200"
                         >
                           Delete Selected ({selectedScheduledMessages.length})
                         </button>
@@ -6158,16 +6218,16 @@ const handleConfirmSyncFirebase = async () => {
                   </div>
                   {showScheduledMessages &&
                     (getFilteredScheduledMessages().length > 0 ? (
-                      <div className="z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+                      <div className="z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
                         {combineScheduledMessages(
                           getFilteredScheduledMessages()
                         ).map((message) => (
                           <div
                             key={message.id}
-                            className="z-10 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col h-full"
+                            className="z-10 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md border border-white/40 dark:border-gray-700/60 rounded-xl shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50 overflow-hidden transition-all duration-300 hover:shadow-2xl hover:scale-[1.03] hover:bg-white/80 dark:hover:bg-gray-800/80 flex flex-col h-full"
                           >
-                            <div className="z-10 p-4 flex-grow">
-                              <div className="z-10 flex justify-between items-center mb-2">
+                            <div className="z-10 p-3 flex-grow">
+                              <div className="z-10 flex justify-between items-center mb-1.5">
                                 <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
                                   {message.status === "scheduled"
                                     ? "Scheduled"
@@ -6185,7 +6245,7 @@ const handleConfirmSyncFirebase = async () => {
                                   className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                                 />
                               </div>
-                              <div className="text-gray-800 dark:text-gray-200 mb-2 font-medium text-md">
+                              <div className="text-gray-800 dark:text-gray-200 mb-1.5 font-medium text-sm">
                                 {/* First Message */}
                                 <p className="line-clamp-2">
                                   {message.messageContent
@@ -6194,8 +6254,8 @@ const handleConfirmSyncFirebase = async () => {
                                 </p>
 
                                 {/* Scheduled Time and Contact Info */}
-                                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                <div className="mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-700">
+                                  <div className="grid grid-cols-2 gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                                     <div>
                                       <span className="font-semibold">
                                         Scheduled:
@@ -6245,7 +6305,7 @@ const handleConfirmSyncFirebase = async () => {
                                   message.messages.some(
                                     (msg) => msg.message !== message.message
                                   ) && (
-                                    <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <div className="mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-700">
                                       {message.messages.map(
                                         (msg: any, index: number) => {
                                           // Only show messages that are different from the first message
@@ -6278,8 +6338,8 @@ const handleConfirmSyncFirebase = async () => {
                                   )}
 
                                 {/* Message Settings */}
-                                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                <div className="mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-700">
+                                  <div className="grid grid-cols-2 gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                                     {/* Batch Settings */}
 
                                     {message.batchQuantity != undefined && (
@@ -6369,10 +6429,10 @@ const handleConfirmSyncFirebase = async () => {
                                 </div>
                               )}
                             </div>
-                            <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 flex justify-end mt-auto">
+                            <div className="bg-gray-50/80 dark:bg-gray-700/80 backdrop-blur-sm border-t border-white/30 dark:border-gray-600/50 px-3 py-2 sm:px-4 flex justify-end mt-auto">
                               <button
                                 onClick={() => handleSendNow(message)}
-                                className="text-sm bg-green-600 hover:bg-green-700 text-white font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200 mr-2"
+                                className="text-xs bg-green-600 hover:bg-green-700 text-white font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200 mr-2"
                                 title="Send message immediately"
                               >
                                 Send Now
@@ -6381,7 +6441,7 @@ const handleConfirmSyncFirebase = async () => {
                                 onClick={() =>
                                   handleEditScheduledMessage(message)
                                 }
-                                className="text-sm bg-white dark:bg-gray-600 hover:bg-gray-50 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200 mr-2"
+                                className="text-xs bg-white dark:bg-gray-600 hover:bg-gray-50 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200 mr-2"
                               >
                                 Edit
                               </button>
@@ -6389,7 +6449,7 @@ const handleConfirmSyncFirebase = async () => {
                                 onClick={() =>
                                   handleDeleteScheduledMessage(message.id!)
                                 }
-                                className="text-sm bg-red-600 hover:bg-red-700 text-white font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200"
+                                className="text-xs bg-red-600 hover:bg-red-700 text-white font-medium py-1 px-3 rounded-md shadow-sm transition-colors duration-200"
                               >
                                 Delete
                               </button>
@@ -6398,7 +6458,7 @@ const handleConfirmSyncFirebase = async () => {
                         ))}
                       </div>
                     ) : (
-                      <div className="text-gray-500 dark:text-gray-400 text-center py-4">
+                      <div className="text-gray-500 dark:text-gray-400 text-center py-3">
                         No scheduled messages found.
                       </div>
                     ))}
@@ -6410,20 +6470,20 @@ const handleConfirmSyncFirebase = async () => {
                 onClose={() => setEditScheduledMessageModal(false)}
               >
                 <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-                  <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-10 text-gray-900 dark:text-white">
-                    <div className="mb-4 text-lg font-semibold">
+                  <Dialog.Panel className="w-full max-w-md p-4 bg-white dark:bg-gray-800 rounded-md mt-10 text-gray-900 dark:text-white">
+                    <div className="mb-3 text-base font-semibold">
                       Edit Scheduled Message
                     </div>
                     <textarea
-                      className="w-full p-2 border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="w-full p-1.5 border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs"
                       value={blastMessage} // Use blastMessage instead of currentScheduledMessage?.message
                       onChange={(e) => setBlastMessage(e.target.value)}
                       rows={3}
                     ></textarea>
-                    <div className="mt-2">
+                    <div className="mt-1.5">
                       <button
                         type="button"
-                        className="text-sm text-blue-500 hover:text-blue-400"
+                        className="text-xs text-blue-500 hover:text-blue-400"
                         onClick={() => setShowPlaceholders(!showPlaceholders)}
                       >
                         {showPlaceholders
@@ -6431,8 +6491,8 @@ const handleConfirmSyncFirebase = async () => {
                           : "Show Placeholders"}
                       </button>
                       {showPlaceholders && (
-                        <div className="mt-2 space-y-1">
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <div className="mt-1.5 space-y-1">
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
                             Click to insert:
                           </p>
                           {[
@@ -7084,11 +7144,11 @@ const handleConfirmSyncFirebase = async () => {
                   renderOnZeroPageCount={null}
                   containerClassName="flex justify-center items-center"
                   pageClassName="mx-1"
-                  pageLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+                  pageLinkClassName="px-3 py-2 rounded-xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-white/40 dark:border-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 hover:scale-105 shadow-lg transition-all duration-300 text-sm"
                   previousClassName="mx-1"
                   nextClassName="mx-1"
-                  previousLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
-                  nextLinkClassName="px-2 py-1 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+                  previousLinkClassName="px-3 py-2 rounded-xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-white/40 dark:border-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 hover:scale-105 shadow-lg transition-all duration-300 text-sm"
+                  nextLinkClassName="px-3 py-2 rounded-xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-white/40 dark:border-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 hover:scale-105 shadow-lg transition-all duration-300 text-sm"
                   disabledClassName="opacity-50 cursor-not-allowed"
                   activeClassName="font-bold"
                   activeLinkClassName="bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
@@ -7098,7 +7158,7 @@ const handleConfirmSyncFirebase = async () => {
           </div>
 
           <div className="w-full flex-wrap">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto bg-white/50 dark:bg-gray-800/50 backdrop-blur-md rounded-2xl border border-white/40 dark:border-gray-700/60 shadow-2xl shadow-gray-200/50 dark:shadow-gray-800/50 p-6">
               <div
                 className="h-[calc(150vh-200px)] overflow-y-auto mb-4"
                 ref={contactListRef}
@@ -7113,7 +7173,7 @@ const handleConfirmSyncFirebase = async () => {
                         <thead
                           ref={provided.innerRef}
                           {...provided.droppableProps}
-                          className="sticky top-0 bg-white dark:bg-gray-700 z-10 py-2"
+                          className="sticky top-0 bg-white/70 dark:bg-gray-700/70 backdrop-blur-md border-b border-white/40 dark:border-gray-600/60 z-10 py-3 rounded-t-xl"
                         >
                           <tr className="text-left">
                             {columnOrder.map((columnId, index) => {
@@ -7135,7 +7195,7 @@ const handleConfirmSyncFirebase = async () => {
                                       ref={provided.innerRef}
                                       {...provided.draggableProps}
                                       {...provided.dragHandleProps}
-                                      className={`p-4 font-medium text-gray-700 dark:text-gray-300 cursor-move hover:bg-gray-50 dark:hover:bg-gray-600 ${
+                                      className={`p-4 font-medium text-gray-700 dark:text-gray-300 cursor-move hover:bg-white/40 dark:hover:bg-gray-600/60 transition-all duration-200 ${
                                         columnId === "branch" ? "min-w-[200px]" : ""
                                       } ${
                                         columnId === "vehicleNumber" ? "min-w-[120px]" : ""
@@ -7366,15 +7426,15 @@ const handleConfirmSyncFirebase = async () => {
                         </thead>
                       )}
                     </Droppable>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    <tbody className="divide-y divide-white/30 dark:divide-gray-600/50">
                       {getDisplayedContacts().map((contact, index) => (
                         <tr
                           key={index}
-                          className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                          className={`hover:bg-white/50 dark:hover:bg-gray-700/50 hover:shadow-lg transition-all duration-300 ${
                             selectedContacts.some(
                               (c) => c.phone === contact.phone
                             )
-                              ? "bg-blue-50 dark:bg-blue-900/20"
+                              ? "bg-blue-50/70 dark:bg-blue-900/30 backdrop-blur-md border-l-4 border-l-blue-400/60 shadow-lg"
                               : ""
                           }`}
                         >

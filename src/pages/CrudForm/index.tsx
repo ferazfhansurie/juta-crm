@@ -618,178 +618,205 @@ function Main() {
   }, [currentUserRole, employeeList]);
 
   return (
-    <div className="w-full px-4 py-6 h-full flex flex-col">
-      <div className="flex items-center mb-2">
-        <h2 className="text-2xl font-semibold">
-          {contactId ? "Update User" : "Add User"}
-        </h2>
+    <div className="w-full px-4 py-6 h-full flex flex-col bg-slate-50 dark:bg-darkmode-900">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="outline-secondary"
+            className="shadow-md"
+            onClick={() => navigate(-1)}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </Button>
+          <h2 className="text-2xl font-semibold text-slate-800 dark:text-white">
+            {contactId ? "Update User" : "Add User"}
+          </h2>
+        </div>
       </div>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 flex-grow overflow-y-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <FormLabel htmlFor="name">Name *</FormLabel>
-            <FormInput
-              id="name"
-              name="name"
-              type="text"
-              value={userData.name}
-              onChange={handleChange}
-              placeholder="Name"
-              disabled={isFieldDisabled("name")}
-              required
-            />
-            {fieldErrors.name && (
-              <p className="text-red-500 text-sm mt-1">{fieldErrors.name}</p>
-            )}
-          </div>
-          <div>
-            <FormLabel htmlFor="phoneNumber">Phone Number *</FormLabel>
-            <div className="flex">
+      <div className="bg-white/70 dark:bg-darkmode-800/70 backdrop-blur-md rounded-xl shadow-lg border border-white/30 dark:border-darkmode-700/30 p-6 flex-grow overflow-y-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-6">
+            <div>
+              <FormLabel htmlFor="name" className="text-slate-700 dark:text-slate-300">Name *</FormLabel>
               <FormInput
-                id="phoneNumber"
-                name="phoneNumber"
+                id="name"
+                name="name"
                 type="text"
-                value={userData.phoneNumber}
+                value={userData.name}
                 onChange={handleChange}
-                placeholder="+60123456789"
-                className="flex-grow"
-                disabled={isFieldDisabled("phoneNumber")}
+                placeholder="Name"
+                disabled={isFieldDisabled("name")}
                 required
+                className="bg-white/60 dark:bg-darkmode-700/60 backdrop-blur-sm border border-white/30 dark:border-darkmode-600/30 focus:ring-2 focus:ring-primary/50 dark:focus:ring-primary/40 focus:border-transparent"
               />
+              {fieldErrors.name && (
+                <p className="text-danger text-sm mt-1">{fieldErrors.name}</p>
+              )}
             </div>
-            {fieldErrors.phoneNumber && (
-              <p className="text-red-500 text-sm mt-1">
-                {fieldErrors.phoneNumber}
-              </p>
-            )}
-          </div>
-          <div>
-            <FormLabel htmlFor="email">Email *</FormLabel>
-            <FormInput
-              id="email"
-              name="email"
-              type="text"
-              value={userData.email}
-              onChange={handleChange}
-              placeholder="Email"
-              disabled={isFieldDisabled("email")}
-              required
-            />
-            {fieldErrors.email && (
-              <p className="text-red-500 text-sm mt-1">{fieldErrors.email}</p>
-            )}
-          </div>
-          <div>
-            <FormLabel htmlFor="group">Group</FormLabel>
-            {isAddingNewGroup ? (
-              <div className="flex items-center">
+            
+            <div>
+              <FormLabel htmlFor="phoneNumber" className="text-slate-700 dark:text-slate-300">Phone Number *</FormLabel>
+              <div className="flex">
                 <FormInput
+                  id="phoneNumber"
+                  name="phoneNumber"
                   type="text"
-                  value={newGroup}
-                  onChange={(e) => setNewGroup(e.target.value)}
-                  placeholder="Enter new group name"
-                  className="w-full mr-2"
-                  disabled={isFieldDisabled("group")}
-                />
-                <Button
-                  type="button"
-                  variant="outline-secondary"
-                  className="mr-2"
-                  onClick={handleCancelNewGroup}
-                  disabled={isFieldDisabled("group")}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  variant="primary"
-                  onClick={handleSaveNewGroup}
-                  disabled={isFieldDisabled("group")}
-                >
-                  Save
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center">
-                <select
-                  id="group"
-                  name="group"
-                  value={userData.group}
+                  value={userData.phoneNumber}
                   onChange={handleChange}
-                  className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full mr-2 p-2.5"
-                  disabled={isFieldDisabled("group")}
-                >
-                  <option value="">Select a group</option>
-                  {groups.map((group) => (
-                    <option key={group} value={group}>
-                      {group}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  type="button"
-                  variant="outline-secondary"
-                  onClick={handleAddNewGroup}
-                  className="dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700 inline-flex items-center whitespace-nowrap"
-                  disabled={isFieldDisabled("group")}
-                >
-                  <svg
-                    className="w-5 h-5 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    ></path>
-                  </svg>
-                  Add New Group
-                </Button>
+                  placeholder="+60123456789"
+                  className="flex-grow bg-white/60 dark:bg-darkmode-700/60 backdrop-blur-sm border border-white/30 dark:border-darkmode-600/30 focus:ring-2 focus:ring-primary/50 dark:focus:ring-primary/40 focus:border-transparent"
+                  disabled={isFieldDisabled("phoneNumber")}
+                  required
+                />
               </div>
-            )}
+              {fieldErrors.phoneNumber && (
+                <p className="text-danger text-sm mt-1">
+                  {fieldErrors.phoneNumber}
+                </p>
+              )}
+            </div>
+            
+            <div>
+              <FormLabel htmlFor="email" className="text-slate-700 dark:text-slate-300">Email *</FormLabel>
+              <FormInput
+                id="email"
+                name="email"
+                type="text"
+                value={userData.email}
+                onChange={handleChange}
+                placeholder="Email"
+                disabled={isFieldDisabled("email")}
+                required
+                className="bg-white/60 dark:bg-darkmode-700/60 backdrop-blur-sm border border-white/30 dark:border-darkmode-600/30 focus:ring-2 focus:ring-primary/50 dark:focus:ring-primary/40 focus:border-transparent"
+              />
+              {fieldErrors.email && (
+                <p className="text-danger text-sm mt-1">{fieldErrors.email}</p>
+              )}
+            </div>
+            
+            <div>
+              <FormLabel htmlFor="role" className="text-slate-700 dark:text-slate-300">Role *</FormLabel>
+              <select
+                id="role"
+                name="role"
+                value={userData.role}
+                onChange={(e) => {
+                  const newRole = e.target.value;
+                  if (currentUserRole !== "1" && newRole === "1") {
+                    // Prevent non-admin users from selecting admin role
+                    toast.error(
+                      "You don't have permission to assign admin role."
+                    );
+                    return;
+                  }
+                  handleChange(e);
+                  setCategories([newRole]);
+                }}
+                className="text-slate-700 dark:text-white border-slate-300 dark:border-darkmode-600 bg-white/60 dark:bg-darkmode-700/60 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-darkmode-700/80 focus:ring-2 focus:ring-primary/50 dark:focus:ring-primary/40 rounded-lg text-sm w-full p-2.5"
+                disabled={isFieldDisabled("role")}
+                required
+              >
+                <option value="">Select role</option>
+                {currentUserRole === "1" && <option value="1">Admin</option>}
+                {currentUserRole === "1" && <option value="4">Manager</option>}
+                {currentUserRole === "1" && <option value="5">Supervisor</option>}
+                {currentUserRole === "4" && <option value="4">Manager</option>}
+                {currentUserRole === "5" && <option value="5">Supervisor</option>}
+                <option value="2">Sales</option>
+                <option value="3">Observer</option>
+              </select>
+              {fieldErrors.role && (
+                <p className="text-danger text-sm mt-1">{fieldErrors.role}</p>
+              )}
+            </div>
+            
+            <div>
+              <FormLabel htmlFor="password" className="text-slate-700 dark:text-slate-300">
+                Password {contactId ? "(Leave blank to keep current)" : "*"}
+              </FormLabel>
+              <FormInput
+                id="password"
+                name="password"
+                type="password"
+                value={userData.password}
+                onChange={handleChange}
+                placeholder={contactId ? "New password (optional)" : "Password"}
+                disabled={isFieldDisabled("password")}
+                required={!contactId}
+                className="bg-white/60 dark:bg-darkmode-700/60 backdrop-blur-sm border border-white/30 dark:border-darkmode-600/30 focus:ring-2 focus:ring-primary/50 dark:focus:ring-primary/40 focus:border-transparent"
+              />
+              {fieldErrors.password && (
+                <p className="text-danger text-sm mt-1">{fieldErrors.password}</p>
+              )}
+            </div>
           </div>
-          <div>
-            <FormLabel htmlFor="role">Role *</FormLabel>
-            <select
-              id="role"
-              name="role"
-              value={userData.role}
-              onChange={(e) => {
-                const newRole = e.target.value;
-                if (currentUserRole !== "1" && newRole === "1") {
-                  // Prevent non-admin users from selecting admin role
-                  toast.error(
-                    "You don't have permission to assign admin role."
-                  );
-                  return;
-                }
-                handleChange(e);
-                setCategories([newRole]);
-              }}
-              className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
-              disabled={isFieldDisabled("role")}
-              required
-            >
-              <option value="">Select role</option>
-              {currentUserRole === "1" && <option value="1">Admin</option>}
-              {currentUserRole === "1" && <option value="4">Manager</option>}
-              {currentUserRole === "1" && <option value="5">Supervisor</option>}
-              {currentUserRole === "4" && <option value="4">Manager</option>}
-              {currentUserRole === "5" && <option value="5">Supervisor</option>}
-              <option value="2">Sales</option>
-              <option value="3">Observer</option>
-            </select>
-            {fieldErrors.role && (
-              <p className="text-red-500 text-sm mt-1">{fieldErrors.role}</p>
-            )}
-          </div>
-          {(currentUserRole === "1" || currentUserRole === "4" || currentUserRole === "5") && (
+          
+          <div className="space-y-6">
+            <div>
+              <FormLabel htmlFor="group" className="text-slate-700 dark:text-slate-300">Group</FormLabel>
+              {isAddingNewGroup ? (
+                <div className="flex items-center">
+                  <FormInput
+                    type="text"
+                    value={newGroup}
+                    onChange={(e) => setNewGroup(e.target.value)}
+                    placeholder="Enter new group name"
+                    className="w-full mr-2 bg-white/60 dark:bg-darkmode-700/60 backdrop-blur-sm border border-white/30 dark:border-darkmode-600/30 focus:ring-2 focus:ring-primary/50 dark:focus:ring-primary/40 focus:border-transparent"
+                    disabled={isFieldDisabled("group")}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline-secondary"
+                    className="mr-2"
+                    onClick={handleCancelNewGroup}
+                    disabled={isFieldDisabled("group")}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={handleSaveNewGroup}
+                    disabled={isFieldDisabled("group")}
+                  >
+                    Save
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center">
+                  <select
+                    id="group"
+                    name="group"
+                    value={userData.group}
+                    onChange={handleChange}
+                    className="text-slate-700 dark:text-white border-slate-300 dark:border-darkmode-600 bg-white/60 dark:bg-darkmode-700/60 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-darkmode-700/80 focus:ring-2 focus:ring-primary/50 dark:focus:ring-primary/40 rounded-lg text-sm w-full mr-2 p-2.5"
+                    disabled={isFieldDisabled("group")}
+                  >
+                    <option value="">Select a group</option>
+                    {groups.map((group) => (
+                      <option key={group} value={group}>
+                        {group}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    variant="outline-secondary"
+                    onClick={() => setIsAddingNewGroup(true)}
+                    disabled={isFieldDisabled("group")}
+                  >
+                    + Add New Group
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            {(currentUserRole === "1" || currentUserRole === "4" || currentUserRole === "5") && (
               <div>
-                <FormLabel htmlFor="viewEmployees">
+                <FormLabel htmlFor="viewEmployees" className="text-slate-700 dark:text-slate-300">
                   View Employee's Chats
                 </FormLabel>
                 <select
@@ -798,7 +825,7 @@ function Main() {
                   multiple
                   value={selectedEmployees}
                   onChange={handleEmployeeSelection}
-                  className="text-black dark:text-white border-primary dark:border-primary-dark bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 rounded-lg text-sm w-full"
+                  className="text-slate-700 dark:text-white border-slate-300 dark:border-darkmode-600 bg-white/60 dark:bg-darkmode-700/60 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-darkmode-700/80 focus:ring-2 focus:ring-primary/50 dark:focus:ring-primary/40 rounded-lg text-sm w-full p-2.5"
                   size={5}
                 >
                   {filteredEmployeeList.map((employee) => (
@@ -816,171 +843,91 @@ function Main() {
                     </option>
                   ))}
                 </select>
-                <p className="text-sm text-gray-500 mt-1">
-                  Hold Ctrl/Cmd to select multiple employees or deselect all
-                  employees
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                  Hold Ctrl/Cmd to select multiple employees or deselect all employees
                 </p>
               </div>
             )}
-          <div>
-            <FormLabel htmlFor="phoneAccess">Phone Access</FormLabel>
-            <div className="space-y-3 p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
-              {Object.entries(phoneNames).length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-sm">No phones available</p>
-              ) : (
-                Object.entries(phoneNames).map(([index, phoneName]) => {
-                  const phoneIndex = parseInt(index);
-                  const isEnabled = userData.phoneAccess?.[phoneIndex] || false;
-                  
-                  return (
-                    <div key={index} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="checkbox"
-                          id={`phone-${index}`}
-                          checked={isEnabled}
-                          onChange={(e) => handlePhoneToggle(phoneIndex, e.target.checked)}
-                          disabled={
-                            isFieldDisabled("phone") ||
-                            (currentUserRole !== "1" && userData.role !== "2")
-                          }
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <label 
-                          htmlFor={`phone-${index}`}
-                          className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {phoneName || `Phone ${phoneIndex}`}
-                        </label>
-                      </div>
-                      {isEnabled && (
-                        <div className="flex items-center space-x-2">
-                          <label className="text-xs text-gray-600 dark:text-gray-400">
-                            Weightage:
-                          </label>
+            
+            <div>
+              <FormLabel htmlFor="phoneAccess" className="text-slate-700 dark:text-slate-300">Phone Access</FormLabel>
+              <div className="space-y-3 p-4 border border-white/30 dark:border-darkmode-600/30 rounded-lg bg-white/40 dark:bg-darkmode-700/40 backdrop-blur-sm">
+                {Object.entries(phoneNames).length === 0 ? (
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">No phones available</p>
+                ) : (
+                  Object.entries(phoneNames).map(([index, phoneName]) => {
+                    const phoneIndex = parseInt(index);
+                    const isEnabled = userData.phoneAccess?.[phoneIndex] || false;
+                    
+                    return (
+                      <div key={index} className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
                           <input
-                            type="number"
-                            min="0"
-                            value={userData.phoneWeightages?.[phoneIndex] || 0}
-                            onChange={(e) => handleWeightageChange(phoneIndex, parseInt(e.target.value) || 0)}
+                            type="checkbox"
+                            id={`phone-${index}`}
+                            checked={isEnabled}
+                            onChange={(e) => handlePhoneToggle(phoneIndex, e.target.checked)}
                             disabled={
                               isFieldDisabled("phone") ||
                               (currentUserRole !== "1" && userData.role !== "2")
                             }
-                            className="w-20 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                            placeholder="0"
+                            className="h-4 w-4 text-primary focus:ring-primary border-slate-300 rounded"
                           />
+                          <label 
+                            htmlFor={`phone-${index}`}
+                            className="text-sm font-medium text-slate-700 dark:text-slate-300"
+                          >
+                            {phoneName || `Phone ${phoneIndex}`}
+                          </label>
                         </div>
-                      )}
-                    </div>
-                  );
-                })
+                        {isEnabled && (
+                          <div className="flex items-center space-x-2">
+                            <label className="text-xs text-slate-600 dark:text-slate-400">
+                              Weightage:
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={userData.phoneWeightages?.[phoneIndex] || 0}
+                              onChange={(e) => handleWeightageChange(phoneIndex, parseInt(e.target.value) || 0)}
+                              disabled={
+                                isFieldDisabled("phone") ||
+                                (currentUserRole !== "1" && userData.role !== "2")
+                              }
+                              className="w-20 px-2 py-1 text-xs border border-slate-300 dark:border-darkmode-600 rounded bg-white/60 dark:bg-darkmode-700/60 text-slate-900 dark:text-slate-100"
+                              placeholder="0"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <FormLabel htmlFor="image" className="text-slate-700 dark:text-slate-300">Profile Image</FormLabel>
+              <input
+                type="file"
+                id="image"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="w-full p-2 border border-slate-300 dark:border-darkmode-600 rounded-md bg-white/60 dark:bg-darkmode-700/60 backdrop-blur-sm"
+              />
+              {userData.imageUrl && (
+                <img
+                  src={userData.imageUrl}
+                  alt="Profile"
+                  className="mt-2 w-32 h-32 object-cover rounded-full"
+                />
               )}
             </div>
-          </div>
-          <div>
-            <FormLabel htmlFor="image">Profile Image</FormLabel>
-            <input
-              type="file"
-              id="image"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="w-full p-2 border border-gray-300 rounded-md"
-            />
-            {userData.imageUrl && (
-              <img
-                src={userData.imageUrl}
-                alt="Profile"
-                className="mt-2 w-32 h-32 object-cover rounded-full"
-              />
-            )}
-          </div>
-          <div>
-            <FormLabel htmlFor="password">
-              Password {contactId ? "(Leave blank to keep current)" : "*"}
-            </FormLabel>
-            <FormInput
-              id="password"
-              name="password"
-              type="password"
-              value={userData.password}
-              onChange={handleChange}
-              placeholder={contactId ? "New password (optional)" : "Password"}
-              disabled={
-                isFieldDisabled("password") ||
-                (contactId && getCurrentUserEmail() !== userData.email)
-              }
-              required={!contactId}
-            />
-            {fieldErrors.password && (
-              <p className="text-red-500 text-sm mt-1">
-                {fieldErrors.password}
-              </p>
-            )}
-          </div>
-          <div>
-            <FormLabel htmlFor="employeeId">Employee ID</FormLabel>
-            <FormInput
-              id="employeeId"
-              name="employeeId"
-              type="text"
-              value={userData.employeeId}
-              onChange={handleChange}
-              placeholder="Employee ID (optional)"
-              disabled={isFieldDisabled("employeeId")}
-            />
-          </div>
-          <div>
-            <FormLabel htmlFor="quotaLeads">Quota Leads</FormLabel>
-            <FormInput
-              id="quotaLeads"
-              name="quotaLeads"
-              type="number"
-              value={userData.quotaLeads}
-              onChange={(e) =>
-                setUserData((prev) => ({
-                  ...prev,
-                  quotaLeads: parseInt(e.target.value) || 0,
-                }))
-              }
-              placeholder="Number of quota leads"
-              min="0"
-              disabled={isFieldDisabled("quotaLeads")}
-            />
-          </div>
-          <div>
-            <FormLabel htmlFor="invoiceNumber">Invoice Number</FormLabel>
-            <FormInput
-              id="invoiceNumber"
-              name="invoiceNumber"
-              type="text"
-              value={userData.invoiceNumber || ""}
-              onChange={(e) =>
-                setUserData((prev) => ({
-                  ...prev,
-                  invoiceNumber: e.target.value || null,
-                }))
-              }
-              placeholder="Invoice Number (optional)"
-              disabled={isFieldDisabled("invoiceNumber")}
-            />
-          </div>
-        </div>
-        <div className="mt-4">
-          <FormLabel htmlFor="notes">Notes</FormLabel>
-          <div className="relative rounded-lg focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark focus:border-transparent">
-            <ClassicEditor
-              value={userData.notes}
-              onChange={handleEditorChange}
-              config={editorConfig}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent"
-              disabled={isFieldDisabled("notes")}
-            />
           </div>
         </div>
         {errorMessage && (
           <div
-            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mt-4"
+            className="bg-danger/10 border border-danger/30 text-danger px-4 py-3 rounded-lg relative mt-4 backdrop-blur-sm"
             role="alert"
           >
             <strong className="font-bold">Error: </strong>
@@ -991,11 +938,11 @@ function Main() {
           <div className="text-green-500 mt-4">{successMessage}</div>
         )}
       </div>
-      <div className="mt-4 flex justify-end">
+      <div className="mt-6 flex justify-end space-x-4">
         <Button
           type="button"
           variant="outline-secondary"
-          className="w-24 mr-4"
+          className="px-6 py-2 shadow-md bg-white/70 dark:bg-darkmode-800/70 hover:bg-white/90 dark:hover:bg-darkmode-800/90 border border-slate-200/50 dark:border-darkmode-600/50 backdrop-blur-sm transition-all duration-200"
           onClick={handleGoBack}
         >
           Cancel
@@ -1003,7 +950,7 @@ function Main() {
         <Button
           type="button"
           variant="primary"
-          className="w-24"
+          className="px-6 py-2 shadow-md bg-primary/90 hover:bg-primary border border-primary/30 backdrop-blur-sm transition-all duration-200"
           onClick={saveUser}
           disabled={
             isLoading || (currentUserRole === "3" && !userData.password)

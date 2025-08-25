@@ -49,6 +49,7 @@ interface MessageListProps {
 
 const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assistantName, deleteThread, threadId, isApplyingChanges, applyProgress, onApplyChanges }) => {
   const [newMessage, setNewMessage] = useState('');
+  const navigate = useNavigate();
 
   const myMessageClass = "bg-gray-700 text-white dark:bg-gray-600 rounded-tr-lg rounded-tl-lg rounded-br-sm rounded-bl-lg shadow-md";
   const otherMessageClass = "bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-lg rounded-tl-lg rounded-br-lg rounded-bl-sm shadow-md";
@@ -65,20 +66,26 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
 
   return (
     <div className="flex flex-col w-full h-full bg-white dark:bg-gray-900 relative">
-      <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
-        <div className="flex items-center">
-          <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg flex items-center justify-center mr-3 bg-white dark:bg-gray-700">
-            <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
-          </div>
-          <div>
-            <div className="font-bold text-gray-800 dark:text-gray-200 text-lg">Prompt Builder</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">AI-powered prompt optimization</div>
+      <div className="flex items-center justify-between p-4 border-b border-white/20 dark:border-gray-700/30 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-t-2xl">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+            title="Go back"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div className="bg-gray-600/80 dark:bg-gray-700/80 backdrop-blur-sm border border-gray-500/30 dark:border-gray-600/30 rounded-2xl px-4 py-3 shadow-lg">
+            <div className="font-bold text-white dark:text-white text-lg">Prompt Builder</div>
+            <div className="text-sm text-gray-200 dark:text-gray-200">AI-powered prompt optimization</div>
           </div>
         </div>
         <div>
           <button 
             onClick={deleteThread} 
-            className={`px-4 py-2 text-white rounded-lg flex items-center space-x-2 transition-all duration-200 ${!threadId ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed' : 'bg-red-500 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700'} active:scale-95 shadow-md hover:shadow-lg`}
+            className={`px-4 py-2 text-white rounded-xl flex items-center space-x-2 transition-all duration-200 ${!threadId ? 'bg-gray-400/80 dark:bg-gray-600/80 cursor-not-allowed' : 'bg-red-500/80 dark:bg-red-600/80 hover:bg-red-600/90 dark:hover:bg-red-700/90'} active:scale-95 shadow-lg hover:shadow-xl backdrop-blur-sm border border-white/20 dark:border-red-500/30`}
             disabled={!threadId}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -948,7 +955,18 @@ return (
               ) : (
                 <>
                   <div className="mb-4">
-                    <h1 className="text-2xl font-bold dark:text-gray-200">{assistantInfo.name || "Assistant Name"}</h1>
+                    <div className="flex items-center gap-3 mb-3">
+                      <button
+                        onClick={() => navigate(-1)}
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+                        title="Go back"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <h1 className="text-2xl font-bold dark:text-gray-200">{assistantInfo.name || "Assistant Name"}</h1>
+                    </div>
                   </div>
                
                   <div className="flex-1 flex flex-col">
@@ -1094,6 +1112,18 @@ return (
                 ) : (
                   <>
                     <div className="mb-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <button
+                          onClick={() => navigate(-1)}
+                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+                          title="Go back"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                        <h2 className="text-lg font-medium text-gray-800 dark:text-gray-200">AI Prompt Builder</h2>
+                      </div>
                       <label className="mb-2 text-lg font-medium capitalize dark:text-gray-200" htmlFor="name">
                         Name
                       </label>

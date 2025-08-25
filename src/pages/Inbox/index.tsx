@@ -102,24 +102,24 @@ const PDFModal: React.FC<PDFModalProps> = ({ isOpen, onClose, documentUrl, docum
       onClick={onClose}
     >
       <div
-        className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full md:w-[800px] h-auto md:h-[600px] p-4"
+        className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full md:w-[800px] h-auto md:h-[600px] p-3"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">
             Document Preview
           </h2>
           <button
             className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
             onClick={onClose}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
         <div
-          className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4 flex justify-center items-center"
+          className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg mb-3 flex justify-center items-center"
           style={{ height: "90%" }}
         >
           {documentUrl.toLowerCase().includes('.pdf') ? (
@@ -132,13 +132,13 @@ const PDFModal: React.FC<PDFModalProps> = ({ isOpen, onClose, documentUrl, docum
             />
           ) : (
             <div className="text-center">
-              <svg className="w-20 h-20 mb-2 mx-auto text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-16 h-16 mb-1.5 mx-auto text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
               </svg>
-              <p className="text-gray-800 dark:text-gray-200 font-semibold">
+              <p className="text-gray-800 dark:text-gray-200 font-semibold text-sm">
                 {documentName || "Document"}
               </p>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
+              <p className="text-gray-600 dark:text-gray-400 mt-1.5 text-xs">
                 Click Download to view this document
               </p>
             </div>
@@ -146,7 +146,7 @@ const PDFModal: React.FC<PDFModalProps> = ({ isOpen, onClose, documentUrl, docum
         </div>
         <div className="flex justify-center">
           <button
-            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+            className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors text-sm"
             onClick={() => window.open(documentUrl, '_blank')}
           >
             Download Document
@@ -187,28 +187,16 @@ const MessageList: React.FC<MessageListProps> = ({
 
   return (
     <div className="flex flex-col w-full h-full bg-white dark:bg-gray-900 relative">
-      <div className="flex items-center justify-between p-2 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
+      <div className="flex items-center justify-between p-1.5 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
         <div className="flex items-center">
-          <div className="w-8 h-8 overflow-hidden rounded-full shadow-lg bg-gray-700 dark:bg-gray-600 flex items-center justify-center text-white mr-3">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H9L3 7V9C3 10.1 3.9 11 5 11V17C5 18.1 5.9 19 7 19H9C10.1 19 11 18.1 11 17V15H13V17C13 18.1 13.9 19 15 19H17C18.1 19 19 18.1 19 17V11C20.1 11 21 10.1 21 9ZM7.5 7.5C7.5 8.3 8.2 9 9 9S10.5 8.3 10.5 7.5S9.8 6 9 6S7.5 6.7 7.5 7.5ZM13.5 7.5C13.5 8.3 14.2 9 15 9S16.5 8.3 16.5 7.5S15.8 6 15 6S13.5 6.7 13.5 7.5Z"/>
-            </svg>
-          </div>
-          <div>
-            <div className="font-semibold text-gray-800 dark:text-gray-200 capitalize">
-              {assistantName}
-            </div>
+          <div className="px-3 py-1.5 bg-gray-600 dark:bg-gray-500 text-white rounded-full shadow-lg font-semibold text-xs capitalize">
+            {assistantName}
           </div>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={deleteThread}
-            className={`px-4 py-2 text-white rounded flex items-center text-sm ${
+            className={`px-3 py-1.5 text-white rounded flex items-center text-xs ${
               !threadId
                 ? "bg-gray-500 dark:bg-gray-600 cursor-not-allowed"
                 : "bg-red-500 dark:bg-red-600"
@@ -220,22 +208,32 @@ const MessageList: React.FC<MessageListProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900 relative">
-                {/* Tool Buttons - Positioned at top of chat area */}
-        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 relative">
+        {/* Tool Buttons - Positioned at top of chat area */}
+        <div className="flex items-center gap-1.5 mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
         </div>
         
-        {messages
-          .slice()
-          .reverse()
-          .map((message, index) => (
+        {messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center text-gray-500 dark:text-gray-400">
+              <div className="px-3 py-2 bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm self-start text-left max-w-[100%] font-mono text-xs">
+              Chat With {assistantName}...
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {messages
+              .slice()
+              .reverse()
+              .map((message, index) => (
             <div key={index}>
               {message.text.split("||")
                 .filter(splitText => splitText.trim() !== "")
                 .map((splitText, splitIndex) => (
                 <div
                   key={`${index}-${splitIndex}`}
-                  className={`p-2 mb-2 rounded ${
+                  className={`p-1.5 mb-1.5 rounded ${
                     message.from_me ? myMessageClass : otherMessageClass
                   }`}
                   style={{
@@ -254,7 +252,7 @@ const MessageList: React.FC<MessageListProps> = ({
                     </div>
                   )}
                   {message.type === "image" && message.imageUrls && (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {message.imageUrls.map((imageUrl, imgIndex) => (
                         <div key={imgIndex} className="relative">
                           <img
@@ -268,7 +266,7 @@ const MessageList: React.FC<MessageListProps> = ({
                             }}
                           />
                           {message.caption && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                               {message.caption}
                             </p>
                           )}
@@ -277,16 +275,16 @@ const MessageList: React.FC<MessageListProps> = ({
                     </div>
                   )}
                   {message.type === "document" && message.documentUrls && (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {message.documentUrls.map((documentUrl, docIndex) => (
                         <div key={docIndex} className="relative">
                           {/* Document Header */}
-                          <div className="flex items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 mb-2">
-                            <svg className="w-8 h-8 text-gray-500 dark:text-gray-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                          <div className="flex items-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 mb-1.5">
+                            <svg className="w-6 h-6 text-gray-500 dark:text-gray-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                             </svg>
                             <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
                                 {documentUrl.split('/').pop()?.split('?')[0] || `Document ${docIndex + 1}`}
                               </p>
                               {message.caption && (
@@ -297,7 +295,7 @@ const MessageList: React.FC<MessageListProps> = ({
                             </div>
                             <button
                               onClick={() => openPDFModal(documentUrl, documentUrl.split('/').pop()?.split('?')[0] || `Document ${docIndex + 1}`)}
-                              className="px-3 py-1 text-xs bg-green-500 dark:bg-green-600 text-white rounded hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
+                              className="px-2 py-0.5 text-xs bg-green-500 dark:bg-green-600 text-white rounded hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
                             >
                               View
                             </button>
@@ -350,11 +348,13 @@ const MessageList: React.FC<MessageListProps> = ({
               ))}
             </div>
           ))}
+          </>
+        )}
           
         {/* AI Thinking Indicator - Positioned at bottom */}
         {isAiThinking && (
-          <div className="p-2 mb-2 rounded bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm self-start text-left max-w-[70%]">
-            <div className="flex items-center space-x-2">
+          <div className="p-1.5 mb-1.5 rounded bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm self-start text-left max-w-[70%]">
+            <div className="flex items-center space-x-1.5">
               <div className="flex items-center space-x-1">
                 <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                 <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
@@ -414,10 +414,10 @@ const MessageList: React.FC<MessageListProps> = ({
       </button>
       </div>
 
-      <div className="p-4 border-t border-gray-300 dark:border-gray-700">
+      <div className="p-3 border-t border-gray-300 dark:border-gray-700">
         <div className="flex items-center">
           <textarea
-            className="w-full h-10 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-green-500 dark:focus:border-green-400 resize-none"
+            className="w-full h-8 px-2 py-1.5 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-green-500 dark:focus:border-green-400 resize-none"
             placeholder="Type a message"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
@@ -425,11 +425,11 @@ const MessageList: React.FC<MessageListProps> = ({
           />
           <button
             onClick={() => onSendMessage(newMessage)}
-            className="px-4 py-2 ml-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+            className="px-3 py-1.5 ml-1.5 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-1.5 text-xs"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
+              className="h-3 w-3"
               viewBox="0 0 20 20"
               fill="currentColor"
           >
@@ -485,11 +485,181 @@ const Main: React.FC = () => {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
   
+  // AI Tools Modal state
+  const [isAiToolsModalOpen, setIsAiToolsModalOpen] = useState(false);
+  const [selectedToolCategory, setSelectedToolCategory] = useState<string>("");
+  const [showAiToolsDropdown, setShowAiToolsDropdown] = useState(false);
+  const [showAiToolsSection, setShowAiToolsSection] = useState(false);
+  
   // Fullscreen mode state
   const location = useLocation();
   const navigate = useNavigate();
   const isFullscreenMode = location.pathname.includes('/fullscreen-chat/');
   const fullscreenCompanyId = location.pathname.match(/\/fullscreen-chat\/([^\/]+)/)?.[1];
+
+  // AI Tools data
+  const aiToolsData = {
+    calendar: {
+      title: "Calendar & Reminder Functions",
+      description: "Tools for managing calendar events, appointments, and scheduling",
+      examples: [
+        {
+          name: "checkAvailableTimeSlots",
+          description: "Checks available appointment slots",
+          example: "use 'checkAvailableTimeSlots' function to check available time slots for January 15th between 9 AM and 7 PM"
+        },
+        {
+          name: "createCalendarEvent",
+          description: "Creates calendar events/appointments",
+          example: "use 'createCalendarEvent' function to create a calendar event for an appointment with John Doe on January 15th from 10 AM to 11 AM for a consultation"
+        },
+        {
+          name: "rescheduleCalendarEvent",
+          description: "Reschedules existing events",
+          example: "use 'rescheduleCalendarEvent' function to reschedule event_123 to January 16th from 2 PM to 3 PM"
+        },
+        {
+          name: "cancelCalendarEvent",
+          description: "Cancels events",
+          example: "use 'cancelCalendarEvent' function to cancel event_123"
+        },
+        {
+          name: "searchUpcomingAppointments",
+          description: "Searches for upcoming appointments",
+          example: "use 'searchUpcomingAppointments' function to search for upcoming appointments between January 15th and January 31st"
+        },
+        {
+          name: "sendRescheduleRequest",
+          description: "Sends reschedule requests",
+          example: "use 'sendRescheduleRequest' function to send a reschedule request for event_123 to January 17th at 3 PM"
+        }
+      ]
+    },
+    task: {
+      title: "Task Management Functions",
+      description: "Tools for creating, editing, and managing tasks",
+      examples: [
+        {
+          name: "addTask",
+          description: "Creates new tasks",
+          example: "use 'addTask' function to create a new high-priority task to follow up with the client by January 20th. The task should be to call the client to discuss the proposal"
+        },
+        {
+          name: "editTask",
+          description: "Edits existing tasks",
+          example: "use 'editTask' function to edit task_123 to update the description and change the priority to Medium with a due date of January 25th"
+        },
+        {
+          name: "deleteTask",
+          description: "Deletes tasks",
+          example: "use 'deleteTask' function to delete task_123"
+        },
+        {
+          name: "listTasks",
+          description: "Lists all tasks",
+          example: "use 'listTasks' function to list all active tasks with a limit of 10"
+        },
+        {
+          name: "listAssignedTasks",
+          description: "Lists tasks assigned to specific person",
+          example: "use 'listAssignedTasks' function to list all tasks assigned to john.doe@company.com"
+        },
+        {
+          name: "updateTaskStatus",
+          description: "Updates task status",
+          example: "use 'updateTaskStatus' function to update the status of task_123 to completed"
+        }
+      ]
+    },
+    contact: {
+      title: "Contact Management Functions",
+      description: "Tools for managing contacts, tags, and contact data",
+      examples: [
+        {
+          name: "tagContact",
+          description: "Tags a contact",
+          example: "use 'tagContact' function to tag contact_123 as 'VIP' with the description 'High Priority Client'"
+        },
+        {
+          name: "manageContactTags",
+          description: "Adds/removes tags from contacts",
+          example: "use 'manageContactTags' function to add the 'Prospect' tag to contact_123"
+        },
+        {
+          name: "listContactsWithTag",
+          description: "Lists contacts with specific tags",
+          example: "use 'listContactsWithTag' function to list all contacts with the 'VIP' tag, showing up to 20 results"
+        },
+        {
+          name: "searchContacts",
+          description: "Searches for contacts",
+          example: "use 'searchContacts' function to search for contacts with the name 'John Doe'"
+        },
+        {
+          name: "listContacts",
+          description: "Lists contacts with pagination",
+          example: "use 'listContacts' function to list contacts with pagination, showing 20 results starting from the beginning, sorted by creation date in descending order"
+        },
+        {
+          name: "fetchContactData",
+          description: "Gets contact data",
+          example: "use 'fetchContactData' function to fetch the complete data for contact_123"
+        },
+        {
+          name: "fetchMultipleContactsData",
+          description: "Gets data for multiple contacts",
+          example: "use 'fetchMultipleContactsData' function to fetch data for multiple contacts including contact_123 and contact_456"
+        },
+        {
+          name: "listAssignedContacts",
+          description: "Lists contacts assigned to specific person",
+          example: "use 'listAssignedContacts' function to list all contacts assigned to john.doe@company.com"
+        },
+        {
+          name: "getContactsAddedToday",
+          description: "Gets contacts created today",
+          example: "use 'getContactsAddedToday' function to get all contacts that were added today"
+        },
+        {
+          name: "getTotalContacts",
+          description: "Gets total contact count",
+          example: "use 'getTotalContacts' function to get the total count of all contacts"
+        }
+      ]
+    },
+    database: {
+      title: "Database & Custom Fields Functions",
+      description: "Tools for managing custom fields and database operations",
+      examples: [
+        {
+          name: "updateCustomFields",
+          description: "Updates custom fields for contacts",
+          example: "use 'updateCustomFields' function to update the custom fields for contact_123 to set industry as 'Technology' and company_size as '50-100'"
+        },
+        {
+          name: "getCustomFields",
+          description: "Retrieves custom fields for contacts",
+          example: "use 'getCustomFields' function to retrieve all custom fields for contact_123"
+        }
+      ]
+    },
+    utility: {
+      title: "Utility Functions",
+      description: "General utility tools for web search and date operations",
+      examples: [
+        {
+          name: "searchWeb",
+          description: "Performs web searches",
+          example: "use 'searchWeb' function to search the web for 'latest CRM software trends 2024'"
+        },
+        {
+          name: "getTodayDate",
+          description: "Gets current date",
+          example: "use 'getTodayDate' function to get today's date"
+        }
+      ]
+    }
+  };
 
   // Message classes for fullscreen mode
   const myMessageClass =
@@ -525,6 +695,30 @@ const Main: React.FC = () => {
       documentUrl: "",
       documentName: "",
     });
+  };
+
+  const openAiToolsModal = (category: string) => {
+    setSelectedToolCategory(category);
+    setIsAiToolsModalOpen(true);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard!");
+  };
+
+  const handleAiToolsClick = () => {
+    setShowAiToolsDropdown(!showAiToolsDropdown);
+  };
+
+  const handleAutomatedClick = () => {
+    setShowAiToolsSection(true);
+    setShowAiToolsDropdown(false);
+  };
+
+  const handleManualClick = () => {
+    navigate('/a-i-responses');
+    setShowAiToolsDropdown(false);
   };
   
   const handleFullscreenSendMessage = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -588,6 +782,20 @@ const Main: React.FC = () => {
       fetchAiSettings();
     }
   }, [companyId]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showAiToolsDropdown && !(event.target as Element).closest('.ai-tools-dropdown')) {
+        setShowAiToolsDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAiToolsDropdown]);
 
   const fetchCompanyId = async () => {
     const userEmail = localStorage.getItem("userEmail");
@@ -1641,16 +1849,16 @@ const Main: React.FC = () => {
   };
 
   const renderTemplateSection = () => (
-    <div className="mb-4">
-      <div className="flex justify-between items-center mb-2">
-        <div className="flex gap-2">
+    <div className="mb-3">
+      <div className="flex justify-between items-center mb-1.5">
+        <div className="flex gap-1.5">
           <button
             onClick={() => setIsTemplateModalOpen(true)}
-            className="px-4 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+            className="px-3 py-1.5 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-1.5 text-xs"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
+              className="h-3 w-3"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -1725,31 +1933,19 @@ const Main: React.FC = () => {
     return (
       <div className="flex flex-col w-full h-screen bg-white dark:bg-gray-900">
         {/* Fullscreen Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
-          <div className="flex items-center">
-            <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gray-700 dark:bg-gray-600 flex items-center justify-center text-white mr-3">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H9L3 7V9C3 10.1 3.9 11 5 11V17C5 18.1 5.9 19 7 19H9C10.1 19 11 18.1 11 17V15H13V17C13 18.1 13.9 19 15 19H17C18.1 19 19 18.1 19 17V11C20.1 11 21 10.1 21 9ZM7.5 7.5C7.5 8.3 8.2 9 9 9S10.5 8.3 10.5 7.5S9.8 6 9 6S7.5 6.7 7.5 7.5ZM13.5 7.5C13.5 8.3 14.2 9 15 9S16.5 8.3 16.5 7.5S15.8 6 15 6S13.5 6.7 13.5 7.5Z"/>
-              </svg>
-            </div>
-            <div>
-              <div className="font-semibold text-xl text-gray-800 dark:text-gray-200 capitalize">
-                {assistantInfo.name}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                Fullscreen Chat
-              </div>
-            </div>
+        <div className="flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
+                  <div className="flex items-center">
+          <div className="px-4 py-2 bg-gray-600 dark:bg-gray-500 text-white rounded-full shadow-lg font-semibold text-base capitalize">
+            {assistantInfo.name}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="ml-3 text-xs text-gray-600 dark:text-gray-400">
+            Fullscreen Chat
+          </div>
+        </div>
+          <div className="flex items-center gap-2">
             <button
               onClick={exitFullscreenMode}
-              className="px-4 py-2 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="px-3 py-1.5 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-xs"
             >
               Exit Fullscreen
             </button>
@@ -1757,13 +1953,13 @@ const Main: React.FC = () => {
         </div>
 
         {/* Fullscreen Chat Messages */}
-        <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
+        <div className="flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center text-gray-500 dark:text-gray-400">
-                <div className="text-2xl mb-2">👋</div>
-                <div className="text-lg mb-2">Welcome to {assistantInfo.name}</div>
-                <div className="text-sm">Start a conversation by typing a message below</div>
+                                <div className="px-3 py-2 bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm self-start text-left max-w-[70%] font-semibold text-sm">
+                  Start a conversation
+              </div>
               </div>
             </div>
           ) : (
@@ -1777,7 +1973,7 @@ const Main: React.FC = () => {
                     .map((splitText, splitIndex) => (
                     <div
                       key={`${index}-${splitIndex}`}
-                      className={`p-3 mb-3 rounded-lg ${
+                      className={`p-2 mb-2 rounded-lg ${
                         message.from_me ? myMessageClass : otherMessageClass
                       }`}
                       style={{
@@ -1902,10 +2098,10 @@ const Main: React.FC = () => {
         </div>
 
         {/* Fullscreen Message Input */}
-        <div className="p-4 border-t border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <div className="flex items-center gap-3">
+        <div className="p-3 border-t border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex items-center gap-2">
             <textarea
-              className="flex-1 h-12 px-4 py-3 text-base text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+              className="flex-1 h-10 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
               placeholder="Type a message..."
               value={fullscreenNewMessage}
               onChange={(e) => setFullscreenNewMessage(e.target.value)}
@@ -1914,7 +2110,7 @@ const Main: React.FC = () => {
             />
             <button
               onClick={handleFullscreenSendClick}
-              className="px-6 py-3 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+              className="px-4 py-2 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors text-sm"
             >
               Send
             </button>
@@ -1945,25 +2141,25 @@ const Main: React.FC = () => {
       <div className={`w-full ${isWideScreen ? "max-w-7xl flex" : "max-w-lg"}`}>
         {isWideScreen ? (
           <>
-            <div className="w-1/2 pl-2 pr-2 ml-2 mr-2 mt-4 overflow-auto bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            <div className="w-1/2 pl-1.5 pr-1.5 ml-1.5 mr-1.5 mt-0 overflow-auto bg-gray-50 dark:bg-gray-800 rounded-lg pt-1.5 px-3 pb-3">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
-                  <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-4">
-                    <img alt="Logo" className="w-24 h-24 mb-4" src={logoUrl} />
-                    <div className="mt-2 text-xs p-2 dark:text-gray-200">
+                  <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-3">
+                    <img alt="Logo" className="w-20 h-20 mb-3" src={logoUrl} />
+                    <div className="mt-1.5 text-xs p-1.5 dark:text-gray-200">
                       Fetching Assistant...
                     </div>
-                    <LoadingIcon icon="three-dots" className="w-20 h-20 p-4" />
+                    <LoadingIcon icon="three-dots" className="w-16 h-16 p-3" />
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="mb-4 flex items-center justify-between">
+                  <div className="mb-3 flex items-center justify-between">
                     {assistants.length > 1 ? (
                       <select
                         value={selectedAssistant}
                         onChange={(e) => handleAssistantChange(e.target.value)}
-                        className="w-full p-2 text-2xl font-bold border border-gray-300 rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-full p-1.5 text-lg font-bold border border-gray-300 rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
                       >
                         {assistants.map((assistant) => (
                           <option key={assistant.id} value={assistant.id}>
@@ -1971,15 +2167,11 @@ const Main: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                    ) : (
-                      <h1 className="text-2xl font-bold dark:text-gray-200">
-                        {assistantInfo.name || "Assistant Name"}
-                      </h1>
-                    )}
+                    ) : null}
                   </div>
-                                      <div className="mb-4">
+                                      <div className="mb-3">
                       <label
-                        className="mb-2 text-lg font-medium capitalize dark:text-gray-200"
+                        className="mb-1.5 text-sm font-medium capitalize dark:text-gray-200"
                         htmlFor="name"
                       >
                         Name
@@ -1989,7 +2181,7 @@ const Main: React.FC = () => {
                           id="name"
                           name="name"
                           type="text"
-                          className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 pr-10 font-mono"
+                          className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 pr-8 font-mono"
                           placeholder="Name your assistant"
                           value={assistantInfo.name}
                           onChange={handleInputChange}
@@ -2000,30 +2192,71 @@ const Main: React.FC = () => {
                   </div>
 
                   {/* AI Tools Section */}
-                  <div className="mb-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Link to="/a-i-responses">
-                        <button className="px-3 py-2 bg-blue-500 dark:bg-blue-600 text-white border-2 border-blue-600 dark:border-blue-500 rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:border-blue-700 dark:hover:border-blue-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
+                  <div className="mb-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      <div className="relative ai-tools-dropdown">
+                        <button 
+                          onClick={handleAiToolsClick}
+                          className="px-2 py-1.5 bg-blue-500 dark:bg-blue-600 text-white border-2 border-blue-600 dark:border-blue-500 rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:border-blue-700 dark:hover:border-blue-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs"
+                        >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4"
+                            className="h-3 w-3"
                             viewBox="0 0 20 20"
                             fill="currentColor"
                           >
                             <path
                               fillRule="evenodd"
-                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l8 8a1 1 0 001.414 0l4-4z"
                               clipRule="evenodd"
                             />
                           </svg>
                           AI Tools
-                        </button>
-                      </Link>
-                      <Link to="/follow-ups">
-                        <button className="px-3 py-2 bg-teal-500 dark:bg-teal-600 text-white border-2 border-teal-600 dark:border-teal-500 rounded-lg hover:bg-teal-600 dark:hover:bg-teal-700 hover:border-teal-700 dark:hover:border-teal-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4"
+                            className={`h-3 w-3 transition-transform duration-200 ${showAiToolsDropdown ? 'rotate-180' : ''}`}
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                        
+                        {/* Dropdown Menu */}
+                        {showAiToolsDropdown && (
+                          <div className="absolute top-full left-0 mt-1.5 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                            <button
+                              onClick={handleAutomatedClick}
+                              className="w-full px-3 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-t-lg border-b border-gray-200 dark:border-gray-700 flex items-center gap-1.5 text-xs"
+                            >
+                              <svg className="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                              </svg>
+                              Automated AI Tools
+                            </button>
+                            <div className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-700">
+                              Let AI Decide To Trigger
+                            </div>
+                            <button
+                              onClick={handleManualClick}
+                              className="w-full px-3 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-b-lg flex items-center gap-1.5 text-xs"
+                            >
+                              <svg className="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Manual AI Tools
+                            </button>
+                            <div className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 rounded-b-lg">
+                              Set Keywords To Trigger
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <Link to="/follow-ups">
+                        <button className="px-2 py-1.5 bg-teal-500 dark:bg-teal-600 text-white border-2 border-teal-600 dark:border-teal-500 rounded-lg hover:bg-teal-600 dark:hover:bg-teal-700 hover:border-teal-700 dark:hover:border-teal-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3 w-3"
                             viewBox="0 0 20 20"
                             fill="currentColor"
                           >
@@ -2033,8 +2266,8 @@ const Main: React.FC = () => {
                         </button>
                       </Link>
                       <Link to="/users-layout-2/builder2">
-                        <button className="px-3 py-2 bg-purple-500 dark:bg-purple-600 text-white border-2 border-purple-600 dark:border-purple-500 rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 hover:border-purple-700 dark:hover:border-purple-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <button className="px-2 py-1.5 bg-purple-500 dark:bg-purple-600 text-white border-2 border-purple-600 dark:border-purple-500 rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 hover:border-purple-700 dark:hover:border-purple-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
                             <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
                           </svg>
@@ -2042,8 +2275,8 @@ const Main: React.FC = () => {
                         </button>
                       </Link>
                       <Link to="/split-test">
-                        <button className="px-3 py-2 bg-orange-500 dark:bg-orange-600 text-white border-2 border-orange-600 dark:border-orange-500 rounded-lg hover:bg-orange-600 dark:hover:bg-orange-700 hover:border-orange-700 dark:hover:border-orange-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 whitespace-nowrap">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <button className="px-2 py-1.5 bg-orange-500 dark:bg-orange-600 text-white border-2 border-orange-600 dark:border-orange-500 rounded-lg hover:bg-orange-600 dark:hover:bg-orange-700 hover:border-orange-700 dark:hover:border-orange-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" clipRule="evenodd" />
                           </svg>
                           Split Test
@@ -2052,13 +2285,86 @@ const Main: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* AI Tools Section - Show when Automated is selected */}
+                  {showAiToolsSection && (
+                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800 shadow-sm">
+                      <div className="flex justify-between items-center mb-3">
+                        <label className="text-lg font-medium dark:text-gray-200 flex items-center gap-2">
+                          <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                          </svg>
+                          AI Tools
+                        </label>
+                        <button
+                          onClick={() => setShowAiToolsSection(false)}
+                          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        Click on any tool category to see examples and copy them directly to your chat
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <button
+                          onClick={() => openAiToolsModal('calendar')}
+                          className="p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors duration-200 text-left"
+                        >
+                          <div className="font-medium">Calendar & Reminders</div>
+                          <div className="text-xs opacity-90">Event management & scheduling</div>
+                        </button>
+                        <button
+                          onClick={() => openAiToolsModal('task')}
+                          className="p-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors duration-200 text-left"
+                        >
+                          <div className="font-medium">Task Management</div>
+                          <div className="text-xs opacity-90">Create & manage tasks</div>
+                        </button>
+                        <button
+                          onClick={() => openAiToolsModal('contact')}
+                          className="p-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors duration-200 text-left"
+                        >
+                          <div className="font-medium">Contact Management</div>
+                          <div className="text-xs opacity-90">Contact & tag operations</div>
+                        </button>
+                        <button
+                          onClick={() => openAiToolsModal('database')}
+                          className="p-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors duration-200 text-left"
+                        >
+                          <div className="font-medium">Database & Custom Fields</div>
+                          <div className="text-xs opacity-90">Data management tools</div>
+                        </button>
+                        <button
+                          onClick={() => openAiToolsModal('utility')}
+                          className="p-3 bg-teal-500 hover:bg-teal-600 text-white rounded-lg transition-colors duration-200 text-left md:col-span-2"
+                        >
+                          <div className="font-medium">Utility Functions</div>
+                          <div className="text-xs opacity-90">Web search & date operations</div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="mb-4">
  
                     <div className="relative">
                       <textarea
                         id="instructions"
                         name="instructions"
-                        className="w-full p-4 border border-gray-300 rounded-xl h-[600px] text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono shadow-sm"
+                        className="w-full p-3 border border-gray-300 rounded-xl h-[500px] text-xs bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono shadow-sm"
                         placeholder="Tell your assistant what to do"
                         value={assistantInfo.instructions}
                         onChange={handleInputChange}
@@ -2151,9 +2457,9 @@ const Main: React.FC = () => {
 
 
 
-                                      <div className="mb-5 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-100 dark:border-green-800 shadow-sm">
-                    <div className="space-y-4">
-                          <h3 className="text-md font-medium text-gray-700 dark:text-gray-300">
+                                      <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-100 dark:border-green-800 shadow-sm">
+                    <div className="space-y-3">
+                          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
                               Response Delay (seconds)
                           </h3>
 
@@ -2166,7 +2472,7 @@ const Main: React.FC = () => {
                               onChange={(e) =>
                                 setAiDelay(Number(e.target.value))
                               }
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
+                              className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-xs bg-white dark:bg-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
                               disabled={userRole === "3"}
                             />
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -2178,12 +2484,12 @@ const Main: React.FC = () => {
                           <div>
                             <button
                               onClick={handleSaveAiSettings}
-                              className="px-4 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+                              className="px-3 py-1.5 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-1.5 text-xs"
                               disabled={userRole === "3"}
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 w-4"
+                                className="h-3 w-3"
                                 viewBox="0 0 20 20"
                                 fill="currentColor"
                               >
@@ -2199,12 +2505,12 @@ const Main: React.FC = () => {
                         </div>
                   </div>
 
-                  <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                     <label
-                      className="mb-3 text-lg font-medium dark:text-gray-200 flex items-center gap-2"
+                      className="mb-2 text-sm font-medium dark:text-gray-200 flex items-center gap-1.5"
                       htmlFor="file-upload"
                     >
-                      <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.414L7.293 9.293z" clipRule="evenodd" />
                       </svg>
                       Knowledge Base
@@ -2214,61 +2520,63 @@ const Main: React.FC = () => {
                         id="file-upload"
                         type="file"
                         onChange={handleFileUpload}
-                        className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 hover:border-gray-400 dark:hover:border-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 hover:border-gray-400 dark:hover:border-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
                         disabled={uploading || userRole === "3"}
                       />
                       {uploading && (
                         <div className="absolute inset-0 bg-white/80 dark:bg-gray-700/80 rounded-lg flex items-center justify-center">
-                          <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                            <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span className="text-sm font-medium">Uploading...</span>
+                            <span className="text-xs font-medium">Uploading...</span>
                           </div>
                         </div>
                       )}
                     </div>
                   </div>
-                  <div className="mb-4">
-                    <div className="space-y-2">
+                  <div className="mb-3">
+                    <div className="space-y-1.5">
                       {(files || []).map((file) => (
                         <div
                           key={file.id}
-                          className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+                          className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
                         >
-                          <div className="flex items-center gap-3">
-                            <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                          <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                             </svg>
                             <a
                               href={file.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 transition-colors font-medium"
+                              className="text-xs text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 transition-colors font-medium"
                             >
                               {file.name}
                             </a>
                           </div>
                           <button
                             onClick={() => deleteFile(file.id)}
-                            className="px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                            className="px-1.5 py-0.5 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           >
                             Delete
                           </button>
                         </div>
                       ))}
                       {files.length === 0 && (
-                        <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-                          <svg className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                        <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                          <svg className="w-10 h-10 mx-auto mb-1.5 text-gray-300 dark:text-gray-600" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                           </svg>
-                          <p className="text-sm">No files uploaded yet</p>
+                          <p className="text-xs">No files uploaded yet</p>
                           <p className="text-xs mt-1">Upload files to enhance your assistant's knowledge</p>
                         </div>
                       )}
                     </div>
                   </div>
+
+
 
                   {error && <div className="mt-4 text-red-500">{error}</div>}
                 </>
@@ -2290,10 +2598,10 @@ const Main: React.FC = () => {
           </>
         ) : (
           <Tab.Group as="div" className="flex flex-col w-full h-full">
-            <Tab.List className="flex bg-gray-100 dark:bg-gray-900 p-2 sticky top-0 z-10">
+            <Tab.List className="flex bg-gray-100 dark:bg-gray-900 p-1.5 sticky top-0 z-10">
               <Tab
                 className={({ selected }) =>
-                  `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
+                  `w-1/2 py-1.5 text-xs font-medium text-center rounded-lg ${
                     selected
                       ? "bg-white text-green-600 dark:bg-gray-800 dark:text-green-400"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
@@ -2304,7 +2612,7 @@ const Main: React.FC = () => {
               </Tab>
               <Tab
                 className={({ selected }) =>
-                  `w-1/2 py-2 text-sm font-medium text-center rounded-lg ${
+                  `w-1/2 py-1.5 text-xs font-medium text-center rounded-lg ${
                     selected
                       ? "bg-white text-green-600 dark:bg-gray-800 dark:text-green-400"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
@@ -2315,29 +2623,29 @@ const Main: React.FC = () => {
               </Tab>
             </Tab.List>
             <Tab.Panels className="flex-1 overflow-hidden">
-              <Tab.Panel className="h-full overflow-auto p-4 dark:bg-gray-900">
+              <Tab.Panel className="h-full overflow-auto p-3 dark:bg-gray-900">
                 {loading ? (
                   <div className="flex items-center justify-center h-full">
-                    <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-15">
+                    <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-3">
                       <img
                         alt="Logo"
-                        className="w-24 h-24 p-15"
+                        className="w-20 h-20 p-3"
                         src={logoUrl}
                       />
-                      <div className="mt-2 text-xs p-15 dark:text-gray-200">
+                      <div className="mt-1.5 text-xs p-3 dark:text-gray-200">
                         Fetching Assistant...
                       </div>
                       <LoadingIcon
                         icon="three-dots"
-                        className="w-20 h-20 p-4"
+                        className="w-16 h-16 p-3"
                       />
                     </div>
                   </div>
                 ) : (
                   <>
-                    <div className="mb-4">
+                    <div className="mb-3">
                       <label
-                        className="mb-2 text-lg font-medium capitalize dark:text-gray-200"
+                        className="mb-1.5 text-sm font-medium capitalize dark:text-gray-200"
                         htmlFor="name"
                       >
                         Name
@@ -2346,7 +2654,7 @@ const Main: React.FC = () => {
                           id="name"
                           name="name"
                           type="text"
-                          className="w-full p-3 border border-gray-300 rounded-lg text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 pr-10 font-mono"
+                          className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 pr-8 font-mono"
                           placeholder="Name your assistant"
                           value={assistantInfo.name}
                           onChange={handleInputChange}
@@ -2354,9 +2662,9 @@ const Main: React.FC = () => {
                           disabled={userRole === "3"}
                         />
                     </div>
-                    <div className="mb-4">
+                    <div className="mb-3">
                       <label
-                        className="mb-2 text-lg font-medium dark:text-gray-200"
+                        className="mb-1.5 text-sm font-medium dark:text-gray-200"
                         htmlFor="description"
                       >
                         Description
@@ -2364,7 +2672,7 @@ const Main: React.FC = () => {
                       <textarea
                         id="description"
                         name="description"
-                                                    className="w-full p-3 border border-gray-300 rounded-lg h-24 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                    className="w-full p-2 border border-gray-300 rounded-lg h-20 text-xs bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
                         placeholder="Add a short description of what this assistant does"
                         value={assistantInfo.description}
                         onChange={handleInputChange}
@@ -2372,9 +2680,9 @@ const Main: React.FC = () => {
                         disabled={userRole === "3"}
                       />
                     </div>
-                    <div className="mb-4">
+                    <div className="mb-3">
                       <label
-                        className="mb-2 text-lg font-medium dark:text-gray-200"
+                        className="mb-1.5 text-sm font-medium dark:text-gray-200"
                         htmlFor="instructions"
                       >
                         Instructions
@@ -2383,12 +2691,12 @@ const Main: React.FC = () => {
                         <textarea
                           id="instructions"
                           name="instructions"
-                          className="w-full p-3 border border-gray-300 rounded-lg h-[600px] text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
+                          className="w-full p-2 border border-gray-300 rounded-lg h-[500px] text-xs bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
                           placeholder="Tell your assistant what to do"
                           value={assistantInfo.instructions}
                           onChange={handleInputChange}
                           onFocus={handleFocus}
-                          rows={35}
+                          rows={30}
                           disabled={userRole === "3"}
                         />
                         <button
@@ -2396,12 +2704,12 @@ const Main: React.FC = () => {
                             console.log("Opening fullscreen modal");
                             setIsFullscreenModalOpen(true);
                           }}
-                          className="absolute top-2 right-2 p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                          className="absolute top-1.5 right-1.5 p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                           title="Edit in fullscreen"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4"
+                            className="h-3 w-3"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -2414,14 +2722,14 @@ const Main: React.FC = () => {
                         </button>
                         
                         {/* Template Buttons - Positioned at bottom left inside textarea */}
-                        <div className="absolute bottom-2 left-2 flex gap-2">
+                        <div className="absolute bottom-1.5 left-1.5 flex gap-1.5">
                           <button
                             onClick={() => setIsTemplateModalOpen(true)}
-                            className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+                            className="px-2 py-1.5 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-1.5 text-xs"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4"
+                              className="h-3 w-3"
                               viewBox="0 0 20 20"
                               fill="currentColor"
                             >
@@ -2513,8 +2821,6 @@ const Main: React.FC = () => {
                         ))}
                       </ul>
                     </div>
-
-
 
 
 
@@ -2629,11 +2935,11 @@ const Main: React.FC = () => {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-screen h-screen transform overflow-hidden bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all">
-                  <div className="flex justify-between items-center mb-4">
+                                  <Dialog.Panel className="w-screen h-screen transform overflow-hidden bg-white dark:bg-gray-800 p-4 text-left align-middle shadow-xl transition-all">
+                  <div className="flex justify-between items-center mb-3">
                     <Dialog.Title
                       as="h3"
-                      className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100"
+                      className="text-base font-medium leading-6 text-gray-900 dark:text-gray-100"
                     >
                       Edit Instructions
                     </Dialog.Title>
@@ -2643,7 +2949,7 @@ const Main: React.FC = () => {
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        className="h-6 w-6"
+                        className="h-5 w-5"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -2659,7 +2965,7 @@ const Main: React.FC = () => {
                   </div>
                   <div className="relative w-full h-[calc(100vh-180px)]">
                     <textarea
-                      className="w-full h-full p-4 text-base bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono"
+                      className="w-full h-full p-3 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono"
                       value={assistantInfo.instructions}
                       onChange={handleInputChange}
                       name="instructions"
@@ -2668,14 +2974,14 @@ const Main: React.FC = () => {
                     />
                     
                     {/* Template Buttons - Positioned at bottom left inside textarea */}
-                    <div className="absolute bottom-2 left-2 flex gap-2">
+                    <div className="absolute bottom-1.5 left-1.5 flex gap-1.5">
                       <button
                         onClick={() => setIsTemplateModalOpen(true)}
-                        className="px-3 py-2 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-2"
+                        className="px-2 py-1.5 bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/50 shadow-sm active:scale-95 transition-all duration-200 flex items-center gap-1.5 text-xs"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
+                          className="h-3 w-3"
                           viewBox="0 0 20 20"
                           fill="currentColor"
                         >
@@ -2691,7 +2997,7 @@ const Main: React.FC = () => {
                     {/* Save Instructions Button - Positioned at bottom right inside textarea */}
                     <button
                       onClick={updateAssistantInfo}
-                      className={`absolute bottom-2 right-2 px-4 py-2 ${isSaving ? 'bg-green-600 dark:bg-green-700' : 'bg-green-500 dark:bg-green-600'} text-white border-2 border-green-600 dark:border-green-500 rounded-lg hover:bg-green-600 dark:hover:bg-green-700 hover:border-green-700 dark:hover:border-green-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-2 ${
+                      className={`absolute bottom-1.5 right-1.5 px-3 py-1.5 ${isSaving ? 'bg-green-600 dark:bg-green-700' : 'bg-green-500 dark:bg-green-600'} text-white border-2 border-green-600 dark:border-green-500 rounded-lg hover:bg-green-600 dark:hover:bg-green-700 hover:border-green-700 dark:hover:border-green-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-1.5 text-xs ${
                         userRole === "3"
                           ? "opacity-50 cursor-not-allowed"
                           : ""
@@ -2699,14 +3005,14 @@ const Main: React.FC = () => {
                       disabled={userRole === "3"}
                     >
                       {isSaving ? (
-                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                       ) : (
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
+                          className="h-3 w-3"
                           viewBox="0 0 20 20"
                           fill="currentColor"
                         >
@@ -2757,39 +3063,39 @@ const Main: React.FC = () => {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all">
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-4 text-left align-middle shadow-xl transition-all">
                   <Dialog.Title
                     as="h3"
-                    className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4"
+                    className="text-base font-medium leading-6 text-gray-900 dark:text-gray-100 mb-3"
                   >
                     Version History
                   </Dialog.Title>
                   <div className="max-h-[60vh] overflow-y-auto">
                     {templates.length === 0 ? (
-                      <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                      <p className="text-gray-500 dark:text-gray-400 text-center py-3">
                         No templates saved yet
                       </p>
                     ) : (
                       templates.map((template) => (
                         <div
                           key={template.id}
-                          className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
+                          className="mb-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
                         >
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm text-gray-600 dark:text-gray-300">
+                          <div className="flex justify-between items-center mb-1.5">
+                            <span className="text-xs text-gray-600 dark:text-gray-300">
                               {template.name}
                             </span>
-                            <div className="flex gap-2">
+                            <div className="flex gap-1.5">
                               <button
                                 onClick={() => {
                                   loadTemplate(template);
                                   setIsTemplateModalOpen(false);
                                 }}
-                                className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm flex items-center gap-1"
+                                className="px-2 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-200 text-xs flex items-center gap-1"
                               >
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4"
+                                  className="h-3 w-3"
                                   viewBox="0 0 20 20"
                                   fill="currentColor"
                                 >
@@ -2799,12 +3105,12 @@ const Main: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => deleteTemplate(template.id)}
-                                className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 text-sm flex items-center gap-1"
+                                className="px-2 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 text-xs flex items-center gap-1"
                                 disabled={userRole === "3"}
                               >
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4"
+                                  className="h-3 w-3"
                                   viewBox="0 0 20 20"
                                   fill="currentColor"
                                 >
@@ -2818,18 +3124,149 @@ const Main: React.FC = () => {
                               </button>
                             </div>
                           </div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
                             {template.instructions}
                           </p>
                         </div>
                       ))
                     )}
                   </div>
-                  <div className="mt-4">
+                  <div className="mt-3">
                     <button
                       type="button"
-                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-100 dark:bg-gray-600 px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-100 dark:bg-gray-600 px-3 py-1.5 text-xs font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
                       onClick={() => setIsTemplateModalOpen(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* AI Tools Modal */}
+      <Transition appear show={isAiToolsModalOpen} as={Fragment}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={() => setIsAiToolsModalOpen(false)}
+        >
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-4 text-left align-middle shadow-xl transition-all">
+                  <div className="flex justify-between items-center mb-4">
+                    <Dialog.Title
+                      as="h3"
+                      className="text-lg font-bold leading-6 text-gray-900 dark:text-gray-100"
+                    >
+                      {aiToolsData[selectedToolCategory as keyof typeof aiToolsData]?.title}
+                    </Dialog.Title>
+                    <button
+                      onClick={() => setIsAiToolsModalOpen(false)}
+                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <p className="text-gray-600 dark:text-gray-400 text-sm">
+                      {aiToolsData[selectedToolCategory as keyof typeof aiToolsData]?.description}
+                    </p>
+                  </div>
+
+                  <div className="max-h-[60vh] overflow-y-auto space-y-3">
+                    {aiToolsData[selectedToolCategory as keyof typeof aiToolsData]?.examples.map((tool, index) => (
+                      <div
+                        key={index}
+                        className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {tool.name}
+                          </h4>
+                          <button
+                            onClick={() => copyToClipboard(tool.example)}
+                            className="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors duration-200 text-xs flex items-center gap-1.5"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3 w-3"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                            </svg>
+                            Copy
+                          </button>
+                        </div>
+                        
+                        <div className="mb-2">
+                          <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-2 font-mono text-xs text-gray-800 dark:text-gray-200 break-all">
+                            {tool.example}
+                          </div>
+                        </div>
+                        
+                        <p className="text-gray-600 dark:text-gray-400 text-xs">
+                          {tool.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
+                    <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1.5 text-sm">How to Use These Tools</h4>
+                    <div className="space-y-2 text-xs text-blue-800 dark:text-blue-200">
+                      <p>
+                        <strong>Copy & Paste Instructions:</strong> Copy any example above and paste it directly into your chat with the AI. The AI will understand what you want and use the appropriate function.
+                      </p>
+                      <strong>Pro Tip:</strong> You can modify the examples by changing dates, names, or other details to match your specific needs before copying them.
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-100 dark:bg-gray-600 px-3 py-1.5 text-xs font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+                      onClick={() => setIsAiToolsModalOpen(false)}
                     >
                       Close
                     </button>

@@ -104,30 +104,30 @@ const SplitTestDashboardCompact = () => {
 
   return (
     <div className="h-full">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 bg-purple-100 dark:bg-purple-800 rounded-lg">
-              <div className="text-lg">🧪</div>
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="p-1 bg-purple-100 dark:bg-purple-800 rounded-lg">
+              <div className="text-base">🧪</div>
             </div>
             <div>
-              <h3 className="text-md font-semibold text-gray-900 dark:text-white">Split Test Performance</h3>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Split Test Performance</h3>
               <p className="text-xs text-gray-600 dark:text-gray-400">AI variation analytics</p>
             </div>
           </div>
           <Link to="/split-test">
-            <Button variant="outline-primary" className="px-3 py-1 text-xs">
+            <Button variant="outline-primary" className="px-2 py-1 text-xs">
               Manage Tests →
             </Button>
           </Link>
         </div>
 
         {!hasData ? (
-          <div className="text-center py-4">
-            <div className="text-gray-400 text-xl mb-2">🚀</div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">No split tests yet</p>
+          <div className="text-center py-3">
+            <div className="text-gray-400 text-lg mb-2">🚀</div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">No split tests yet</p>
             <Link to="/split-test">
-              <Button variant="primary" className="px-4 py-1 text-xs">
+              <Button variant="primary" className="px-3 py-1 text-xs">
                 Create First Test
               </Button>
             </Link>
@@ -135,17 +135,17 @@ const SplitTestDashboardCompact = () => {
         ) : (
           <div>
             {/* Compact metrics */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-3 gap-2 mb-3">
               <div className="text-center bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2">
-                <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{splitTestData.totalCustomers}</div>
+                <div className="text-base font-bold text-blue-600 dark:text-blue-400">{splitTestData.totalCustomers}</div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">Total</div>
               </div>
               <div className="text-center bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
-                <div className="text-lg font-bold text-green-600 dark:text-green-400">{splitTestData.closedCustomers}</div>
+                <div className="text-base font-bold text-green-600 dark:text-green-400">{splitTestData.closedCustomers}</div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">Closed</div>
               </div>
               <div className="text-center bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2">
-                <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                <div className="text-base font-bold text-purple-600 dark:text-purple-400">
                   {splitTestData.totalCustomers > 0 
                     ? ((splitTestData.closedCustomers / splitTestData.totalCustomers) * 100).toFixed(1)
                     : '0'
@@ -156,8 +156,8 @@ const SplitTestDashboardCompact = () => {
             </div>
 
             {/* Performance ranking */}
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">Performance Ranking:</div>
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Performance Ranking:</div>
               
               {/* Show active variations first, sorted by performance */}
               {splitTestData.variationStats
@@ -168,28 +168,28 @@ const SplitTestDashboardCompact = () => {
                   const isWorst = index === splitTestData.variationStats.filter(v => v.isActive).length - 1 && splitTestData.variationStats.filter(v => v.isActive).length > 1;
                   
                   return (
-                    <div key={index} className={`flex items-center justify-between text-xs rounded px-3 py-2 ${
+                    <div key={index} className={`flex items-center justify-between text-xs rounded px-2 py-1.5 ${
                       isTop ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700' :
                       isWorst ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700' :
                       'bg-gray-50 dark:bg-gray-700'
                     }`}>
-                      <div className="flex items-center gap-2">
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold text-white ${
                           isTop ? 'bg-yellow-500' : isWorst ? 'bg-red-500' : 'bg-blue-500'
                         }`}>
                           {index + 1}
                         </div>
-                        <span className="font-medium text-gray-900 dark:text-gray-100">
+                        <span className="font-medium text-gray-900 dark:text-gray-100 text-xs">
                           {variation.variationName}
                         </span>
-                        {isTop && <span className="text-sm">👑</span>}
-                        {isWorst && <span className="text-sm">📉</span>}
+                        {isTop && <span className="text-xs">👑</span>}
+                        {isWorst && <span className="text-xs">📉</span>}
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600 dark:text-gray-400 text-xs">
                           {variation.closedCustomers}/{variation.totalCustomers}
                         </span>
-                        <span className={`font-bold ${
+                        <span className={`font-bold text-xs ${
                           variation.conversionRate >= 30 ? 'text-green-600' : 
                           variation.conversionRate >= 20 ? 'text-yellow-600' : 'text-red-600'
                         }`}>
@@ -202,17 +202,17 @@ const SplitTestDashboardCompact = () => {
               
               {/* Show inactive variations if any */}
               {splitTestData.variationStats.filter(v => !v.isActive).length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">
                     Inactive Variations ({splitTestData.variationStats.filter(v => !v.isActive).length}):
                   </div>
                   {splitTestData.variationStats
                     .filter(v => !v.isActive)
                     .slice(0, 2)
                     .map((variation, index) => (
-                      <div key={`inactive-${index}`} className="flex items-center justify-between text-xs bg-gray-100 dark:bg-gray-600 rounded px-2 py-1 mb-1">
-                        <span className="text-gray-600 dark:text-gray-300">{variation.variationName}</span>
-                        <span className="text-gray-500 dark:text-gray-400">⚫ Inactive</span>
+                      <div key={`inactive-${index}`} className="flex items-center justify-between text-xs bg-gray-100 dark:bg-gray-600 rounded px-1.5 py-1 mb-1">
+                        <span className="text-gray-600 dark:text-gray-300 text-xs">{variation.variationName}</span>
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">⚫ Inactive</span>
                       </div>
                     ))}
                 </div>
@@ -220,19 +220,19 @@ const SplitTestDashboardCompact = () => {
               
               {/* Best/Worst summary if multiple active variations */}
               {splitTestData.variationStats.filter(v => v.isActive).length > 1 && (
-                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
                   <div className="grid grid-cols-1 gap-1 text-xs">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <span className="text-green-600">🏆</span>
-                      <span className="text-gray-600 dark:text-gray-400">
+                      <span className="text-gray-600 dark:text-gray-400 text-xs">
                         Best: <strong className="text-green-700 dark:text-green-400">
                           {splitTestData.variationStats.filter(v => v.isActive)[0]?.variationName}
                         </strong>
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <span className="text-red-600">📈</span>
-                      <span className="text-gray-600 dark:text-gray-400">
+                      <span className="text-gray-600 dark:text-gray-400 text-xs">
                         Needs Work: <strong className="text-red-700 dark:text-red-400">
                           {splitTestData.variationStats.filter(v => v.isActive).slice(-1)[0]?.variationName}
                         </strong>
@@ -242,7 +242,7 @@ const SplitTestDashboardCompact = () => {
                 </div>
               )}
               
-              <div className="text-center mt-3">
+              <div className="text-center mt-2">
                 <Link to="/split-test" className="text-xs text-blue-600 hover:text-blue-800">
                   View All Variations →
                 </Link>
@@ -596,9 +596,12 @@ function EmployeeSearch({
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const filteredEmployees = useMemo(() => {
-    return employees.filter(employee => 
+    console.log('🔍 Filtering employees:', employees.length, 'employees, query:', searchQuery);
+    const filtered = employees.filter(employee => 
       employee.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
+    console.log('🔍 Filtered result:', filtered.length, 'employees');
+    return filtered;
   }, [employees, searchQuery]);
 
   useEffect(() => {
@@ -1025,9 +1028,13 @@ interface Tag {
       // Count current closed contacts for this employee
       const closedContacts = contacts.filter((contactData: any) => {
         // Check if contact is closed and assigned to this employee by tag
-        const tags = contactData.tags?.map((tag: string) => tag.toLowerCase()) || [];
-        console.log(`Checking contact tags for closed status: ${tags}`);
-        return tags.includes('closed') && tags.includes(employeeData.name.toLowerCase());
+        const tags = contactData.tags || [];
+        const normalizedTags = tags
+          .filter((tag: any) => typeof tag === 'string')
+          .map((tag: string) => tag.toLowerCase());
+        
+        console.log(`Checking contact tags for closed status: ${normalizedTags}`);
+        return normalizedTags.includes('closed') && normalizedTags.includes(employeeData.name.toLowerCase());
       }).length;
 
       console.log(`Fetched employee data for ${employeeData.name}:`, {
@@ -1038,6 +1045,7 @@ interface Tag {
 
       return {
         ...employeeData,
+        assignedContacts: employeeData.assignedContacts || 0, // Ensure assignedContacts is preserved
         monthlyAssignments,
         closedContacts
       };
@@ -1084,7 +1092,11 @@ interface Tag {
       if (currentUser && currentUser.id) {
         const employeeData = await fetchEmployeeData(currentUser.id);
         if (employeeData) {
-          setSelectedEmployee(employeeData);
+          // Only set selectedEmployee if none is currently selected
+          // This prevents overwriting a user's manual selection
+          if (!selectedEmployee) {
+            setSelectedEmployee(employeeData);
+          }
         }
       }
     }
@@ -1109,14 +1121,16 @@ interface Tag {
       const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
       const monthKey = format(date, 'yyyy-MM');
       
-      // Use the last known total if no new assignments in this month
-      const monthTotal = monthlyAssignments[monthKey] || lastKnownTotal;
-      lastKnownTotal = monthTotal;
-
+      // If this month has data, use it and update lastKnownTotal
+      if (monthlyAssignments[monthKey] !== undefined) {
+        lastKnownTotal = monthlyAssignments[monthKey];
+      }
+      
+      // Use the last known total for this month
       last12Months.push({
         month: format(date, 'MMM'),
         year: date.getFullYear(),
-        assignments: monthTotal
+        assignments: lastKnownTotal
       });
     }
     
@@ -1126,23 +1140,27 @@ interface Tag {
   const chartData = useMemo(() => {
     if (!selectedEmployee) return null;
 
+    console.log('🔍 Chart data calculation - selectedEmployee:', {
+      name: selectedEmployee.name,
+      id: selectedEmployee.id,
+      assignedContacts: selectedEmployee.assignedContacts,
+      monthlyAssignments: selectedEmployee.monthlyAssignments
+    });
+
     // Create a fallback data point if there are no monthly assignments but there are assigned contacts
     let monthlyAssignments = selectedEmployee.monthlyAssignments || {};
     const assignedContacts = selectedEmployee.assignedContacts || 0;
+    
+    console.log('🔍 Chart calculation values:', { monthlyAssignments, assignedContacts });
     
     if (Object.keys(monthlyAssignments).length === 0 && assignedContacts > 0) {
       // Create data for the current month
       const currentMonth = format(new Date(), 'yyyy-MM');
       monthlyAssignments = { [currentMonth]: assignedContacts };
+      console.log('🔍 Created fallback monthly assignments:', monthlyAssignments);
       
-      // Also update the selected employee state to include this data
-      setSelectedEmployee(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          monthlyAssignments: { ...monthlyAssignments }
-        };
-      });
+      // Don't call setSelectedEmployee here - it causes infinite loops
+      // The monthlyAssignments will be used locally for this chart calculation
     }
 
     // Pass both parameters to the function
@@ -1230,6 +1248,13 @@ interface Tag {
   const [totalMessages, setTotalMessages] = useState(0);
   const [totalAIResponses, setTotalAIResponses] = useState(0);
   const [aiMessageQuota, setAiMessageQuota] = useState(5000); // Default quota
+  
+  // Debug: Track quota changes
+  useEffect(() => {
+    console.log('🔍 AI Message Quota changed to:', aiMessageQuota);
+  }, [aiMessageQuota]);
+  const [aiDataLoaded, setAiDataLoaded] = useState(false); // Flag to prevent overwriting AI data
+  const [dashboardStatus, setDashboardStatus] = useState<'loading' | 'success' | 'error' | 'fallback'>('loading');
   const [recentActivity, setRecentActivity] = useState<Array<{
     type: string;
     description: string;
@@ -1399,10 +1424,60 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
         companyId = userResponse.data.company_id;
         
         if (companyId) {
+          // Load AI message data FIRST to ensure it's displayed correctly
+          console.log('🚀 Starting AI data loading FIRST...');
+          const loadAIDataFirst = async () => {
+            try {
+              console.log('🔍 Fetching AI config data...');
+              const configResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-config?email=${encodeURIComponent(userEmail)}`, {
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+              });
+              console.log('🔍 AI config response:', configResponse.data);
+              
+              if (configResponse.data && configResponse.data.messageUsage) {
+                const aiMessages = configResponse.data.messageUsage.aiMessages || 0;
+                setTotalAIResponses(aiMessages);
+                setAiDataLoaded(true);
+                console.log('🚀 AI Message Usage loaded FIRST:', aiMessages);
+              }
+              
+              if (configResponse.data && configResponse.data.usageQuota) {
+                console.log('🔍 Usage quota data:', configResponse.data.usageQuota);
+                console.log('🔍 Company data:', configResponse.data.companyData);
+                let quota = 0;
+                if (configResponse.data.companyData && configResponse.data.companyData.plan === "enterprise") {
+                  quota = (configResponse.data.usageQuota.aiMessages || 0) + 5000;
+                  console.log('🔍 Enterprise plan calculation:', configResponse.data.usageQuota.aiMessages, '+ 5000 =', quota);
+                } else if (configResponse.data.companyData && configResponse.data.companyData.plan === "pro") {
+                  quota = (configResponse.data.usageQuota.aiMessages || 0) + 20000;
+                  console.log('🔍 Pro plan calculation:', configResponse.data.usageQuota.aiMessages, '+ 20000 =', quota);
+                } else {
+                  quota = (configResponse.data.usageQuota.aiMessages || 0) + 100;
+                  console.log('🔍 Free plan calculation:', configResponse.data.usageQuota.aiMessages, '+ 100 =', quota);
+                }
+                              // Only set quota if it's not already set to a higher value
+              if (!aiDataLoaded || quota > aiMessageQuota) {
+                setAiMessageQuota(quota);
+                console.log('✅ AI Message Quota loaded FIRST:', quota);
+              } else {
+                console.log('🛡️ Quota already set to higher value:', aiMessageQuota, 'keeping it instead of:', quota);
+              }
+              }
+            } catch (error) {
+              console.log('❌ Error loading AI data first:', error);
+            }
+          };
+          
+          // Load AI data immediately
+          loadAIDataFirst();
+          
+          // Then load other data
           fetchContactsData();
           calculateAdditionalStats();
           fetchClosedContactsByEmployee();
-          fetchRealDashboardData(); // Add this line
+          fetchRealDashboardData();
         }
       } catch (error) {
         console.error('Error initializing data:', error);
@@ -1414,24 +1489,37 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
   // Modify the handleEmployeeSelect function
   const handleEmployeeSelect = async (employee: Employee) => {
-    console.log('Employee selected:', employee);
+    console.log('🚀 Employee selected:', employee);
     setLoading(true);
     
     try {
-      // Fetch complete employee data including monthly assignments
-      const completeEmployeeData = await fetchEmployeeData(employee.id);
+      // Use the existing employee data which already has the correct assignedContacts
+      // Only fetch additional data if needed
+      const existingEmployee = employees.find(emp => emp.id === employee.id);
       
-      if (completeEmployeeData) {
-        console.log('Complete employee data:', completeEmployeeData);
-        setSelectedEmployee(completeEmployeeData);
-        fetchEmployeeStats(completeEmployeeData.id);
+      if (existingEmployee && existingEmployee.assignedContacts !== undefined) {
+        console.log('✅ Using existing employee data with correct assignedContacts:', existingEmployee);
+        setSelectedEmployee(existingEmployee);
+        console.log('🔄 Calling fetchEmployeeStats for:', existingEmployee.id);
+        fetchEmployeeStats(existingEmployee.id);
       } else {
-        // If we couldn't fetch complete data, still update with what we have
-        setSelectedEmployee(employee);
-        fetchEmployeeStats(employee.id);
+        console.log('⚠️ No existing data or missing assignedContacts, fetching complete data');
+        // Only fetch if we don't have the data
+        const completeEmployeeData = await fetchEmployeeData(employee.id);
+        
+        if (completeEmployeeData) {
+          console.log('✅ Complete employee data fetched:', completeEmployeeData);
+          setSelectedEmployee(completeEmployeeData);
+          console.log('🔄 Calling fetchEmployeeStats for:', completeEmployeeData.id);
+          fetchEmployeeStats(completeEmployeeData.id);
+        } else {
+          console.log('⚠️ No complete data, using basic employee data');
+          setSelectedEmployee(employee);
+          fetchEmployeeStats(employee.id);
+        }
       }
     } catch (error) {
-      console.error('Error in handleEmployeeSelect:', error);
+      console.error('❌ Error in handleEmployeeSelect:', error);
       // Still update with basic employee data if there's an error
       setSelectedEmployee(employee);
       fetchEmployeeStats(employee.id);
@@ -1959,106 +2047,142 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
         }
         
         // Set employee data from the dashboard response
-        const employeeListData: Employee[] = dashboardData.employeePerformance.map((emp: any) => ({
-          id: emp.employee_id,
-          name: emp.name,
-          email: emp.email,
-          role: emp.role,
-          phone: emp.phone_number,
-          assignedContacts: emp.assignedContacts || 0,
-          outgoingMessages: emp.outgoingMessages || 0,
-          closedContacts: emp.closedContacts || 0,
-          currentMonthAssignments: emp.current_month_assignments || 0
-        }));
-
-        // If no employee has assigned contacts, try to get assignment data from the assignments table
-        const hasAssignments = employeeListData.some(emp => emp.assignedContacts > 0);
-        if (!hasAssignments) {
-          console.log('No assignments found in dashboard data, fetching from assignments endpoint...');
-          try {
-            // Get assignments data from the separate employees endpoint
-            const employeesResponse = await axios.get(`https://juta-dev.ngrok.dev/api/employees-data/${companyId}`, {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-              }
-            });
-            const employeesData = employeesResponse.data;
-
-            // Get contacts data to count assignments by employee tags
-            const contactsResponse = await axios.get(
-              `https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-              }
-            );
-            const contacts = contactsResponse.data.contacts || [];
-
-            console.log('Sample contact for debugging assignments:', contacts[0]);
-            console.log('Available employees:', employeesData.map((emp: any) => emp.name));
-
-            // Create a map to count contacts per employee
-            const contactCountMap: { [key: string]: number } = {};
-            const closedCountMap: { [key: string]: number } = {};
-            
-            contacts.forEach((contact: any) => {
-              if (contact.tags && Array.isArray(contact.tags)) {
-                // Method 1: Check if tags contain assigned_to property (from server.js logic)
-                if (contact.tags.assigned_to) {
-                  const employeeName = contact.tags.assigned_to;
-                  contactCountMap[employeeName] = (contactCountMap[employeeName] || 0) + 1;
-                  
-                  if (contact.tags.closed === true) {
-                    closedCountMap[employeeName] = (closedCountMap[employeeName] || 0) + 1;
-                  }
-                }
-                
-                // Method 2: Check if employee names are in tags array
-                contact.tags.forEach((tag: string) => {
-                  // Find employee by name
-                  const employee = employeesData.find((emp: any) => emp.name.toLowerCase() === tag.toLowerCase());
-                  if (employee) {
-                    contactCountMap[employee.name] = (contactCountMap[employee.name] || 0) + 1;
-                    
-                    // Check if contact is closed
-                    if (contact.tags.some((t: string) => t.toLowerCase() === 'closed')) {
-                      closedCountMap[employee.name] = (closedCountMap[employee.name] || 0) + 1;
-                    }
-                  }
-                });
-              }
-            });
-
-            // Update employee data with assignment counts
-            employeeListData.forEach(emp => {
-              emp.assignedContacts = contactCountMap[emp.name] || 0;
-              emp.closedContacts = closedCountMap[emp.name] || 0;
-            });
-
-            console.log('Updated employee assignments:', contactCountMap);
-            
-            // If still no assignments found, try using the current month assignments from the dashboard data
-            if (Object.keys(contactCountMap).length === 0) {
-              console.log('No assignments found via contacts, using current_month_assignments from dashboard...');
-              employeeListData.forEach(emp => {
-                emp.assignedContacts = emp.currentMonthAssignments || 0;
-              });
-            }
-          } catch (fallbackError) {
-            console.error('Error fetching fallback assignment data:', fallbackError);
-          }
+        let employeeListData: Employee[] = [];
+        
+        if (dashboardData.employeePerformance && dashboardData.employeePerformance.length > 0) {
+          employeeListData = dashboardData.employeePerformance.map((emp: any) => ({
+            id: emp.employee_id,
+            name: emp.name,
+            email: emp.email,
+            role: emp.role,
+            phone: emp.phone_number,
+            assignedContacts: emp.assignedContacts || 0,
+            outgoingMessages: emp.outgoingMessages || 0,
+            closedContacts: emp.closedContacts || 0,
+            currentMonthAssignments: emp.current_month_assignments || 0
+          }));
+          console.log('✅ Employees loaded from dashboard data:', employeeListData.length);
+        } else {
+          console.log('⚠️ No employees found in dashboard data, using fallback...');
+          // Use fallback to fetch employees
+          employeeListData = await fetchEmployeesFallback(companyId);
         }
+
+        // Always fetch real employee assignment data to ensure accuracy
+        console.log('🔍 Fetching real employee assignment data...');
+        let assignmentData;
+        try {
+          assignmentData = await fetchEmployeeAssignments(companyId, userEmail);
+        } catch (assignmentError) {
+          console.log('⚠️ Error fetching employee assignments, using fallback data:', assignmentError);
+          assignmentData = {
+            contactCountMap: {},
+            closedCountMap: {},
+            messageCountMap: {}
+          };
+        }
+        
+        // Apply assignment data to employees
+        console.log('🔍 Available employees to match:', employeeListData.map(emp => emp.name));
+        console.log('🔍 Assignment data keys:', Object.keys(assignmentData.contactCountMap));
+        
+        employeeListData.forEach(emp => {
+          // Try to match employee by name (case-insensitive)
+          const normalizedEmpName = emp.name.trim().toLowerCase();
+          console.log(`🔍 Trying to match employee: "${emp.name}" (normalized: "${normalizedEmpName}")`);
+          
+          // Update assigned contacts
+          if (assignmentData.contactCountMap[normalizedEmpName] !== undefined) {
+            emp.assignedContacts = assignmentData.contactCountMap[normalizedEmpName];
+            console.log(`✅ ${emp.name}: ${emp.assignedContacts} assigned contacts (exact match)`);
+          } else {
+            // Try partial name matching
+            const partialMatch = Object.keys(assignmentData.contactCountMap).find(key => 
+              key.includes(normalizedEmpName) || normalizedEmpName.includes(key)
+            );
+            if (partialMatch) {
+              emp.assignedContacts = assignmentData.contactCountMap[partialMatch];
+              console.log(`✅ ${emp.name}: ${emp.assignedContacts} assigned contacts (partial match: "${partialMatch}")`);
+            } else {
+              emp.assignedContacts = emp.currentMonthAssignments || 0;
+              console.log(`⚠️ ${emp.name}: No match found, using fallback ${emp.assignedContacts} assigned contacts`);
+            }
+          }
+          
+          // Update closed contacts
+          if (assignmentData.closedCountMap[normalizedEmpName] !== undefined) {
+            emp.closedContacts = assignmentData.closedCountMap[normalizedEmpName];
+          } else {
+            const partialMatch = Object.keys(assignmentData.closedCountMap).find(key => 
+              key.includes(normalizedEmpName) || normalizedEmpName.includes(key)
+            );
+            if (partialMatch) {
+              emp.closedContacts = assignmentData.closedCountMap[partialMatch];
+            }
+          }
+          
+          // Update outgoing messages
+          if (assignmentData.messageCountMap[normalizedEmpName] !== undefined) {
+            emp.outgoingMessages = assignmentData.messageCountMap[normalizedEmpName];
+          } else {
+            const partialMatch = Object.keys(assignmentData.messageCountMap).find(key => 
+              key.includes(normalizedEmpName) || normalizedEmpName.includes(key)
+            );
+            if (partialMatch) {
+              emp.outgoingMessages = assignmentData.messageCountMap[partialMatch];
+            }
+          }
+        });
+        
+        console.log('🎯 Final employee assignments applied:', employeeListData.map(emp => ({
+          name: emp.name,
+          assignedContacts: emp.assignedContacts,
+          closedContacts: emp.closedContacts,
+          outgoingMessages: emp.outgoingMessages
+        })));
 
         // Sort employees by assigned contacts
         employeeListData.sort((a, b) => (b.assignedContacts || 0) - (a.assignedContacts || 0));
+        
+        // Ensure we have employees before setting state
+        if (employeeListData.length === 0) {
+          console.log('⚠️ Still no employees, creating minimal employee list...');
+          // Create a minimal employee list with current user
+          const userEmail = localStorage.getItem('userEmail');
+          if (userEmail) {
+            const minimalEmployee: Employee = {
+              id: 'current-user',
+              name: userEmail.split('@')[0], // Use email prefix as name
+              email: userEmail,
+              role: 'User',
+              phone: '',
+              assignedContacts: 0,
+              outgoingMessages: 0,
+              closedContacts: 0,
+              currentMonthAssignments: 0
+            };
+            employeeListData = [minimalEmployee];
+            setCurrentUser(minimalEmployee);
+            // Only set selectedEmployee if none is currently selected
+            // This prevents overwriting a user's manual selection
+            if (!selectedEmployee) {
+              setSelectedEmployee(minimalEmployee);
+            }
+          }
+        }
+        
+        console.log('🎯 Final employee list:', employeeListData);
         setEmployees(employeeListData);
 
         // Find current user
         const currentUserData = employeeListData.find(emp => emp.email === userEmail);
         if (currentUserData) {
           setCurrentUser(currentUserData);
-          setSelectedEmployee(currentUserData);
+          // Only set selectedEmployee if none is currently selected
+          // This prevents overwriting a user's manual selection
+          if (!selectedEmployee) {
+            setSelectedEmployee(currentUserData);
+          }
         }
 
         // Set company data - companyId is already available from userRes
@@ -2082,6 +2206,8 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
   // Add this new function to fetch real dashboard data
   const fetchRealDashboardData = async () => {
+    let dashboardData: any = null; // Declare outside try block so it's available in catch
+    
     try {
       const userEmail = localStorage.getItem('userEmail');
       if (!userEmail) return;
@@ -2094,50 +2220,136 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       const companyId = userResponse.data.company_id;
       if (!companyId) return;
 
-      // Fetch comprehensive dashboard data
-      const dashboardResponse = await axios.get(`https://juta-dev.ngrok.dev/api/dashboard/${companyId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+      // Fetch comprehensive dashboard data with retry
+      let dashboardData: any = null;
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          console.log(`🔄 Attempting dashboard fetch (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+          const dashboardResponse = await axios.get(`https://juta-dev.ngrok.dev/api/dashboard/${companyId}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            timeout: 10000 // 10 second timeout
+          });
+          dashboardData = dashboardResponse.data;
+          console.log('✅ Dashboard data fetched successfully');
+          setDashboardStatus('success');
+          break; // Success, exit retry loop
+        } catch (dashboardError: any) {
+          retryCount++;
+          console.log(`⚠️ Dashboard endpoint failed (attempt ${retryCount}/${maxRetries + 1}):`, dashboardError?.response?.status, dashboardError?.message);
+          
+          if (retryCount > maxRetries) {
+            console.log('⚠️ Max retries reached, using fallback data');
+            setDashboardStatus('fallback');
+            
+            // Preserve existing employee data instead of clearing it
+            const existingEmployees = employees.length > 0 ? employees : [];
+            console.log('🔄 Preserving existing employee data:', existingEmployees.length, 'employees');
+            
+            // Create minimal dashboard data structure but preserve employee data
+            dashboardData = {
+              employeePerformance: existingEmployees.map(emp => ({
+                employee_id: emp.id,
+                name: emp.name,
+                email: emp.email,
+                role: emp.role || '',
+                phone_number: emp.phone || '',
+                assignedContacts: emp.assignedContacts || 0,
+                outgoingMessages: emp.outgoingMessages || 0,
+                closedContacts: emp.closedContacts || 0,
+                current_month_assignments: emp.currentMonthAssignments || 0
+              })),
+              phoneLineStats: {},
+              recentActivity: [],
+              performanceMetrics: { topPerformers: [] }
+            };
+            break;
+          }
+          
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
-      });
-      const dashboardData = dashboardResponse.data;
+      }
+      console.log('🔍 Dashboard response data:', dashboardData);
+      console.log('🔍 Employee performance data:', dashboardData?.employeePerformance);
+      console.log('🔍 Employee performance length:', dashboardData?.employeePerformance?.length);
 
       // Fetch AI message usage from the same endpoint used in Chat page
-      try {
-        const configResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-config?email=${encodeURIComponent(userEmail)}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        console.log('Full config response:', configResponse.data);
-        if (configResponse.data && configResponse.data.messageUsage) {
-          setTotalAIResponses(configResponse.data.messageUsage.aiMessages || 0);
-          console.log('AI Message Usage from config:', configResponse.data.messageUsage.aiMessages);
-        }
-        if (configResponse.data && configResponse.data.usageQuota) {
-          let quota = configResponse.data.usageQuota.aiMessages || 5000;
+      // This ensures consistency between Dashboard and Chat page AI message counters
+      // BUT only if AI data hasn't been loaded yet
+      if (!aiDataLoaded) {
+        try {
+          const configResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-config?email=${encodeURIComponent(userEmail)}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          console.log('=== DASHBOARD AI MESSAGE DEBUG ===');
+          console.log('Full config response:', configResponse.data);
+          console.log('Message usage data:', configResponse.data?.messageUsage);
+          console.log('Usage quota data:', configResponse.data?.usageQuota);
+          console.log('Company data:', configResponse.data?.companyData);
           
-          // Fix: Map the API response to the correct quota values
-          // The API returns 500 but should be 5000 for Enterprise plan
-          if (quota === 500) {
-            quota = 5000; // Enterprise plan quota
-            console.log('Fixed quota from 500 to 5000 (Enterprise plan)');
-          } else if (quota === 100) {
-            quota = 100; // Free plan quota
-            console.log('Using Free plan quota:', quota);
-          } else if (quota === 20000) {
-            quota = 20000; // Pro plan quota
-            console.log('Using Pro plan quota:', quota);
+          if (configResponse.data && configResponse.data.messageUsage) {
+            const aiMessages = configResponse.data.messageUsage.aiMessages || 0;
+            if (!aiDataLoaded || aiMessages > 0) {
+              setTotalAIResponses(aiMessages);
+              setAiDataLoaded(true);
+              console.log('✅ AI Message Usage set to:', aiMessages);
+            } else {
+              console.log('🔄 AI data already loaded, skipping overwrite');
+            }
+          } else {
+            console.log('❌ No messageUsage found in config response');
           }
           
-          console.log('AI Message Quota from config (after fix):', quota);
-          setAiMessageQuota(quota);
-        } else {
-          console.log('No usageQuota found in config, using default 5000');
-          setAiMessageQuota(5000);
+          if (configResponse.data && configResponse.data.usageQuota) {
+            let quota = configResponse.data.usageQuota.aiMessages || 5000;
+            console.log('Raw quota from API:', quota);
+            
+            // Use the EXACT same quota calculation logic as the Chat page
+            if (configResponse.data.companyData && configResponse.data.companyData.plan === "enterprise") {
+              quota = (configResponse.data.usageQuota.aiMessages || 0) + 5000;
+              console.log('🔄 Enterprise plan: quota =', configResponse.data.usageQuota.aiMessages, '+ 5000 =', quota);
+            } else if (configResponse.data.companyData && configResponse.data.companyData.plan === "pro") {
+              quota = (configResponse.data.usageQuota.aiMessages || 0) + 20000;
+              console.log('🔄 Pro plan: quota =', configResponse.data.usageQuota.aiMessages, '+ 20000 =', quota);
+            } else {
+              quota = (configResponse.data.usageQuota.aiMessages || 0) + 100;
+              console.log('🔄 Free plan: quota =', configResponse.data.usageQuota.aiMessages, '+ 100 =', quota);
+            }
+            
+            console.log('🎯 Final AI Message Quota set to:', quota);
+            // Only set quota if it's not already set to a higher value (indicating it was loaded correctly)
+            if (!aiDataLoaded || quota > aiMessageQuota) {
+              setAiMessageQuota(quota);
+              console.log('✅ Quota updated to:', quota);
+            } else {
+              console.log('🛡️ Quota already set to higher value:', aiMessageQuota, 'keeping it instead of:', quota);
+            }
+          } else if (!aiDataLoaded) {
+            console.log('❌ No usageQuota found in config, using default 5000');
+            setAiMessageQuota(5000);
+          } else {
+            console.log('🚀 AI quota already loaded, skipping fallback');
+          }
+          
+          console.log('=== END DASHBOARD AI MESSAGE DEBUG ===');
+        } catch (error) {
+          console.log('❌ Config endpoint error:', error);
+          // Fallback: try to get AI message usage from the dashboard endpoint
+          if (dashboardData && dashboardData.aiMessageUsage && !aiDataLoaded) {
+            setTotalAIResponses(dashboardData.aiMessageUsage);
+            setAiDataLoaded(true);
+            console.log('🔄 AI Message Usage from dashboard fallback:', dashboardData.aiMessageUsage);
+          }
         }
-      } catch (error) {
-        console.log('Config endpoint not available, using fallback');
+      } else {
+        console.log('🚀 AI data already loaded, skipping fetchRealDashboardData AI fetch');
       }
 
       // Fetch recent activity
@@ -2178,13 +2390,45 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
     } catch (error) {
       console.error('Error fetching real dashboard data:', error);
+      
+      // Ensure we have a dashboardData object even if the main fetch failed
+      if (!dashboardData) {
+        dashboardData = {
+          employeePerformance: [],
+          phoneLineStats: {},
+          recentActivity: [],
+          performanceMetrics: { topPerformers: [] }
+        };
+      }
+      
       // Fallback to calculated values
       setActiveConversations(openContacts);
       setAvgResponseTime(employeeStats?.averageResponseTime || 0);
       setTotalMessages(numReplies);
-      // For AI responses, we can calculate from total messages or use a sample value
-      setTotalAIResponses(Math.floor(numReplies * 0.8) || 0); // Assuming 80% of messages are AI responses
-      setAiMessageQuota(5000); // Default quota
+      
+      // Try to get AI responses from dashboard data if available, otherwise use fallback
+      if (dashboardData && dashboardData.aiMessageUsage !== undefined && !aiDataLoaded) {
+        setTotalAIResponses(dashboardData.aiMessageUsage);
+        setAiDataLoaded(true);
+        console.log('🔄 AI Message Usage from dashboard fallback:', dashboardData.aiMessageUsage);
+      } else if (!aiDataLoaded) {
+        // Only use calculated fallback if no dashboard data available and AI data not loaded
+        setTotalAIResponses(Math.floor(numReplies * 0.8) || 0);
+        setAiDataLoaded(true);
+        console.log('🔄 Using calculated AI responses fallback:', Math.floor(numReplies * 0.8) || 0);
+      }
+      
+      if (!aiDataLoaded) {
+        setAiMessageQuota(5000); // Default quota only if AI data not loaded
+        console.log('🔄 Using default quota 5000 as fallback');
+      } else {
+        console.log('🚀 AI quota already loaded, skipping default fallback');
+      }
+      
+      // Additional protection: never override a quota that's already set to the correct value
+      if (aiMessageQuota > 5000 && aiDataLoaded) {
+        console.log('🛡️ Protecting existing quota:', aiMessageQuota, 'from being overwritten');
+      }
       
       // Add sample data for demonstration
       setRecentActivity([
@@ -2228,6 +2472,216 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
     }
   };
 
+  // Add function to fetch real employee assignment data
+  const fetchEmployeeAssignments = async (companyId: string, userEmail: string) => {
+    try {
+      console.log('🔍 Fetching real employee assignment data...');
+      
+      // Method 1: Try to get assignments from dedicated assignments endpoint
+      try {
+        const assignmentsResponse = await axios.get(`https://juta-dev.ngrok.dev/api/assignments/${companyId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (assignmentsResponse.data && assignmentsResponse.data.length > 0) {
+          console.log('✅ Assignments data found:', assignmentsResponse.data);
+          return assignmentsResponse.data;
+        }
+      } catch (error) {
+        console.log('⚠️ Assignments endpoint not available, trying contacts method...');
+      }
+      
+      // Method 2: Get contacts and analyze tags for assignments
+      const contactsResponse = await axios.get(
+        `https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      
+      const contacts = contactsResponse.data.contacts || [];
+      console.log('🔍 Analyzing', contacts.length, 'contacts for employee assignments...');
+      
+      // Debug: Show sample contact structure
+      if (contacts.length > 0) {
+        console.log('🔍 Sample contact structure:', JSON.stringify(contacts[0], null, 2));
+        console.log('🔍 Sample contact tags:', contacts[0].tags);
+        console.log('🔍 Sample contact assignedTo:', contacts[0].assignedTo);
+        
+        // Show first few contacts with their assignments
+        console.log('🔍 First 5 contacts and their assignments:');
+        for (let i = 0; i < Math.min(5, contacts.length); i++) {
+          const contact = contacts[i];
+          console.log(`  ${i + 1}. ${contact.name}: assignedTo=${JSON.stringify(contact.assignedTo)}, tags=${JSON.stringify(contact.tags)}`);
+        }
+      }
+      
+      // Create maps to count contacts per employee
+      const contactCountMap: { [key: string]: number } = {};
+      const closedCountMap: { [key: string]: number } = {};
+      const messageCountMap: { [key: string]: number } = {};
+      
+      contacts.forEach((contact: any) => {
+        let assignedEmployee = null;
+        
+        // Structure 1: assignedTo array (this is what we see in the actual data)
+        if (contact.assignedTo && Array.isArray(contact.assignedTo) && contact.assignedTo.length > 0) {
+          // Take the first assigned employee (remove duplicates)
+          assignedEmployee = contact.assignedTo[0];
+          console.log(`🔍 Contact ${contact.name} assigned to: ${assignedEmployee}`);
+        }
+        // Structure 2: tags.assigned_to
+        else if (contact.tags && contact.tags.assigned_to && typeof contact.tags.assigned_to === 'string') {
+          assignedEmployee = contact.tags.assigned_to;
+        }
+        // Structure 3: tags array with employee names
+        else if (contact.tags && Array.isArray(contact.tags)) {
+          // Look for employee names in tags
+          for (const tag of contact.tags) {
+            if (typeof tag === 'string' && tag.length > 0) {
+              // Check if this tag matches an employee name
+              assignedEmployee = tag;
+              break;
+            }
+          }
+        }
+        // Structure 4: tags.employee or tags.assigned_employee
+        else if (contact.tags && contact.tags.employee) {
+          assignedEmployee = contact.tags.employee;
+        } else if (contact.tags && contact.tags.assigned_employee) {
+          assignedEmployee = contact.tags.assigned_employee;
+        }
+        
+        if (assignedEmployee) {
+          // Normalize employee name (remove extra spaces, convert to lowercase for comparison)
+          const normalizedName = assignedEmployee.trim().toLowerCase();
+          contactCountMap[normalizedName] = (contactCountMap[normalizedName] || 0) + 1;
+          
+          console.log(`✅ Found assignment: ${contact.name} -> ${assignedEmployee} (normalized: ${normalizedName})`);
+          
+          // Check if contact is closed (look in tags array)
+          if (contact.tags && Array.isArray(contact.tags)) {
+            const hasClosedTag = contact.tags.some((tag: any) => 
+              typeof tag === 'string' && tag.toLowerCase() === 'closed'
+            );
+            if (hasClosedTag) {
+              closedCountMap[normalizedName] = (closedCountMap[normalizedName] || 0) + 1;
+              console.log(`✅ Contact ${contact.name} is closed`);
+            }
+          }
+          
+          // Count messages if available
+          if (contact.messageCount) {
+            messageCountMap[normalizedName] = (messageCountMap[normalizedName] || 0) + contact.messageCount;
+          }
+        } else {
+          console.log(`⚠️ No assignment found for contact: ${contact.name}`);
+        }
+      });
+      
+      console.log('🔍 Assignment analysis results:');
+      console.log('Contact counts:', contactCountMap);
+      console.log('Closed counts:', closedCountMap);
+      console.log('Message counts:', messageCountMap);
+      
+      return {
+        contactCountMap,
+        closedCountMap,
+        messageCountMap
+      };
+      
+    } catch (error) {
+      console.error('❌ Error fetching employee assignments:', error);
+      return {
+        contactCountMap: {},
+        closedCountMap: {},
+        messageCountMap: {}
+      };
+    }
+  };
+
+  // Add function to fetch employees as fallback
+  const fetchEmployeesFallback = async (companyId: string) => {
+    try {
+      console.log('🔄 Fetching employees as fallback...');
+      const employeesResponse = await axios.get(`https://juta-dev.ngrok.dev/api/employees-data/${companyId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      const employeesData = employeesResponse.data;
+      console.log('✅ Employees fetched:', employeesData);
+      
+      // Transform to Employee format
+      const employeeListData: Employee[] = employeesData.map((emp: any) => ({
+        id: emp.id || emp.employee_id,
+        name: emp.name,
+        email: emp.email,
+        role: emp.role,
+        phone: emp.phone_number || emp.phone,
+        assignedContacts: 0, // Will be updated with real data
+        outgoingMessages: 0,
+        closedContacts: 0,
+        currentMonthAssignments: 0
+      }));
+      
+      // Fetch real assignment data for these employees
+      const userEmail = localStorage.getItem('userEmail');
+      if (userEmail) {
+        console.log('🔍 Fetching assignment data for fallback employees...');
+        const assignmentData = await fetchEmployeeAssignments(companyId, userEmail);
+        
+        // Apply assignment data
+        employeeListData.forEach(emp => {
+          const normalizedEmpName = emp.name.trim().toLowerCase();
+          
+          if (assignmentData.contactCountMap[normalizedEmpName] !== undefined) {
+            emp.assignedContacts = assignmentData.contactCountMap[normalizedEmpName];
+            emp.closedContacts = assignmentData.closedCountMap[normalizedEmpName] || 0;
+            emp.outgoingMessages = assignmentData.messageCountMap[normalizedEmpName] || 0;
+            console.log(`✅ Fallback ${emp.name}: ${emp.assignedContacts} assigned contacts`);
+          } else {
+            // Try partial matching
+            const partialMatch = Object.keys(assignmentData.contactCountMap).find(key => 
+              key.includes(normalizedEmpName) || normalizedEmpName.includes(key)
+            );
+            if (partialMatch) {
+              emp.assignedContacts = assignmentData.contactCountMap[partialMatch];
+              emp.closedContacts = assignmentData.closedCountMap[partialMatch] || 0;
+              emp.outgoingMessages = assignmentData.messageCountMap[partialMatch] || 0;
+              console.log(`✅ Fallback ${emp.name}: ${emp.assignedContacts} assigned contacts (partial match: ${partialMatch})`);
+            }
+          }
+        });
+      }
+      
+      setEmployees(employeeListData);
+      
+      // Find current user
+      if (userEmail) {
+        const currentUserData = employeeListData.find(emp => emp.email === userEmail);
+        if (currentUserData) {
+          setCurrentUser(currentUserData);
+          // Only set selectedEmployee if none is currently selected
+          // This prevents overwriting a user's manual selection
+          if (!selectedEmployee) {
+            setSelectedEmployee(currentUserData);
+          }
+        }
+      }
+      
+      return employeeListData;
+    } catch (error) {
+      console.error('❌ Error fetching employees fallback:', error);
+      return [];
+    }
+  };
+
   // Add this new function
   const fetchEmployeeStats = async (employeeId: string) => {
     try {
@@ -2236,53 +2690,249 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
         setError("User not authenticated");
         return;
       }
+      
       // Get companyId from user-data endpoint
       const userRes = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
       const companyId = userRes.data.company_id;
       if (!companyId) return;
   
-      // Fetch stats from the new stats endpoint
-      const response = await axios.get(
-        `https://juta-dev.ngrok.dev/api/stats/${companyId}?employeeId=${employeeId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+      console.log('🔍 Fetching employee stats for:', { companyId, employeeId });
+  
+      // Get the current selected employee to preserve existing data
+      const currentSelectedEmployee = selectedEmployee;
+      console.log('🔍 Current selected employee data:', currentSelectedEmployee);
+      console.log('🔍 Employee ID being fetched:', employeeId);
+      console.log('🔍 Current selected employee ID:', currentSelectedEmployee?.id);
+  
+      // Try to fetch stats from the stats endpoint first
+      try {
+        const response = await axios.get(
+          `https://juta-dev.ngrok.dev/api/stats/${companyId}?employeeId=${employeeId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
           }
+        );
+        
+        const statsData = response.data;
+        console.log('✅ Employee stats fetched successfully:', statsData);
+        
+        setEmployeeStats({
+          conversationsAssigned: statsData.conversationsAssigned || currentSelectedEmployee?.assignedContacts || 0,
+          outgoingMessagesSent: statsData.outgoingMessagesSent || currentSelectedEmployee?.outgoingMessages || 0,
+          averageResponseTime: statsData.averageResponseTime || 0,
+          closedContacts: statsData.closedContacts || currentSelectedEmployee?.closedContacts || 0,
+          currentMonthAssignments: statsData.currentMonthAssignments || currentSelectedEmployee?.currentMonthAssignments || 0,
+          employeeName: statsData.employeeName || currentSelectedEmployee?.name || '',
+          employeeRole: statsData.employeeRole || currentSelectedEmployee?.role || '',
+          responseTimes: statsData.responseTimes || [],
+          medianResponseTime: statsData.medianResponseTime || 0,
+          phoneAssignments: statsData.phoneAssignments || {},
+          weightageUsed: statsData.weightageUsed || {}
+        });
+        return;
+      } catch (statsError: any) {
+        console.log('⚠️ Stats endpoint failed, using fallback data:', statsError?.response?.status, statsError?.message);
+        
+        // If stats endpoint fails, preserve the existing employee data and only set the stats fields
+        if (currentSelectedEmployee) {
+          console.log('🔄 Using fallback employee data for stats, preserving existing data');
+          setEmployeeStats({
+            conversationsAssigned: currentSelectedEmployee.assignedContacts || 0,
+            outgoingMessagesSent: currentSelectedEmployee.outgoingMessages || 0,
+            averageResponseTime: 0, // Default value
+            closedContacts: currentSelectedEmployee.closedContacts || 0,
+            currentMonthAssignments: currentSelectedEmployee.currentMonthAssignments || 0,
+            employeeName: currentSelectedEmployee.name || '',
+            employeeRole: currentSelectedEmployee.role || '',
+            responseTimes: [],
+            medianResponseTime: 0,
+            phoneAssignments: {},
+            weightageUsed: {}
+          });
+          return;
         }
-      );
+        
+        // If no current selected employee, try to get from the employee list
+        const currentEmployee = employees.find(emp => emp.id === employeeId);
+        if (currentEmployee) {
+          console.log('🔄 Using employee list data for stats');
+          setEmployeeStats({
+            conversationsAssigned: currentEmployee.assignedContacts || 0,
+            outgoingMessagesSent: currentEmployee.outgoingMessages || 0,
+            averageResponseTime: 0, // Default value
+            closedContacts: currentEmployee.closedContacts || 0,
+            currentMonthAssignments: currentEmployee.currentMonthAssignments || 0,
+            employeeName: currentEmployee.name || '',
+            employeeRole: currentEmployee.role || '',
+            responseTimes: [],
+            medianResponseTime: 0,
+            phoneAssignments: {},
+            weightageUsed: {}
+          });
+          return;
+        }
+      }
       
-      const statsData = response.data;
-      setEmployeeStats({
-        conversationsAssigned: statsData.conversationsAssigned || 0,
-        outgoingMessagesSent: statsData.outgoingMessagesSent || 0,
-        averageResponseTime: statsData.averageResponseTime || 0,
-        closedContacts: statsData.closedContacts || 0,
-        currentMonthAssignments: statsData.currentMonthAssignments || 0,
-        employeeName: statsData.employeeName || '',
-        employeeRole: statsData.employeeRole || '',
-        responseTimes: statsData.responseTimes || [],
-        medianResponseTime: statsData.medianResponseTime || 0,
-        phoneAssignments: statsData.phoneAssignments || {},
-        weightageUsed: statsData.weightageUsed || {}
-      });
-    } catch (error) {
-      console.error('Error fetching employee stats:', error);
+      // Final fallback - set default values
+      console.log('🔄 Using default employee stats');
       setEmployeeStats({
         conversationsAssigned: 0,
         outgoingMessagesSent: 0,
         averageResponseTime: 0,
-        closedContacts: 0
+        closedContacts: 0,
+        currentMonthAssignments: 0,
+        employeeName: '',
+        employeeRole: '',
+        responseTimes: [],
+        medianResponseTime: 0,
+        phoneAssignments: {},
+        weightageUsed: {}
+      });
+      
+    } catch (error) {
+      console.error('❌ Error in fetchEmployeeStats:', error);
+      // Set default values on error
+      setEmployeeStats({
+        conversationsAssigned: 0,
+        outgoingMessagesSent: 0,
+        averageResponseTime: 0,
+        closedContacts: 0,
+        currentMonthAssignments: 0,
+        employeeName: '',
+        employeeRole: '',
+        responseTimes: [],
+        medianResponseTime: 0,
+        phoneAssignments: {},
+        weightageUsed: {}
       });
     }
   };
 
-  // Update useEffect to fetch stats for current user by default
+          // Update useEffect to fetch stats for current user by default
+        useEffect(() => {
+          if (currentUser) {
+            fetchEmployeeStats(currentUser.id);
+          }
+        }, [currentUser]); // Dependency on currentUser
+
+  // Add useEffect to update monthly assignments when employee data changes
   useEffect(() => {
-    if (currentUser) {
-      fetchEmployeeStats(currentUser.id);
-      setSelectedEmployee(currentUser);
+    if (selectedEmployee && selectedEmployee.assignedContacts && 
+        (!selectedEmployee.monthlyAssignments || Object.keys(selectedEmployee.monthlyAssignments).length === 0)) {
+      
+      console.log('🔄 Updating monthly assignments for employee:', selectedEmployee.name);
+      
+      // Create monthly assignments data if it doesn't exist
+      const currentMonth = format(new Date(), 'yyyy-MM');
+      const monthlyAssignments = { [currentMonth]: selectedEmployee.assignedContacts };
+      
+      // Only update if monthlyAssignments is actually missing or empty
+      if (!selectedEmployee.monthlyAssignments || Object.keys(selectedEmployee.monthlyAssignments).length === 0) {
+        setSelectedEmployee(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            monthlyAssignments: monthlyAssignments
+          };
+        });
+      }
     }
-  }, [currentUser]); // Dependency on currentUser
+  }, [selectedEmployee?.id]); // Only run when employee ID changes, not when assignedContacts changes
+
+  // Add debugging useEffect to track when selectedEmployee changes
+  useEffect(() => {
+    console.log('🔍 selectedEmployee changed:', {
+      name: selectedEmployee?.name,
+      id: selectedEmployee?.id,
+      assignedContacts: selectedEmployee?.assignedContacts,
+      monthlyAssignments: selectedEmployee?.monthlyAssignments,
+      timestamp: new Date().toISOString()
+    });
+  }, [selectedEmployee]);
+
+  // Add debugging useEffect to track when employees array changes
+  useEffect(() => {
+    console.log('🔍 employees array changed:', {
+      count: employees.length,
+      names: employees.map(emp => ({ name: emp.name, assignedContacts: emp.assignedContacts })),
+      timestamp: new Date().toISOString()
+    });
+  }, [employees]);
+
+  // Add useEffect to ensure employees are loaded when component mounts
+  useEffect(() => {
+    const ensureEmployeesLoaded = async () => {
+      if (employees.length === 0) {
+        console.log('🔄 No employees found, fetching as fallback...');
+        const userEmail = localStorage.getItem('userEmail');
+        if (userEmail) {
+          try {
+            const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+            const companyId = userResponse.data.company_id;
+            if (companyId) {
+              await fetchEmployeesFallback(companyId);
+            }
+          } catch (error) {
+            console.error('❌ Error ensuring employees loaded:', error);
+          }
+        }
+      }
+    };
+    
+    ensureEmployeesLoaded();
+  }, [employees.length]);
+
+  // Add useEffect to refresh AI message data when component mounts (only if not already loaded)
+  useEffect(() => {
+    // Only refresh AI message data if it hasn't been loaded yet
+    if (!aiDataLoaded) {
+      const refreshAIData = async () => {
+        const userEmail = localStorage.getItem('userEmail');
+        if (userEmail) {
+          try {
+            const configResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-config?email=${encodeURIComponent(userEmail)}`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            
+            if (configResponse.data && configResponse.data.messageUsage) {
+              const aiMessages = configResponse.data.messageUsage.aiMessages || 0;
+              setTotalAIResponses(aiMessages);
+              setAiDataLoaded(true);
+              console.log('🚀 Dashboard mounted - AI Message Usage loaded:', aiMessages);
+            }
+            
+            if (configResponse.data && configResponse.data.usageQuota) {
+              let quota = 0;
+              if (configResponse.data.companyData && configResponse.data.companyData.plan === "enterprise") {
+                quota = (configResponse.data.usageQuota.aiMessages || 0) + 5000;
+              } else if (configResponse.data.companyData && configResponse.data.companyData.plan === "pro") {
+                quota = (configResponse.data.usageQuota.aiMessages || 0) + 20000;
+              } else {
+                quota = (configResponse.data.usageQuota.aiMessages || 0) + 100;
+              }
+              // Only set quota if it's not already set to a higher value
+              if (!aiDataLoaded || quota > aiMessageQuota) {
+                setAiMessageQuota(quota);
+                console.log('✅ Dashboard mounted - AI Message Quota loaded:', quota);
+              } else {
+                console.log('🛡️ Quota already set to higher value:', aiMessageQuota, 'keeping it instead of:', quota);
+              }
+            }
+          } catch (error) {
+            console.log('❌ Error refreshing AI data on mount:', error);
+          }
+        }
+      };
+      
+      refreshAIData();
+    } else {
+      console.log('🚀 AI data already loaded, skipping mount refresh');
+    }
+  }, [aiDataLoaded]); // Dependency on aiDataLoaded to prevent unnecessary calls
 
   // Add this new type near your other interfaces
   interface PerformanceMetricsData {
@@ -3049,22 +3699,21 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
 
 
-
-
   return (
     <div className="flex flex-col w-full h-full overflow-x-hidden overflow-y-auto bg-white dark:bg-gray-900">
 
-
-              <div className="container mx-auto px-4 pt-6 pb-6 space-y-6">
-                        {/* KPIs Section - Clean */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="container mx-auto px-3 pt-4 pb-4 space-y-4">
+        {/* Dashboard Status Indicator - Removed since fallback data is working correctly */}
+        
+        {/* KPIs Section - Clean */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {dashboardCards.find(card => card.id === 'kpi')?.content && Array.isArray(dashboardCards.find(card => card.id === 'kpi')?.content) 
             ? (dashboardCards.find(card => card.id === 'kpi')?.content as any[]).map((item: any, index: number) => (
-            <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+            <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{item.label}</p>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400">{item.label}</p>
                     <button
                       className="text-gray-400 hover:text-blue-500 transition-colors"
                       onClick={(e) => {
@@ -3073,21 +3722,21 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                         setInfoTooltip(getKPIInfo(item.label));
                       }}
                     >
-                      <Lucide icon="Info" className="w-4 h-4" />
+                      <Lucide icon="Info" className="w-3 h-3" />
                     </button>
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                     {!loading ? item.value : (
-                      <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                      <div className="h-5 w-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
                     )}
                   </h3>
                   
                   {/* Progress bar for Total Contacts */}
                   {item.label === "Total Contacts" && (
-                    <div className="mt-3">
-                      <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div className="mt-2">
+                      <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div 
-                          className={`h-2 rounded-full transition-all duration-500 ${
+                          className={`h-1.5 rounded-full transition-all duration-500 ${
                             totalContacts > 10000
                               ? "bg-red-500"
                               : totalContacts > 10000 * 0.9
@@ -3100,30 +3749,30 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                             width: `${Math.min((totalContacts / 10000) * 100, 100)}%`
                           }}
                         ></div>
-                </div>
+                      </div>
                       <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-1">
                         <span>Used: {totalContacts}</span>
                         <span>Limit: 10000</span>
-                </div>
-              </div>
+                      </div>
+                    </div>
                   )}
                   
                   {/* Progress bar for AI Responses */}
                   {item.label === "Total AI Responses Used" && (
-                    <div className="mt-3">
-                      <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div className="mt-2">
+                      <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div 
-                          className={`h-2 rounded-full transition-all duration-500 ${
+                          className={`h-1.5 rounded-full transition-all duration-500 ${
                             totalAIResponses > aiMessageQuota
                               ? "bg-red-500"
                               : totalAIResponses > aiMessageQuota * 0.7
                               ? "bg-yellow-400"
                               : "bg-green-500"
                           }`}
-                    style={{ 
+                          style={{ 
                             width: `${Math.min((totalAIResponses / aiMessageQuota) * 100, 100)}%`
-                    }}
-                  ></div>
+                          }}
+                        ></div>
                       </div>
                       <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-1">
                         <span>Used: {totalAIResponses}</span>
@@ -3132,70 +3781,68 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                     </div>
                   )}
                 </div>
-                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                  {item.icon && <Lucide icon={item.icon} className="w-5 h-5" />}
+                <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                  {item.icon && <Lucide icon={item.icon} className="w-4 h-4" />}
                 </div>
               </div>
             </div>
           )) : null}
         </div>
         
-
-        
         {/* Main Dashboard Cards - Clean and Simple */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {/* Contacts Over Time */}
           {dashboardCards.find(card => card.id === 'contacts-over-time') && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div className="px-6 pt-6 pb-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <div className="px-4 pt-4 pb-3 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                   {dashboardCards.find(card => card.id === 'contacts-over-time')?.title}
                 </h3>
-                <div className="flex space-x-2">
+                <div className="flex space-x-1.5">
                   {dashboardCards.find(card => card.id === 'contacts-over-time')?.filterControls}
                 </div>
               </div>
-                <div className="p-6">
+              <div className="p-4">
                 {('datasets' in totalContactsChartData) ? (
                   <Bar data={totalContactsChartData} options={totalContactsChartOptions} />
                 ) : (
-                    <div className="flex items-center justify-center h-64">
-                    <div className="text-gray-500 dark:text-gray-400">No data available</div>
+                  <div className="flex items-center justify-center h-48">
+                    <div className="text-gray-500 dark:text-gray-400 text-sm">No data available</div>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-                    {/* Split Test Performance */}
+          {/* Split Test Performance */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                 Split Test Performance
-                </h3>
-                </div>
+              </h3>
+            </div>
             <SplitTestDashboardCompact />
-              </div>
-                  </div>
+          </div>
+        </div>
         
         {/* Additional Cards Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {/* Blast Messages */}
           {dashboardCards.find(card => card.id === 'blast-messages') && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="px-6 pt-6 pb-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <div className="px-4 pt-4 pb-3 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                   {dashboardCards.find(card => card.id === 'blast-messages')?.title}
                 </h3>
                 <Link to="blast-history">
-                  <Button variant="primary" size="sm" className="shadow-sm">
-                    <Lucide icon="ExternalLink" className="w-4 h-4 mr-1" />
+                  <Button variant="primary" size="sm" className="shadow-sm text-xs px-2 py-1">
+                    <Lucide icon="ExternalLink" className="w-3 h-3 mr-1" />
                     Blast History
                   </Button>
                 </Link>
               </div>
-                <div className="p-6">
-                <div className="h-80">
+              <div className="p-4">
+                <div className="h-64">
                   {blastMessageData.labels.length > 0 ? (
                     <Bar data={blastMessageData} options={{ 
                       responsive: true, 
@@ -3207,14 +3854,16 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                             display: true,
                             text: 'Number of Messages',
                             font: {
-                              weight: 'bold'
+                              weight: 'bold',
+                              size: 12
                             }
                           },
                           grid: {
                             color: 'rgba(107, 114, 128, 0.1)'
                           },
                           ticks: {
-                            color: 'rgb(107, 114, 128)'
+                            color: 'rgb(107, 114, 128)',
+                            font: { size: 11 }
                           }
                         },
                         x: {
@@ -3222,14 +3871,16 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                             display: true,
                             text: 'Month',
                             font: {
-                              weight: 'bold'
+                              weight: 'bold',
+                              size: 12
                             }
                           },
                           grid: {
                             color: 'rgba(107, 114, 128, 0.1)'
                           },
                           ticks: {
-                            color: 'rgb(107, 114, 128)'
+                            color: 'rgb(107, 114, 128)',
+                            font: { size: 11 }
                           }
                         },
                       },
@@ -3242,50 +3893,51 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                           labels: {
                             usePointStyle: true,
                             boxWidth: 6,
-                            padding: 15
+                            padding: 12,
+                            font: { size: 11 }
                           }
                         },
                         tooltip: {
                           mode: 'index',
                           intersect: false,
                           backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                          padding: 10,
+                          padding: 8,
                           cornerRadius: 4,
                           titleFont: {
-                            size: 14
+                            size: 12
                           },
                           bodyFont: {
-                            size: 13
+                            size: 11
                           }
                         },
                       },
                     }} />
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-center text-gray-600 dark:text-gray-400">
-                      <Lucide icon="Mail" className="w-10 h-10 text-gray-400 mb-3" />
-                      <p className="text-lg mb-2">No scheduled message data available</p>
-                      <p className="text-sm">Create blast messages to see analytics here</p>
+                      <Lucide icon="Mail" className="w-8 h-8 text-gray-400 mb-2" />
+                      <p className="text-sm mb-1.5">No scheduled message data available</p>
+                      <p className="text-xs">Create blast messages to see analytics here</p>
                     </div>
                   )}
                 </div>
 
                 {blastMessageData.labels.length > 0 && (
-                  <div className="mt-6 grid grid-cols-3 gap-4">
-                    <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Total Scheduled:</p>
-                      <p className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                  <div className="mt-4 grid grid-cols-3 gap-3">
+                    <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Total Scheduled:</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                         {blastMessageData.datasets[0].data.reduce((a, b) => a + b, 0).toLocaleString()}
                       </p>
                     </div>
-                    <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Total Completed:</p>
-                      <p className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700">
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Total Completed:</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                         {blastMessageData.datasets[1].data.reduce((a, b) => a + b, 0).toLocaleString()}
                       </p>
                     </div>
-                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-gray-700">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Total Failed:</p>
-                      <p className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    <div className="p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-gray-700">
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Total Failed:</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                         {blastMessageData.datasets[2].data.reduce((a, b) => a + b, 0).toLocaleString()}
                       </p>
                     </div>
@@ -3298,66 +3950,111 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
           {/* Employee Metrics */}
           {dashboardCards.find(card => card.id === 'employee-assignments') && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">
                   {dashboardCards.find(card => card.id === 'employee-assignments')?.title}
                 </h3>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <div className="mb-3">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                     Select Employee
                   </label>
+                  <div className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                    <span>Available employees: {employees.length} | Current user: {currentUser?.name || 'None'}</span>
+                    <button
+                      onClick={async () => {
+                        const userEmail = localStorage.getItem('userEmail');
+                        if (userEmail) {
+                          try {
+                            const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+                            const companyId = userResponse.data.company_id;
+                            if (companyId) {
+                              console.log('🔄 Manually refreshing employee assignments...');
+                              const assignmentData = await fetchEmployeeAssignments(companyId, userEmail);
+                              
+                              // Update existing employees with new assignment data
+                              const updatedEmployees = employees.map(emp => {
+                                const normalizedEmpName = emp.name.trim().toLowerCase();
+                                const contactCount = assignmentData.contactCountMap[normalizedEmpName] || 
+                                                  Object.keys(assignmentData.contactCountMap).find(key => 
+                                                    key.includes(normalizedEmpName) || normalizedEmpName.includes(key)
+                                                  ) ? assignmentData.contactCountMap[Object.keys(assignmentData.contactCountMap).find(key => 
+                                                    key.includes(normalizedEmpName) || normalizedEmpName.includes(key)
+                                                  )!] : emp.assignedContacts;
+                                
+                                return {
+                                  ...emp,
+                                  assignedContacts: contactCount,
+                                  closedContacts: assignmentData.closedCountMap[normalizedEmpName] || emp.closedContacts,
+                                  outgoingMessages: assignmentData.messageCountMap[normalizedEmpName] || emp.outgoingMessages
+                                };
+                              });
+                              
+                              setEmployees(updatedEmployees);
+                              console.log('✅ Employee assignments refreshed');
+                            }
+                          } catch (error) {
+                            console.error('❌ Error refreshing employee assignments:', error);
+                          }
+                        }
+                      }}
+                      className="px-1.5 py-0.5 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors duration-200"
+                      title="Refresh employee assignments"
+                    >
+                      🔄 Refresh
+                    </button>
+                  </div>
                   <EmployeeSearch 
                     employees={employees}
                     onSelect={(employee: { id: string; name: string; assignedContacts?: number | undefined; }) => 
                       handleEmployeeSelect(employee as Employee)}
                     currentUser={currentUser}
                   />
-                  </div>
+                </div>
               </div>
-              <div className="p-6">
+              <div className="p-4">
                 {loading ? (
-                  <div className="flex flex-col items-center justify-center h-64">
-                    <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="mt-3 text-sm text-gray-600 dark:text-gray-400">Loading employee data...</span>
-            </div>
+                  <div className="flex flex-col items-center justify-center h-48">
+                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="mt-2 text-xs text-gray-600 dark:text-gray-400">Loading employee data...</span>
+                  </div>
                 ) : selectedEmployee ? (
                   chartData ? (
-                  <div>
-                      <div className="flex items-center mb-4 text-sm text-gray-700 dark:text-gray-300">
-                        <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center mr-2">
+                    <div>
+                      <div className="flex items-center mb-3 text-xs text-gray-700 dark:text-gray-300">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center mr-1.5">
                           {selectedEmployee.name.charAt(0).toUpperCase()}
-                    </div>
-                        <span className="font-medium">{selectedEmployee.name}</span>
-                        <span className="mx-2">•</span>
-                        <span>{selectedEmployee.assignedContacts || 0} assigned contacts</span>
+                        </div>
+                        <span className="font-medium text-xs">{selectedEmployee.name}</span>
+                        <span className="mx-1.5">•</span>
+                        <span className="text-xs">{selectedEmployee.assignedContacts || 0} assigned contacts</span>
                       </div>
-                      <div className="h-64">
+                      <div className="h-48">
                         <Line data={chartData} options={lineChartOptions} />
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-64 text-gray-600 dark:text-gray-400">
-                    <Lucide icon="BarChart2" className="w-10 h-10 text-gray-400 mb-3" />
-                      <p>No assignment data available for this employee</p>
-                      <p className="text-sm mt-1">Employee has {selectedEmployee.assignedContacts || 0} assigned contacts</p>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-48 text-gray-600 dark:text-gray-400">
+                      <Lucide icon="BarChart2" className="w-8 h-8 text-gray-400 mb-2" />
+                      <p className="text-sm">No assignment data available for this employee</p>
+                      <p className="text-xs mt-1">Employee has {selectedEmployee.assignedContacts || 0} assigned contacts</p>
                     </div>
                   )
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-64 text-gray-600 dark:text-gray-400">
-                    <Lucide icon="User" className="w-10 h-10 text-gray-400 mb-3" />
-                    <p>Select an employee to view their chart</p>
+                  <div className="flex flex-col items-center justify-center h-48 text-gray-600 dark:text-gray-400">
+                    <Lucide icon="User" className="w-8 h-8 text-gray-400 mb-2" />
+                    <p className="text-sm">Select an employee to view their chart</p>
                   </div>
                 )}
               </div>
             </div>
           )}
         </div>
-        </div>
+      </div>
 
       {/* Info Tooltip */}
       {infoTooltip && (
         <div 
-          className="fixed z-50 bg-black/90 text-white p-3 rounded-lg shadow-lg max-w-xs text-sm backdrop-blur-sm border border-white/20"
+          className="fixed z-50 bg-black/90 text-white p-2 rounded-lg shadow-lg max-w-xs text-xs backdrop-blur-sm border border-white/20"
           style={{ 
             left: tooltipPosition.x, 
             top: tooltipPosition.y,
@@ -3369,9 +4066,9 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
             className="absolute top-1 right-1 text-gray-300 hover:text-white"
             onClick={() => setInfoTooltip(null)}
           >
-            <Lucide icon="X" className="w-3 h-3" />
+            <Lucide icon="X" className="w-2.5 h-2.5" />
           </button>
-      </div>
+        </div>
       )}
       
       <ContactsModal
