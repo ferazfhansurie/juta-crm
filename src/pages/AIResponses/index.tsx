@@ -1660,7 +1660,11 @@ function AIResponses() {
             
             {/* AI Response Builder Modal */}
             {isAIBuilderOpen && (
-                <AIResponseBuilder onClose={() => setIsAIBuilderOpen(false)} />
+                <AIResponseBuilder onClose={() => {
+                    setIsAIBuilderOpen(false);
+                    // Refresh AI responses after closing the builder
+                    fetchResponses();
+                }} />
             )}
             
             <ToastContainer

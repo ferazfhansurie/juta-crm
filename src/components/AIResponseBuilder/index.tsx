@@ -69,17 +69,7 @@ const AIResponseBuilder: React.FC<AIResponseBuilderProps> = ({ onClose }) => {
     return Promise.all(uploadPromises);
   };
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
-    
-    // Add user message
-    setMessages(prev => [...prev, { text: newMessage, fromUser: true }]);
-    
-    // Process the message and generate AI response
-    processUserMessage(newMessage);
-    
-    setNewMessage("");
-  };
+
 
   const processUserMessage = (message: string) => {
     const lowerMessage = message.toLowerCase();
@@ -336,13 +326,6 @@ const AIResponseBuilder: React.FC<AIResponseBuilderProps> = ({ onClose }) => {
           suggestionsText += `• Employees: ${suggestedResponse.assignedEmployees.join(', ')}\n`;
         }
 
-        // Show alternatives if available
-        if (alternatives && alternatives.length > 0) {
-          suggestionsText += `\n🔄 **Alternative Types:**\n`;
-          alternatives.forEach((alt: any, index: number) => {
-            suggestionsText += `${index + 1}. ${alt.type} - ${alt.description}\n`;
-          });
-        }
 
         // Show file information if files were processed
         if (fileUrls && fileUrls.length > 0) {
@@ -356,7 +339,6 @@ const AIResponseBuilder: React.FC<AIResponseBuilderProps> = ({ onClose }) => {
           });
         }
 
-        suggestionsText += `\n✅ **Ready to create?** Just type 'save' or 'create' to save this response, or ask me to modify anything first.`;
 
         setMessages(prev => [...prev, { 
           text: suggestionsText, 
@@ -694,6 +676,7 @@ const AIResponseBuilder: React.FC<AIResponseBuilderProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl w-[900px] h-[700px] flex flex-col border border-white/30 dark:border-gray-700/30">
+
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/20 dark:border-gray-700/30 bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-blue-900/20 dark:to-purple-900/20">
           <div className="flex items-center gap-3">
@@ -719,14 +702,16 @@ const AIResponseBuilder: React.FC<AIResponseBuilderProps> = ({ onClose }) => {
         <div className="flex-1 flex flex-col min-h-0">
           {/* Messages - Takes up most of the space */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
+
+            
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.fromUser ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] p-4 rounded-2xl backdrop-blur-sm border ${
                   message.fromUser 
                     ? 'bg-gradient-to-r from-blue-500/90 to-blue-600/90 text-white border-blue-400/30 shadow-lg' 
-                    : 'bg-white/70 dark:bg-gray-700/70 text-gray-800 dark:text-gray-200 border-white/30 dark:border-gray-600/30 shadow-md'
+                    : 'bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 border-white/40 dark:border-gray-600/40 shadow-md'
                 }`}>
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{message.text}</div>
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed font-medium">{message.text}</div>
                 </div>
               </div>
             ))}
@@ -824,20 +809,28 @@ const AIResponseBuilder: React.FC<AIResponseBuilderProps> = ({ onClose }) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     if (newMessage.trim()) {
-                      processUserMessage(newMessage);
+                      // Add user message to state first
+                      const userMessage = newMessage.trim();
+                      setMessages(prev => [...prev, { text: userMessage, fromUser: true }]);
+                      // Then process the message
+                      processUserMessage(userMessage);
                       setNewMessage('');
                     }
                   }
                 }}
                 placeholder={isLoadingCompany ? "Loading company information..." : "Describe what AI response you want to create..."}
-                className="flex-1 px-4 py-3 border border-white/40 dark:border-gray-600/40 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent bg-white/80 dark:bg-gray-700/80 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 backdrop-blur-sm shadow-sm text-sm"
+                className="flex-1 px-4 py-3 border border-white/40 dark:border-gray-600/40 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 placeholder-gray-600 dark:placeholder-gray-300 backdrop-blur-sm shadow-sm text-sm font-medium"
                 rows={2}
                 disabled={isLoadingCompany}
               />
               <Button
                 onClick={() => {
                   if (newMessage.trim()) {
-                    processUserMessage(newMessage);
+                    // Add user message to state first
+                    const userMessage = newMessage.trim();
+                    setMessages(prev => [...prev, { text: userMessage, fromUser: true }]);
+                    // Then process the message
+                    processUserMessage(userMessage);
                     setNewMessage('');
                   }
                 }}
@@ -863,3 +856,4 @@ const AIResponseBuilder: React.FC<AIResponseBuilderProps> = ({ onClose }) => {
 };
 
 export default AIResponseBuilder;
+
