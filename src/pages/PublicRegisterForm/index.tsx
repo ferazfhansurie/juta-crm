@@ -113,46 +113,57 @@ function PublicRegisterForm() {
   }, [baseUrl]);
 
   // Filter out past events and get upcoming ones
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+// Filter out past events and get upcoming ones using Malaysia time
+// Malaysia is UTC+8
+const malaysiaTimeOffset = 8 * 60; // 8 hours in minutes
+const now = new Date();
+const malaysiaTime = new Date(now.getTime() + (malaysiaTimeOffset * 60 * 1000));
+
+// Get end of today in Malaysia time (23:59:59)
+const todayEnd = new Date(malaysiaTime);
+todayEnd.setHours(23, 59, 59, 999);
+
+console.log('=== FILTERING EVENTS ===');
+console.log('Current time (local):', now.toISOString());
+console.log('Malaysia time:', malaysiaTime.toISOString());
+console.log('Today end (Malaysia):', todayEnd.toISOString());
+
+const upcomingEvents = events.filter(event => {
+  // Debug: Log the event data to see what we're working with
+  console.log(`Checking event: ${event.name}`);
+  console.log(`  start_date: ${event.start_date} (type: ${typeof event.start_date})`);
+  console.log(`  is_active: ${event.is_active} (type: ${typeof event.is_active})`);
+  console.log(`  Full event object:`, event);
   
-  console.log('=== FILTERING EVENTS ===');
-  console.log('Today (local):', today.toISOString());
-  console.log('Today (UTC):', new Date(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()).toISOString());
+  if (!event.start_date) {
+    console.log(`Skipping ${event.name}: no start_date`);
+    return false;
+  }
   
-  const upcomingEvents = events.filter(event => {
-    // Debug: Log the event data to see what we're working with
-    console.log(`Checking event: ${event.name}`);
-    console.log(`  start_date: ${event.start_date} (type: ${typeof event.start_date})`);
-    console.log(`  is_active: ${event.is_active} (type: ${typeof event.is_active})`);
-    console.log(`  Full event object:`, event);
-    
-    if (!event.start_date) {
-      console.log(`Skipping ${event.name}: no start_date`);
-      return false;
-    }
-    
-    if (event.is_active === false || event.is_active === 'false') {
-      console.log(`Skipping ${event.name}: not active`);
-      return false;
-    }
-    
-    // Parse the event date
-    const eventDate = new Date(event.start_date);
-    
-    // Compare dates by converting both to YYYY-MM-DD strings (ignoring time)
-    const eventDateStr = eventDate.toISOString().split('T')[0];
-    const todayStr = today.toISOString().split('T')[0];
-    
-    console.log(`Event: ${event.name}`);
-    console.log(`  Event date: ${event.start_date}`);
-    console.log(`  Event date string: ${eventDateStr}`);
-    console.log(`  Today string: ${todayStr}`);
-    console.log(`  Is upcoming: ${eventDateStr >= todayStr}`);
-    
-    return eventDateStr >= todayStr;
-  }).sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+  if (event.is_active === false || event.is_active === 'false') {
+    console.log(`Skipping ${event.name}: not active`);
+    return false;
+  }
   
+  // Parse the event date and convert to Malaysia time
+  const eventDate = new Date(event.start_date);
+  const eventDateMalaysia = new Date(eventDate.getTime() + (malaysiaTimeOffset * 60 * 1000));
+  
+  // Check if event is today or in the future (until end of today)
+  const isUpcoming = eventDateMalaysia >= malaysiaTime || 
+  (eventDateMalaysia.getDate() === malaysiaTime.getDate() && 
+   eventDateMalaysia.getMonth() === malaysiaTime.getMonth() && 
+   eventDateMalaysia.getFullYear() === malaysiaTime.getFullYear());
+
+  console.log(`Event: ${event.name}`);
+  console.log(`  Event date (original): ${event.start_date}`);
+  console.log(`  Event date (Malaysia): ${eventDateMalaysia.toISOString()}`);
+  console.log(`  Today end (Malaysia): ${todayEnd.toISOString()}`);
+  console.log(`  Current (Malaysia): ${malaysiaTime.toISOString()}`);
+  console.log(`  Is upcoming: ${isUpcoming}`);
+  
+  return isUpcoming;
+}).sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
   console.log('=== FILTERING COMPLETE ===');
   console.log('Total events:', events.length);
   console.log('Upcoming events:', upcomingEvents.length);
@@ -646,6 +657,54 @@ function PublicRegisterForm() {
     }
   };
 
+  // Function to send admin notification when registration fails
+  const sendAdminNotification = async (formData: any, errorMessage: string, companyData: any) => {
+    try {
+      // Admin phone number
+      const adminPhone = "60127332108";
+      const adminChatId = adminPhone + "@c.us";
+
+      // Prepare admin notification message
+      const adminMessage = `🚨 REGISTRATION FAILURE ALERT 🚨\n\n` +
+        `A user registration has failed with the following details:\n\n` +
+        `👤 User Name: ${formData.fullName || 'Not provided'}\n` +
+        `📱 User Phone: ${formData.phone || 'Not provided'}\n` +
+        `🏢 Organisation: ${formData.organisation || 'Not provided'}\n` +
+        `📧 Email: ${formData.email || 'Not provided'}\n` +
+        `💼 Profession: ${formData.profession || 'Not provided'}\n` +
+        `📋 Selected Programs: ${formData.selectedPrograms.join(', ') || 'None'}\n\n` +
+        `❌ Error: ${errorMessage}\n\n` +
+        `⏰ Time: ${new Date().toLocaleString('en-MY', { timeZone: 'Asia/Kuala_Lumpur' })}\n\n` +
+        `Please investigate and assist the user if needed.`;
+
+      console.log('Sending admin notification to:', adminChatId);
+      console.log('Admin message:', adminMessage);
+
+      // Send WhatsApp message to admin using the API
+      const response = await fetch(`${companyData.apiUrl}/api/v2/messages/text/${companyData.companyId}/${adminChatId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: adminMessage,
+          phoneIndex: 0,
+          userName: 'Public Registration Form - Admin Alert'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to send admin notification:', errorText);
+      } else {
+        const result = await response.json();
+        console.log('Admin notification sent successfully:', result);
+      }
+
+    } catch (error) {
+      console.error('Error sending admin notification:', error);
+      // Don't throw error here as it's not critical for the main flow
+    }
+  };
+
   const handleInputChange = (field: string, value: string) => {
     console.log(`🔄 Input change - Field: ${field}, Value: "${value}"`);
     console.log(`🔄 Input change - Value type: ${typeof value}, Length: ${value.length}`);
@@ -693,6 +752,11 @@ function PublicRegisterForm() {
       const existingCheck = await checkExistingRegistration(formData.phone, eventIds);
       
       if (existingCheck.isRegistered) {
+        const errorMessage = `User already registered for events: ${existingCheck.events.join(', ')}`;
+        
+        // Send admin notification
+        await sendAdminNotification(formData, errorMessage, { apiUrl: baseUrl, companyId: "0380" });
+        
         showErrorModal([
           '❌ Registration Failed',
           `You are already registered for the following events:`,
@@ -741,10 +805,10 @@ function PublicRegisterForm() {
         });
       }
 
-      // Try to find existing enrollee first by phone number (since we don't have email)
-      console.log('Searching for existing enrollee with phone:', formData.phone);
+      // Try to find existing enrollee first by email or phone number
+      console.log('Searching for existing enrollee with phone:', formData.phone, 'and email:', formData.email);
       
-      let enrolleeId: string;
+      let enrolleeId: string | undefined;
       
       // First, get all enrollees and filter manually to debug the search
       const allEnrolleesResponse = await fetch(`${baseUrl}/api/enrollees?company_id=0380`);
@@ -753,35 +817,71 @@ function PublicRegisterForm() {
         console.log('All enrollees response:', allEnrollees);
         console.log('Total enrollees found:', allEnrollees.enrollees?.length || 0);
         
-        // Manually search for the enrollee by phone number or email
-        const existingEnrollee = allEnrollees.enrollees?.find((e: any) => {
-          // If user provided an email, search by email first
-          if (formData.email.trim()) {
-            if (e.email && e.email.toLowerCase() === formData.email.trim().toLowerCase()) {
-              return true;
-            }
-          }
-          
-          // Also search by phone number as fallback
-          if (e.phone && e.phone === formData.phone) {
-            return true;
-          }
-          
-          if (e.mobile_number && e.mobile_number === formData.phone) {
-            return true;
-          }
-          
-          return false;
-        });
+        // Manually search for the enrollee by email first, then phone number
+        // Manually search for the enrollee by email first, then phone number
+const existingEnrollee = allEnrollees.enrollees?.find((e: any) => {
+  // If user provided an email, search by email first (case-insensitive)
+  if (formData.email.trim()) {
+    if (e.email && e.email.toLowerCase() === formData.email.trim().toLowerCase()) {
+      console.log('Found enrollee by email match:', e.email, '===', formData.email.trim());
+      return true;
+    }
+  }
+  
+  // Also search by phone number as fallback
+  if (e.phone && e.phone === formData.phone) {
+    console.log('Found enrollee by phone match:', e.phone, '===', formData.phone);
+    return true;
+  }
+  
+  if (e.mobile_number && e.mobile_number === formData.phone) {
+    console.log('Found enrollee by mobile_number match:', e.mobile_number, '===', formData.phone);
+    return true;
+  }
+  
+  return false;
+});
         
         console.log('Searching for enrollee with phone:', formData.phone);
         console.log('Searching for enrollee with email:', formData.email);
         console.log('Existing enrollee found:', existingEnrollee);
         
         if (existingEnrollee) {
-          enrolleeId = existingEnrollee.id;
+          // Use the existing enrollee's ID
+          enrolleeId = existingEnrollee.id || existingEnrollee.enrollee_id || existingEnrollee.user_id;
           console.log('Found existing enrollee manually:', existingEnrollee);
           console.log('Using existing enrollee ID:', enrolleeId);
+          
+          // Update the enrollee's information if needed (e.g., phone number, organisation, etc.)
+          if (existingEnrollee.phone !== formData.phone || 
+              existingEnrollee.mobile_number !== formData.phone ||
+              existingEnrollee.organisation !== formData.organisation ||
+              existingEnrollee.designation !== formData.profession) {
+            
+            console.log('Updating existing enrollee information...');
+            const updateData = {
+              ...enrolleeData,
+              id: enrolleeId // Include the ID for the update
+            };
+            
+            try {
+              const updateResponse = await fetch(`${baseUrl}/api/enrollees/${enrolleeId}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updateData),
+              });
+              
+              if (updateResponse.ok) {
+                console.log('Enrollee information updated successfully');
+              } else {
+                console.warn('Failed to update enrollee information, but continuing with registration');
+              }
+            } catch (updateError) {
+              console.warn('Error updating enrollee information, but continuing with registration:', updateError);
+            }
+          }
         } else {
           console.log('No existing enrollee found, creating new one...');
           console.log('Enrollee data to create:', enrolleeData);
@@ -812,17 +912,56 @@ function PublicRegisterForm() {
                 const errorData = await createResponse.json();
                 console.error(`Enrollee creation failed on attempt ${retryCount + 1}:`, errorData);
                 
+                // If we get a 409 (conflict) error, it means the enrollee already exists
+                // Let's try to find them again
+                if (createResponse.status === 409) {
+                  console.log('Got 409 error, trying to find existing enrollee again...');
+                  
+                  // Re-fetch enrollees and search again
+                  const retryEnrolleesResponse = await fetch(`${baseUrl}/api/enrollees?company_id=0380`);
+                  if (retryEnrolleesResponse.ok) {
+                    const retryEnrollees = await retryEnrolleesResponse.json();
+                    const retryExistingEnrollee = retryEnrollees.enrollees?.find((e: any) => {
+                      if (formData.email.trim()) {
+                        if (e.email && e.email.toLowerCase() === formData.email.trim().toLowerCase()) {
+                          return true;
+                        }
+                      }
+                      if (e.phone && e.phone === formData.phone) {
+                        return true;
+                      }
+                      if (e.mobile_number && e.mobile_number === formData.phone) {
+                        return true;
+                      }
+                      return false;
+                    });
+                    
+                    if (retryExistingEnrollee) {
+                      enrolleeId = retryExistingEnrollee.id || retryExistingEnrollee.enrollee_id || retryExistingEnrollee.user_id;
+                      console.log('Found existing enrollee after 409 error:', retryExistingEnrollee);
+                      console.log('Using existing enrollee ID:', enrolleeId);
+                      break; // Exit the retry loop
+                    }
+                  }
+                }
+                
                 if (retryCount === maxRetries) {
                   // Final attempt failed, throw error
+                  let errorMessage = '';
                   if (createResponse.status === 409) {
-                    throw new Error('An account with this email already exists. Please use a different email or contact support if this is your account.');
+                    errorMessage = 'An account with this email already exists. Please use a different email or contact support if this is your account.';
                   } else if (createResponse.status === 400) {
-                    throw new Error('Invalid data provided. Please check your information and try again.');
+                    errorMessage = 'Invalid data provided. Please check your information and try again.';
                   } else if (createResponse.status === 500) {
-                    throw new Error('Server error occurred while creating your account. Please try again later or contact support.');
+                    errorMessage = 'Server error occurred while creating your account. Please try again later or contact support.';
                   } else {
-                    throw new Error(`Failed to create account: ${errorData.error || createResponse.statusText}`);
+                    errorMessage = `Failed to create account: ${errorData.error || createResponse.statusText}`;
                   }
+                  
+                  // Send admin notification for enrollee creation failure
+                  await sendAdminNotification(formData, `Enrollee creation failed: ${errorMessage}`, { apiUrl: baseUrl, companyId: "0380" });
+                  
+                  throw new Error(errorMessage);
                 }
                 
                 // Wait before retry
@@ -839,7 +978,7 @@ function PublicRegisterForm() {
             }
           }
           
-          if (createResponse && createResponse.ok) {
+          if (createResponse && createResponse.ok && enrolleeResult) {
             // Try different possible field names for the ID
             enrolleeId = enrolleeResult.enrollee_id || enrolleeResult.id || enrolleeResult.user_id || enrolleeResult.enrolleeId;
             
@@ -879,38 +1018,55 @@ function PublicRegisterForm() {
             }
             
             console.log('Enrollee created successfully with ID:', enrolleeId);
+          } else if (enrolleeId) {
+            // We found an existing enrollee after the 409 error
+            console.log('Using existing enrollee ID after 409 error:', enrolleeId);
           } else {
             // Handle case where enrollee creation failed after all retries
             if (!createResponse) {
-              throw new Error('Failed to create enrollee: No response received from server');
+              const errorMessage = 'Failed to create enrollee: No response received from server';
+              await sendAdminNotification(formData, errorMessage, { apiUrl: baseUrl, companyId: "0380" });
+              throw new Error(errorMessage);
             }
             
             const errorData = await createResponse?.json();
             console.error('Failed to create enrollee:', errorData);
             
             // Provide specific error messages based on the error
+            let errorMessage = '';
             if (createResponse?.status === 409) {
-              throw new Error('An account with this email already exists. Please use a different email or contact support if this is your account.');
+              errorMessage = 'An account with this email already exists. Please use a different email or contact support if this is your account.';
             } else if (createResponse?.status === 400) {
-              throw new Error('Invalid data provided. Please check your information and try again.');
+              errorMessage = 'Invalid data provided. Please check your information and try again.';
             } else if (createResponse?.status === 500) {
-              throw new Error('Server error occurred while creating your account. Please try again later or contact support.');
+              errorMessage = 'Server error occurred while creating your account. Please try again later or contact support.';
             } else {
-              throw new Error(`Failed to create account: ${errorData?.error || createResponse?.statusText}`);
+              errorMessage = `Failed to create account: ${errorData?.error || createResponse?.statusText}`;
             }
+            
+            // Send admin notification for enrollee creation failure
+            await sendAdminNotification(formData, `Enrollee creation failed: ${errorMessage}`, { apiUrl: baseUrl, companyId: "0380" });
+            
+            throw new Error(errorMessage);
           }
         }
       } else {
         const errorData = await allEnrolleesResponse.json();
         console.error('Failed to fetch all enrollees:', errorData);
         
+        let errorMessage = '';
         if (allEnrolleesResponse.status === 503) {
-          throw new Error('Service temporarily unavailable. Please try again in a few minutes.');
+          errorMessage = 'Service temporarily unavailable. Please try again in a few minutes.';
         } else if (allEnrolleesResponse.status === 500) {
-          throw new Error('Server error occurred. Please try again later or contact support.');
+          errorMessage = 'Server error occurred. Please try again later or contact support.';
         } else {
-          throw new Error(`Failed to verify account: ${errorData.error || allEnrolleesResponse.statusText}`);
+          errorMessage = `Failed to verify account: ${errorData.error || allEnrolleesResponse.statusText}`;
         }
+        
+        // Send admin notification for enrollee fetch failure
+        await sendAdminNotification(formData, `Failed to fetch enrollees: ${errorMessage}`, { apiUrl: baseUrl, companyId: "0380" });
+        
+        throw new Error(errorMessage);
       }
 
       // Register for all selected programs
@@ -918,7 +1074,9 @@ function PublicRegisterForm() {
       
       // Ensure we have a valid enrollee ID before proceeding
       if (!enrolleeId) {
-        throw new Error('Failed to get or create enrollee. Please try again or contact support.');
+        const errorMessage = 'Failed to get or create enrollee. Please try again or contact support.';
+        await sendAdminNotification(formData, errorMessage, { apiUrl: baseUrl, companyId: "0380" });
+        throw new Error(errorMessage);
       }
       
       console.log('Proceeding with registration using enrollee ID:', enrolleeId);
@@ -928,6 +1086,13 @@ function PublicRegisterForm() {
           // Get event ID and validate it exists
           const eventId = getEventIdFromProgram(programSlug);
           console.log(`Event ID for ${programSlug}:`, eventId);
+          
+          // Validate event ID exists
+          if (!eventId) {
+            const errorMessage = `Event ID not found for program: ${programSlug}`;
+            await sendAdminNotification(formData, errorMessage, { apiUrl: baseUrl, companyId: "0380" });
+            throw new Error(`Event not found for ${getProgramTitle(programSlug)}. Please contact support.`);
+          }
           
           // Special debugging for the problematic phone number
           if (formData.phone === '60192692775') {
@@ -940,7 +1105,9 @@ function PublicRegisterForm() {
           
           // Validate enrollee ID
           if (!enrolleeId) {
-            throw new Error('Enrollee ID is missing. Please try again.');
+            const errorMessage = 'Enrollee ID is missing. Please try again.';
+            await sendAdminNotification(formData, errorMessage, { apiUrl: baseUrl, companyId: "0380" });
+            throw new Error(errorMessage);
           }
           
           // Prepare participant data for each event
@@ -991,24 +1158,30 @@ function PublicRegisterForm() {
             console.error(`API Error for ${programSlug}:`, errorData);
             
             // Provide specific error messages based on the error
+            let errorMessage = '';
             if (response.status === 409) {
-              throw new Error(`You are already registered for ${getProgramTitle(programSlug)}.`);
+              errorMessage = `You are already registered for ${getProgramTitle(programSlug)}.`;
             } else if (response.status === 400) {
-              throw new Error(`Invalid registration data for ${getProgramTitle(programSlug)}. Please check your information.`);
+              errorMessage = `Invalid registration data for ${getProgramTitle(programSlug)}. Please check your information.`;
             } else if (response.status === 404) {
-              throw new Error(`Event ${getProgramTitle(programSlug)} not found or no longer available.`);
+              errorMessage = `Event ${getProgramTitle(programSlug)} not found or no longer available.`;
             } else if (response.status === 422) {
               // Check if it's a validation error
               if (errorData.error && errorData.error.includes('required')) {
-                throw new Error(`Missing required data for ${getProgramTitle(programSlug)}. Please contact support.`);
+                errorMessage = `Missing required data for ${getProgramTitle(programSlug)}. Please contact support.`;
               } else {
-                throw new Error(`Event ${getProgramTitle(programSlug)} is full or registration is closed.`);
+                errorMessage = `Event ${getProgramTitle(programSlug)} is full or registration is closed.`;
               }
             } else if (response.status === 500) {
-              throw new Error(`Server error occurred while registering for ${getProgramTitle(programSlug)}. Please try again.`);
+              errorMessage = `Server error occurred while registering for ${getProgramTitle(programSlug)}. Please try again.`;
             } else {
-              throw new Error(errorData.error || `Failed to register for ${getProgramTitle(programSlug)}: ${response.status}`);
+              errorMessage = errorData.error || `Failed to register for ${getProgramTitle(programSlug)}: ${response.status}`;
             }
+            
+            // Send admin notification for participant registration failure
+            await sendAdminNotification(formData, `Failed to register for ${getProgramTitle(programSlug)}: ${errorMessage}`, { apiUrl: baseUrl, companyId: "0380" });
+            
+            throw new Error(errorMessage);
           }
           
           const result = await response.json();
@@ -1053,6 +1226,10 @@ function PublicRegisterForm() {
           'Click the WhatsApp buttons above to get help.'
         ];
         
+        // Send admin notification for partial failure
+        const partialFailureMessage = `Partial registration failure: ${failedCount} out of ${formData.selectedPrograms.length} events failed. Failed events: ${failedPrograms.map(r => getProgramTitle(r.program)).join(', ')}`;
+        await sendAdminNotification(formData, partialFailureMessage, { apiUrl: baseUrl, companyId: "0380" });
+        
         showErrorModal(errorMessages);
         console.error('Some registrations failed:', results);
       }
@@ -1078,6 +1255,9 @@ function PublicRegisterForm() {
           errorMessage = error.message;
         }
       }
+      
+      // Send admin notification for the error
+      await sendAdminNotification(formData, errorMessage, { apiUrl: baseUrl, companyId: "0380" });
       
       showErrorModal([
         '❌ Registration Failed',

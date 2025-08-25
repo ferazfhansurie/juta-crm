@@ -52,6 +52,7 @@ function PublicFeedbackForm() {
   const [responses, setResponses] = useState<{ [fieldId: string]: string | number }>({});
   const [phoneNumber, setPhoneNumber] = useState( '+60');
   const [baseUrl] = useState<string>('https://juta-dev.ngrok.dev');
+  const [showAlreadySubmittedAlert, setShowAlreadySubmittedAlert] = useState(false);
 
   useEffect(() => {
     if (formTitle) {
@@ -181,8 +182,12 @@ function PublicFeedbackForm() {
         
         // Check if the error indicates the form has already been submitted
         if (errorMessage && errorMessage.includes('already submitted')) {
-          console.log(`[Form][${requestId}] Form already submitted, navigating to thank you page`);
-          navigate('/thank-you');
+          console.log(`[Form][${requestId}] Form already submitted, showing alert and navigating to thank you page`);
+          setShowAlreadySubmittedAlert(true);
+          // Navigate after a short delay to allow user to see the message
+          setTimeout(() => {
+            navigate('/thank-you');
+          }, 3000);
           return;
         }
         
@@ -809,6 +814,32 @@ function PublicFeedbackForm() {
             )}
           </form>
         </div>
+
+        {/* Already Submitted Alert */}
+        {showAlreadySubmittedAlert && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 text-center">
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Already Submitted!</h3>
+              <p className="text-gray-600 mb-4">
+                You have already submitted this feedback form. Thank you for your participation!
+              </p>
+              <div className="text-sm text-gray-500 mb-4">
+                Redirecting to thank you page in a few seconds...
+              </div>
+              <button
+                onClick={() => navigate('/thank-you')}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200"
+              >
+                Go to Thank You Page
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="text-center mt-6 sm:mt-8 text-xs sm:text-sm text-gray-500 px-2">

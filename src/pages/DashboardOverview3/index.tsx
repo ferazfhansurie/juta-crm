@@ -11,14 +11,10 @@ import autoTable from "jspdf-autotable";
 import { generateCertificate } from "@/utils/pdfCert";
 import axios from "axios";
 
-// Replace with your published CSV URLs
-// CSV URL for MTDC Participants Submissions
-const RSVP_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9Wlb5GVpeT1FUavQdufnLukU1oyRWh1AaKKSJlGoFAAgjqxIh4JeHcNkK58JHT4BBP_qrkQacDtYc/pub?output=csv";
-const FEEDBACK_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRF9tqpNSgFqdvgPBYvspa84gX1_0y06oUokzZ9p-_LSv4qrxtJqUCN66_dFFsMcQ/pub?output=csv";
-const AI_HORIZON_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQs940ohQfGSntt_R3wkLw8sVDt7gRnvwB4W9WwmmWjrV49MstVq0Rz097egHvvDcBj9YXu97EO64Ep/pub?output=csv";
+// Use local CSV files instead of Google Sheets URLs
+const RSVP_CSV_URL = "/rsvp.csv";
+const FEEDBACK_CSV_URL = "/feedback.csv";
+const AI_HORIZON_CSV_URL = "/horizon.csv";
 
 // Neon database base URL
 const baseUrl = "https://juta-dev.ngrok.dev";
@@ -46,24 +42,24 @@ interface CustomPieChartProps {
   className?: string;
 }
 
-const CustomPieChart: React.FC<CustomPieChartProps> = ({
-  data,
-  labels,
-  colors,
-  width = 400,
-  height = 400,
+const CustomPieChart: React.FC<CustomPieChartProps> = ({ 
+  data, 
+  labels, 
+  colors, 
+  width = 400, 
+  height = 400, 
   className = "",
 }) => {
   const chartData: ChartData = useMemo(() => {
     // Ensure we have valid data
     const validData = data.filter((value, index) => value > 0 && labels[index]);
     const validLabels = labels.filter((label, index) => data[index] > 0);
-
+    
     // Ensure colors array matches data length
     const validColors = validData.map(
       (_, index) => colors[index % colors.length]
     );
-
+    
     return {
       labels: validLabels,
       datasets: [
@@ -129,12 +125,14 @@ const CustomPieChart: React.FC<CustomPieChartProps> = ({
 function useSheetData(url: string) {
   const [data, setData] = useState<any[]>([]);
   useEffect(() => {
-    // Add cache-busting parameter to force fresh fetch
-    const cacheBustUrl =
-      url + (url.includes("?") ? "&" : "?") + "_t=" + Date.now();
-
-    fetch(cacheBustUrl)
-      .then((res) => res.text())
+    // Fetch local CSV files
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.text();
+      })
       .then((text) => {
         // Parse as comma-separated (the default)
         Papa.parse(text, {
@@ -143,7 +141,13 @@ function useSheetData(url: string) {
           complete: (results) => {
             setData(results.data);
           },
+          error: (error: any) => {
+            console.error(`❌ CSV parsing error:`, error);
+          }
         });
+      })
+      .catch((error) => {
+        console.error(`❌ CSV fetch error:`, error);
       });
   }, [url]);
   return data;
@@ -164,7 +168,7 @@ function normalizeProgramName(name: string) {
 // Remove date prefixes from program names (e.g., "14 May - Generative AI..." -> "Generative AI...")
 function cleanProgramName(name: string) {
   if (!name) return "Unspecified";
-
+  
   let cleaned = name
     .trim()
     // Remove date prefixes more comprehensively
@@ -187,7 +191,7 @@ function cleanProgramName(name: string) {
     // Normalize whitespace and remove extra spaces
     .replace(/\s+/g, " ")
     .trim();
-
+  
   // Handle complex AI Horizon combinations - keep the most descriptive part
   // For combinations like "A - B - C", keep the longest meaningful part
   if (cleaned.includes(" - ")) {
@@ -199,25 +203,25 @@ function cleanProgramName(name: string) {
       // Find the part with the most descriptive content (longest meaningful part)
       const meaningfulParts = parts.filter(
         (part) =>
-          part.length > 10 && // Must be reasonably long
-          !part.match(/^\d{1,2}\s+[A-Za-z]+$/) && // Not just a date
-          !part.match(/^[A-Za-z\s]+$/) // Not just generic words
+        part.length > 10 && // Must be reasonably long
+        !part.match(/^\d{1,2}\s+[A-Za-z]+$/) && // Not just a date
+        !part.match(/^[A-Za-z\s]+$/) // Not just generic words
       );
-
+      
       if (meaningfulParts.length > 0) {
         // Return the longest meaningful part
-        return meaningfulParts.reduce((longest, current) =>
+        return meaningfulParts.reduce((longest, current) => 
           current.length > longest.length ? current : longest
         );
       } else {
         // If no meaningful parts, return the longest part
-        return parts.reduce((longest, current) =>
+        return parts.reduce((longest, current) => 
           current.length > longest.length ? current : longest
         );
       }
     }
   }
-
+  
   // If the result is empty or just whitespace, return 'Unspecified'
   return cleaned || "Unspecified";
 }
@@ -225,19 +229,19 @@ function cleanProgramName(name: string) {
 // Additional function to normalize program names more aggressively for deduplication
 function normalizeProgramNameForDedup(name: string) {
   if (!name) return "";
-
+  
   return (
     name
-      .toLowerCase()
-      .trim()
-      // Remove common punctuation and special characters
+    .toLowerCase()
+    .trim()
+    // Remove common punctuation and special characters
       .replace(/[^\w\s]/g, " ")
-      // Normalize whitespace
+    // Normalize whitespace
       .replace(/\s+/g, " ")
-      // Handle common variations like "Automation" vs "Automations"
+    // Handle common variations like "Automation" vs "Automations"
       .replace(/\bautomations\b/g, "automation")
       .replace(/\bautomation\b/g, "automation")
-      // Handle other common plural/singular variations
+    // Handle other common plural/singular variations
       .replace(/\btechnologies\b/g, "technology")
       .replace(/\bapplications\b/g, "application")
       .replace(/\bsolutions\b/g, "solution")
@@ -248,16 +252,16 @@ function normalizeProgramNameForDedup(name: string) {
 // Function to check if two program names are similar enough to merge
 function isSimilarProgram(name1: string, name2: string): boolean {
   if (!name1 || !name2) return false;
-
+  
   // If they're exactly the same after normalization, they're identical
   if (name1 === name2) return true;
-
+  
   // Split into words and compare
   const words1 = name1.split(/\s+/).filter((word) => word.length > 2);
   const words2 = name2.split(/\s+/).filter((word) => word.length > 2);
-
+  
   if (words1.length === 0 || words2.length === 0) return false;
-
+  
   // Count matching words
   let matchingWords = 0;
   words1.forEach((word1) => {
@@ -270,10 +274,10 @@ function isSimilarProgram(name1: string, name2: string): boolean {
       matchingWords++;
     }
   });
-
+  
   // Calculate similarity percentage
   const similarity = matchingWords / Math.max(words1.length, words2.length);
-
+  
   // Consider programs similar if they share 80%+ of their key words
   return similarity >= 0.8;
 }
@@ -426,7 +430,7 @@ const getCompanyApiUrl = async () => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Company data error response body:", errorText);
-
+      
       let errorMessage = `Failed to fetch company data: ${response.status}`;
       try {
         const errorJson = JSON.parse(errorText);
@@ -440,7 +444,7 @@ const getCompanyApiUrl = async () => {
           errorMessage += ` - ${errorText}`;
         }
       }
-
+      
       throw new Error(errorMessage);
     }
 
@@ -455,7 +459,7 @@ const getCompanyApiUrl = async () => {
       apiUrl: data.companyData?.api_url || baseUrl,
       companyId: data.userData.companyId,
     };
-
+    
     console.log("Returning company data:", result);
     return result;
   } catch (error) {
@@ -472,12 +476,12 @@ const uploadFile = async (
 ): Promise<string> => {
   try {
     const { apiUrl, companyId } = await getCompanyApiUrl();
-
+    
     // Validate file before upload
     if (!file || file.size === 0) {
       throw new Error("File is empty or invalid");
     }
-
+    
     // For PDFs, ensure proper MIME type
     let uploadFile = file;
     if (
@@ -490,7 +494,7 @@ const uploadFile = async (
         newType: uploadFile.type,
       });
     }
-
+    
     console.log("Uploading file using Chat component method:", {
       apiUrl,
       companyId,
@@ -498,11 +502,11 @@ const uploadFile = async (
       fileSize: uploadFile.size,
       fileType: uploadFile.type,
     });
-
+    
     // Use the same upload endpoint as the working Chat component
     const formData = new FormData();
     formData.append("file", uploadFile);
-
+    
     console.log("FormData entries:");
     for (let [key, value] of formData.entries()) {
       if (value instanceof Blob) {
@@ -511,15 +515,15 @@ const uploadFile = async (
         console.log(`  ${key}:`, value);
       }
     }
-
+    
     // Use /api/upload-media like the Chat component (not /api/upload-file)
     const response = await fetch(`${apiUrl}/api/upload-media`, {
       method: "POST",
       body: formData,
     });
-
+    
     console.log("Upload response status:", response.status);
-
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Upload error response body:", errorText);
@@ -527,14 +531,14 @@ const uploadFile = async (
         `Upload failed with status ${response.status}: ${errorText}`
       );
     }
-
+    
     const result = await response.json();
     console.log("Upload success response:", result);
-
+    
     if (!result.url) {
       throw new Error("Upload response missing URL");
     }
-
+    
     return result.url;
   } catch (error) {
     console.error("Error in uploadFile:", error);
@@ -556,7 +560,7 @@ const sendDocumentMessage = async (
       localStorage.getItem("userEmail") ||
       "";
     const phoneIndex = 0;
-
+    
     console.log("Sending document message:", {
       apiUrl,
       companyId,
@@ -567,14 +571,14 @@ const sendDocumentMessage = async (
       fileName,
       caption,
     });
-
+    
     const requestBody = {
       documentUrl: documentUrl,
       filename: fileName,
       phoneIndex: phoneIndex,
       userName: userName,
     };
-
+    
     console.log("Request body:", requestBody);
 
     const response = await fetch(
@@ -582,7 +586,7 @@ const sendDocumentMessage = async (
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+      body: JSON.stringify(requestBody),
       }
     );
 
@@ -591,11 +595,11 @@ const sendDocumentMessage = async (
       "Response headers:",
       Object.fromEntries(response.headers.entries())
     );
-
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Error response body:", errorText);
-
+      
       let errorMessage = `API failed with status ${response.status}`;
       try {
         const errorJson = JSON.parse(errorText);
@@ -609,10 +613,10 @@ const sendDocumentMessage = async (
           errorMessage += `: ${errorText}`;
         }
       }
-
+      
       throw new Error(errorMessage);
     }
-
+    
     const responseData = await response.json();
     console.log("Success response:", responseData);
     return responseData;
@@ -631,7 +635,7 @@ const sendTextMessage = async (chatId: string, text: string) => {
       localStorage.getItem("userEmail") ||
       "";
     const phoneIndex = 0;
-
+    
     console.log("Sending text message:", {
       apiUrl,
       companyId,
@@ -640,13 +644,13 @@ const sendTextMessage = async (chatId: string, text: string) => {
       phoneIndex,
       messageLength: text.length,
     });
-
+    
     const requestBody = {
       message: text,
       phoneIndex: phoneIndex,
       userName: userName,
     };
-
+    
     console.log("Request body:", requestBody);
 
     const response = await fetch(
@@ -654,7 +658,7 @@ const sendTextMessage = async (chatId: string, text: string) => {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+      body: JSON.stringify(requestBody),
       }
     );
 
@@ -663,11 +667,11 @@ const sendTextMessage = async (chatId: string, text: string) => {
       "Response headers:",
       Object.fromEntries(response.headers.entries())
     );
-
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Error response body:", errorText);
-
+      
       let errorMessage = `API failed with status ${response.status}`;
       try {
         const errorJson = JSON.parse(errorText);
@@ -681,10 +685,10 @@ const sendTextMessage = async (chatId: string, text: string) => {
           errorMessage += `: ${errorText}`;
         }
       }
-
+      
       throw new Error(errorMessage);
     }
-
+    
     const responseData = await response.json();
     console.log("Success response:", responseData);
     return responseData;
@@ -705,18 +709,18 @@ function useFeedbackResponses() {
       try {
         setLoading(true);
         setError(null); // Clear any previous errors
-
+        
         console.log("Fetching feedback responses...");
         const { companyId } = await getCompanyApiUrl();
         console.log("Company ID retrieved:", companyId);
-
+        
         const apiUrl = `${baseUrl}/api/feedback-responses?company_id=${companyId}`;
         console.log("API URL:", apiUrl);
-
+        
         const response = await axios.get(apiUrl);
         console.log("API response status:", response.status);
         console.log("API response data:", response.data);
-
+        
         if (response.data.success) {
           setFeedbackResponses(response.data.feedbackResponses);
           console.log(
@@ -730,7 +734,7 @@ function useFeedbackResponses() {
         }
       } catch (err: any) {
         console.error("Error fetching feedback responses:", err);
-
+        
         // Provide more specific error information
         let errorMessage = "Error fetching feedback responses";
         if (err.response) {
@@ -746,7 +750,7 @@ function useFeedbackResponses() {
           // Something else happened
           errorMessage = `Request Error: ${err.message}`;
         }
-
+        
         setError(errorMessage);
       } finally {
         setLoading(false);
@@ -888,24 +892,89 @@ function useParticipants() {
         const { companyId } = await getCompanyApiUrl();
         console.log("Company ID retrieved:", companyId);
 
-        const apiUrl = `${baseUrl}/api/participants?company_id=${companyId}`;
-        console.log("API URL:", apiUrl);
-
-        const response = await axios.get(apiUrl);
-        console.log("API response status:", response.status);
-        console.log("API response data:", response.data);
-
-        if (response.data.success) {
-          setParticipants(response.data.participants);
-          console.log(
-            "Successfully set participants:",
-            response.data.participants
-          );
-        } else {
-          const errorMsg = response.data.error || "API returned success: false";
-          console.error("API returned error:", errorMsg);
-          setError(`API Error: ${errorMsg}`);
+        // Try to fetch all participants with pagination
+        let allParticipants: any[] = [];
+        let page = 1;
+        const pageSize = 100; // Fetch 100 at a time
+        
+        // Also try to fetch specifically for the AI Agent event
+        const aiAgentEventId = 'b392858c-290a-432a-b833-2f7dda988a2f';
+        
+        try {
+          // First try with pagination
+          while (true) {
+            const apiUrl = `${baseUrl}/api/participants?company_id=${companyId}&page=${page}&page_size=${pageSize}`;
+            const response = await axios.get(apiUrl);
+            console.log(`📄 Page ${page} - API response status:`, response.status);
+            
+            if (response.data.success && response.data.participants) {
+              const pageParticipants = response.data.participants;
+              console.log(`📄 Page ${page} - Fetched ${pageParticipants.length} participants`);
+              
+              allParticipants.push(...pageParticipants);
+              
+              // Check if we've reached the end
+              // If we got fewer participants than page size, we've reached the end
+              if (pageParticipants.length < pageSize) {
+                console.log(`📄 Reached end at page ${page} (got ${pageParticipants.length} < ${pageSize})`);
+                break;
+              }
+              
+              // If we got exactly page size, there might be more pages
+              if (pageParticipants.length === pageSize) {
+                console.log(`📄 Page ${page} returned exactly ${pageSize} participants, checking for more pages...`);
+                page++;
+                
+                // Add a safety check to prevent infinite loops
+                if (page > 10) {
+                  console.log(`📄 Safety limit reached (${page} pages), stopping pagination`);
+                  break;
+                }
+              }
+            } else {
+              console.error(`❌ Page ${page} API error:`, response.data.error);
+              break;
+            }
+          }
+        } catch (paginationError) {
+          console.log("📄 Pagination not supported, trying without pagination...");
+          
+          // Fallback: try without pagination
+          const apiUrl = `${baseUrl}/api/participants?company_id=${companyId}`;
+          const response = await axios.get(apiUrl);
+          
+          if (response.data.success && response.data.participants) {
+            allParticipants = response.data.participants;
+            console.log(`📄 Fallback: fetched ${allParticipants.length} participants`);
+          } else {
+            throw new Error("Failed to fetch participants with both methods");
+          }
         }
+        
+        // If we still don't have enough participants, try fetching specifically for the AI Agent event
+        if (allParticipants.length < 200) {
+          try {
+            const eventSpecificUrl = `${baseUrl}/api/participants?company_id=${companyId}&event_id=${aiAgentEventId}`;
+            const eventResponse = await axios.get(eventSpecificUrl);
+            
+            if (eventResponse.data.success && eventResponse.data.participants) {
+              const eventParticipants = eventResponse.data.participants;
+              
+              // Merge with existing participants, avoiding duplicates
+              const existingIds = new Set(allParticipants.map((p: any) => p.id));
+              const newParticipants = eventParticipants.filter((p: any) => !existingIds.has(p.id));
+              allParticipants.push(...newParticipants);
+            }
+          } catch (eventError) {
+            console.log("🎯 Event-specific fetch failed:", eventError);
+          }
+        }
+        
+        // Backend is now working - simplified logging
+        console.log(`✅ Successfully fetched ${allParticipants.length} participants from Neon database`);
+        
+        console.log(`✅ Total participants fetched: ${allParticipants.length}`);
+        setParticipants(allParticipants);
       } catch (err: any) {
         console.error("Error fetching participants:", err);
 
@@ -965,7 +1034,7 @@ function DashboardOverview3() {
   const [participantSearch, setParticipantSearch] = useState("");
   const [feedbackSearch, setFeedbackSearch] = useState("");
   const [selectedSessionFilter, setSelectedSessionFilter] = useState("");
-
+  
   // Additional filters for participants table
   const [participantProgramFilter, setParticipantProgramFilter] = useState("");
   const [participantCategoryFilter, setParticipantCategoryFilter] =
@@ -975,7 +1044,7 @@ function DashboardOverview3() {
   const [participantStatusFilter, setParticipantStatusFilter] = useState("");
   const [participantAttendanceFilter, setParticipantAttendanceFilter] =
     useState("");
-
+  
   // Additional filters for feedback table
   const [feedbackDateFilter, setFeedbackDateFilter] = useState("");
   const [feedbackRatingFilter, setFeedbackRatingFilter] = useState("");
@@ -1032,7 +1101,7 @@ function DashboardOverview3() {
   const [sendingModalOpen, setSendingModalOpen] = useState(false);
   const [sendingStatus, setSendingStatus] = useState<any[]>([]);
   const [sendingInProgress, setSendingInProgress] = useState(false);
-
+  
   // Add state for individual certificate sending
   const [sendingIndividualCert, setSendingIndividualCert] = useState<Record<string, boolean>>({});
   const [sendingBulkCert, setSendingBulkCert] = useState(false);
@@ -1059,6 +1128,8 @@ function DashboardOverview3() {
   const [feedbackDashboardCategoryFilter, setFeedbackDashboardCategoryFilter] =
     useState<string>("");
 
+  // CSV data is now loaded from local files
+
   // Normalize MTDC RSVP
   const normalizedMtdc = rsvpData.map((row: any) => {
     const normalized = {
@@ -1075,7 +1146,7 @@ function DashboardOverview3() {
       Category: row["Category"]?.trim() || "",
       // ...other fields
     };
-
+    
     return normalized;
   });
 
@@ -1103,17 +1174,17 @@ function DashboardOverview3() {
   }));
 
   // Helper to normalize profession responses
-  function normalizeProfession(profession: string): string {
+function normalizeProfession(profession: string): string {
     if (!profession) return "Unspecified";
-
-    const prof = profession.trim();
-
-    // Handle numbered responses (1. SME / SMI / Private Company)
-    if (prof.match(/^\d+\.\s+/)) {
-      const number = prof.match(/^(\d+)\.\s+/)?.[1];
+  
+  const prof = profession.trim();
+  
+  // Handle numbered responses (1. SME / SMI / Private Company)
+  if (prof.match(/^\d+\.\s+/)) {
+    const number = prof.match(/^(\d+)\.\s+/)?.[1];
       if (!number) return "Unspecified";
-
-      const professionMap: { [key: string]: string } = {
+    
+    const professionMap: { [key: string]: string } = {
         "1": "SME / SMI / Private Company",
         "2": "Government Agency / Research Institute",
         "3": "Ministry / Government Staff / Civil Servant",
@@ -1123,11 +1194,11 @@ function DashboardOverview3() {
         "7": "Others",
       };
       return professionMap[number] || "Unspecified";
-    }
-
-    // Handle just numbers (1, 2, 3, etc.)
-    if (prof.match(/^\d+$/)) {
-      const professionMap: { [key: string]: string } = {
+  }
+  
+  // Handle just numbers (1, 2, 3, etc.)
+  if (prof.match(/^\d+$/)) {
+    const professionMap: { [key: string]: string } = {
         "1": "SME / SMI / Private Company",
         "2": "Government Agency / Research Institute",
         "3": "Ministry / Government Staff / Civil Servant",
@@ -1137,9 +1208,9 @@ function DashboardOverview3() {
         "7": "Others",
       };
       return professionMap[prof as keyof typeof professionMap] || "Unspecified";
-    }
-
-    // Handle malformed responses like "(1)", "(choose one):", etc.
+  }
+  
+  // Handle malformed responses like "(1)", "(choose one):", etc.
     if (
       prof.match(/^\([^)]*\)$/) ||
       prof.includes("choose") ||
@@ -1147,13 +1218,13 @@ function DashboardOverview3() {
       prof.includes("number")
     ) {
       return "Unspecified";
-    }
-
-    // Handle responses like "(3)Others" - extract the actual profession
-    const match = prof.match(/^\((\d+)\)(.+)/);
-    if (match && match[1]) {
-      const number = match[1];
-      const professionMap: { [key: string]: string } = {
+  }
+  
+  // Handle responses like "(3)Others" - extract the actual profession
+  const match = prof.match(/^\((\d+)\)(.+)/);
+  if (match && match[1]) {
+    const number = match[1];
+    const professionMap: { [key: string]: string } = {
         "1": "SME / SMI / Private Company",
         "2": "Government Agency / Research Institute",
         "3": "Ministry / Government Staff / Civil Servant",
@@ -1163,35 +1234,35 @@ function DashboardOverview3() {
         "7": "Others",
       };
       return professionMap[number] || "Unspecified";
-    }
-
-    // Handle responses like "1. SME / SMI / Private Company SME" - clean up duplicates
+  }
+  
+  // Handle responses like "1. SME / SMI / Private Company SME" - clean up duplicates
     if (prof.includes("SME / SMI / Private Company")) {
       return "SME / SMI / Private Company";
-    }
-
-    // Handle responses like "Manager (Private Company)" - map to SME category
+  }
+  
+  // Handle responses like "Manager (Private Company)" - map to SME category
     if (
       prof.includes("Private Company") ||
       (prof.includes("Manager") && prof.includes("Company"))
     ) {
       return "SME / SMI / Private Company";
-    }
-
-    // Handle responses like "Government Staff" - map to Ministry category
+  }
+  
+  // Handle responses like "Government Staff" - map to Ministry category
     if (prof.includes("Government Staff") || prof.includes("Government")) {
       return "Ministry / Government Staff / Civil Servant";
-    }
-
-    // Handle responses like "University student" - map to University Student category
+  }
+  
+  // Handle responses like "University student" - map to University Student category
     if (
       prof.toLowerCase().includes("university") &&
       prof.toLowerCase().includes("student")
     ) {
       return "University / College Student";
-    }
-
-    // Handle responses like "University (Staff / Lecturers / Researchers)" variations
+  }
+  
+  // Handle responses like "University (Staff / Lecturers / Researchers)" variations
     if (
       prof.toLowerCase().includes("university") &&
       (prof.toLowerCase().includes("staff") ||
@@ -1199,27 +1270,27 @@ function DashboardOverview3() {
         prof.toLowerCase().includes("researcher"))
     ) {
       return "University (Staff / Lecturers / Researchers)";
-    }
-
-    // If it's a valid profession name, return as is
-    if (prof.length > 2 && !prof.match(/^[^a-zA-Z]*$/)) {
-      return prof;
-    }
-
-    return "Unspecified";
   }
+  
+  // If it's a valid profession name, return as is
+  if (prof.length > 2 && !prof.match(/^[^a-zA-Z]*$/)) {
+    return prof;
+  }
+  
+    return "Unspecified";
+}
 
-  // Helper to normalize phone numbers (remove non-digits, handle Malaysia country code)
-  function normalizePhone(phone: string) {
+// Helper to normalize phone numbers (remove non-digits, handle Malaysia country code)
+function normalizePhone(phone: string) {
     let digits = (phone || "").replace(/\D/g, "");
-
+    
     // Handle different formats:
     // +60123456789 -> 60123456789
-    // 0123456789 -> 60123456789
+    // 0123456789 -> 60123456789  
     // 123456789 -> 60123456789
     // 60123456789 -> 60123456789 (already correct)
     // 194304533 -> 60194304533 (add country code)
-
+    
     if (digits) {
       if (digits.startsWith("60")) {
         return digits; // Already has country code
@@ -1230,30 +1301,29 @@ function DashboardOverview3() {
         return "60" + digits; // Add full Malaysia country code
       }
     }
-
+    
     return digits;
   }
 
   // Process Neon participants data to match CSV format
   const processedNeonParticipants = useMemo(() => {
-    if (!participants.length || !enrollees.length || !events.length) return [];
+    if (!participants.length || !events.length) return [];
 
     return participants.map((participant) => {
-      const enrollee = enrollees.find((e) => e.id === participant.enrollee_id);
       const event = events.find((e) => e.id === participant.event_id);
 
       return {
         Date: new Date(participant.created_at).toLocaleDateString(),
-        "Full Name": enrollee?.name || "Unknown",
-        Company: enrollee?.organisation || "",
-        Phone: enrollee?.mobile_number || "",
-        Email: enrollee?.email || "",
+        "Full Name": participant.enrollee_name || participant.name || "Unknown",
+        Company: participant.organisation || "",
+        Phone: participant.enrollee_mobile || participant.mobile_number || "",
+        Email: participant.enrollee_email || participant.email || "",
         "Program Name": event?.name || "Unknown Event",
         "Program Date & Time": `${event?.start_date} ${event?.start_time}`,
         "RSVP status":
           participant.payment_status_id === "paid" ? "Accepted" : "Pending",
         "Attendance status": participant.is_attended ? "Accepted" : "Pending",
-        Profession: enrollee?.designation || "",
+        Profession: participant.designation || "",
         Category: "Neon Event", // Default category for Neon-only participants
         // Additional fields for compatibility
         "Reference Number": participant.reference_number,
@@ -1263,7 +1333,7 @@ function DashboardOverview3() {
         Source: "Neon Database",
       };
     });
-  }, [participants, enrollees, events]);
+  }, [participants, events]);
 
   // Merge both RSVP sources and deduplicate by normalized email and phone
   function mergeRSVPByEmailAndPhone(data: any[]) {
@@ -1273,7 +1343,7 @@ function DashboardOverview3() {
       const email = normalizeEmail(row.Email);
       const phone = normalizePhone(row.Phone);
       const programName = row["Program Name"]?.trim();
-
+      
       // Keep rows that have at least email or phone, and a program name
       return (email || phone) && programName;
     });
@@ -1350,7 +1420,6 @@ function DashboardOverview3() {
     normalizedAihorizon,
     processedNeonParticipants,
     events,
-    enrollees,
     participants,
   ]);
 
@@ -1417,11 +1486,11 @@ function DashboardOverview3() {
       // Map individual field responses to CSV format using exact matches
       if (response.responses && Array.isArray(response.responses)) {
         // Debug log to see the actual structure
-        console.log("Neon feedback response structure:", response.responses);
-
+       
+        
         let mappedFields = 0;
         let totalFields = response.responses.length;
-
+        
         response.responses.forEach((field: any) => {
           const question = field.question;
           const answer = field.answer;
@@ -1484,19 +1553,12 @@ function DashboardOverview3() {
               break;
             default:
               // Log any unmapped fields for debugging
-              console.log("Unmapped Neon field:", {
-                question: field.question,
-                answer: field.answer,
-              });
+             
               break;
           }
         });
-
-        // Debug log for the mapped feedback object
-        console.log("Mapped Neon feedback object:", feedbackObj);
-        console.log(
-          `Field mapping summary: ${mappedFields}/${totalFields} fields successfully mapped`
-        );
+        
+      
       }
 
       return feedbackObj;
@@ -1504,7 +1566,7 @@ function DashboardOverview3() {
 
     // Combine CSV and Neon data, with CSV data taking precedence for duplicates
     const combinedFeedback = [...feedbackData, ...neonFeedbackFormatted];
-
+    
     // Remove duplicates based on form_id and phone_number (for Neon data) or Email (for CSV data)
     const uniqueFeedback = combinedFeedback.filter((feedback, index, self) => {
       if (feedback.form_id && feedback.phone_number) {
@@ -1528,7 +1590,7 @@ function DashboardOverview3() {
     const filteredFeedback = uniqueFeedback.filter((feedback) => {
       // Get all rating fields from feedbackMetrics
       const ratingFields = feedbackMetrics.map((metric) => metric.key);
-
+      
       // Check if all rating fields are 0.0 or empty/null
       const allRatingsZero = ratingFields.every((field) => {
         const value = feedback[field];
@@ -1536,7 +1598,7 @@ function DashboardOverview3() {
         const numericValue = parseFloat(value);
         return isNaN(numericValue) || numericValue === 0;
       });
-
+      
       // Keep feedback if NOT all ratings are zero
       return !allRatingsZero;
     });
@@ -1547,7 +1609,7 @@ function DashboardOverview3() {
   // Helper function to get filtered feedback data based on current filters
   const getFilteredFeedbackData = () => {
     let filteredData = mergedFeedbackData;
-
+    
     if (
       feedbackDashboardProgramFilter &&
       feedbackDashboardProgramFilter !== "all"
@@ -1568,12 +1630,12 @@ function DashboardOverview3() {
           (r: any) => r.Category?.trim() === feedbackDashboardCategoryFilter
         )
         .map((r: any) => r["Program Name"]);
-
-      filteredData = filteredData.filter((f: any) =>
+      
+      filteredData = filteredData.filter((f: any) => 
         programsInCategory.includes(f["Which session did you attend?"])
       );
     }
-
+    
     return filteredData;
   };
 
@@ -1625,7 +1687,7 @@ function DashboardOverview3() {
   // Helper function to parse date from DD/MM/YYYY HH:MM:SS format
   const parseDate = (dateTimeStr: string): Date => {
     if (!dateTimeStr) return new Date(0); // Default to epoch for sorting
-
+    
     // Handle Neon UTC timestamps (e.g., "2025-08-25T16:00:00.000Z 09:00:00")
     if (dateTimeStr.includes("T") && dateTimeStr.includes("Z")) {
       // Extract the UTC timestamp part
@@ -1639,19 +1701,12 @@ function DashboardOverview3() {
         // Convert UTC to Malaysia time (UTC+8)
         const malaysiaTime = new Date(utcDate.getTime() + 8 * 60 * 60 * 1000);
 
-        console.log("🌍 Timezone Conversion:", {
-          original: dateTimeStr,
-          utcTimestamp,
-          utcDate: utcDate.toISOString(),
-          malaysiaTime: malaysiaTime.toISOString(),
-          malaysiaDate: malaysiaTime.toLocaleDateString("en-GB"),
-          malaysiaTimeStr: malaysiaTime.toLocaleTimeString("en-GB"),
-        });
+      
 
         return malaysiaTime;
       }
     }
-
+    
     // Handle DD/MM/YYYY HH:MM:SS format
     const match = dateTimeStr.match(
       /(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})/
@@ -1668,7 +1723,7 @@ function DashboardOverview3() {
       );
       return result;
     }
-
+    
     // Handle DD/MM/YYYY format (without time)
     const dateOnlyMatch = dateTimeStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if (dateOnlyMatch) {
@@ -1678,14 +1733,14 @@ function DashboardOverview3() {
         parseInt(month) - 1,
         parseInt(day)
       );
-
+    
       return result;
     }
-
+    
     // Handle other date formats or return epoch
     const parsedDate = new Date(dateTimeStr);
     const result = isNaN(parsedDate.getTime()) ? new Date(0) : parsedDate;
-
+    
     return result;
   };
 
@@ -1701,12 +1756,12 @@ function DashboardOverview3() {
 
   mergedRSVP.forEach((r: any) => {
     let dateTime = r["Program Date & Time"] || "";
-
+    
     // If no date from Program Date & Time, try to extract from program name (for AI Horizon)
     if (!dateTime) {
       dateTime = extractDateFromDaftarKursus(r["Program Name"]);
     }
-
+    
     // If still no date, try to infer from program name patterns
     if (!dateTime) {
       // Look for date patterns in the program name
@@ -1749,12 +1804,12 @@ function DashboardOverview3() {
         }
       }
     }
-
+    
     // If still no date, assign a default date to avoid "Unspecified"
     if (!dateTime) {
       dateTime = "01/01/2025 09:00:00"; // Default date for programs without dates
     }
-
+    
     const parsedDate = parseDate(dateTime);
     const cleanedName = cleanProgramName(r["Program Name"]);
     const source = r.Source || "CSV";
@@ -1803,10 +1858,10 @@ function DashboardOverview3() {
       }`;
     } else {
       // Create new program entry
-      const program = {
+    const program = {
         name: r["Program Name"],
-        dateTime: dateTime,
-        parsedDate: parsedDate,
+      dateTime: dateTime,
+      parsedDate: parsedDate,
         cleanedName: cleanedName,
         combinedNames: [cleanedName],
         source: source,
@@ -1850,13 +1905,13 @@ function DashboardOverview3() {
   }
 
   // Get programs available for selected category (for Program-Specific Dashboard) - MOVED UP
-  const programsInSelectedCategoryForDashboard = selectedCategory
+    const programsInSelectedCategoryForDashboard = selectedCategory
     ? (() => {
         // Debug: Log raw and cleaned program names to identify duplicates
         const rawProgramNames = mergedRSVP
           .filter((row: any) => row["Category"] === selectedCategory)
           .map((row: any) => row["Program Name"]);
-
+        
         const cleanedNames = rawProgramNames.map((name) =>
           cleanProgramName(name)
         );
@@ -1867,7 +1922,7 @@ function DashboardOverview3() {
           rawProgramNames
         );
         console.log("Cleaned program names for dashboard:", cleanedNames);
-
+        
         // More aggressive deduplication using normalized names
         const normalizedNames = cleanedNames.map((name) =>
           normalizeProgramNameForDedup(name)
@@ -1876,7 +1931,7 @@ function DashboardOverview3() {
           "Normalized names for dashboard deduplication:",
           normalizedNames
         );
-
+        
         // Debug: Show character-by-character analysis for similar names
         const similarNames = new Map();
         cleanedNames.forEach((name, index) => {
@@ -1890,7 +1945,7 @@ function DashboardOverview3() {
             normalized: normalized,
           });
         });
-
+        
         // Log any names that have multiple variations
         similarNames.forEach((variations, normalized) => {
           if (variations.length > 1) {
@@ -1911,7 +1966,7 @@ function DashboardOverview3() {
             });
           }
         });
-
+        
         // Create a map to keep the most descriptive version of each program
         const programMap = new Map();
         cleanedNames.forEach((cleanedName, index) => {
@@ -1928,14 +1983,14 @@ function DashboardOverview3() {
             }
           }
         });
-
+        
         // Additional merging: Look for programs that are very similar (fuzzy matching)
         const finalPrograms = new Map();
         const programArray = Array.from(programMap.entries());
-
+        
         programArray.forEach(([normalizedName, cleanedName]) => {
           let merged = false;
-
+          
           // Check if this program should be merged with an existing one
           for (const [
             existingNormalized,
@@ -1950,22 +2005,22 @@ function DashboardOverview3() {
               break;
             }
           }
-
+          
           if (!merged) {
             finalPrograms.set(normalizedName, cleanedName);
           }
         });
-
+        
         const uniquePrograms = Array.from(finalPrograms.values())
           .filter(Boolean)
           .map((name) => name.trim())
           .sort();
-
+        
         console.log(
           "Final deduplicated dashboard programs after fuzzy merging:",
           uniquePrograms
         );
-
+        
         return uniquePrograms;
       })()
     : [];
@@ -1994,7 +2049,7 @@ function DashboardOverview3() {
   );
 
   // Get programs available for selected category
-  const selectedCategoryAvailablePrograms = selectedCategory
+  const selectedCategoryAvailablePrograms = selectedCategory 
     ? Array.from(
         new Set(
           mergedRSVP
@@ -2021,7 +2076,7 @@ function DashboardOverview3() {
       const sameDateTimePrograms = self.filter(
         (p) => p.dateTime === program.dateTime && p.dateTime !== "Unspecified"
       );
-
+      
       // If there are multiple programs with the same date/time, check if they're the same event
       if (sameDateTimePrograms.length > 1) {
         // Check if any of these programs are actually the same event (similar names)
@@ -2062,7 +2117,7 @@ function DashboardOverview3() {
         );
         return program === longestNameProgram;
       }
-
+      
       return (
         index ===
         self.findIndex(
@@ -2072,7 +2127,7 @@ function DashboardOverview3() {
         )
       );
     }
-
+    
     // If this program doesn't have a date or has "Unspecified" date, check if there's a similar program with a valid date
     const hasSimilarWithValidDate = self.some(
       (p) =>
@@ -2084,7 +2139,7 @@ function DashboardOverview3() {
           normalizeProgramName(program.cleanedName)
         )
     );
-
+    
     // Remove programs without dates or with "Unspecified" dates if there's a similar one with a valid date
     return !hasSimilarWithValidDate;
   });
@@ -2203,47 +2258,47 @@ function DashboardOverview3() {
 
   const programFeedback = programNames
     .map((program) => {
-      // Apply filters to program feedback
+    // Apply filters to program feedback
       let feedbacks = mergedFeedbackData.filter(
         (f: any) => f["Which session did you attend?"] === program
       );
-
-      // Apply program filter if selected
+    
+    // Apply program filter if selected
       if (
         feedbackDashboardProgramFilter &&
         feedbackDashboardProgramFilter !== "all"
       ) {
-        if (program !== feedbackDashboardProgramFilter) {
-          return null; // Skip this program if it doesn't match the selected program
-        }
+      if (program !== feedbackDashboardProgramFilter) {
+        return null; // Skip this program if it doesn't match the selected program
       }
-
-      // Apply category filter if selected
+    }
+    
+    // Apply category filter if selected
       if (
         feedbackDashboardCategoryFilter &&
         feedbackDashboardCategoryFilter !== "all"
       ) {
-        const programsInCategory = mergedRSVP
+      const programsInCategory = mergedRSVP
           .filter(
             (r: any) => r.Category?.trim() === feedbackDashboardCategoryFilter
           )
-          .map((r: any) => r["Program Name"]);
-
-        if (!programsInCategory.includes(program)) {
-          return null; // Skip this program if it's not in the selected category
-        }
+        .map((r: any) => r["Program Name"]);
+      
+      if (!programsInCategory.includes(program)) {
+        return null; // Skip this program if it's not in the selected category
       }
-
-      const metrics = {};
+    }
+    
+    const metrics = {};
       feedbackMetrics.forEach((metric) => {
         const values = feedbacks
           .map((f: any) => Number(f[metric.key]))
           .filter((v: number) => !isNaN(v));
         (metrics as Record<string, number | undefined>)[metric.key] =
           average(values);
-      });
-      return {
-        program,
+    });
+    return {
+      program,
         metrics,
       };
     })
@@ -2273,14 +2328,14 @@ function DashboardOverview3() {
   // Get attendance from both CSV data and Neon attendance_records
   const [neonAttendanceData, setNeonAttendanceData] = useState<any[]>([]);
   const [neonEvents, setNeonEvents] = useState<any[]>([]);
-
+  
   // Fetch attendance records and events from Neon
   useEffect(() => {
     const fetchNeonData = async () => {
       try {
         const userEmail = localStorage.getItem("userEmail");
         if (!userEmail) return;
-
+        
         const response = await fetch(
           `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
             userEmail
@@ -2294,19 +2349,19 @@ function DashboardOverview3() {
           );
           return;
         }
-
+        
         const data = await response.json();
         console.log("✅ Company Data Response:", data);
         const apiUrl = "https://juta-dev.ngrok.dev";
         const companyId = data.userData.companyId;
         console.log("🔑 Company ID:", companyId);
-
+        
         // Fetch both attendance records and events from Neon
         const [attendanceResponse, eventsResponse] = await Promise.all([
           fetch(`${apiUrl}/api/attendance-records?company_id=${companyId}`),
           fetch(`${apiUrl}/api/events?company_id=${companyId}`),
         ]);
-
+        
         if (attendanceResponse.ok) {
           const attendanceData = await attendanceResponse.json();
           console.log("✅ Attendance Response:", attendanceData);
@@ -2318,11 +2373,11 @@ function DashboardOverview3() {
             attendanceResponse.statusText
           );
         }
-
+        
         if (eventsResponse.ok) {
-          const eventsData = await eventsResponse.json();
+                      const eventsData = await eventsResponse.json();
           console.log("✅ Events Response:", eventsData);
-          setNeonEvents(eventsData.events || []);
+            setNeonEvents(eventsData.events || []);
         } else {
           console.error(
             "❌ Events Response Error:",
@@ -2334,154 +2389,405 @@ function DashboardOverview3() {
         console.error("Error fetching Neon data:", error);
       }
     };
-
+    
     fetchNeonData();
   }, []);
-
+  
+  // Function to get all participants for a specific event ID (e.g., AI Agent event)
+  const getEventParticipants = (eventId: string) => {
+    if (!participants || !events) return [];
+    
+    const event = events.find((e: any) => e.id === eventId);
+    if (!event) {
+      console.log(`❌ Event not found for ID: ${eventId}`);
+      return [];
+    }
+    
+    console.log(`🔍 Getting participants for event: ${event.name} (${eventId})`);
+    
+    const eventParticipants = participants.filter((p: any) => p.event_id === eventId);
+    console.log(`📊 Found ${eventParticipants.length} participants for event ${eventId}`);
+    
+    const participantData = eventParticipants.map((participant: any) => {
+      // Use the enrollee data that's already included in the participants API response
+      const enrolleeName = participant.enrollee_name || participant.name || "Unknown";
+      const enrolleeEmail = participant.enrollee_email || participant.email || "";
+      const enrolleePhone = participant.enrollee_mobile || participant.mobile_number || participant.phone || "";
+      const enrolleeBusinessNature = participant.business_nature || "";
+      const enrolleeOrganisation = participant.organisation || "";
+      
+      return {
+        "Full Name": enrolleeName,
+        Email: enrolleeEmail,
+        Phone: enrolleePhone,
+        "Program Name": event.name,
+        Category: "Neon Event",
+        "RSVP status": "Accepted",
+        "Attendance status": "Accepted",
+        Source: "Neon Database",
+        "Event ID": eventId,
+        "Event Slug": event.slug || "",
+        "Attendance Date": participant.created_at || "",
+        "Business Nature": enrolleeBusinessNature,
+        "Organisation": enrolleeOrganisation,
+      };
+    });
+    
+    console.log(`✅ Processed ${participantData.length} participants for event ${eventId}`);
+    return participantData;
+  };
+  
   // Now merge in Neon enrollee data that's not in the CSV
   const mergedRSVPWithNeon = useMemo(() => {
-    if (!neonAttendanceData || !neonEvents || neonAttendanceData.length === 0) {
+    console.log("📊 Starting Neon enrollee data merge...");
+    console.log("📊 CSV participants count:", mergedRSVP.length);
+    console.log("📊 Neon participants count:", participants?.length || 0);
+    console.log("📊 Neon enrollees count:", enrollees?.length || 0);
+    console.log("📊 Neon events count:", events?.length || 0);
+    
+    // If we have participants and enrollees data, use that instead of attendance data
+    if (participants && enrollees && events && participants.length > 0) {
+      console.log("📊 Using participants table data for Neon integration");
+      
+      // Create a set of existing emails and phones from CSV to avoid duplicates
+      const existingEmails = new Set(
+        mergedRSVP.map((row) => normalizeEmail(row.Email)).filter(Boolean)
+      );
+      const existingPhones = new Set(
+        mergedRSVP.map((row) => normalizePhone(row.Phone)).filter(Boolean)
+      );
+      
+      // Find Neon enrollees that aren't in the CSV
+      const neonOnlyEnrollees: any[] = [];
+      const neonMergedCount = { added: 0, skipped: 0 };
+      
+      // Create a map to track which Neon participants we've already processed
+      const processedNeonParticipants = new Set();
+      
+      // Special handling for AI Agent event - get all participants
+      const aiAgentEventId = 'b392858c-290a-432a-b833-2f7dda988a2f';
+      const aiAgentParticipants = getEventParticipants(aiAgentEventId);
+      
+      if (aiAgentParticipants.length > 0) {
+        console.log(`🎯 Found ${aiAgentParticipants.length} participants for AI Agent event`);
+        
+        aiAgentParticipants.forEach((participant: any) => {
+          const normalizedEmail = normalizeEmail(participant.Email);
+          const normalizedPhone = normalizePhone(participant.Phone);
+          
+          // Create a unique key for this participant
+          const participantKey = `${normalizedEmail || ''}-${normalizedPhone || ''}-${participant["Event ID"]}`;
+          
+          if (processedNeonParticipants.has(participantKey)) {
+            return;
+          }
+          
+          processedNeonParticipants.add(participantKey);
+          
+          // Check if this participant already exists in CSV data
+          const alreadyExists =
+            (normalizedEmail && existingEmails.has(normalizedEmail)) ||
+            (normalizedPhone && existingPhones.has(normalizedPhone));
+          
+          if (!alreadyExists && (normalizedEmail || normalizedPhone)) {
+            neonOnlyEnrollees.push(participant);
+            neonMergedCount.added++;
+            
+            // Add to existing sets to prevent duplicates
+            if (normalizedEmail) existingEmails.add(normalizedEmail);
+            if (normalizedPhone) existingPhones.add(normalizedPhone);
+          }
+        });
+      }
+      
+      // Add other participants from the participants table
+      participants.forEach((participant: any) => {
+        // Skip AI Agent event participants as they're already handled above
+        if (participant.event_id === aiAgentEventId) return;
+        
+        const event = events.find((e: any) => e.id === participant.event_id);
+        if (!event) return;
+        
+        // Use the enrollee data that's already included in the participants API response
+        const participantEmail = participant.enrollee_email || participant.email || "";
+        const participantPhone = participant.enrollee_mobile || participant.mobile_number || "";
+        const participantName = participant.enrollee_name || participant.name || "Unknown";
+        
+        const normalizedEmail = normalizeEmail(participantEmail);
+        const normalizedPhone = normalizePhone(participantPhone);
+        
+        // Create a unique key for this participant
+        const participantKey = `${normalizedEmail || ''}-${normalizedPhone || ''}-${participant.event_id}`;
+        
+        if (processedNeonParticipants.has(participantKey)) {
+          return;
+        }
+        
+        processedNeonParticipants.add(participantKey);
+        
+        // Check if this participant already exists in CSV data
+        const alreadyExists =
+          (normalizedEmail && existingEmails.has(normalizedEmail)) ||
+          (normalizedPhone && existingPhones.has(normalizedPhone));
+        
+        if (!alreadyExists && (normalizedEmail || normalizedPhone)) {
+          // Create a new participant record from Neon participants table
+          const neonParticipant = {
+            "Full Name": participantName,
+            Email: participantEmail,
+            Phone: participantPhone,
+            "Program Name": event.name || "Unknown Program",
+            Category: "Neon Event",
+            "RSVP status": "Accepted",
+            "Attendance status": "Accepted",
+            Source: "Neon Database",
+            "Event ID": participant.event_id,
+            "Event Slug": event.slug || "",
+            "Attendance Date": participant.created_at || "",
+          };
+          
+          neonOnlyEnrollees.push(neonParticipant);
+          neonMergedCount.added++;
+          
+          // Add to existing sets to prevent duplicates
+          if (normalizedEmail) existingEmails.add(normalizedEmail);
+          if (normalizedPhone) existingPhones.add(normalizedPhone);
+        }
+      });
+      
+      console.log("📊 Neon merge results:", neonMergedCount);
+      console.log("📊 Neon-only enrollees added:", neonOnlyEnrollees.length);
+      
+      // Combine CSV data with Neon-only enrollees
+      const finalMergedData = [...mergedRSVP, ...neonOnlyEnrollees];
+      console.log("📊 Final merged participant count:", finalMergedData.length);
+      
+      // Debug: Show breakdown by source
+      const csvCount = finalMergedData.filter(r => !r.Source || r.Source !== "Neon Database").length;
+      const neonCount = finalMergedData.filter(r => r.Source === "Neon Database").length;
+      console.log("📊 Data source breakdown:", { csvCount, neonCount, total: finalMergedData.length });
+      
+      // Debug: Show AI Agent event participants specifically
+      const aiAgentParticipantsFinal = finalMergedData.filter(r => r["Event ID"] === aiAgentEventId);
+      console.log(`🎯 AI Agent Event participants: ${aiAgentParticipantsFinal.length}`);
+      
+      return finalMergedData;
+      
+    } else if (neonAttendanceData && neonEvents && neonAttendanceData.length > 0) {
+      console.log("📊 Using attendance records data for Neon integration");
+      
+      // Create a set of existing emails and phones from CSV to avoid duplicates
+      const existingEmails = new Set(
+        mergedRSVP.map((row) => normalizeEmail(row.Email)).filter(Boolean)
+      );
+      const existingPhones = new Set(
+        mergedRSVP.map((row) => normalizePhone(row.Phone)).filter(Boolean)
+      );
+      
+      // Find Neon enrollees that aren't in the CSV
+      const neonOnlyEnrollees: any[] = [];
+      const neonMergedCount = { added: 0, skipped: 0 };
+      
+      // Create a map to track which Neon participants we've already processed
+      const processedNeonParticipants = new Set();
+      
+      neonAttendanceData.forEach((record: any) => {
+        const event = neonEvents.find((e: any) => e.id === record.event_id);
+        if (!event) return;
+        
+        // Try to find participant info from the record
+        const participantEmail = record.email || record.participant_email || "";
+        const participantPhone = record.phone || record.participant_phone || "";
+        const participantName =
+          record.name || record.participant_name || "Unknown";
+        
+        const normalizedEmail = normalizeEmail(participantEmail);
+        const normalizedPhone = normalizePhone(participantPhone);
+        
+        // Create a unique key for this participant to avoid duplicates
+        const participantKey = `${normalizedEmail || ''}-${normalizedPhone || ''}-${record.event_id}`;
+        
+        if (processedNeonParticipants.has(participantKey)) {
+          neonMergedCount.skipped++;
+          return;
+        }
+        
+        processedNeonParticipants.add(participantKey);
+        
+        // Check if this participant already exists in CSV data
+        const alreadyExists =
+          (normalizedEmail && existingEmails.has(normalizedEmail)) ||
+          (normalizedPhone && existingPhones.has(normalizedPhone));
+        
+        if (!alreadyExists && (normalizedEmail || normalizedPhone)) {
+          // Create a new participant record from Neon data
+          const neonParticipant = {
+            "Full Name": participantName,
+            Email: participantEmail,
+            Phone: participantPhone,
+            "Program Name": event.name || "Unknown Program",
+            Category: "Neon Event", // Default category for Neon-only participants
+            "RSVP status": "Accepted", // They attended, so they were accepted
+            "Attendance status": "Accepted", // They attended
+            Source: "Neon Database",
+            "Event ID": record.event_id,
+            "Event Slug": event.slug || "",
+            "Attendance Date": record.created_at || record.attended_at || "",
+          };
+          
+          neonOnlyEnrollees.push(neonParticipant);
+          neonMergedCount.added++;
+          
+          // Add to existing sets to prevent duplicates
+          if (normalizedEmail) existingEmails.add(normalizedEmail);
+          if (normalizedPhone) existingPhones.add(normalizedPhone);
+        } else {
+          neonMergedCount.skipped++;
+        }
+      });
+      
+      console.log("📊 Neon merge results:", neonMergedCount);
+      console.log("📊 Neon-only enrollees added:", neonOnlyEnrollees.length);
+      
+      // Combine CSV data with Neon-only enrollees
+      const finalMergedData = [...mergedRSVP, ...neonOnlyEnrollees];
+      console.log("📊 Final merged participant count:", finalMergedData.length);
+      
+      return finalMergedData;
+      
+    } else {
       console.log("📊 No Neon data available for merging");
       return mergedRSVP;
     }
-
-    console.log("📊 Starting Neon enrollee data merge...");
-    console.log("📊 CSV participants count:", mergedRSVP.length);
-    console.log("📊 Neon attendance records count:", neonAttendanceData.length);
-    console.log("📊 Neon events count:", neonEvents.length);
-
-    // Create a set of existing emails and phones from CSV to avoid duplicates
-    const existingEmails = new Set(
-      mergedRSVP.map((row) => normalizeEmail(row.Email)).filter(Boolean)
-    );
-    const existingPhones = new Set(
-      mergedRSVP.map((row) => normalizePhone(row.Phone)).filter(Boolean)
-    );
-
-    // Find Neon enrollees that aren't in the CSV
-    const neonOnlyEnrollees: any[] = [];
-    const neonMergedCount = { added: 0, skipped: 0 };
-
-    neonAttendanceData.forEach((record: any) => {
-      const event = neonEvents.find((e: any) => e.id === record.event_id);
-      if (!event) return;
-
-      // Try to find participant info from the record
-      const participantEmail = record.email || record.participant_email || "";
-      const participantPhone = record.phone || record.participant_phone || "";
-      const participantName =
-        record.name || record.participant_name || "Unknown";
-
-      const normalizedEmail = normalizeEmail(participantEmail);
-      const normalizedPhone = normalizePhone(participantPhone);
-
-      // Check if this participant already exists in CSV data
-      const alreadyExists =
-        (normalizedEmail && existingEmails.has(normalizedEmail)) ||
-        (normalizedPhone && existingPhones.has(normalizedPhone));
-
-      if (!alreadyExists && (normalizedEmail || normalizedPhone)) {
-        // Create a new participant record from Neon data
-        const neonParticipant = {
-          "Full Name": participantName,
-          Email: participantEmail,
-          Phone: participantPhone,
-          "Program Name": event.name || "Unknown Program",
-          Category: "Neon Event", // Default category for Neon-only participants
-          "RSVP status": "Accepted", // They attended, so they were accepted
-          "Attendance status": "Accepted", // They attended
-          Source: "Neon Database",
-          "Event ID": record.event_id,
-          "Event Slug": event.slug || "",
-          "Attendance Date": record.created_at || record.attended_at || "",
-        };
-
-        neonOnlyEnrollees.push(neonParticipant);
-        neonMergedCount.added++;
-
-        // Add to existing sets to prevent duplicates
-        if (normalizedEmail) existingEmails.add(normalizedEmail);
-        if (normalizedPhone) existingPhones.add(normalizedPhone);
-      } else {
-        neonMergedCount.skipped++;
-      }
-    });
-
-    console.log("📊 Neon merge results:", neonMergedCount);
-    console.log("📊 Neon-only enrollees added:", neonOnlyEnrollees.length);
-
-    // Combine CSV data with Neon-only enrollees
-    const finalMergedData = [...mergedRSVP, ...neonOnlyEnrollees];
-    console.log("📊 Final merged participant count:", finalMergedData.length);
-
-    return finalMergedData;
-  }, [mergedRSVP, neonAttendanceData, neonEvents]);
-
+  }, [mergedRSVP, neonAttendanceData, neonEvents, participants, enrollees, events]);
+  
   // Filter participants by selected program and category
-  const selectedProgramFilteredParticipants = mergedRSVPWithNeon.filter(
-    (r: any) => {
-      let matchesProgram = true;
-
-      if (showAllProgramsInCategory && selectedCategory) {
-        // If "All Programs in Category" is selected, only filter by programs in that category
-        matchesProgram = programsInSelectedCategoryForDashboard.includes(
-          cleanProgramName(r["Program Name"])
-        );
-        // Don't filter by category here - we want to see all categories for these programs
-      } else {
-        // Normal program filtering - check if the participant's program matches any of the selected program names
-        const participantProgramName = cleanProgramName(r["Program Name"]);
-        matchesProgram = selectedProgramNames.includes(participantProgramName);
-      }
-
-      // Only apply category filter when NOT in "All Programs in Category" mode
-      const matchesCategory = showAllProgramsInCategory
-        ? true
-        : !selectedCategory || r.Category === selectedCategory;
-      return matchesProgram && matchesCategory;
+// Filter participants by selected program and category
+const selectedProgramFilteredParticipants = mergedRSVPWithNeon.filter(
+  (r: any) => {
+    let matchesProgram = true;
+    
+    if (showAllProgramsInCategory && selectedCategory) {
+      // If "All Programs in Category" is selected, only filter by programs in that category
+      matchesProgram = programsInSelectedCategoryForDashboard.includes(
+        cleanProgramName(r["Program Name"])
+      );
+      // Don't filter by category here - we want to see all categories for these programs
+    } else {
+      // Normal program filtering - check if the participant's program matches any of the selected program names
+      const participantProgramName = cleanProgramName(r["Program Name"]);
+      matchesProgram = selectedProgramNames.includes(participantProgramName);
     }
-  );
+    
+    // Only apply category filter when NOT in "All Programs in Category" mode
+    const matchesCategory = showAllProgramsInCategory
+      ? true
+      : !selectedCategory || r.Category === selectedCategory;
+    
+
+    
+    return matchesProgram && matchesCategory;
+  }
+);
 
   // Log the results after all variables are defined
-  console.log("🎯 Program Selection Results:", {
-    selectedProgram,
-    selectedCleanedName,
-    selectedProgramNames,
-    isCombinedEvent:
-      selectedProgramData?.combinedNames &&
-      selectedProgramData.combinedNames.length > 1,
-    combinedNames: selectedProgramData?.combinedNames,
-    totalParticipants: selectedProgramFilteredParticipants.length,
-    totalFeedback: feedbackForSelected.length,
+// Log the results after all variables are defined
+console.log("🎯 Program Selection Results:", {
+  selectedProgram,
+  selectedCleanedName,
+  selectedProgramNames,
+  isCombinedEvent:
+    selectedProgramData?.combinedNames &&
+    selectedProgramData.combinedNames.length > 1,
+  combinedNames: selectedProgramData?.combinedNames,
+  totalParticipants: selectedProgramFilteredParticipants.length,
+  totalFeedback: feedbackForSelected.length,
+});
+
+// Add detailed logging for program filtering
+if (selectedProgram !== -1 && selectedProgramData) {
+  console.log("🔍 DETAILED PROGRAM FILTERING ANALYSIS:", {
+    selectedProgram: selectedProgramData.name,
+    selectedCleanedName: selectedCleanedName,
+    selectedProgramNames: selectedProgramNames,
+    totalAvailableParticipants: mergedRSVPWithNeon.length,
+    filteredParticipantsCount: selectedProgramFilteredParticipants.length,
+    filteredOutCount: mergedRSVPWithNeon.length - selectedProgramFilteredParticipants.length,
+    filteringRatio: ((selectedProgramFilteredParticipants.length / mergedRSVPWithNeon.length) * 100).toFixed(2) + "%"
   });
 
+  // Log sample of filtered participants
+  console.log("✅ FILTERED PARTICIPANTS (Sample):", 
+    selectedProgramFilteredParticipants.slice(0, 5).map(p => ({
+      name: p["Full Name"],
+      email: p.Email,
+      program: p["Program Name"],
+      source: p.Source || "CSV"
+    }))
+  );
+
+  // Log sample of filtered OUT participants
+  const filteredOutParticipants = mergedRSVPWithNeon.filter(p => {
+    const participantProgramName = cleanProgramName(p["Program Name"]);
+    const matchesProgram = selectedProgramNames.includes(participantProgramName);
+    const matchesCategory = !selectedCategory || p.Category === selectedCategory;
+    return !(matchesProgram && matchesCategory);
+  });
+
+  console.log("❌ FILTERED OUT PARTICIPANTS (Sample):", 
+    filteredOutParticipants.slice(0, 5).map(p => ({
+      name: p["Full Name"],
+      email: p.Email,
+      program: p["Program Name"],
+      source: p.Source || "CSV"
+    }))
+  );
+}
+
+  // Registered/attended counts
   // Registered/attended counts
   const registeredCount = selectedProgramFilteredParticipants.length;
-
+  
+// Log the registered count calculation
+if (selectedProgram !== -1 && selectedProgramData) {
+  console.log("📊 REGISTERED COUNT CALCULATION:", {
+    selectedProgram: selectedProgramData.name,
+    totalParticipantsInSystem: mergedRSVPWithNeon.length,
+    participantsAfterProgramFilter: selectedProgramFilteredParticipants.length,
+    participantsAfterCategoryFilter: selectedProgramFilteredParticipants.filter(r => 
+      !selectedCategory || r.Category === selectedCategory
+    ).length,
+    finalRegisteredCount: registeredCount,
+    dataSources: {
+      csvCount: mergedRSVPWithNeon.filter(r => !r.Source || r.Source !== "Neon Database").length,
+      neonCount: mergedRSVPWithNeon.filter(r => r.Source === "Neon Database").length
+    }
+  });
+}
   // Calculate RSVP count (participants with "Accepted" RSVP status)
   const rsvpCount = selectedProgramFilteredParticipants.filter(
     (r: any) => r["RSVP status"] === "Accepted"
   ).length;
-
+  
   // Calculate total attended count from both sources for Participant Overview
   const csvTotalAttended = mergedRSVPWithNeon.filter(
     (r: any) => r["Attendance status"] === "Accepted"
   ).length;
-
+  
   // Create a map for RSVP by email using the merged data
   const rsvpByEmail: { [key: string]: any } = Object.fromEntries(
     mergedRSVPWithNeon.map((row: any) => [normalizeEmail(row.Email), row])
   );
-
+  
   // Join feedback with RSVP using merged data
   const feedbackWithRSVP = mergedFeedbackData.map((feedback: any) => ({
     ...feedback,
     rsvp: rsvpByEmail[normalizeEmail(feedback.Email)],
   }));
-
+  
   const neonTotalAttended = neonAttendanceData.length;
   const totalAttended = csvTotalAttended + neonTotalAttended;
-
+  
   // Log the total attendance calculation
   // console.log('📊 Total Overview Attendance:', {
   //   csvTotalAttended,
@@ -2489,22 +2795,22 @@ function DashboardOverview3() {
   //   totalAttended,
   //   totalRegistered: mergedRSVP.length
   // });
-
+  
   // Calculate total attended count from both sources
   const csvAttendedCount = selectedProgramFilteredParticipants.filter(
     (r: any) => r["Attendance status"] === "Accepted"
   ).length;
-
+  
   // Count Neon attendance records for the selected program
   let neonAttendedCount = 0;
-
+  
   if (showAllProgramsInCategory && selectedCategory) {
     // For "All Programs in Category" view, count Neon attendance for all programs in that category
     neonAttendedCount = neonAttendanceData.filter((record: any) => {
       // Find the event that matches this attendance record
       const event = neonEvents.find((e: any) => e.id === record.event_id);
       if (!event) return false;
-
+      
       // Check if this event matches any of the programs in the selected category
       return programsInSelectedCategoryForDashboard.some((programName) => {
         const normalizedEventName = (event.name || "")
@@ -2513,7 +2819,7 @@ function DashboardOverview3() {
         const normalizedProgramName = programName
           .toLowerCase()
           .replace(/[^a-z0-9]/g, " ");
-
+        
         // Check if the event name contains key words from the program name
         const programWords = normalizedProgramName
           .split(" ")
@@ -2521,15 +2827,15 @@ function DashboardOverview3() {
         const eventWords = normalizedEventName
           .split(" ")
           .filter((word: string) => word.length > 2);
-
+        
         // Count how many program words are found in the event name
-        const matchingWords = programWords.filter((word: string) =>
+        const matchingWords = programWords.filter((word: string) => 
           eventWords.some(
             (eventWord: string) =>
               eventWord.includes(word) || word.includes(eventWord)
           )
         );
-
+        
         // Consider it a match if at least 2 key words match
         return matchingWords.length >= 2;
       });
@@ -2540,7 +2846,7 @@ function DashboardOverview3() {
       // Find the event that matches this attendance record
       const event = neonEvents.find((e: any) => e.id === record.event_id);
       if (!event) return false;
-
+      
       // Check if this event matches any of the selected program names
       return selectedProgramNames.some((programName) => {
         const eventName = event.name || "";
@@ -2550,36 +2856,36 @@ function DashboardOverview3() {
         const normalizedProgramName = programName
           .toLowerCase()
           .replace(/[^a-z0-9]/g, " ");
-
-        // Check if the event name contains key words from the program name
+      
+      // Check if the event name contains key words from the program name
         const programWords = normalizedProgramName
           .split(" ")
           .filter((word: string) => word.length > 2);
         const eventWords = normalizedEventName
           .split(" ")
           .filter((word: string) => word.length > 2);
-
-        // Count how many program words are found in the event name
-        const matchingWords = programWords.filter((word: string) =>
+      
+      // Count how many program words are found in the event name
+      const matchingWords = programWords.filter((word: string) => 
           eventWords.some(
             (eventWord: string) =>
               eventWord.includes(word) || word.includes(eventWord)
           )
-        );
-
-        // Consider it a match if at least 2 key words match (to avoid false positives)
-        return matchingWords.length >= 2;
+      );
+      
+      // Consider it a match if at least 2 key words match (to avoid false positives)
+      return matchingWords.length >= 2;
       });
     }).length;
   }
-
+  
   const attendedCount = csvAttendedCount + neonAttendedCount;
-
+  
   // Debug: Check which Neon records match this program
   const matchingNeonRecords = neonAttendanceData.filter((record: any) => {
     const event = neonEvents.find((e: any) => e.id === record.event_id);
     if (!event) return false;
-
+    
     const eventName = event.name || "";
     const normalizedEventName = eventName
       .toLowerCase()
@@ -2594,17 +2900,17 @@ function DashboardOverview3() {
     const eventWords = normalizedEventName
       .split(" ")
       .filter((word: string) => word.length > 2);
-
-    const matchingWords = programWords.filter((word: string) =>
+    
+    const matchingWords = programWords.filter((word: string) => 
       eventWords.some(
         (eventWord: string) =>
           eventWord.includes(word) || word.includes(eventWord)
       )
     );
-
+    
     return matchingWords.length >= 2;
   });
-
+  
   // Log attendance calculations
   // console.log('📊 Attendance Calculation:', {
   //   selectedProgram: selectedCleanedName,
@@ -2619,7 +2925,7 @@ function DashboardOverview3() {
 
   // Program-specific category breakdown
   const selectedProgramParticipants = selectedProgramFilteredParticipants;
-
+  
   const selectedProgramCategoryCounts: { [key: string]: number } = {};
   selectedProgramParticipants.forEach((r: any) => {
     const cat = (r.Category || "Unspecified").trim();
@@ -2665,13 +2971,13 @@ function DashboardOverview3() {
   ];
 
   // Get programs available for selected category (for participant filters)
-  const programsInSelectedCategory = participantCategoryFilter
+  const programsInSelectedCategory = participantCategoryFilter 
     ? (() => {
         // Debug: Log raw and cleaned program names to identify duplicates
         const rawProgramNames = mergedRSVP
           .filter((row: any) => row["Category"] === participantCategoryFilter)
           .map((row: any) => row["Program Name"]);
-
+        
         const cleanedNames = rawProgramNames.map((name) =>
           cleanProgramName(name)
         );
@@ -2682,13 +2988,13 @@ function DashboardOverview3() {
           rawProgramNames
         );
         console.log("Cleaned program names:", cleanedNames);
-
+        
         // More aggressive deduplication using normalized names
         const normalizedNames = cleanedNames.map((name) =>
           normalizeProgramNameForDedup(name)
         );
         console.log("Normalized names for deduplication:", normalizedNames);
-
+        
         // Debug: Show character-by-character analysis for similar names
         const similarNames = new Map();
         cleanedNames.forEach((name, index) => {
@@ -2702,7 +3008,7 @@ function DashboardOverview3() {
             normalized: normalized,
           });
         });
-
+        
         // Log any names that have multiple variations
         similarNames.forEach((variations, normalized) => {
           if (variations.length > 1) {
@@ -2723,7 +3029,7 @@ function DashboardOverview3() {
             });
           }
         });
-
+        
         // Create a map to keep the most descriptive version of each program
         const programMap = new Map();
         cleanedNames.forEach((cleanedName, index) => {
@@ -2740,14 +3046,14 @@ function DashboardOverview3() {
             }
           }
         });
-
+        
         // Additional merging: Look for programs that are very similar (fuzzy matching)
         const finalPrograms = new Map();
         const programArray = Array.from(programMap.entries());
-
+        
         programArray.forEach(([normalizedName, cleanedName]) => {
           let merged = false;
-
+          
           // Check if this program should be merged with an existing one
           for (const [
             existingNormalized,
@@ -2762,22 +3068,22 @@ function DashboardOverview3() {
               break;
             }
           }
-
+          
           if (!merged) {
             finalPrograms.set(normalizedName, cleanedName);
           }
         });
-
+        
         const uniquePrograms = Array.from(finalPrograms.values())
           .filter(Boolean)
           .map((name) => name.trim())
           .sort();
-
+        
         console.log(
           "Final deduplicated programs after fuzzy merging:",
           uniquePrograms
         );
-
+        
         return uniquePrograms;
       })()
     : [];
@@ -2788,7 +3094,7 @@ function DashboardOverview3() {
     return neonAttendanceData.filter((record: any) => {
       const event = neonEvents.find((e: any) => e.id === record.event_id);
       if (!event) return false;
-
+      
       // Use event slug mapping
       if (
         record.event_slug ===
@@ -2797,7 +3103,7 @@ function DashboardOverview3() {
       ) {
         return true;
       }
-
+      
       // Fallback to name matching
       const eventName = event.name || "";
       const normalizedEventName = eventName
@@ -2813,14 +3119,14 @@ function DashboardOverview3() {
       const eventWords = normalizedEventName
         .split(" ")
         .filter((word: string) => word.length > 2);
-
-      const matchingWords = programWords.filter((word: string) =>
+      
+      const matchingWords = programWords.filter((word: string) => 
         eventWords.some(
           (eventWord: string) =>
             eventWord.includes(word) || word.includes(eventWord)
         )
       );
-
+      
       return matchingWords.length >= 2;
     }).length;
   };
@@ -2851,19 +3157,19 @@ function DashboardOverview3() {
 
   // Cache for program attendance counts
   const programAttendanceCache = new Map<string, number>();
-
+  
   // Helper function to get combined attendance status (CSV + Neon)
   const getCombinedAttendanceStatus = (row: any) => {
     const csvAttendanceStatus = row["Attendance status"];
     const programName = row["Program Name"];
-
+    
     // Always mark "Accepted" as "Attended"
     if (csvAttendanceStatus === "Accepted") {
       // Also update RSVP status to "Accepted" if they attended
       row["RSVP status"] = "Accepted";
       return "Attended";
     }
-
+    
     // Get or calculate Neon attendance count for this program
     let neonAttendanceCount = programAttendanceCache.get(programName);
     if (neonAttendanceCount === undefined) {
@@ -2884,25 +3190,25 @@ function DashboardOverview3() {
           getCombinedEventNeonAttendanceCount(combinedEvent);
       } else {
         // Use single program attendance count
-        neonAttendanceCount = getProgramNeonAttendanceCount(programName);
+      neonAttendanceCount = getProgramNeonAttendanceCount(programName);
       }
 
       programAttendanceCache.set(programName, neonAttendanceCount);
     }
-
+    
     // Get all participants for this program
     const programParticipants = mergedRSVPWithNeon.filter(
       (p) => p["Program Name"] === programName
     );
-
+    
     // Count of "Accepted" participants for this program
     const acceptedCount = programParticipants.filter(
       (p) => p["Attendance status"] === "Accepted"
     ).length;
-
+    
     // Calculate how many more can be marked as "Attended" from Neon data
     const remainingNeonSlots = Math.max(0, neonAttendanceCount - acceptedCount);
-
+    
     if (remainingNeonSlots > 0) {
       // Sort non-accepted participants by priority: Pending > Not Attended > Unknown
       const nonAcceptedParticipants = programParticipants
@@ -2910,22 +3216,22 @@ function DashboardOverview3() {
         .sort((a, b) => {
           const statusA = a["Attendance status"] || "";
           const statusB = b["Attendance status"] || "";
-
+          
           const priority = { Pending: 0, "Not Attended": 1, "": 2 };
           return (
             (priority[statusA as keyof typeof priority] || 3) -
             (priority[statusB as keyof typeof priority] || 3)
           );
         });
-
+      
       // Find this participant's position in the sorted list
       const participantPosition = nonAcceptedParticipants.findIndex(
         (p) =>
-          p["Full Name"] === row["Full Name"] &&
-          p["Email"] === row["Email"] &&
-          p["Phone"] === row["Phone"]
+        p["Full Name"] === row["Full Name"] && 
+        p["Email"] === row["Email"] && 
+        p["Phone"] === row["Phone"]
       );
-
+      
       // If this participant is within the remaining Neon slots, mark as "Attended"
       if (
         participantPosition >= 0 &&
@@ -2936,7 +3242,7 @@ function DashboardOverview3() {
         return "Attended";
       }
     }
-
+    
     // Otherwise, return original status
     if (csvAttendanceStatus === "Not Attended") return "Not Attended";
     if (csvAttendanceStatus === "Pending") return "Pending";
@@ -2946,9 +3252,9 @@ function DashboardOverview3() {
   // Update attended count to match the participants table logic
   const programSpecificAttendedCount =
     selectedProgramFilteredParticipants.filter((participant) => {
-      const status = getCombinedAttendanceStatus(participant);
-      return status === "Attended";
-    }).length;
+    const status = getCombinedAttendanceStatus(participant);
+    return status === "Attended";
+  }).length;
 
   // Filtered data for participants
   const filteredParticipants = mergedRSVPWithNeon.filter((row) => {
@@ -2961,7 +3267,7 @@ function DashboardOverview3() {
       );
       if (!searchMatch) return false;
     }
-
+    
     // Apply program filter
     if (participantProgramFilter) {
       // Special handling for "All Programs in [Category]" option
@@ -2976,7 +3282,7 @@ function DashboardOverview3() {
         return false;
       }
     }
-
+    
     // Apply category filter
     if (
       participantCategoryFilter &&
@@ -2984,7 +3290,7 @@ function DashboardOverview3() {
     ) {
       return false;
     }
-
+    
     // Apply profession filter
     if (
       participantProfessionFilter &&
@@ -2992,7 +3298,7 @@ function DashboardOverview3() {
     ) {
       return false;
     }
-
+    
     // Apply RSVP status filter
     if (
       participantStatusFilter &&
@@ -3000,7 +3306,7 @@ function DashboardOverview3() {
     ) {
       return false;
     }
-
+    
     // Apply attendance status filter using combined logic
     if (participantAttendanceFilter) {
       const combinedStatus = getCombinedAttendanceStatus(row);
@@ -3008,10 +3314,10 @@ function DashboardOverview3() {
         return false;
       }
     }
-
+    
     return true;
   });
-
+  
   // Filtered data for feedback
   const filteredFeedback = mergedFeedbackData.filter((row) => {
     // Apply session filter
@@ -3021,7 +3327,7 @@ function DashboardOverview3() {
     ) {
       return false;
     }
-
+    
     // Apply search filter
     if (feedbackSearch.trim() !== "") {
       const searchMatch = Object.values(row).some((val) =>
@@ -3031,7 +3337,7 @@ function DashboardOverview3() {
       );
       if (!searchMatch) return false;
     }
-
+    
     // Apply date filter (if feedback has a date field)
     if (feedbackDateFilter && row["Timestamp"]) {
       const feedbackDate = new Date(row["Timestamp"]).toLocaleDateString();
@@ -3039,7 +3345,7 @@ function DashboardOverview3() {
         return false;
       }
     }
-
+    
     // Apply rating filter (check if any rating field matches the filter)
     if (feedbackRatingFilter) {
       const hasMatchingRating = feedbackMetrics.some((metric) => {
@@ -3050,7 +3356,7 @@ function DashboardOverview3() {
         return false;
       }
     }
-
+    
     return true;
   });
 
@@ -3149,10 +3455,10 @@ function DashboardOverview3() {
       (a) => a.selected
     ).length;
     const filteredTotalCount = filteredAttendeesToShow.length;
-    return {
-      selectedCount,
-      totalCount,
-      filteredSelectedCount,
+    return { 
+      selectedCount, 
+      totalCount, 
+      filteredSelectedCount, 
       filteredTotalCount,
     };
   };
@@ -3216,15 +3522,15 @@ function DashboardOverview3() {
     console.log(
       `[Dashboard][${requestId}] ===== BULK CERTIFICATE GENERATION STARTED =====`
     );
-
+    
     setConfirmSendOpen(false);
     const attendees = attendeesToShow.filter((a) => a.selected);
-
+    
     if (attendees.length === 0) {
       console.log(`[Dashboard][${requestId}] No attendees selected`);
       return;
     }
-
+    
     console.log(
       `[Dashboard][${requestId}] Processing ${attendees.length} selected attendees`
     );
@@ -3237,7 +3543,7 @@ function DashboardOverview3() {
         status: "pending",
       }))
     );
-
+    
     // Get company ID for API calls
     let companyId;
     try {
@@ -3252,7 +3558,7 @@ function DashboardOverview3() {
       setSendingInProgress(false);
       return;
     }
-
+    
     for (let i = 0; i < attendees.length; i++) {
       const attendee = attendees[i];
       console.log(
@@ -3260,16 +3566,16 @@ function DashboardOverview3() {
           attendees.length
         }: ${attendee["Full Name"]}`
       );
-
+      
       let status = "pending";
       try {
         const name = attendee["Full Name"];
         const phone = attendee["Phone"];
-
+        
         if (!name || !phone) {
           throw new Error("Missing name or phone");
         }
-
+        
         // Call backend API for certificate generation and WhatsApp sending
         const requestPayload = {
           phoneNumber: phone,
@@ -3433,16 +3739,16 @@ function DashboardOverview3() {
     if (!searchQuery.trim()) {
       return attendeesToShow;
     }
-
+    
     const query = searchQuery.toLowerCase().trim();
     return attendeesToShow.filter((attendee) => {
       const fullName = (attendee["Full Name"] || "").toLowerCase();
       const company = (attendee["Company"] || "").toLowerCase();
       const email = (attendee["Email"] || "").toLowerCase();
-
+      
       return (
         fullName.includes(query) ||
-        company.includes(query) ||
+             company.includes(query) || 
         email.includes(query)
       );
     });
@@ -3454,24 +3760,24 @@ function DashboardOverview3() {
     categoryName?: string
   ) => {
     let filteredData = mergedFeedbackData;
-
+    
     if (programName && programName !== "all") {
       filteredData = filteredData.filter(
         (f: any) => f["Which session did you attend?"] === programName
       );
     }
-
+    
     if (categoryName && categoryName !== "all") {
       // Get programs in this category
       const programsInCategory = mergedRSVP
         .filter((r: any) => r.Category?.trim() === categoryName)
         .map((r: any) => r["Program Name"]);
-
-      filteredData = filteredData.filter((f: any) =>
+      
+      filteredData = filteredData.filter((f: any) => 
         programsInCategory.includes(f["Which session did you attend?"])
       );
     }
-
+    
     return filteredData.length;
   };
 
@@ -3538,7 +3844,7 @@ function DashboardOverview3() {
               <div>
                 <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                   Loading Dashboard Data
-                </div>
+              </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   Fetching CSV and Neon database data...
                 </div>
@@ -3594,12 +3900,12 @@ function DashboardOverview3() {
           </div>
         </div>
       )}
-
+      
       {/* Participant Overview */}
       <section className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8 border border-gray-100 dark:border-gray-700">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-4">
+          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-4">
               <svg
                 className="w-6 h-6 text-blue-600 dark:text-blue-400"
                 fill="none"
@@ -3612,8 +3918,8 @@ function DashboardOverview3() {
                   strokeWidth={2}
                   d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                 />
-              </svg>
-            </div>
+            </svg>
+          </div>
             <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
               Participant Overview
             </h2>
@@ -3631,7 +3937,7 @@ function DashboardOverview3() {
             </div>
           </div>
         </div>
-
+        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Total Stats */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-700">
@@ -3656,7 +3962,7 @@ function DashboardOverview3() {
               </div>
             </div>
           </div>
-
+          
           {/* Profession Chart */}
           <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-6 border border-purple-200 dark:border-purple-700">
             <div className="font-semibold mb-4 text-center text-purple-800 dark:text-purple-300">
@@ -3668,7 +3974,7 @@ function DashboardOverview3() {
               colors={chartColors}
             />
           </div>
-
+          
           {/* Program Chart */}
           <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl p-6 border border-emerald-200 dark:border-emerald-700">
             <div className="font-semibold mb-4 text-center text-emerald-800 dark:text-emerald-300">
@@ -3681,7 +3987,7 @@ function DashboardOverview3() {
             />
           </div>
         </div>
-
+        
         {/* Detailed Profession Breakdown */}
         <div className="mt-8">
           <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300 flex items-center">
@@ -3700,7 +4006,7 @@ function DashboardOverview3() {
             </svg>
             Detailed Profession Breakdown
           </h3>
-
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Profession Statistics Table */}
             <div className="bg-white dark:bg-slate-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
@@ -3717,7 +4023,7 @@ function DashboardOverview3() {
                       className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-600 rounded-lg"
                     >
                       <div className="flex items-center space-x-3">
-                        <div
+                        <div 
                           className="w-4 h-4 rounded-full"
                           style={{
                             backgroundColor:
@@ -3742,7 +4048,7 @@ function DashboardOverview3() {
                     </div>
                   ))}
               </div>
-
+              
               {/* Total for professions */}
               <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
                 <div className="flex items-center justify-between">
@@ -3776,7 +4082,7 @@ function DashboardOverview3() {
                       className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-600 rounded-lg"
                     >
                       <div className="flex items-center space-x-3">
-                        <div
+                        <div 
                           className="w-4 h-4 rounded-full"
                           style={{
                             backgroundColor:
@@ -3802,7 +4108,7 @@ function DashboardOverview3() {
                     </div>
                   ))}
               </div>
-
+              
               {/* Total for program types */}
               <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
                 <div className="flex items-center justify-between">
@@ -3823,7 +4129,7 @@ function DashboardOverview3() {
           </div>
         </div>
       </section>
-
+      
       {/* Program-Specific Dashboard */}
       <section className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8 border border-gray-100 dark:border-gray-700">
         <div className="flex items-center mb-6">
@@ -3880,10 +4186,10 @@ function DashboardOverview3() {
                 onClick={() => setProgramDropdownOpen(!programDropdownOpen)}
               >
                 <span className="truncate">
-                  {showAllProgramsInCategory && selectedCategory
+                  {showAllProgramsInCategory && selectedCategory 
                     ? `📊 All Programs in ${selectedCategory} (${programsInSelectedCategoryForDashboard.length} programs)`
-                    : selectedProgram >= 0 && dropdownNames[selectedProgram]
-                    ? dropdownNames[selectedProgram]
+                    : selectedProgram >= 0 && dropdownNames[selectedProgram] 
+                    ? dropdownNames[selectedProgram] 
                     : "Select a program..."}
                 </span>
                 <svg
@@ -3900,33 +4206,33 @@ function DashboardOverview3() {
                   />
                 </svg>
               </button>
-
+              
               {programDropdownOpen && (
                 <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-700 border rounded-md shadow-lg max-h-60 overflow-y-auto">
                   {/* "All Programs in Category" option */}
                   {selectedCategory &&
                     programsInSelectedCategoryForDashboard.length > 0 && (
-                      <button
-                        type="button"
-                        className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-slate-600 border-b border-gray-200 dark:border-gray-600 ${
+                    <button
+                      type="button"
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-slate-600 border-b border-gray-200 dark:border-gray-600 ${
                           showAllProgramsInCategory
                             ? "bg-blue-100 dark:bg-blue-900"
                             : ""
-                        }`}
-                        onClick={() => {
-                          setShowAllProgramsInCategory(true);
-                          setSelectedProgram(-1); // Special value to indicate "All Programs in Category"
-                          setProgramDropdownOpen(false);
-                        }}
-                      >
-                        <div className="whitespace-normal break-words leading-relaxed font-semibold text-blue-600 dark:text-blue-400">
+                      }`}
+                      onClick={() => {
+                        setShowAllProgramsInCategory(true);
+                        setSelectedProgram(-1); // Special value to indicate "All Programs in Category"
+                        setProgramDropdownOpen(false);
+                      }}
+                    >
+                      <div className="whitespace-normal break-words leading-relaxed font-semibold text-blue-600 dark:text-blue-400">
                           📊 All Programs in {selectedCategory} (
                           {programsInSelectedCategoryForDashboard.length}{" "}
                           programs)
-                        </div>
-                      </button>
-                    )}
-
+                      </div>
+                    </button>
+                  )}
+                  
                   {/* Individual program options */}
                   {dropdownNames.map((name, idx) => (
                     <button
@@ -3965,23 +4271,23 @@ function DashboardOverview3() {
                   selectedProgramFilteredParticipants.filter(
                     (row: any) =>
                       cleanProgramName(row["Program Name"]) === programName
-                  );
-
+                );
+                
                 // Calculate attended count from both CSV and Neon
                 const csvAttended = programParticipants.filter(
                   (row: any) => row["Attendance status"] === "Accepted"
                 ).length;
-
+                
                 // Count Neon attendance for this specific program using event names
                 const neonAttended = neonAttendanceData.filter(
                   (record: any) => {
-                    // Find the event that matches this attendance record
+                  // Find the event that matches this attendance record
                     const event = neonEvents.find(
                       (e: any) => e.id === record.event_id
                     );
-                    if (!event) return false;
-
-                    // Match the event name with the program name
+                  if (!event) return false;
+                  
+                  // Match the event name with the program name
                     const eventName = event.name || "";
                     const normalizedEventName = eventName
                       .toLowerCase()
@@ -3989,30 +4295,30 @@ function DashboardOverview3() {
                     const normalizedProgramName = programName
                       .toLowerCase()
                       .replace(/[^a-z0-9]/g, " ");
-
-                    // Check if the event name contains key words from the program name
+                  
+                  // Check if the event name contains key words from the program name
                     const programWords = normalizedProgramName
                       .split(" ")
                       .filter((word: string) => word.length > 2);
                     const eventWords = normalizedEventName
                       .split(" ")
                       .filter((word: string) => word.length > 2);
-
-                    // Count how many program words are found in the event name
-                    const matchingWords = programWords.filter((word: string) =>
+                  
+                  // Count how many program words are found in the event name
+                  const matchingWords = programWords.filter((word: string) => 
                       eventWords.some(
                         (eventWord: string) =>
                           eventWord.includes(word) || word.includes(eventWord)
                       )
-                    );
-
-                    // Consider it a match if at least 2 key words match
-                    return matchingWords.length >= 2;
+                  );
+                  
+                  // Consider it a match if at least 2 key words match
+                  return matchingWords.length >= 2;
                   }
                 ).length;
-
+                
                 const attendedCount = csvAttended + neonAttended;
-
+                
                 // Log the breakdown for debugging
                 console.log(`📊 Program Breakdown - ${programName}:`, {
                   csvAttended,
@@ -4020,7 +4326,7 @@ function DashboardOverview3() {
                   totalAttended: attendedCount,
                   registered: programParticipants.length,
                 });
-
+                
                 return (
                   <div
                     key={programName}
@@ -4037,7 +4343,7 @@ function DashboardOverview3() {
             </div>
           </div>
         )}
-
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Registration Stats */}
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-6 border border-blue-200 dark:border-blue-700">
@@ -4069,8 +4375,8 @@ function DashboardOverview3() {
               </div>
             </div>
           </div>
-          {/* RSVP Stats */}
-          <div className="bg-gradient-to-br from-amber-50 to-yellow-100 dark:from-amber-900/20 dark:to-yellow-800/20 rounded-lg p-6 border border-amber-200 dark:border-amber-700">
+   {/* RSVP Stats */}
+   <div className="bg-gradient-to-br from-amber-50 to-yellow-100 dark:from-amber-900/20 dark:to-yellow-800/20 rounded-lg p-6 border border-amber-200 dark:border-amber-700">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
@@ -4162,9 +4468,9 @@ function DashboardOverview3() {
                   />
                 </svg>
               </div>
+              </div>
             </div>
           </div>
-        </div>
 
         {/* Profession Breakdown Pie Chart */}
         {selectedProgramFilteredParticipants.length > 0 && (
@@ -4185,7 +4491,7 @@ function DashboardOverview3() {
               </svg>
               Profession Breakdown
             </h3>
-
+            
             {/* Profession Pie Chart */}
             <div className="bg-white dark:bg-slate-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
               <div className="flex justify-center">
@@ -4200,7 +4506,7 @@ function DashboardOverview3() {
                   className="mx-auto"
                 />
               </div>
-
+              
               {/* Legend with counts */}
               <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {selectedProgramProfessions.map((profession, index) => (
@@ -4208,7 +4514,7 @@ function DashboardOverview3() {
                     key={profession.label}
                     className="flex items-center space-x-2"
                   >
-                    <div
+                    <div 
                       className="w-4 h-4 rounded-full"
                       style={{
                         backgroundColor:
@@ -4249,7 +4555,7 @@ function DashboardOverview3() {
               </svg>
               Detailed Breakdown Lists
             </h3>
-
+            
             <div className="grid grid-cols-1 gap-8">
               {/* Profession Statistics Table */}
               <div className="bg-white dark:bg-slate-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
@@ -4266,7 +4572,7 @@ function DashboardOverview3() {
                         className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-600 rounded-lg"
                       >
                         <div className="flex items-center space-x-3">
-                          <div
+                          <div 
                             className="w-4 h-4 rounded-full"
                             style={{
                               backgroundColor:
@@ -4293,7 +4599,7 @@ function DashboardOverview3() {
                       </div>
                     ))}
                 </div>
-
+                
                 {/* Total for professions */}
                 <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
                   <div className="flex items-center justify-between">
@@ -4366,7 +4672,7 @@ function DashboardOverview3() {
               ))}
             </select>
           </div>
-
+          
           <div className="flex flex-col">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Filter by Category
@@ -4461,7 +4767,7 @@ function DashboardOverview3() {
                 (Percentage)
               </div>
             </div>
-
+            
             {/* Total Responses Card */}
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4 border border-green-200 dark:border-green-700 hover:shadow-md transition-shadow">
               <div className="text-sm font-medium text-center text-green-700 dark:text-green-300 mb-2">
@@ -4533,17 +4839,17 @@ function DashboardOverview3() {
                               number | undefined
                             >
                           )[metric.key]
-                        : 0;
+                      : 0;
                     return sum + (value || 0);
                   }, 0);
-
+                  
                   // Calculate percentage (max score is 5 * number of metrics)
                   const maxPossibleScore = feedbackMetrics.length * 5;
                   const percentage =
                     maxPossibleScore > 0
                       ? (totalScore / maxPossibleScore) * 100
                       : 0;
-
+                  
                   return (
                     <tr
                       key={program.program}
@@ -4583,7 +4889,7 @@ function DashboardOverview3() {
                               f["Which session did you attend?"] ===
                               program.program
                           );
-
+                          
                           // Apply category filter if selected
                           if (
                             feedbackDashboardCategoryFilter &&
@@ -4596,12 +4902,12 @@ function DashboardOverview3() {
                                   feedbackDashboardCategoryFilter
                               )
                               .map((r: any) => r["Program Name"]);
-
+                            
                             if (!programsInCategory.includes(program.program)) {
                               return 0; // Return 0 if program is not in selected category
                             }
                           }
-
+                          
                           return programFeedbacks.length;
                         })()}
                       </td>
@@ -4612,7 +4918,7 @@ function DashboardOverview3() {
             </table>
           </div>
         </div>
-
+        
         {/* Category-Level Scores */}
         <div className="mt-8">
           <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300 flex items-center">
@@ -4670,15 +4976,15 @@ function DashboardOverview3() {
 
                   // Group feedback by category based on program name
                   const feedbackByCategory: { [category: string]: any[] } = {};
-
+                  
                   // Get filtered feedback data based on current filters
                   const filteredFeedbackData = getFilteredFeedbackData();
-
+                  
                   filteredFeedbackData.forEach((feedback: any) => {
                     const feedbackProgram =
                       feedback["Which session did you attend?"];
                     let category = "Unspecified";
-
+                    
                     // Try to find matching program
                     if (feedbackProgram) {
                       // First try exact match
@@ -4702,7 +5008,7 @@ function DashboardOverview3() {
                         }
                       }
                     }
-
+                    
                     if (!feedbackByCategory[category]) {
                       feedbackByCategory[category] = [];
                     }
@@ -4735,14 +5041,14 @@ function DashboardOverview3() {
                     const totalScore = feedbackMetrics.reduce((sum, metric) => {
                       return sum + (categoryMetrics[metric.key] || 0);
                     }, 0);
-
+                    
                     // Calculate percentage (max score is 5 * number of metrics)
                     const maxPossibleScore = feedbackMetrics.length * 5;
                     const percentage =
                       maxPossibleScore > 0
                         ? (totalScore / maxPossibleScore) * 100
                         : 0;
-
+                    
                     return (
                       <tr
                         key={category}
@@ -4800,7 +5106,7 @@ function DashboardOverview3() {
             Registered Participants
           </h2>
         </div>
-
+        
         {/* Enhanced Filters */}
         <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Search Filter */}
@@ -4816,7 +5122,7 @@ function DashboardOverview3() {
               onChange={(e) => setParticipantSearch(e.target.value)}
             />
           </div>
-
+          
           {/* Program Filter */}
           <div className="flex flex-col gap-2">
             <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">
@@ -4835,8 +5141,8 @@ function DashboardOverview3() {
                   >
                     All Programs in {participantCategoryFilter} (
                     {programsInSelectedCategory.length} programs)
-                  </option>
-                )}
+                </option>
+              )}
               {dropdownNames.map((programName, idx) => (
                 <option
                   value={finalSortedPrograms[idx]?.cleanedName || ""}
@@ -4847,7 +5153,7 @@ function DashboardOverview3() {
               ))}
             </select>
           </div>
-
+          
           {/* Category Filter */}
           <div className="flex flex-col gap-2">
             <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">
@@ -4870,7 +5176,7 @@ function DashboardOverview3() {
               ))}
             </select>
           </div>
-
+          
           {/* Profession Filter */}
           <div className="flex flex-col gap-2">
             <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">
@@ -4895,7 +5201,7 @@ function DashboardOverview3() {
               ))}
             </select>
           </div>
-
+          
           {/* RSVP Status Filter */}
           <div className="flex flex-col gap-2">
             <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">
@@ -4920,7 +5226,7 @@ function DashboardOverview3() {
               ))}
             </select>
           </div>
-
+          
           {/* Attendance Status Filter */}
           <div className="flex flex-col gap-2">
             <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">
@@ -4942,25 +5248,25 @@ function DashboardOverview3() {
                 return Array.from(allStatuses)
                   .sort()
                   .map((status) => {
-                    let displayLabel = status;
-                    if (status === "Attended") {
-                      displayLabel = "Attended";
-                    } else if (status === "Not Attended") {
-                      displayLabel = "Not Attended";
-                    } else if (status === "Pending") {
-                      displayLabel = "Pending";
-                    }
-                    return (
+                  let displayLabel = status;
+                  if (status === "Attended") {
+                    displayLabel = "Attended";
+                  } else if (status === "Not Attended") {
+                    displayLabel = "Not Attended";
+                  } else if (status === "Pending") {
+                    displayLabel = "Pending";
+                  }
+                  return (
                       <option value={status} key={status}>
                         {displayLabel}
                       </option>
-                    );
-                  });
+                  );
+                });
               })()}
             </select>
           </div>
         </div>
-
+        
         {/* Clear Filters Button */}
         <div className="mb-4">
           <button
@@ -4983,11 +5289,11 @@ function DashboardOverview3() {
             participants
             {participantProgramFilter.startsWith("all_in_category_") &&
               participantCategoryFilter && (
-                <span className="ml-2 text-blue-600 dark:text-blue-400">
+              <span className="ml-2 text-blue-600 dark:text-blue-400">
                   (across {programsInSelectedCategory.length} programs in{" "}
                   {participantCategoryFilter})
-                </span>
-              )}
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             <button
@@ -5014,36 +5320,36 @@ function DashboardOverview3() {
             </button>
           </div>
         </div>
-
+        
         {/* Show program breakdown when "All Programs in Category" is selected */}
         {participantProgramFilter.startsWith("all_in_category_") &&
           participantCategoryFilter && (
-            <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">
-                Program Breakdown in {participantCategoryFilter}
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {programsInSelectedCategory.map((programName) => {
-                  const programParticipants = filteredParticipants.filter(
+          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">
+              Program Breakdown in {participantCategoryFilter}
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {programsInSelectedCategory.map((programName) => {
+                const programParticipants = filteredParticipants.filter(
                     (row: any) =>
                       cleanProgramName(row["Program Name"]) === programName
-                  );
-
-                  // Calculate attended count from both CSV and Neon
-                  const csvAttended = programParticipants.filter(
-                    (row: any) => row["Attendance status"] === "Accepted"
-                  ).length;
-
-                  // Count Neon attendance for this specific program
+                );
+                
+                // Calculate attended count from both CSV and Neon
+                const csvAttended = programParticipants.filter(
+                  (row: any) => row["Attendance status"] === "Accepted"
+                ).length;
+                
+                // Count Neon attendance for this specific program
                   const neonAttended = neonAttendanceData.filter(
                     (record: any) => {
-                      // Find the event that matches this attendance record
+                  // Find the event that matches this attendance record
                       const event = neonEvents.find(
                         (e: any) => e.id === record.event_id
                       );
-                      if (!event) return false;
-
-                      // Match the event name with the program name
+                  if (!event) return false;
+                  
+                  // Match the event name with the program name
                       const eventName = event.name || "";
                       const normalizedEventName = eventName
                         .toLowerCase()
@@ -5051,16 +5357,16 @@ function DashboardOverview3() {
                       const normalizedProgramName = programName
                         .toLowerCase()
                         .replace(/[^a-z0-9]/g, " ");
-
-                      // Check if the event name contains key words from the program name
+                  
+                  // Check if the event name contains key words from the program name
                       const programWords = normalizedProgramName
                         .split(" ")
                         .filter((word: string) => word.length > 2);
                       const eventWords = normalizedEventName
                         .split(" ")
                         .filter((word: string) => word.length > 2);
-
-                      // Count how many program words are found in the event name
+                  
+                  // Count how many program words are found in the event name
                       const matchingWords = programWords.filter(
                         (word: string) =>
                           eventWords.some(
@@ -5068,32 +5374,32 @@ function DashboardOverview3() {
                               eventWord.includes(word) ||
                               word.includes(eventWord)
                           )
-                      );
-
-                      // Consider it a match if at least 2 key words match
-                      return matchingWords.length >= 2;
+                  );
+                  
+                  // Consider it a match if at least 2 key words match
+                  return matchingWords.length >= 2;
                     }
                   ).length;
-
-                  const attendedCount = csvAttended + neonAttended;
-
-                  return (
+                
+                const attendedCount = csvAttended + neonAttended;
+                
+                return (
                     <div
                       key={programName}
                       className="bg-white dark:bg-slate-700 p-3 rounded border"
                     >
-                      <div className="font-medium text-sm">{programName}</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                    <div className="font-medium text-sm">{programName}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
                         {programParticipants.length} registered, {attendedCount}{" "}
                         attended
-                      </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
-          )}
-
+          </div>
+        )}
+        
         <div className="overflow-x-auto max-h-96">
           <table className="min-w-full border text-xs">
             <thead>
@@ -5113,19 +5419,19 @@ function DashboardOverview3() {
                 const csvAttendanceStatus = (row as Record<string, any>)[
                   "Attendance status"
                 ];
-
+                
                 // Check if this participant has Neon attendance
                 const hasNeonAttendance = neonAttendanceData.some(
                   (record: any) => {
                     const event = neonEvents.find(
                       (e: any) => e.id === record.event_id
                     );
-                    if (!event) return false;
-
+                  if (!event) return false;
+                  
                     const programName = (row as Record<string, any>)[
                       "Program Name"
                     ];
-                    const cleanedProgramName = cleanProgramName(programName);
+                  const cleanedProgramName = cleanProgramName(programName);
                     const eventName = event.name || "";
                     const normalizedEventName = eventName
                       .toLowerCase()
@@ -5140,18 +5446,18 @@ function DashboardOverview3() {
                     const eventWords = normalizedEventName
                       .split(" ")
                       .filter((word: string) => word.length > 2);
-
-                    const matchingWords = programWords.filter((word: string) =>
+                  
+                  const matchingWords = programWords.filter((word: string) => 
                       eventWords.some(
                         (eventWord: string) =>
                           eventWord.includes(word) || word.includes(eventWord)
                       )
-                    );
-
-                    return matchingWords.length >= 2;
+                  );
+                  
+                  return matchingWords.length >= 2;
                   }
                 );
-
+                
                 return (
                   <tr
                     key={i}
@@ -5189,7 +5495,7 @@ function DashboardOverview3() {
                             ? ""
                             : String((row as Record<string, any>)[key])}
                         </td>
-                      );
+                    );
                     })}
                     <td className="border px-2 py-1">
                       <button
@@ -5213,37 +5519,37 @@ function DashboardOverview3() {
                             alert("Missing name");
                             return;
                           }
-
+                          
                           try {
                             console.log(
                               "Testing PDF generation for:",
                               participantName
                             );
-
+                            
                             // Generate certificate as blob
                             const certificateBlob = (await generateCertificate(
-                              participantName,
+                              participantName, 
                               (row as Record<string, any>)[
                                 "Program Date & Time"
                               ],
                               { returnBlob: true }
                             )) as Blob;
-
+                            
                             if (!certificateBlob) {
                               throw new Error("Failed to generate certificate");
                             }
-
+                            
                             console.log("Test PDF generated:", {
                               size: certificateBlob.size,
                               type: certificateBlob.type,
                               isBlob: certificateBlob instanceof Blob,
                             });
-
+                            
                             // Test the blob by creating a local URL (same as working Chat component)
                             const localUrl =
                               URL.createObjectURL(certificateBlob);
                             console.log("Local PDF URL created:", localUrl);
-
+                            
                             // Test the PDF accessibility first
                             try {
                               const testResponse = await fetch(localUrl);
@@ -5256,14 +5562,14 @@ function DashboardOverview3() {
                               console.log(
                                 "PDF accessibility test successful:",
                                 {
-                                  size: testBlob.size,
+                                size: testBlob.size,
                                   type: testBlob.type,
                                 }
                               );
-
+                              
                               // Open in new tab to test (this should work like the Chat component)
                               window.open(localUrl, "_blank");
-
+                              
                               // Clean up after a delay
                               setTimeout(
                                 () => URL.revokeObjectURL(localUrl),
@@ -5322,12 +5628,12 @@ function DashboardOverview3() {
                           const phone =
                             (row as Record<string, any>)["Phone"] || "";
                           const participantKey = `${participantName}_${phone}`;
-
+                          
                           if (!participantName || !phone) {
                             alert("Missing name or phone number");
                             return;
                           }
-
+                          
                           // Validate phone number format
                           const normalizedPhone = phone.replace(/\D/g, "");
                           if (normalizedPhone.length < 10) {
@@ -5336,7 +5642,7 @@ function DashboardOverview3() {
                             );
                             return;
                           }
-
+                          
                           // Format phone number for WhatsApp API (add @c.us suffix if not present)
                           const formattedPhone = normalizedPhone.includes(
                             "@c.us"
@@ -5350,35 +5656,35 @@ function DashboardOverview3() {
                             normalizedPhone,
                             formattedPhone,
                           });
-
+                          
                           // Prevent multiple clicks
                           if (sendingIndividualCert[participantKey]) return;
-
+                          
                           setSendingIndividualCert((prev) => ({
                             ...prev,
                             [participantKey]: true,
                           }));
-
+                          
                           try {
                             // Generate certificate as blob
                             const certificateBlob = (await generateCertificate(
-                              participantName,
+                              participantName, 
                               (row as Record<string, any>)[
                                 "Program Date & Time"
                               ],
                               { returnBlob: true }
                             )) as Blob;
-
+                            
                             if (!certificateBlob) {
                               throw new Error("Failed to generate certificate");
                             }
-
+                            
                             console.log("Generated certificate blob:", {
                               size: certificateBlob.size,
                               type: certificateBlob.type,
                               isBlob: certificateBlob instanceof Blob,
                             });
-
+                            
                             // Ensure the blob is properly formatted as a PDF
                             let pdfBlob = certificateBlob;
                             if (certificateBlob.type !== "application/pdf") {
@@ -5392,20 +5698,20 @@ function DashboardOverview3() {
                                 size: pdfBlob.size,
                               });
                             }
-
+                            
                             // Upload certificate using the same method as Chat component
                             const fileName = `${participantName}_FUTUREX.AI_2025__Certificate.pdf`;
                             const documentUrl = await uploadFile(
                               pdfBlob,
                               fileName
                             );
-
+                            
                             console.log("Certificate uploaded successfully:", {
                               url: documentUrl,
                               fileName: fileName,
                               originalSize: pdfBlob.size,
                             });
-
+                            
                             // Send thank you message first
                             const thankYouText = `Dear ${participantName}
 
@@ -5423,13 +5729,13 @@ Please find your digital certificate of participation attached.
 
 Warm regards,
 Co9P AI Chatbot`;
-
+                            
                             // Send thank you message
                             await sendTextMessage(formattedPhone, thankYouText);
-
+                            
                             // Send thank you message first
                             await sendTextMessage(formattedPhone, thankYouText);
-
+                            
                             // Send certificate as document using the server URL
                             await sendDocumentMessage(
                               formattedPhone,
@@ -5483,20 +5789,20 @@ Co9P AI Chatbot`;
             </tbody>
           </table>
         </div>
-
+        
         {/* Attendance Summary */}
         <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">
             Attendance Summary
           </h4>
-
+          
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {(() => {
                   // Get base participants (before attendance filtering)
                   let baseParticipants = mergedRSVP;
-
+                  
                   // Apply all filters EXCEPT attendance
                   if (
                     participantProgramFilter &&
@@ -5508,31 +5814,31 @@ Co9P AI Chatbot`;
                         participantProgramFilter
                     );
                   }
-
+                  
                   if (participantCategoryFilter) {
                     baseParticipants = baseParticipants.filter(
                       (row) => row["Category"] === participantCategoryFilter
                     );
                   }
-
+                  
                   if (participantProfessionFilter) {
                     baseParticipants = baseParticipants.filter(
                       (row) => row["Profession"] === participantProfessionFilter
                     );
                   }
-
+                  
                   if (participantStatusFilter) {
                     baseParticipants = baseParticipants.filter(
                       (row) => row["RSVP status"] === participantStatusFilter
                     );
                   }
-
+                  
                   // Count attended
                   const attendedCount = baseParticipants.filter((row) => {
                     const status = getCombinedAttendanceStatus(row);
                     return status === "Attended";
                   }).length;
-
+                  
                   return attendedCount;
                 })()}
               </div>
@@ -5545,7 +5851,7 @@ Co9P AI Chatbot`;
                 {(() => {
                   // Get base participants (before attendance filtering)
                   let baseParticipants = mergedRSVP;
-
+                  
                   // Apply all filters EXCEPT attendance
                   if (
                     participantProgramFilter &&
@@ -5557,31 +5863,31 @@ Co9P AI Chatbot`;
                         participantProgramFilter
                     );
                   }
-
+                  
                   if (participantCategoryFilter) {
                     baseParticipants = baseParticipants.filter(
                       (row) => row["Category"] === participantCategoryFilter
                     );
                   }
-
+                  
                   if (participantProfessionFilter) {
                     baseParticipants = baseParticipants.filter(
                       (row) => row["Profession"] === participantProfessionFilter
                     );
                   }
-
+                  
                   if (participantStatusFilter) {
                     baseParticipants = baseParticipants.filter(
                       (row) => row["RSVP status"] === participantStatusFilter
                     );
                   }
-
+                  
                   // Count not attended
                   const notAttendedCount = baseParticipants.filter((row) => {
                     const status = getCombinedAttendanceStatus(row);
                     return status === "Not Attended";
                   }).length;
-
+                  
                   return notAttendedCount;
                 })()}
               </div>
@@ -5594,7 +5900,7 @@ Co9P AI Chatbot`;
                 {(() => {
                   // Get base participants (before attendance filtering)
                   let baseParticipants = mergedRSVP;
-
+                  
                   // Apply all filters EXCEPT attendance
                   if (
                     participantProgramFilter &&
@@ -5606,31 +5912,31 @@ Co9P AI Chatbot`;
                         participantProgramFilter
                     );
                   }
-
+                  
                   if (participantCategoryFilter) {
                     baseParticipants = baseParticipants.filter(
                       (row) => row["Category"] === participantCategoryFilter
                     );
                   }
-
+                  
                   if (participantProfessionFilter) {
                     baseParticipants = baseParticipants.filter(
                       (row) => row["Profession"] === participantProfessionFilter
                     );
                   }
-
+                  
                   if (participantStatusFilter) {
                     baseParticipants = baseParticipants.filter(
                       (row) => row["RSVP status"] === participantStatusFilter
                     );
                   }
-
+                  
                   // Count pending
                   const pendingCount = baseParticipants.filter((row) => {
                     const status = getCombinedAttendanceStatus(row);
                     return status === "Pending";
                   }).length;
-
+                  
                   return pendingCount;
                 })()}
               </div>
@@ -5641,7 +5947,7 @@ Co9P AI Chatbot`;
                 {(() => {
                   // Get base participants (before attendance filtering)
                   let baseParticipants = mergedRSVP;
-
+                  
                   // Apply all filters EXCEPT attendance
                   if (
                     participantProgramFilter &&
@@ -5653,25 +5959,25 @@ Co9P AI Chatbot`;
                         participantProgramFilter
                     );
                   }
-
+                  
                   if (participantCategoryFilter) {
                     baseParticipants = baseParticipants.filter(
                       (row) => row["Category"] === participantCategoryFilter
                     );
                   }
-
+                  
                   if (participantProfessionFilter) {
                     baseParticipants = baseParticipants.filter(
                       (row) => row["Profession"] === participantProfessionFilter
                     );
                   }
-
+                  
                   if (participantStatusFilter) {
                     baseParticipants = baseParticipants.filter(
                       (row) => row["RSVP status"] === participantStatusFilter
                     );
                   }
-
+                  
                   return baseParticipants.length;
                 })()}
               </div>
@@ -5681,7 +5987,7 @@ Co9P AI Chatbot`;
             </div>
           </div>
         </div>
-
+        
         {/* Program selection dropdown for sending certificates */}
         <div className="mb-4 mt-8 flex flex-col items-start">
           <label className="mb-2 font-semibold">
@@ -5746,7 +6052,7 @@ Co9P AI Chatbot`;
                       return `Selected: ${selectedCount} / ${totalCount} to send`;
                     })()}
                   </div>
-
+                  
                   {/* Select/Deselect All Buttons */}
                   <div className="mb-3 flex justify-center gap-2">
                     <button
@@ -5776,7 +6082,7 @@ Co9P AI Chatbot`;
                         );
                         setAttendeesToSend(
                           attendeesToSend.map((a, i) => ({
-                            ...a,
+                          ...a,
                             selected: visibleAttendeeIds.includes(i)
                               ? true
                               : a.selected,
@@ -5815,7 +6121,7 @@ Co9P AI Chatbot`;
                       Deselect All
                     </button>
                   </div>
-
+                  
                   {/* Search Input */}
                   <div className="mb-3">
                     <div className="relative">
@@ -5861,7 +6167,7 @@ Co9P AI Chatbot`;
                       </div>
                     )}
                   </div>
-
+                  
                   <div className="max-h-64 overflow-y-auto border rounded mb-4">
                     <table className="min-w-full border text-xs">
                       <thead className="bg-gray-100 dark:bg-slate-700">
@@ -5878,9 +6184,9 @@ Co9P AI Chatbot`;
                             className="hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
                           >
                             <td className="border px-2 py-1 text-center">
-                              <input
-                                type="checkbox"
-                                checked={a.selected}
+                              <input 
+                                type="checkbox" 
+                                checked={a.selected} 
                                 onChange={() =>
                                   handleToggleAttendee(
                                     attendeesToSend.indexOf(a)
@@ -6034,7 +6340,7 @@ Co9P AI Chatbot`;
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
             Feedback Responses
           </h2>
-
+     
           {feedbackResponsesLoading && (
             <div className="ml-4 flex items-center text-sm text-blue-600 dark:text-blue-400">
               <svg
@@ -6080,7 +6386,7 @@ Co9P AI Chatbot`;
             </div>
           )}
         </div>
-
+        
         {/* Enhanced Filters */}
         <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Search Filter */}
@@ -6096,7 +6402,7 @@ Co9P AI Chatbot`;
               onChange={(e) => setFeedbackSearch(e.target.value)}
             />
           </div>
-
+          
           {/* Session Filter */}
           <div className="flex flex-col gap-2">
             <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">
@@ -6115,7 +6421,7 @@ Co9P AI Chatbot`;
               ))}
             </select>
           </div>
-
+          
           {/* Date Filter */}
           <div className="flex flex-col gap-2">
             <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">
@@ -6131,10 +6437,10 @@ Co9P AI Chatbot`;
                 new Set(
                   mergedFeedbackData
                     .map((row: any) => {
-                      if (row["Timestamp"]) {
-                        return new Date(row["Timestamp"]).toLocaleDateString();
-                      }
-                      return null;
+                if (row["Timestamp"]) {
+                  return new Date(row["Timestamp"]).toLocaleDateString();
+                }
+                return null;
                     })
                     .filter((date): date is string => date !== null)
                 )
@@ -6145,7 +6451,7 @@ Co9P AI Chatbot`;
               ))}
             </select>
           </div>
-
+          
           {/* Rating Filter */}
           <div className="flex flex-col gap-2">
             <label className="font-semibold text-sm text-gray-700 dark:text-gray-300">
@@ -6165,7 +6471,7 @@ Co9P AI Chatbot`;
             </select>
           </div>
         </div>
-
+        
         {/* Clear Filters Button */}
         <div className="mb-4">
           <button
@@ -6230,8 +6536,8 @@ Co9P AI Chatbot`;
               >
                 Send Certificates to Program
               </button>
-            </div>
           </div>
+        </div>
         </div>
         
         {/* Feedback Responses Table */}
@@ -6609,7 +6915,7 @@ Co9P AI Chatbot`;
           </div>
         </div>
       )}
-    </div>
+      </div>
   );
 }
 
