@@ -718,6 +718,7 @@ function Main() {
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [isEmojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [isImageModalOpen2, setImageModalOpen2] = useState(false);
+  const [isAttachmentModalOpen, setIsAttachmentModalOpen] = useState(false);
   const [pastedImageUrl, setPastedImageUrl] = useState<
     string | string[] | null
   >("");
@@ -13061,108 +13062,31 @@ console.log(data);
               </div>
             )}
             <div className="absolute bottom-0 left-0 right-0 mx-2 mb-2">
-              <div className="flex items-center w-full bg-gray-700/50 dark:bg-gray-800/70 pl-3 pr-3 py-2 rounded-2xl backdrop-blur-xl border border-gray-500/40 dark:border-gray-600/50 shadow-xl shadow-black/20 dark:shadow-black/40">
+                              <div className="flex items-center w-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl pl-3 pr-3 py-2 rounded-3xl border-0 shadow-lg shadow-black/10 dark:shadow-slate-900/20">
                                 <button
-                  className="p-2 m-0 !box hover:bg-gray-600/40 dark:hover:bg-gray-700/60 rounded-lg transition-all duration-200 hover:scale-105 group"
+                  className="p-2 m-0 hover:bg-white/20 dark:hover:bg-slate-700/40 rounded-xl transition-all duration-200 hover:scale-105 group border-0"
                   onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}
                 >
                   <span className="flex items-center justify-center w-5 h-5">
                     <Lucide
                       icon="Smile"
-                      className="w-5 h-5 text-gray-300 dark:text-gray-200 group-hover:text-blue-400 dark:group-hover:text-blue-300 transition-colors duration-200"
+                      className="w-5 h-5 text-slate-700 dark:text-slate-700 group-hover:text-blue-500 dark:group-hover:text-blue-500 transition-colors duration-200"
                     />
                   </span>
                 </button>
-                <Menu as="div" className="relative inline-block text-left p-1">
-                  <div className="flex items-center space-x-1.5">
-                    <Menu.Button
-                      as={Button}
-                      className="p-2 !box m-0 hover:bg-gray-600/40 dark:hover:bg-gray-700/60 rounded-lg transition-all duration-200 hover:scale-105 group"
-                      onClick={handleTagClick}
-                    >
-                      <span className="flex items-center justify-center w-5 h-5">
-                        <Lucide
-                          icon="Paperclip"
-                          className="w-5 h-5 text-gray-300 dark:text-gray-200 group-hover:text-blue-400 dark:group-hover:text-blue-300 transition-colors duration-200"
-                        />
-                      </span>
-                    </Menu.Button>
-                  </div>
-                  <Menu.Items className="absolute left-0 bottom-full mb-1 w-20 bg-white dark:bg-gray-800 shadow-md rounded-md p-1 z-10 max-h-30 overflow-y-auto">
-                    <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-                      <label
-                        htmlFor="imageUpload"
-                        className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full"
-                      >
-                        <Lucide icon="Image" className="w-5 h-5 mr-2" />
-                        Image
-                        <input
-                          type="file"
-                          id="imageUpload"
-                          accept="image/*"
-                          multiple // Add this attribute
-                          className="hidden"
-                          onChange={(e) => {
-                            const files = e.target.files;
-                            if (files && files.length > 0) {
-                              const imageUrls = Array.from(files).map((file) =>
-                                URL.createObjectURL(file)
-                              );
-                              setPastedImageUrl(imageUrls); // Update state type to handle array
-                              setImageModalOpen2(true);
-                            }
-                          }}
-                        />
-                      </label>
-                    </button>
-                    <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-                      <label
-                        htmlFor="videoUpload"
-                        className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full"
-                      >
-                        <Lucide icon="Video" className="w-4 h-4 mr-2" />
-                        Video
-                        <input
-                          type="file"
-                          id="videoUpload"
-                          accept="video/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              setSelectedVideo(file);
-                              setVideoModalOpen(true);
-                            }
-                          }}
-                        />
-                      </label>
-                    </button>
-                    <button className="flex items-center w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-                      <label
-                        htmlFor="documentUpload"
-                        className="flex items-center cursor-pointer text-gray-800 dark:text-gray-200 w-full"
-                      >
-                        <Lucide icon="File" className="w-5 h-5 mr-2" />
-                        Document
-                        <input
-                          type="file"
-                          id="documentUpload"
-                          accept="application/pdf"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              setSelectedDocument(file);
-                              setDocumentModalOpen(true);
-                            }
-                          }}
-                        />
-                      </label>
-                    </button>
-                  </Menu.Items>
-                </Menu>
                 <button
-                  className="p-2 m-0 !box hover:bg-gray-600/40 dark:hover:bg-gray-700/60 rounded-lg transition-all duration-200 hover:scale-105 group"
+                  className="p-2 m-0 hover:bg-white/20 dark:hover:bg-slate-700/40 rounded-xl transition-all duration-200 hover:scale-105 group"
+                  onClick={() => setIsAttachmentModalOpen(true)}
+                >
+                  <span className="flex items-center justify-center w-5 h-5">
+                    <Lucide
+                      icon="Paperclip"
+                      className="w-5 h-5 text-slate-700 dark:text-slate-700 group-hover:text-blue-500 dark:group-hover:text-blue-500 transition-colors duration-200"
+                    />
+                  </span>
+                </button>
+                <button
+                  className="p-2 m-0 hover:bg-white/20 dark:hover:bg-white/20 rounded-xl transition-all duration-200 hover:scale-105 group"
                   onClick={() => {
                     setIsQuickRepliesOpen(true);
                     setQuickReplyFilter("");
@@ -13171,76 +13095,13 @@ console.log(data);
                   <span className="flex items-center justify-center w-5 h-5">
                     <Lucide
                       icon="MessageSquare"
-                      className="w-5 h-5 text-gray-300 dark:text-gray-200 group-hover:text-blue-400 dark:group-hover:text-blue-300 transition-colors duration-200"
+                      className="w-5 h-5 text-slate-700 dark:text-slate-700 group-hover:text-blue-500 dark:group-hover:text-blue-500 transition-colors duration-200"
                     />
                   </span>
                 </button>
                 
       
-                <button
-                  className="p-2 m-0 !box hover:bg-gray-600/40 dark:hover:bg-gray-700/60 rounded-lg transition-all duration-200 hover:scale-105 group"
-                  onClick={toggleRecordingPopup}
-                >
-                  <span className="flex items-center justify-center w-5 h-5">
-                    <Lucide
-                      icon="Mic"
-                      className="w-5 h-5 text-gray-300 dark:text-gray-200 group-hover:text-blue-400 dark:group-hover:text-blue-300 transition-colors duration-200"
-                    />
-                  </span>
-                </button>
-
-                {isRecordingPopupOpen && (
-                  <div className="absolute bottom-full mb-1 left-0 w-32 bg-white dark:bg-gray-800 rounded-md shadow-md p-2">
-                    <div className="flex items-center mb-1">
-                      <button
-                        className={`p-1 rounded-md ${
-                          isRecording
-                            ? "bg-red-500 text-white"
-                            : "bg-primary text-white"
-                        }`}
-                        onClick={toggleRecording}
-                      >
-                        <Lucide
-                          icon={isRecording ? "StopCircle" : "Mic"}
-                          className="w-2.5 h-2.5"
-                        />
-                      </button>
-                      <ReactMicComponent
-                        record={isRecording}
-                        className="w-22 rounded-md h-5 mr-1 ml-1"
-                        onStop={onStop}
-                        strokeColor="#0000CD"
-                        backgroundColor="#FFFFFF"
-                        mimeType="audio/webm"
-                      />
-                    </div>
-                    <div className="flex flex-col space-y-1">
-                      {audioBlob && (
-                        <>
-                          <audio
-                            src={URL.createObjectURL(audioBlob)}
-                            controls
-                            className="w-full h-5 mb-1"
-                          />
-                          <div className="flex justify-between">
-                            <button
-                              className="px-1.5 py-0.5 rounded bg-gray-500 text-white text-xs"
-                              onClick={() => setAudioBlob(null)}
-                            >
-                              Remove
-                            </button>
-                            <button
-                              className="px-1.5 py-0.5 rounded bg-green-700 text-white text-xs"
-                              onClick={sendVoiceMessage}
-                            >
-                              Send
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
+             
                 {userData?.company === "Juta Software" && (
                   <button
                     className="p-2 m-0 !box ml-2"
@@ -13264,7 +13125,7 @@ console.log(data);
                 )}
                 <textarea
                   ref={textareaRef}
-                  className="flex-grow h-8 px-3 py-2 text-sm resize-none overflow-hidden bg-transparent text-gray-100 dark:text-gray-50 placeholder-gray-400 dark:placeholder-gray-500 border-none outline-none focus:outline-none focus:ring-0 focus:border-none"
+                  className="flex-grow h-8 px-3 py-2 text-sm resize-none overflow-hidden bg-transparent dark:bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-none outline-none focus:outline-none focus:ring-0 focus:border-none transition-all duration-200"
                   placeholder={
                     messageMode === "privateNote"
                       ? "Type a private note..."
@@ -13391,7 +13252,70 @@ console.log(data);
                   }}
                   disabled={userRole === "3"}
                 />
+   <button
+                  className="p-2 m-0 hover:bg-white/20 dark:hover:bg-white/20 rounded-xl transition-all duration-200 hover:scale-105 group"
+                  onClick={toggleRecordingPopup}
+                >
+                  <span className="flex items-center justify-center w-5 h-5">
+                    <Lucide
+                      icon="Mic"
+                      className="w-5 h-5 text-slate-700 dark:text-slate-700 group-hover:text-blue-500 dark:group-hover:text-blue-500 transition-colors duration-200"
+                    />
+                  </span>
+                </button>
 
+                {isRecordingPopupOpen && (
+                  <div className="absolute bottom-full mb-1 left-0 w-32 bg-white dark:bg-gray-800 rounded-md shadow-md p-2">
+                    <div className="flex items-center mb-1">
+                      <button
+                        className={`p-1 rounded-md ${
+                          isRecording
+                            ? "bg-red-500 text-white"
+                            : "bg-primary text-white"
+                        }`}
+                        onClick={toggleRecording}
+                      >
+                        <Lucide
+                          icon={isRecording ? "StopCircle" : "Mic"}
+                          className="w-2.5 h-2.5"
+                        />
+                      </button>
+                      <ReactMicComponent
+                        record={isRecording}
+                        className="w-22 rounded-md h-5 mr-1 ml-1"
+                        onStop={onStop}
+                        strokeColor="#0000CD"
+                        backgroundColor="#FFFFFF"
+                        mimeType="audio/webm"
+                      />
+                    </div>
+                    <div className="flex flex-col space-y-1">
+                      {audioBlob && (
+                        <>
+                          <audio
+                            src={URL.createObjectURL(audioBlob)}
+                            controls
+                            className="w-full h-5 mb-1"
+                          />
+                          <div className="flex justify-between">
+                            <button
+                              className="px-1.5 py-0.5 rounded bg-gray-500 text-white text-xs"
+                              onClick={() => setAudioBlob(null)}
+                            >
+                              Remove
+                            </button>
+                            <button
+                              className="px-1.5 py-0.5 rounded bg-green-700 text-white text-xs"
+                              onClick={sendVoiceMessage}
+                            >
+                              Send
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               {isEmojiPickerOpen && (
                 <div className="absolute bottom-20 left-2 z-10">
@@ -16355,6 +16279,132 @@ console.log(data);
                   </div>
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Attachment Modal */}
+      {isAttachmentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsAttachmentModalOpen(false)}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative w-full max-w-md mx-4 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl rounded-3xl border-0 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
+                    <Lucide icon="Paperclip" className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Attach File</h2>
+                    <p className="text-blue-100 text-sm">Choose what you want to attach</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAttachmentModalOpen(false)}
+                  className="p-2 hover:bg-white/20 rounded-xl transition-all duration-200 border border-white/30"
+                >
+                  <Lucide icon="X" className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Attachment Options */}
+            <div className="p-6 space-y-4">
+              <button 
+                className="w-full flex items-center p-4 rounded-xl text-base transition-all duration-200 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 text-slate-800 dark:text-slate-200"
+                onClick={() => {
+                  document.getElementById('imageUpload')?.click();
+                  setIsAttachmentModalOpen(false);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <Lucide icon="Image" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <span className="font-medium">Image</span>
+                </div>
+                <input
+                  type="file"
+                  id="imageUpload"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = e.target.files;
+                    if (files && files.length > 0) {
+                      const imageUrls = Array.from(files).map((file) =>
+                        URL.createObjectURL(file)
+                      );
+                      setPastedImageUrl(imageUrls);
+                      setImageModalOpen2(true);
+                    }
+                  }}
+                />
+              </button>
+
+              <button 
+                className="w-full flex items-center p-4 rounded-xl text-base transition-all duration-200 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 text-slate-800 dark:text-slate-200"
+                onClick={() => {
+                  document.getElementById('videoUpload')?.click();
+                  setIsAttachmentModalOpen(false);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                    <Lucide icon="Video" className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <span className="font-medium">Video</span>
+                </div>
+                <input
+                  type="file"
+                  id="videoUpload"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setSelectedVideo(file);
+                      setVideoModalOpen(true);
+                    }
+                  }}
+                />
+              </button>
+
+              <button 
+                className="w-full flex items-center p-4 rounded-xl text-base transition-all duration-200 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 text-slate-800 dark:text-slate-200"
+                onClick={() => {
+                  document.getElementById('documentUpload')?.click();
+                  setIsAttachmentModalOpen(false);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                    <Lucide icon="File" className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <span className="font-medium">Document</span>
+                </div>
+                <input
+                  type="file"
+                  id="documentUpload"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setSelectedDocument(file);
+                      setDocumentModalOpen(true);
+                    }
+                  }}
+                />
+              </button>
             </div>
           </div>
         </div>
