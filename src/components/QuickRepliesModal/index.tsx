@@ -354,7 +354,7 @@ const QuickRepliesModal: React.FC<QuickRepliesModalProps> = ({
                             {/* Message Text */}
                             {reply.text && (
                               <p
-                                className="text-gray-200 dark:text-gray-300 mb-4 leading-relaxed font-medium"
+                                className="text-gray-900 dark:text-gray-300 mb-4 leading-relaxed font-medium"
                                 style={{
                                   whiteSpace: "pre-wrap",
                                   wordBreak: "break-word",

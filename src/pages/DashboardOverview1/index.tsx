@@ -103,12 +103,14 @@ const SplitTestDashboardCompact = () => {
   const hasData = splitTestData.variationStats.length > 0;
 
   return (
-    <div className="h-full">
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="p-1 bg-purple-100 dark:bg-purple-800 rounded-lg">
-              <div className="text-base">🧪</div>
+    <div className="h-full relative">
+      <div className="p-6 relative z-10">
+        {/* Enhanced glassmorphic inner glow */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 dark:from-gray-700/20 dark:via-transparent dark:to-gray-700/10 rounded-3xl"></div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-purple-500/20 to-indigo-600/20 dark:from-purple-400/30 dark:to-indigo-500/30 rounded-xl border border-purple-200/30 dark:border-purple-500/30">
+              <div className="text-lg">🧪</div>
             </div>
             <div>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Split Test Performance</h3>
@@ -116,18 +118,18 @@ const SplitTestDashboardCompact = () => {
             </div>
           </div>
           <Link to="/split-test">
-            <Button variant="outline-primary" className="px-2 py-1 text-xs">
+            <Button variant="outline-primary" className="px-3 py-1.5 text-xs rounded-lg hover:shadow-md transition-all duration-200">
               Manage Tests →
             </Button>
           </Link>
         </div>
 
         {!hasData ? (
-          <div className="text-center py-3">
-            <div className="text-gray-400 text-lg mb-2">🚀</div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">No split tests yet</p>
+          <div className="text-center py-6">
+            <div className="text-gray-400 text-2xl mb-3">🚀</div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No split tests yet</p>
             <Link to="/split-test">
-              <Button variant="primary" className="px-3 py-1 text-xs">
+              <Button variant="primary" className="px-4 py-2 text-sm rounded-lg hover:shadow-md transition-all duration-200">
                 Create First Test
               </Button>
             </Link>
@@ -135,29 +137,35 @@ const SplitTestDashboardCompact = () => {
         ) : (
           <div>
             {/* Compact metrics */}
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              <div className="text-center bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2">
-                <div className="text-base font-bold text-blue-600 dark:text-blue-400">{splitTestData.totalCustomers}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Total</div>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="text-center backdrop-blur-md bg-gradient-to-br from-blue-500/20 to-blue-600/20 dark:from-blue-400/30 dark:to-blue-500/30 rounded-2xl p-3 border border-blue-300/40 dark:border-blue-400/40 hover:bg-blue-500/25 dark:hover:bg-blue-400/35 transition-all duration-300 hover:scale-105 shadow-lg relative overflow-hidden group">
+                {/* Inner glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 via-transparent to-blue-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="text-lg font-bold text-blue-700 dark:text-blue-300 relative z-10">{splitTestData.totalCustomers}</div>
+                <div className="text-xs font-medium text-blue-600 dark:text-blue-400 relative z-10">Total</div>
               </div>
-              <div className="text-center bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
-                <div className="text-base font-bold text-green-600 dark:text-green-400">{splitTestData.closedCustomers}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Closed</div>
+              <div className="text-center backdrop-blur-md bg-gradient-to-br from-green-500/20 to-green-600/20 dark:from-green-400/30 dark:to-green-500/30 rounded-2xl p-3 border border-green-300/40 dark:border-green-400/40 hover:bg-green-500/25 dark:hover:bg-green-400/35 transition-all duration-300 hover:scale-105 shadow-lg relative overflow-hidden group">
+                {/* Inner glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-green-400/20 via-transparent to-green-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="text-lg font-bold text-green-700 dark:text-green-300 relative z-10">{splitTestData.closedCustomers}</div>
+                <div className="text-xs font-medium text-green-600 dark:text-green-400 relative z-10">Closed</div>
               </div>
-              <div className="text-center bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2">
-                <div className="text-base font-bold text-purple-600 dark:text-purple-400">
+              <div className="text-center backdrop-blur-md bg-gradient-to-br from-purple-500/20 to-purple-600/20 dark:from-purple-400/30 dark:to-purple-500/30 rounded-2xl p-3 border border-purple-300/40 dark:border-purple-400/40 hover:bg-purple-500/25 dark:hover:bg-purple-400/35 transition-all duration-300 hover:scale-105 shadow-lg relative overflow-hidden group">
+                {/* Inner glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 via-transparent to-purple-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="text-lg font-bold text-purple-700 dark:text-purple-300 relative z-10">
                   {splitTestData.totalCustomers > 0 
                     ? ((splitTestData.closedCustomers / splitTestData.totalCustomers) * 100).toFixed(1)
                     : '0'
                   }%
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Rate</div>
+                <div className="text-xs font-medium text-purple-600 dark:text-purple-400 relative z-10">Rate</div>
               </div>
             </div>
 
             {/* Performance ranking */}
-            <div className="space-y-1.5">
-              <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Performance Ranking:</div>
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">Performance Ranking:</div>
               
               {/* Show active variations first, sorted by performance */}
               {splitTestData.variationStats
@@ -168,14 +176,20 @@ const SplitTestDashboardCompact = () => {
                   const isWorst = index === splitTestData.variationStats.filter(v => v.isActive).length - 1 && splitTestData.variationStats.filter(v => v.isActive).length > 1;
                   
                   return (
-                    <div key={index} className={`flex items-center justify-between text-xs rounded px-2 py-1.5 ${
-                      isTop ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700' :
-                      isWorst ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700' :
-                      'bg-gray-50 dark:bg-gray-700'
+                    <div key={index} className={`flex items-center justify-between text-xs rounded-2xl px-3 py-2 backdrop-blur-md transition-all duration-300 hover:scale-105 shadow-lg relative overflow-hidden group ${
+                      isTop ? 'bg-gradient-to-r from-green-500/20 to-green-600/20 dark:from-green-400/30 dark:to-green-500/30 border border-green-300/40 dark:border-green-400/40 hover:bg-green-500/25 dark:hover:bg-green-400/35' :
+                      isWorst ? 'bg-gradient-to-r from-red-500/20 to-red-600/20 dark:from-red-400/30 dark:to-red-500/30 border border-red-300/40 dark:border-red-400/40 hover:bg-red-500/25 dark:hover:bg-red-400/35' :
+                      'bg-gradient-to-r from-gray-500/20 to-gray-600/20 dark:from-gray-400/30 dark:to-gray-500/30 border border-gray-300/40 dark:border-gray-400/40 hover:bg-gray-500/25 dark:hover:bg-gray-400/35'
                     }`}>
-                      <div className="flex items-center gap-1.5">
-                        <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                          isTop ? 'bg-yellow-500' : isWorst ? 'bg-red-500' : 'bg-blue-500'
+                      {/* Inner glow effect */}
+                      <div className={`absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${
+                        isTop ? 'bg-gradient-to-r from-green-400/20 via-transparent to-green-500/20' :
+                        isWorst ? 'bg-gradient-to-r from-red-400/20 via-transparent to-red-500/20' :
+                        'bg-gradient-to-r from-gray-400/20 via-transparent to-gray-500/20'
+                      }`}></div>
+                      <div className="flex items-center gap-1.5 relative z-10">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm ${
+                          isTop ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' : isWorst ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gradient-to-br from-blue-500 to-blue-600'
                         }`}>
                           {index + 1}
                         </div>
@@ -185,7 +199,7 @@ const SplitTestDashboardCompact = () => {
                         {isTop && <span className="text-xs">👑</span>}
                         {isWorst && <span className="text-xs">📉</span>}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 relative z-10">
                         <span className="text-gray-600 dark:text-gray-400 text-xs">
                           {variation.closedCustomers}/{variation.totalCustomers}
                         </span>
@@ -202,15 +216,15 @@ const SplitTestDashboardCompact = () => {
               
               {/* Show inactive variations if any */}
               {splitTestData.variationStats.filter(v => !v.isActive).length > 0 && (
-                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+                <div className="mt-3 pt-3 border-t border-gray-200/50 dark:border-gray-600/50">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                     Inactive Variations ({splitTestData.variationStats.filter(v => !v.isActive).length}):
                   </div>
                   {splitTestData.variationStats
                     .filter(v => !v.isActive)
                     .slice(0, 2)
                     .map((variation, index) => (
-                      <div key={`inactive-${index}`} className="flex items-center justify-between text-xs bg-gray-100 dark:bg-gray-600 rounded px-1.5 py-1 mb-1">
+                      <div key={`inactive-${index}`} className="flex items-center justify-between text-xs backdrop-blur-sm bg-gray-500/10 dark:bg-gray-400/20 rounded-lg px-2 py-1.5 mb-1.5 border border-gray-200/30 dark:border-gray-500/30">
                         <span className="text-gray-600 dark:text-gray-300 text-xs">{variation.variationName}</span>
                         <span className="text-gray-500 dark:text-gray-400 text-xs">⚫ Inactive</span>
                       </div>
@@ -220,19 +234,23 @@ const SplitTestDashboardCompact = () => {
               
               {/* Best/Worst summary if multiple active variations */}
               {splitTestData.variationStats.filter(v => v.isActive).length > 1 && (
-                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-                  <div className="grid grid-cols-1 gap-1 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-green-600">🏆</span>
-                      <span className="text-gray-600 dark:text-gray-400 text-xs">
+                <div className="mt-3 pt-3 border-t border-gray-200/50 dark:border-gray-600/50">
+                  <div className="grid grid-cols-1 gap-2 text-xs">
+                    <div className="flex items-center gap-2 p-3 backdrop-blur-md bg-gradient-to-r from-green-500/20 to-green-600/20 dark:from-green-400/30 dark:to-green-500/30 rounded-xl border border-green-300/40 dark:border-green-400/40 hover:bg-green-500/25 dark:hover:bg-green-400/35 transition-all duration-300 hover:scale-105 shadow-lg relative overflow-hidden group">
+                      {/* Inner glow effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 via-transparent to-green-500/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <span className="text-green-600 text-sm relative z-10">🏆</span>
+                      <span className="text-gray-600 dark:text-gray-400 text-xs relative z-10">
                         Best: <strong className="text-green-700 dark:text-green-400">
                           {splitTestData.variationStats.filter(v => v.isActive)[0]?.variationName}
                         </strong>
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-red-600">📈</span>
-                      <span className="text-gray-600 dark:text-gray-400 text-xs">
+                    <div className="flex items-center gap-2 p-3 backdrop-blur-md bg-gradient-to-r from-red-500/20 to-red-600/20 dark:from-red-400/30 dark:to-red-500/30 rounded-xl border border-red-300/40 dark:border-red-400/40 hover:bg-red-500/25 dark:hover:bg-red-400/35 transition-all duration-300 hover:scale-105 shadow-lg relative overflow-hidden group">
+                      {/* Inner glow effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-red-400/20 via-transparent to-red-500/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <span className="text-red-600 text-sm relative z-10">📈</span>
+                      <span className="text-gray-600 dark:text-gray-400 text-xs relative z-10">
                         Needs Work: <strong className="text-red-700 dark:text-red-400">
                           {splitTestData.variationStats.filter(v => v.isActive).slice(-1)[0]?.variationName}
                         </strong>
@@ -242,8 +260,8 @@ const SplitTestDashboardCompact = () => {
                 </div>
               )}
               
-              <div className="text-center mt-2">
-                <Link to="/split-test" className="text-xs text-blue-600 hover:text-blue-800">
+              <div className="text-center mt-4">
+                <Link to="/split-test" className="text-xs text-blue-600 hover:text-blue-800 font-medium hover:underline transition-all duration-200">
                   View All Variations →
                 </Link>
               </div>
@@ -637,11 +655,11 @@ function EmployeeSearch({
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
-          className="w-full pl-10 pr-10 border-gray-300 dark:border-gray-700 focus:border-primary dark:focus:border-primary"
+          className="w-full pl-10 pr-10 border-gray-300 dark:border-gray-700 focus:border-primary dark:focus:border-primary rounded-lg transition-all duration-200"
         />
         {searchQuery && (
           <button 
-            className="absolute right-3 text-gray-400 hover:text-gray-600"
+            className="absolute right-3 text-gray-400 hover:text-gray-600 transition-colors duration-200"
             onClick={() => {
               setSearchQuery("");
               setIsOpen(true);
@@ -652,13 +670,13 @@ function EmployeeSearch({
         )}
       </div>
       {isOpen && (
-        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
+        <div className="absolute z-10 w-full mt-2 backdrop-blur-md bg-white/90 dark:bg-gray-800/90 border border-white/20 dark:border-gray-700/50 rounded-xl shadow-xl max-h-60 overflow-auto">
           {filteredEmployees.length > 0 ? (
             filteredEmployees.map((employee) => (
               <div
                 key={employee.id}
-                className={`p-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center ${
-                  employee.id === currentUser?.id ? 'bg-blue-50 dark:bg-blue-900' : ''
+                className={`p-3 hover:bg-gray-100/80 dark:hover:bg-gray-700/80 cursor-pointer flex items-center rounded-lg transition-all duration-200 ${
+                  employee.id === currentUser?.id ? 'bg-blue-500/20 dark:bg-blue-400/20 border border-blue-200/30 dark:border-blue-500/30' : ''
                 }`}
                 onClick={() => {
                   onSelect(employee);
@@ -666,7 +684,7 @@ function EmployeeSearch({
                   setSearchQuery(employee.name);
                 }}
               >
-                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center mr-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-blue-600 text-white flex items-center justify-center mr-3 shadow-sm">
                   {employee.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
@@ -676,8 +694,9 @@ function EmployeeSearch({
               </div>
             ))
           ) : (
-            <div className="p-3 text-gray-500 dark:text-gray-400 text-center">
-              No employees found
+            <div className="p-4 text-gray-500 dark:text-gray-400 text-center">
+              <div className="text-gray-400 text-lg mb-1">👥</div>
+              <p className="text-sm">No employees found</p>
             </div>
           )}
         </div>
@@ -823,7 +842,12 @@ interface Tag {
           {
             label: 'Monthly Spend',
             data,
-            backgroundColor: '#82ca9d',
+            backgroundColor: 'rgba(34, 197, 94, 0.6)',
+            borderColor: 'rgba(34, 197, 94, 0.8)',
+            borderWidth: 2,
+            borderRadius: 4,
+            hoverBackgroundColor: 'rgba(34, 197, 94, 0.8)',
+            hoverBorderColor: 'rgba(34, 197, 94, 1)'
           },
         ],
       });
@@ -1175,10 +1199,18 @@ interface Tag {
         {
           label: 'Total Assigned Contacts',
           data: last12Months.map(d => d.assignments),
-          borderColor: 'rgb(75, 192, 192)',
-          backgroundColor: 'rgba(75, 192, 192, 0.1)',
-          tension: 0.1,
-          fill: true
+          borderColor: 'rgba(59, 130, 246, 0.8)',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderWidth: 3,
+          tension: 0.4,
+          fill: true,
+          pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointHoverBackgroundColor: 'rgba(59, 130, 246, 1)',
+          pointHoverBorderColor: '#ffffff'
         }
       ]
     };
@@ -1195,10 +1227,21 @@ interface Tag {
             display: true,
             text: 'Total Assigned Contacts',
             color: 'rgb(75, 85, 99)',
+            font: {
+              weight: 'bold',
+              size: 12
+            }
+          },
+          grid: {
+            color: 'rgba(107, 114, 128, 0.1)',
+            lineWidth: 0.5
           },
           ticks: {
             color: 'rgb(107, 114, 128)',
             stepSize: 1,
+            font: {
+              size: 11
+            }
           },
         },
         x: {
@@ -1206,9 +1249,20 @@ interface Tag {
             display: true,
             text: 'Month',
             color: 'rgb(75, 85, 99)',
+            font: {
+              weight: 'bold',
+              size: 12
+            }
+          },
+          grid: {
+            color: 'rgba(107, 114, 128, 0.1)',
+            lineWidth: 0.5
           },
           ticks: {
             color: 'rgb(107, 114, 128)',
+            font: {
+              size: 11
+            }
           },
         },
       },
@@ -1216,10 +1270,26 @@ interface Tag {
         legend: {
           display: true,
           position: 'top' as const,
+          labels: {
+            usePointStyle: true,
+            padding: 15,
+            font: {
+              size: 12
+            }
+          }
         },
         tooltip: {
           mode: 'index' as const,
           intersect: false,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 8,
+          cornerRadius: 6,
+          titleFont: {
+            size: 12
+          },
+          bodyFont: {
+            size: 11
+          },
           callbacks: {
             label: function(context: any) {
               return `Total Assigned: ${context.parsed.y}`;
@@ -1230,6 +1300,10 @@ interface Tag {
           display: true,
           text: `Contact Assignment History - ${selectedEmployee?.name || 'Employee'}`,
           color: 'rgb(31, 41, 55)',
+          font: {
+            size: 14,
+            weight: 'bold'
+          }
         },
       },
     } as const;
@@ -1728,9 +1802,13 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       datasets: [{
         label: 'Total Contacts',
         data: contactsOverTime.map(d => d.count),
-        backgroundColor: 'rgba(75, 192, 192, 0.6)',
-        borderColor: 'rgba(75, 192, 192, 1)',
-        borderWidth: 1
+        backgroundColor: 'rgba(59, 130, 246, 0.3)',
+        borderColor: 'rgba(59, 130, 246, 0.8)',
+        borderWidth: 2,
+        borderRadius: 4,
+        borderSkipped: false,
+        hoverBackgroundColor: 'rgba(59, 130, 246, 0.5)',
+        hoverBorderColor: 'rgba(59, 130, 246, 1)'
       }]
     };
   }, [contactsOverTime]);
@@ -1747,10 +1825,21 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
             display: true,
             text: 'Number of Contacts',
             color: 'rgb(75, 85, 99)',
+            font: {
+              weight: 'bold',
+              size: 12
+            }
+          },
+          grid: {
+            color: 'rgba(107, 114, 128, 0.1)',
+            lineWidth: 0.5
           },
           ticks: {
             color: 'rgb(107, 114, 128)',
             stepSize: Math.max(1, Math.ceil(Math.max(...contactsOverTime.map(d => d.count)) / 10)),
+            font: {
+              size: 11
+            }
           },
         },
         x: {
@@ -1759,6 +1848,14 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
             text: contactsTimeFilter === 'today' ? 'Hour' : 
                   contactsTimeFilter === 'all' ? 'Month' : 'Date',
             color: 'rgb(75, 85, 99)',
+            font: {
+              weight: 'bold',
+              size: 12
+            }
+          },
+          grid: {
+            color: 'rgba(107, 114, 128, 0.1)',
+            lineWidth: 0.5
           },
           ticks: {
             color: 'rgb(107, 114, 128)',
@@ -1766,7 +1863,10 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                           contactsTimeFilter === 'all' ? undefined : 10,
             autoSkip: true,
             maxRotation: 45,
-            minRotation: 45
+            minRotation: 45,
+            font: {
+              size: 11
+            }
           },
         },
       },
@@ -1774,11 +1874,15 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
         legend: {
           display: false,
         },
-        title: {
-          display: true,
-          text: 'Total Contacts Over Time',
-          color: 'rgb(31, 41, 55)',
-        },
+                  title: {
+            display: true,
+            text: 'Total Contacts Over Time',
+            color: 'rgb(31, 41, 55)',
+            font: {
+              size: 14,
+              weight: 'bold'
+            }
+          },
       },
       barPercentage: 0.9,
       categoryPercentage: 0.9,
@@ -1872,9 +1976,13 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       datasets: [{
         label: 'Closed Contacts',
         data: data,
-        backgroundColor: 'rgba(75, 192, 192, 0.6)',
-        borderColor: 'rgba(75, 192, 192, 1)',
-        borderWidth: 1
+        backgroundColor: 'rgba(34, 197, 94, 0.4)',
+        borderColor: 'rgba(34, 197, 94, 0.8)',
+        borderWidth: 2,
+        borderRadius: 6,
+        borderSkipped: false,
+        hoverBackgroundColor: 'rgba(34, 197, 94, 0.6)',
+        hoverBorderColor: 'rgba(34, 197, 94, 1)'
       }]
     };
   }, [employees, closedContactsByEmployee]);
@@ -1890,10 +1998,21 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
             display: true,
             text: 'Number of Closed Contacts',
             color: 'rgb(75, 85, 99)',
+            font: {
+              weight: 'bold',
+              size: 12
+            }
+          },
+          grid: {
+            color: 'rgba(107, 114, 128, 0.1)',
+            lineWidth: 0.5
           },
           ticks: {
             color: 'rgb(107, 114, 128)',
             stepSize: 1,
+            font: {
+              size: 11
+            }
           },
         },
         x: {
@@ -1901,9 +2020,20 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
             display: true,
             text: 'Employees',
             color: 'rgb(75, 85, 99)',
+            font: {
+              weight: 'bold',
+              size: 12
+            }
+          },
+          grid: {
+            color: 'rgba(107, 114, 128, 0.1)',
+            lineWidth: 0.5
           },
           ticks: {
             color: 'rgb(107, 114, 128)',
+            font: {
+              size: 11
+            }
           },
         },
       },
@@ -1915,6 +2045,10 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
           display: true,
           text: 'Closed Contacts by Employee',
           color: 'rgb(31, 41, 55)',
+          font: {
+            size: 14,
+            weight: 'bold'
+          }
         },
       },
     } as const;
@@ -1927,6 +2061,10 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       label: string;
       data: number[];
       backgroundColor: string;
+      borderColor?: string;
+      borderWidth?: number;
+      borderRadius?: number;
+      hoverBackgroundColor?: string;
     }[];
   }>({
     labels: [],
@@ -1966,9 +2104,33 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       setBlastMessageData({
         labels: sortedMonths,
         datasets: [
-          { label: 'Scheduled', data: sortedMonths.map(m => monthlyData[m].scheduled), backgroundColor: 'rgba(54, 162, 235, 0.8)' },
-          { label: 'Completed', data: sortedMonths.map(m => monthlyData[m].completed), backgroundColor: 'rgba(75, 192, 192, 0.8)' },
-          { label: 'Failed', data: sortedMonths.map(m => monthlyData[m].failed), backgroundColor: 'rgba(255, 99, 132, 0.8)' },
+          { 
+            label: 'Scheduled', 
+            data: sortedMonths.map(m => monthlyData[m].scheduled), 
+            backgroundColor: 'rgba(59, 130, 246, 0.6)',
+            borderColor: 'rgba(59, 130, 246, 0.8)',
+            borderWidth: 2,
+            borderRadius: 4,
+            hoverBackgroundColor: 'rgba(59, 130, 246, 0.8)'
+          },
+          { 
+            label: 'Completed', 
+            data: sortedMonths.map(m => monthlyData[m].completed), 
+            backgroundColor: 'rgba(34, 197, 94, 0.6)',
+            borderColor: 'rgba(34, 197, 94, 0.8)',
+            borderWidth: 2,
+            borderRadius: 4,
+            hoverBackgroundColor: 'rgba(34, 197, 94, 0.8)'
+          },
+          { 
+            label: 'Failed', 
+            data: sortedMonths.map(m => monthlyData[m].failed), 
+            backgroundColor: 'rgba(239, 68, 68, 0.6)',
+            borderColor: 'rgba(239, 68, 68, 0.8)',
+            borderWidth: 2,
+            borderRadius: 4,
+            hoverBackgroundColor: 'rgba(239, 68, 68, 0.8)'
+          },
         ],
       });
     } catch (error) {
@@ -3076,45 +3238,45 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
     if (!isOpen) return null;
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl max-h-[80vh] overflow-hidden">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h2 className="text-xl font-semibold">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="backdrop-blur-md bg-white/90 dark:bg-gray-800/90 rounded-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden shadow-2xl border border-white/20 dark:border-gray-700/50">
+          <div className="p-6 border-b border-white/20 dark:border-gray-600/50 flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Contacts for {periodLabel} ({contacts.length} contacts)
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               <Lucide icon="X" className="w-5 h-5" />
             </button>
           </div>
-          <div className="p-4 overflow-auto max-h-[calc(80vh-8rem)]">
+          <div className="p-6 overflow-auto max-h-[calc(80vh-8rem)]">
             <table className="w-full">
               <thead>
-                <tr className="border-b dark:border-gray-700">
-                  <th className="text-left p-2">Name</th>
-                  <th className="text-left p-2">Email</th>
-                  <th className="text-left p-2">Phone</th>
-                  <th className="text-left p-2">Company</th>
-                  <th className="text-left p-2">Date Added</th>
-                  <th className="text-left p-2">Tags</th>
+                <tr className="border-b border-gray-200/50 dark:border-gray-600/50">
+                  <th className="text-left p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Name</th>
+                  <th className="text-left p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Email</th>
+                  <th className="text-left p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Phone</th>
+                  <th className="text-left p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Company</th>
+                  <th className="text-left p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Date Added</th>
+                  <th className="text-left p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Tags</th>
                 </tr>
               </thead>
               <tbody>
                 {contacts.map((contact) => (
-                  <tr key={contact.id} className="border-b dark:border-gray-700">
-                    <td className="p-2">{`${contact.firstName} ${contact.lastName}`}</td>
-                    <td className="p-2">{contact.email || '-'}</td>
-                    <td className="p-2">{contact.phone || '-'}</td>
-                    <td className="p-2">{contact.companyName || '-'}</td>
-                    <td className="p-2">{contact.dateAdded}</td>
-                    <td className="p-2">
-                      <div className="flex flex-wrap gap-1">
+                  <tr key={contact.id} className="border-b border-gray-100/50 dark:border-gray-600/30 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors duration-200">
+                    <td className="p-3 font-medium">{`${contact.firstName} ${contact.lastName}`}</td>
+                    <td className="p-3 text-gray-600 dark:text-gray-400">{contact.email || '-'}</td>
+                    <td className="p-3 text-gray-600 dark:text-gray-400">{contact.phone || '-'}</td>
+                    <td className="p-3 text-gray-600 dark:text-gray-400">{contact.companyName || '-'}</td>
+                    <td className="p-3 text-gray-600 dark:text-gray-400">{contact.dateAdded}</td>
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-1.5">
                         {contact.tags.map((tag, index) => (
                           <span 
                             key={index}
-                            className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                            className="px-2.5 py-1 text-xs rounded-full backdrop-blur-sm bg-blue-500/20 dark:bg-blue-400/30 text-blue-700 dark:text-blue-300 border border-blue-200/30 dark:border-blue-500/30 font-medium"
                           >
                             {tag}
                           </span>
@@ -3150,6 +3312,11 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       label: string;
       data: number[];
       backgroundColor: string;
+      borderColor?: string;
+      borderWidth?: number;
+      borderRadius?: number;
+      hoverBackgroundColor?: string;
+      hoverBorderColor?: string;
     }[];
     dailyData: EmployeeAssignments;
   }>({
@@ -3223,7 +3390,12 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
         datasets: [{
           label: 'Total Assignments',
           data,
-          backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          backgroundColor: 'rgba(147, 51, 234, 0.6)',
+          borderColor: 'rgba(147, 51, 234, 0.8)',
+          borderWidth: 2,
+          borderRadius: 6,
+          hoverBackgroundColor: 'rgba(147, 51, 234, 0.8)',
+          hoverBorderColor: 'rgba(147, 51, 234, 1)'
         }],
         dailyData: employeeAssignments
       });
@@ -3264,9 +3436,9 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       setFilter: setContactsTimeFilter,
       // Add the tag filter UI here
       filterControls: (
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <FormSelect
-            className="w-40"
+            className="w-40 rounded-lg border-gray-300 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
             value={contactsTimeFilter}
             onChange={(e) => setContactsTimeFilter(e.target.value as 'today' | '7days' | '1month' | '3months' | 'all')}
           >
@@ -3277,7 +3449,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
             <option value="all">All Time</option>
           </FormSelect>
           <FormSelect
-            className="w-40"
+            className="w-40 rounded-lg border-gray-300 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
             value={selectedTag}
             onChange={(e) => setSelectedTag(e.target.value)}
           >
@@ -3504,12 +3676,42 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                       title: {
                         display: true,
                         text: 'Number of Assignments',
+                        color: 'rgb(75, 85, 99)',
+                        font: {
+                          weight: 'bold',
+                          size: 12
+                        }
+                      },
+                      grid: {
+                        color: 'rgba(107, 114, 128, 0.1)',
+                        lineWidth: 0.5
+                      },
+                      ticks: {
+                        color: 'rgb(107, 114, 128)',
+                        font: {
+                          size: 11
+                        }
                       },
                     },
                     x: {
                       title: {
                         display: true,
                         text: 'Employee',
+                        color: 'rgb(75, 85, 99)',
+                        font: {
+                          weight: 'bold',
+                          size: 12
+                        }
+                      },
+                      grid: {
+                        color: 'rgba(107, 114, 128, 0.1)',
+                        lineWidth: 0.5
+                      },
+                      ticks: {
+                        color: 'rgb(107, 114, 128)',
+                        font: {
+                          size: 11
+                        }
                       },
                     },
                   },
@@ -3517,8 +3719,22 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                     title: {
                       display: true,
                       text: 'Assignments Distribution',
+                      color: 'rgb(31, 41, 55)',
+                      font: {
+                        size: 14,
+                        weight: 'bold'
+                      }
                     },
                     tooltip: {
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      padding: 8,
+                      cornerRadius: 6,
+                      titleFont: {
+                        size: 12
+                      },
+                      bodyFont: {
+                        size: 11
+                      },
                       callbacks: {
                         afterBody: (tooltipItems) => {
                           const employeeId = assignmentsData.labels[tooltipItems[0].dataIndex];
@@ -3538,20 +3754,23 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                 }} 
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                No assignments data available
+              <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
+                <div className="p-3 backdrop-blur-sm bg-gray-500/10 dark:bg-gray-400/20 rounded-xl border border-gray-200/30 dark:border-gray-500/30 mb-3">
+                  <Lucide icon="BarChart3" className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-sm font-medium">No assignments data available</p>
               </div>
             )}
           </div>
           
           {/* Daily breakdown table */}
-          <div className="mt-4 h-[160px] overflow-y-auto">
+          <div className="mt-6 h-[160px] overflow-y-auto">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-white dark:bg-gray-800">
+              <thead className="sticky top-0 backdrop-blur-sm bg-white/90 dark:bg-gray-800/90">
                 <tr>
-                  <th className="text-left p-2">Employee</th>
-                  <th className="text-left p-2">Total</th>
-                  <th className="text-left p-2">Last 5 Days</th>
+                  <th className="text-left p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Employee</th>
+                  <th className="text-left p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Total</th>
+                  <th className="text-left p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Last 5 Days</th>
                 </tr>
               </thead>
               <tbody>
@@ -3560,15 +3779,15 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                   const recentAssignments = employeeData.daily.slice(-5);
                   
                   return (
-                    <tr key={employeeId} className="border-t dark:border-gray-700">
-                      <td className="p-2">{employeeId}</td>
-                      <td className="p-2">{employeeData.total}</td>
-                      <td className="p-2">
+                    <tr key={employeeId} className="border-t border-gray-100/50 dark:border-gray-600/30 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors duration-200">
+                      <td className="p-3 font-medium">{employeeId}</td>
+                      <td className="p-3 text-gray-600 dark:text-gray-400">{employeeData.total}</td>
+                      <td className="p-3">
                         <div className="flex gap-2">
                           {recentAssignments.map(day => (
-                            <div key={day.date} className="text-xs">
-                              <div>{format(new Date(day.date), 'MM/dd')}</div>
-                              <div className="font-semibold">{day.count}</div>
+                            <div key={day.date} className="text-xs p-2 backdrop-blur-sm bg-gray-500/10 dark:bg-gray-400/20 rounded-lg border border-gray-200/30 dark:border-gray-500/30">
+                              <div className="text-gray-500 dark:text-gray-400">{format(new Date(day.date), 'MM/dd')}</div>
+                              <div className="font-bold text-gray-800 dark:text-gray-200">{day.count}</div>
                             </div>
                           ))}
                         </div>
@@ -3700,16 +3919,46 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
 
   return (
-    <div className="flex flex-col w-full h-full overflow-x-hidden overflow-y-auto bg-white dark:bg-gray-900">
+          <div className="flex flex-col w-full h-full overflow-x-hidden overflow-y-auto bg-gradient-to-br from-slate-100/80 via-blue-100/60 to-indigo-200/80 dark:from-gray-900/90 dark:via-gray-800/80 dark:to-gray-700/90 relative">
+        {/* Enhanced background with multiple layers */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-blue-50/30 dark:from-gray-800/40 dark:via-transparent dark:to-gray-700/30"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-100/20 via-transparent to-transparent dark:from-purple-900/20"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-100/20 via-transparent to-transparent dark:from-blue-900/20"></div>
+      <style>{`
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.6s ease-out forwards;
+        }
+      `}</style>
 
-      <div className="container mx-auto px-3 pt-4 pb-4 space-y-4">
+      <div className="container mx-auto px-4 pt-6 pb-6 space-y-6 relative">
+        {/* Enhanced background decorative elements */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-indigo-400/20 to-pink-600/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-cyan-400/15 to-blue-500/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-gradient-to-br from-pink-400/15 to-rose-500/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '3s' }}></div>
+        </div>
         {/* Dashboard Status Indicator - Removed since fallback data is working correctly */}
         
-        {/* KPIs Section - Clean */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* KPIs Section - Glassmorphic and Compact */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {dashboardCards.find(card => card.id === 'kpi')?.content && Array.isArray(dashboardCards.find(card => card.id === 'kpi')?.content) 
             ? (dashboardCards.find(card => card.id === 'kpi')?.content as any[]).map((item: any, index: number) => (
-            <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3">
+            <div key={index} className="backdrop-blur-xl bg-white/40 dark:bg-gray-800/40 rounded-3xl shadow-2xl border border-white/30 dark:border-gray-600/40 p-5 hover:shadow-3xl transition-all duration-500 hover:scale-[1.03] animate-fade-in-up relative overflow-hidden group" style={{ animationDelay: `${index * 100}ms` }}>
+              {/* Glassmorphic inner glow */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 dark:from-gray-700/20 dark:via-transparent dark:to-gray-700/10 rounded-3xl"></div>
+              {/* Subtle border glow */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 dark:from-blue-500/20 dark:via-purple-500/20 dark:to-pink-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-1.5 mb-1.5">
@@ -3733,68 +3982,78 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                   
                   {/* Progress bar for Total Contacts */}
                   {item.label === "Total Contacts" && (
-                    <div className="mt-2">
-                      <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div className="mt-3">
+                      <div className="w-full h-3 bg-gray-200/30 dark:bg-gray-700/30 rounded-full overflow-hidden backdrop-blur-md border border-white/20 dark:border-gray-600/20 relative">
+                        {/* Progress bar glow effect */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/10 rounded-full"></div>
                         <div 
-                          className={`h-1.5 rounded-full transition-all duration-500 ${
+                          className={`h-2 rounded-full transition-all duration-500 bg-gradient-to-r ${
                             totalContacts > 10000
-                              ? "bg-red-500"
+                              ? "from-red-500 to-red-600"
                               : totalContacts > 10000 * 0.9
-                              ? "bg-red-400"
+                              ? "from-red-400 to-red-500"
                               : totalContacts > 10000 * 0.7
-                              ? "bg-yellow-400"
-                              : "bg-blue-500"
+                              ? "from-yellow-400 to-yellow-500"
+                              : "from-blue-500 to-indigo-600"
                           }`}
                           style={{
                             width: `${Math.min((totalContacts / 10000) * 100, 100)}%`
                           }}
                         ></div>
                       </div>
-                      <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-1">
-                        <span>Used: {totalContacts}</span>
-                        <span>Limit: 10000</span>
+                      <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-2">
+                        <span className="font-medium">Used: {totalContacts}</span>
+                        <span className="font-medium">Limit: 10000</span>
                       </div>
                     </div>
                   )}
                   
                   {/* Progress bar for AI Responses */}
                   {item.label === "Total AI Responses Used" && (
-                    <div className="mt-2">
-                      <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div className="mt-3">
+                      <div className="w-full h-3 bg-gray-200/30 dark:bg-gray-700/30 rounded-full overflow-hidden backdrop-blur-md border border-white/20 dark:border-gray-600/20 relative">
+                        {/* Progress bar glow effect */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/10 rounded-full"></div>
                         <div 
-                          className={`h-1.5 rounded-full transition-all duration-500 ${
+                          className={`h-2 rounded-full transition-all duration-500 bg-gradient-to-r ${
                             totalAIResponses > aiMessageQuota
-                              ? "bg-red-500"
+                              ? "from-red-500 to-red-600"
                               : totalAIResponses > aiMessageQuota * 0.7
-                              ? "bg-yellow-400"
-                              : "bg-green-500"
+                              ? "from-yellow-400 to-yellow-500"
+                              : "from-green-500 to-emerald-600"
                           }`}
                           style={{ 
                             width: `${Math.min((totalAIResponses / aiMessageQuota) * 100, 100)}%`
                           }}
                         ></div>
                       </div>
-                      <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-1">
-                        <span>Used: {totalAIResponses}</span>
-                        <span>Limit: {aiMessageQuota}</span>
+                      <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-2">
+                        <span className="font-medium">Used: {totalAIResponses}</span>
+                        <span className="font-medium">Limit: {aiMessageQuota}</span>
                       </div>
                     </div>
                   )}
                 </div>
-                <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                  {item.icon && <Lucide icon={item.icon} className="w-4 h-4" />}
+                <div className="p-3 rounded-2xl backdrop-blur-md bg-gradient-to-br from-blue-500/30 to-indigo-600/30 dark:from-blue-400/40 dark:to-indigo-500/40 text-blue-600 dark:text-blue-400 border border-blue-300/40 dark:border-blue-400/40 shadow-lg relative overflow-hidden group">
+                  {/* Inner glow effect */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 via-transparent to-indigo-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  {item.icon && <Lucide icon={item.icon} className="w-6 h-6 relative z-10" />}
                 </div>
               </div>
             </div>
           )) : null}
         </div>
         
-        {/* Main Dashboard Cards - Clean and Simple */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Main Dashboard Cards - Glassmorphic and Compact */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Contacts Over Time */}
           {dashboardCards.find(card => card.id === 'contacts-over-time') && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="px-4 pt-4 pb-3 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+            <div className="backdrop-blur-xl bg-gradient-to-br from-white/50 via-white/40 to-white/30 dark:from-gray-800/50 dark:via-gray-800/40 dark:to-gray-800/30 rounded-3xl shadow-2xl border border-white/30 dark:border-gray-600/40 overflow-hidden hover:shadow-3xl transition-all duration-500 relative group">
+              {/* Enhanced glassmorphic inner glow */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 dark:from-gray-700/20 dark:via-transparent dark:to-gray-700/10 rounded-3xl"></div>
+              {/* Subtle border glow on hover */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400/10 via-purple-400/10 to-pink-400/10 dark:from-blue-500/10 dark:via-purple-500/10 dark:to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="px-6 pt-5 pb-4 flex justify-between items-center border-b border-white/30 dark:border-gray-500/40 relative z-10">
                 <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                   {dashboardCards.find(card => card.id === 'contacts-over-time')?.title}
                 </h3>
@@ -3802,12 +4061,15 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                   {dashboardCards.find(card => card.id === 'contacts-over-time')?.filterControls}
                 </div>
               </div>
-              <div className="p-4">
+              <div className="p-6 relative z-10">
                 {('datasets' in totalContactsChartData) ? (
                   <Bar data={totalContactsChartData} options={totalContactsChartOptions} />
                 ) : (
-                  <div className="flex items-center justify-center h-48">
-                    <div className="text-gray-500 dark:text-gray-400 text-sm">No data available</div>
+                  <div className="flex flex-col items-center justify-center h-48 text-gray-500 dark:text-gray-400">
+                    <div className="p-3 backdrop-blur-sm bg-gray-500/10 dark:bg-gray-400/20 rounded-xl border border-gray-200/30 dark:border-gray-500/30 mb-3">
+                      <Lucide icon="BarChart3" className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-sm font-medium">No data available</p>
                   </div>
                 )}
               </div>
@@ -3815,8 +4077,12 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
           )}
 
           {/* Split Test Performance */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="backdrop-blur-xl bg-gradient-to-br from-white/50 via-white/40 to-white/30 dark:from-gray-800/50 dark:via-gray-800/40 dark:to-gray-800/30 rounded-3xl shadow-2xl border border-white/30 dark:border-gray-600/40 overflow-hidden hover:shadow-3xl transition-all duration-500 relative group">
+            {/* Enhanced glassmorphic inner glow */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 dark:from-gray-700/20 dark:via-transparent dark:to-gray-700/10 rounded-3xl"></div>
+            {/* Subtle border glow on hover */}
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400/10 via-purple-400/10 to-pink-400/10 dark:from-blue-500/10 dark:via-purple-500/10 dark:to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="px-6 pt-5 pb-4 border-b border-white/30 dark:border-gray-500/40 relative z-10">
               <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                 Split Test Performance
               </h3>
@@ -3826,11 +4092,15 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
         </div>
         
         {/* Additional Cards Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Blast Messages */}
           {dashboardCards.find(card => card.id === 'blast-messages') && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="px-4 pt-4 pb-3 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+            <div className="backdrop-blur-xl bg-gradient-to-br from-white/50 via-white/40 to-white/30 dark:from-gray-800/50 dark:via-gray-800/40 dark:to-gray-800/30 rounded-3xl shadow-2xl border border-white/30 dark:border-gray-600/40 overflow-hidden hover:shadow-3xl transition-all duration-500 relative group">
+              {/* Enhanced glassmorphic inner glow */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 dark:from-gray-700/20 dark:via-transparent dark:to-gray-700/10 rounded-3xl"></div>
+              {/* Subtle border glow on hover */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400/10 via-purple-400/10 to-pink-400/10 dark:from-blue-500/10 dark:via-purple-500/10 dark:to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="px-6 pt-5 pb-4 flex justify-between items-center border-b border-white/30 dark:border-gray-500/40 relative z-10">
                 <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                   {dashboardCards.find(card => card.id === 'blast-messages')?.title}
                 </h3>
@@ -3841,7 +4111,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                   </Button>
                 </Link>
               </div>
-              <div className="p-4">
+              <div className="p-6 relative z-10">
                 <div className="h-64">
                   {blastMessageData.labels.length > 0 ? (
                     <Bar data={blastMessageData} options={{ 
@@ -3914,30 +4184,38 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                     }} />
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-center text-gray-600 dark:text-gray-400">
-                      <Lucide icon="Mail" className="w-8 h-8 text-gray-400 mb-2" />
-                      <p className="text-sm mb-1.5">No scheduled message data available</p>
-                      <p className="text-xs">Create blast messages to see analytics here</p>
+                      <div className="p-3 backdrop-blur-sm bg-gray-500/10 dark:bg-gray-400/20 rounded-xl border border-gray-200/30 dark:border-gray-500/30 mb-3">
+                        <Lucide icon="Mail" className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-sm font-medium mb-2">No scheduled message data available</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Create blast messages to see analytics here</p>
                     </div>
                   )}
                 </div>
 
                 {blastMessageData.labels.length > 0 && (
-                  <div className="mt-4 grid grid-cols-3 gap-3">
-                    <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
-                      <p className="text-xs text-gray-600 dark:text-gray-400">Total Scheduled:</p>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  <div className="mt-6 grid grid-cols-3 gap-4">
+                    <div className="p-3 rounded-2xl backdrop-blur-md bg-gradient-to-br from-blue-500/20 to-blue-600/20 dark:from-blue-400/30 dark:to-blue-500/30 border border-blue-300/40 dark:border-blue-400/40 hover:bg-blue-500/25 dark:hover:bg-blue-400/35 transition-all duration-300 hover:scale-105 shadow-lg relative overflow-hidden group">
+                      {/* Inner glow effect */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 via-transparent to-blue-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1 relative z-10">Total Scheduled:</p>
+                      <p className="text-sm font-bold text-blue-900 dark:text-blue-100 relative z-10">
                         {blastMessageData.datasets[0].data.reduce((a, b) => a + b, 0).toLocaleString()}
                       </p>
                     </div>
-                    <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700">
-                      <p className="text-xs text-gray-600 dark:text-gray-400">Total Completed:</p>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    <div className="p-3 rounded-2xl backdrop-blur-md bg-gradient-to-br from-green-500/20 to-green-600/20 dark:from-green-400/30 dark:to-green-500/30 border border-green-300/40 dark:border-green-400/40 hover:bg-green-500/25 dark:hover:bg-green-400/35 transition-all duration-300 hover:scale-105 shadow-lg relative overflow-hidden group">
+                      {/* Inner glow effect */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-green-400/20 via-transparent to-green-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1 relative z-10">Total Completed:</p>
+                      <p className="text-sm font-bold text-green-900 dark:text-green-100 relative z-10">
                         {blastMessageData.datasets[1].data.reduce((a, b) => a + b, 0).toLocaleString()}
                       </p>
                     </div>
-                    <div className="p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-gray-700">
-                      <p className="text-xs text-gray-600 dark:text-gray-400">Total Failed:</p>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    <div className="p-3 rounded-2xl backdrop-blur-md bg-gradient-to-br from-red-500/20 to-red-600/20 dark:from-red-400/30 dark:to-red-500/30 border border-red-300/40 dark:border-red-400/40 hover:bg-red-500/25 dark:hover:bg-red-400/35 transition-all duration-300 hover:scale-105 shadow-lg relative overflow-hidden group">
+                      {/* Inner glow effect */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-red-400/20 via-transparent to-red-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <p className="text-xs font-medium text-red-700 dark:text-red-300 mb-1 relative z-10">Total Failed:</p>
+                      <p className="text-sm font-bold text-red-900 dark:text-red-100 relative z-10">
                         {blastMessageData.datasets[2].data.reduce((a, b) => a + b, 0).toLocaleString()}
                       </p>
                     </div>
@@ -3949,8 +4227,12 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
           
           {/* Employee Metrics */}
           {dashboardCards.find(card => card.id === 'employee-assignments') && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+            <div className="backdrop-blur-xl bg-gradient-to-br from-white/50 via-white/40 to-white/30 dark:from-gray-800/50 dark:via-gray-800/40 dark:to-gray-800/30 rounded-3xl shadow-2xl border border-white/30 dark:border-gray-600/40 overflow-hidden hover:shadow-3xl transition-all duration-500 relative group">
+              {/* Enhanced glassmorphic inner glow */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 dark:from-gray-700/20 dark:via-transparent dark:to-gray-700/10 rounded-3xl"></div>
+              {/* Subtle border glow on hover */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400/10 via-purple-400/10 to-pink-400/10 dark:from-blue-500/10 dark:via-purple-500/10 dark:to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="px-6 pt-5 pb-4 border-b border-white/30 dark:border-gray-500/40 relative z-10">
                 <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">
                   {dashboardCards.find(card => card.id === 'employee-assignments')?.title}
                 </h3>
@@ -3958,8 +4240,8 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                     Select Employee
                   </label>
-                  <div className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
-                    <span>Available employees: {employees.length} | Current user: {currentUser?.name || 'None'}</span>
+                  <div className="text-xs text-gray-500 mb-2 flex items-center justify-between">
+                    <span className="font-medium">Available employees: {employees.length} | Current user: {currentUser?.name || 'None'}</span>
                     <button
                       onClick={async () => {
                         const userEmail = localStorage.getItem('userEmail');
@@ -3997,7 +4279,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                           }
                         }
                       }}
-                      className="px-1.5 py-0.5 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors duration-200"
+                      className="px-2 py-1 text-xs bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all duration-200 hover:shadow-md"
                       title="Refresh employee assignments"
                     >
                       🔄 Refresh
@@ -4011,40 +4293,44 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                   />
                 </div>
               </div>
-              <div className="p-4">
+              <div className="p-6 relative z-10">
                 {loading ? (
                   <div className="flex flex-col items-center justify-center h-48">
-                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="mt-2 text-xs text-gray-600 dark:text-gray-400">Loading employee data...</span>
+                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin shadow-sm"></div>
+                    <span className="mt-3 text-sm font-medium text-gray-600 dark:text-gray-400">Loading employee data...</span>
                   </div>
                 ) : selectedEmployee ? (
                   chartData ? (
                     <div>
-                      <div className="flex items-center mb-3 text-xs text-gray-700 dark:text-gray-300">
-                        <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center mr-1.5">
+                      <div className="flex items-center mb-4 p-3 backdrop-blur-sm bg-blue-500/10 dark:bg-blue-400/20 rounded-xl border border-blue-200/30 dark:border-blue-500/30">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center mr-2 shadow-sm">
                           {selectedEmployee.name.charAt(0).toUpperCase()}
                         </div>
-                        <span className="font-medium text-xs">{selectedEmployee.name}</span>
-                        <span className="mx-1.5">•</span>
-                        <span className="text-xs">{selectedEmployee.assignedContacts || 0} assigned contacts</span>
+                        <span className="font-semibold text-sm text-gray-800 dark:text-gray-200">{selectedEmployee.name}</span>
+                        <span className="mx-2 text-gray-400">•</span>
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{selectedEmployee.assignedContacts || 0} assigned contacts</span>
                       </div>
                       <div className="h-48">
                         <Line data={chartData} options={lineChartOptions} />
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-48 text-gray-600 dark:text-gray-400">
-                      <Lucide icon="BarChart2" className="w-8 h-8 text-gray-400 mb-2" />
-                      <p className="text-sm">No assignment data available for this employee</p>
-                      <p className="text-xs mt-1">Employee has {selectedEmployee.assignedContacts || 0} assigned contacts</p>
-                    </div>
-                  )
-                ) : (
+                                  ) : (
                   <div className="flex flex-col items-center justify-center h-48 text-gray-600 dark:text-gray-400">
-                    <Lucide icon="User" className="w-8 h-8 text-gray-400 mb-2" />
-                    <p className="text-sm">Select an employee to view their chart</p>
+                    <div className="p-3 backdrop-blur-sm bg-gray-500/10 dark:bg-gray-400/20 rounded-xl border border-gray-200/30 dark:border-gray-500/30 mb-3">
+                      <Lucide icon="BarChart2" className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-sm font-medium mb-1">No assignment data available for this employee</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Employee has {selectedEmployee.assignedContacts || 0} assigned contacts</p>
                   </div>
-                )}
+                )
+              ) : (
+                <div className="flex flex-col items-center justify-center h-48 text-gray-600 dark:text-gray-400">
+                  <div className="p-3 backdrop-blur-sm bg-gray-500/10 dark:bg-gray-400/20 rounded-xl border border-gray-200/30 dark:border-gray-500/30 mb-3">
+                    <Lucide icon="User" className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-sm font-medium">Select an employee to view their chart</p>
+                </div>
+              )}
               </div>
             </div>
           )}
@@ -4054,7 +4340,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       {/* Info Tooltip */}
       {infoTooltip && (
         <div 
-          className="fixed z-50 bg-black/90 text-white p-2 rounded-lg shadow-lg max-w-xs text-xs backdrop-blur-sm border border-white/20"
+          className="fixed z-50 backdrop-blur-md bg-black/80 text-white p-3 rounded-xl shadow-2xl max-w-xs text-xs border border-white/20"
           style={{ 
             left: tooltipPosition.x, 
             top: tooltipPosition.y,
@@ -4063,10 +4349,10 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
         >
           {infoTooltip}
           <button
-            className="absolute top-1 right-1 text-gray-300 hover:text-white"
+            className="absolute top-2 right-2 text-gray-300 hover:text-white transition-colors duration-200"
             onClick={() => setInfoTooltip(null)}
           >
-            <Lucide icon="X" className="w-2.5 h-2.5" />
+            <Lucide icon="X" className="w-3 h-3" />
           </button>
         </div>
       )}

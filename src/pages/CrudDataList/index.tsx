@@ -3314,6 +3314,9 @@ useEffect(() => {
       // Execute the batch delete for contacts
       await batch.commit();
 
+      // Store the count before clearing the array
+      const deletedCount = selectedContacts.length;
+      
       // Update local state
       setContacts((prevContacts) =>
         prevContacts.filter(
@@ -3322,13 +3325,12 @@ useEffect(() => {
         )
       );
       setSelectedContacts([]);
-      setShowMassDeleteModal(false);
 
       // Refresh lists
       await fetchScheduledMessages();
 
       toast.success(
-        `${selectedContacts.length} contacts deleted successfully from both Firestore and SQL backend!`
+        `${deletedCount} contacts deleted successfully from both Firestore and SQL backend!`
       );
       await fetchContacts();
     } catch (error) {
@@ -6471,9 +6473,7 @@ const handleConfirmSyncFirebase = async () => {
         <div className="sticky top-0 backdrop-blur-md z-10 py-2 sm:py-4 border-b border-gray-200/50 dark:border-gray-700/50">    <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
       <div className="flex-grow">
       <div className="flex items-center mb-1 sm:mb-2">
-        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-r from-blue-500/90 to-blue-600/90 backdrop-blur-md shadow-lg border border-blue-400/20 flex items-center justify-center mr-2 sm:mr-3">
-  <Lucide icon="Users" className="w-5 h-5 text-white" />
-</div>
+       
           <span className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-200">
   Contacts
 </span>
@@ -8387,92 +8387,364 @@ className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-medium rounded-full inlin
             open={showCsvImportModal}
             onClose={() => setShowCsvImportModal(false)}
           >
-            <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-              <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-10 text-gray-900 dark:text-white">
-                <div className="mb-4 text-lg font-semibold">Import CSV</div>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleCsvFileSelect}
-                  className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-                <div className="mt-2">
-                  <button
-                    onClick={handleDownloadSampleCsv}
-                    className="text-sm text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    Download Sample CSV
-                  </button>
-                </div>
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Select Tags
-                  </label>
-                  <div className="mt-1 max-h-40 overflow-y-auto">
-                    {tagList.map((tag) => (
-                      <label
-                        key={tag.id}
-                        className="flex items-center space-x-2"
-                      >
-                        <input
-                          type="checkbox"
-                          value={tag.name}
-                          checked={selectedImportTags.includes(tag.name)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedImportTags([
-                                ...selectedImportTags,
-                                tag.name,
-                              ]);
-                            } else {
-                              setSelectedImportTags(
-                                selectedImportTags.filter((t) => t !== tag.name)
-                              );
+            <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+              <Dialog.Panel className="w-full max-w-lg">
+                {/* Glassmorphic Modal Container */}
+                <div className="relative overflow-hidden">
+                  {/* Background Glow Effects */}
+                  <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/10 to-white/20 dark:from-gray-800/20 dark:via-gray-800/10 dark:to-gray-800/20 rounded-3xl blur-2xl opacity-75"></div>
+                  <div className="absolute -inset-1 bg-gradient-to-r from-white/10 via-white/5 to-white/10 dark:from-gray-800/10 dark:via-gray-800/5 dark:to-gray-800/10 rounded-3xl blur-3xl opacity-50"></div>
+                  
+                  {/* Main Content */}
+                  <div className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl border border-white/30 dark:border-slate-600/40 overflow-hidden shadow-2xl">
+                    {/* Header Section */}
+                    <div className="relative p-6 border-b border-white/20 dark:border-slate-600/30 bg-gradient-to-r from-blue-500/20 to-purple-500/20 dark:from-blue-600/20 dark:to-purple-600/20 backdrop-blur-md">
+                      {/* Decorative Elements */}
+                      <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-blue-400/20 to-purple-400/20 dark:from-blue-500/20 dark:to-purple-500/20 rounded-full blur-xl"></div>
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-400/20 to-blue-400/20 dark:from-purple-500/20 dark:to-blue-500/20 rounded-full blur-xl"></div>
+                      
+                      <div className="relative flex items-center gap-3">
+                        <div className="w-12 h-12 bg-white/20 dark:bg-slate-700/40 backdrop-blur-sm rounded-2xl border border-white/30 dark:border-slate-600/40 flex items-center justify-center shadow-lg">
+                          <Lucide icon="Upload" className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Import CSV</h2>
+                          <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">Upload and import your contact data</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Content Section */}
+                    <div className="p-6 space-y-6">
+                      {/* File Upload Section */}
+                      <div className="space-y-3">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">
+                          Select CSV File
+                        </label>
+                        <div className="relative group">
+                          <div className="absolute inset-0 bg-white/20 dark:bg-slate-700/40 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <input
+                            type="file"
+                            accept=".csv"
+                            onChange={handleCsvFileSelect}
+                            className="relative w-full px-4 py-3 border border-white/30 dark:border-slate-600/40 rounded-xl bg-white/20 dark:bg-slate-800/30 backdrop-blur-sm text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-slate-700 dark:file:text-slate-300"
+                          />
+                        </div>
+                        <button
+                          onClick={handleDownloadSampleCsv}
+                          className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-200 font-medium"
+                        >
+                          <Lucide icon="Download" className="w-4 h-4" />
+                          Download Sample CSV
+                        </button>
+                      </div>
+
+                      {/* Tags Selection Section */}
+                      <div className="space-y-3">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">
+                          Select Tags
+                        </label>
+                        <div className="max-h-40 overflow-y-auto custom-scrollbar bg-white/10 dark:bg-slate-700/20 rounded-xl p-3 border border-white/20 dark:border-slate-600/30">
+                          <div className="grid grid-cols-2 gap-2">
+                            {tagList.map((tag) => (
+                              <label
+                                key={tag.id}
+                                className="flex items-center space-x-2 p-2 rounded-lg hover:bg-white/20 dark:hover:bg-slate-600/30 transition-all duration-200 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  value={tag.name}
+                                  checked={selectedImportTags.includes(tag.name)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedImportTags([
+                                        ...selectedImportTags,
+                                        tag.name,
+                                      ]);
+                                    } else {
+                                      setSelectedImportTags(
+                                        selectedImportTags.filter((t) => t !== tag.name)
+                                      );
+                                    }
+                                  }}
+                                  className="h-4 w-4 text-blue-600 bg-white/20 dark:bg-slate-700/40 border-white/30 dark:border-slate-600/40 rounded focus:ring-2 focus:ring-blue-500/50 transition-all duration-200"
+                                />
+                                <span className="text-sm text-gray-700 dark:text-slate-300 font-medium">
+                                  {tag.name}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* New Tags Section */}
+                      <div className="space-y-3">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">
+                          Add New Tags (comma-separated)
+                        </label>
+                        <div className="relative group">
+                          <div className="absolute inset-0 bg-white/20 dark:bg-slate-700/40 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <input
+                            type="text"
+                            value={importTags.join(", ")}
+                            onChange={(e) =>
+                              setImportTags(
+                                e.target.value.split(",").map((tag) => tag.trim())
+                              )
                             }
-                          }}
-                          className="form-checkbox h-4 w-4 text-indigo-600 transition duration-150 ease-in-out"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                          {tag.name}
-                        </span>
-                      </label>
-                    ))}
+                            className="relative w-full px-4 py-3 border border-white/30 dark:border-slate-600/40 rounded-xl bg-white/20 dark:bg-slate-800/30 backdrop-blur-sm text-gray-700 dark:text-slate-300 placeholder-gray-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-300"
+                            placeholder="Enter new tags separated by commas"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer Section */}
+                    <div className="p-6 border-t border-white/20 dark:border-slate-600/30 bg-white/10 dark:bg-slate-700/20 backdrop-blur-md">
+                      <div className="flex justify-end gap-3">
+                        <button
+                          className="px-6 py-3 text-sm font-semibold text-gray-700 dark:text-slate-300 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 rounded-xl transition-all duration-200 border border-white/30 dark:border-slate-600/40 hover:scale-105"
+                          onClick={() => setShowCsvImportModal(false)}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          className="px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl transition-all duration-200 hover:scale-105 shadow-lg shadow-blue-500/30 border border-blue-400/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={handleCsvImport}
+                          disabled={!selectedCsvFile || isLoading}
+                        >
+                          {isLoading ? (
+                            <span className="flex items-center gap-2">
+                              <Lucide icon="Loader" className="w-4 h-4 animate-spin" />
+                              Importing...
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-2">
+                              <Lucide icon="Upload" className="w-4 h-4" />
+                              Import
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Add New Tags (comma-separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={importTags.join(", ")}
-                    onChange={(e) =>
-                      setImportTags(
-                        e.target.value.split(",").map((tag) => tag.trim())
-                      )
-                    }
-                    className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Enter new tags separated by commas"
-                  />
-                </div>
-                <div className="flex justify-end mt-4">
-                  <button
-                    className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
-                    onClick={() => setShowCsvImportModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
-                    onClick={handleCsvImport}
-                    disabled={!selectedCsvFile || isLoading}
-                  >
-                    {isLoading ? "Importing..." : "Import"}
-                  </button>
                 </div>
               </Dialog.Panel>
             </div>
           </Dialog>
+                    {/* Columns Modal */}
+                    {showColumnsModal && (
+            <Dialog
+              open={showColumnsModal}
+              onClose={() => setShowColumnsModal(false)}
+            >
+              <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <Dialog.Panel className="w-full max-w-lg">
+                  {/* Glassmorphic Modal Container */}
+                  <div className="relative overflow-hidden">
+                    {/* Background Glow Effects */}
+                    <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/10 to-white/20 dark:from-gray-800/20 dark:via-gray-800/10 dark:to-gray-800/20 rounded-3xl blur-2xl opacity-75"></div>
+                    <div className="absolute -inset-1 bg-gradient-to-r from-white/10 via-white/5 to-white/10 dark:from-gray-800/10 dark:via-gray-800/5 dark:to-gray-800/10 rounded-3xl blur-3xl opacity-50"></div>
+                    
+                    {/* Main Content */}
+                    <div className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl border border-white/30 dark:border-slate-600/40 overflow-hidden shadow-2xl">
+                      {/* Header Section */}
+                      <div className="relative p-6 border-b border-white/20 dark:border-slate-600/30 bg-gradient-to-r from-indigo-500/20 to-blue-500/20 dark:from-indigo-600/20 dark:to-blue-600/20 backdrop-blur-md">
+                        {/* Decorative Elements */}
+                        <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-indigo-400/20 to-blue-400/20 dark:from-indigo-500/20 dark:to-blue-500/20 rounded-full blur-xl"></div>
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-400/20 to-indigo-400/20 dark:from-blue-500/20 dark:to-indigo-500/20 rounded-full blur-xl"></div>
+                        
+                        <div className="relative flex items-center gap-3">
+                          <div className="w-12 h-12 bg-white/20 dark:bg-slate-700/40 backdrop-blur-sm rounded-2xl border border-white/30 dark:border-slate-600/40 flex items-center justify-center shadow-lg">
+                            <Lucide icon="Grid2x2" className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                          </div>
+                          <div>
+                            <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Show/Hide Columns</h2>
+                            <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">Customize which columns are visible</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Content Section */}
+                      <div className="p-6 space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          {Object.keys(visibleColumns).map((column) => (
+                            <label
+                              key={column}
+                              className="flex items-center space-x-2 p-3 rounded-xl hover:bg-white/20 dark:hover:bg-slate-600/30 transition-all duration-200 cursor-pointer bg-white/10 dark:bg-slate-700/20"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={visibleColumns[column]}
+                                onChange={(e) =>
+                                  setVisibleColumns({
+                                    ...visibleColumns,
+                                    [column]: e.target.checked,
+                                  })
+                                }
+                                className="h-4 w-4 text-indigo-600 bg-white/20 dark:bg-slate-700/40 border-white/30 dark:border-slate-600/40 rounded focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-200"
+                              />
+                              <span className="text-sm text-gray-700 dark:text-slate-300 font-medium capitalize">
+                                {column.replace(/([A-Z])/g, ' $1').trim()}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Footer Section */}
+                      <div className="p-6 border-t border-white/20 dark:border-slate-600/30 bg-white/10 dark:bg-slate-700/20 backdrop-blur-md">
+                        <div className="flex justify-end gap-3">
+                          <button
+                            className="px-6 py-3 text-sm font-semibold text-gray-700 dark:text-slate-300 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 rounded-xl transition-all duration-200 border border-white/30 dark:border-slate-600/40 hover:scale-105"
+                            onClick={() => setShowColumnsModal(false)}
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Dialog.Panel>
+              </div>
+            </Dialog>
+          )}
+
+          {/* Date Filter Modal */}
+          {showDateFilterModal && (
+            <Dialog
+              open={showDateFilterModal}
+              onClose={() => setShowDateFilterModal(false)}
+            >
+              <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <Dialog.Panel className="w-full max-w-lg">
+                  {/* Glassmorphic Modal Container */}
+                  <div className="relative overflow-hidden">
+                    {/* Background Glow Effects */}
+                    <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/10 to-white/20 dark:from-gray-800/20 dark:via-gray-800/10 dark:to-gray-800/20 rounded-3xl blur-2xl opacity-75"></div>
+                    <div className="absolute -inset-1 bg-gradient-to-r from-white/10 via-white/5 to-white/10 dark:from-gray-800/10 dark:via-gray-800/5 dark:to-gray-800/10 rounded-3xl blur-3xl opacity-50"></div>
+                    
+                    {/* Main Content */}
+                    <div className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl border border-white/30 dark:border-slate-600/40 overflow-hidden shadow-2xl">
+                      {/* Header Section */}
+                      <div className="relative p-6 border-b border-white/20 dark:border-slate-600/30 bg-gradient-to-r from-purple-500/20 to-pink-500/20 dark:from-purple-600/20 dark:to-pink-600/20 backdrop-blur-md">
+                        {/* Decorative Elements */}
+                        <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-purple-400/20 to-pink-400/20 dark:from-purple-500/20 dark:to-pink-500/20 rounded-full blur-xl"></div>
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-pink-400/20 to-purple-400/20 dark:from-pink-500/20 dark:to-purple-500/20 rounded-full blur-xl"></div>
+                        
+                        <div className="relative flex items-center gap-3">
+                          <div className="w-12 h-12 bg-white/20 dark:bg-slate-700/40 backdrop-blur-sm rounded-2xl border border-white/30 dark:border-slate-600/40 flex items-center justify-center shadow-lg">
+                            <Lucide icon="Calendar" className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <div>
+                            <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Filter by Date</h2>
+                            <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">Set date range for filtering contacts</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Content Section */}
+                      <div className="p-6 space-y-6">
+                        {/* Date Field Selection */}
+                        <div className="space-y-3">
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">
+                            Date Field
+                          </label>
+                          <select
+                            value={dateFilterField}
+                            onChange={(e) => setDateFilterField(e.target.value)}
+                            className="w-full px-3 py-2 border border-white/30 dark:border-slate-600/40 rounded-xl bg-white/20 dark:bg-slate-800/30 backdrop-blur-sm text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all duration-300"
+                          >
+                            <option value="createdAt">Created Date</option>
+                            <option value="updatedAt">Updated Date</option>
+                            <option value="lastMessageAt">Last Message Date</option>
+                          </select>
+                        </div>
+
+                        {/* Date Range Selection */}
+                        <div className="space-y-3">
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">
+                            Date Range
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <label className="block text-xs text-gray-600 dark:text-slate-400">From Date</label>
+                              <input
+                                type="date"
+                                value={dateFilterStart || ''}
+                                onChange={(e) => setDateFilterStart(e.target.value)}
+                                className="w-full px-3 py-2 border border-white/30 dark:border-slate-600/40 rounded-xl bg-white/20 dark:bg-slate-800/30 backdrop-blur-sm text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all duration-300"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="block text-xs text-gray-600 dark:text-slate-400">To Date</label>
+                              <input
+                                type="date"
+                                value={dateFilterEnd || ''}
+                                onChange={(e) => setDateFilterEnd(e.target.value)}
+                                className="w-full px-3 py-2 border border-white/30 dark:border-slate-600/40 rounded-xl bg-white/20 dark:bg-slate-800/30 backdrop-blur-sm text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all duration-300"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Quick Date Presets */}
+                        <div className="space-y-3">
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">
+                            Quick Presets
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              { label: 'Last 7 days', days: 7 },
+                              { label: 'Last 30 days', days: 30 },
+                              { label: 'Last 90 days', days: 90 },
+                              { label: 'This year', days: 365 }
+                            ].map((preset) => (
+                              <button
+                                key={preset.days}
+                                onClick={() => {
+                                  const to = new Date().toISOString().split('T')[0];
+                                  const from = new Date(Date.now() - preset.days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                                  setDateFilterStart(from);
+                                  setDateFilterEnd(to);
+                                }}
+                                className="px-3 py-2 text-xs font-medium text-gray-700 dark:text-slate-300 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 rounded-lg transition-all duration-200 border border-white/30 dark:border-slate-600/40"
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Footer Section */}
+                      <div className="p-6 border-t border-white/20 dark:border-slate-600/30 bg-white/10 dark:bg-slate-700/20 backdrop-blur-md">
+                        <div className="flex justify-end gap-3">
+                          <button
+                            className="px-6 py-3 text-sm font-semibold text-gray-700 dark:text-slate-300 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 rounded-xl transition-all duration-200 border border-white/30 dark:border-slate-600/40 hover:scale-105"
+                            onClick={() => {
+                              setDateFilterStart('');
+                              setDateFilterEnd('');
+                              setDateFilterField('createdAt');
+                            }}
+                          >
+                            Clear
+                          </button>
+                          <button
+                            className="px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 rounded-xl transition-all duration-200 hover:scale-105 shadow-lg shadow-purple-500/30 border border-purple-400/50"
+                            onClick={() => setShowDateFilterModal(false)}
+                          >
+                            Apply Filter
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Dialog.Panel>
+              </div>
+            </Dialog>
+          )}
           <Dialog
             open={showSyncConfirmationModal}
             onClose={() => setShowSyncConfirmationModal(false)}
@@ -9047,6 +9319,89 @@ className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-medium rounded-full inlin
     </div>
   </Dialog>
 )}
+
+          {/* Mass Delete Modal */}
+          {showMassDeleteModal && (
+            <Dialog
+              open={showMassDeleteModal}
+              onClose={() => setShowMassDeleteModal(false)}
+            >
+              <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <Dialog.Panel className="w-full max-w-lg">
+                  {/* Glassmorphic Modal Container */}
+                  <div className="relative overflow-hidden">
+                    {/* Background Glow Effects */}
+                    <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/10 to-white/20 dark:from-gray-800/20 dark:via-gray-800/10 dark:to-gray-800/20 rounded-3xl blur-2xl opacity-75"></div>
+                    <div className="absolute -inset-1 bg-gradient-to-r from-white/10 via-white/5 to-white/10 dark:from-gray-800/10 dark:via-gray-800/5 dark:to-gray-800/10 rounded-3xl blur-3xl opacity-50"></div>
+                    
+                    {/* Main Content */}
+                    <div className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl border border-white/30 dark:border-slate-600/40 overflow-hidden shadow-2xl">
+                      {/* Header Section */}
+                      <div className="relative p-6 border-b border-white/20 dark:border-slate-600/30 bg-gradient-to-r from-red-500/20 to-pink-500/20 dark:from-red-600/20 dark:to-pink-600/20 backdrop-blur-md">
+                        {/* Decorative Elements */}
+                        <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-red-400/20 to-pink-400/20 dark:from-red-500/20 dark:to-pink-500/20 rounded-full blur-xl"></div>
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-pink-400/20 to-red-400/20 dark:from-pink-500/20 dark:to-red-500/20 rounded-full blur-xl"></div>
+                        
+                        <div className="relative flex items-center gap-3">
+                          <div className="w-12 h-12 bg-white/20 dark:bg-slate-700/40 backdrop-blur-sm rounded-2xl border border-white/30 dark:border-slate-600/40 flex items-center justify-center shadow-lg">
+                            <Lucide icon="Trash2" className="w-6 h-6 text-red-600 dark:text-red-400" />
+                          </div>
+                          <div>
+                            <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Delete Selected Contacts</h2>
+                            <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">This action cannot be undone</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Content Section */}
+                      <div className="p-6 space-y-4">
+                        <div className="text-center">
+                          <Lucide
+                            icon="AlertTriangle"
+                            className="w-16 h-16 mx-auto text-red-500 dark:text-red-400 mb-4"
+                          />
+                          <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-2">
+                            Are you sure?
+                          </h3>
+                          <p className="text-gray-600 dark:text-slate-400">
+                            You are about to delete <span className="font-bold text-red-600 dark:text-red-400">{selectedContacts.length}</span> selected contact{selectedContacts.length !== 1 ? 's' : ''}.
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-slate-500 mt-2">
+                            This action cannot be undone and will permanently remove all data associated with these contacts.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Footer Section */}
+                      <div className="p-6 border-t border-white/20 dark:border-slate-600/30 bg-white/10 dark:bg-slate-700/20 backdrop-blur-md">
+                        <div className="flex justify-end gap-3">
+                          <button
+                            className="px-6 py-3 text-sm font-semibold text-gray-700 dark:text-slate-300 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 rounded-xl transition-all duration-200 border border-white/30 dark:border-slate-600/40 hover:scale-105"
+                            onClick={() => setShowMassDeleteModal(false)}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            className="px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 rounded-xl transition-all duration-200 hover:scale-105 shadow-lg shadow-red-500/30 border border-red-400/50"
+                            onClick={async () => {
+                              await handleMassDelete();
+                              setShowMassDeleteModal(false);
+                            }}
+                          >
+                            <span className="flex items-center gap-2">
+                              <Lucide icon="Trash2" className="w-4 h-4" />
+                              Delete {selectedContacts.length} Contact{selectedContacts.length !== 1 ? 's' : ''}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Dialog.Panel>
+              </div>
+            </Dialog>
+          )}
+
           <ToastContainer
             position="top-right"
             autoClose={5000}

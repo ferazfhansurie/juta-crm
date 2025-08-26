@@ -2330,66 +2330,147 @@ function normalizePhone(phone: string) {
   const [neonEvents, setNeonEvents] = useState<any[]>([]);
   
   // Fetch attendance records and events from Neon
-  useEffect(() => {
-    const fetchNeonData = async () => {
-      try {
-        const userEmail = localStorage.getItem("userEmail");
-        if (!userEmail) return;
-        
-        const response = await fetch(
-          `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
-            userEmail
-          )}`
+  const fetchNeonData = async () => {
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) return;
+      
+      const response = await fetch(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
+          userEmail
+        )}`
+      );
+      if (!response.ok) {
+        console.error(
+          "❌ Company Data Response Error:",
+          response.status,
+          response.statusText
         );
-        if (!response.ok) {
-          console.error(
-            "❌ Company Data Response Error:",
-            response.status,
-            response.statusText
-          );
-          return;
-        }
-        
-        const data = await response.json();
-        console.log("✅ Company Data Response:", data);
-        const apiUrl = "https://juta-dev.ngrok.dev";
-        const companyId = data.userData.companyId;
-        console.log("🔑 Company ID:", companyId);
-        
-        // Fetch both attendance records and events from Neon
-        const [attendanceResponse, eventsResponse] = await Promise.all([
-          fetch(`${apiUrl}/api/attendance-records?company_id=${companyId}`),
-          fetch(`${apiUrl}/api/events?company_id=${companyId}`),
-        ]);
-        
-        if (attendanceResponse.ok) {
-          const attendanceData = await attendanceResponse.json();
-          console.log("✅ Attendance Response:", attendanceData);
-          setNeonAttendanceData(attendanceData.attendance_records || []);
-        } else {
-          console.error(
-            "❌ Attendance Response Error:",
-            attendanceResponse.status,
-            attendanceResponse.statusText
-          );
-        }
-        
-        if (eventsResponse.ok) {
-                      const eventsData = await eventsResponse.json();
-          console.log("✅ Events Response:", eventsData);
-            setNeonEvents(eventsData.events || []);
-        } else {
-          console.error(
-            "❌ Events Response Error:",
-            eventsResponse.status,
-            eventsResponse.statusText
-          );
-        }
-      } catch (error) {
-        console.error("Error fetching Neon data:", error);
+        return;
       }
-    };
+      
+      const data = await response.json();
+      console.log("✅ Company Data Response:", data);
+      const apiUrl = "https://juta-dev.ngrok.dev";
+      const companyId = data.userData.companyId;
+      console.log("🔑 Company ID:", companyId);
+      
+      // Fetch both attendance records and events from Neon
+      const [attendanceResponse, eventsResponse] = await Promise.all([
+        fetch(`${apiUrl}/api/attendance-records?company_id=${companyId}`),
+        fetch(`${apiUrl}/api/events?company_id=${companyId}`),
+      ]);
+      
+      if (attendanceResponse.ok) {
+        const attendanceData = await attendanceResponse.json();
+        console.log("✅ Attendance Response:", attendanceData);
+        console.log("📊 Total attendance records returned:", attendanceData.attendance_records?.length || 0);
+        console.log("📊 Sample attendance record:", attendanceData.attendance_records?.[0]);
+        console.log("📊 All event_ids in response:", attendanceData.attendance_records?.map((r: any) => r.event_id) || []);
+        setNeonAttendanceData(attendanceData.attendance_records || []);
+      } else {
+        console.error(
+          "❌ Attendance Response Error:",
+          attendanceResponse.status,
+          attendanceResponse.statusText
+        );
+      }
+      
+      if (eventsResponse.ok) {
+                  const eventsData = await eventsResponse.json();
+        console.log("✅ Events Response:", eventsData);
+          setNeonEvents(eventsData.events || []);
+      } else {
+        console.error(
+          "❌ Events Response Error:",
+          eventsResponse.status,
+          eventsResponse.statusText
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching Neon data:", error);
+    }
+  };
+
+  // Function to refresh Neon attendance data
+  const refreshNeonAttendanceData = async () => {
+    console.log("🔄 Refreshing Neon attendance data...");
+    // Clear the cache to force recalculation
+    programAttendanceCache.clear();
+    await fetchNeonData();
+  };
+
+  // Debug function to analyze attendance data
+  const debugAttendanceData = () => {
+    console.log("🔍 === ATTENDANCE DATA DEBUG ===");
     
+    // First, let's see what's in the attendance data
+    console.log("📊 === ATTENDANCE DATA STRUCTURE ===");
+    console.log(`Total attendance records: ${neonAttendanceData.length}`);
+    if (neonAttendanceData.length > 0) {
+      console.log("Sample record:", neonAttendanceData[0]);
+      console.log("All event_ids:", neonAttendanceData.map(r => r.event_id).slice(0, 10));
+    }
+    
+    neonEvents.forEach((event: any) => {
+      const eventAttendance = neonAttendanceData.filter((record: any) => record.event_id === event.id);
+      const wrongSlugCount = eventAttendance.filter((record: any) => record.event_slug !== event.slug).length;
+      
+      console.log(`📅 Event: ${event.name}`);
+      console.log(`   ID: ${event.id}`);
+      console.log(`   Slug: ${event.slug}`);
+      console.log(`   Date: ${event.start_date}`);
+      console.log(`   Total Attendance: ${eventAttendance.length}`);
+      console.log(`   Wrong Slug Records: ${wrongSlugCount}`);
+      console.log(`   Correct Slug Records: ${eventAttendance.length - wrongSlugCount}`);
+      
+      if (wrongSlugCount > 0) {
+        console.log(`   ⚠️  WARNING: ${wrongSlugCount} records have wrong event_slug!`);
+      }
+      console.log("");
+    });
+    
+    // Show program-specific attendance counts
+    console.log("🎯 === PROGRAM ATTENDANCE SUMMARY ===");
+    const allProgramsList = [
+      "AI Immersion - Automate It. Analyse It. Storytell It",
+      "Digitalpreneur - Create an Online Course with AI", 
+      "AI Agent & Agentic AI Day 2025: Empowering Malaysia's Workforce with Artificial Intelligence Automation",
+      "Business Automation & AI Chatbot Experience"
+    ];
+    
+    allProgramsList.forEach(programName => {
+      const count = getProgramNeonAttendanceCount(programName);
+      console.log(`📊 ${programName}: ${count} attendees`);
+    });
+    
+    // Test specific program name variations
+    console.log("🧪 === TESTING PROGRAM NAME VARIATIONS ===");
+    const testNames = [
+      "AI Immersion",
+      "Automate It. Analyse It. Storytell It",
+      "AI Agent",
+      "Digitalpreneur",
+      "Business Automation"
+    ];
+    
+    testNames.forEach(testName => {
+      const count = getProgramNeonAttendanceCount(testName);
+      console.log(`🧪 Test "${testName}": ${count} attendees`);
+    });
+    
+    console.log("🔍 === END DEBUG ===");
+  };
+
+  // Clear attendance cache when program selection changes
+  useEffect(() => {
+    if (selectedProgram !== -1 || showAllProgramsInCategory) {
+      console.log("🔄 Program selection changed, clearing attendance cache...");
+      programAttendanceCache.clear();
+    }
+  }, [selectedProgram, showAllProgramsInCategory]);
+  
+  useEffect(() => {
     fetchNeonData();
   }, []);
   
@@ -3176,20 +3257,12 @@ if (selectedProgram !== -1 && selectedProgramData) {
   // Get the total Neon attendance count for this program (same logic as Program-Specific Dashboard)
   const getProgramNeonAttendanceCount = (programName: string) => {
     const cleanedName = cleanProgramName(programName);
-    return neonAttendanceData.filter((record: any) => {
-      const event = neonEvents.find((e: any) => e.id === record.event_id);
-      if (!event) return false;
-      
-      // Use event slug mapping
-      if (
-        record.event_slug ===
-          "ai-meets-robotics-empowering-the-next-generation-of-intelligent-machines" &&
-        cleanedName.toLowerCase().includes("digitalpreneur")
-      ) {
-        return true;
-      }
-      
-      // Fallback to name matching
+    console.log(`🔍 Getting Neon attendance count for program: "${programName}" (cleaned: "${cleanedName}")`);
+    console.log(`📊 Available Neon events:`, neonEvents.map(e => ({ id: e.id, name: e.name, slug: e.slug, start_date: e.start_date })));
+    console.log(`📊 Available Neon attendance records:`, neonAttendanceData.length);
+    
+    // Find the event that matches this program name
+    const matchingEvent = neonEvents.find((event: any) => {
       const eventName = event.name || "";
       const normalizedEventName = eventName
         .toLowerCase()
@@ -3212,8 +3285,47 @@ if (selectedProgram !== -1 && selectedProgramData) {
         )
       );
       
-      return matchingWords.length >= 2;
-    }).length;
+      const isMatch = matchingWords.length >= 2;
+      
+      // Debug: Show all potential matches
+      if (matchingWords.length > 0) {
+        console.log(`🔍 Potential match for "${programName}":`);
+        console.log(`   Program: "${cleanedName}"`);
+        console.log(`   Event: "${eventName}"`);
+        console.log(`   Matching words: ${matchingWords.join(', ')}`);
+        console.log(`   Match score: ${matchingWords.length}/${Math.max(programWords.length, eventWords.length)}`);
+      }
+      
+      return isMatch;
+    });
+
+    if (!matchingEvent) {
+      console.log(`❌ No matching event found for program: "${programName}"`);
+      return 0;
+    }
+
+    console.log(`✅ Found matching event: "${matchingEvent.name}" (ID: ${matchingEvent.id}, Date: ${matchingEvent.start_date})`);
+    
+    // Get attendance records for this specific event using event_id (ignore corrupted event_slug)
+    const matchingRecords = neonAttendanceData.filter((record: any) => {
+      // Use event_id for matching (more reliable than corrupted event_slug)
+      if (record.event_id !== matchingEvent.id) {
+        return false;
+      }
+      
+      // Debug: Log each matching record
+      console.log(`✅ Found attendance record: ${record.id} for event ${matchingEvent.name}`);
+      
+      return true;
+    });
+    
+    // Debug: Show total records found
+    console.log(`📊 Total records for ${matchingEvent.name}: ${matchingRecords.length}`);
+    console.log(`📊 All attendance records: ${neonAttendanceData.length}`);
+    console.log(`📊 Records with event_id ${matchingEvent.id}: ${neonAttendanceData.filter(r => r.event_id === matchingEvent.id).length}`);
+    
+    console.log(`🎯 Final attendance count for "${programName}" (${matchingEvent.name}): ${matchingRecords.length}`);
+    return matchingRecords.length;
   };
 
   // Enhanced function to get Neon attendance count for combined events
@@ -3248,16 +3360,21 @@ if (selectedProgram !== -1 && selectedProgramData) {
     const csvAttendanceStatus = row["Attendance status"];
     const programName = row["Program Name"];
     
+    //console.log(`🔍 Processing attendance for: ${row["Full Name"]} - ${programName} (CSV status: ${csvAttendanceStatus})`);
+    
     // Always mark "Accepted" as "Attended"
     if (csvAttendanceStatus === "Accepted") {
       // Also update RSVP status to "Accepted" if they attended
       row["RSVP status"] = "Accepted";
+      console.log(`✅ Marked as attended (CSV status was "Accepted")`);
       return "Attended";
     }
     
     // Get or calculate Neon attendance count for this program
     let neonAttendanceCount = programAttendanceCache.get(programName);
     if (neonAttendanceCount === undefined) {
+      console.log(`🔄 Calculating Neon attendance count for program: ${programName}`);
+      
       // Check if this is part of a combined event
       const combinedEvent = allPrograms.find(
         (p) =>
@@ -3280,6 +3397,9 @@ if (selectedProgram !== -1 && selectedProgramData) {
       }
 
       programAttendanceCache.set(programName, neonAttendanceCount);
+    //  console.log(`💾 Cached attendance count for ${programName}: ${neonAttendanceCount}`);
+    } else {
+      //console.log(`📋 Using cached attendance count for ${programName}: ${neonAttendanceCount}`);
     }
     
     // Get all participants for this program
@@ -4102,7 +4222,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
               />
             </svg>
             Detailed Profession Breakdown
@@ -4857,7 +4977,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
                               number | undefined
                             >
                           )[metric.key]
-                      : 0;
+                        : 0;
                     return sum + (value || 0);
                   }, 0);
                   
@@ -5184,6 +5304,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
                   if (programIndex >= 0) {
                     setSelectedProgram(programIndex);
                     setShowAllProgramsInCategory(false);
+                    refreshNeonAttendanceData(); // Refresh Neon attendance data
                   }
                 } else if (e.target.value.startsWith("all_in_category_")) {
                   // Handle "All Programs in Category"
@@ -5191,10 +5312,12 @@ if (selectedProgram !== -1 && selectedProgramData) {
                   setSelectedCategory(category);
                   setShowAllProgramsInCategory(true);
                   setSelectedProgram(-1);
+                  refreshNeonAttendanceData(); // Refresh Neon attendance data
                 } else {
                   // Clear selection
                   setSelectedProgram(-1);
                   setShowAllProgramsInCategory(false);
+                  refreshNeonAttendanceData(); // Refresh Neon attendance data
                 }
               }}
             >
@@ -5571,19 +5694,43 @@ if (selectedProgram !== -1 && selectedProgramData) {
                 Program Selection Status
               </span>
             </div>
-            <div className="text-right">
-              <div className="text-sm font-medium text-blue-800 dark:text-blue-300">
-                {(() => {
-                  if (selectedProgram >= 0) {
-                    return `Selected: ${finalSortedPrograms[selectedProgram]?.name || "Unknown Program"}`;
-                  } else if (showAllProgramsInCategory && selectedCategory) {
-                    return `All Programs in: ${selectedCategory}`;
-                  }
-                  return "No Program Selected";
-                })()}
-              </div>
-              <div className="text-xs text-blue-600 dark:text-blue-400">
-                Connected to Program-Specific Dashboard
+            <div className="flex items-center space-x-3">
+              {/* Debug Attendance Data Button */}
+              <button
+                onClick={debugAttendanceData}
+                className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-100 border border-orange-300 rounded-md hover:bg-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors duration-200 mr-2"
+                title="Debug attendance data issues"
+              >
+                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Debug Data
+              </button>
+              {/* Refresh Attendance Data Button */}
+              <button
+                onClick={refreshNeonAttendanceData}
+                className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded-md hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
+                title="Refresh Neon attendance data"
+              >
+                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh Attendance
+              </button>
+              <div className="text-right">
+                <div className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                  {(() => {
+                    if (selectedProgram >= 0) {
+                      return `Selected: ${finalSortedPrograms[selectedProgram]?.name || "Unknown Program"}`;
+                    } else if (showAllProgramsInCategory && selectedCategory) {
+                      return `All Programs in: ${selectedCategory}`;
+                    }
+                    return "No Program Selected";
+                  })()}
+                </div>
+                <div className="text-xs text-blue-600 dark:text-blue-400">
+                  Connected to Program-Specific Dashboard
+                </div>
               </div>
             </div>
           </div>
@@ -6024,9 +6171,6 @@ Warm regards,
 Co9P AI Chatbot`;
                             
                             // Send thank you message
-                            await sendTextMessage(formattedPhone, thankYouText);
-                            
-                            // Send thank you message first
                             await sendTextMessage(formattedPhone, thankYouText);
                             
                             // Send certificate as document using the server URL

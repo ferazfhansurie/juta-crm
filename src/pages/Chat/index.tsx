@@ -13264,58 +13264,7 @@ console.log(data);
                   </span>
                 </button>
 
-                {isRecordingPopupOpen && (
-                  <div className="absolute bottom-full mb-1 left-0 w-32 bg-white dark:bg-gray-800 rounded-md shadow-md p-2">
-                    <div className="flex items-center mb-1">
-                      <button
-                        className={`p-1 rounded-md ${
-                          isRecording
-                            ? "bg-red-500 text-white"
-                            : "bg-primary text-white"
-                        }`}
-                        onClick={toggleRecording}
-                      >
-                        <Lucide
-                          icon={isRecording ? "StopCircle" : "Mic"}
-                          className="w-2.5 h-2.5"
-                        />
-                      </button>
-                      <ReactMicComponent
-                        record={isRecording}
-                        className="w-22 rounded-md h-5 mr-1 ml-1"
-                        onStop={onStop}
-                        strokeColor="#0000CD"
-                        backgroundColor="#FFFFFF"
-                        mimeType="audio/webm"
-                      />
-                    </div>
-                    <div className="flex flex-col space-y-1">
-                      {audioBlob && (
-                        <>
-                          <audio
-                            src={URL.createObjectURL(audioBlob)}
-                            controls
-                            className="w-full h-5 mb-1"
-                          />
-                          <div className="flex justify-between">
-                            <button
-                              className="px-1.5 py-0.5 rounded bg-gray-500 text-white text-xs"
-                              onClick={() => setAudioBlob(null)}
-                            >
-                              Remove
-                            </button>
-                            <button
-                              className="px-1.5 py-0.5 rounded bg-green-700 text-white text-xs"
-                              onClick={sendVoiceMessage}
-                            >
-                              Send
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
+
               </div>
               {isEmojiPickerOpen && (
                 <div className="absolute bottom-20 left-2 z-10">
@@ -13410,6 +13359,95 @@ console.log(data);
           </div>
         </div>
       )}
+                      {isRecordingPopupOpen && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    {/* Backdrop */}
+                    <div 
+                      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                      onClick={() => setIsRecordingPopupOpen(false)}
+                    />
+                    
+                    {/* Modal Content */}
+                    <div className="relative w-full max-w-md mx-4 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl rounded-3xl border-0 overflow-hidden">
+                      {/* Header */}
+                      <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
+                              <Lucide icon="Mic" className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                              <h2 className="text-xl font-bold text-white">Voice Message</h2>
+                              <p className="text-red-100 text-sm">Record and send voice messages</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setIsRecordingPopupOpen(false)}
+                            className="p-2 hover:bg-white/20 rounded-xl transition-all duration-200 border border-white/30"
+                          >
+                            <Lucide icon="X" className="w-5 h-5 text-white" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Recording Controls */}
+                      <div className="p-6 space-y-4">
+                        <div className="flex items-center justify-center mb-4">
+                          <button
+                            className={`p-4 rounded-full transition-all duration-200 ${
+                              isRecording
+                                ? "bg-red-500 hover:bg-red-600 text-white shadow-lg"
+                                : "bg-blue-500 hover:bg-blue-600 text-white shadow-lg"
+                            }`}
+                            onClick={toggleRecording}
+                          >
+                            <Lucide
+                              icon={isRecording ? "StopCircle" : "Mic"}
+                              className="w-8 h-8"
+                            />
+                          </button>
+                        </div>
+                        
+                        <div className="flex justify-center mb-4">
+                          <ReactMicComponent
+                            record={isRecording}
+                            className="w-full rounded-xl h-12"
+                            onStop={onStop}
+                            strokeColor="#0000CD"
+                            backgroundColor="#FFFFFF"
+                            mimeType="audio/webm"
+                          />
+                        </div>
+                        
+                        {audioBlob && (
+                          <div className="space-y-4">
+                            <div className="bg-white/20 dark:bg-slate-700/40 rounded-xl p-4">
+                              <audio
+                                src={URL.createObjectURL(audioBlob)}
+                                controls
+                                className="w-full h-10 mb-3"
+                              />
+                              <div className="flex justify-between gap-3">
+                                <button
+                                  className="flex-1 px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white font-medium transition-all duration-200"
+                                  onClick={() => setAudioBlob(null)}
+                                >
+                                  Remove
+                                </button>
+                                <button
+                                  className="flex-1 px-4 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white font-medium transition-all duration-200"
+                                  onClick={sendVoiceMessage}
+                                >
+                                  Send
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
       {selectedMessages.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/30 dark:border-gray-600/30 p-6 mx-4 max-w-sm w-full animate-in zoom-in-95 duration-200">
