@@ -17,7 +17,7 @@ const FEEDBACK_CSV_URL = "/feedback.csv";
 const AI_HORIZON_CSV_URL = "/horizon.csv";
 
 // Neon database base URL
-const baseUrl = "https://juta.ngrok.app";
+const baseUrl = "https://juta-dev.ngrok.dev";
 
 // Helper function to get company ID
 const getCompanyId = async () => {
@@ -2352,7 +2352,7 @@ function normalizePhone(phone: string) {
         
         const data = await response.json();
         console.log("✅ Company Data Response:", data);
-        const apiUrl = "https://juta.ngrok.app";
+        const apiUrl = "https://juta-dev.ngrok.dev";
         const companyId = data.userData.companyId;
         console.log("🔑 Company ID:", companyId);
         
