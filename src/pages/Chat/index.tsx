@@ -686,7 +686,7 @@ function Main() {
   const otherLastMessageClass = `${otherMessageClass} rounded-tr-2xl rounded-tl-2xl rounded-br-2xl rounded-bl-2xl mb-1`;
   const privateNoteClass = `${baseMessageClass} bg-yellow-500 dark:bg-yellow-900 self-start text-left mt-1 ml-2 group rounded-tr-2xl rounded-tl-2xl rounded-br-2xl rounded-bl-2xl`;
   const [messageMode, setMessageMode] = useState("reply");
-  const myMessageTextClass = "text-black";
+  const myMessageTextClass = "text-black dark:text-white";
   const otherMessageTextClass = "text-black dark:text-white";
   const [activeTags, setActiveTags] = useState<string[]>(["all"]);
   const [tagList, setTagList] = useState<Tag[]>([]);
@@ -12245,13 +12245,12 @@ console.log(data);
                                           ? `${myMessageTextClass}`
                                           : `${otherMessageTextClass}`
                                       }`}
-                                      style={{
-                                        wordBreak: "break-word",
-                                        overflowWrap: "break-word",
-                                        lineHeight: "1.4",
-                                        letterSpacing: "0.01em",
-                                        color: message.from_me ? "white" : "inherit",
-                                      }}
+                                                                              style={{
+                                          wordBreak: "break-word",
+                                          overflowWrap: "break-word",
+                                          lineHeight: "1.4",
+                                          letterSpacing: "0.01em",
+                                        }}
                                     >
                                       {formatText(message.text.body)}
                                     </div>
@@ -12821,7 +12820,7 @@ console.log(data);
                                 <div
                                   className={`message-timestamp text-xs ${
                                     message.from_me
-                                      ? "text-white/80"
+                                      ? "text-slate-700 dark:text-white/80"
                                       : "text-gray-500 dark:text-gray-400"
                                   } flex items-center h-4 ml-auto`}
                                 >
@@ -12901,7 +12900,7 @@ console.log(data);
                                       <div
                                         className={`text-xs px-2 py-1 ${
                                           message.from_me
-                                            ? "text-white"
+                                            ? "text-slate-800 dark:text-white"
                                             : "text-slate-800 dark:text-white"
                                         }`}
                                       >
@@ -12911,7 +12910,7 @@ console.log(data);
                                     )}
                                     <span className={`text-xs ${
                                       message.from_me
-                                        ? "text-white/90"
+                                        ? "text-slate-700 dark:text-white/90"
                                         : "text-slate-700 dark:text-white/90"
                                     }`}>
                                       {formatTimestamp(
