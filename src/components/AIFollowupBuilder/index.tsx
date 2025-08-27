@@ -11,6 +11,8 @@ interface ChatMessage {
   isLoading?: boolean;
   isBrainstorm?: boolean;
   suggestions?: string[];
+  progress?: number;
+  threadId?: string;
 }
 
 interface StageTemplateData {
@@ -146,6 +148,18 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
   const [brainstormSuggestions, setBrainstormSuggestions] = useState<string[]>([]);
   const [currentBrainstormMessage, setCurrentBrainstormMessage] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
+  const [aiThinkingProgress, setAiThinkingProgress] = useState(0);
+  const [currentThreadId, setCurrentThreadId] = useState<string>('');
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [availableThreads, setAvailableThreads] = useState<Array<{
+    threadId: string;
+    lastUpdated: string;
+    templateName: string;
+    messageCount: number;
+  }>>([]);
+  const [isLoadingThreads, setIsLoadingThreads] = useState(false);
+  const [editingThreadName, setEditingThreadName] = useState<string | null>(null);
+  const [editingThreadNameValue, setEditingThreadNameValue] = useState<string>('');
   
   // Add state for expanded templates
   const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set());
@@ -344,6 +358,82 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
     }
   }, [assistantId, apiKey]);
 
+  // Initialize thread and load existing history
+  useEffect(() => {
+    const initializeThread = async () => {
+      setIsLoadingThreads(true);
+      try {
+        const availableThreads = await getAvailableThreads();
+        
+        if (availableThreads.length > 0) {
+          // Load the most recent thread
+          const mostRecentThread = availableThreads[0];
+          await loadThread(mostRecentThread.threadId);
+        } else {
+          // Create new thread
+          const newThreadId = generateThreadId();
+          const defaultName = generateDefaultThreadName();
+          setCurrentThreadId(newThreadId);
+          await saveChatHistory(newThreadId, [], defaultName);
+        }
+      } catch (error) {
+        console.error('Error initializing thread:', error);
+        // Create new thread on error
+        const newThreadId = generateThreadId();
+        const defaultName = generateDefaultThreadName();
+        setCurrentThreadId(newThreadId);
+        await saveChatHistory(newThreadId, [], defaultName);
+      } finally {
+        setIsLoadingThreads(false);
+      }
+    };
+    
+    initializeThread();
+  }, []);
+
+  // Auto-refresh threads every 30 seconds
+  useEffect(() => {
+    const refreshInterval = setInterval(async () => {
+      if (!isLoadingThreads) {
+        await getAvailableThreads();
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [isLoadingThreads]);
+
+  // Auto-refresh when modal is opened (component mounts)
+  useEffect(() => {
+    const refreshOnOpen = async () => {
+      if (currentThreadId) {
+        // Refresh threads list
+        await getAvailableThreads();
+        
+        // Also refresh the current thread to ensure we have the latest data
+        await loadThread(currentThreadId);
+      }
+    };
+    
+    // Small delay to ensure component is fully mounted
+    const timer = setTimeout(refreshOnOpen, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (editingThreadName === 'dropdown') {
+        const target = event.target as Element;
+        if (!target.closest('.thread-selector-dropdown')) {
+          setEditingThreadName(null);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [editingThreadName]);
+
   // Fetch current follow-up templates and messages after assistant info is loaded
   useEffect(() => {
     if (assistantInfo.instructions && !loading) {
@@ -354,6 +444,286 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
   // Function to generate unique template IDs
   const generateTemplateId = () => {
     return `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
+
+  // Function to generate unique thread ID
+  const generateThreadId = () => {
+    return `thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
+
+  // Function to generate default thread name
+  const generateDefaultThreadName = () => {
+    const date = new Date().toLocaleDateString();
+    return `Chat 1`;
+  };
+
+  // Function to get next available chat number
+  const getNextChatNumber = () => {
+    const existingNames = availableThreads.map(thread => thread.templateName);
+    let chatNumber = 1;
+    
+    while (existingNames.some(name => name.startsWith(`Chat ${chatNumber}`))) {
+      chatNumber++;
+    }
+    
+    return chatNumber;
+  };
+
+  // Function to save chat history to Neon database
+  const saveChatHistory = async (threadId: string, messages: ChatMessage[], customName?: string) => {
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("No user email found");
+        return;
+      }
+
+      // Add generated data metadata to the last message if available
+      let messagesToSave = [...messages];
+      if (generatedData && generatedData.stageTemplates && generatedData.stageTemplates.length > 0) {
+        // Add metadata about generated templates to help with restoration
+        const lastMessage = messagesToSave[messagesToSave.length - 1];
+        if (lastMessage && !lastMessage.isLoading) {
+          const enhancedMessage = {
+            ...lastMessage,
+            text: lastMessage.text + `\n\n[METADATA: Generated ${generatedData.stageTemplates.length} templates with changes ready to apply]`
+          };
+          messagesToSave[messagesToSave.length - 1] = enhancedMessage;
+        }
+      }
+
+      // Get current thread name or use custom name
+      const currentThread = availableThreads.find(t => t.threadId === threadId);
+      const threadName = customName || currentThread?.templateName || 'AI Follow-up Builder';
+
+      const response = await axios.post('https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread/save', {
+        threadId,
+        email: userEmail,
+        messages: messagesToSave,
+        templateName: threadName
+      });
+
+      if (!response.data.success) {
+        console.error('Error saving chat history:', response.data.error);
+      }
+    } catch (error) {
+      console.error('Error saving chat history:', error);
+    }
+  };
+
+  // Function to load chat history from Neon database
+  const loadChatHistory = async (threadId: string): Promise<ChatMessage[]> => {
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("No user email found");
+        return [];
+      }
+
+      const response = await axios.get(`https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread/${threadId}?email=${encodeURIComponent(userEmail)}`);
+      
+      if (response.data.success) {
+        return response.data.data.messages || [];
+      } else {
+        console.error('Error loading chat history:', response.data.error);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+      return [];
+    }
+  };
+
+  // Function to get all available chat threads from Neon database
+  const getAvailableThreads = async () => {
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("No user email found");
+        return [];
+      }
+
+      const response = await axios.get(`https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread?email=${encodeURIComponent(userEmail)}`);
+      
+      if (response.data.success) {
+        const threads = response.data.data.threads || [];
+        setAvailableThreads(threads);
+        
+        // If no threads exist, automatically create one
+        if (threads.length === 0 && !currentThreadId) {
+          const newThreadId = generateThreadId();
+          const defaultName = generateDefaultThreadName();
+          setCurrentThreadId(newThreadId);
+          await saveChatHistory(newThreadId, [], defaultName);
+          
+          // Add the new thread to available threads
+          const newThread = {
+            threadId: newThreadId,
+            templateName: defaultName,
+            lastUpdated: new Date().toISOString(),
+            messageCount: 0
+          };
+          const updatedThreads = [newThread];
+          setAvailableThreads(updatedThreads);
+          return updatedThreads;
+        }
+        
+        return threads;
+      } else {
+        console.error('Error getting available threads:', response.data.error);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error getting available threads:', error);
+      return [];
+    }
+  };
+
+  // Function to clear current thread history
+  const clearCurrentThread = async () => {
+    if (currentThreadId) {
+      try {
+        const userEmail = localStorage.getItem("userEmail");
+        if (userEmail) {
+          await axios.delete(`https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread/${currentThreadId}?email=${encodeURIComponent(userEmail)}`);
+        }
+      } catch (error) {
+        console.error('Error clearing thread history:', error);
+      }
+    }
+    
+    // Generate new thread ID and clear messages
+    const newThreadId = generateThreadId();
+    setCurrentThreadId(newThreadId);
+    setMessages([]);
+    setGeneratedData(null);
+    setHasChanges(false);
+    setAiThinkingProgress(0);
+    
+    // Save empty thread
+    await saveChatHistory(newThreadId, []);
+    
+    // Refresh available threads
+    await getAvailableThreads();
+    setShowClearConfirm(false);
+  };
+
+  // Function to load a specific thread
+  const loadThread = async (threadId: string) => {
+    try {
+      const threadMessages = await loadChatHistory(threadId);
+      setCurrentThreadId(threadId);
+      setMessages(threadMessages);
+      
+      // Check if there are any generated templates in the loaded messages
+      const lastBrainstormMessage = threadMessages
+        .filter(msg => msg.isBrainstorm)
+        .pop();
+      
+      if (lastBrainstormMessage && lastBrainstormMessage.text) {
+        // Check if this thread has generated templates that need to be restored
+        const hasGeneratedTemplates = threadMessages.some(msg => 
+          msg.text && (
+            msg.text.includes('[METADATA: Generated') ||
+            msg.text.includes('Templates ready to apply') ||
+            msg.text.includes('Changes Ready to Apply') ||
+            msg.text.includes('stageTemplates')
+          )
+        );
+        
+        if (hasGeneratedTemplates) {
+          // Set hasChanges to true if we have generated templates
+          setHasChanges(true);
+          
+          // Create a basic generated data structure to show that changes are pending
+          setGeneratedData({
+            stageTemplates: [],
+            workflowStages: 'Templates previously generated - please regenerate to see full details and apply changes'
+          });
+          
+          // Show a message to the user about regenerating templates
+          const infoMessage: ChatMessage = {
+            from_me: false,
+            type: 'text',
+            text: `ℹ️ **Previous Session Detected**\n\nI can see you had generated templates in your previous session. To see the full details and apply changes, please ask me to regenerate the templates or continue with your previous request.`,
+            createdAt: new Date().toISOString(),
+            threadId: threadId
+          };
+          
+          // Add info message if it doesn't already exist
+          if (!threadMessages.some(msg => msg.text.includes('Previous Session Detected'))) {
+            setMessages(prev => [...prev, infoMessage]);
+            // Save the updated messages
+            saveChatHistory(threadId, [...threadMessages, infoMessage]);
+          }
+        } else {
+          setHasChanges(false);
+        }
+      } else {
+        setHasChanges(false);
+      }
+      
+      // Refresh available threads to update last updated time
+      await getAvailableThreads();
+    } catch (error) {
+      console.error('Error loading thread:', error);
+      setMessages([]);
+      setHasChanges(false);
+      setGeneratedData(null);
+    }
+  };
+
+  // Function to create new thread
+  const createNewThread = async () => {
+    const newThreadId = generateThreadId();
+    const chatNumber = getNextChatNumber();
+    const defaultName = `Chat ${chatNumber} - ${new Date().toLocaleDateString()}`;
+    
+    setCurrentThreadId(newThreadId);
+    setMessages([]);
+    setGeneratedData(null);
+    setHasChanges(false);
+    setAiThinkingProgress(0);
+    
+    // Save empty thread with default name
+    await saveChatHistory(newThreadId, [], defaultName);
+    
+    // Refresh available threads
+    await getAvailableThreads();
+  };
+
+  // Function to start editing thread name
+  const startEditingThreadName = (threadId: string) => {
+    const thread = availableThreads.find(t => t.threadId === threadId);
+    if (thread) {
+      setEditingThreadName(threadId);
+      setEditingThreadNameValue(thread.templateName);
+    }
+  };
+
+  // Function to save thread name
+  const saveThreadName = async (threadId: string) => {
+    if (editingThreadNameValue.trim()) {
+      try {
+        // Update the thread name in the database
+        await saveChatHistory(threadId, messages, editingThreadNameValue.trim());
+        
+        // Refresh available threads to get updated names
+        await getAvailableThreads();
+        
+        // Exit edit mode
+        setEditingThreadName(null);
+        setEditingThreadNameValue('');
+      } catch (error) {
+        console.error('Error saving thread name:', error);
+      }
+    }
+  };
+
+  // Function to cancel editing thread name
+  const cancelEditingThreadName = () => {
+    setEditingThreadName(null);
+    setEditingThreadNameValue('');
   };
 
   // Function to toggle template expansion
@@ -505,26 +875,8 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
 
       setCurrentFollowUps({ templates, messages: messagesData });
 
-      // Add initial AI message based on current state
-      let initialMessageText = '';
-      
-      if (templates.length > 0) {
-        // If user has follow-ups, show them with context from current prompt
-        initialMessageText = `I can see you currently have ${templates.length} follow-up template(s) in your system:\n\n${templates.map((template: CurrentFollowUpTemplate, index: number) => 
-          `${index + 1}. **${template.name}** (${template.status})\n   - Created: ${new Date(template.createdAt).toLocaleDateString()}\n   - Messages: ${messagesData[template.templateId]?.length || 0}\n   - Trigger Tags: ${template.triggerTags?.join(', ') || 'None'}\n   - Trigger Keywords: ${template.triggerKeywords?.join(', ') || 'None'}`
-        ).join('\n\n')}\n\nI also have your current AI assistant instructions loaded, so I understand your business context and conversation stages.\n\nI can help you:\n• Modify existing follow-up messages\n• Create new follow-up templates based on your current prompt stages\n• Optimize message content and timing\n• Update trigger conditions\n\nWhat would you like me to help you with?`;
-      } else {
-        // If no follow-ups, encourage creating them based on current prompt
-        initialMessageText = `I can see you don't have any follow-up templates yet, but I have your current AI assistant instructions loaded!\n\nBased on your current prompt, I can help you create follow-up sequences that align with your conversation stages:\n\n**Your Current Prompt Summary:**\n${assistantInfo.instructions.substring(0, 300)}...\n\nI can help you:\n• Create follow-up templates based on your current conversation stages\n• Generate messages that match your business tone and style\n• Set up proper trigger conditions for each stage\n• Build automated sequences for lead nurturing\n\n**Try asking me:** "Create follow-up templates based on my current prompt stages" or "Generate follow-up messages for Stage 2 leads"`;
-      }
-      
-        const initialMessage: ChatMessage = {
-          from_me: false,
-          type: 'text',
-        text: initialMessageText,
-          createdAt: new Date().toISOString(),
-        };
-        setMessages([initialMessage]);
+      // Don't add any initial message - keep it empty like new threads
+      // This makes the behavior consistent between opening modal and creating new threads
 
     } catch (error) {
       console.error("Error fetching current follow-ups:", error);
@@ -539,12 +891,14 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
     
     setIsSending(true);
     setError(null);
+    setAiThinkingProgress(0);
     
     const newMessage: ChatMessage = {
       from_me: true,
       type: 'text',
       text: messageText,
       createdAt: new Date().toISOString(),
+      threadId: currentThreadId,
     };
   
     const loadingMessage: ChatMessage = {
@@ -553,9 +907,26 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       text: '',
       createdAt: new Date().toISOString(),
       isLoading: true,
+      threadId: currentThreadId,
     };
   
-    setMessages(prevMessages => [...prevMessages, newMessage, loadingMessage]);
+    const updatedMessages = [...messages, newMessage, loadingMessage];
+    setMessages(updatedMessages);
+    
+    // Save to localStorage
+    saveChatHistory(currentThreadId, updatedMessages);
+  
+    // Start progress simulation
+    let progressInterval: NodeJS.Timeout;
+    progressInterval = setInterval(() => {
+      setAiThinkingProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return prev + Math.random() * 15;
+      });
+    }, 200);
   
     try {
       const userEmail = localStorage.getItem("userEmail");
@@ -660,27 +1031,47 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       
       console.log("=== END BRAINSTORM DEBUG ===");
       
-      const assistantResponse: ChatMessage = {
-        from_me: false,
-        type: 'text',
-        text: responseText,
-        createdAt: new Date().toISOString(),
-        isBrainstorm: true
-      };
+      // Complete the progress to 100%
+      setAiThinkingProgress(100);
       
-      // Remove loading message and add the real response
-      setMessages(prevMessages => {
-        const filteredMessages = prevMessages.filter(msg => !msg.isLoading);
-        return [...filteredMessages, assistantResponse];
-      });
+      // Small delay to show 100% before revealing the answer
+      setTimeout(async () => {
+        const assistantResponse: ChatMessage = {
+          from_me: false,
+          type: 'text',
+          text: responseText,
+          createdAt: new Date().toISOString(),
+          isBrainstorm: true,
+          threadId: currentThreadId
+        };
+        
+        // Remove loading message and add the real response
+        setMessages(prevMessages => {
+          const filteredMessages = prevMessages.filter(msg => !msg.isLoading);
+          const finalMessages = [...filteredMessages, assistantResponse];
+          
+          // Save updated messages to localStorage
+          saveChatHistory(currentThreadId, finalMessages);
+          
+          return finalMessages;
+        });
+      }, 300);
   
     } catch (error) {
       console.error('Error:', error);
       setError("Failed to generate follow-up suggestions. Please try again.");
       // Remove loading message on error
       setMessages(prevMessages => prevMessages.filter(msg => !msg.isLoading));
+      // Reset progress on error
+      setAiThinkingProgress(0);
+      // Clear progress interval
+      if (progressInterval) clearInterval(progressInterval);
     } finally {
       setIsSending(false);
+      // Reset progress when done
+      setAiThinkingProgress(0);
+      // Clear progress interval
+      if (progressInterval) clearInterval(progressInterval);
     }
   };
 
@@ -933,9 +1324,15 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
         type: 'text',
         text: `🎉 Templates saved successfully!\n\n• Templates Updated: ${templatesUpdated || 0}\n• Templates Created: ${templatesCreated || 0}\n• Total Changes: ${totalChanges || 0}\n\nYour follow-up templates have been saved to the database.`,
         createdAt: new Date().toISOString(),
+        threadId: currentThreadId,
       };
       
-      setMessages(prevMessages => [...prevMessages, successMessage]);
+      setMessages(prevMessages => {
+        const updatedMessages = [...prevMessages, successMessage];
+        // Save updated messages to localStorage
+        saveChatHistory(currentThreadId, updatedMessages);
+        return updatedMessages;
+      });
       
       toast.success(`Templates saved successfully! 🎉\n${totalChanges || 0} template(s) processed.`);
       
@@ -1013,6 +1410,8 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
               <p className="text-gray-600 dark:text-gray-400">Create and optimize follow-up sequences with AI</p>
             </div>
           </div>
+          
+          {/* Close Button */}
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -1028,6 +1427,144 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
           {/* Chat Section */}
           <div className="w-1/2 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
             <div className="h-full flex flex-col">
+              {/* Thread Management Controls */}
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                <div className="flex items-center justify-between gap-3">
+                  {/* Left side - New Thread, Clear History, and Thread Selector */}
+                  <div className="flex items-center gap-3">
+                    {/* New Thread Button */}
+                    <Button
+                      onClick={createNewThread}
+                      className="p-2 bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:text-green-300 border border-green-300 dark:border-green-700 rounded-lg"
+                      title="New Thread"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </Button>
+                    
+                    {/* Clear History Button */}
+                    <Button
+                      onClick={() => setShowClearConfirm(true)}
+                      className="p-2 bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/20 dark:hover:bg-red-900/30 dark:text-red-300 border border-red-300 dark:border-red-700 rounded-lg"
+                      title="Clear History"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </Button>
+                    
+                    {/* Thread Selector */}
+                    <div className="relative thread-selector-dropdown">
+                      <button
+                        onClick={() => setEditingThreadName(editingThreadName ? null : 'dropdown')}
+                        className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between min-w-[200px]"
+                        disabled={isLoadingThreads}
+                      >
+                        {isLoadingThreads ? (
+                          <span>Loading threads...</span>
+                        ) : availableThreads.length > 0 ? (
+                          <span className="truncate">
+                            {availableThreads.find(t => t.threadId === currentThreadId)?.templateName || 'Select Thread'}
+                          </span>
+                        ) : (
+                          <span>No threads available</span>
+                        )}
+                        <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      
+                      {/* Custom Dropdown */}
+                      {editingThreadName === 'dropdown' && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
+                          {availableThreads.map((thread) => (
+                            <div key={thread.threadId} className="border-b border-gray-200 dark:border-gray-600 last:border-b-0">
+                              <div className="p-3 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer">
+                                {editingThreadName === thread.threadId ? (
+                                  // Edit mode for this thread
+                                  <div className="space-y-2">
+                                    <input
+                                      type="text"
+                                      value={editingThreadNameValue}
+                                      onChange={(e) => setEditingThreadNameValue(e.target.value)}
+                                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      placeholder="Enter thread name..."
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          saveThreadName(thread.threadId);
+                                        } else if (e.key === 'Escape') {
+                                          cancelEditingThreadName();
+                                        }
+                                      }}
+                                      autoFocus
+                                    />
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => saveThreadName(thread.threadId)}
+                                        className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={cancelEditingThreadName}
+                                        className="px-2 py-1 text-xs bg-gray-600 hover:bg-gray-700 text-white rounded"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  // Display mode for this thread
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium text-gray-900 dark:text-white truncate">
+                                        {thread.templateName}
+                                      </div>
+                                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                                        {thread.messageCount} messages - {new Date(thread.lastUpdated).toLocaleDateString()}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 ml-2">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          startEditingThreadName(thread.threadId);
+                                        }}
+                                        className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                        title="Edit thread name"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          loadThread(thread.threadId);
+                                          setEditingThreadName(null);
+                                        }}
+                                        className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
+                                      >
+                                        Select
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Right side - Empty for balance */}
+                  <div className="flex items-center gap-3">
+                  </div>
+                </div>
+              </div>
+              
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-6 ai-followup-builder-scroll" style={{ minHeight: 0 }}>
                 {messages.length === 0 && isLoadingCurrentFollowUps && (
@@ -1051,7 +1588,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                     </div>
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-3">Welcome to AI Follow-up Builder!</h3>
                     <p className="text-gray-600 dark:text-gray-400 max-w-lg text-base">
-                      I have your AI assistant instructions loaded and I'll help you create or improve follow-up templates based on your conversation stages.
+                      I've analyzed your AI assistant's conversation flow and business context. I can help you build intelligent follow-up sequences that automatically nurture leads through your sales pipeline, optimize conversion rates, and create personalized customer journeys based on your existing conversation stages.
                     </p>
                     <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                       <p className="text-sm text-blue-800 dark:text-blue-200">
@@ -1077,13 +1614,31 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                       }`}
                     >
                       {message.isLoading ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                            <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                            <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+                            <span className="flex items-center space-x-2">
+                              <div className="flex space-x-1">
+                                <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                              </div>
+                              <span>AI is thinking...</span>
+                            </span>
+                            <span className="font-medium">{Math.round(aiThinkingProgress)}%</span>
                           </div>
-                          <span className="text-sm">AI is thinking...</span>
+                          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                            <div 
+                              className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300 ease-out"
+                              style={{ width: `${aiThinkingProgress}%` }}
+                            ></div>
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {aiThinkingProgress < 30 && "Analyzing your request..."}
+                            {aiThinkingProgress >= 30 && aiThinkingProgress < 60 && "Processing your follow-up data..."}
+                            {aiThinkingProgress >= 60 && aiThinkingProgress < 90 && "Builder is taking longer than expected..."}
+                            {aiThinkingProgress >= 90 && aiThinkingProgress < 100 && "Please wait for a while i build your follow-up templates..."}
+                            {aiThinkingProgress >= 100 && "Response ready!"}
+                          </div>
                         </div>
                       ) : (
                         <>
@@ -1131,6 +1686,123 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                                     </div>
                                 )}
                               </button>
+                            </div>
+                          )}
+                          
+                          {/* Drafted Templates Section */}
+                          {message.isBrainstorm && generatedData?.stageTemplates && generatedData.stageTemplates.length > 0 && (
+                            <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                                <h4 className="font-medium text-gray-800 dark:text-white">Drafted Templates ({generatedData.stageTemplates.length})</h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Review the templates before applying</p>
+                              </div>
+
+                              <div className="divide-y divide-gray-200 dark:divide-gray-600">
+                                {generatedData.stageTemplates.map((template, index) => (
+                                  <div key={template.templateId} className="p-4">
+                                    <div className="flex items-start justify-between mb-3">
+                                      <div className="flex-1">
+                                        <h5 className="font-medium text-gray-800 dark:text-white mb-1">
+                                          {template.stageName}
+                                        </h5>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                          {template.purpose}
+                                        </p>
+                                        
+                                        {/* Trigger Tags */}
+                                        {template.triggerTags && template.triggerTags.length > 0 && (
+                                          <div className="mb-2">
+                                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Trigger Tags:</span>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              {template.triggerTags.map((tag, tagIndex) => (
+                                                <span key={tagIndex} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                                  {tag}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                        
+                                        {/* Trigger Keywords */}
+                                        {template.triggerKeywords && template.triggerKeywords.length > 0 && (
+                                          <div className="mb-2">
+                                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Trigger Keywords:</span>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              {template.triggerKeywords.map((keyword, keywordIndex) => (
+                                                <span key={keywordIndex} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                                                  {keyword}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                      
+                                      <div className="text-right ml-4">
+                                        <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                                          {template.messageCount} messages
+                                        </span>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Messages Preview */}
+                                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                                      <div className="flex items-center justify-between mb-3">
+                                        <h6 className="text-xs font-medium text-gray-600 dark:text-gray-400">Messages:</h6>
+                                        <button
+                                          onClick={() => toggleTemplateExpansion(template.templateId)}
+                                          className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
+                                        >
+                                          {expandedTemplates.has(template.templateId) ? (
+                                            <>
+                                              <span>Show Less</span>
+                                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                              </svg>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <span>Show All ({template.messages.length})</span>
+                                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7 7" />
+                                              </svg>
+                                            </>
+                                          )}
+                                        </button>
+                                      </div>
+                                      
+                                      <div className="space-y-2">
+                                        {template.messages.slice(0, expandedTemplates.has(template.templateId) ? template.messages.length : 3).map((messageObj: any, msgIndex) => (
+                                          <div key={msgIndex} className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 p-3 rounded border">
+                                            <div className="flex items-center justify-between mb-2">
+                                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                #{msgIndex + 1} - {messageObj.day ? `Day ${messageObj.day}` : 'Day 0'}, {messageObj.sequence ? `Seq ${messageObj.sequence}` : 'Seq 1'}
+                                              </span>
+                                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                {messageObj.delay ? `${messageObj.delay}` : (messageObj.timing ? `${messageObj.timing}` : 'Immediate')}
+                                              </span>
+                                            </div>
+                                            <div className="mb-2">
+                                              <div className="text-gray-700 dark:text-gray-300">
+                                                {messageObj.message}
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                              <div className="flex items-center gap-2">
+                                                {messageObj.delay && (
+                                                  <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                                                    {messageObj.delay}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </>
@@ -1186,11 +1858,10 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                   <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
                     Assistant: {assistantInfo.name || 'Loading...'}
                   </h4>
-                  <div className="text-sm text-blue-700 dark:text-blue-300 bg-white dark:bg-blue-950/30 p-3 rounded border max-h-48 overflow-y-auto">
-                    <strong>Instructions Preview:</strong>
+                  <div className="text-sm text-blue-700 dark:text-blue-300 bg-white dark:bg-blue-950/30 p-3 rounded border max-h-32 overflow-y-auto">
+                    <strong>Instructions:</strong>
                     <div className="mt-2 font-mono text-xs whitespace-pre-wrap">
-                      {assistantInfo.instructions?.substring(0, 500) || 'Loading instructions...'}
-                      {assistantInfo.instructions && assistantInfo.instructions.length > 500 && '...'}
+                      {assistantInfo.instructions || 'Loading instructions...'}
                     </div>
                   </div>
                 </div>
@@ -1609,6 +2280,44 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
           </div>
         </div>
       </div>
+      
+      {/* Clear History Confirmation Dialog */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Clear Chat History?</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">This action cannot be undone.</p>
+              </div>
+            </div>
+            
+            <p className="text-gray-700 dark:text-gray-300 mb-6">
+              Are you sure you want to clear the current chat thread? All messages and generated templates will be permanently deleted.
+            </p>
+            
+            <div className="flex gap-3 justify-end">
+              <Button
+                onClick={() => setShowClearConfirm(false)}
+                className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={clearCurrentThread}
+                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white"
+              >
+                Clear History
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
