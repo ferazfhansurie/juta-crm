@@ -280,7 +280,8 @@ interface DocumentModalProps {
 interface PDFModalProps {
   isOpen: boolean;
   onClose: () => void;
-  pdfUrl: string;
+  documentUrl: string;
+  documentName?: string;
 }
 type Notification = {
   from: string;
@@ -536,33 +537,67 @@ const ImageModal: React.FC<ImageModalProps> = ({
   );
 };
 
-const PDFModal = ({ isOpen, onClose, pdfUrl }: PDFModalProps) => {
-  return (
-    <Dialog open={isOpen} onClose={onClose}>
-      <Dialog.Panel className="fixed inset-0 z-50 flex items-center justify-center">
-        <div
-          className="fixed flex inset-0 bg-black/70 transition-opacity"
-          onClick={onClose}
-        />
+const PDFModal: React.FC<PDFModalProps> = ({ isOpen, onClose, documentUrl, documentName }) => {
+  if (!isOpen) return null;
 
-        <div className="relative mt-10 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-5xl h-4/5">
+  return (
+        <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          onClick={onClose}
+    >
+      <div
+        className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full md:w-[800px] h-auto md:h-[600px] p-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">
+            Document Preview
+          </h2>
           <button
-            className="absolute top-4 right-4 text-white bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-full p-2 transition-colors"
+            className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
             onClick={onClose}
           >
-            <Lucide icon="X" className="w-6 h-6" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
-
+        </div>
+        <div
+          className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg mb-3 flex justify-center items-center"
+          style={{ height: "90%" }}
+        >
+          {documentUrl.toLowerCase().includes('.pdf') ? (
           <iframe
-            src={pdfUrl}
+              src={documentUrl}
             width="100%"
             height="100%"
             title="PDF Document"
             className="border rounded"
           />
+          ) : (
+            <div className="text-center">
+              <svg className="w-16 h-16 mb-1.5 mx-auto text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+              </svg>
+              <p className="text-gray-800 dark:text-gray-200 font-semibold text-sm">
+                {documentName || "Document"}
+              </p>
+              <p className="text-gray-600 dark:text-gray-400 mt-1.5 text-xs">
+                Click Download to view this document
+              </p>
         </div>
-      </Dialog.Panel>
-    </Dialog>
+          )}
+        </div>
+        <div className="flex justify-center">
+          <button
+            className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors text-sm"
+            onClick={() => window.open(documentUrl, '_blank')}
+          >
+            Download Document
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -714,7 +749,7 @@ function Main() {
   const [editedMessageText, setEditedMessageText] = useState<string>("");
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [isPDFModalOpen, setPDFModalOpen] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfModalData, setPdfModalData] = useState<{ documentUrl: string; documentName?: string }>({ documentUrl: "", documentName: "" });
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [isEmojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [isImageModalOpen2, setImageModalOpen2] = useState(false);
@@ -4003,15 +4038,14 @@ console.log(data);
     }
   };
 
-  const openPDFModal = (url: string) => {
-
-    setPdfUrl(url);
+  const openPDFModal = (url: string, documentName?: string) => {
+    setPdfModalData({ documentUrl: url, documentName });
     setPDFModalOpen(true);
   };
 
   const closePDFModal = () => {
     setPDFModalOpen(false);
-    setPdfUrl("");
+    setPdfModalData({ documentUrl: "", documentName: "" });
   };
   let user_name = "";
   let user_role = "2";
@@ -12546,57 +12580,18 @@ console.log(data);
                                 message.document && (
                                   <>
                                     <div className="document-content flex flex-col items-center p-8 rounded-2xl shadow-xl bg-white dark:bg-gray-800">
-                                      <div
-                                        className="w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 p-5 rounded-2xl"
-                                        onClick={() => {
-                                          if (message.document) {
-                                            const docUrl =
-                                              message.document.link ||
-                                              (message.document.data
-                                                ? `data:${message.document.mimetype};base64,${message.document.data}`
-                                                : null);
-                                            if (docUrl) {
-                                              openPDFModal(docUrl);
-                                            }
-                                          }
-                                        }}
-                                      >
-                                        <div className="flex items-center">
-                                          {message.document.mimetype?.startsWith(
-                                            "video/"
-                                          ) ? (
-                                            <Lucide
-                                              icon="Video"
-                                              className="w-6 h-6 text-gray-500 dark:text-gray-400 mr-2.5"
-                                            />
-                                          ) : message.document.mimetype?.startsWith(
-                                              "image/"
-                                            ) ? (
-                                            <Lucide
-                                              icon="Image"
-                                              className="w-6 h-6 text-gray-500 dark:text-gray-400 mr-2.5"
-                                            />
-                                          ) : message.document.mimetype?.includes(
-                                              "pdf"
-                                            ) ? (
-                                            <Lucide
-                                              icon="FileText"
-                                              className="w-6 h-6 text-gray-500 dark:text-gray-400 mr-2.5"
-                                            />
-                                          ) : (
-                                            <Lucide
-                                              icon="File"
-                                              className="w-6 h-6 text-gray-500 dark:text-gray-400 mr-2.5"
-                                            />
-                                          )}
-
+                                      {/* Document Header */}
+                                      <div className="flex items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 mb-3 w-full">
+                                        <svg className="w-6 h-6 text-gray-500 dark:text-gray-400 mr-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                        </svg>
                                           <div className="flex-1">
-                                            <div className="font-semibold text-gray-800 dark:text-gray-200 truncate text-sm">
+                                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                               {message.document.file_name ||
                                                 message.document.filename ||
                                                 "Document"}
-                                            </div>
-                                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                                          </p>
+                                          <div className="text-xs text-gray-500 dark:text-gray-400">
                                               {message.document.page_count &&
                                                 `${
                                                   message.document.page_count
@@ -12618,11 +12613,142 @@ console.log(data);
                                               MB
                                             </div>
                                           </div>
-                                          <Lucide
-                                            icon="ExternalLink"
-                                            className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 ml-2.5"
-                                          />
-                                        </div>
+                                        <button
+                                          onClick={() => {
+                                            if (message.document) {
+                                              const docUrl =
+                                                message.document.link ||
+                                                (message.document.data
+                                                  ? `data:${message.document.mimetype};base64,${message.document.data}`
+                                                  : null);
+                                              if (docUrl) {
+                                                const documentName = message.document.file_name ||
+                                                  message.document.filename ||
+                                                  "Document";
+                                                openPDFModal(docUrl, documentName);
+                                              }
+                                            }
+                                          }}
+                                          className="px-3 py-1.5 text-xs bg-green-500 dark:bg-green-600 text-white rounded hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
+                                        >
+                                          View
+                                        </button>
+                                      </div>
+                                      
+                                      {/* Document Content Preview */}
+                                      <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden w-full">
+                                        {(() => {
+                                          // Debug logging to understand document structure
+                                          console.log('Document debug:', {
+                                            document: message.document,
+                                            link: message.document.link,
+                                            data: message.document.data,
+                                            mimetype: message.document.mimetype,
+                                            fileName: message.document.file_name,
+                                            filename: message.document.filename
+                                          });
+                                          
+                                          const docUrl = message.document.link ||
+                                            (message.document.data
+                                              ? `data:${message.document.mimetype};base64,${message.document.data}`
+                                              : null);
+                                          
+                                          // Check if it's a PDF based on MIME type or file extension
+                                          const isPDF = message.document.mimetype?.includes('pdf') || 
+                                                       docUrl?.toLowerCase().includes('.pdf') ||
+                                                       message.document.file_name?.toLowerCase().includes('.pdf') ||
+                                                       message.document.filename?.toLowerCase().includes('.pdf');
+                                          
+                                          // Check if it's an image based on MIME type or file extension
+                                          const isImage = message.document.mimetype?.startsWith('image/') ||
+                                                         docUrl?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
+                                                         message.document.file_name?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
+                                                         message.document.filename?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                                          
+                                          if (isPDF && docUrl) {
+                                            // Try multiple PDF viewing methods
+                                            const googleDocsViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(docUrl)}&embedded=true`;
+                                            
+                                            return (
+                                              <div className="relative">
+                                                {/* Primary PDF viewer */}
+                                                <iframe
+                                                  src={docUrl}
+                                                  width="100%"
+                                                  height="400"
+                                                  title="PDF Document Preview"
+                                                  className="border-0"
+                                                  style={{ minHeight: '400px' }}
+                                                  onError={(e) => {
+                                                    console.log('PDF preview error:', e);
+                                                  }}
+                                                />
+                                                
+                                                {/* Google Docs viewer as fallback */}
+                                                <div className="mt-2">
+                                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 text-center">
+                                                    If PDF doesn't load, try:
+                                                  </p>
+                                                  <div className="flex gap-2 justify-center">
+                                                    <button
+                                                      onClick={() => window.open(docUrl, '_blank')}
+                                                      className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs transition-colors"
+                                                    >
+                                                      Open in New Tab
+                                                    </button>
+                                                    <button
+                                                      onClick={() => window.open(googleDocsViewer, '_blank')}
+                                                      className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded text-xs transition-colors"
+                                                    >
+                                                      Google Docs Viewer
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            );
+                                          } else if (isImage && docUrl) {
+                                            return (
+                                              <img
+                                                src={docUrl}
+                                                alt="Image Document Preview"
+                                                className="w-full h-auto max-h-96 object-contain"
+                                                onError={(e) => {
+                                                  console.log('Image preview error:', e);
+                                                }}
+                                              />
+                                            );
+                                          } else if (docUrl) {
+                                            // For other document types, try to show a preview if possible
+                                            return (
+                                              <div className="p-4 text-center">
+                                                <svg className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                                </svg>
+                                                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                                  Document preview not available
+                                                </p>
+                                                <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">
+                                                  Click View to open this document
+                                                </p>
+                                              </div>
+                                            );
+                                          } else {
+                                            // No URL available
+                                            return (
+                                              <div className="p-4 text-center">
+                                                <svg className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                                </svg>
+                                                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                                  Document not available
+                                                </p>
+                                                <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">
+                                                  Document data could not be loaded
+                                                </p>
+                                              </div>
+                                            );
+                                          }
+                                        })()}
                                       </div>
                                     </div>
                                     {message.document?.caption && (
@@ -14954,6 +15080,14 @@ console.log(data);
           setDocumentModalOpen(false);
         }}
         initialCaption={documentCaption}
+      />
+
+      {/* PDF Modal */}
+      <PDFModal
+        isOpen={isPDFModalOpen}
+        onClose={closePDFModal}
+        documentUrl={pdfModalData.documentUrl}
+        documentName={pdfModalData.documentName}
       />
 
       {/* Usage Dashboard Modal */}
