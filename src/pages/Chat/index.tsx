@@ -712,7 +712,7 @@ function Main() {
   const baseMessageClass =
     "flex flex-col max-w-[auto] min-w-[auto] px-2 py-1.5 text-white";
   const myMessageClass = `flex flex-col max-w-[auto] min-w-[auto] px-2 py-1.5 self-end ml-auto text-left mb-0.5 mr-6 group`;
-  const otherMessageClass = `${baseMessageClass} bg-white dark:bg-gray-800 self-start text-left mt-0.5 ml-2 group`;
+  const otherMessageClass = `${baseMessageClass} bg-white/20 dark:bg-gray-800/80 self-start text-left mt-0.5 ml-2 group`;
   const myFirstMessageClass = `${myMessageClass} rounded-tr-2xl rounded-tl-2xl rounded-br-2xl rounded-bl-2xl mt-1`;
   const myMiddleMessageClass = `${myMessageClass} rounded-tr-2xl rounded-tl-2xl rounded-br-2xl rounded-bl-2xl`;
   const myLastMessageClass = `${myMessageClass} rounded-tr-2xl rounded-tl-2xl rounded-br-2xl rounded-bl-2xl mb-1`;
@@ -722,7 +722,7 @@ function Main() {
   const privateNoteClass = `${baseMessageClass} bg-yellow-500 dark:bg-yellow-900 self-start text-left mt-1 ml-2 group rounded-tr-2xl rounded-tl-2xl rounded-br-2xl rounded-bl-2xl`;
   const [messageMode, setMessageMode] = useState("reply");
   const myMessageTextClass = "text-black dark:text-white";
-  const otherMessageTextClass = "text-black dark:text-white";
+  const otherMessageTextClass = "text-gray-800 dark:text-white";
   const [activeTags, setActiveTags] = useState<string[]>(["all"]);
   const [tagList, setTagList] = useState<Tag[]>([]);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -874,12 +874,35 @@ function Main() {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [quickReplyFilter, setQuickReplyFilter] = useState("");
   const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
   
   // Debug: Log phone names when they change
   useEffect(() => {
     console.log("🔍 Phone names updated:", phoneNames);
     console.log("🔍 Phone names entries:", Object.entries(phoneNames));
   }, [phoneNames]);
+
+  // Phone modal focus management
+  useEffect(() => {
+    if (showPhoneModal) {
+      // Focus the modal when it opens
+      const modalElement = document.querySelector('[data-phone-modal]');
+      if (modalElement) {
+        (modalElement as HTMLElement).focus();
+      }
+      
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    } else {
+      // Restore body scroll when modal closes
+      document.body.style.overflow = 'unset';
+    }
+
+    // Cleanup function
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showPhoneModal]);
   const [userPhone, setUserPhone] = useState<number | null>(null);
   const [activeNotifications, setActiveNotifications] = useState<
     (string | number)[]
@@ -2120,60 +2143,7 @@ console.log(data);
 
   // ... existing code ...
 
-  useEffect(() => {
-    const fetchPhoneStatuses = async () => {
-      try {
-        const email = getCurrentUserEmail();
-        if (!email || !companyId) return;
 
-        const botStatusResponse = await axios.get(
-          `${baseUrl}/api/bot-status/${companyId}`
-        );
-        console.log(botStatusResponse);
-
-        if (botStatusResponse.status === 200) {
-          const data: BotStatusResponse = botStatusResponse.data;
-          console.log("Bot status response data:", data);
-
-          // Check if phones array exists before mapping
-          if (data.phones && Array.isArray(data.phones)) {
-            // Multiple phones: transform array to QRCodeData[]
-            const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
-              phoneIndex: phone.phoneIndex,
-              status: phone.status,
-              qrCode: phone.qrCode,
-            }));
-            console.log("Setting qrCodes for multiple phones:", qrCodesData);
-            setQrCodes(qrCodesData);
-          } else if (data.phoneCount === 1 && data.phoneInfo) {
-            // Single phone: create QRCodeData from flat structure
-            const singlePhoneData = [{
-              phoneIndex: 0,
-              status: data.status,
-              qrCode: data.qrCode,
-            }];
-            console.log("Setting qrCodes for single phone:", singlePhoneData);
-            setQrCodes(singlePhoneData);
-          } else {
-            console.log("No phone data found, setting empty qrCodes");
-            setQrCodes([]);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching phone statuses:", error);
-      }
-    };
-
-    // Only fetch if we have companyId
-    if (companyId) {
-      fetchPhoneStatuses();
-
-      // Set up an interval to refresh the status every 10 seconds for more responsive updates
-      const intervalId = setInterval(fetchPhoneStatuses, 10000);
-
-      return () => clearInterval(intervalId);
-    }
-  }, [companyId]); // Add companyId as dependency
 
   // Additional useEffect to fetch phone status when phone names become available
   useEffect(() => {
@@ -2217,60 +2187,60 @@ console.log(data);
     }
   }, [companyId, phoneNames, qrCodes.length]);
 
-  // Debug useEffect to log phone status changes
-  useEffect(() => {
-    console.log("🔍 Phone status debug - qrCodes changed:", {
-      qrCodes,
-      qrCodesLength: qrCodes.length,
-      phoneNames,
-      phoneNamesCount: Object.keys(phoneNames).length,
-      companyId
-    });
-  }, [qrCodes, phoneNames, companyId]);
 
-  // Force refresh phone status when component becomes visible or user interacts
+
+  // Force refresh phone status when component becomes visible (with debouncing)
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     const handleVisibilityChange = () => {
       if (!document.hidden && companyId) {
-        console.log("Page became visible, refreshing phone status...");
-        const fetchPhoneStatuses = async () => {
-          try {
-            const botStatusResponse = await axios.get(
-              `${baseUrl}/api/bot-status/${companyId}`
-            );
-            if (botStatusResponse.status === 200) {
-              const data: BotStatusResponse = botStatusResponse.data;
-              if (data.phones && Array.isArray(data.phones)) {
-                const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
-                  phoneIndex: phone.phoneIndex,
-                  status: phone.status,
-                  qrCode: phone.qrCode,
-                }));
-                setQrCodes(qrCodesData);
-              } else if (data.phoneCount === 1 && data.phoneInfo) {
-                setQrCodes([{
-                  phoneIndex: 0,
-                  status: data.status,
-                  qrCode: data.qrCode,
-                }]);
+        // Debounce the API call to prevent excessive requests
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          console.log("Page became visible, refreshing phone status...");
+          const fetchPhoneStatuses = async () => {
+            try {
+              const botStatusResponse = await axios.get(
+                `${baseUrl}/api/bot-status/${companyId}`
+              );
+              if (botStatusResponse.status === 200) {
+                const data: BotStatusResponse = botStatusResponse.data;
+                if (data.phones && Array.isArray(data.phones)) {
+                  const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
+                    phoneIndex: phone.phoneIndex,
+                    status: phone.status,
+                    qrCode: phone.qrCode,
+                  }));
+                  setQrCodes(qrCodesData);
+                } else if (data.phoneCount === 1 && data.phoneInfo) {
+                  setQrCodes([{
+                    phoneIndex: 0,
+                    status: data.status,
+                    qrCode: data.qrCode,
+                  }]);
+                }
               }
+            } catch (error) {
+              console.error("Error refreshing phone status on visibility change:", error);
             }
-          } catch (error) {
-            console.error("Error refreshing phone status on visibility change:", error);
-          }
-        };
-        fetchPhoneStatuses();
+          };
+          fetchPhoneStatuses();
+        }, 1000); // 1 second debounce
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearTimeout(timeoutId);
+    };
   }, [companyId]);
 
-  // Force phone status fetch on component mount and when dependencies change
+  // Force phone status fetch on component mount only (not on every phoneNames change)
   useEffect(() => {
     if (companyId) {
-      console.log("🔄 Force fetching phone status on mount/dependency change...");
+      console.log("🔄 Force fetching phone status on mount only...");
       const fetchPhoneStatuses = async () => {
         try {
           const botStatusResponse = await axios.get(
@@ -2307,7 +2277,7 @@ console.log(data);
       
       fetchPhoneStatuses();
     }
-  }, [companyId, phoneNames]);
+  }, [companyId]); // Removed phoneNames dependency to prevent excessive fetching
 
   // Fetch contacts with client-side lazy loading
   const fetchContactsWithLazyLoading = async () => {
@@ -5411,16 +5381,6 @@ console.log(data);
           }
         }
 
-        // Immediately fetch messages and check for updates to ensure real-time reflection
-        setTimeout(() => {
-          if (whapiToken) {
-            fetchMessages(chatId, whapiToken);
-            // Also trigger a quick poll for new messages
-            setTimeout(() => {
-              pollForNewMessages();
-            }, 1000);
-          }
-        }, 100);
 
         // Restore scroll position after a short delay to allow rendering
         setTimeout(() => {
@@ -6500,33 +6460,7 @@ console.log(data);
     }
   }, [selectedChatId, userData, lastMessageTimestamp, baseUrl]);
 
-  // Start/stop polling based on chat selection
-  useEffect(() => {
-    if (selectedChatId && userData) {
-      console.log("Starting message polling for chat:", selectedChatId);
-      setIsPolling(true);
 
-      // Start polling every 15 seconds
-      pollingIntervalRef.current = setInterval(pollForNewMessages, 5000); // Poll every 5 seconds for better real-time updates
-    } else {
-      console.log("Stopping message polling");
-      setIsPolling(false);
-
-      // Clear polling interval
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    }
-
-    // Cleanup function
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, [selectedChatId, userData, pollForNewMessages]);
 
   async function fetchMessagesBackground(
     selectedChatId: string,
@@ -9975,12 +9909,11 @@ console.log(data);
 
     fetchCompanyStopBot();
 
-    // Optional: Poll every 10 seconds for updates (remove if not needed)
-    const interval = setInterval(fetchCompanyStopBot, 10000);
+  
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+ 
     };
   }, []);
 
@@ -10498,16 +10431,7 @@ console.log(data);
     };
   }, []);
 
-  // Cleanup useEffect to stop polling when component unmounts
-  useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      setIsPolling(false);
-    };
-  }, []);
+
 
   const handleGenerateAIResponse = async () => {
     if (messages.length === 0) return;
@@ -10899,10 +10823,11 @@ console.log(data);
           </div>
 
           <div className="flex flex-col gap-1.5">
-            {
-              <Menu as="div" className="relative inline-block text-left">
-                <div>
-                  <Menu.Button className="flex items-center space-x-1.5 text-sm font-bold opacity-75 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md hover:bg-white dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100/50 focus:ring-blue-500/50 transition-all duration-300 border border-white/30 dark:border-gray-600/50">
+            {/* Phone Selection Button */}
+            <button
+              onClick={() => setShowPhoneModal(true)}
+              className="flex items-center space-x-1.5 text-sm font-bold opacity-75 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md hover:bg-white dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100/50 focus:ring-blue-500/50 transition-all duration-300 border border-white/30 dark:border-gray-600/50"
+            >
                     <Lucide
                       icon="Phone"
                       className="w-3 h-3 text-gray-800 dark:text-white"
@@ -10921,63 +10846,15 @@ console.log(data);
                       icon="ChevronDown"
                       className="w-2.5 h-2.5 text-gray-500"
                     />
-                  </Menu.Button>
-                </div>
-                <Menu.Items className="absolute right-0 mt-1.5 w-32 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5">
-                  <div
-                    className="py-1 max-h-30 overflow-y-auto"
-                    role="menu"
-                    aria-orientation="vertical"
-                    aria-labelledby="options-menu"
-                  >
-                    {Object.entries(phoneNames).map(([index, phoneName]) => {
-                      const phoneStatus =
-                        qrCodes[parseInt(index)]?.status || "unknown";
-                      const isConnected =
-                        phoneStatus === "ready" ||
-                        phoneStatus === "authenticated";
-
-                      return (
-                        <Menu.Item key={index}>
-                          {({ active }) => (
-                            <button
-                              onClick={() => handlePhoneChange(parseInt(index))}
-                              className={`${
-                                active
-                                  ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
-                                  : "text-gray-700 dark:text-gray-200"
-                              } block w-full text-left px-2.5 py-1.5 text-sm flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200`}
-                            >
-                              <span className="font-medium">{phoneName}</span>
-                              <span
-                                className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
-                                  isConnected
-                                    ? "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200"
-                                    : "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200"
-                                }`}
-                              >
-                                {isConnected ? "Connected" : "Not Connected"}
-                              </span>
                             </button>
-                          )}
-                        </Menu.Item>
-                      );
-                    })}
-                  </div>
-                </Menu.Items>
-              </Menu>
-            }
+
+         
 
             {/* WebSocket Status - Clickable to disconnect */}
             <div className="flex items-center gap-1.5 w-full">
               <button
                 onClick={() => {
-                  if (wsConnection && wsConnected) {
-                    wsConnection.close(1000, "Manual disconnect");
-                    setWsConnected(false);
-                    setWsConnection(null);
-                    setWsError(null);
-                  }
+                
                 }}
                 className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg shadow-md border transition-all duration-300 ease-out hover:scale-105 active:scale-95 cursor-pointer w-full backdrop-blur-sm ${
                   wsConnected
@@ -10992,19 +10869,7 @@ console.log(data);
                     <span className="text-xs font-bold text-green-600 dark:text-green-400">
                       Live
                     </span>
-                    <svg
-                      className="w-2 h-2 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
+               
                   </>
                 ) : (
                   <>
@@ -11643,14 +11508,14 @@ console.log(data);
                 }
               >
                 <div
-                  className={`px-3 py-2.5 cursor-pointer transition-all duration-300 ease-out group mx-2 my-1.5 select-none rounded-xl ${
+                  className={`px-3 py-2.5 cursor-pointer transition-all duration-300 ease-out group mx-2 my-1.5 select-none rounded-xl transform hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/10 dark:hover:shadow-blue-400/10 hover:ring-2 hover:ring-blue-500/20 dark:hover:ring-blue-400/20 hover:animate-pulse ${
                     contact.contact_id !== undefined
                       ? selectedChatId === contact.contact_id
-                        ? "bg-white/25 dark:bg-gray-800/40 backdrop-blur-md border border-white/40 dark:border-gray-600/40 shadow-lg shadow-blue-500/20 dark:shadow-blue-400/20"
-                        : "backdrop-blur-sm border-0 hover:border hover:border-white/30 dark:hover:border-gray-600/40 hover:from-white/15 hover:to-white/20 dark:hover:from-gray-700/20 dark:hover:to-gray-700/25"
+                        ? "bg-gradient-to-r from-blue-50/80 to-purple-50/80 dark:from-blue-900/30 dark:to-purple-900/30 backdrop-blur-md border-2 border-blue-400/60 dark:border-blue-500/60 shadow-xl shadow-blue-500/30 dark:shadow-blue-400/30 ring-4 ring-blue-500/20 dark:ring-blue-400/20 scale-[1.02] animate-pulse selected-contact"
+                        : "backdrop-blur-sm border-0 hover:bg-white/20 dark:hover:bg-gray-700/30 hover:border hover:border-blue-300/30 dark:hover:border-blue-500/30"
                       : selectedChatId === contact.contact_id
-                      ? "bg-white/25 dark:bg-gray-800/40 backdrop-blur-md border border-white/40 dark:border-gray-600/40 shadow-lg shadow-blue-500/20 dark:shadow-blue-400/20"
-                      : "backdrop-blur-sm border-0 hover:border hover:border-white/30 dark:hover:border-gray-600/40 hover:from-white/15 hover:to-white/20 dark:hover:from-gray-700/20 dark:hover:to-gray-700/25"
+                      ? "bg-gradient-to-r from-blue-50/80 to-purple-50/80 dark:from-blue-900/30 dark:to-purple-900/30 backdrop-blur-md border-2 border-blue-400/60 dark:border-blue-500/60 shadow-xl shadow-blue-500/30 dark:shadow-blue-400/30 ring-4 ring-blue-500/20 dark:ring-blue-400/20 scale-[1.02] animate-pulse selected-contact"
+                      : "backdrop-blur-sm border-0 hover:bg-white/20 dark:hover:bg-gray-700/30 hover:border hover:border-blue-300/30 dark:hover:border-blue-500/30"
                   }`}
                   onClick={() => selectChat(contact.contact_id!, contact.id!)}
                   onContextMenu={(e) => handleContextMenu(e, contact)}
@@ -11658,7 +11523,11 @@ console.log(data);
                 >
                   <div className="flex items-center space-x-1.5">
                     <div className="relative flex-shrink-0">
-                      <div className="w-10 h-10 bg-white/30 dark:bg-gray-600/90 backdrop-blur-md rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 overflow-hidden border border-white/40 dark:border-gray-500/60 shadow-lg shadow-white/20 dark:shadow-gray-500/20">
+                      <div className={`w-10 h-10 bg-white/30 dark:bg-gray-600/90 backdrop-blur-md rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 overflow-hidden border shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-blue-500/20 dark:group-hover:shadow-blue-400/20 group-hover:border-blue-300/50 dark:group-hover:border-blue-500/50 ${
+                        selectedChatId === contact.contact_id
+                          ? "border-2 border-blue-400/80 dark:border-blue-500/80 shadow-xl shadow-blue-500/40 dark:shadow-blue-400/40 scale-110 ring-4 ring-blue-500/30 dark:ring-blue-400/30"
+                          : "border-white/40 dark:border-gray-500/60 shadow-white/20 dark:shadow-gray-500/20"
+                      }`}>
                         {contact &&
                           (contact.chat_id &&
                           contact.chat_id.includes("@g.us") ? (
@@ -11698,7 +11567,7 @@ console.log(data);
                         <>
                           {/* Prominent badge for unread messages */}
                           {(contact.unreadCount ?? 0) > 0 && (
-                            <span className="absolute -top-1 -right-1 bg-green-500/90 backdrop-blur-sm text-white text-sm rounded-full px-1.5 py-1 min-w-[18px] h-[18px] flex items-center justify-center font-bold border border-white/30 shadow-sm">
+                            <span className="absolute -top-1 -right-1 bg-green-500/90 backdrop-blur-sm text-white text-sm rounded-full px-1.5 py-1 min-w-[18px] h-[18px] flex items-center justify-center font-bold border border-white/30 shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-green-500/30 group-hover:bg-green-600/90">
                               {(contact.unreadCount ?? 0) > 99
                                 ? "99+"
                                 : contact.unreadCount ?? 0}
@@ -11712,7 +11581,11 @@ console.log(data);
                       <div className="flex flex-col space-y-0.5">
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-0">
+                            <h3 className={`text-sm font-semibold truncate mb-0 transition-all duration-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:font-bold ${
+                              selectedChatId === contact.contact_id
+                                ? "text-blue-700 dark:text-blue-300 font-bold text-base"
+                                : "text-gray-900 dark:text-gray-100"
+                            }`}>
                               {(
                                 contact.contactName ??
                                 contact.firstName ??
@@ -11839,7 +11712,11 @@ console.log(data);
                                             .map((tag, tagIndex) => (
                                               <span
                                                 key={tagIndex}
-                                                className="bg-blue-100/80 dark:bg-blue-600/40 text-blue-700 dark:text-blue-300 text-[10px] font-medium px-1 py-0.5 rounded-full flex items-center backdrop-blur-sm border border-blue-200/50 dark:border-blue-500/30 shadow-sm flex-shrink-0"
+                                                className={`text-[10px] font-medium px-1 py-0.5 rounded-full flex items-center backdrop-blur-sm border shadow-sm flex-shrink-0 transition-all duration-300 group-hover:scale-105 group-hover:shadow-md group-hover:shadow-blue-500/20 dark:group-hover:shadow-blue-400/20 group-hover:bg-blue-200/90 dark:group-hover:bg-blue-500/50 ${
+                                                  selectedChatId === contact.contact_id
+                                                    ? "bg-blue-200/90 dark:bg-blue-500/60 text-blue-800 dark:text-blue-200 border-blue-300/70 dark:border-blue-400/70 shadow-md shadow-blue-500/30 dark:shadow-blue-400/30 scale-105"
+                                                    : "bg-blue-100/80 dark:bg-blue-600/40 text-blue-700 dark:text-blue-300 border-blue-200/50 dark:border-blue-500/30"
+                                                }`}
                                                 title={typeof tag === "string" ? tag : String(tag)}
                                               >
                                                 <Lucide
@@ -11875,7 +11752,11 @@ console.log(data);
                                           {employeeTags.slice(0, 2).map((tag, tagIndex) => (
                                             <span
                                               key={tagIndex}
-                                              className="bg-green-100/80 dark:bg-green-600/40 text-green-700 dark:text-green-300 text-[10px] font-medium px-1 py-0.5 rounded-full flex items-center backdrop-blur-sm border border-green-200/50 dark:border-green-500/30 shadow-sm flex-shrink-0"
+                                              className={`text-[10px] font-medium px-1 py-0.5 rounded-full flex items-center backdrop-blur-sm border shadow-sm flex-shrink-0 transition-all duration-300 group-hover:scale-105 group-hover:shadow-md group-hover:shadow-green-500/20 dark:group-hover:shadow-green-400/20 group-hover:bg-green-200/90 dark:group-hover:bg-green-500/50 ${
+                                                selectedChatId === contact.contact_id
+                                                  ? "bg-green-200/90 dark:bg-green-500/60 text-green-800 dark:text-green-200 border-green-300/70 dark:border-green-400/70 shadow-md shadow-green-500/30 dark:shadow-green-400/30 scale-105"
+                                                  : "bg-green-100/80 dark:bg-green-600/40 text-green-700 dark:text-green-300 border-green-200/50 dark:border-green-500/30"
+                                              }`}
                                               title={typeof tag === "string" ? tag : String(tag)}
                                             >
                                               <Lucide
@@ -11912,10 +11793,12 @@ console.log(data);
 
                           <div className="flex flex-col items-end space-y-0 ml-1">
                             <span
-                              className={`text-xs ${
+                              className={`text-xs transition-all duration-300 ${
                                 contact.unreadCount && contact.unreadCount > 0
-                                  ? "text-green-600 dark:text-green-400 font-medium"
-                                  : "text-gray-600 dark:text-gray-400"
+                                  ? "text-green-600 dark:text-green-400 font-medium group-hover:text-green-700 dark:group-hover:text-green-300"
+                                  : selectedChatId === contact.contact_id
+                                  ? "text-blue-600 dark:text-blue-400 font-bold"
+                                  : "text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:font-medium"
                               }`}
                             >
                               {contact.last_message?.createdAt ||
@@ -11933,7 +11816,11 @@ console.log(data);
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
                             <div className="mt-0.5">
-                              <span className="text-sm text-gray-700 dark:text-gray-400 truncate block">
+                              <span className={`text-sm truncate block transition-all duration-300 group-hover:text-gray-800 dark:group-hover:text-gray-200 group-hover:font-medium ${
+                                selectedChatId === contact.contact_id
+                                  ? "text-blue-600 dark:text-blue-400 font-semibold"
+                                  : "text-gray-700 dark:text-gray-400"
+                              }`}>
                                 {contact.last_message ? (
                                   <>
                                     {contact.last_message.from_me && (
@@ -12110,32 +11997,54 @@ console.log(data);
       <div className="flex flex-col w-full sm:w-3/4 relative flex-1 overflow-hidden bg-gradient-to-br from-white/5 to-white/10 dark:from-gray-800/10 dark:to-gray-800/15 backdrop-blur-sm">
         {selectedChatId ? (
           <>
-            <div className="flex items-center justify-between p-4 bg-white/25 dark:bg-gray-800/40 backdrop-blur-md border-b border-white/30 dark:border-gray-600/40 shadow-sm">
-              <div className="flex items-center">
+            <div 
+              className="flex items-center justify-between p-3 bg-white/10 dark:bg-gray-900/20 backdrop-blur-xl border-b border-white/20 dark:border-gray-700/30 shadow-lg shadow-black/5 dark:shadow-black/20 cursor-pointer transition-all duration-300 hover:bg-white/15 dark:hover:bg-gray-800/25"
+              onClick={handleEyeClick}
+            >
+              <div className="flex items-center space-x-3">
                 <button
-                  onClick={handleBack}
-                  className="back-button p-2 text-sm hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-lg transition-all duration-300 backdrop-blur-sm border border-white/20 dark:border-gray-600/30"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleBack();
+                  }}
+                  className="p-2 hover:bg-white/20 dark:hover:bg-gray-800/40 rounded-xl transition-all duration-300 backdrop-blur-sm border border-white/20 dark:border-gray-600/30 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 dark:hover:shadow-blue-400/20"
                 >
                   <Lucide icon="ChevronLeft" className="w-4 h-4 text-gray-700 dark:text-gray-300" />
                 </button>
-                <div className="w-10 h-10 overflow-hidden rounded-full shadow-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white mr-3 ml-1 border-2 border-white/30 dark:border-gray-600/30">
+                
+                <div className="relative group profile-pic-container">
+                  <div className="w-9 h-9 overflow-hidden rounded-full shadow-lg bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center text-white border-2 border-white/40 dark:border-gray-500/40 transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-purple-500/30 relative">
+                    {/* Animated gradient background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 animate-pulse opacity-80"></div>
+                    <div className="absolute inset-0 bg-gradient-to-tr from-white/20 via-transparent to-transparent"></div>
+                    
                   {selectedContact?.profilePicUrl ? (
                     <img
                       src={selectedContact.profilePicUrl}
                       alt={selectedContact.contactName || "Profile"}
-                      className="w-10 h-10 rounded-full object-cover"
+                        className="w-9 h-9 rounded-full object-cover relative z-10 transition-all duration-300 group-hover:scale-105"
                     />
                   ) : (
-                    <span className="text-base font-bold">
+                      <span className="text-sm font-bold relative z-10">
                       {selectedContact?.contactName
                         ? selectedContact.contactName.charAt(0).toUpperCase()
                         : "?"}
                     </span>
                   )}
+                    
+                    {/* Glowing ring effect */}
+                    <div className="absolute inset-0 rounded-full ring-2 ring-white/30 dark:ring-gray-400/30 group-hover:ring-4 group-hover:ring-purple-400/50 dark:group-hover:ring-purple-300/50 transition-all duration-300"></div>
                 </div>
 
-                <div>
-                  <div className="text-base font-bold text-gray-800 dark:text-gray-200 capitalize mb-1">
+                  {/* Online status indicator with enhanced effects */}
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full animate-pulse shadow-lg shadow-green-500/50 group-hover:scale-125 group-hover:shadow-xl group-hover:shadow-green-500/70 transition-all duration-300 status-indicator"></div>
+                  
+                  {/* Subtle glow effect */}
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 scale-150"></div>
+                </div>
+
+                <div className="flex flex-col">
+                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100 capitalize leading-tight">
                     {selectedContact.contactName && selectedContact.lastName
                       ? `${selectedContact.contactName} ${selectedContact.lastName}`
                       : selectedContact.contactName ||
@@ -12144,75 +12053,62 @@ console.log(data);
                   </div>
 
                   {userRole === "1" && (
-                    <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                      {selectedContact.phone}
+                    <div className="text-xs text-gray-500 dark:text-gray-400 font-medium flex items-center space-x-1">
+                      <Lucide icon="Phone" className="w-3 h-3" />
+                      <span>{selectedContact.phone}</span>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <div className="hidden sm:flex space-x-2">
+              <div className="flex items-center space-x-1.5">
+                <div className="hidden sm:flex space-x-1.5">
                   {/* Employee Assignment Button */}
                   <button
-                    className="group relative p-3 !box m-0 bg-white/10 dark:bg-gray-800/20 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl transition-all duration-300 backdrop-blur-md border border-white/20 dark:border-gray-600/30 shadow-lg hover:shadow-xl hover:scale-105"
+                    className="group relative p-2.5 hover:scale-110 transition-all duration-300"
                     onClick={() => setIsEmployeeModalOpen(true)}
                   >
-                    <span className="flex items-center justify-center w-6 h-6">
+                    <span className="flex items-center justify-center w-5 h-5">
                       <Lucide
                         icon="Users"
-                        className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300"
+                        className="w-4 h-4 text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300"
                       />
                     </span>
-                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                    <div className="absolute -bottom-7 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900/95 backdrop-blur-sm text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap shadow-lg border border-gray-700/50">
                       Assign Employee
                     </div>
                   </button>
 
                   {/* Tag Assignment Button */}
                   <button
-                    className="group relative p-3 !box m-0 bg-white/10 dark:bg-gray-800/20 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl transition-all duration-300 backdrop-blur-md border border-white/20 dark:border-gray-600/30 shadow-lg hover:shadow-xl hover:scale-105"
+                    className="group relative p-2.5 hover:scale-110 transition-all duration-300"
                     onClick={() => setIsTagModalOpen(true)}
                   >
-                    <span className="flex items-center justify-center w-6 h-6">
+                    <span className="flex items-center justify-center w-5 h-5">
                       <Lucide
                         icon="Tag"
-                        className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300"
+                        className="w-4 h-4 text-gray-600 dark:text-gray-400 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300"
                       />
                     </span>
-                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                    <div className="absolute -bottom-7 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900/95 backdrop-blur-sm text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap shadow-lg border border-gray-700/50">
                       Add Tag
                     </div>
                   </button>
 
-                  {/* View Details Button */}
-                  <button
-                    className="group relative p-3 !box m-0 bg-white/10 dark:bg-gray-800/20 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl transition-all duration-300 backdrop-blur-md border border-white/20 dark:border-gray-600/30 shadow-lg hover:shadow-xl hover:scale-105"
-                    onClick={handleEyeClick}
-                  >
-                    <span className="flex items-center justify-center w-6 h-6">
-                      <Lucide
-                        icon={isTabOpen ? "X" : "Eye"}
-                        className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-300"
-                      />
-                    </span>
-                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
-                      {isTabOpen ? "Close" : "View"} Details
-                    </div>
-                  </button>
+
 
                   {/* Message Search Button */}
                   <button
-                    className="group relative p-3 !box m-0 bg-white/10 dark:bg-gray-800/20 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl transition-all duration-300 backdrop-blur-md border border-white/20 dark:border-gray-600/30 shadow-lg hover:shadow-xl hover:scale-105"
+                    className="group relative p-2.5 hover:scale-110 transition-all duration-300"
                     onClick={handleMessageSearchClick}
                   >
-                    <span className="flex items-center justify-center w-6 h-6">
+                    <span className="flex items-center justify-center w-5 h-5">
                       <Lucide
                         icon={isMessageSearchOpen ? "X" : "Search"}
-                        className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors duration-300"
+                        className="w-4 h-4 text-gray-600 dark:text-gray-400 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors duration-300"
                       />
                     </span>
-                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                    <div className="absolute -bottom-7 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900/95 backdrop-blur-sm text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap shadow-lg border border-gray-700/50">
                       {isMessageSearchOpen ? "Close" : "Open"} Search
                     </div>
                   </button>
@@ -12225,68 +12121,57 @@ console.log(data);
                 >
                   <Menu.Button
                     as={Button}
-                    className="p-3 !box m-0 bg-white/10 dark:bg-gray-800/20 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl transition-all duration-300 backdrop-blur-md border border-white/20 dark:border-gray-600/30 shadow-lg hover:shadow-xl hover:scale-105"
+                    className="p-2.5 hover:scale-110 transition-all duration-300"
                   >
-                    <span className="flex items-center justify-center w-6 h-6">
+                    <span className="flex items-center justify-center w-5 h-5">
                       <Lucide
                         icon="MoreVertical"
-                        className="w-6 h-6 text-gray-700 dark:text-gray-300"
+                        className="w-5 h-5 text-gray-600 dark:text-gray-400"
                       />
                     </span>
                   </Menu.Button>
-                  <Menu.Items className="absolute right-0 mt-3 w-48 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl shadow-2xl rounded-2xl p-3 z-10 border border-white/20 dark:border-gray-600/30">
+                  <Menu.Items className="absolute right-0 mt-2 w-44 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl shadow-2xl rounded-xl p-2 z-10 border border-white/30 dark:border-gray-600/50">
                     <Menu.Item>
                       <button
-                        className="flex items-center w-full text-left p-3 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl text-base transition-all duration-200"
+                        className="flex items-center w-full text-left p-2.5 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-lg text-sm transition-all duration-200"
                         onClick={() => setIsEmployeeModalOpen(true)}
                       >
                         <Lucide
                           icon="Users"
-                          className="w-5 h-5 mr-3 text-gray-800 dark:text-gray-200"
+                          className="w-4 h-4 mr-2.5 text-gray-700 dark:text-gray-300"
                         />
-                        <span className="text-gray-800 dark:text-gray-200">
+                        <span className="text-gray-700 dark:text-gray-300 font-medium">
                           Assign Employee
                         </span>
                       </button>
                     </Menu.Item>
                     <Menu.Item>
                       <button
-                        className="flex items-center w-full text-left p-3 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl text-base transition-all duration-200"
+                        className="flex items-center w-full text-left p-2.5 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-lg text-sm transition-all duration-200"
                         onClick={() => setIsTagModalOpen(true)}
                       >
                         <Lucide
                           icon="Tag"
-                          className="w-5 h-5 mr-3 text-gray-800 dark:text-gray-200"
+                          className="w-4 h-4 mr-2.5 text-gray-700 dark:text-gray-300"
                         />
-                        <span className="text-gray-800 dark:text-gray-200">
+                        <span className="text-gray-700 dark:text-gray-300 font-medium">
                           Add Tag
                         </span>
                       </button>
                     </Menu.Item>
+
                     <Menu.Item>
                       <button
-                        className="flex items-center w-full text-left p-3 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl text-base transition-all duration-200"
-                        onClick={handleEyeClick}
-                      >
-                        <Lucide
-                          icon={isTabOpen ? "X" : "Eye"}
-                          className="w-5 h-5 mr-3 text-gray-800 dark:text-gray-200"
-                        />
-                        <span className="text-gray-800 dark:text-gray-200">
-                          {isTabOpen ? "Close" : "View"} Details
-                        </span>
-                      </button>
-                    </Menu.Item>
-                    <Menu.Item>
-                      <button
-                        className="flex items-center w-full text-left p-3 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-xl text-base transition-all duration-200"
+                        className="flex items-center w-full text-left p-2.5 hover:bg-white/20 dark:hover:bg-gray-700/40 rounded-lg text-sm transition-all duration-200"
                         onClick={handleMessageSearchClick}
                       >
                         <Lucide
                           icon={isMessageSearchOpen ? "X" : "Search"}
-                          className="w-5 h-5 mr-3 text-gray-800 dark:text-gray-200"
+                          className="w-4 h-4 mr-2.5 text-gray-700 dark:text-gray-300"
                         />
-                        <span className="text-gray-800 dark:text-gray-200">
+                        <span
+                          className="text-gray-700 dark:text-gray-300 font-medium"
+                        >
                           {isMessageSearchOpen ? "Close" : "Open"} Search
                         </span>
                       </button>
@@ -12380,8 +12265,14 @@ console.log(data);
                           }`}
                         >
                           {showDateHeader && (
-                            <div className="flex justify-center my-2">
-                              <div className="inline-block bg-white/25 dark:bg-gray-800/35 text-slate-800 dark:text-white font-medium py-1 px-2.5 rounded-full shadow-lg backdrop-blur-2xl border border-white/40 dark:border-gray-600/50 text-xs">
+                            <div className="flex justify-center my-4">
+                              <div className="inline-block bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 dark:from-blue-600/30 dark:via-purple-600/30 dark:to-pink-600/30 text-blue-900 dark:text-blue-100 font-semibold py-2.5 px-4 rounded-2xl shadow-2xl backdrop-blur-3xl border border-blue-300/40 dark:border-blue-400/40 text-sm relative overflow-hidden group hover:scale-105 transition-all duration-500 date-header-container">
+                                {/* Animated gradient background */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 via-purple-400/10 to-pink-400/10 dark:from-blue-500/20 dark:via-purple-500/20 dark:to-pink-500/20 animate-pulse opacity-60"></div>
+                                {/* Subtle inner glow */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
+                                {/* Content with relative positioning */}
+                                <span className="relative z-10">
                                 {(() => {
                                   const messageDate = new Date(
                                     (message.timestamp ||
@@ -12409,6 +12300,9 @@ console.log(data);
                                     );
                                   }
                                 })()}
+                                </span>
+                                {/* Enhanced border glow */}
+                                <div className="absolute inset-0 rounded-2xl ring-2 ring-blue-400/20 dark:ring-blue-300/30 group-hover:ring-4 group-hover:ring-blue-400/40 dark:group-hover:ring-blue-300/50 transition-all duration-500"></div>
                               </div>
                             </div>
                           )}
@@ -12419,7 +12313,11 @@ console.log(data);
                                 message.type === "privateNote"
                                   ? privateNoteClass
                                   : messageClass
-                              } relative backdrop-blur-2xl border border-white/30 dark:border-gray-500/40 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl`}
+                              } relative backdrop-blur-3xl border transition-all duration-500 rounded-2xl hover:scale-[1.01] ${
+                                message.from_me 
+                                  ? "border-white/20 dark:border-gray-500/30 shadow-lg hover:shadow-2xl shadow-blue-500/15 dark:shadow-blue-400/20 hover:shadow-blue-500/25 dark:hover:shadow-blue-400/30" 
+                                  : "border-white/40 dark:border-gray-500/30 shadow-lg hover:shadow-2xl shadow-gray-400/15 dark:shadow-gray-500/20 hover:shadow-gray-400/25 dark:hover:shadow-gray-500/30"
+                              }`}
                                                               style={{
                                   maxWidth:
                                     message.type === "document" ? "75%" : 
@@ -12444,11 +12342,11 @@ console.log(data);
                                   }px`,
                                   minWidth: message.type === "image" ? "300px" : "180px",
                                 backgroundColor: message.from_me
-                                  ? "rgba(59, 130, 246, 0.12)"
-                                  : "rgba(255, 255, 255, 0.06)",
+                                  ? "rgba(59, 130, 246, 0.08)"
+                                  : "rgba(255, 255, 255, 0.15)",
                                 color: message.from_me ? "white" : "inherit",
-                                backdropFilter: "blur(24px)",
-                                WebkitBackdropFilter: "blur(24px)",
+                                backdropFilter: "blur(32px)",
+                                WebkitBackdropFilter: "blur(32px)",
                               }}
                               onMouseEnter={() =>
                                 setHoveredMessageId(message.id)
@@ -12457,7 +12355,11 @@ console.log(data);
                             >
                               {/* Sender name display */}
                               {!message.isPrivateNote && (
-                                <div className="text-xs font-medium mb-1 text-slate-800 dark:text-white/95 opacity-95 backdrop-blur-sm">
+                                <div className={`text-xs font-medium mb-1 opacity-95 backdrop-blur-sm ${
+                                  message.from_me
+                                    ? "text-slate-800 dark:text-white/95"
+                                    : "text-gray-700 dark:text-white/95"
+                                }`}>
                                   {message.from_me
                                     ? (message.author && !/^\d+/.test(message.author) ? message.author : "Me")
                                     : selectedContact?.contactName ||
@@ -12608,7 +12510,7 @@ console.log(data);
                                           message.image.data &&
                                           message.image.mimetype
                                         ) {
-                                          console.log("Using base64 image data");
+                                     
                                           return `data:${message.image.mimetype};base64,${message.image.data}`;
                                         }
                                         if (message.image.url) {
@@ -12621,10 +12523,7 @@ console.log(data);
                                           console.log("Using image link:", fullUrl);
                                           return fullUrl;
                                         }
-                                        console.warn(
-                                          "No valid image source found:",
-                                          message.image
-                                        );
+                                      
                                         return logoImage; // Fallback to placeholder
                                       })()}
                                       alt="Image"
@@ -12806,10 +12705,10 @@ console.log(data);
                                 message.type === "ptt") &&
                                 (message.audio || message.ptt) && (
                                   <>
-                                    <div className="audio-content p-0 message-content image-message">
+                                                               <div className="message-content">
                                       <audio
                                         controls
-                                        className="rounded-2xl message-image cursor-pointer"
+                                        className="max-w-full"
                                         src={(() => {
                                           const audioData =
                                             message.audio?.data ||
@@ -12941,14 +12840,7 @@ console.log(data);
                                       <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden w-full">
                                         {(() => {
                                           // Debug logging to understand document structure
-                                          console.log('Document debug:', {
-                                            document: message.document,
-                                            link: message.document.link,
-                                            data: message.document.data,
-                                            mimetype: message.document.mimetype,
-                                            fileName: message.document.file_name,
-                                            filename: message.document.filename
-                                          });
+                                      
                                           
                                           const docUrl = message.document.link ||
                                             (message.document.data
@@ -13963,7 +13855,158 @@ console.log(data);
           </div>
         </div>
       )}
+       {/* Glassmorphic Phone Selection Modal */}
+    {showPhoneModal && (
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            setShowPhoneModal(false);
+          }
+        }}
+        tabIndex={-1}
+      >
+        {/* Backdrop */}
+        <div 
+          className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowPhoneModal(false)}
+        />
+        
+        {/* Modal */}
+        <div 
+          className="relative w-full max-w-md transform transition-all duration-300 ease-out"
+          data-phone-modal
+          tabIndex={-1}
+        >
+          {/* Glassmorphic Container */}
+          <div className="relative overflow-hidden rounded-xl bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-gray-200/50 dark:border-gray-600/50 shadow-2xl dark:shadow-black/20">
+            {/* Subtle gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 via-transparent to-purple-50/30 dark:from-blue-900/20 dark:via-transparent dark:to-purple-900/20" />
+            
+            {/* Content */}
+            <div className="relative p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <Lucide
+                      icon="Phone"
+                      className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Select Phone
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      Choose your active phone number
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPhoneModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+                >
+                  <Lucide
+                    icon="X"
+                    className="w-4 h-4"
+                  />
+                </button>
+              </div>
 
+              {/* Phone List */}
+              <div className="space-y-2.5 max-h-64 overflow-y-auto custom-scrollbar">
+                {Object.entries(phoneNames).map(([index, phoneName], itemIndex) => {
+                  const phoneStatus =
+                    qrCodes[parseInt(index)]?.status || "unknown";
+                  const isConnected =
+                    phoneStatus === "ready" ||
+                    phoneStatus === "authenticated";
+                  const isCurrentPhone = userData?.phone === parseInt(index);
+
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        handlePhoneChange(parseInt(index));
+                        setShowPhoneModal(false);
+                      }}
+                      className={`w-full p-3.5 rounded-lg border transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] ${
+                        isCurrentPhone
+                          ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700/50 shadow-sm"
+                          : "bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600/50 hover:bg-gray-50 dark:hover:bg-gray-600/50 hover:border-blue-300 dark:hover:border-blue-500/50"
+                      }`}
+                      style={{
+                        animationDelay: `${itemIndex * 75}ms`,
+                        animation: 'slideInUp 0.4s ease-out forwards'
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className={`p-2 rounded-md ${
+                            isCurrentPhone
+                              ? "bg-blue-100 dark:bg-blue-800/50"
+                              : "bg-gray-100 dark:bg-gray-600/50"
+                          }`}>
+                            <Lucide
+                              icon="Smartphone"
+                              className={`w-4 h-4 ${
+                                isCurrentPhone
+                                  ? "text-blue-600 dark:text-blue-400"
+                                  : "text-gray-600 dark:text-gray-400"
+                              }`}
+                            />
+                          </div>
+                          <div className="text-left">
+                            <div className={`font-medium ${
+                              isCurrentPhone
+                                ? "text-blue-900 dark:text-blue-100"
+                                : "text-gray-900 dark:text-white"
+                            }`}>
+                              {phoneName}
+                            </div>
+                            {isCurrentPhone && (
+                              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                Current Phone
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end space-y-2">
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full font-medium ${
+                              isConnected
+                                ? "bg-green-100 text-green-700 dark:bg-green-800/50 dark:text-green-300"
+                                : "bg-red-100 text-red-700 dark:bg-red-800/50 dark:text-red-300"
+                            }`}
+                          >
+                            {isConnected ? "Connected" : "Not Connected"}
+                          </span>
+                          
+                          {isCurrentPhone && (
+                            <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-pulse" />
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="mt-5 pt-4 border-t border-gray-200 dark:border-gray-600/50">
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {Object.keys(phoneNames).length} phone{Object.keys(phoneNames).length !== 1 ? 's' : ''} available
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
       {/* Fallback popup for still-temporary messages after refresh */}
       {selectedMessages.length > 0 && 
        !isRefreshingMessages && 
@@ -14261,55 +14304,62 @@ console.log(data);
           </div>
         </div>
       )}
-      {isTabOpen && (
-        <div className="absolute top-0 right-0 h-full w-full md:w-1/3 lg:w-2/5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-l border-white/20 dark:border-gray-700/50 overflow-y-auto z-50 shadow-2xl transition-all duration-300 ease-in-out">
+         {isTabOpen && (
+        <div className="absolute top-0 right-0 h-full w-full md:w-1/3 lg:w-2/5 bg-white/60 dark:bg-gray-800/60 backdrop-blur-3xl border-l border-white/30 dark:border-gray-600/40 overflow-y-auto z-50 shadow-2xl transition-all duration-500 ease-in-out">
           <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between p-3 border-b border-white/20 dark:border-gray-700/50 bg-white/40 dark:bg-gray-900/40 backdrop-blur-sm">
+            <div className="flex items-center justify-between p-4 border-b border-white/30 dark:border-gray-600/40 bg-gradient-to-r from-white/50 via-white/30 to-white/20 dark:from-gray-800/60 dark:via-gray-800/40 dark:to-gray-800/20 backdrop-blur-2xl">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 shadow-lg"></div>
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl shadow-lg flex items-center justify-center">
+                  <Lucide icon="User" className="w-4 h-4 text-white" />
+                </div>
 
                 <div className="flex flex-col">
-                  <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                    Contact info
+                  <h1 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+                    Contact Info
                   </h1>
                 </div>
               </div>
               <button
                 onClick={handleEyeClick}
-                className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-500 transition-all duration-200"
+                className="p-2.5 bg-white/20 dark:bg-gray-700/40 backdrop-blur-sm rounded-xl hover:bg-white/30 dark:hover:bg-gray-600/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all duration-300 hover:scale-110 border border-white/30 dark:border-gray-600/40"
               >
                 <Lucide
                   icon="X"
-                  className="w-6 h-6 text-gray-800 dark:text-gray-200"
+                  className="w-5 h-5 text-gray-700 dark:text-gray-200"
                 />
               </button>
             </div>
             {/* Enhanced Content Area */}
-            <div className="flex-grow overflow-y-auto p-3 space-y-3 bg-gradient-to-b from-white/20 to-white/10 dark:from-gray-800/20 dark:to-gray-900/10 backdrop-blur-sm">
-                            {/* Profile Header Section - Mobile App Style */}
-              <div className="bg-gradient-to-br from-gray-100/60 via-gray-200/40 to-gray-100/60 dark:from-gray-800/40 dark:via-gray-700/30 dark:to-gray-800/40 backdrop-blur-md rounded-3xl shadow-xl overflow-hidden border border-white/20 dark:border-gray-600/30 p-6">
-                <div className="text-center mb-4">
-               
-                  
+            <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-white/10 via-white/5 to-transparent dark:from-gray-800/10 dark:via-gray-800/5 dark:to-transparent backdrop-blur-2xl">
+                            {/* Profile Header Section - Enhanced Glassmorphic */}
+              <div className="bg-gradient-to-br from-white/30 via-white/20 to-white/10 dark:from-gray-800/40 dark:via-gray-700/30 dark:to-gray-800/20 backdrop-blur-3xl rounded-2xl shadow-2xl overflow-hidden border border-white/40 dark:border-gray-600/50 p-4 relative group hover:scale-[1.02] transition-all duration-500">
+                {/* Animated gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 dark:from-blue-400/10 dark:via-purple-400/10 dark:to-pink-400/10 animate-pulse opacity-60"></div>
+                {/* Subtle inner glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
+                
+                <div className="text-center relative z-10">
                   {/* Profile Picture */}
-                  <div className="w-20 h-20 mx-auto mb-4 relative">
+                  <div className="w-16 h-16 mx-auto mb-3 relative group/profile-pic">
                     {selectedContact?.profilePicUrl ? (
                       <img
                         src={selectedContact.profilePicUrl}
                         alt="Profile"
-                        className="w-full h-full rounded-full object-cover shadow-lg border-2 border-white/50 dark:border-gray-600/50"
+                        className="w-full h-full rounded-full object-cover shadow-xl border-2 border-white/60 dark:border-gray-500/60 transition-all duration-500 group-hover/profile-pic:scale-110"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-500 to-gray-600 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-lg border-2 border-white/50 dark:border-gray-600/50">
+                      <div className="w-full h-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-xl border-2 border-white/60 dark:border-gray-500/60 transition-all duration-500 group-hover/profile-pic:scale-110">
                         {selectedContact?.contactName?.charAt(0)?.toUpperCase() || 
                          selectedContact?.firstName?.charAt(0)?.toUpperCase() || 
                          selectedContact?.phone?.charAt(0) || "?"}
                       </div>
                     )}
+                    {/* Enhanced border glow */}
+                    <div className="absolute inset-0 rounded-full ring-2 ring-blue-400/30 dark:ring-blue-300/40 group-hover/profile-pic:ring-4 group-hover/profile-pic:ring-blue-400/50 dark:group-hover/profile-pic:ring-blue-300/60 transition-all duration-500"></div>
                   </div>
                   
                   {/* Contact Name */}
-                  <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+                  <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
                     {selectedContact?.contactName || 
                      selectedContact?.firstName || 
                      selectedContact?.phone || "Contact Name"}
@@ -14317,23 +14367,28 @@ console.log(data);
                   
                   {/* Company Information */}
                   {selectedContact?.companyName && (
-                    <p className="text-base text-gray-700 dark:text-gray-200 mb-1">
-                      {selectedContact.companyName}
-                    </p>
-                  )}
-                  {selectedContact?.companyName && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Software Company
-                    </p>
+                    <div className="bg-white/20 dark:bg-gray-800/40 backdrop-blur-sm rounded-xl p-2 mb-2 border border-white/30 dark:border-gray-600/50">
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        {selectedContact.companyName}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        Software Company
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
 
               {/* Contact Information Card */}
-              <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/30 dark:border-gray-700/50 hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
-                <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 dark:from-blue-500/30 dark:to-blue-600/30 px-4 py-3 border-b border-white/20 dark:border-gray-600/50 backdrop-blur-sm">
+              <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-3xl rounded-2xl shadow-2xl overflow-hidden border border-white/50 dark:border-gray-600/60 hover:shadow-3xl transition-all duration-500 hover:scale-[1.02] relative group">
+                {/* Animated gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-400/20 dark:via-purple-400/20 dark:to-pink-400/20 animate-pulse opacity-40"></div>
+                {/* Subtle inner glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
+                
+                <div className="bg-gradient-to-r from-blue-500/30 to-purple-500/30 dark:from-blue-500/40 dark:to-purple-500/40 px-4 py-3 border-b border-white/40 dark:border-gray-500/60 backdrop-blur-2xl relative z-10">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
                       Contact Information
                     </h3>
                     <div className="flex space-x-2">
@@ -14344,7 +14399,7 @@ console.log(data);
                               setIsEditing(true);
                               setEditedContact({ ...selectedContact });
                             }}
-                            className="px-4 py-2 bg-primary/80 backdrop-blur-sm text-white rounded-lg hover:bg-primary transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105"
+                            className="px-3 py-2 bg-gradient-to-r from-primary/80 to-primary-dark/80 backdrop-blur-2xl text-white rounded-xl hover:from-primary to-primary-dark transition-all duration-300 text-sm font-bold shadow-xl hover:shadow-2xl hover:scale-105 border border-white/30 dark:border-white/20"
                           >
                             Edit
                           </button>
@@ -14353,10 +14408,10 @@ console.log(data);
                             as="div"
                             className="relative inline-block text-left"
                           >
-                            <Menu.Button className="px-4 py-2 bg-blue-500/80 backdrop-blur-sm text-white rounded-lg hover:bg-blue-600 transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105">
+                            <Menu.Button className="px-3 py-2 bg-gradient-to-r from-blue-500/80 to-blue-600/80 backdrop-blur-2xl text-white rounded-xl hover:from-blue-600 to-blue-700 transition-all duration-300 text-sm font-bold shadow-xl hover:shadow-2xl hover:scale-105 border border-white/30 dark:border-white/20">
                               Sync
                             </Menu.Button>
-                            <Menu.Items className="absolute right-0 mt-1 w-24 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-xl rounded-xl p-2 z-10 border border-white/20 dark:border-gray-700/50">
+                            <Menu.Items className="absolute right-0 mt-2 w-28 bg-white/80 dark:bg-gray-800/80 backdrop-blur-2xl shadow-2xl rounded-2xl p-2 z-10 border border-white/40 dark:border-gray-600/60">
                               <Menu.Item>
                                 {({ active }) => (
                                   <button
@@ -14543,7 +14598,7 @@ console.log(data);
                           <button
                             onClick={handleDeleteContact}
                             disabled={deleteLoading}
-                            className={`px-4 py-2 bg-red-500/80 backdrop-blur-sm text-white rounded-lg hover:bg-red-600 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105 text-sm font-medium ${
+                            className={`px-3 py-2 bg-gradient-to-r from-red-500/80 to-red-600/80 backdrop-blur-2xl text-white rounded-xl hover:from-red-600 to-red-700 transition-all duration-300 flex items-center space-x-2 shadow-xl hover:shadow-2xl hover:scale-105 text-sm font-bold border border-white/30 dark:border-white/20 ${
                               deleteLoading
                                 ? "opacity-50 cursor-not-allowed"
                                 : ""
@@ -14582,7 +14637,7 @@ console.log(data);
                         <div className="flex space-x-2">
                           <button
                             onClick={handleSaveContact}
-                            className="px-4 py-2 bg-green-500/80 backdrop-blur-sm text-white rounded-lg hover:bg-green-600 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 text-sm font-medium"
+                            className="px-3 py-2 bg-gradient-to-r from-green-500/80 to-green-600/80 backdrop-blur-2xl text-white rounded-xl hover:from-green-600 to-green-700 transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105 text-sm font-bold border border-white/30 dark:border-white/20"
                           >
                             Save
                           </button>
@@ -14591,7 +14646,7 @@ console.log(data);
                               setIsEditing(false);
                               setEditedContact(null);
                             }}
-                            className="px-4 py-2 bg-red-500/80 backdrop-blur-sm text-white rounded-lg hover:bg-red-600 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 text-sm font-medium"
+                            className="px-3 py-2 bg-gradient-to-r from-red-500/80 to-red-600/80 backdrop-blur-2xl text-white rounded-xl hover:from-red-600 to-red-700 transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105 text-sm font-bold border border-white/30 dark:border-white/20"
                           >
                             Cancel
                           </button>
@@ -14601,7 +14656,7 @@ console.log(data);
                   </div>
                 </div>
 
-                <div className="p-4">
+                <div className="p-4 relative z-10">
                   {/* Phone Index Selector */}
                   <div className="mb-4">
                     <div className="flex justify-between items-center mb-2">
@@ -14703,7 +14758,7 @@ console.log(data);
                           `Phone updated to ${phoneNames[newPhoneIndex]}`
                         );
                       }}
-                      className="px-3 py-2 border border-white/30 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-900 dark:text-gray-100 ml-4 w-32 shadow-inner transition-all duration-200"
+                      className="px-3 py-2 border border-white/40 dark:border-gray-500/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white/60 dark:bg-gray-800/60 backdrop-blur-2xl text-gray-900 dark:text-gray-100 ml-4 w-32 shadow-xl transition-all duration-300 hover:shadow-2xl"
                     >
                       {Object.entries(phoneNames).map(([index, name]) => {
                         const phoneIndex = parseInt(index);
@@ -14802,18 +14857,9 @@ console.log(data);
                       </div>
                     )}
                     
-                    {/* Debug Panel - Remove this in production */}
-                    <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-md text-xs">
-                      <div className="font-semibold mb-2">Debug Info:</div>
-                      <div>Company ID: {companyId || 'Not set'}</div>
-                      <div>Phone Names: {JSON.stringify(phoneNames)}</div>
-                      <div>QR Codes: {JSON.stringify(qrCodes)}</div>
-                      <div>Selected Phone Index: {selectedContact.phoneIndex ?? 'Not set'}</div>
-                      <div>Phone Names Count: {Object.keys(phoneNames).length}</div>
-                      <div>QR Codes Count: {qrCodes.length}</div>
-                    </div>
+              
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     {[
                       { label: "First Name", key: "contactName" },
                       { label: "Last Name", key: "lastName" },
@@ -14888,7 +14934,7 @@ console.log(data);
                                   [item.key]: e.target.value,
                                 } as Contact)
                               }
-                              className="w-full mt-1 px-3 py-2 border border-white/30 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-900 dark:text-gray-100 shadow-inner transition-all duration-200"
+                              className="w-full mt-1 px-3 py-2 border border-white/40 dark:border-gray-500/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white/60 dark:bg-gray-800/60 backdrop-blur-2xl text-gray-900 dark:text-gray-100 shadow-xl transition-all duration-300 hover:shadow-2xl"
                             />
                           ) : (
                             <p className="text-gray-800 dark:text-gray-200">
@@ -14960,7 +15006,7 @@ console.log(data);
                     <div className="mt-4 text-center">
                       <button
                         onClick={() => setShowMoreContactInfo(!showMoreContactInfo)}
-                        className="px-4 py-2 bg-gray-500/20 dark:bg-gray-600/20 backdrop-blur-sm text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-500/30 dark:hover:bg-gray-600/30 transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105"
+                        className="px-3 py-2 bg-gradient-to-r from-gray-500/30 to-gray-600/30 dark:from-gray-600/40 dark:to-gray-700/40 backdrop-blur-2xl text-gray-700 dark:text-gray-300 rounded-xl hover:from-gray-600/40 to-gray-700/40 dark:hover:from-gray-700/50 dark:hover:to-gray-800/50 transition-all duration-300 text-sm font-bold shadow-xl hover:shadow-2xl hover:scale-105 border border-white/30 dark:border-gray-500/50"
                       >
                         {showMoreContactInfo ? "Show Less" : "Show More"}
                       </button>
@@ -14978,12 +15024,17 @@ console.log(data);
                         ).toLowerCase()
                     )
                   ) && (
-                    <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 dark:from-green-500/30 dark:to-emerald-500/30 backdrop-blur-md rounded-2xl p-6 border border-green-300/50 dark:border-green-600/50 mb-6 shadow-xl hover:shadow-2xl transition-all duration-300">
-                      <div className="flex items-center space-x-3 mb-4">
-                        <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl shadow-lg">
-                          <Lucide icon="Users" className="w-5 h-5 text-white" />
+                    <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 dark:from-green-500/30 dark:to-emerald-500/30 backdrop-blur-3xl rounded-2xl p-4 border border-green-300/50 dark:border-green-600/50 mb-4 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-[1.02] relative group">
+                      {/* Animated gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-green-400/10 via-emerald-400/10 to-green-400/10 dark:from-green-500/20 dark:via-emerald-500/20 dark:to-green-500/20 animate-pulse opacity-40"></div>
+                      {/* Subtle inner glow */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
+                      
+                      <div className="flex items-center space-x-3 mb-3 relative z-10">
+                        <div className="p-2.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl shadow-xl">
+                          <Lucide icon="Users" className="w-4 h-4 text-white" />
                         </div>
-                        <h4 className="font-bold text-lg text-green-800 dark:text-green-200">
+                        <h4 className="font-bold text-lg text-green-800 dark:text-green-200 bg-gradient-to-r from-green-600 to-emerald-600 dark:from-green-400 dark:to-emerald-400 bg-clip-text text-transparent">
                           Assigned Employees
                         </h4>
                       </div>
@@ -15002,12 +15053,12 @@ console.log(data);
                           .map((employeeTag: string, index: number) => (
                             <div
                               key={index}
-                              className="inline-flex items-center bg-green-100/80 dark:bg-green-800/60 backdrop-blur-sm text-green-800 dark:text-green-200 text-sm font-semibold px-4 py-2 rounded-full border-2 border-green-300/50 dark:border-green-600/50 shadow-lg hover:shadow-xl transition-all duration-200 group hover:scale-105"
+                              className="inline-flex items-center bg-green-100/80 dark:bg-green-800/60 backdrop-blur-2xl text-green-800 dark:text-green-200 text-sm font-bold px-3 py-1.5 rounded-full border-2 border-green-300/50 dark:border-green-600/50 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-105"
                             >
                               <div className="w-2 h-2 bg-green-500 rounded-full mr-2 shadow-sm"></div>
                               <span>{employeeTag}</span>
                               <button
-                                className="ml-3 p-1 rounded-full hover:bg-green-200/80 dark:hover:bg-green-700/60 transition-colors duration-200 focus:outline-none"
+                                className="ml-2 p-1 rounded-full hover:bg-green-200/80 dark:hover:bg-green-700/60 transition-colors duration-300 focus:outline-none hover:scale-110"
                                 onClick={() =>
                                   handleRemoveTag(
                                     selectedContact.contact_id,
@@ -15017,7 +15068,7 @@ console.log(data);
                               >
                                 <Lucide
                                   icon="X"
-                                  className="w-4 h-4 text-green-600 hover:text-green-800 dark:text-green-300 dark:hover:text-green-100"
+                                  className="w-3 h-3 text-green-600 hover:text-green-800 dark:text-green-300 dark:hover:text-green-100"
                                 />
                               </button>
                             </div>
@@ -15028,9 +15079,14 @@ console.log(data);
                 </div>
               </div>
               {/* Enhanced Tags Section */}
-              <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/30 dark:border-gray-700/50 hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
-                <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 dark:from-indigo-500/30 dark:to-purple-500/30 px-4 py-3 border-b border-white/20 dark:border-gray-600/50 backdrop-blur-sm">
-                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-3xl rounded-2xl shadow-2xl overflow-hidden border border-white/50 dark:border-gray-600/60 hover:shadow-3xl transition-all duration-500 hover:scale-[1.02] relative group">
+                {/* Animated gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-indigo-500/10 dark:from-indigo-400/20 dark:via-purple-400/20 dark:to-indigo-400/20 animate-pulse opacity-40"></div>
+                {/* Subtle inner glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
+                
+                <div className="bg-gradient-to-r from-indigo-500/30 to-purple-500/30 dark:from-indigo-500/40 dark:to-purple-500/40 px-4 py-3 border-b border-white/40 dark:border-gray-500/60 backdrop-blur-2xl relative z-10">
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
                     Tags
                   </h3>
                 </div>
@@ -15059,11 +15115,11 @@ console.log(data);
                           .map((tag: string, index: number) => (
                             <div
                               key={index}
-                              className="inline-flex items-center bg-blue-100/80 dark:bg-blue-800/60 backdrop-blur-sm text-blue-800 dark:text-blue-200 text-sm font-semibold px-3 py-1 rounded-full border border-blue-400/50 dark:border-blue-600/50 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                              className="inline-flex items-center bg-blue-100/80 dark:bg-blue-800/60 backdrop-blur-2xl text-blue-800 dark:text-blue-200 text-sm font-bold px-2.5 py-1 rounded-full border border-blue-400/50 dark:border-blue-600/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
                             >
                               <span>{tag}</span>
                               <button
-                                className="ml-2 focus:outline-none"
+                                className="ml-1.5 focus:outline-none hover:scale-110 transition-transform duration-300"
                                 onClick={() =>
                                   handleRemoveTag(
                                     selectedContact.contact_id,
@@ -15073,7 +15129,7 @@ console.log(data);
                               >
                                 <Lucide
                                   icon="X"
-                                  className="w-4 h-4 text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-100"
+                                  className="w-3 h-3 text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-100"
                                 />
                               </button>
                             </div>
@@ -15089,12 +15145,17 @@ console.log(data);
               </div>
        
               
-              <div className="bg-white/60 dark:bg-gray-700/60 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/30 dark:border-gray-700/50 hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
-                <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 dark:from-yellow-500/30 dark:to-orange-500/30 px-4 py-3 border-b border-white/20 dark:border-gray-600/50 backdrop-blur-sm flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              <div className="bg-white/40 dark:bg-gray-700/40 backdrop-blur-3xl rounded-2xl shadow-2xl overflow-hidden border border-white/50 dark:border-gray-600/60 hover:shadow-3xl transition-all duration-500 hover:scale-[1.02] relative group">
+                {/* Animated gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 via-orange-500/10 to-yellow-500/10 dark:from-yellow-400/20 dark:via-orange-400/20 dark:to-yellow-400/20 animate-pulse opacity-40"></div>
+                {/* Subtle inner glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
+                
+                <div className="bg-gradient-to-r from-yellow-500/30 to-orange-500/30 dark:from-yellow-500/40 dark:to-orange-500/40 px-4 py-3 border-b border-white/40 dark:border-gray-500/60 backdrop-blur-2xl flex items-center justify-between relative z-10">
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-yellow-400 dark:to-orange-400 bg-clip-text text-transparent">
                     Scheduled Messages
                   </h3>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <span className="text-xs text-gray-600 dark:text-gray-300 bg-white/30 dark:bg-gray-800/50 px-2 py-1 rounded-full backdrop-blur-sm border border-white/30 dark:border-gray-600/50">
                     {scheduledMessages.length} scheduled
                   </span>
                 </div>
@@ -15221,9 +15282,14 @@ console.log(data);
                 </div>
               </div>
               {/* Add the new Notes section */}
-              <div className="bg-white/60 dark:bg-gray-700/60 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/30 dark:border-gray-700/50 hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
-                <div className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 dark:from-amber-500/30 dark:to-yellow-500/30 px-4 py-3 border-b border-white/20 dark:border-gray-600/50 backdrop-blur-sm flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              <div className="bg-white/40 dark:bg-gray-700/40 backdrop-blur-3xl rounded-2xl shadow-2xl overflow-hidden border border-white/50 dark:border-gray-600/60 hover:shadow-3xl transition-all duration-500 hover:scale-[1.02] relative group">
+                {/* Animated gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-yellow-500/10 to-amber-500/10 dark:from-amber-400/20 dark:via-yellow-400/20 dark:to-amber-400/20 animate-pulse opacity-40"></div>
+                {/* Subtle inner glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
+                
+                <div className="bg-gradient-to-r from-amber-500/30 to-yellow-500/30 dark:from-amber-500/40 dark:to-yellow-500/40 px-4 py-3 border-b border-white/40 dark:border-gray-500/60 backdrop-blur-2xl flex items-center justify-between relative z-10">
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-amber-600 to-yellow-600 dark:from-amber-400 dark:to-yellow-400 bg-clip-text text-transparent">
                     Notes
                   </h3>
                   {!isEditing && (
@@ -15232,7 +15298,7 @@ console.log(data);
                         setIsEditing(true);
                         setEditedContact({ ...selectedContact });
                       }}
-                      className="px-4 py-2 bg-primary/80 backdrop-blur-sm text-white rounded-lg hover:bg-primary-dark transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 text-sm font-medium"
+                      className="px-3 py-2 bg-gradient-to-r from-primary/80 to-primary-dark/80 backdrop-blur-2xl text-white rounded-xl hover:from-primary to-primary-dark transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105 text-sm font-bold border border-white/30 dark:border-white/20"
                     >
                       Edit Notes
                     </button>
@@ -15260,13 +15326,18 @@ console.log(data);
               </div>
               
               {/* Media, Links and Docs Section */}
-              <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/30 dark:border-gray-700/50 hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-3xl rounded-2xl shadow-2xl overflow-hidden border border-white/50 dark:border-gray-600/60 hover:shadow-3xl transition-all duration-500 hover:scale-[1.02] relative group">
+                {/* Animated gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-400/20 dark:via-purple-400/20 dark:to-pink-400/20 animate-pulse opacity-40"></div>
+                {/* Subtle inner glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
+                
+                <div className="p-4 relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
                       Media, links and docs
                     </h3>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100/80 dark:bg-gray-700/80 px-2 py-1 rounded-full">
+                    <span className="text-sm text-gray-600 dark:text-gray-300 bg-white/30 dark:bg-gray-800/50 px-2.5 py-1 rounded-full backdrop-blur-sm border border-white/30 dark:border-gray-600/50">
                       121
                     </span>
                   </div>
@@ -15377,7 +15448,7 @@ console.log(data);
           </div>
         </div>
       )}
-
+    
       <DocumentModal
         isOpen={documentModalOpen}
         type={selectedDocument?.type || ""}
@@ -16062,6 +16133,7 @@ console.log(data);
             </div>
           );
         })()}
+
       <ToastContainer
         position="top-right"
         autoClose={5000}
