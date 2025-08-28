@@ -199,7 +199,7 @@ function Main() {
           if (response.ok) {
             localStorage.setItem('userEmail', email);
             localStorage.setItem('userData', JSON.stringify(data.user));
-            navigate('/onboarding');
+            navigate('/loading');
             toast.success("Registration successful!");
           } else {
            
@@ -345,7 +345,7 @@ function Main() {
               {/* Register Button */}
               <Button
                 variant="primary"
-                className="w-full px-3 py-1.5 text-sm font-semibold rounded-md hover:shadow-md transition-all duration-200 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
+                className="w-full px-3 py-1.5 text-sm font-semibold rounded-md hover:shadow-md transition-all duration-200"
                 onClick={handleRegister}
                 disabled={isLoading}
               >
@@ -389,11 +389,7 @@ function Main() {
           </div>
 
           {/* Additional Info */}
-          <div className="mt-3 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-             Join Us to Automate
-            </p>
-          </div>
+
         </div>
       </div>
       <ToastContainer />

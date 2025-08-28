@@ -1378,43 +1378,56 @@ function normalizePhone(phone: string) {
       return !alreadyExists && (normalizedEmail || normalizedPhone);
     });
 
-    console.log("📊 CSV + Neon Data Merge Results:", {
-      csvCount: csvData.length,
-      neonCount: neonData.length,
-      neonOnlyCount: neonOnlyParticipants.length,
-      finalCount: csvData.length + neonOnlyParticipants.length,
-      csvSources: {
-        mtdc: normalizedMtdc.length,
-        aiHorizon: normalizedAihorizon.length,
-      },
-      neonSources: {
-        events: events.length,
-        enrollees: enrollees.length,
-        participants: participants.length,
-      },
-    });
 
-    // Log sample of programs from each source
-    console.log(
-      "📋 Sample Programs from CSV:",
-      csvData.slice(0, 5).map((r) => ({
-        programName: r["Program Name"],
-        dateTime: r["Program Date & Time"],
-        source: "CSV",
-      }))
-    );
-
-    console.log(
-      "📋 Sample Programs from Neon:",
-      neonData.slice(0, 5).map((r) => ({
-        programName: r["Program Name"],
-        dateTime: r["Program Date & Time"],
-        source: "Neon",
-      }))
-    );
 
     // Combine CSV data with Neon-only participants
-    return [...csvData, ...neonOnlyParticipants];
+    const finalData = [...csvData, ...neonOnlyParticipants];
+    
+    // Log CSV attendance analysis
+    console.log("🔍 === CSV ATTENDANCE ANALYSIS ===");
+    console.log("📊 Total CSV participants:", csvData.length);
+    
+    // Group CSV participants by program name to see attendance counts
+    const csvAttendanceByProgram = csvData.reduce((acc: any, participant: any) => {
+      const programName = participant["Program Name"] || "Unknown";
+      if (!acc[programName]) {
+        acc[programName] = {
+          total: 0,
+          attended: 0,
+          rsvp: 0,
+          registered: 0
+        };
+      }
+      
+      acc[programName].total++;
+      
+      // Count attendance status
+      if (participant["Attendance status"] === "Attended" || participant["Attendance status"] === "Accepted") {
+        acc[programName].attended++;
+      }
+      
+      // Count RSVP status
+      if (participant["RSVP status"] === "Accepted" || participant["RSVP status"] === "Yes") {
+        acc[programName].rsvp++;
+      }
+      
+      // Count registered
+      if (participant["Registration status"] === "Registered" || participant["Registration status"] === "Yes") {
+        acc[programName].registered++;
+      }
+      
+      return acc;
+    }, {});
+    
+    // Log CSV attendance summary for each program
+    Object.entries(csvAttendanceByProgram).forEach(([programName, stats]: [string, any]) => {
+      console.log(`📊 CSV Program: "${programName}"`);
+      console.log(`   Total: ${stats.total}, Attended: ${stats.attended}, RSVP: ${stats.rsvp}, Registered: ${stats.registered}`);
+    });
+    
+    console.log("🔍 === END CSV ATTENDANCE ANALYSIS ===");
+    
+    return finalData;
   }, [
     normalizedMtdc,
     normalizedAihorizon,
@@ -1423,30 +1436,7 @@ function normalizePhone(phone: string) {
     participants,
   ]);
 
-  // Log sample of programs from each source for debugging
-  console.log(
-    "📋 Sample Programs from CSV:",
-    mergedRSVP
-      .slice(0, 10)
-      .filter((r) => !r.Source || r.Source !== "Neon Database")
-      .map((r) => ({
-        programName: r["Program Name"],
-        dateTime: r["Program Date & Time"],
-        source: "CSV",
-      }))
-  );
 
-  console.log(
-    "📋 Sample Programs from Neon:",
-    mergedRSVP
-      .slice(0, 10)
-      .filter((r) => r.Source === "Neon Database")
-      .map((r) => ({
-        programName: r["Program Name"],
-        dateTime: r["Program Date & Time"],
-        source: "Neon",
-      }))
-  );
 
   // Merge CSV feedback data with Neon database feedback responses
   const mergedFeedbackData = useMemo(() => {
@@ -1639,40 +1629,8 @@ function normalizePhone(phone: string) {
     return filteredData;
   };
 
-  // Profession breakdown
-  const professionCounts: { [key: string]: number } = {};
-  mergedRSVP.forEach((r: any) => {
-    const prof = normalizeProfession(r.Profession || "Unspecified");
-    professionCounts[prof] = (professionCounts[prof] || 0) + 1;
-  });
-  const professions = Object.entries(professionCounts).map(
-    ([label, value]) => ({ label, value: Number(value) })
-  );
 
-  // Program breakdown
-  const programCounts: { [key: string]: number } = {};
-  mergedRSVP.forEach((r: any) => {
-    const prog = (r["Program Name"] || "Unknown").trim();
-    programCounts[prog] = (programCounts[prog] || 0) + 1;
-  });
-  const programTypes = Object.entries(programCounts).map(([label, value]) => ({
-    label,
-    value: Number(value),
-  }));
 
-  // Category breakdown
-  const categoryCounts: { [key: string]: number } = {};
-  mergedRSVP.forEach((r: any) => {
-    const cat = (r.Category || "Unspecified").trim();
-    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-  });
-  const categories = Object.entries(categoryCounts).map(([label, value]) => ({
-    label,
-    value: Number(value),
-  }));
-
-  // Totals
-  const totalRegistered = mergedRSVP.length;
   // Note: totalAttended will be calculated later after Neon data is fetched
 
   // Feedback metrics
@@ -2248,6 +2206,8 @@ function normalizePhone(phone: string) {
       combinedCount: p.combinedNames?.length || 1,
     }))
   );
+  
+
 
   // Get all unique program names from feedback
   const programNames = Array.from(
@@ -2394,7 +2354,6 @@ function normalizePhone(phone: string) {
 
   // Function to refresh Neon attendance data
   const refreshNeonAttendanceData = async () => {
-    console.log("🔄 Refreshing Neon attendance data...");
     // Clear the cache to force recalculation
     programAttendanceCache.clear();
     await fetchNeonData();
@@ -2402,70 +2361,52 @@ function normalizePhone(phone: string) {
 
   // Debug function to analyze attendance data
   const debugAttendanceData = () => {
-    console.log("🔍 === ATTENDANCE DATA DEBUG ===");
+    console.log("🔍 === CSV ATTENDANCE DEBUG ===");
     
-    // First, let's see what's in the attendance data
-    console.log("📊 === ATTENDANCE DATA STRUCTURE ===");
-    console.log(`Total attendance records: ${neonAttendanceData.length}`);
-    if (neonAttendanceData.length > 0) {
-      console.log("Sample record:", neonAttendanceData[0]);
-      console.log("All event_ids:", neonAttendanceData.map(r => r.event_id).slice(0, 10));
-    }
-    
-    neonEvents.forEach((event: any) => {
-      const eventAttendance = neonAttendanceData.filter((record: any) => record.event_id === event.id);
-      const wrongSlugCount = eventAttendance.filter((record: any) => record.event_slug !== event.slug).length;
-      
-      console.log(`📅 Event: ${event.name}`);
-      console.log(`   ID: ${event.id}`);
-      console.log(`   Slug: ${event.slug}`);
-      console.log(`   Date: ${event.start_date}`);
-      console.log(`   Total Attendance: ${eventAttendance.length}`);
-      console.log(`   Wrong Slug Records: ${wrongSlugCount}`);
-      console.log(`   Correct Slug Records: ${eventAttendance.length - wrongSlugCount}`);
-      
-      if (wrongSlugCount > 0) {
-        console.log(`   ⚠️  WARNING: ${wrongSlugCount} records have wrong event_slug!`);
+    // Group CSV participants by program name to see attendance counts
+    const csvAttendanceByProgram = mergedRSVP.reduce((acc: any, participant: any) => {
+      const programName = participant["Program Name"] || "Unknown";
+      if (!acc[programName]) {
+        acc[programName] = {
+          total: 0,
+          attended: 0,
+          rsvp: 0,
+          registered: 0
+        };
       }
-      console.log("");
+      
+      acc[programName].total++;
+      
+      // Count attendance status
+      if (participant["Attendance status"] === "Attended" || participant["Attendance status"] === "Accepted") {
+        acc[programName].attended++;
+      }
+      
+      // Count RSVP status
+      if (participant["RSVP status"] === "Accepted" || participant["RSVP status"] === "Yes") {
+        acc[programName].rsvp++;
+      }
+      
+      // Count registered
+      if (participant["Registration status"] === "Registered" || participant["Registration status"] === "Yes") {
+        acc[programName].registered++;
+      }
+      
+      return acc;
+    }, {});
+    
+    // Log CSV attendance summary for each program
+    Object.entries(csvAttendanceByProgram).forEach(([programName, stats]: [string, any]) => {
+      console.log(`📊 CSV Program: "${programName}"`);
+      console.log(`   Total: ${stats.total}, Attended: ${stats.attended}, RSVP: ${stats.rsvp}, Registered: ${stats.registered}`);
     });
     
-    // Show program-specific attendance counts
-    console.log("🎯 === PROGRAM ATTENDANCE SUMMARY ===");
-    const allProgramsList = [
-      "AI Immersion - Automate It. Analyse It. Storytell It",
-      "Digitalpreneur - Create an Online Course with AI", 
-      "AI Agent & Agentic AI Day 2025: Empowering Malaysia's Workforce with Artificial Intelligence Automation",
-      "Business Automation & AI Chatbot Experience"
-    ];
-    
-    allProgramsList.forEach(programName => {
-      const count = getProgramNeonAttendanceCount(programName);
-      console.log(`📊 ${programName}: ${count} attendees`);
-    });
-    
-    // Test specific program name variations
-    console.log("🧪 === TESTING PROGRAM NAME VARIATIONS ===");
-    const testNames = [
-      "AI Immersion",
-      "Automate It. Analyse It. Storytell It",
-      "AI Agent",
-      "Digitalpreneur",
-      "Business Automation"
-    ];
-    
-    testNames.forEach(testName => {
-      const count = getProgramNeonAttendanceCount(testName);
-      console.log(`🧪 Test "${testName}": ${count} attendees`);
-    });
-    
-    console.log("🔍 === END DEBUG ===");
+    console.log("🔍 === END CSV ATTENDANCE DEBUG ===");
   };
 
   // Clear attendance cache when program selection changes
   useEffect(() => {
     if (selectedProgram !== -1 || showAllProgramsInCategory) {
-      console.log("🔄 Program selection changed, clearing attendance cache...");
       programAttendanceCache.clear();
     }
   }, [selectedProgram, showAllProgramsInCategory]);
@@ -2742,6 +2683,71 @@ function normalizePhone(phone: string) {
     }
   }, [mergedRSVP, neonAttendanceData, neonEvents, participants, enrollees, events]);
   
+  // Program breakdown - use the same data source as Program-Specific Dashboard
+  const programCounts: { [key: string]: number } = {};
+  mergedRSVPWithNeon.forEach((r: any) => {
+    const prog = (r["Program Name"] || "Unknown").trim();
+    programCounts[prog] = (programCounts[prog] || 0) + 1;
+  });
+  
+  // Debug: Log the program counts to see what's happening
+  console.log("🔍 === PROGRAM TYPE STATISTICS DEBUG ===");
+  console.log("📊 Total participants in mergedRSVPWithNeon:", mergedRSVPWithNeon.length);
+  console.log("📊 Program counts:", programCounts);
+  
+  // Find the specific AI Agent program count
+  const aiAgentPrograms = Object.entries(programCounts).filter(([name, count]) => 
+    name.includes("AI Agent") && name.includes("2025")
+  );
+  console.log("🎯 AI Agent programs found:", aiAgentPrograms);
+  
+  const programTypes = Object.entries(programCounts).map(([label, value]) => ({
+    label,
+    value: Number(value),
+  }));
+
+  // Category breakdown
+  const categoryCounts: { [key: string]: number } = {};
+  mergedRSVPWithNeon.forEach((r: any) => {
+    const cat = (r.Category || "Unspecified").trim();
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+  });
+  const categories = Object.entries(categoryCounts).map(([label, value]) => ({
+    label,
+    value: Number(value),
+  }));
+
+  // Totals
+  const totalRegistered = mergedRSVPWithNeon.length;
+  
+  // Profession breakdown
+  const professionCounts: { [key: string]: number } = {};
+  mergedRSVPWithNeon.forEach((r: any) => {
+    const prof = normalizeProfession(r.Profession || "Unspecified");
+    professionCounts[prof] = (professionCounts[prof] || 0) + 1;
+  });
+  const professions = Object.entries(professionCounts).map(
+    ([label, value]) => ({ label, value: Number(value) })
+  );
+  
+  // Memoized PieChart data/labels
+  const professionPieData = useMemo(
+    () => professions.map((p) => Number(p.value)),
+    [professions]
+  );
+  const professionPieLabels = useMemo(
+    () => professions.map((p) => p.label),
+    [professions]
+  );
+  const programPieData = useMemo(
+    () => programTypes.map((p) => Number(p.value)),
+    [programTypes]
+  );
+  const programPieLabels = useMemo(
+    () => programTypes.map((p) => p.label),
+    [programTypes]
+  );
+  
   // Filter participants by selected program and category
 // Filter participants by selected program and category
 const selectedProgramFilteredParticipants = mergedRSVPWithNeon.filter(
@@ -2765,7 +2771,19 @@ const selectedProgramFilteredParticipants = mergedRSVPWithNeon.filter(
       ? true
       : !selectedCategory || r.Category === selectedCategory;
     
-
+    // Debug: Log what's happening with the AI Agent program
+    if (r["Program Name"] && r["Program Name"].includes("AI Agent") && r["Program Name"].includes("2025")) {
+      console.log("🔍 AI Agent participant filtering:", {
+        name: r["Full Name"],
+        program: r["Program Name"],
+        cleanedProgram: cleanProgramName(r["Program Name"]),
+        selectedProgramNames,
+        matchesProgram,
+        matchesCategory,
+        selectedCategory,
+        showAllProgramsInCategory
+      });
+    }
     
     return matchesProgram && matchesCategory;
   }
@@ -2913,6 +2931,26 @@ if (selectedProgram !== -1 && selectedProgramData) {
   // Registered/attended counts
   // Registered/attended counts
   const registeredCount = selectedProgramFilteredParticipants.length;
+  
+  // Debug: Log the registered count calculation
+  console.log("🔍 === REGISTERED COUNT DEBUG ===");
+  console.log("📊 selectedProgram:", selectedProgram);
+  console.log("📊 selectedProgramData:", selectedProgramData);
+  console.log("📊 selectedProgramNames:", selectedProgramNames);
+  console.log("📊 selectedProgramFilteredParticipants.length:", selectedProgramFilteredParticipants.length);
+  console.log("📊 registeredCount:", registeredCount);
+  
+  // If no program is selected, show total count for debugging
+  if (selectedProgram === -1) {
+    console.log("📊 No program selected - showing total count for debugging");
+    console.log("📊 Total participants in mergedRSVPWithNeon:", mergedRSVPWithNeon.length);
+    
+    // Count AI Agent participants specifically
+    const aiAgentCount = mergedRSVPWithNeon.filter(r => 
+      r["Program Name"] && r["Program Name"].includes("AI Agent") && r["Program Name"].includes("2025")
+    ).length;
+    console.log("🎯 AI Agent participants in mergedRSVPWithNeon:", aiAgentCount);
+  }
   
 // Log the registered count calculation
 if (selectedProgram !== -1 && selectedProgramData) {
@@ -3257,9 +3295,6 @@ if (selectedProgram !== -1 && selectedProgramData) {
   // Get the total Neon attendance count for this program (same logic as Program-Specific Dashboard)
   const getProgramNeonAttendanceCount = (programName: string) => {
     const cleanedName = cleanProgramName(programName);
-    console.log(`🔍 Getting Neon attendance count for program: "${programName}" (cleaned: "${cleanedName}")`);
-    console.log(`📊 Available Neon events:`, neonEvents.map(e => ({ id: e.id, name: e.name, slug: e.slug, start_date: e.start_date })));
-    console.log(`📊 Available Neon attendance records:`, neonAttendanceData.length);
     
     // Find the event that matches this program name
     const matchingEvent = neonEvents.find((event: any) => {
@@ -3285,26 +3320,12 @@ if (selectedProgram !== -1 && selectedProgramData) {
         )
       );
       
-      const isMatch = matchingWords.length >= 2;
-      
-      // Debug: Show all potential matches
-      if (matchingWords.length > 0) {
-        console.log(`🔍 Potential match for "${programName}":`);
-        console.log(`   Program: "${cleanedName}"`);
-        console.log(`   Event: "${eventName}"`);
-        console.log(`   Matching words: ${matchingWords.join(', ')}`);
-        console.log(`   Match score: ${matchingWords.length}/${Math.max(programWords.length, eventWords.length)}`);
-      }
-      
-      return isMatch;
+      return matchingWords.length >= 2;
     });
 
     if (!matchingEvent) {
-      console.log(`❌ No matching event found for program: "${programName}"`);
       return 0;
     }
-
-    console.log(`✅ Found matching event: "${matchingEvent.name}" (ID: ${matchingEvent.id}, Date: ${matchingEvent.start_date})`);
     
     // Get attendance records for this specific event using event_id (ignore corrupted event_slug)
     const matchingRecords = neonAttendanceData.filter((record: any) => {
@@ -3313,18 +3334,9 @@ if (selectedProgram !== -1 && selectedProgramData) {
         return false;
       }
       
-      // Debug: Log each matching record
-      console.log(`✅ Found attendance record: ${record.id} for event ${matchingEvent.name}`);
-      
       return true;
     });
     
-    // Debug: Show total records found
-    console.log(`📊 Total records for ${matchingEvent.name}: ${matchingRecords.length}`);
-    console.log(`📊 All attendance records: ${neonAttendanceData.length}`);
-    console.log(`📊 Records with event_id ${matchingEvent.id}: ${neonAttendanceData.filter(r => r.event_id === matchingEvent.id).length}`);
-    
-    console.log(`🎯 Final attendance count for "${programName}" (${matchingEvent.name}): ${matchingRecords.length}`);
     return matchingRecords.length;
   };
 
@@ -3343,11 +3355,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
       totalAttendance += getProgramNeonAttendanceCount(programName);
     });
 
-    console.log("🎯 Combined Event Neon Attendance:", {
-      combinedEvent: selectedProgramData.name,
-      individualPrograms: selectedProgramData.combinedNames,
-      totalAttendance,
-    });
+
 
     return totalAttendance;
   };
@@ -3356,25 +3364,23 @@ if (selectedProgram !== -1 && selectedProgramData) {
   const programAttendanceCache = new Map<string, number>();
   
   // Helper function to get combined attendance status (CSV + Neon)
+  // Add a persistent counter to track how many are marked as attended
+  const attendedCounterRef = { current: 0 };
+  
   const getCombinedAttendanceStatus = (row: any) => {
     const csvAttendanceStatus = row["Attendance status"];
     const programName = row["Program Name"];
-    
-    //console.log(`🔍 Processing attendance for: ${row["Full Name"]} - ${programName} (CSV status: ${csvAttendanceStatus})`);
     
     // Always mark "Accepted" as "Attended"
     if (csvAttendanceStatus === "Accepted") {
       // Also update RSVP status to "Accepted" if they attended
       row["RSVP status"] = "Accepted";
-      console.log(`✅ Marked as attended (CSV status was "Accepted")`);
       return "Attended";
     }
     
-    // Get or calculate Neon attendance count for this program
+    // Get Neon attendance count for this program (for validation only)
     let neonAttendanceCount = programAttendanceCache.get(programName);
     if (neonAttendanceCount === undefined) {
-      console.log(`🔄 Calculating Neon attendance count for program: ${programName}`);
-      
       // Check if this is part of a combined event
       const combinedEvent = allPrograms.find(
         (p) =>
@@ -3388,18 +3394,13 @@ if (selectedProgram !== -1 && selectedProgramData) {
         combinedEvent.combinedNames.length > 1
       ) {
         // Use combined event attendance count
-        neonAttendanceCount =
-          getCombinedEventNeonAttendanceCount(combinedEvent);
-          console.log(`🎯 Combined Event Neon Attendance: ${neonAttendanceCount}`);
+        neonAttendanceCount = getCombinedEventNeonAttendanceCount(combinedEvent);
       } else {
         // Use single program attendance count
-      neonAttendanceCount = getProgramNeonAttendanceCount(programName);
+        neonAttendanceCount = getProgramNeonAttendanceCount(programName);
       }
 
       programAttendanceCache.set(programName, neonAttendanceCount);
-    //  console.log(`💾 Cached attendance count for ${programName}: ${neonAttendanceCount}`);
-    } else {
-      //console.log(`📋 Using cached attendance count for ${programName}: ${neonAttendanceCount}`);
     }
     
     // Get all participants for this program
@@ -3413,6 +3414,8 @@ if (selectedProgram !== -1 && selectedProgramData) {
     ).length;
     
     // Calculate how many more can be marked as "Attended" from Neon data
+    // Calculate how many more can be marked as "Attended" from Neon data
+    // IMPORTANT: Never exceed the actual Neon attendance count
     const remainingNeonSlots = Math.max(0, neonAttendanceCount - acceptedCount);
     
     if (remainingNeonSlots > 0) {
@@ -3438,11 +3441,16 @@ if (selectedProgram !== -1 && selectedProgramData) {
         p["Phone"] === row["Phone"]
       );
       
-      // If this participant is within the remaining Neon slots, mark as "Attended"
+                // CRITICAL FIX: Only mark as "Attended" if within the actual remaining slots
+      // AND ensure we don't exceed the Neon attendance count
       if (
         participantPosition >= 0 &&
-        participantPosition < remainingNeonSlots
+        participantPosition < remainingNeonSlots &&
+        remainingNeonSlots <= neonAttendanceCount && // Extra safety check
+        attendedCounterRef.current < remainingNeonSlots // Don't exceed the limit
       ) {
+        // Increment counter and mark as attended
+        attendedCounterRef.current++;
         // Also update RSVP status to "Accepted" if they attended
         row["RSVP status"] = "Accepted";
         return "Attended";
@@ -3456,12 +3464,53 @@ if (selectedProgram !== -1 && selectedProgramData) {
   };
 
   // Update attended count to match the participants table logic
+  // FIXED: This now only counts actual CSV "Accepted" status, not artificially inflated Neon-based attendance
+  
+  // Reset the attendance counter for this program
+  attendedCounterRef.current = 0;
+  
   const programSpecificAttendedCount =
     selectedProgramFilteredParticipants.filter((participant) => {
     const status = getCombinedAttendanceStatus(participant);
     return status === "Attended";
   }).length;
-  console.log(`Program Specific Attended Count: ${programSpecificAttendedCount}`);
+  
+  // Debug: Count how many participants have each status
+  const statusBreakdown = selectedProgramFilteredParticipants.reduce((acc: any, participant) => {
+    const status = getCombinedAttendanceStatus(participant);
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
+  
+  // Log actual attendance breakdown using existing variables
+  console.log("🔍 === ATTENDANCE BREAKDOWN ===");
+  console.log(`📊 Program: ${selectedProgramData?.name || "Unknown"}`);
+  console.log(`📊 CSV Attended: ${csvAttendedCount}`);
+  console.log(`📊 Neon Attended: ${neonAttendedCount}`);
+  console.log(`📊 Combined Attended: ${programSpecificAttendedCount}`);
+  console.log(`📊 Total Participants: ${selectedProgramFilteredParticipants.length}`);
+  console.log(`📊 Status Breakdown:`, statusBreakdown);
+  console.log(`📊 Counter Value: ${attendedCounterRef.current}`);
+  console.log("🔍 === END ATTENDANCE BREAKDOWN ===");
+  
+  // Log all combined events attendance
+  console.log("🔍 === ALL COMBINED EVENTS ATTENDANCE ===");
+  allPrograms.forEach((program) => {
+    if (program.combinedNames && program.combinedNames.length > 1) {
+      const combinedAttendance = getCombinedEventNeonAttendanceCount(program);
+      console.log(`📊 Combined Event: "${program.name}"`);
+      console.log(`   Individual Programs: ${program.combinedNames.join(" + ")}`);
+      console.log(`   Total Neon Attendance: ${combinedAttendance}`);
+      
+      // Show breakdown for each individual program
+      program.combinedNames.forEach((individualProgram) => {
+        const individualAttendance = getProgramNeonAttendanceCount(individualProgram);
+        console.log(`   - "${individualProgram}": ${individualAttendance} attendees`);
+      });
+      console.log("");
+    }
+  });
+  console.log("🔍 === END ALL COMBINED EVENTS ATTENDANCE ===");
 
   // Filtered data for participants
   const filteredParticipants = mergedRSVPWithNeon.filter((row) => {
@@ -3932,24 +3981,6 @@ if (selectedProgram !== -1 && selectedProgramData) {
     setFeedbackSendingInProgress(false);
   };
 
-  // Memoized PieChart data/labels
-  const professionPieData = useMemo(
-    () => professions.map((p) => Number(p.value)),
-    [professions]
-  );
-  const professionPieLabels = useMemo(
-    () => professions.map((p) => p.label),
-    [professions]
-  );
-  const programPieData = useMemo(
-    () => programTypes.map((p) => Number(p.value)),
-    [programTypes]
-  );
-  const programPieLabels = useMemo(
-    () => programTypes.map((p) => p.label),
-    [programTypes]
-  );
-
   // In the confirmation modal, filter attendees to exclude those in excludedPhones
   const attendeesToShow = attendeesToSend.filter(
     (a) => !excludedPhones.includes(String(a["Phone"] || "").replace(/\D/g, ""))
@@ -3990,7 +4021,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
     
     if (categoryName && categoryName !== "all") {
       // Get programs in this category
-      const programsInCategory = mergedRSVP
+      const programsInCategory = mergedRSVPWithNeon
         .filter((r: any) => r.Category?.trim() === categoryName)
         .map((r: any) => r["Program Name"]);
       
@@ -5839,18 +5870,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
                   });
                 }
                 
-                // Debug logging to see when data changes
-                console.log("🔄 Registered Participants Table Data:", {
-                  selectedProgram,
-                  showAllProgramsInCategory,
-                  selectedCategory,
-                  dataSource: (selectedProgram >= 0 || showAllProgramsInCategory) ? "selectedProgramFilteredParticipants" : "filteredParticipants",
-                  dataCount: dataToShow.length,
-                  selectedProgramCount: selectedProgramFilteredParticipants.length,
-                  filteredCount: filteredParticipants.length,
-                  searchTerm: participantSearch,
-                  searchApplied: participantSearch.trim() !== ""
-                });
+
                 
                 return dataToShow.map((row, i) => {
                 // Get combined attendance status using helper function

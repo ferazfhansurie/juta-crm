@@ -5338,10 +5338,6 @@ console.log(data);
         setSelectedChatId(chatId);
         setIsChatActive(true);
 
-        // Run background tasks in parallel
-        const backgroundTasks = [updateFirebaseUnreadCount(contact)];
-
-        await Promise.all(backgroundTasks);
 
         // Immediately reset unread count in local state
         const resetUnreadCount = (contactItem: Contact) => {
@@ -5395,9 +5391,25 @@ console.log(data);
           }
         }
 
-        // Update URL
-        const newUrl = `/chat?chatId=${chatId.replace("@c.us", "")}`;
-        window.history.pushState({ path: newUrl }, "", newUrl);
+        // Update unread count in Neon database
+        if (contact.contact_id && companyId) {
+          try {
+            const response = await fetch(
+              `${baseUrl}/api/contacts/${contact.contact_id}/mark-read`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ company_id: companyId }),
+              }
+            );
+      
+            if (!response.ok) {
+              console.error("Failed to update unread count in Neon");
+            }
+          } catch (error) {
+            console.error("Error updating unread count in Neon:", error);
+          }
+        }
 
         // Immediately fetch messages and check for updates to ensure real-time reflection
         setTimeout(() => {
@@ -5429,7 +5441,7 @@ console.log(data);
       } finally {
       }
     },
-    [contacts, userRole, userData?.name, whapiToken]
+    [contacts, userRole, userData?.name, whapiToken, companyId, baseUrl]
   );
   const getTimestamp = (timestamp: any): number => {
     // If timestamp is missing, return 0 to put it at the bottom
@@ -9858,7 +9870,7 @@ console.log(data);
       }
 
       const result = await response.json();
-
+      console.log("readddding",result);
       if (result.success) {
         // Update the contact's unread count in the local state
         setContacts((prevContacts) =>
@@ -11207,7 +11219,7 @@ console.log(data);
                     <span>{tagName}</span>
                     {userData?.role === "1" && unreadCount > 0 && (
                       <span
-                        className={`px-1.5 py-0.5 rounded-full text-xs font-bold backdrop-blur-sm border ${
+                        className={`px-2 py-1 rounded-full text-sm font-bold backdrop-blur-sm border ${
                           tagName.toLowerCase() === "stop bot"
                             ? "bg-red-100/80 text-red-700 dark:text-red-300 dark:bg-red-900/60 border-red-200/50 dark:border-red-700/50"
                             : tagName.toLowerCase() === "active bot"
@@ -11396,7 +11408,7 @@ console.log(data);
                         <>
                           {/* Prominent badge for unread messages */}
                           {(contact.unreadCount ?? 0) > 0 && (
-                            <span className="absolute -top-0.5 -right-0.5 bg-green-500/90 backdrop-blur-sm text-white text-xs rounded-full px-1 py-0.5 min-w-[14px] h-[14px] flex items-center justify-center font-bold border border-white/30 shadow-sm">
+                            <span className="absolute -top-1 -right-1 bg-green-500/90 backdrop-blur-sm text-white text-sm rounded-full px-1.5 py-1 min-w-[18px] h-[18px] flex items-center justify-center font-bold border border-white/30 shadow-sm">
                               {(contact.unreadCount ?? 0) > 99
                                 ? "99+"
                                 : contact.unreadCount ?? 0}

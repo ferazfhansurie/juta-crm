@@ -495,7 +495,7 @@ const [messageRecipientFilter, setMessageRecipientFilter] = useState("");
     };
   });
 
-  const baseUrl = "https://juta-dev.ngrok.dev";
+  const baseUrl = "https://juta.ngrok.app";
 
   // Add this useEffect to save visible columns when they change
   useEffect(() => {
@@ -2291,7 +2291,7 @@ useEffect(() => {
       }
       const companyData = docSnapshot.data();
       const baseUrl =
-        companyData.apiUrl || "https://juta-dev.ngrok.dev";
+        companyData.apiUrl || "https://juta.ngrok.app";
       let message = `Hello ${
         assignedEmployee.name
       }, a new contact has been assigned to you:\n\nName: ${
@@ -3128,7 +3128,7 @@ useEffect(() => {
 
       const companyData = docSnapshot.data();
       const baseUrl =
-        companyData.apiUrl || "https://juta-dev.ngrok.dev";
+        companyData.apiUrl || "https://juta.ngrok.app";
 
       // Process each contact
       let contactsProcessed = 0;
@@ -3971,7 +3971,7 @@ useEffect(() => {
         multiple: multiple,
       };
 
-      // Make API call to juta-dev.ngrok.dev
+      // Make API call to juta.ngrok.app
       const response = await axios.post(
         `${baseUrl}/api/schedule-message/${companyId}`,
         scheduledMessageData
@@ -4092,7 +4092,7 @@ useEffect(() => {
 
       const companyData = docSnapshot.data();
       const baseUrl =
-        companyData.apiUrl || "https://juta-dev.ngrok.dev";
+        companyData.apiUrl || "https://juta.ngrok.app";
       const accessToken = companyData.ghl_accessToken;
       const whapiToken = companyData.whapiToken;
       const phoneNumber = id.split("+")[1];
