@@ -6108,12 +6108,39 @@ console.log(data);
         const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
         return aTime - bTime; // Oldest first
       });
-      console.log("formattedMessages:", formattedMessages);
-      setAllMessages(formattedMessages); // Store all messages for filtering
+
+      // Preserve temporary messages when merging with fetched messages
+      const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
+      const tempMessages = currentMessages.filter(msg => msg.id && msg.id.startsWith('temp_'));
+      
+      // Merge temporary messages with fetched messages, avoiding duplicates
+      const mergedMessages = [...formattedMessages];
+      tempMessages.forEach(tempMsg => {
+        // Check if we already have a message with this temp ID (in case it was updated)
+        const existingIndex = mergedMessages.findIndex(msg => msg.id === tempMsg.id);
+        if (existingIndex >= 0) {
+          // Update existing temp message with fetched data if available
+          mergedMessages[existingIndex] = { ...tempMsg, ...mergedMessages[existingIndex] };
+        } else {
+          // Add temp message if it doesn't exist in fetched messages
+          mergedMessages.push(tempMsg);
+        }
+      });
+
+      // Re-sort after merging to maintain chronological order
+      mergedMessages.sort((a, b) => {
+        const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
+        const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
+        return aTime - bTime; // Oldest first
+      });
+
+      console.log("formattedMessages:", mergedMessages);
+      setAllMessages(mergedMessages); // Store all messages for filtering
+      setMessages(mergedMessages); // Update the main messages state
 
       // Update last message timestamp for polling
-      if (formattedMessages.length > 0) {
-        const latestMessage = formattedMessages[formattedMessages.length - 1];
+      if (mergedMessages.length > 0) {
+        const latestMessage = mergedMessages[mergedMessages.length - 1];
         const latestTimestamp = new Date(
           latestMessage.timestamp || latestMessage.createdAt || 0
         ).getTime();
@@ -6414,8 +6441,34 @@ console.log(data);
               ...prevAllMessages,
               ...uniqueNewMessages,
             ];
+
+            // Preserve temporary messages when merging with updated messages
+            const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
+            const tempMessages = currentMessages.filter(msg => msg.id && msg.id.startsWith('temp_'));
+            
+            // Merge temporary messages with updated messages, avoiding duplicates
+            const mergedMessages = [...updatedAllMessages];
+            tempMessages.forEach(tempMsg => {
+              // Check if we already have a message with this temp ID (in case it was updated)
+              const existingIndex = mergedMessages.findIndex(msg => msg.id === tempMsg.id);
+              if (existingIndex >= 0) {
+                // Update existing temp message with fetched data if available
+                mergedMessages[existingIndex] = { ...tempMsg, ...mergedMessages[existingIndex] };
+              } else {
+                // Add temp message if it doesn't exist in updated messages
+                mergedMessages.push(tempMsg);
+              }
+            });
+
+            // Re-sort after merging to maintain chronological order
+            mergedMessages.sort((a, b) => {
+              const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
+              const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
+              return aTime - bTime; // Oldest first
+            });
+
             // Store updated messages in localStorage
-            storeMessagesInLocalStorage(selectedChatId, updatedAllMessages);
+            storeMessagesInLocalStorage(selectedChatId, mergedMessages);
 
             // Update last message timestamp only for unique new messages
             const latestMessage =
@@ -6433,7 +6486,7 @@ console.log(data);
               }
             }, 100);
 
-            return updatedAllMessages;
+            return mergedMessages;
           }
 
           // No new messages, return previous state
@@ -6744,8 +6797,34 @@ console.log(data);
         return aTime - bTime; // Oldest first
       });
 
-      storeMessagesInLocalStorage(selectedChatId, formattedMessages);
-      setAllMessages(formattedMessages); // Store all messages for filtering
+      // Preserve temporary messages when merging with fetched messages
+      const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
+      const tempMessages = currentMessages.filter(msg => msg.id && msg.id.startsWith('temp_'));
+      
+      // Merge temporary messages with fetched messages, avoiding duplicates
+      const mergedMessages = [...formattedMessages];
+      tempMessages.forEach(tempMsg => {
+        // Check if we already have a message with this temp ID (in case it was updated)
+        const existingIndex = mergedMessages.findIndex(msg => msg.id === tempMsg.id);
+        if (existingIndex >= 0) {
+          // Update existing temp message with fetched data if available
+          mergedMessages[existingIndex] = { ...tempMsg, ...mergedMessages[existingIndex] };
+        } else {
+          // Add temp message if it doesn't exist in fetched messages
+          mergedMessages.push(tempMsg);
+        }
+      });
+
+      // Re-sort after merging to maintain chronological order
+      mergedMessages.sort((a, b) => {
+        const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
+        const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
+        return aTime - bTime; // Oldest first
+      });
+
+      storeMessagesInLocalStorage(selectedChatId, mergedMessages);
+      setAllMessages(mergedMessages); // Store all messages for filtering
+      setMessages(mergedMessages); // Update the main messages state
       console.log(messages);
     } catch (error) {
       console.error("Failed to fetch messages:", error);
@@ -7163,8 +7242,25 @@ console.log(data);
       );
       storeMessagesInLocalStorage(selectedChatId || "", filteredMessages);
 
-      // Retry sending the message
-      await handleSendMessage(message.text?.body || message.text);
+      // Retry sending the message based on type
+      if (message.type === "image" && message.image) {
+        await sendImageMessage(
+          selectedChatId!,
+          message.image.link || message.image.url || message.image.data || "",
+          message.image.caption || ""
+        );
+      } else if (message.type === "document" && message.document) {
+        await sendDocumentMessage(
+          selectedChatId!,
+          message.document.link || message.document.data || "",
+          message.document.mimetype || message.document.mime_type || "",
+          message.document.filename || message.document.file_name || "",
+          message.document.caption || ""
+        );
+      } else {
+        // Default to text message
+        await handleSendMessage(message.text?.body || message.text);
+      }
 
       toast.success("Message retried successfully!");
     } catch (error) {
@@ -8940,6 +9036,43 @@ console.log(data);
 
       const userName = uData?.name || email || "";
 
+      // Create temporary message object for immediate display
+      const tempMessage = {
+        id: `temp_${Date.now()}`,
+        from_me: true,
+        image: {
+          link: imageUrl,
+          caption: caption || "",
+          url: imageUrl,
+          data: imageUrl,
+          mimetype: "image/jpeg", // Default mimetype, can be enhanced later
+        },
+        createdAt: new Date().toISOString(),
+        type: "image",
+        phoneIndex: phoneIndex,
+        chat_id: chatId,
+        from_name: userName,
+        timestamp: Math.floor(Date.now() / 1000),
+        status: "sending" as const,
+      };
+
+      // Update UI immediately for instant feedback
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        tempMessage as unknown as Message,
+      ]);
+
+      // Also update allMessages to ensure consistency
+      setAllMessages((prevAllMessages) => [
+        ...prevAllMessages,
+        tempMessage as unknown as Message,
+      ]);
+
+      // Update localStorage immediately
+      const currentMessages = getMessagesFromLocalStorage(chatId) || [];
+      const updatedMessages = [...currentMessages, tempMessage];
+      storeMessagesInLocalStorage(chatId, updatedMessages);
+
       let response;
       try {
         response = await fetch(
@@ -8962,14 +9095,67 @@ console.log(data);
           throw new Error(`API failed with status ${response.status}`);
       } catch (error) {
         console.error("Error sending image:", error);
+        
+        // Update the temporary message to failed status
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
+            msg.id === tempMessage.id
+              ? { ...msg, status: "failed", error: error instanceof Error ? error.message : 'Unknown error' }
+              : msg
+          )
+        );
+
+        setAllMessages((prevAllMessages) =>
+          prevAllMessages.map((msg) =>
+            msg.id === tempMessage.id
+              ? { ...msg, status: "failed", error: error instanceof Error ? error.message : 'Unknown error' }
+              : msg
+          )
+        );
+
+        // Update localStorage with failed status
+        const currentMessages = getMessagesFromLocalStorage(chatId) || [];
+        const updatedMessages = currentMessages.map((msg) =>
+          msg.id === tempMessage.id
+            ? { ...msg, status: "failed", error: error instanceof Error ? error.message : 'Unknown error' }
+            : msg
+        );
+        storeMessagesInLocalStorage(chatId, updatedMessages);
+        
         throw error;
       }
 
       const data = await response.json();
 
-      // Only fetch messages if the API response was successful
+      // Update the temporary message with the actual server response
       if (data && response.ok) {
-        fetchMessagesBackground(chatId, '');
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
+            msg.id === tempMessage.id
+              ? { ...msg, id: data.message_id || tempMessage.id, status: "sent" }
+              : msg
+          )
+        );
+
+        setAllMessages((prevAllMessages) =>
+          prevAllMessages.map((msg) =>
+            msg.id === tempMessage.id
+              ? { ...msg, id: data.message_id || tempMessage.id, status: "sent" }
+              : msg
+          )
+        );
+
+        // Update localStorage with the final message
+        const currentMessages = getMessagesFromLocalStorage(chatId) || [];
+        const updatedMessages = currentMessages.map((msg) =>
+          msg.id === tempMessage.id
+            ? { ...msg, id: data.message_id || tempMessage.id, status: "sent" }
+            : msg
+        );
+        storeMessagesInLocalStorage(chatId, updatedMessages);
+
+        // Fetch updated messages in the background to ensure consistency
+        fetchMessages(chatId, '');
       }
     } catch (error) {
       console.error("Error sending image message:", error);
@@ -8998,6 +9184,51 @@ console.log(data);
 
       const userName = uData?.name || email || "";
 
+      // Create temporary message object for immediate display
+      const tempMessage = {
+        id: `temp_${Date.now()}`,
+        from_me: true,
+        document: {
+          file_name: fileName,
+          file_size: 0, // Will be updated when we have actual file size
+          filename: fileName,
+          id: `temp_${Date.now()}`,
+          link: documentUrl,
+          mime_type: mimeType,
+          page_count: 1, // Default value
+          preview: documentUrl,
+          sha256: "", // Will be updated when we have actual hash
+          data: documentUrl,
+          caption: caption || "",
+          mimetype: mimeType,
+          fileSize: 0, // Will be updated when we have actual file size
+        },
+        createdAt: new Date().toISOString(),
+        type: "document",
+        phoneIndex: phoneIndex,
+        chat_id: chatId,
+        from_name: userName,
+        timestamp: Math.floor(Date.now() / 1000),
+        status: "sending" as const,
+      };
+
+      // Update UI immediately for instant feedback
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        tempMessage as unknown as Message,
+      ]);
+
+      // Also update allMessages to ensure consistency
+      setAllMessages((prevAllMessages) => [
+        ...prevAllMessages,
+        tempMessage as unknown as Message,
+      ]);
+
+      // Update localStorage immediately
+      const currentMessages = getMessagesFromLocalStorage(chatId) || [];
+      const updatedMessages = [...currentMessages, tempMessage];
+      storeMessagesInLocalStorage(chatId, updatedMessages);
+
       let response;
       try {
         response = await fetch(
@@ -9021,14 +9252,67 @@ console.log(data);
           throw new Error(`API failed with status ${response.status}`);
       } catch (error) {
         console.error("Error sending document:", error);
+        
+        // Update the temporary message to failed status
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
+            msg.id === tempMessage.id
+              ? { ...msg, status: "failed", error: error instanceof Error ? error.message : 'Unknown error' }
+              : msg
+          )
+        );
+
+        setAllMessages((prevAllMessages) =>
+          prevAllMessages.map((msg) =>
+            msg.id === tempMessage.id
+              ? { ...msg, status: "failed", error: error instanceof Error ? error.message : 'Unknown error' }
+              : msg
+          )
+        );
+
+        // Update localStorage with failed status
+        const currentMessages = getMessagesFromLocalStorage(chatId) || [];
+        const updatedMessages = currentMessages.map((msg) =>
+          msg.id === tempMessage.id
+            ? { ...msg, status: "failed", error: error instanceof Error ? error.message : 'Unknown error' }
+            : msg
+        );
+        storeMessagesInLocalStorage(chatId, updatedMessages);
+        
         throw error;
       }
 
       const data = await response.json();
 
-      // Only fetch messages if the API response was successful
+      // Update the temporary message with the actual server response
       if (data && response.ok) {
-        fetchMessages(chatId, whapiToken || "");
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
+            msg.id === tempMessage.id
+              ? { ...msg, id: data.message_id || tempMessage.id, status: "sent" }
+              : msg
+          )
+        );
+
+        setAllMessages((prevAllMessages) =>
+          prevAllMessages.map((msg) =>
+            msg.id === tempMessage.id
+              ? { ...msg, id: data.message_id || tempMessage.id, status: "sent" }
+              : msg
+          )
+        );
+
+        // Update localStorage with the final message
+        const currentMessages = getMessagesFromLocalStorage(chatId) || [];
+        const updatedMessages = currentMessages.map((msg) =>
+          msg.id === tempMessage.id
+            ? { ...msg, id: data.message_id || tempMessage.id, status: "sent" }
+            : msg
+        );
+        storeMessagesInLocalStorage(chatId, updatedMessages);
+
+        // Fetch updated messages in the background to ensure consistency
+       fetchMessages(chatId, '');
       }
     } catch (error) {
       console.error("Error sending document message:", error);
@@ -13094,6 +13378,14 @@ console.log(data);
                                             className="w-4 h-4 text-green-500"
                                             title="Message sent"
                                           />
+                                        ) : message.status === "sending" ? (
+                                          <div className="flex items-center space-x-2">
+                                            <LoadingIcon
+                    icon="spinning-circles"
+                    className="w-12 h-12 text-blue-500 dark:text-blue-400"
+                  />
+                                            <span className="text-xs text-blue-500">Sending...</span>
+                                          </div>
                                         ) : null}
                                       </div>
                                     )}
