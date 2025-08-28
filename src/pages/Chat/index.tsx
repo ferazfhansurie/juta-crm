@@ -684,7 +684,7 @@ function Main() {
   const [companyId, setCompanyId] = useState<string>("");
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
   const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
-  const [baseUrl] = useState<string>("https://juta-dev.ngrok.dev");
+  const [baseUrl] = useState<string>("https://juta.ngrok.app");
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
@@ -6893,7 +6893,7 @@ console.log(data);
 
       if (!companyResponse.ok) throw new Error("Failed to fetch company data");
       const companyData = await companyResponse.json();
-      const apiUrl = companyData.api_url || "https://juta-dev.ngrok.dev";
+      const apiUrl = companyData.api_url || "https://juta.ngrok.app";
 
       if (messageMode === "privateNote") {
         handleAddPrivateNote(messageText);
@@ -6999,7 +6999,7 @@ console.log(data);
       }
 
       // Fetch updated messages in the background to ensure consistency
-      fetchMessagesBackground(selectedChatId, companyData.api_token);
+      fetchMessages(selectedChatId, companyData.api_token);
 
       // Update the temporary message with the actual server response
       if (data && data.message_id) {
@@ -9022,7 +9022,7 @@ console.log(data);
       }
 
       const data = await response.json();
-
+      
       fetchMessages(chatId, whapiToken || "");
     } catch (error) {
       console.error("Error sending document message:", error);
@@ -16506,7 +16506,6 @@ console.log(data);
                 className="w-full flex items-center p-4 rounded-xl text-base transition-all duration-200 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 text-slate-800 dark:text-slate-200"
                 onClick={() => {
                   document.getElementById('imageUpload')?.click();
-                  setIsAttachmentModalOpen(false);
                 }}
               >
                 <div className="flex items-center gap-3">
@@ -16529,6 +16528,7 @@ console.log(data);
                       );
                       setPastedImageUrl(imageUrls);
                       setImageModalOpen2(true);
+                      setIsAttachmentModalOpen(false);
                     }
                   }}
                 />
@@ -16538,7 +16538,6 @@ console.log(data);
                 className="w-full flex items-center p-4 rounded-xl text-base transition-all duration-200 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 text-slate-800 dark:text-slate-200"
                 onClick={() => {
                   document.getElementById('videoUpload')?.click();
-                  setIsAttachmentModalOpen(false);
                 }}
               >
                 <div className="flex items-center gap-3">
@@ -16557,6 +16556,7 @@ console.log(data);
                     if (file) {
                       setSelectedVideo(file);
                       setVideoModalOpen(true);
+                      setIsAttachmentModalOpen(false);
                     }
                   }}
                 />
@@ -16566,7 +16566,6 @@ console.log(data);
                 className="w-full flex items-center p-4 rounded-xl text-base transition-all duration-200 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 text-slate-800 dark:text-slate-200"
                 onClick={() => {
                   document.getElementById('documentUpload')?.click();
-                  setIsAttachmentModalOpen(false);
                 }}
               >
                 <div className="flex items-center gap-3">
@@ -16585,6 +16584,7 @@ console.log(data);
                     if (file) {
                       setSelectedDocument(file);
                       setDocumentModalOpen(true);
+                      setIsAttachmentModalOpen(false);
                     }
                   }}
                 />

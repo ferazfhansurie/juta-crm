@@ -495,7 +495,7 @@ const [messageRecipientFilter, setMessageRecipientFilter] = useState("");
     };
   });
 
-  const baseUrl = "https://juta.ngrok.app";
+  const baseUrl = "https://juta-dev.ngrok.dev";
 
   // Add this useEffect to save visible columns when they change
   useEffect(() => {
@@ -2291,7 +2291,7 @@ useEffect(() => {
       }
       const companyData = docSnapshot.data();
       const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
+        companyData.apiUrl || "https://juta-dev.ngrok.dev";
       let message = `Hello ${
         assignedEmployee.name
       }, a new contact has been assigned to you:\n\nName: ${
@@ -3128,7 +3128,7 @@ useEffect(() => {
 
       const companyData = docSnapshot.data();
       const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
+        companyData.apiUrl || "https://juta-dev.ngrok.dev";
 
       // Process each contact
       let contactsProcessed = 0;
@@ -4092,7 +4092,7 @@ useEffect(() => {
 
       const companyData = docSnapshot.data();
       const baseUrl =
-        companyData.apiUrl || "https://juta.ngrok.app";
+        companyData.apiUrl || "https://juta-dev.ngrok.dev";
       const accessToken = companyData.ghl_accessToken;
       const whapiToken = companyData.whapiToken;
       const phoneNumber = id.split("+")[1];
